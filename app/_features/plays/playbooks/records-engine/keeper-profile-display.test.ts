@@ -22,8 +22,14 @@ function result(overrides: Partial<ProfileFieldResult> = {}): ProfileFieldResult
 }
 
 describe("keeper profile display", () => {
-  it("maps keeper-people-records slug to People Records", () => {
-    expect(keeperPlaybookDisplayName("keeper-people-records")).toBe("People Records");
+  it("maps memory-records slug to Memory Records", () => {
+    expect(keeperPlaybookDisplayName("memory-records")).toBe("Memory Records");
+  });
+
+  it("maps legacy keeper slugs to Memory Records for backward compatibility", () => {
+    expect(keeperPlaybookDisplayName("keeper-people-records")).toBe("Memory Records");
+    expect(keeperPlaybookDisplayName("keeper-organizations-records")).toBe("Memory Records");
+    expect(keeperPlaybookDisplayName("keeper-work-records")).toBe("Memory Records");
   });
 
   it("uses human titles for relationship suggestions", () => {
@@ -31,7 +37,7 @@ describe("keeper profile display", () => {
       field: "relationship_type",
       result: result(),
       targetLabel: "Matheus Martins",
-      blueprintSlug: "keeper-people-records",
+      blueprintSlug: "memory-records",
     });
 
     expect(copy.title).toBe("Mark Matheus Martins as Client");
@@ -49,14 +55,14 @@ describe("keeper profile display", () => {
     const display = buildKeeperCardDisplay({
       findingTitle: "Review relationship for Memory",
       findingContent: "Review relationship: unknown.",
-      blueprintSlug: "keeper-people-records",
+      blueprintSlug: "memory-records",
       field: "relationship_type",
       value: "client",
       because: "Invoice paid last month",
       targetLabel: "Matheus Martins",
     });
 
-    expect(display.playbookName).toBe("People Records");
+    expect(display.playbookName).toBe("Memory Records");
     expect(display.title).toBe("Mark Matheus Martins as Client");
     expect(display.primaryAction).toBe("Save as Client");
   });

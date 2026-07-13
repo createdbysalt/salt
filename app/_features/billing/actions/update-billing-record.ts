@@ -160,7 +160,7 @@ export async function updateBillingRecordField(
       ruleId: null,
       confidence: 100,
       evidence: { because: "You corrected this field" },
-      blueprintSlug: "keeper-billing-records",
+      blueprintSlug: "memory-records",
       blueprintVersion: 1,
       status: "applied",
     });

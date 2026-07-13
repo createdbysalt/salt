@@ -1,21 +1,22 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, useTransition, useCallback } from "react";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
+import { retryCaptureIntelligence } from "../actions/retry-capture";
 import {
-  RotateCcw,
   CheckCircle2,
   Clock,
   Zap,
   X,
   ChevronDown,
   Sparkles,
-  Workflow,
-  Target,
   ArrowRight,
   MinusCircle,
-  AlertCircle,
+  AlertTriangle,
   Link2,
+  RefreshCw,
+  User,
 } from "lucide-react";
 import {
   CAPTURE_STREAM,
@@ -25,17 +26,22 @@ import {
 } from "@/app/_lib/demo/capture-demo-data";
 import type { StreamCaptureSummary, CaptureIntelligenceOutcome } from "../types";
 import {
-  INTELLIGENCE_OUTCOME_DETAIL,
-  INTELLIGENCE_OUTCOME_LABELS,
+  type CaptureCategory,
+  mapOutcomeToCategory,
+  CAPTURE_CATEGORY_LABELS,
+  CAPTURE_CATEGORY_DETAIL,
 } from "../services/intelligence/capture-intelligence-outcome";
-import { getSourceMeta } from "../source-taxonomy";
+import { getSourceMeta, SOURCE_TAXONOMY } from "../source-taxonomy";
+import type { CaptureSourceType, SourceCategory } from "../types";
+import { ConnectorIcon } from "@/app/_features/connectors/components/connector-icons";
+import { connectorForToolkit } from "@/app/_features/connectors/utils/toolkit-connector";
 import { SourceExternalLink } from "./SourceExternalLink";
 import { useMockContent } from "@/app/_features/shell/contexts/DashboardUserContext";
 import {
   CaptureStreamFilterContent,
   countCaptureStreamFilters,
   type StreamStatusFilter,
-  type StreamIntelligenceFilter,
+  type StreamCategoryFilter,
   type StreamSourceFilter,
   type StreamDateFilter,
 } from "./CaptureFilterPopover";
@@ -60,56 +66,42 @@ interface CaptureStreamTabProps {
 
 type RealStreamEntry = StreamEntry & {
   intelligenceOutcome?: CaptureIntelligenceOutcome;
+  category: CaptureCategory;
   sourceUrl?: string | null;
+  from?: string;
+  subject?: string;
+  contentSnippet?: string;
+  findingId?: string | null;
+  noSignalReason?: string;
 };
 
 const APPLE_EASE = [0.32, 0.72, 0, 1] as const;
 
-const INTELLIGENCE_STATUS_STYLES: Record<
-  CaptureIntelligenceOutcome,
+const CATEGORY_STYLES: Record<
+  CaptureCategory,
   { label: string; cls: string; icon: typeof CheckCircle2 }
 > = {
-  awaiting_scan: {
-    label: INTELLIGENCE_OUTCOME_LABELS.awaiting_scan,
-    cls: "bg-flame/15 text-flame",
-    icon: Clock,
-  },
-  no_signal: {
-    label: INTELLIGENCE_OUTCOME_LABELS.no_signal,
-    cls: "bg-muted text-muted-foreground",
-    icon: MinusCircle,
-  },
-  finding_created: {
-    label: INTELLIGENCE_OUTCOME_LABELS.finding_created,
+  queued: {
+    label: "Queued",
     cls: "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300",
     icon: Link2,
   },
-  scan_error: {
-    label: INTELLIGENCE_OUTCOME_LABELS.scan_error,
-    cls: "bg-destructive/10 text-destructive",
-    icon: AlertCircle,
-  },
-  routed: {
-    label: INTELLIGENCE_OUTCOME_LABELS.routed,
-    cls: "bg-sky/15 text-sky",
-    icon: CheckCircle2,
-  },
-  dismissed: {
-    label: INTELLIGENCE_OUTCOME_LABELS.dismissed,
+  "no-signal": {
+    label: "No Signal",
     cls: "bg-muted text-muted-foreground",
-    icon: X,
+    icon: MinusCircle,
+  },
+  processing: {
+    label: "Processing",
+    cls: "bg-flame/15 text-flame",
+    icon: Clock,
+  },
+  error: {
+    label: "Error",
+    cls: "bg-destructive/10 text-destructive",
+    icon: AlertTriangle,
   },
 };
-
-function intelligenceOutcomeDetail(
-  outcome: CaptureIntelligenceOutcome,
-  findingId?: string | null
-): string {
-  if (outcome === "finding_created" && findingId) {
-    return "Linked to a Plays finding — check Queue";
-  }
-  return INTELLIGENCE_OUTCOME_DETAIL[outcome];
-}
 
 const STATUS_STYLES: Record<
   CaptureStatus,
@@ -132,7 +124,7 @@ export function CaptureStreamTab({
 }: CaptureStreamTabProps = {}) {
   const mockContent = useMockContent();
 
-  // Convert real captures to stream entries format for display
+  // Convert real captures to stream entries format with new categories
   const realStreamEntries: RealStreamEntry[] = useMemo(() => {
     if (!hasRealData || realStreamCaptures.length === 0) return [];
 
@@ -148,7 +140,7 @@ export function CaptureStreamTab({
 
       const sourceMeta = getSourceMeta(c.source_type);
       const outcome = c.intelligence_outcome;
-      const detail = intelligenceOutcomeDetail(outcome, c.finding_id);
+      const category = mapOutcomeToCategory(outcome);
 
       let status: CaptureStatus = "pending";
       if (outcome === "finding_created" || outcome === "routed") status = "confirmed";
@@ -162,33 +154,61 @@ export function CaptureStreamTab({
         source: c.origin,
         origin: c.source_type as StreamEntry["origin"],
         status,
+        category,
         snippet: c.title || "Untitled capture",
-        routedTo: INTELLIGENCE_OUTCOME_LABELS[outcome],
+        routedTo: CAPTURE_CATEGORY_LABELS[category],
         trigger: `From ${sourceMeta.label}`,
         sources: [sourceMeta.label],
-        learned: detail,
+        learned: CAPTURE_CATEGORY_DETAIL[category],
         intelligenceOutcome: outcome,
         sourceUrl: c.source_url ?? null,
+        from: c.from_label ?? undefined,
+        subject: c.title ?? undefined,
+        contentSnippet: c.body_preview ?? undefined,
+        findingId: c.finding_id ?? null,
+        noSignalReason: outcome === "no_signal" ? "Nothing actionable found" : undefined,
       };
     });
   }, [realStreamCaptures, hasRealData]);
 
+  // For demo data, add category mapping
+  const demoStreamWithCategories: RealStreamEntry[] = useMemo(() => {
+    if (!mockContent) return [];
+    return CAPTURE_STREAM.map((e) => ({
+      ...e,
+      category: e.status === "auto-routed" ? "no-signal" as CaptureCategory :
+                e.status === "pending" ? "processing" as CaptureCategory :
+                e.status === "confirmed" ? "queued" as CaptureCategory :
+                "no-signal" as CaptureCategory,
+    }));
+  }, [mockContent]);
+
   // Use real data if available, fall back to demo data if mock content is enabled
   const stream = hasRealData && realStreamCaptures.length > 0
     ? realStreamEntries
-    : mockContent
-      ? CAPTURE_STREAM
-      : [];
+    : demoStreamWithCategories;
+
+  const useCategoryFilters = hasRealData && realStreamCaptures.length > 0;
 
   const [q, setQ] = useState("");
   const [source, setSource] = useState<StreamSourceFilter>("all");
   const [status, setStatus] = useState<StreamStatusFilter>("all");
-  const [intelligenceStatus, setIntelligenceStatus] =
-    useState<StreamIntelligenceFilter>("all");
+  const [category, setCategory] = useState<StreamCategoryFilter>("all");
   const [date, setDate] = useState<StreamDateFilter>("all");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [retryingId, setRetryingId] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
 
-  const useIntelligenceFilters = hasRealData && realStreamCaptures.length > 0;
+  const handleRetry = useCallback((captureId: string) => {
+    setRetryingId(captureId);
+    startTransition(async () => {
+      const result = await retryCaptureIntelligence(captureId);
+      setRetryingId(null);
+      if (!result.success) {
+        console.error("[CaptureStreamTab] Retry failed:", result.error);
+      }
+    });
+  }, []);
 
   const toggleExpand = (id: string) =>
     setExpanded((prev) => {
@@ -202,12 +222,8 @@ export function CaptureStreamTab({
     const term = q.trim().toLowerCase();
     return stream
       .filter((e) => {
-        if (useIntelligenceFilters && "intelligenceOutcome" in e) {
-          const outcome = (e as RealStreamEntry).intelligenceOutcome;
-          if (intelligenceStatus !== "all" && outcome !== intelligenceStatus) {
-            return false;
-          }
-          return true;
+        if (useCategoryFilters) {
+          return category === "all" ? true : e.category === category;
         }
         return status === "all" ? true : e.status === status;
       })
@@ -216,10 +232,10 @@ export function CaptureStreamTab({
       .filter((e) =>
         !term ? true : e.snippet.toLowerCase().includes(term) || e.routedTo.toLowerCase().includes(term)
       );
-  }, [q, status, intelligenceStatus, source, date, stream, useIntelligenceFilters]);
+  }, [q, status, category, source, date, stream, useCategoryFilters]);
 
   const grouped = useMemo(() => {
-    const map = new Map<string, StreamEntry[]>();
+    const map = new Map<string, RealStreamEntry[]>();
     entries.forEach((e) => {
       const arr = map.get(e.dayGroup) ?? [];
       arr.push(e);
@@ -230,45 +246,35 @@ export function CaptureStreamTab({
 
   const counts = useMemo(() => {
     if (hasRealData && realStats) {
-      if (useIntelligenceFilters) {
-        return {
-          added: realStats.added,
-          found: realStats.found,
-          finding: realStats.findingCreated ?? 0,
-          noSignal: realStats.noSignal ?? 0,
-          awaiting: realStats.awaitingScan ?? 0,
-          total: realStats.total,
-        };
-      }
       return {
-        added: realStats.added,
-        found: realStats.found,
-        auto: realStats.autoRouted,
-        pending: realStats.pending,
+        queued: realStats.findingCreated ?? 0,
+        noSignal: realStats.noSignal ?? 0,
+        processing: realStats.awaitingScan ?? 0,
+        error: realStats.scanError ?? 0,
         total: realStats.total,
       };
     }
 
     const today = stream.filter((e) => e.dayGroup === "Today");
     return {
-      added: today.filter((e) => e.source === "added").length,
-      found: today.filter((e) => e.source === "found").length,
-      auto: today.filter((e) => e.status === "auto-routed").length,
-      pending: today.filter((e) => e.status === "pending").length,
+      queued: today.filter((e) => e.category === "queued").length,
+      noSignal: today.filter((e) => e.category === "no-signal").length,
+      processing: today.filter((e) => e.category === "processing").length,
+      error: today.filter((e) => e.category === "error").length,
       total: today.length,
     };
-  }, [stream, hasRealData, realStats, useIntelligenceFilters]);
+  }, [stream, hasRealData, realStats]);
 
   const activeFilterCount = countCaptureStreamFilters({
     source,
     status,
-    intelligenceStatus,
-    useIntelligenceFilters,
+    category,
+    useIntelligenceFilters: false,
+    useCategoryFilters,
     date,
   });
 
-  const hasActiveSearchOrFilter =
-    q.trim().length > 0 || activeFilterCount > 0;
+  const hasActiveSearchOrFilter = q.trim().length > 0 || activeFilterCount > 0;
   const isEmptyDataset = stream.length === 0;
 
   return (
@@ -282,34 +288,22 @@ export function CaptureStreamTab({
         <header className="mb-4 flex items-center justify-between">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              Today&apos;s capture ledger
+              Today&apos;s captures
             </p>
             <h3 className="mt-0.5 font-display text-lg tracking-tight">
               {counts.total} captures today
             </h3>
           </div>
           <p className="hidden max-w-[280px] text-right text-[11px] text-muted-foreground md:block">
-            {useIntelligenceFilters
-              ? "Scan outcome per capture — findings live in Queue."
-              : "Click any row to see the trigger, sources, and where Salt routed it."}
+            Everything Salt saw from connected apps.
           </p>
         </header>
-        {useIntelligenceFilters ? (
-          <div className="grid grid-cols-2 gap-2.5 md:grid-cols-5">
-            <CountTile label="Added" value={counts.added ?? 0} tone="violet" />
-            <CountTile label="Found" value={counts.found ?? 0} tone="sky" />
-            <CountTile label="Finding" value={"finding" in counts ? (counts.finding ?? 0) : 0} tone="emerald" />
-            <CountTile label="No signal" value={"noSignal" in counts ? (counts.noSignal ?? 0) : 0} tone="muted" />
-            <CountTile label="Awaiting scan" value={"awaiting" in counts ? (counts.awaiting ?? 0) : 0} tone="flame" />
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
-            <CountTile label="Added" value={counts.added ?? 0} tone="violet" />
-            <CountTile label="Found" value={counts.found ?? 0} tone="sky" />
-            <CountTile label="Auto-routed" value={"auto" in counts ? (counts.auto ?? 0) : 0} tone="emerald" />
-            <CountTile label="Pending" value={"pending" in counts ? (counts.pending ?? 0) : 0} tone="flame" />
-          </div>
-        )}
+        <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
+          <CountTile label="Queued" value={counts.queued} tone="emerald" />
+          <CountTile label="No Signal" value={counts.noSignal} tone="muted" />
+          <CountTile label="Processing" value={counts.processing} tone="flame" />
+          <CountTile label="Error" value={counts.error} tone="destructive" />
+        </div>
       </section>
 
       <PlaysSearchField
@@ -324,9 +318,9 @@ export function CaptureStreamTab({
             onSource={setSource}
             status={status}
             onStatus={setStatus}
-            intelligenceStatus={intelligenceStatus}
-            onIntelligenceStatus={setIntelligenceStatus}
-            useIntelligenceFilters={useIntelligenceFilters}
+            category={category}
+            onCategory={setCategory}
+            useCategoryFilters={useCategoryFilters}
             date={date}
             onDate={setDate}
           />
@@ -360,150 +354,17 @@ export function CaptureStreamTab({
                 </span>
               </header>
               <ul className="glass-card divide-y divide-border/40 overflow-hidden rounded-3xl">
-                {items.map((e) => {
-                  const origin = ORIGIN_META[e.origin];
-                  const OriginIcon = origin.icon;
-                  const realEntry = e as RealStreamEntry;
-                  const sx =
-                    useIntelligenceFilters && realEntry.intelligenceOutcome
-                      ? INTELLIGENCE_STATUS_STYLES[realEntry.intelligenceOutcome]
-                      : STATUS_STYLES[e.status];
-                  const StatusIcon = sx.icon;
-                  const isOpen = expanded.has(e.id);
-                  const canUndo =
-                    !useIntelligenceFilters &&
-                    (e.status === "auto-routed" || e.status === "confirmed");
-
-                  return (
-                    <li key={e.id}>
-                      <button
-                        type="button"
-                        onClick={() => toggleExpand(e.id)}
-                        aria-expanded={isOpen}
-                        className="grid w-full grid-cols-[32px_72px_36px_1fr_auto_20px] items-center gap-3 px-4 py-3.5 text-left transition hover:bg-muted/40"
-                      >
-                        <span className="flex items-center justify-center">
-                          {canUndo ? (
-                            <span
-                              role="button"
-                              tabIndex={0}
-                              onClick={(ev) => ev.stopPropagation()}
-                              onKeyDown={(ev) => ev.stopPropagation()}
-                              className="grid size-7 place-items-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground"
-                              title="Undo"
-                              aria-label="Undo"
-                            >
-                              <RotateCcw className="size-3.5" strokeWidth={2.25} />
-                            </span>
-                          ) : null}
-                        </span>
-                        <span className="truncate text-[11px] font-medium tabular-nums text-muted-foreground">
-                          {e.time}
-                        </span>
-                        <span
-                          className={cn(
-                            "grid size-8 place-items-center rounded-xl",
-                            e.source === "added" ? "bg-violet/15 text-violet" : "bg-sky/15 text-sky"
-                          )}
-                          title={origin.label}
-                        >
-                          <OriginIcon className="size-3.5" strokeWidth={2.25} />
-                        </span>
-                        <div className="min-w-0">
-                          <p className="truncate text-[13px] font-medium leading-tight">
-                            {e.snippet}
-                          </p>
-                          <p className="mt-0.5 inline-flex flex-wrap items-center gap-x-1 gap-y-0.5 truncate text-[11px] text-muted-foreground">
-                            <span className="font-semibold uppercase tracking-[0.08em]">
-                              {e.source}
-                            </span>
-                            <span>·</span>
-                            <span>{origin.label}</span>
-                            <span>·</span>
-                            <ArrowRight className="size-3" strokeWidth={2} />
-                            <span className="font-medium">{e.routedTo}</span>
-                            {realEntry.sourceUrl ? (
-                              <>
-                                <span>·</span>
-                                <SourceExternalLink
-                                  href={realEntry.sourceUrl}
-                                  className="inline-flex shrink-0"
-                                  onClick={(ev) => ev.stopPropagation()}
-                                />
-                              </>
-                            ) : null}
-                          </p>
-                        </div>
-                        <span
-                          className={cn(
-                            "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold",
-                            sx.cls
-                          )}
-                        >
-                          <StatusIcon className="size-3" strokeWidth={2.5} />
-                          {sx.label}
-                        </span>
-                        <ChevronDown
-                          className={cn(
-                            "size-4 text-muted-foreground transition-transform duration-300",
-                            isOpen && "rotate-180 text-foreground"
-                          )}
-                        />
-                      </button>
-
-                      <AnimatePresence initial={false}>
-                        {isOpen && (
-                          <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: "auto", opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: 0.28, ease: APPLE_EASE }}
-                            className="overflow-hidden"
-                          >
-                            <div className="space-y-3.5 px-4 pb-5 pl-[104px] pr-6 pt-1">
-                              <DetailRow icon={Target} label="Trigger" value={e.trigger ?? "—"} />
-                              <DetailRow
-                                icon={Workflow}
-                                label="Sources used"
-                                value={
-                                  e.sources && e.sources.length > 0 ? (
-                                    <div className="flex flex-wrap gap-1.5">
-                                      {e.sources.map((s) => (
-                                        <span
-                                          key={s}
-                                          className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[11px] text-foreground/80"
-                                        >
-                                          {s}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  ) : (
-                                    "—"
-                                  )
-                                }
-                              />
-                              <DetailRow icon={ArrowRight} label="Scan outcome" value={e.routedTo} />
-                              {realEntry.sourceUrl ? (
-                                <DetailRow
-                                  icon={Link2}
-                                  label="Source email"
-                                  value={
-                                    <SourceExternalLink href={realEntry.sourceUrl} />
-                                  }
-                                />
-                              ) : null}
-                              <DetailRow
-                                icon={Sparkles}
-                                label="What Salt learned"
-                                value={e.learned ?? "Nothing yet — still pending."}
-                              />
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </li>
-                  );
-                })}
+                {items.map((e) => (
+                  <CaptureRow
+                    key={e.id}
+                    entry={e}
+                    isOpen={expanded.has(e.id)}
+                    onToggle={() => toggleExpand(e.id)}
+                    useCategoryDisplay={useCategoryFilters}
+                    onRetry={handleRetry}
+                    isRetrying={retryingId === e.id}
+                  />
+                ))}
               </ul>
             </section>
           ))}
@@ -513,24 +374,275 @@ export function CaptureStreamTab({
   );
 }
 
-function DetailRow({
-  icon: Icon,
-  label,
-  value,
+function CaptureRow({
+  entry: e,
+  isOpen,
+  onToggle,
+  useCategoryDisplay,
+  onRetry,
+  isRetrying,
 }: {
-  icon: typeof CheckCircle2;
-  label: string;
-  value: ReactNode;
+  entry: RealStreamEntry;
+  isOpen: boolean;
+  onToggle: () => void;
+  useCategoryDisplay: boolean;
+  onRetry: (id: string) => void;
+  isRetrying: boolean;
 }) {
+  const sourceMeta = resolveEntrySourceMeta(e);
+  const categoryStyle = CATEGORY_STYLES[e.category];
+  const statusStyle = STATUS_STYLES[e.status];
+  const displayStyle = useCategoryDisplay ? categoryStyle : statusStyle;
+  const StatusIcon = displayStyle.icon;
+  const isUserAdded = e.source === "added";
+
   return (
-    <div className="grid grid-cols-[20px_120px_1fr] items-start gap-3">
-      <Icon className="mt-0.5 size-3.5 text-muted-foreground" strokeWidth={2} />
-      <p className="pt-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-        {label}
-      </p>
-      <div className="text-[12.5px] leading-relaxed text-foreground/85">{value}</div>
+    <li>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={isOpen}
+        className="grid w-full grid-cols-[72px_36px_1fr_auto_20px] items-center gap-3 px-4 py-3.5 text-left transition hover:bg-muted/40"
+      >
+        <span className="truncate text-[11px] font-medium tabular-nums text-muted-foreground">
+          {e.time}
+        </span>
+        {isUserAdded ? (
+          <span
+            className="grid size-8 shrink-0 place-items-center rounded-xl bg-muted text-foreground"
+            title="You added"
+          >
+            <User className="size-3.5" strokeWidth={2.25} />
+          </span>
+        ) : (
+          <CaptureSourceIcon entry={e} />
+        )}
+        <div className="min-w-0">
+          <p className="truncate text-[13px] font-medium leading-tight">
+            {e.snippet}
+          </p>
+          <p className="mt-0.5 inline-flex flex-wrap items-center gap-x-1 gap-y-0.5 truncate text-[11px] text-muted-foreground">
+            {e.from && (
+              <>
+                <span>from {e.from}</span>
+                <span>·</span>
+              </>
+            )}
+            <span>{sourceMeta.label}</span>
+            {e.sourceUrl ? (
+              <>
+                <span>·</span>
+                <SourceExternalLink
+                  href={e.sourceUrl}
+                  className="inline-flex shrink-0"
+                  onClick={(ev) => ev.stopPropagation()}
+                />
+              </>
+            ) : null}
+          </p>
+        </div>
+        <span
+          className={cn(
+            "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold",
+            displayStyle.cls
+          )}
+        >
+          <StatusIcon className="size-3" strokeWidth={2.5} />
+          {displayStyle.label}
+        </span>
+        <ChevronDown
+          className={cn(
+            "size-4 text-muted-foreground transition-transform duration-300",
+            isOpen && "rotate-180 text-foreground"
+          )}
+        />
+      </button>
+
+      <AnimatePresence initial={false}>
+        {isOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.28, ease: APPLE_EASE }}
+            className="overflow-hidden"
+          >
+            <CaptureCardDetail entry={e} onRetry={onRetry} isRetrying={isRetrying} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </li>
+  );
+}
+
+function CaptureSourceIcon({ entry }: { entry: RealStreamEntry }) {
+  const connector = connectorForToolkit(entry.origin);
+  if (connector) {
+    return (
+      <span
+        className="grid size-8 shrink-0 place-items-center rounded-xl border border-border/50 bg-card shadow-sm"
+        title={connector.label}
+      >
+        <ConnectorIcon id={connector.id} size={18} />
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className="surface-aurora grid size-8 shrink-0 place-items-center rounded-xl"
+      title="Salt found"
+    >
+      <Sparkles className="relative z-10 size-3.5 text-white" strokeWidth={2.5} />
+    </span>
+  );
+}
+
+function resolveEntrySourceMeta(entry: RealStreamEntry) {
+  const origin = entry.origin as string;
+  if (origin in SOURCE_TAXONOMY) {
+    return getSourceMeta(origin as CaptureSourceType);
+  }
+  const legacy = ORIGIN_META[entry.origin as keyof typeof ORIGIN_META];
+  if (legacy) {
+    return { label: legacy.label, icon: legacy.icon, category: "manual" as SourceCategory };
+  }
+  return { label: origin, icon: Sparkles, category: "manual" as SourceCategory };
+}
+
+function CaptureCardDetail({
+  entry: e,
+  onRetry,
+  isRetrying,
+}: {
+  entry: RealStreamEntry;
+  onRetry: (id: string) => void;
+  isRetrying: boolean;
+}) {
+  const sourceMeta = resolveEntrySourceMeta(e);
+  const hasMeta = Boolean(e.from || e.sourceUrl);
+  const hasPreview = Boolean(e.contentSnippet);
+
+  if (!hasMeta && !hasPreview) {
+    return (
+      <div className="px-4 pb-5 pt-0 pl-[calc(1rem+7.5rem+0.75rem)] pr-6">
+        <CaptureOutcomePanel entry={e} onRetry={onRetry} isRetrying={isRetrying} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="px-4 pb-5 pt-0 pl-[calc(1rem+7.5rem+0.75rem)] pr-6">
+      <div className="min-w-0 space-y-3">
+        {hasMeta && (
+          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[12px] text-muted-foreground">
+            {e.from && <span>from {e.from}</span>}
+            {e.from && e.sourceUrl && <span aria-hidden>·</span>}
+            {e.sourceUrl && (
+              <SourceExternalLink
+                href={e.sourceUrl}
+                label={`Open in ${sourceMeta.label}`}
+              />
+            )}
+          </div>
+        )}
+
+        {hasPreview && (
+          <div className="rounded-xl border border-border/40 bg-muted/25 px-3.5 py-2.5">
+            <p className="text-[12px] leading-relaxed text-foreground/80 line-clamp-4">
+              {e.contentSnippet}
+            </p>
+          </div>
+        )}
+
+        <CaptureOutcomePanel entry={e} onRetry={onRetry} isRetrying={isRetrying} />
+      </div>
     </div>
   );
+}
+
+function CaptureOutcomePanel({
+  entry: e,
+  onRetry,
+  isRetrying,
+}: {
+  entry: RealStreamEntry;
+  onRetry: (id: string) => void;
+  isRetrying: boolean;
+}) {
+  if (e.category === "queued") {
+    return (
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-3.5 py-3">
+        <div className="min-w-0">
+          <p className="text-[12px] font-medium text-emerald-700 dark:text-emerald-300">
+            {CAPTURE_CATEGORY_DETAIL.queued}
+          </p>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            Salt found something worth your review.
+          </p>
+        </div>
+        <Link
+          href={e.findingId ? `/plays?tab=queue&finding=${e.findingId}` : "/plays?tab=queue"}
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border/60 bg-background/60 px-2.5 py-1 text-[11px] font-medium text-foreground/80 transition hover:border-border hover:text-foreground"
+        >
+          View in Queue
+          <ArrowRight className="size-3" />
+        </Link>
+      </div>
+    );
+  }
+
+  if (e.category === "no-signal") {
+    return (
+      <div className="rounded-xl border border-border/50 bg-muted/25 px-3.5 py-3">
+        <p className="text-[12px] font-medium text-foreground/85">
+          {CAPTURE_CATEGORY_DETAIL["no-signal"]}
+        </p>
+        <p className="mt-0.5 text-[11px] text-muted-foreground">
+          {e.noSignalReason ?? "Nothing actionable found in this capture."}
+        </p>
+      </div>
+    );
+  }
+
+  if (e.category === "processing") {
+    return (
+      <div className="rounded-xl border border-flame/20 bg-flame/5 px-3.5 py-3">
+        <p className="text-[12px] font-medium text-flame">
+          {CAPTURE_CATEGORY_DETAIL.processing}
+        </p>
+        <p className="mt-0.5 text-[11px] text-muted-foreground">
+          Salt is looking for people, projects, and follow-ups. This usually takes a few minutes.
+        </p>
+      </div>
+    );
+  }
+
+  if (e.category === "error") {
+    return (
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-destructive/20 bg-destructive/5 px-3.5 py-3">
+        <div className="min-w-0">
+          <p className="text-[12px] font-medium text-destructive">
+            {CAPTURE_CATEGORY_DETAIL.error}
+          </p>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            Something went wrong during analysis. You can try again.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => onRetry(e.id)}
+          disabled={isRetrying}
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border/60 bg-background/60 px-2.5 py-1 text-[11px] font-medium text-foreground/80 transition hover:border-border hover:text-foreground disabled:opacity-50"
+        >
+          <RefreshCw className={cn("size-3", isRetrying && "animate-spin")} />
+          {isRetrying ? "Retrying…" : "Retry"}
+        </button>
+      </div>
+    );
+  }
+
+  return null;
 }
 
 function CountTile({
@@ -540,7 +652,7 @@ function CountTile({
 }: {
   label: string;
   value: number;
-  tone: "emerald" | "flame" | "sky" | "violet" | "muted";
+  tone: "emerald" | "flame" | "sky" | "violet" | "muted" | "destructive";
 }) {
   const cls = {
     emerald: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
@@ -548,11 +660,16 @@ function CountTile({
     sky: "bg-sky/15 text-sky",
     violet: "bg-violet/15 text-violet",
     muted: "bg-muted text-muted-foreground",
+    destructive: "bg-destructive/10 text-destructive",
   }[tone];
   return (
-    <div className={cn("flex items-baseline justify-between gap-2 rounded-2xl p-3.5", cls)}>
-      <p className="font-display text-2xl leading-none tabular-nums tracking-tight">{value}</p>
-      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] opacity-80">{label}</p>
+    <div className={cn("rounded-2xl p-3.5 flex items-baseline justify-between gap-2", cls)}>
+      <p className="font-display text-2xl tracking-tight tabular-nums leading-none">
+        {value}
+      </p>
+      <p className="text-[10px] uppercase tracking-[0.12em] font-semibold opacity-80">
+        {label}
+      </p>
     </div>
   );
 }

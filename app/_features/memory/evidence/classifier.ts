@@ -1,0 +1,703 @@
+/**
+ * Evidence Signal Classifier
+ *
+ * Detects signals from captures that suggest new records should be created.
+ * Checks against existing Memory records to identify unknown contacts.
+ */
+
+import { createClient } from "@/app/_lib/supabase/server";
+import type { IntakeEntityType } from "@/app/_features/plays/playbooks/v2/_meta/memory-records/scripts";
+import { canonicalizeIdentifier } from "@/app/_features/plays/playbooks/v2/_meta/memory-records/scripts";
+
+/**
+ * A detected signal with extracted data.
+ */
+export interface DetectedSignal {
+  entityType: IntakeEntityType;
+  identifier: string;
+  signal: string;
+  extractedData: Record<string, string>;
+}
+
+/**
+ * Email capture data for classification.
+ */
+export interface EmailCaptureData {
+  from: string;
+  to: string[];
+  cc?: string[];
+  subject?: string;
+  body?: string;
+  signature?: string;
+  hasAttachments?: boolean;
+  isReply?: boolean;
+  threadId?: string;
+}
+
+/**
+ * Meeting capture data for classification.
+ */
+export interface MeetingCaptureData {
+  title: string;
+  attendees: string[];
+  organizer: string;
+  startTime: string;
+  endTime?: string;
+  location?: string;
+  meetingUrl?: string;
+}
+
+/**
+ * Classify an email capture and detect signals for unknown contacts.
+ */
+export async function classifyEmailCapture(
+  workspaceId: string,
+  email: EmailCaptureData,
+  captureId?: string
+): Promise<DetectedSignal[]> {
+  const supabase = await createClient();
+  const signals: DetectedSignal[] = [];
+
+  // Collect all email addresses from the email
+  const allAddresses = new Set<string>();
+  allAddresses.add(email.from);
+  email.to.forEach((addr) => allAddresses.add(addr));
+  email.cc?.forEach((addr) => allAddresses.add(addr));
+
+  // Get workspace member emails to exclude
+  const { data: members } = await supabase
+    .from("workspace_members")
+    .select("user:users(email)")
+    .eq("workspace_id", workspaceId);
+
+  const memberEmails = new Set<string>();
+  for (const m of members || []) {
+    const userArr = m.user as Array<{ email?: string }> | null;
+    const email = userArr?.[0]?.email?.toLowerCase();
+    if (email) memberEmails.add(email);
+  }
+
+  // Get existing people by email
+  const { data: existingPeople } = await supabase
+    .from("people")
+    .select("email")
+    .eq("workspace_id", workspaceId)
+    .not("email", "is", null);
+
+  const knownEmails = new Set<string>();
+  for (const p of existingPeople || []) {
+    const email = (p.email as string | null)?.toLowerCase();
+    if (email) knownEmails.add(email);
+  }
+
+  // Get existing orgs by domain
+  const { data: existingOrgs } = await supabase
+    .from("organizations")
+    .select("domain")
+    .eq("workspace_id", workspaceId)
+    .not("domain", "is", null);
+
+  const knownDomains = new Set<string>();
+  for (const o of existingOrgs || []) {
+    const domain = (o.domain as string | null)?.toLowerCase();
+    if (domain) knownDomains.add(domain);
+  }
+
+  // Process each email address
+  for (const rawAddress of allAddresses) {
+    const address = rawAddress.toLowerCase().trim();
+
+    // Skip workspace members
+    if (memberEmails.has(address)) continue;
+
+    // Skip known contacts
+    if (knownEmails.has(address)) continue;
+
+    // Skip no-reply addresses
+    if (isNoReplyAddress(address)) {
+      signals.push({
+        entityType: "person",
+        identifier: address,
+        signal: "no_reply_address",
+        extractedData: { email: address },
+      });
+      continue;
+    }
+
+    // Skip newsletters/bulk senders
+    if (isNewsletterAddress(address)) {
+      signals.push({
+        entityType: "person",
+        identifier: address,
+        signal: "looks_like_newsletter",
+        extractedData: { email: address },
+      });
+      continue;
+    }
+
+    // This is an unknown contact - determine the signal type
+    const isFromAddress = address === email.from.toLowerCase();
+    const isCc = email.cc?.some((cc) => cc.toLowerCase() === address);
+
+    let signal: string;
+    if (isFromAddress) {
+      signal = "email_from_unknown_address";
+    } else if (isCc) {
+      signal = "email_cc_unknown_address";
+    } else {
+      signal = "email_to_unknown_address";
+    }
+
+    // Extract name from email if possible
+    const name = extractNameFromEmail(rawAddress);
+
+    signals.push({
+      entityType: "person",
+      identifier: address,
+      signal,
+      extractedData: {
+        email: address,
+        ...(name ? { name } : {}),
+      },
+    });
+
+    // Also check for unknown organization
+    const domain = address.split("@")[1];
+    if (domain && !isPersonalDomain(domain) && !knownDomains.has(domain)) {
+      signals.push({
+        entityType: "organization",
+        identifier: domain,
+        signal: "email_domain_unknown",
+        extractedData: { domain },
+      });
+    }
+  }
+
+  // Check for signature data
+  if (email.signature) {
+    const signatureData = parseSignature(email.signature);
+    if (signatureData.company) {
+      const domain = canonicalizeIdentifier("organization", signatureData.company);
+      if (!knownDomains.has(domain)) {
+        signals.push({
+          entityType: "organization",
+          identifier: domain,
+          signal: "email_signature_has_company",
+          extractedData: { name: signatureData.company },
+        });
+      }
+    }
+  }
+
+  // Detect solopreneur-critical documents from email content
+  const fileSignals = detectSolopreneurDocuments(email);
+  signals.push(...fileSignals);
+
+  return signals;
+}
+
+/**
+ * Detect solopreneur-critical documents from email content.
+ * These are the non-negotiable files for independent professionals.
+ */
+function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
+  const signals: DetectedSignal[] = [];
+  const subject = (email.subject || "").toLowerCase();
+  const body = (email.body || "").toLowerCase();
+  const combined = `${subject} ${body}`;
+
+  // Only process if there are attachments or body suggests a document
+  const hasContent = email.hasAttachments || body.length > 100;
+  if (!hasContent) return signals;
+
+  const baseData = {
+    title: email.subject || "Untitled",
+    from: email.from,
+  };
+
+  // ==========================================================================
+  // CONTRACTS & AGREEMENTS (highest priority for solopreneurs)
+  // ==========================================================================
+
+  // Master Service Agreement
+  if (
+    combined.includes("master service agreement") ||
+    combined.includes("msa") ||
+    combined.includes("master agreement")
+  ) {
+    signals.push({
+      entityType: "file",
+      identifier: `msa-${email.from}-${Date.now()}`,
+      signal: "msa_detected",
+      extractedData: { ...baseData, category: "contract", document_type: "msa" },
+    });
+  }
+  // NDA / Confidentiality
+  else if (
+    combined.includes("non-disclosure") ||
+    combined.includes("nda") ||
+    combined.includes("confidentiality agreement") ||
+    combined.includes("confidential agreement")
+  ) {
+    signals.push({
+      entityType: "file",
+      identifier: `nda-${email.from}-${Date.now()}`,
+      signal: "nda_detected",
+      extractedData: { ...baseData, category: "contract", document_type: "nda" },
+    });
+  }
+  // General contract/agreement
+  else if (
+    combined.includes("contract") ||
+    combined.includes("agreement") ||
+    combined.includes("terms of service") ||
+    combined.includes("terms and conditions")
+  ) {
+    signals.push({
+      entityType: "file",
+      identifier: `contract-${email.from}-${Date.now()}`,
+      signal: "contract_detected",
+      extractedData: { ...baseData, category: "contract" },
+    });
+  }
+
+  // ==========================================================================
+  // PROPOSALS & QUOTES (critical for winning work)
+  // ==========================================================================
+
+  // Scope of Work
+  if (
+    combined.includes("scope of work") ||
+    combined.includes("sow") ||
+    combined.includes("project scope")
+  ) {
+    signals.push({
+      entityType: "file",
+      identifier: `sow-${email.from}-${Date.now()}`,
+      signal: "sow_detected",
+      extractedData: { ...baseData, category: "proposal", document_type: "sow" },
+    });
+  }
+  // Proposal/Quote/Estimate
+  else if (
+    combined.includes("proposal") ||
+    combined.includes("quote") ||
+    combined.includes("estimate") ||
+    combined.includes("pricing")
+  ) {
+    signals.push({
+      entityType: "file",
+      identifier: `proposal-${email.from}-${Date.now()}`,
+      signal: "proposal_detected",
+      extractedData: { ...baseData, category: "proposal" },
+    });
+  }
+
+  // Client Brief
+  if (
+    combined.includes("brief") ||
+    combined.includes("creative brief") ||
+    combined.includes("project brief") ||
+    combined.includes("design brief")
+  ) {
+    signals.push({
+      entityType: "file",
+      identifier: `brief-${email.from}-${Date.now()}`,
+      signal: "brief_detected",
+      extractedData: { ...baseData, category: "reference", document_type: "brief" },
+    });
+  }
+
+  // ==========================================================================
+  // INVOICES & PAYMENTS (goes to Billing entity, not File)
+  // ==========================================================================
+
+  if (
+    combined.includes("invoice") ||
+    subject.includes("payment due") ||
+    subject.includes("amount due")
+  ) {
+    signals.push({
+      entityType: "billing",
+      identifier: `invoice-${email.from}-${Date.now()}`,
+      signal: "invoice_attachment_detected",
+      extractedData: { subject: email.subject || "", from: email.from },
+    });
+  }
+
+  if (combined.includes("receipt") || combined.includes("payment received")) {
+    signals.push({
+      entityType: "file",
+      identifier: `receipt-${email.from}-${Date.now()}`,
+      signal: "receipt_detected",
+      extractedData: { ...baseData, category: "invoice", document_type: "receipt" },
+    });
+  }
+
+  // ==========================================================================
+  // DELIVERABLES (what solopreneurs send to clients)
+  // ==========================================================================
+
+  // Final deliverables
+  if (
+    combined.includes("final") ||
+    combined.includes("approved") ||
+    combined.includes("deliverable") ||
+    combined.includes("here is the") ||
+    combined.includes("attached is the")
+  ) {
+    // Check for design file indicators
+    const isDesignFile =
+      combined.includes("design") ||
+      combined.includes("mockup") ||
+      combined.includes("logo") ||
+      combined.includes("brand") ||
+      combined.includes("website");
+
+    if (isDesignFile || email.hasAttachments) {
+      signals.push({
+        entityType: "file",
+        identifier: `deliverable-${email.from}-${Date.now()}`,
+        signal: "deliverable_detected",
+        extractedData: { ...baseData, category: "deliverable" },
+      });
+    }
+  }
+
+  // Revisions
+  if (
+    combined.includes("revision") ||
+    combined.includes("round 2") ||
+    combined.includes("round 3") ||
+    combined.includes("v2") ||
+    combined.includes("updated version") ||
+    combined.includes("changes")
+  ) {
+    signals.push({
+      entityType: "file",
+      identifier: `revision-${email.from}-${Date.now()}`,
+      signal: "revision_detected",
+      extractedData: { ...baseData, category: "deliverable", document_type: "revision" },
+    });
+  }
+
+  // ==========================================================================
+  // CLIENT FEEDBACK & APPROVAL
+  // ==========================================================================
+
+  // Approval signals
+  if (
+    combined.includes("approved") ||
+    combined.includes("looks good") ||
+    combined.includes("sign off") ||
+    combined.includes("go ahead") ||
+    combined.includes("good to go") ||
+    combined.includes("love it")
+  ) {
+    signals.push({
+      entityType: "file",
+      identifier: `approval-${email.from}-${Date.now()}`,
+      signal: "approval_detected",
+      extractedData: { ...baseData, category: "notes", document_type: "approval" },
+    });
+  }
+
+  // Feedback signals
+  if (
+    combined.includes("feedback") ||
+    combined.includes("comments") ||
+    combined.includes("thoughts on") ||
+    combined.includes("review")
+  ) {
+    signals.push({
+      entityType: "file",
+      identifier: `feedback-${email.from}-${Date.now()}`,
+      signal: "feedback_detected",
+      extractedData: { ...baseData, category: "notes", document_type: "feedback" },
+    });
+  }
+
+  // ==========================================================================
+  // ONBOARDING DOCUMENTS
+  // ==========================================================================
+
+  if (
+    combined.includes("welcome") ||
+    combined.includes("onboarding") ||
+    combined.includes("getting started") ||
+    combined.includes("questionnaire") ||
+    combined.includes("intake form")
+  ) {
+    signals.push({
+      entityType: "file",
+      identifier: `onboarding-${email.from}-${Date.now()}`,
+      signal: "onboarding_doc_detected",
+      extractedData: { ...baseData, category: "process", document_type: "onboarding" },
+    });
+  }
+
+  // ==========================================================================
+  // SIGNATURE REQUESTS (DocuSign, HelloSign, PandaDoc)
+  // ==========================================================================
+
+  if (
+    combined.includes("docusign") ||
+    combined.includes("hellosign") ||
+    combined.includes("pandadoc") ||
+    combined.includes("sign this document") ||
+    combined.includes("signature required") ||
+    combined.includes("please sign")
+  ) {
+    signals.push({
+      entityType: "file",
+      identifier: `signature-${email.from}-${Date.now()}`,
+      signal: "signature_request_received",
+      extractedData: { ...baseData, category: "contract" },
+    });
+  }
+
+  // ==========================================================================
+  // DRIVE/TOOL SHARES (Figma, Notion, Drive)
+  // ==========================================================================
+
+  if (
+    combined.includes("shared a file with you") ||
+    combined.includes("google drive") ||
+    combined.includes("shared folder")
+  ) {
+    signals.push({
+      entityType: "file",
+      identifier: `drive-${email.from}-${Date.now()}`,
+      signal: "drive_share_received",
+      extractedData: { ...baseData, category: "reference" },
+    });
+  }
+
+  if (combined.includes("figma") && combined.includes("shared")) {
+    signals.push({
+      entityType: "file",
+      identifier: `figma-${email.from}-${Date.now()}`,
+      signal: "figma_share_received",
+      extractedData: { ...baseData, category: "deliverable" },
+    });
+  }
+
+  if (combined.includes("notion") && combined.includes("shared")) {
+    signals.push({
+      entityType: "file",
+      identifier: `notion-${email.from}-${Date.now()}`,
+      signal: "notion_share_received",
+      extractedData: { ...baseData, category: "reference" },
+    });
+  }
+
+  return signals;
+}
+
+/**
+ * Classify a meeting capture and detect signals.
+ */
+export async function classifyMeetingCapture(
+  workspaceId: string,
+  meeting: MeetingCaptureData,
+  captureId?: string
+): Promise<DetectedSignal[]> {
+  const supabase = await createClient();
+  const signals: DetectedSignal[] = [];
+
+  // Get workspace member emails to exclude
+  const { data: members } = await supabase
+    .from("workspace_members")
+    .select("user:users(email)")
+    .eq("workspace_id", workspaceId);
+
+  const memberEmails = new Set<string>();
+  for (const m of members || []) {
+    const userArr = m.user as Array<{ email?: string }> | null;
+    const email = userArr?.[0]?.email?.toLowerCase();
+    if (email) memberEmails.add(email);
+  }
+
+  // Get existing people by email
+  const { data: existingPeople } = await supabase
+    .from("people")
+    .select("email")
+    .eq("workspace_id", workspaceId)
+    .not("email", "is", null);
+
+  const knownEmails = new Set<string>();
+  for (const p of existingPeople || []) {
+    const email = (p.email as string | null)?.toLowerCase();
+    if (email) knownEmails.add(email);
+  }
+
+  // Check attendees for unknown contacts
+  for (const rawAttendee of meeting.attendees) {
+    const attendee = rawAttendee.toLowerCase().trim();
+
+    // Skip workspace members
+    if (memberEmails.has(attendee)) continue;
+
+    // Skip known contacts
+    if (knownEmails.has(attendee)) continue;
+
+    // Skip no-reply/calendar addresses
+    if (isNoReplyAddress(attendee) || isCalendarAddress(attendee)) continue;
+
+    const name = extractNameFromEmail(rawAttendee);
+
+    signals.push({
+      entityType: "person",
+      identifier: attendee,
+      signal: "meeting_attendee_unknown",
+      extractedData: {
+        email: attendee,
+        ...(name ? { name } : {}),
+      },
+    });
+  }
+
+  // Check meeting title for project patterns
+  if (isProjectMeeting(meeting.title)) {
+    signals.push({
+      entityType: "work",
+      identifier: meeting.title.toLowerCase(),
+      signal: "meeting_title_project_pattern",
+      extractedData: { name: meeting.title },
+    });
+  }
+
+  // Meeting URL suggests a real meeting
+  if (meeting.meetingUrl) {
+    signals.push({
+      entityType: "meeting",
+      identifier: meeting.title,
+      signal: "zoom_invite_detected",
+      extractedData: {
+        title: meeting.title,
+        meeting_url: meeting.meetingUrl,
+        start_time: meeting.startTime,
+      },
+    });
+  }
+
+  return signals;
+}
+
+// =============================================================================
+// HELPER FUNCTIONS
+// =============================================================================
+
+function isNoReplyAddress(email: string): boolean {
+  const noReplyPatterns = [
+    "noreply",
+    "no-reply",
+    "no_reply",
+    "donotreply",
+    "do-not-reply",
+    "mailer-daemon",
+    "postmaster",
+    "notifications",
+    "alerts",
+  ];
+  const localPart = email.split("@")[0].toLowerCase();
+  return noReplyPatterns.some((pattern) => localPart.includes(pattern));
+}
+
+function isNewsletterAddress(email: string): boolean {
+  const newsletterPatterns = [
+    "newsletter",
+    "marketing",
+    "promotions",
+    "updates",
+    "digest",
+    "weekly",
+    "monthly",
+    "news@",
+    "info@",
+    "hello@",
+    "team@",
+  ];
+  const lowerEmail = email.toLowerCase();
+  return newsletterPatterns.some((pattern) => lowerEmail.includes(pattern));
+}
+
+function isCalendarAddress(email: string): boolean {
+  const calendarPatterns = [
+    "calendar-notification",
+    "calendar@",
+    "calendly",
+    "cal.com",
+  ];
+  const lowerEmail = email.toLowerCase();
+  return calendarPatterns.some((pattern) => lowerEmail.includes(pattern));
+}
+
+function isPersonalDomain(domain: string): boolean {
+  const personalDomains = [
+    "gmail.com",
+    "yahoo.com",
+    "hotmail.com",
+    "outlook.com",
+    "icloud.com",
+    "aol.com",
+    "protonmail.com",
+    "me.com",
+    "live.com",
+    "msn.com",
+  ];
+  return personalDomains.includes(domain.toLowerCase());
+}
+
+function extractNameFromEmail(email: string): string | null {
+  // Try to extract name from "Name <email@domain.com>" format
+  const match = email.match(/^([^<]+)<[^>]+>$/);
+  if (match) {
+    return match[1].trim();
+  }
+  return null;
+}
+
+function parseSignature(signature: string): {
+  company?: string;
+  title?: string;
+  phone?: string;
+} {
+  const result: { company?: string; title?: string; phone?: string } = {};
+
+  // Simple heuristics - in production you'd use more sophisticated parsing
+  const lines = signature.split("\n").map((l) => l.trim()).filter(Boolean);
+
+  for (const line of lines) {
+    // Look for company patterns
+    if (
+      line.match(/\b(Inc|LLC|Corp|Ltd|Co|Studio|Agency|Media|Group)\b/i) &&
+      !result.company
+    ) {
+      result.company = line;
+    }
+    // Look for phone patterns
+    if (line.match(/\+?[\d\s\-().]{10,}/) && !result.phone) {
+      result.phone = line.match(/\+?[\d\s\-().]{10,}/)?.[0];
+    }
+  }
+
+  return result;
+}
+
+function isProjectMeeting(title: string): boolean {
+  const projectPatterns = [
+    /kickoff/i,
+    /kick-off/i,
+    /project\s+meeting/i,
+    /\bsync\b/i,
+    /\breview\b/i,
+    /\bdiscovery\b/i,
+    /\bplanning\b/i,
+    /\bsprint\b/i,
+    /\bretro\b/i,
+    /\bstandup\b/i,
+    /\bstand-up\b/i,
+  ];
+  return projectPatterns.some((pattern) => pattern.test(title));
+}

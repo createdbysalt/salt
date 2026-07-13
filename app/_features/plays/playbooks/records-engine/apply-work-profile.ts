@@ -9,7 +9,7 @@ import type {
 } from "./types";
 import { defaultWorkProfileRules, resolveRuleSetValue } from "./validate-rules";
 
-export const WORK_PROFILE_SLUG = "keeper-work-records";
+export const WORK_PROFILE_SLUG = "memory-records";
 
 function buildWorkFacts(input: {
   name: string;

@@ -14,6 +14,7 @@ import {
   transformPersonRow,
 } from "./types";
 import { scheduleOrgHealthRecompute } from "@/app/_features/orgs/health/recompute";
+import { emitEntitySignal } from "@/app/_lib/learning";
 
 // ============================================================================
 // Result Types
@@ -117,6 +118,18 @@ export async function createOrganization(
         organization.primaryContact = transformPersonRow(person as PersonRow);
       }
     }
+
+    emitEntitySignal({
+      workspaceId: workspace.id,
+      surface: "organization",
+      entityId: organization.id,
+      signal: "org_created",
+      entityLabel: organization.name,
+      evidence: {
+        source: "manual_create",
+        relationship_status: input.relationshipStatus ?? "prospect",
+      },
+    });
 
     revalidatePath("/people");
     revalidatePath("/relationships");
@@ -280,6 +293,19 @@ export async function createPerson(
     }
 
     const personEntity = transformPersonRow(person as PersonRow);
+
+    emitEntitySignal({
+      workspaceId: workspace.id,
+      surface: "person",
+      entityId: personEntity.id,
+      signal: "person_created",
+      entityLabel: personEntity.name,
+      evidence: {
+        source: "manual_create",
+        email: input.email ?? null,
+        relationship_status: input.relationshipStatus ?? "other",
+      },
+    });
 
     revalidatePath("/people");
     revalidatePath("/relationships");

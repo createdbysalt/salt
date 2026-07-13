@@ -1,0 +1,255 @@
+/**
+ * Calendar Category Adapter (Captures V2 Phase 1).
+ *
+ * Handles all calendar-like sources: googlecalendar, outlook_calendar, cal, etc.
+ * Routes by provider for provider-specific parsing.
+ */
+
+import type {
+  CaptureAdapter,
+  CaptureEnvelope,
+  EnvelopeParticipant,
+  SignalDerivationContext,
+} from "../types";
+import type { PersonSignals } from "@/app/_features/capture/services/system-plays/person-signals";
+import type { CaptureSourceType } from "@/app/_features/capture/types";
+
+type CalendarProvider = "googlecalendar" | "outlook_calendar" | "cal" | "calendly";
+
+const CALENDAR_PROVIDERS: CalendarProvider[] = ["googlecalendar", "outlook_calendar", "cal", "calendly"];
+
+const CALENDAR_TRIGGER_SLUGS: Record<CalendarProvider, string[]> = {
+  googlecalendar: ["GOOGLECALENDAR_GOOGLE_CALENDAR_EVENT_CREATED_TRIGGER"],
+  outlook_calendar: ["OUTLOOK_EVENT_TRIGGER", "OUTLOOK_EVENT_CHANGE_TRIGGER"],
+  cal: [], // Backfill only - no real-time triggers
+  calendly: [], // Backfill only - no real-time triggers
+};
+
+function deriveCalendarSignals(
+  envelopes: readonly CaptureEnvelope[],
+  context: SignalDerivationContext
+): Map<string, PersonSignals> {
+  const contacts = new Map<string, PersonSignals>();
+
+  for (const envelope of envelopes) {
+    if (!isCalendarSource(envelope.sourceType)) continue;
+
+    for (const participant of envelope.participants) {
+      if (!participant.email) continue;
+      if (isSelf(participant.email, context.userEmail)) continue;
+
+      contacts.set(participant.email, {
+        ...contacts.get(participant.email),
+        has_calendar_meeting: true,
+      });
+    }
+  }
+
+  return contacts;
+}
+
+function isSelf(email: string | null, userEmail: string | null): boolean {
+  if (!email || !userEmail) return false;
+  return email.toLowerCase() === userEmail.toLowerCase();
+}
+
+function isCalendarSource(sourceType: CaptureSourceType): boolean {
+  return CALENDAR_PROVIDERS.includes(sourceType as CalendarProvider);
+}
+
+function normalizeGoogleCalendar(payload: unknown): CaptureEnvelope | null {
+  if (!payload || typeof payload !== "object") return null;
+  const record = payload as Record<string, unknown>;
+
+  const externalId =
+    (record.id as string) ??
+    (record.eventId as string) ??
+    (record.iCalUID as string);
+  if (!externalId) return null;
+
+  const summary = (record.summary as string) ?? null;
+  const start = record.start as Record<string, unknown> | undefined;
+  const end = record.end as Record<string, unknown> | undefined;
+  const attendees = (record.attendees as Array<Record<string, unknown>>) ?? [];
+  const organizer = record.organizer as Record<string, unknown> | undefined;
+
+  const occurredAt =
+    (start?.dateTime as string) ?? (start?.date as string) ?? null;
+
+  const participants: EnvelopeParticipant[] = [];
+
+  if (organizer?.email) {
+    participants.push({
+      email: (organizer.email as string).toLowerCase(),
+      name: (organizer.displayName as string) ?? null,
+      role: "organizer",
+    });
+  }
+
+  for (const attendee of attendees) {
+    const email = (attendee.email as string)?.toLowerCase();
+    if (!email) continue;
+    participants.push({
+      email,
+      name: (attendee.displayName as string) ?? null,
+      role: "attendee",
+    });
+  }
+
+  return {
+    sourceType: "googlecalendar" as CaptureSourceType,
+    captureType: "meeting",
+    externalId,
+    title: summary,
+    occurredAt,
+    participants,
+    threadId: null,
+    extracted: {
+      summary,
+      start: occurredAt,
+      end: (end?.dateTime as string) ?? (end?.date as string) ?? null,
+      organizer_email: (organizer?.email as string)?.toLowerCase() ?? null,
+      attendee_count: attendees.length,
+      location: (record.location as string) ?? null,
+      status: (record.status as string) ?? null,
+    },
+    raw: {
+      eventId: externalId,
+      source: "composio_trigger",
+    },
+    noise: null,
+  };
+}
+
+function normalizeCal(payload: unknown): CaptureEnvelope | null {
+  if (!payload || typeof payload !== "object") return null;
+  const record = payload as Record<string, unknown>;
+
+  const externalId =
+    (record.id as string) ??
+    (record.uid as string) ??
+    (record.bookingId as string);
+  if (!externalId) return null;
+
+  const title = (record.title as string) ?? (record.eventTitle as string) ?? null;
+  const startTime =
+    (record.startTime as string) ?? (record.start as string) ?? null;
+
+  const attendees = (record.attendees as Array<Record<string, unknown>>) ?? [];
+  const participants: EnvelopeParticipant[] = [];
+
+  for (const attendee of attendees) {
+    const email = (attendee.email as string)?.toLowerCase();
+    if (!email) continue;
+    participants.push({
+      email,
+      name: (attendee.name as string) ?? null,
+      role: "attendee",
+    });
+  }
+
+  return {
+    sourceType: "cal" as CaptureSourceType,
+    captureType: "meeting",
+    externalId,
+    title,
+    occurredAt: startTime,
+    participants,
+    threadId: null,
+    extracted: {
+      title,
+      start: startTime,
+      end: (record.endTime as string) ?? (record.end as string) ?? null,
+      attendee_count: attendees.length,
+      status: (record.status as string) ?? null,
+      eventType: (record.eventTypeSlug as string) ?? null,
+    },
+    raw: {
+      bookingId: externalId,
+      source: "composio_trigger",
+    },
+    noise: null,
+  };
+}
+
+function normalizeGenericCalendar(
+  payload: unknown,
+  sourceType: CaptureSourceType
+): CaptureEnvelope | null {
+  if (!payload || typeof payload !== "object") return null;
+  const record = payload as Record<string, unknown>;
+
+  const externalId =
+    (record.id as string) ??
+    (record.eventId as string) ??
+    (record.uid as string);
+  if (!externalId) return null;
+
+  const title =
+    (record.summary as string) ??
+    (record.title as string) ??
+    (record.subject as string) ??
+    null;
+
+  const start = record.start as Record<string, unknown> | string | undefined;
+  const occurredAt =
+    typeof start === "string"
+      ? start
+      : ((start as Record<string, unknown>)?.dateTime as string) ??
+        ((start as Record<string, unknown>)?.date as string) ??
+        null;
+
+  return {
+    sourceType,
+    captureType: "meeting",
+    externalId,
+    title,
+    occurredAt,
+    participants: [],
+    threadId: null,
+    extracted: {
+      title,
+      start: occurredAt,
+    },
+    raw: {
+      eventId: externalId,
+      source: "composio_trigger",
+    },
+    noise: null,
+  };
+}
+
+export function createCalendarCategoryAdapter(
+  provider: CalendarProvider
+): CaptureAdapter {
+  const triggerSlugs = CALENDAR_TRIGGER_SLUGS[provider] ?? [];
+
+  return {
+    sourceType: provider as CaptureSourceType,
+    toolkit: provider,
+    triggerSlugs,
+    deriveSignals: deriveCalendarSignals,
+
+    normalize(payload: unknown): CaptureEnvelope | null {
+      switch (provider) {
+        case "googlecalendar":
+          return normalizeGoogleCalendar(payload);
+        case "cal":
+          return normalizeCal(payload);
+        default:
+          return normalizeGenericCalendar(payload, provider as CaptureSourceType);
+      }
+    },
+  };
+}
+
+export const calendarCategoryAdapters = CALENDAR_PROVIDERS.map(
+  createCalendarCategoryAdapter
+);
+
+export function getCalendarAdapter(provider: string): CaptureAdapter | null {
+  if (!CALENDAR_PROVIDERS.includes(provider as CalendarProvider)) {
+    return null;
+  }
+  return createCalendarCategoryAdapter(provider as CalendarProvider);
+}

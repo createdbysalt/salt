@@ -24,6 +24,11 @@ vi.mock("./load-authored-playbook-blueprints", () => ({
   loadAuthoredPlaybookBlueprintRows: vi.fn(() => []),
 }));
 
+vi.mock("./schema/v2/discovery", () => ({
+  discoverV2Playbooks: vi.fn(() => ({ sections: new Map(), allPlaybooks: [], errors: [] })),
+  getPlaybookBySlug: vi.fn(() => null),
+}));
+
 import {
   buildSignalTriggerIndex,
   findPlaybooksForSignal,

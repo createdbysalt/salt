@@ -48,6 +48,7 @@ import {
 } from "@/app/_features/plays/services/create-keeper-play-run";
 import { extractAndPersistNotes } from "./persist-extracted-notes";
 import type { NoteExtractionInput } from "./note-extractor";
+import { processCaptureAgainstWatches } from "@/app/_lib/learning";
 
 /**
  * Daily Intelligence Scan
@@ -351,6 +352,62 @@ async function patchExistingFindingMemoryIfMissing(args: {
   }
 
   return true;
+}
+
+/**
+ * Build capture signals and data for watch matching.
+ * Extracts signals that watches can filter against.
+ */
+function buildCaptureSignals(
+  email: EmailToAnalyze,
+  analysis: EmailAnalysis,
+  context: { personId?: string; orgId?: string }
+): { signals: string[]; data: Record<string, unknown> } {
+  const signals: string[] = ["capture_email_received"];
+
+  if (email.is_sent_by_user) {
+    signals.push("capture_email_sent");
+  }
+
+  if (email.has_prior_thread) {
+    signals.push("capture_email_reply");
+  }
+
+  // Map finding types to capture signals
+  const findingTypes = new Set(analysis.findings?.map((f) => f.type) ?? []);
+
+  if (findingTypes.has("revenue_buying") || findingTypes.has("revenue_closing")) {
+    signals.push("capture_revenue_signal");
+  }
+
+  if (findingTypes.has("revenue_risk")) {
+    signals.push("capture_risk_signal");
+  }
+
+  if (findingTypes.has("pending_question") || findingTypes.has("pending_reply")) {
+    signals.push("capture_pending_signal");
+  }
+
+  if (findingTypes.has("new_person")) {
+    signals.push("capture_new_contact");
+  }
+
+  if (findingTypes.has("referral")) {
+    signals.push("capture_referral");
+  }
+
+  const data: Record<string, unknown> = {
+    from_email: email.from_email,
+    from_name: email.from_name,
+    subject: email.subject,
+    is_sent_by_user: email.is_sent_by_user,
+    has_prior_thread: email.has_prior_thread,
+    person_id: context.personId,
+    org_id: context.orgId,
+    finding_types: Array.from(findingTypes),
+  };
+
+  return { signals, data };
 }
 
 function qualifiesForNeedsRouting(
@@ -740,6 +797,22 @@ export async function runDailyScan(
           .update({ relationship_type: analysis.relationship_type })
           .eq("id", personId)
           .is("relationship_type", null);
+      }
+
+      // Check capture against active entity watches
+      if (!dryRun) {
+        try {
+          const captureSignals = buildCaptureSignals(email, analysis, { personId, orgId });
+          await processCaptureAgainstWatches({
+            workspaceId,
+            captureId: rawEmail.id,
+            captureSignals: captureSignals.signals,
+            captureData: captureSignals.data,
+          });
+        } catch (watchError) {
+          // Don't fail the scan if watch processing fails
+          console.error("[daily-scan] Watch processing error:", watchError);
+        }
       }
     } catch (error) {
       result.errors.push(

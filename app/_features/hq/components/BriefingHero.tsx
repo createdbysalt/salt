@@ -1,9 +1,12 @@
 "use client";
 
-import { Play, ArrowRight, Sparkles } from "lucide-react";
+import { Play, Sparkles, Loader2, Pause, Volume2 } from "lucide-react";
 import Link from "next/link";
 import type { HqBriefingData } from "@/app/_features/plays/types";
+import type { HqSideRailData } from "../types";
 import { useDashboardUser } from "@/app/_features/shell/contexts/DashboardUserContext";
+import { useBriefingAudio } from "../hooks/useBriefingAudio";
+import { BriefingTeleprompter } from "./BriefingTeleprompter";
 
 function formatBriefingDateChip(date = new Date()) {
   const weekday = date.toLocaleDateString("en-US", { weekday: "long" });
@@ -17,15 +20,34 @@ function getGreetingName(firstName?: string, fullName?: string) {
   return "there";
 }
 
-export function BriefingHero({ briefing }: { briefing: HqBriefingData }) {
+type Props = {
+  briefing: HqBriefingData;
+  sideRail: HqSideRailData;
+};
+
+export function BriefingHero({ briefing, sideRail }: Props) {
   const { firstName, fullName } = useDashboardUser();
   const displayName = getGreetingName(firstName, fullName);
   const awaiting = briefing.playsAwaitingApproval;
   const ranToday = briefing.playsRanToday;
 
+  const {
+    state: audioState,
+    estimatedSeconds,
+    durationSeconds,
+    currentSeconds,
+    audioElement,
+    script,
+    play,
+    stop,
+    togglePause,
+  } = useBriefingAudio(displayName, briefing, sideRail);
+
+  const showTeleprompter = audioState === "playing" || audioState === "paused";
+
   const stats = [
     { label: "Cleared", value: briefing.clearedAmountLabel ?? "—" },
-    { label: "Auto-sent", value: String(briefing.autoSentCount) },
+    { label: "Auto-Handled", value: String(briefing.autoSentCount) },
     { label: "Need you", value: String(awaiting) },
   ] as const;
 
@@ -93,9 +115,34 @@ export function BriefingHero({ briefing }: { briefing: HqBriefingData }) {
             )}
             <button
               type="button"
-              className="flex h-11 items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-5 text-sm font-medium backdrop-blur transition hover:bg-white/15"
+              onClick={audioState === "playing" ? stop : play}
+              disabled={audioState === "loading"}
+              className="flex h-11 items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-5 text-sm font-medium backdrop-blur transition hover:bg-white/15 disabled:opacity-60"
             >
-              Listen — 45s <ArrowRight className="size-4" />
+              {audioState === "loading" && (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Loading...
+                </>
+              )}
+              {audioState === "playing" && (
+                <>
+                  <Pause className="size-4" />
+                  Pause
+                </>
+              )}
+              {audioState === "paused" && (
+                <>
+                  <Play className="size-4 fill-white" />
+                  Resume
+                </>
+              )}
+              {(audioState === "idle" || audioState === "error") && (
+                <>
+                  <Volume2 className="size-4" />
+                  Listen — {estimatedSeconds}s
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -125,6 +172,17 @@ export function BriefingHero({ briefing }: { briefing: HqBriefingData }) {
       <div
         className="pointer-events-none absolute -bottom-16 left-1/3 size-64 animate-float rounded-full bg-flame/40 blur-3xl"
         style={{ animationDelay: "-3s" }}
+      />
+
+      <BriefingTeleprompter
+        isOpen={showTeleprompter}
+        script={script}
+        durationSeconds={durationSeconds > 0 ? durationSeconds : estimatedSeconds}
+        currentSeconds={currentSeconds}
+        audioElement={audioElement}
+        isPaused={audioState === "paused"}
+        onTogglePause={togglePause}
+        onClose={stop}
       />
     </section>
   );

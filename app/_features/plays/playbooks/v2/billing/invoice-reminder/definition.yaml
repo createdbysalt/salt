@@ -1,0 +1,106 @@
+# Invoice Reminder
+# Consolidates: invoice-chase, payment-reminder, overdue-invoice-reminder
+# Drafts payment reminders when invoices go overdue, adapting tone based on
+# payment history.
+
+name: Invoice Reminder
+slug: invoice-reminder
+version: 1.0.0
+description: Drafts payment reminders for overdue invoices
+
+section: billing
+layer: act
+voice: billing
+
+trigger:
+  type: signal
+  signal: billing_due_date_passed
+
+requirements:
+  categories:
+    required:
+      - billing
+  capabilities:
+    required:
+      - read_invoices
+
+steps:
+  - step: fetch
+    id: overdue_invoices
+    from: billing.read_invoices
+    where:
+      status: overdue
+
+  - step: classify
+    id: tone
+    forEach: overdue_invoices
+    rules:
+      - if: "payment_history.on_time >= 3"
+        then: gentle
+      - if: "payment_history.late >= 2"
+        then: firm
+    else: professional
+
+  - step: draft
+    id: reminder_email
+    prompt: |
+      Draft a {{tone}} payment reminder for {{invoice.customer}}.
+      Amount: {{invoice.amount}}
+      Days overdue: {{invoice.days_overdue}}
+
+      Be clear about the amount due and due date.
+      If gentle, acknowledge their good payment history.
+      If firm, mention potential consequences.
+    max_tokens: 200
+
+output:
+  type: email_draft
+  approval: per_entity
+
+value:
+  kind: invoice_collected
+  estimate: 50
+
+instructions:
+  system: |
+    You are drafting payment reminders for freelancers and solopreneurs.
+    Be professional but warm. These are often repeat clients who simply forgot.
+    The goal is to get paid while preserving the relationship.
+
+  guidelines:
+    - Keep emails under 150 words
+    - Always include the invoice number and amount
+    - Reference the relationship positively
+    - Make payment easy (include payment link if available)
+    - Avoid legal threats unless explicitly escalating
+
+  avoid:
+    - Threatening language
+    - Legal jargon
+    - Multiple exclamation marks
+    - Passive-aggressive tone
+
+  examples:
+    - label: Gentle reminder for good client
+      content: |
+        Hi Sarah,
+
+        Quick note about invoice #1234 for $2,500 - it was due last Friday.
+        I know things get busy! Let me know if you need anything from my end.
+
+        Best,
+        [Name]
+      context: Use for clients with 3+ on-time payments
+
+    - label: Firm reminder for late payer
+      content: |
+        Hi Alex,
+
+        Following up on invoice #5678 for $4,200, now 14 days overdue.
+        To keep the project on track, I'll need payment by Friday.
+
+        Please let me know if there's an issue I should be aware of.
+
+        Thanks,
+        [Name]
+      context: Use for clients with 2+ late payments

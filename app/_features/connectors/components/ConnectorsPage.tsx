@@ -20,6 +20,7 @@ import { connectorsPageUrl } from "@/app/_features/connectors/constants";
 import { updateConnectorToolPreferences } from "@/app/_features/connectors/actions";
 import { ApiKeyConnectDialog } from "./ApiKeyConnectDialog";
 import { ConnectorsMarketplace } from "./ConnectorsMarketplace";
+import { usesInlineApiKeyConnect } from "../utils/inline-api-key-connect";
 
 interface ConnectorsPageProps {
   connectors: ConnectorsPageData;
@@ -106,7 +107,12 @@ export function ConnectorsPage({ connectors, showHeader = true }: ConnectorsPage
 
     const definition = definitionsById[id];
 
-    // API-key connectors (Stripe) collect the key in a dialog — no OAuth popup.
+    // Guided API-key connectors (Stripe) open detail first — key entry is inline there.
+    if (definition && usesInlineApiKeyConnect(definition)) {
+      return;
+    }
+
+    // Simple API-key connectors collect the key in a dialog.
     if (definition?.ownership === "composio" && definition.authMethod === "api_key") {
       setApiKeyConnectorId(id);
       return;

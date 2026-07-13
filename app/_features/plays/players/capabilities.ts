@@ -5,7 +5,7 @@
  * per-rule checks across parse-playbook.ts, memory-monopoly.ts, and run-play.ts.
  *
  * Player = agent role. Playbook = skill the agent executes.
- * - Keeper: Memory writes, profile playbooks, system-adopted
+ * - Memory (slug: keeper): Memory writes, profile playbooks, system-adopted
  * - Billing/Follow-up/Brief/etc: Domain toolkits, acting playbooks
  * - General: User-created, approval-always, no memory writes, no destructive
  */
@@ -42,7 +42,7 @@ export interface PlayerCapabilities {
 export const PLAYER_CAPABILITIES: Record<PlayerSlug, PlayerCapabilities> = {
   keeper: {
     slug: "keeper",
-    name: "Keeper",
+    name: "Memory",
     description: "Maintains Memory records with consistent admission rules and field policies",
     canWriteMemory: true,
     canUseDestructive: false,

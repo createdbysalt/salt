@@ -1,0 +1,75 @@
+# Cash Runway Alert
+# Weekly cash flow summary with runway projection.
+
+name: Cash Runway Alert
+slug: cash-runway
+version: 1.0.0
+description: Weekly cash flow summary with runway projection
+
+section: billing
+layer: act
+voice: brief
+
+trigger:
+  type: schedule
+  cron: "0 9 * * 1"
+
+requirements:
+  categories:
+    optional:
+      - billing
+
+steps:
+  - step: fetch
+    id: cash_position
+    from: billing.cash_summary
+    optional: true
+
+  - step: fetch
+    id: upcoming_receivables
+    from: billing.upcoming_due
+    optional: true
+
+  - step: fetch
+    id: recent_payments
+    from: billing.recent_payments
+    optional: true
+
+  - step: draft
+    id: runway_brief
+    prompt: |
+      Create a weekly cash runway brief.
+
+      Current position: {{cash_position.balance}}
+      Upcoming receivables (30 days): {{upcoming_receivables.total}}
+      Recent payments received: {{recent_payments.total}}
+
+      Calculate runway in weeks based on average monthly expenses.
+      Flag any concerning patterns.
+      Keep it factual and scannable.
+    max_tokens: 300
+
+output:
+  type: briefing
+  approval: none
+
+value:
+  kind: cash_visibility
+  estimate: 15
+
+instructions:
+  system: |
+    You are creating a weekly cash flow briefing for a solopreneur.
+    Be factual and direct. Surface concerns without being alarmist.
+    Focus on actionable insights.
+
+  guidelines:
+    - Lead with runway (weeks of coverage)
+    - Highlight any invoices at risk
+    - Note positive trends as well as concerns
+    - Keep under 200 words
+
+  avoid:
+    - Financial jargon
+    - Vague statements ("things look okay")
+    - Missing context for numbers

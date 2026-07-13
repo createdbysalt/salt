@@ -16,7 +16,7 @@ import {
   resolveRuleSetValue,
 } from "./validate-rules";
 
-export const PEOPLE_PROFILE_SLUG = "keeper-people-records";
+export const PEOPLE_PROFILE_SLUG = "memory-records";
 
 export function evaluatePersonProfileFields(input: {
   email: string;

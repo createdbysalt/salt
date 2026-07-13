@@ -155,4 +155,42 @@ describe("execution path logic (unit tests without DB)", () => {
       expect(result.threshold).toBe(85);
     }
   });
+
+  it("playbookThreshold overrides workspace threshold", async () => {
+    const { determineExecutionPath } = await import("./execution-router");
+
+    // 87% confidence - above workspace default (85) but below playbook threshold (92)
+    const result = await determineExecutionPath({
+      workspaceId: "test-workspace",
+      entityType: "person",
+      entityId: "test-entity",
+      fieldPath: "company_name",
+      proposedValue: "Acme Corp",
+      currentValue: "Old Corp",
+      aggregatedConfidence: 87, // Above workspace (85) but below playbook (92)
+      playbookThreshold: 92, // Higher threshold from playbook
+    });
+
+    expect(result.path).toBe("accumulate");
+    if (result.path === "accumulate") {
+      expect(result.threshold).toBe(92); // Uses playbook threshold
+    }
+  });
+
+  it("playbookThreshold allows auto_execute when met", async () => {
+    const { determineExecutionPath } = await import("./execution-router");
+
+    const result = await determineExecutionPath({
+      workspaceId: "test-workspace",
+      entityType: "person",
+      entityId: "test-entity",
+      fieldPath: "company_name",
+      proposedValue: "Acme Corp",
+      currentValue: "Old Corp",
+      aggregatedConfidence: 93,
+      playbookThreshold: 92, // Meets playbook threshold
+    });
+
+    expect(result.path).toBe("auto_execute");
+  });
 });

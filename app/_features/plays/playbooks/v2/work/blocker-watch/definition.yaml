@@ -1,0 +1,55 @@
+# Blocker Watch
+# Alerts when work items become blocked, surfacing issues early.
+
+name: Blocker Watch
+slug: blocker-watch
+version: 1.0.0
+description: Alerts when work items become blocked
+
+section: work
+layer: act
+voice: brief
+
+trigger:
+  type: signal
+  signal: work_is_blocked
+
+steps:
+  - step: fetch
+    id: blocked_work
+    from: memory.work_blocked
+
+  - step: draft
+    id: alert
+    prompt: |
+      Create a brief alert about the blocked work item.
+
+      Work: {{blocked_work.name}}
+      Blocker: {{blocked_work.blocker_reason}}
+
+      Keep it factual. Suggest next steps if obvious.
+    max_tokens: 150
+
+output:
+  type: notification
+  approval: none
+
+value:
+  kind: blocker_surfaced
+  estimate: 20
+
+instructions:
+  system: |
+    You are creating blocker alerts for a solopreneur.
+    Be direct about the issue. Focus on unblocking.
+
+  guidelines:
+    - State the blocker clearly
+    - Suggest 1-2 specific unblock actions
+    - Note any dependencies
+    - Keep under 100 words
+
+  avoid:
+    - Minimizing the issue
+    - Vague descriptions
+    - Missing context on impact

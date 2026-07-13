@@ -90,13 +90,28 @@ function applyTransform(value: unknown, transform: TransformType): unknown {
   }
 }
 
+function enrichSeedForQuery(seed: EnrichmentSeed): EnrichmentSeed & { firstName?: string; lastName?: string } {
+  const enriched: EnrichmentSeed & { firstName?: string; lastName?: string } = { ...seed };
+
+  if (seed.name?.trim()) {
+    const parts = seed.name.trim().split(/\s+/);
+    enriched.firstName = parts[0];
+    if (parts.length > 1) {
+      enriched.lastName = parts.slice(1).join(" ");
+    }
+  }
+
+  return enriched;
+}
+
 function buildQuery(
   queryConfig: { template: string; fallback?: string },
   seed: EnrichmentSeed
 ): string {
+  const querySeed = enrichSeedForQuery(seed);
   let query = queryConfig.template;
 
-  for (const [key, value] of Object.entries(seed)) {
+  for (const [key, value] of Object.entries(querySeed)) {
     if (value != null) {
       query = query.replace(new RegExp(`\\{seed\\.${key}\\}`, "g"), String(value));
     }
@@ -104,7 +119,7 @@ function buildQuery(
 
   if (query.includes("{seed.") && queryConfig.fallback) {
     query = queryConfig.fallback;
-    for (const [key, value] of Object.entries(seed)) {
+    for (const [key, value] of Object.entries(querySeed)) {
       if (value != null) {
         query = query.replace(new RegExp(`\\{seed\\.${key}\\}`, "g"), String(value));
       }

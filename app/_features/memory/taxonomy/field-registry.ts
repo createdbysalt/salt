@@ -16,6 +16,7 @@
 
 import type { CapabilityId, CapabilityEntityType } from "../capabilities/types";
 import type { Database } from "@/app/_lib/supabase/database.types";
+import type { SignalId } from "./signal-registry";
 
 type TableName = keyof Database["public"]["Tables"];
 type ColumnOf<T extends TableName> = T extends TableName
@@ -74,6 +75,25 @@ export type WritePolicy =
   | "system_derived";
 
 /**
+ * A fill rule defines how to infer a field value from a signal.
+ * This is the structured replacement for prose in aiDescription.
+ */
+export interface FillRule {
+  /** Signal that triggers this rule */
+  signal: SignalId;
+  /** Condition operator (default: eq true) */
+  op?: "eq" | "gte" | "exists";
+  /** Value to compare against (for eq/gte) */
+  opValue?: boolean | number | string;
+  /** Value to set (or "{{extracted}}" for dynamic values) */
+  value: string | number | boolean | "{{extracted}}";
+  /** Confidence score 0-100 */
+  confidence: number;
+  /** Human-readable explanation for provenance */
+  because: string;
+}
+
+/**
  * `dbColumn` is typed against the generated Supabase Row for the entity's
  * backing table, so a renamed or deleted column fails `tsc` at the
  * declaration site — the registry cannot silently drift from schema.
@@ -97,6 +117,12 @@ export interface FieldDescriptor<TTable extends TableName = TableName> {
   emptyMeaning?: string;
   /** Whether this field participates in duplicate/identity resolution. */
   dedupeRole?: "primary" | "supporting";
+  /**
+   * Fill rules define how to infer this field's value from signals.
+   * This is the single source of truth for field inference logic.
+   * Required for keeper_auto fields; recommended for keeper_ask fields.
+   */
+  fillRules?: FillRule[];
 }
 
 /** Resolve the effective write policy with the canon defaults. */
@@ -119,6 +145,9 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     requiredForCapabilities: ["invoicing"],
     aiDescription: "Full display name of the person",
     dbColumn: "name",
+    fillRules: [
+      { signal: "person_name_extracted", value: "{{extracted}}", confidence: 90, because: "Name extracted from email or signature" },
+    ],
   },
   {
     key: "email",
@@ -129,9 +158,10 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     requiredForCapabilities: ["email_follow_up", "scheduling"],
     aiDescription: "Primary email address for contact",
     dbColumn: "email",
-    // Email participates in identity resolution: an exact match means the
-    // same person (Keeper proposes a merge — never auto-merges).
     dedupeRole: "primary",
+    fillRules: [
+      { signal: "person_email_extracted", value: "{{extracted}}", confidence: 95, because: "Email address extracted from thread" },
+    ],
   },
   {
     key: "billingEmail",
@@ -142,6 +172,9 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     requiredForCapabilities: ["invoicing"],
     aiDescription: "Email address for invoices and billing communications",
     dbColumn: "billing_email",
+    fillRules: [
+      { signal: "has_invoice_sent", value: "{{extracted}}", confidence: 85, because: "Email used for invoice delivery" },
+    ],
   },
   {
     key: "phone",
@@ -152,6 +185,9 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     requiredForCapabilities: [],
     aiDescription: "Phone number for contact",
     dbColumn: "phone",
+    fillRules: [
+      { signal: "person_phone_extracted", value: "{{extracted}}", confidence: 85, because: "Phone extracted from email signature" },
+    ],
   },
   {
     key: "timezone",
@@ -163,6 +199,9 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     requiredForCapabilities: ["scheduling"],
     aiDescription: "IANA timezone for scheduling meetings",
     dbColumn: "timezone",
+    fillRules: [
+      { signal: "person_timezone_detected", value: "{{extracted}}", confidence: 88, because: "Timezone detected from email headers or calendar" },
+    ],
   },
   {
     key: "title",
@@ -173,6 +212,9 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     requiredForCapabilities: [],
     aiDescription: "Job title or role at their organization",
     dbColumn: "title",
+    fillRules: [
+      { signal: "person_title_extracted", value: "{{extracted}}", confidence: 80, because: "Title extracted from email signature" },
+    ],
   },
   {
     key: "relationshipType",
@@ -184,6 +226,14 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     requiredForCapabilities: [],
     aiDescription: "How this person relates to your business",
     dbColumn: "relationship_type",
+    fillRules: [
+      { signal: "has_payment_received", value: "client", confidence: 95, because: "They paid you — strong client signal" },
+      { signal: "has_invoice_sent", value: "client", confidence: 90, because: "You invoiced them — likely a client" },
+      { signal: "email_domain_matches_workspace", value: "team", confidence: 92, because: "Same email domain as your workspace" },
+      { signal: "email_domain_in_partner_list", value: "partner", confidence: 90, because: "Email domain is on your partner list" },
+      { signal: "email_domain_in_vendor_list", value: "vendor", confidence: 88, because: "Email domain is on your vendor list" },
+      { signal: "you_initiated", value: "prospect", confidence: 75, because: "You initiated contact, no stronger evidence" },
+    ],
   },
   {
     key: "addressLine1",
@@ -194,6 +244,9 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     requiredForCapabilities: ["invoicing"],
     aiDescription: "Street address line 1",
     dbColumn: "address_line_1",
+    fillRules: [
+      { signal: "person_address_extracted", value: "{{extracted}}", confidence: 82, because: "Address extracted from signature or documents" },
+    ],
   },
   {
     key: "addressLine2",
@@ -204,6 +257,9 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     requiredForCapabilities: [],
     aiDescription: "Street address line 2 (apt, suite, etc.)",
     dbColumn: "address_line_2",
+    fillRules: [
+      { signal: "person_address_extracted", value: "{{extracted}}", confidence: 82, because: "Address line 2 extracted from signature" },
+    ],
   },
   {
     key: "city",
@@ -214,6 +270,9 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     requiredForCapabilities: ["invoicing"],
     aiDescription: "City name",
     dbColumn: "city",
+    fillRules: [
+      { signal: "person_address_extracted", value: "{{extracted}}", confidence: 82, because: "City extracted from address" },
+    ],
   },
   {
     key: "state",
@@ -224,6 +283,9 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     requiredForCapabilities: [],
     aiDescription: "State or province",
     dbColumn: "state",
+    fillRules: [
+      { signal: "person_address_extracted", value: "{{extracted}}", confidence: 82, because: "State extracted from address" },
+    ],
   },
   {
     key: "postalCode",
@@ -234,6 +296,9 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     requiredForCapabilities: ["invoicing"],
     aiDescription: "ZIP or postal code",
     dbColumn: "postal_code",
+    fillRules: [
+      { signal: "person_address_extracted", value: "{{extracted}}", confidence: 82, because: "Postal code extracted from address" },
+    ],
   },
   {
     key: "country",
@@ -245,6 +310,10 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     requiredForCapabilities: ["invoicing"],
     aiDescription: "Country (ISO 3166-1 alpha-2)",
     dbColumn: "country",
+    fillRules: [
+      { signal: "person_address_extracted", value: "{{extracted}}", confidence: 82, because: "Country extracted from address" },
+      { signal: "person_timezone_detected", value: "{{extracted}}", confidence: 70, because: "Country inferred from timezone" },
+    ],
   },
   {
     key: "recordStatus",
@@ -254,11 +323,30 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     vocabulary: "record_status",
     keeperSignal: "person_record_status",
     requiredForCapabilities: [],
-    aiDescription:
-      "Whether the relationship is live. Keeper derives it from 90-day activity signals but never overrides a manual choice",
+    aiDescription: "Whether the relationship is live. Keeper derives it from 90-day activity signals but never overrides a manual choice",
     dbColumn: "record_status",
     writePolicy: "keeper_auto",
     emptyMeaning: "Defaults to active; a NULL source means no one has explicitly set it",
+    fillRules: [
+      { signal: "email_count_gte_5", op: "eq", opValue: true, value: "active", confidence: 85, because: "Recent email activity indicates active relationship" },
+      { signal: "has_calendar_meeting", value: "active", confidence: 88, because: "Recent meeting indicates active relationship" },
+    ],
+  },
+  {
+    key: "lastContactedAt",
+    label: "Last Contacted",
+    entityType: "person",
+    fieldType: "datetime",
+    keeperSignal: "person_last_contacted",
+    requiredForCapabilities: [],
+    aiDescription: "Most recent contact with this person (email sent/received, meeting attended)",
+    dbColumn: "last_contact_at",
+    writePolicy: "keeper_auto",
+    fillRules: [
+      { signal: "capture_email_received", value: "{{extracted}}", confidence: 100, because: "Email received from this person" },
+      { signal: "capture_email_sent", value: "{{extracted}}", confidence: 100, because: "Email sent to this person" },
+      { signal: "capture_meeting_completed", value: "{{extracted}}", confidence: 100, because: "Meeting with this person completed" },
+    ],
   },
 ];
 
@@ -276,6 +364,9 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     requiredForCapabilities: ["invoicing", "proposals_contracts"],
     aiDescription: "Organization display name",
     dbColumn: "name",
+    fillRules: [
+      { signal: "org_created_from_domain", value: "{{extracted}}", confidence: 85, because: "Name derived from email domain" },
+    ],
   },
   {
     key: "billingEmail",
@@ -286,6 +377,9 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     requiredForCapabilities: ["invoicing"],
     aiDescription: "Email address for invoices and billing communications",
     dbColumn: "billing_email",
+    fillRules: [
+      { signal: "org_has_invoice_sent", value: "{{extracted}}", confidence: 85, because: "Email used for org invoice delivery" },
+    ],
   },
   {
     key: "industryParent",
@@ -297,6 +391,9 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     requiredForCapabilities: [],
     aiDescription: "Primary industry category",
     dbColumn: "industry_parent",
+    fillRules: [
+      { signal: "org_industry_inferred", value: "{{extracted}}", confidence: 75, because: "Industry inferred from domain or context" },
+    ],
   },
   {
     key: "industryChild",
@@ -308,6 +405,9 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     requiredForCapabilities: [],
     aiDescription: "Industry sub-category (depends on parent)",
     dbColumn: "industry_child",
+    fillRules: [
+      { signal: "org_industry_inferred", value: "{{extracted}}", confidence: 70, because: "Sub-industry inferred from context" },
+    ],
   },
   {
     key: "relationshipType",
@@ -319,6 +419,12 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     requiredForCapabilities: [],
     aiDescription: "How this organization relates to your business",
     dbColumn: "relationship_status",
+    fillRules: [
+      { signal: "org_has_payment_received", value: "client", confidence: 95, because: "This organization paid you" },
+      { signal: "org_has_invoice_sent", value: "client", confidence: 90, because: "You invoiced this organization" },
+      { signal: "org_domain_in_partner_list", value: "partner", confidence: 90, because: "Domain is on your partner list" },
+      { signal: "org_domain_in_vendor_list", value: "vendor", confidence: 88, because: "Domain is on your vendor list" },
+    ],
   },
   {
     key: "primaryContact",
@@ -328,8 +434,9 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     keeperSignal: "org_primary_contact",
     requiredForCapabilities: [],
     aiDescription: "Main person to contact at this organization",
-    // No column on organizations — the key contact is the organization_people
-    // row flagged is_primary; writes go through that join table.
+    fillRules: [
+      { signal: "org_has_primary_contact", value: "{{extracted}}", confidence: 85, because: "Primary contact identified from activity" },
+    ],
   },
   {
     key: "primaryContact.name",
@@ -349,6 +456,9 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     requiredForCapabilities: ["invoicing", "proposals_contracts"],
     aiDescription: "Street address line 1",
     dbColumn: "address_line_1",
+    fillRules: [
+      { signal: "org_address_extracted", value: "{{extracted}}", confidence: 82, because: "Address extracted from documents or invoices" },
+    ],
   },
   {
     key: "addressLine2",
@@ -359,6 +469,9 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     requiredForCapabilities: [],
     aiDescription: "Street address line 2 (apt, suite, etc.)",
     dbColumn: "address_line_2",
+    fillRules: [
+      { signal: "org_address_extracted", value: "{{extracted}}", confidence: 82, because: "Address line 2 extracted from documents" },
+    ],
   },
   {
     key: "city",
@@ -369,6 +482,9 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     requiredForCapabilities: ["invoicing", "proposals_contracts"],
     aiDescription: "City name",
     dbColumn: "city",
+    fillRules: [
+      { signal: "org_address_extracted", value: "{{extracted}}", confidence: 82, because: "City extracted from org address" },
+    ],
   },
   {
     key: "state",
@@ -379,6 +495,9 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     requiredForCapabilities: [],
     aiDescription: "State or province",
     dbColumn: "state",
+    fillRules: [
+      { signal: "org_address_extracted", value: "{{extracted}}", confidence: 82, because: "State extracted from org address" },
+    ],
   },
   {
     key: "postalCode",
@@ -389,6 +508,9 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     requiredForCapabilities: ["invoicing", "proposals_contracts"],
     aiDescription: "ZIP or postal code",
     dbColumn: "postal_code",
+    fillRules: [
+      { signal: "org_address_extracted", value: "{{extracted}}", confidence: 82, because: "Postal code extracted from org address" },
+    ],
   },
   {
     key: "country",
@@ -400,6 +522,9 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     requiredForCapabilities: ["invoicing", "proposals_contracts"],
     aiDescription: "Country (ISO 3166-1 alpha-2)",
     dbColumn: "country",
+    fillRules: [
+      { signal: "org_address_extracted", value: "{{extracted}}", confidence: 82, because: "Country extracted from org address" },
+    ],
   },
   {
     key: "taxId",
@@ -410,6 +535,9 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     requiredForCapabilities: ["invoicing"],
     aiDescription: "Tax identification number (VAT, EIN, etc.)",
     dbColumn: "tax_id",
+    fillRules: [
+      { signal: "org_tax_id_extracted", value: "{{extracted}}", confidence: 90, because: "Tax ID extracted from invoice or documents" },
+    ],
   },
   {
     key: "website",
@@ -420,6 +548,9 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     requiredForCapabilities: [],
     aiDescription: "Company website URL",
     dbColumn: "website",
+    fillRules: [
+      { signal: "org_website_found", value: "{{extracted}}", confidence: 85, because: "Website discovered from domain or email" },
+    ],
   },
   {
     key: "recordStatus",
@@ -429,11 +560,28 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     vocabulary: "record_status",
     keeperSignal: "org_record_status",
     requiredForCapabilities: [],
-    aiDescription:
-      "Whether the relationship is live, aggregated across the org's linked people, work, and billing. Keeper never overrides a manual choice",
+    aiDescription: "Whether the relationship is live, aggregated across the org's linked people, work, and billing. Keeper never overrides a manual choice",
     dbColumn: "record_status",
     writePolicy: "keeper_auto",
     emptyMeaning: "Defaults to active; a NULL source means no one has explicitly set it",
+    fillRules: [
+      { signal: "org_has_people", value: "active", confidence: 80, because: "Org has active linked people" },
+      { signal: "org_has_payment_received", value: "active", confidence: 90, because: "Recent payment indicates active relationship" },
+    ],
+  },
+  {
+    key: "lastContactedAt",
+    label: "Last Contacted",
+    entityType: "org",
+    fieldType: "datetime",
+    keeperSignal: "org_last_contacted",
+    requiredForCapabilities: [],
+    aiDescription: "Most recent contact with anyone at this org. Aggregated from linked people.",
+    dbColumn: "last_contact_at",
+    writePolicy: "keeper_auto",
+    fillRules: [
+      { signal: "org_person_contacted", value: "{{extracted}}", confidence: 100, because: "Someone at this org was contacted" },
+    ],
   },
 ];
 
@@ -451,6 +599,9 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: [],
     aiDescription: "Display name for this work item",
     dbColumn: "name",
+    fillRules: [
+      { signal: "work_scope_extracted", value: "{{extracted}}", confidence: 80, because: "Name derived from proposal/contract title" },
+    ],
   },
   {
     key: "status",
@@ -462,6 +613,14 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: [],
     aiDescription: "Current lifecycle state (active, stalled, completed, etc.)",
     dbColumn: "status",
+    fillRules: [
+      { signal: "work_proposal_sent", value: "proposed", confidence: 90, because: "Proposal sent — awaiting decision" },
+      { signal: "work_proposal_accepted", value: "won", confidence: 95, because: "Client accepted the proposal" },
+      { signal: "work_has_signed_contract", value: "signed", confidence: 95, because: "Contract was signed" },
+      { signal: "work_has_kickoff", value: "active", confidence: 90, because: "Kickoff meeting occurred — work is active" },
+      { signal: "work_has_completed_deliverable", value: "completed", confidence: 85, because: "Final deliverable was completed" },
+      { signal: "work_is_blocked", value: "stalled", confidence: 80, because: "Work appears blocked or waiting" },
+    ],
   },
   {
     key: "workType",
@@ -473,6 +632,9 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: [],
     aiDescription: "Engagement model (project, retainer, hourly, etc.)",
     dbColumn: "work_type",
+    fillRules: [
+      { signal: "work_type_inferred", value: "{{extracted}}", confidence: 75, because: "Work type inferred from proposal or context" },
+    ],
   },
   {
     key: "workTypeRetainer",
@@ -493,6 +655,9 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: [],
     aiDescription: "Pipeline stage within the work type",
     dbColumn: "stage",
+    fillRules: [
+      { signal: "work_stage_inferred", value: "{{extracted}}", confidence: 75, because: "Stage inferred from activity pattern" },
+    ],
   },
   {
     key: "serviceId",
@@ -503,6 +668,9 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: ["proposals_contracts"],
     aiDescription: "Linked service from the service catalog",
     dbColumn: "service_id",
+    fillRules: [
+      { signal: "work_scope_extracted", value: "{{extracted}}", confidence: 70, because: "Service matched from scope description" },
+    ],
   },
   {
     key: "billingContactId",
@@ -513,6 +681,9 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: ["invoicing", "retainer_renewals"],
     aiDescription: "Person responsible for receiving invoices",
     dbColumn: "billing_contact_id",
+    fillRules: [
+      { signal: "work_invoice_created", value: "{{extracted}}", confidence: 85, because: "Invoice recipient identified as billing contact" },
+    ],
   },
   {
     key: "primaryContactName",
@@ -532,6 +703,9 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: [],
     aiDescription: "Total contract value in cents",
     dbColumn: "contract_value_cents",
+    fillRules: [
+      { signal: "work_value_extracted", value: "{{extracted}}", confidence: 88, because: "Value extracted from proposal or contract" },
+    ],
   },
   {
     key: "finalPriceCents",
@@ -542,6 +716,9 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: [],
     aiDescription: "Final price after discounts in cents",
     dbColumn: "final_price_cents",
+    fillRules: [
+      { signal: "work_value_extracted", value: "{{extracted}}", confidence: 88, because: "Final price extracted from contract" },
+    ],
   },
   {
     key: "contractValueOrScope",
@@ -561,6 +738,9 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: [],
     aiDescription: "Array of scope line items with descriptions and amounts",
     dbColumn: "scope_items",
+    fillRules: [
+      { signal: "work_scope_extracted", value: "{{extracted}}", confidence: 85, because: "Scope items extracted from proposal" },
+    ],
   },
   {
     key: "currency",
@@ -572,6 +752,9 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: ["invoicing"],
     aiDescription: "Currency for all monetary values (ISO 4217)",
     dbColumn: "currency",
+    fillRules: [
+      { signal: "work_value_extracted", value: "{{extracted}}", confidence: 90, because: "Currency detected from monetary values" },
+    ],
   },
   {
     key: "paymentTerms",
@@ -583,6 +766,9 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: ["invoicing"],
     aiDescription: "When payment is due after invoicing",
     dbColumn: "payment_terms",
+    fillRules: [
+      { signal: "work_scope_extracted", value: "{{extracted}}", confidence: 80, because: "Payment terms extracted from contract" },
+    ],
   },
   {
     key: "paymentType",
@@ -593,6 +779,9 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: [],
     aiDescription: "How payment is structured (fixed, hourly, milestone, retainer)",
     dbColumn: "payment_type",
+    fillRules: [
+      { signal: "work_type_inferred", value: "{{extracted}}", confidence: 75, because: "Payment type inferred from work type" },
+    ],
   },
   {
     key: "hourlyRateCents",
@@ -603,6 +792,9 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: [],
     aiDescription: "Hourly rate in cents (for hourly work)",
     dbColumn: "hourly_rate_cents",
+    fillRules: [
+      { signal: "work_value_extracted", value: "{{extracted}}", confidence: 85, because: "Hourly rate extracted from proposal" },
+    ],
   },
   {
     key: "hoursEstimate",
@@ -613,6 +805,9 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: [],
     aiDescription: "Estimated hours for the work",
     dbColumn: "hours_estimate",
+    fillRules: [
+      { signal: "work_scope_extracted", value: "{{extracted}}", confidence: 80, because: "Hours estimate extracted from proposal" },
+    ],
   },
   {
     key: "retainerMrrCents",
@@ -623,6 +818,9 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: ["retainer_renewals"],
     aiDescription: "Monthly recurring revenue for retainer in cents",
     dbColumn: "retainer_mrr_cents",
+    fillRules: [
+      { signal: "work_value_extracted", value: "{{extracted}}", confidence: 88, because: "MRR extracted from retainer contract" },
+    ],
   },
   {
     key: "renewalDate",
@@ -633,6 +831,9 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: ["retainer_renewals"],
     aiDescription: "Date when retainer comes up for renewal",
     dbColumn: "renewal_date",
+    fillRules: [
+      { signal: "work_scope_extracted", value: "{{extracted}}", confidence: 85, because: "Renewal date extracted from retainer terms" },
+    ],
   },
   {
     key: "billingCycle",
@@ -644,6 +845,9 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: ["retainer_renewals"],
     aiDescription: "How often billing occurs",
     dbColumn: "billing_cycle",
+    fillRules: [
+      { signal: "work_scope_extracted", value: "{{extracted}}", confidence: 82, because: "Billing cycle extracted from contract" },
+    ],
   },
   {
     key: "decisionDate",
@@ -654,6 +858,9 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: ["proposals_contracts"],
     aiDescription: "Expected date for client decision on proposal",
     dbColumn: "decision_date",
+    fillRules: [
+      { signal: "work_timeline_mentioned", value: "{{extracted}}", confidence: 75, because: "Decision deadline mentioned in email" },
+    ],
   },
   {
     key: "startDate",
@@ -664,6 +871,10 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: [],
     aiDescription: "When work begins",
     dbColumn: "start_date",
+    fillRules: [
+      { signal: "work_has_kickoff", value: "{{extracted}}", confidence: 90, because: "Start date from kickoff meeting" },
+      { signal: "work_scope_extracted", value: "{{extracted}}", confidence: 80, because: "Start date extracted from contract" },
+    ],
   },
   {
     key: "deadline",
@@ -674,6 +885,10 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: [],
     aiDescription: "Target completion date",
     dbColumn: "deadline",
+    fillRules: [
+      { signal: "work_has_due_date", value: "{{extracted}}", confidence: 88, because: "Deadline mentioned or set" },
+      { signal: "work_scope_extracted", value: "{{extracted}}", confidence: 82, because: "Deadline extracted from contract" },
+    ],
   },
   {
     key: "poNumber",
@@ -684,6 +899,9 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: [],
     aiDescription: "Client purchase order number for invoicing",
     dbColumn: "po_number",
+    fillRules: [
+      { signal: "work_scope_extracted", value: "{{extracted}}", confidence: 90, because: "PO number extracted from documents" },
+    ],
   },
   {
     key: "estimatedTimeline",
@@ -694,6 +912,9 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: [],
     aiDescription: "Human-readable timeline estimate",
     dbColumn: "estimated_timeline",
+    fillRules: [
+      { signal: "work_timeline_mentioned", value: "{{extracted}}", confidence: 78, because: "Timeline mentioned in email or proposal" },
+    ],
   },
   {
     key: "discountPercent",
@@ -704,6 +925,9 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: [],
     aiDescription: "Percentage discount applied",
     dbColumn: "discount_percent",
+    fillRules: [
+      { signal: "work_value_extracted", value: "{{extracted}}", confidence: 85, because: "Discount percentage extracted from proposal" },
+    ],
   },
   {
     key: "discountAmountCents",
@@ -714,6 +938,9 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: [],
     aiDescription: "Fixed discount amount in cents",
     dbColumn: "discount_amount_cents",
+    fillRules: [
+      { signal: "work_value_extracted", value: "{{extracted}}", confidence: 85, because: "Discount amount extracted from proposal" },
+    ],
   },
   {
     key: "discountReason",
@@ -724,6 +951,9 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: [],
     aiDescription: "Reason for applying discount",
     dbColumn: "discount_reason",
+    fillRules: [
+      { signal: "work_value_extracted", value: "{{extracted}}", confidence: 75, because: "Discount reason mentioned in proposal" },
+    ],
   },
 ];
 
@@ -743,6 +973,10 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     dbColumn: "number",
     dedupeRole: "primary",
     formatRule: "Exactly as printed on the document; no normalization",
+    fillRules: [
+      { signal: "billing_invoice_parsed", value: "{{extracted}}", confidence: 95, because: "Invoice number extracted from document" },
+      { signal: "billing_stripe_synced", value: "{{extracted}}", confidence: 98, because: "Invoice number from Stripe" },
+    ],
   },
   {
     key: "status",
@@ -755,6 +989,11 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     aiDescription: "Payment state; paid/partial transitions come from payment matching",
     dbColumn: "status",
     writePolicy: "keeper_auto",
+    fillRules: [
+      { signal: "billing_amount_paid_covers_total", value: "paid", confidence: 98, because: "Payment received covers the invoice amount" },
+      { signal: "billing_payment_matched", value: "partial", confidence: 90, because: "Partial payment received" },
+      { signal: "billing_due_date_passed", value: "overdue", confidence: 95, because: "Due date has passed without full payment" },
+    ],
   },
   {
     key: "direction",
@@ -777,6 +1016,9 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     requiredForCapabilities: [],
     aiDescription: "Spend category for payables",
     dbColumn: "category",
+    fillRules: [
+      { signal: "billing_invoice_parsed", value: "{{extracted}}", confidence: 75, because: "Category inferred from invoice content" },
+    ],
   },
   {
     key: "organization",
@@ -787,6 +1029,9 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     requiredForCapabilities: [],
     aiDescription: "Counterparty organization for this record",
     dbColumn: "organization_id",
+    fillRules: [
+      { signal: "billing_party_email_match", value: "{{extracted}}", confidence: 88, because: "Organization matched from billing email domain" },
+    ],
   },
   {
     key: "billingContact",
@@ -797,6 +1042,9 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     requiredForCapabilities: [],
     aiDescription: "Counterparty person for this record",
     dbColumn: "person_id",
+    fillRules: [
+      { signal: "billing_party_email_match", value: "{{extracted}}", confidence: 88, because: "Person matched from billing email" },
+    ],
   },
   {
     key: "linkedWork",
@@ -807,6 +1055,9 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     requiredForCapabilities: [],
     aiDescription: "Work item this billing record belongs to",
     dbColumn: "work_id",
+    fillRules: [
+      { signal: "billing_invoice_parsed", value: "{{extracted}}", confidence: 80, because: "Work linked from invoice description or PO" },
+    ],
   },
   {
     key: "vendorLabel",
@@ -817,6 +1068,9 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     requiredForCapabilities: [],
     aiDescription: "Free-text counterparty label when no org/person record is linked",
     dbColumn: "vendor_label",
+    fillRules: [
+      { signal: "billing_invoice_parsed", value: "{{extracted}}", confidence: 85, because: "Vendor name extracted from bill" },
+    ],
   },
   {
     key: "amountCents",
@@ -828,6 +1082,10 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     aiDescription: "Total amount in cents",
     dbColumn: "amount_cents",
     formatRule: "Integer cents in the record's currency",
+    fillRules: [
+      { signal: "billing_invoice_parsed", value: "{{extracted}}", confidence: 95, because: "Amount extracted from invoice" },
+      { signal: "billing_stripe_synced", value: "{{extracted}}", confidence: 98, because: "Amount from Stripe" },
+    ],
   },
   {
     key: "amountPaidCents",
@@ -839,6 +1097,10 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     aiDescription: "Amount received so far in cents; maintained by payment matching",
     dbColumn: "amount_paid_cents",
     writePolicy: "keeper_auto",
+    fillRules: [
+      { signal: "billing_payment_matched", value: "{{extracted}}", confidence: 98, because: "Payment amount matched to invoice" },
+      { signal: "billing_stripe_synced", value: "{{extracted}}", confidence: 98, because: "Payment amount from Stripe" },
+    ],
   },
   {
     key: "currency",
@@ -850,6 +1112,10 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     aiDescription: "Currency of all amounts on this record (ISO 4217)",
     dbColumn: "currency",
     formatRule: "Uppercase ISO 4217 (DB currently stores lowercase until Phase 3.3 lands)",
+    fillRules: [
+      { signal: "billing_invoice_parsed", value: "{{extracted}}", confidence: 95, because: "Currency detected from invoice" },
+      { signal: "billing_stripe_synced", value: "{{extracted}}", confidence: 98, because: "Currency from Stripe" },
+    ],
   },
   {
     key: "issuedAt",
@@ -860,6 +1126,10 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     requiredForCapabilities: [],
     aiDescription: "Date the invoice/bill was issued",
     dbColumn: "issued_at",
+    fillRules: [
+      { signal: "billing_invoice_parsed", value: "{{extracted}}", confidence: 92, because: "Issue date extracted from invoice" },
+      { signal: "billing_stripe_synced", value: "{{extracted}}", confidence: 98, because: "Issue date from Stripe" },
+    ],
   },
   {
     key: "dueAt",
@@ -870,6 +1140,10 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     requiredForCapabilities: [],
     aiDescription: "Date payment is due",
     dbColumn: "due_at",
+    fillRules: [
+      { signal: "billing_invoice_parsed", value: "{{extracted}}", confidence: 92, because: "Due date extracted from invoice" },
+      { signal: "billing_stripe_synced", value: "{{extracted}}", confidence: 98, because: "Due date from Stripe" },
+    ],
   },
   {
     key: "paidAt",
@@ -881,6 +1155,24 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     aiDescription: "Date the record was fully paid; set by payment matching",
     dbColumn: "paid_at",
     writePolicy: "keeper_auto",
+    fillRules: [
+      { signal: "billing_amount_paid_covers_total", value: "{{extracted}}", confidence: 98, because: "Paid date from payment matching" },
+      { signal: "billing_stripe_synced", value: "{{extracted}}", confidence: 98, because: "Paid date from Stripe" },
+    ],
+  },
+  {
+    key: "appUrl",
+    label: "External Link",
+    entityType: "billing",
+    fieldType: "url",
+    keeperSignal: "billing_app_url",
+    requiredForCapabilities: [],
+    aiDescription: "Link to view this invoice/bill in the external platform (Stripe, QuickBooks, etc.)",
+    dbColumn: "app_url",
+    writePolicy: "keeper_auto",
+    fillRules: [
+      { signal: "billing_stripe_synced", value: "{{extracted}}", confidence: 100, because: "Stripe hosted invoice URL" },
+    ],
   },
 ];
 
@@ -906,8 +1198,7 @@ export const FILE_FIELDS: FieldDescriptor<"files">[] = [
     fieldType: "select",
     vocabulary: "asset_kind",
     requiredForCapabilities: [],
-    aiDescription:
-      "Storage/media kind (document, link, photo, ...) — derived from the file's mime type; file_type only stores file-vs-link",
+    aiDescription: "Storage/media kind (document, link, photo, ...) — derived from the file's mime type; file_type only stores file-vs-link",
     isReadonly: true,
   },
   {
@@ -931,6 +1222,9 @@ export const FILE_FIELDS: FieldDescriptor<"files">[] = [
     aiDescription: "Business artifact category; AI extraction proposes it on ingest",
     dbColumn: "category",
     writePolicy: "keeper_auto",
+    fillRules: [
+      { signal: "file_category_inferred", value: "{{extracted}}", confidence: 85, because: "Category inferred from file content" },
+    ],
   },
   {
     key: "documentType",
@@ -943,6 +1237,9 @@ export const FILE_FIELDS: FieldDescriptor<"files">[] = [
     aiDescription: "Specific document type for document-kind files; AI extraction proposes it",
     dbColumn: "document_type",
     writePolicy: "keeper_auto",
+    fillRules: [
+      { signal: "file_document_type_inferred", value: "{{extracted}}", confidence: 85, because: "Document type inferred from content" },
+    ],
   },
   {
     key: "description",
@@ -953,6 +1250,9 @@ export const FILE_FIELDS: FieldDescriptor<"files">[] = [
     requiredForCapabilities: [],
     aiDescription: "Short human description of what the file is",
     dbColumn: "description",
+    fillRules: [
+      { signal: "file_document_type_inferred", value: "{{extracted}}", confidence: 75, because: "Description generated from document analysis" },
+    ],
   },
   {
     key: "lifecycleStatus",
@@ -965,6 +1265,12 @@ export const FILE_FIELDS: FieldDescriptor<"files">[] = [
     aiDescription: "Signature/delivery lifecycle for signable documents",
     dbColumn: "lifecycle_status",
     writePolicy: "keeper_auto",
+    fillRules: [
+      { signal: "file_signature_event_sent", value: "sent", confidence: 95, because: "Document was sent for signature" },
+      { signal: "file_signature_event_viewed", value: "viewed", confidence: 92, because: "Recipient viewed the document" },
+      { signal: "file_signature_event_signed", value: "signed", confidence: 98, because: "Document was signed" },
+      { signal: "file_signature_event_expired", value: "expired", confidence: 95, because: "Signature request expired" },
+    ],
   },
   {
     key: "totalAmountCents",
@@ -976,6 +1282,9 @@ export const FILE_FIELDS: FieldDescriptor<"files">[] = [
     aiDescription: "Total amount extracted from financial documents, in cents",
     dbColumn: "total_amount_cents",
     writePolicy: "keeper_auto",
+    fillRules: [
+      { signal: "file_amount_extracted", value: "{{extracted}}", confidence: 90, because: "Amount extracted from financial document" },
+    ],
   },
   {
     key: "currency",
@@ -987,6 +1296,9 @@ export const FILE_FIELDS: FieldDescriptor<"files">[] = [
     aiDescription: "Currency for the extracted amount (ISO 4217)",
     dbColumn: "currency",
     formatRule: "Uppercase ISO 4217",
+    fillRules: [
+      { signal: "file_amount_extracted", value: "{{extracted}}", confidence: 90, because: "Currency detected from document amounts" },
+    ],
   },
   {
     key: "dueDate",
@@ -998,6 +1310,9 @@ export const FILE_FIELDS: FieldDescriptor<"files">[] = [
     aiDescription: "Due date extracted from the document",
     dbColumn: "due_date",
     writePolicy: "keeper_auto",
+    fillRules: [
+      { signal: "file_date_extracted", value: "{{extracted}}", confidence: 88, because: "Due date extracted from document" },
+    ],
   },
   {
     key: "expiryDate",
@@ -1009,6 +1324,10 @@ export const FILE_FIELDS: FieldDescriptor<"files">[] = [
     aiDescription: "Expiration date extracted from the document",
     dbColumn: "expiry_date",
     writePolicy: "keeper_auto",
+    fillRules: [
+      { signal: "file_date_extracted", value: "{{extracted}}", confidence: 88, because: "Expiry date extracted from document" },
+      { signal: "file_signature_event_expired", value: "{{extracted}}", confidence: 95, because: "Expiry from signature event" },
+    ],
   },
   {
     key: "signedDate",
@@ -1020,6 +1339,9 @@ export const FILE_FIELDS: FieldDescriptor<"files">[] = [
     aiDescription: "Date the document was signed",
     dbColumn: "signed_date",
     writePolicy: "keeper_auto",
+    fillRules: [
+      { signal: "file_signature_event_signed", value: "{{extracted}}", confidence: 98, because: "Signed date from signature event" },
+    ],
   },
   {
     key: "followUpDate",
@@ -1030,6 +1352,9 @@ export const FILE_FIELDS: FieldDescriptor<"files">[] = [
     requiredForCapabilities: [],
     aiDescription: "When to follow up about this document; Salt suggests, you decide",
     dbColumn: "follow_up_date",
+    fillRules: [
+      { signal: "file_date_extracted", value: "{{extracted}}", confidence: 75, because: "Follow-up date suggested based on document context" },
+    ],
   },
   {
     key: "sharedWithClient",
@@ -1047,8 +1372,7 @@ export const FILE_FIELDS: FieldDescriptor<"files">[] = [
     entityType: "file",
     fieldType: "boolean",
     requiredForCapabilities: [],
-    aiDescription:
-      "TRUE when the file belongs to the operator's own business (brand kit, templates — shown on the Me Files tab) rather than to a person/org/work record",
+    aiDescription: "TRUE when the file belongs to the operator's own business (brand kit, templates — shown on the Me Files tab) rather than to a person/org/work record",
     dbColumn: "is_operator_asset",
     writePolicy: "user_only",
     emptyMeaning: "FALSE — a record's file, not the operator's own asset",
@@ -1080,6 +1404,9 @@ export const MEETING_FIELDS: FieldDescriptor<"meetings">[] = [
     requiredForCapabilities: [],
     aiDescription: "Purpose of the meeting; inferable from title/agenda",
     dbColumn: "meeting_type",
+    fillRules: [
+      { signal: "meeting_type_inferred", value: "{{extracted}}", confidence: 80, because: "Meeting type inferred from title or description" },
+    ],
   },
   {
     key: "status",
@@ -1092,6 +1419,12 @@ export const MEETING_FIELDS: FieldDescriptor<"meetings">[] = [
     aiDescription: "Scheduled/completed/cancelled/no-show; time passing implies completed",
     dbColumn: "status",
     writePolicy: "keeper_auto",
+    fillRules: [
+      { signal: "meeting_synced_from_calendar", value: "scheduled", confidence: 95, because: "Meeting synced from calendar" },
+      { signal: "meeting_has_attendance_evidence", value: "completed", confidence: 90, because: "Evidence shows the meeting happened" },
+      { signal: "meeting_end_passed", value: "completed", confidence: 85, because: "Meeting end time has passed" },
+      { signal: "meeting_cancelled_by_calendar", value: "cancelled", confidence: 95, because: "Calendar event was cancelled" },
+    ],
   },
   {
     key: "startTime",
@@ -1102,6 +1435,9 @@ export const MEETING_FIELDS: FieldDescriptor<"meetings">[] = [
     aiDescription: "Start time; calendar sync owns it for external meetings",
     dbColumn: "start_time",
     writePolicy: "keeper_auto",
+    fillRules: [
+      { signal: "meeting_synced_from_calendar", value: "{{extracted}}", confidence: 98, because: "Start time from calendar sync" },
+    ],
   },
   {
     key: "endTime",
@@ -1112,6 +1448,9 @@ export const MEETING_FIELDS: FieldDescriptor<"meetings">[] = [
     aiDescription: "End time; calendar sync owns it for external meetings",
     dbColumn: "end_time",
     writePolicy: "keeper_auto",
+    fillRules: [
+      { signal: "meeting_synced_from_calendar", value: "{{extracted}}", confidence: 98, because: "End time from calendar sync" },
+    ],
   },
   {
     key: "locationType",
@@ -1123,6 +1462,9 @@ export const MEETING_FIELDS: FieldDescriptor<"meetings">[] = [
     aiDescription: "Medium the meeting happens over; calendar sync can set it",
     dbColumn: "location_type",
     writePolicy: "keeper_auto",
+    fillRules: [
+      { signal: "meeting_synced_from_calendar", value: "{{extracted}}", confidence: 90, because: "Location type inferred from calendar event" },
+    ],
   },
   {
     key: "meetingUrl",
@@ -1133,6 +1475,9 @@ export const MEETING_FIELDS: FieldDescriptor<"meetings">[] = [
     aiDescription: "Join link for video meetings; calendar sync can set it",
     dbColumn: "meeting_url",
     writePolicy: "keeper_auto",
+    fillRules: [
+      { signal: "meeting_synced_from_calendar", value: "{{extracted}}", confidence: 95, because: "Meeting URL from calendar event" },
+    ],
   },
   {
     key: "address",
@@ -1142,6 +1487,9 @@ export const MEETING_FIELDS: FieldDescriptor<"meetings">[] = [
     requiredForCapabilities: [],
     aiDescription: "Physical address for in-person meetings",
     dbColumn: "address",
+    fillRules: [
+      { signal: "meeting_synced_from_calendar", value: "{{extracted}}", confidence: 88, because: "Address from calendar event location" },
+    ],
   },
   {
     key: "phoneNumber",
@@ -1152,6 +1500,9 @@ export const MEETING_FIELDS: FieldDescriptor<"meetings">[] = [
     aiDescription: "Dial-in number for phone meetings",
     dbColumn: "phone_number",
     formatRule: "E.164 preferred; stored as entered",
+    fillRules: [
+      { signal: "meeting_synced_from_calendar", value: "{{extracted}}", confidence: 85, because: "Dial-in number from calendar event" },
+    ],
   },
   {
     key: "description",
@@ -1161,6 +1512,9 @@ export const MEETING_FIELDS: FieldDescriptor<"meetings">[] = [
     requiredForCapabilities: [],
     aiDescription: "Agenda or context for the meeting",
     dbColumn: "description",
+    fillRules: [
+      { signal: "meeting_synced_from_calendar", value: "{{extracted}}", confidence: 92, because: "Description from calendar event" },
+    ],
   },
   {
     key: "notes",
@@ -1192,6 +1546,9 @@ export const MEETING_FIELDS: FieldDescriptor<"meetings">[] = [
     aiDescription: "Attendee list; calendar sync maintains it for external meetings",
     dbColumn: "attendees",
     writePolicy: "keeper_auto",
+    fillRules: [
+      { signal: "meeting_attendees_extracted", value: "{{extracted}}", confidence: 95, because: "Attendees from calendar event" },
+    ],
   },
 ];
 
@@ -1205,44 +1562,100 @@ export const MEETING_FIELDS: FieldDescriptor<"meetings">[] = [
 const ME_USER_ONLY = { writePolicy: "user_only" as const, requiredForCapabilities: [] };
 
 export const ME_IDENTITY_FIELDS: FieldDescriptor<"profiles">[] = [
-  { key: "preferredName", label: "Preferred Name", entityType: "me", fieldType: "text", aiDescription: "Name the operator goes by", dbColumn: "preferred_name", ...ME_USER_ONLY },
-  { key: "fullName", label: "Full Name", entityType: "me", fieldType: "text", aiDescription: "Operator's full legal/display name", dbColumn: "display_name", formatRule: "Also split into first_name/last_name; full_name is a generated column", ...ME_USER_ONLY },
+  { key: "preferredName", label: "Preferred Name", entityType: "me", fieldType: "text", aiDescription: "Name the operator goes by", dbColumn: "preferred_name", ...ME_USER_ONLY, fillRules: [
+    { signal: "email_signoff_name_detected", value: "{{extracted}}", confidence: 90, because: "You consistently sign emails with this name" },
+  ] },
+  { key: "fullName", label: "Full Name", entityType: "me", fieldType: "text", aiDescription: "Operator's full legal/display name", dbColumn: "display_name", formatRule: "Also split into first_name/last_name; full_name is a generated column", ...ME_USER_ONLY, fillRules: [
+    { signal: "linkedin_profile_scanned", value: "{{extracted}}", confidence: 88, because: "Full name from your LinkedIn profile" },
+  ] },
   { key: "gender", label: "Gender", entityType: "me", fieldType: "select", aiDescription: "Optional gender", dbColumn: "gender", ...ME_USER_ONLY },
-  { key: "roleTitle", label: "Role", entityType: "me", fieldType: "text", aiDescription: "What the operator calls their role", dbColumn: "role_title", ...ME_USER_ONLY },
-  { key: "phone", label: "Phone", entityType: "me", fieldType: "phone", aiDescription: "Operator's phone number", dbColumn: "phone", ...ME_USER_ONLY },
-  { key: "timezone", label: "Timezone", entityType: "me", fieldType: "timezone", vocabulary: "timezone", aiDescription: "Operator's IANA timezone", dbColumn: "timezone", ...ME_USER_ONLY },
+  { key: "roleTitle", label: "Role", entityType: "me", fieldType: "text", aiDescription: "What the operator calls their role", dbColumn: "role_title", ...ME_USER_ONLY, fillRules: [
+    { signal: "operator_signature_has_title", value: "{{extracted}}", confidence: 88, because: "Title extracted from your outgoing email signature" },
+    { signal: "linkedin_profile_scanned", value: "{{extracted}}", confidence: 85, because: "Title from your LinkedIn profile" },
+  ] },
+  { key: "phone", label: "Phone", entityType: "me", fieldType: "phone", aiDescription: "Operator's phone number", dbColumn: "phone", ...ME_USER_ONLY, fillRules: [
+    { signal: "operator_phone_extracted", value: "{{extracted}}", confidence: 85, because: "Phone number from your email signature" },
+  ] },
+  { key: "timezone", label: "Timezone", entityType: "me", fieldType: "timezone", vocabulary: "timezone", aiDescription: "Operator's IANA timezone", dbColumn: "timezone", ...ME_USER_ONLY, fillRules: [
+    { signal: "calendar_timezone_detected", value: "{{extracted}}", confidence: 95, because: "Calendar consistently shows this timezone" },
+  ] },
   { key: "workingHours", label: "Working Hours", entityType: "me", fieldType: "text", aiDescription: "Typical working hours", dbColumn: "working_hours", ...ME_USER_ONLY },
-  { key: "location", label: "Location", entityType: "me", fieldType: "text", aiDescription: "Where the operator is based", dbColumn: "location", ...ME_USER_ONLY },
-  { key: "addressLine1", label: "Street Address", entityType: "me", fieldType: "text", aiDescription: "Operator address line 1", dbColumn: "address_line_1", ...ME_USER_ONLY },
-  { key: "addressLine2", label: "Address Line 2", entityType: "me", fieldType: "text", aiDescription: "Operator address line 2", dbColumn: "address_line_2", ...ME_USER_ONLY },
-  { key: "city", label: "City", entityType: "me", fieldType: "text", aiDescription: "Operator city", dbColumn: "city", ...ME_USER_ONLY },
-  { key: "state", label: "State/Province", entityType: "me", fieldType: "text", aiDescription: "Operator state or province", dbColumn: "state", ...ME_USER_ONLY },
-  { key: "postalCode", label: "Postal Code", entityType: "me", fieldType: "text", aiDescription: "Operator postal code", dbColumn: "postal_code", ...ME_USER_ONLY },
-  { key: "country", label: "Country", entityType: "me", fieldType: "country", vocabulary: "country", aiDescription: "Operator country", dbColumn: "country", ...ME_USER_ONLY },
-  { key: "professionalCredentials", label: "Credentials", entityType: "me", fieldType: "text", aiDescription: "Professional credentials or certifications", dbColumn: "professional_credentials", ...ME_USER_ONLY },
+  { key: "location", label: "Location", entityType: "me", fieldType: "text", aiDescription: "Where the operator is based", dbColumn: "location", ...ME_USER_ONLY, fillRules: [
+    { signal: "timezone_location_inferred", value: "{{extracted}}", confidence: 75, because: "Location inferred from your timezone" },
+    { signal: "linkedin_profile_scanned", value: "{{extracted}}", confidence: 82, because: "Location from your LinkedIn profile" },
+  ] },
+  { key: "addressLine1", label: "Street Address", entityType: "me", fieldType: "text", aiDescription: "Operator address line 1", dbColumn: "address_line_1", ...ME_USER_ONLY, fillRules: [
+    { signal: "operator_address_extracted", value: "{{extracted}}", confidence: 80, because: "Address extracted from your documents" },
+  ] },
+  { key: "addressLine2", label: "Address Line 2", entityType: "me", fieldType: "text", aiDescription: "Operator address line 2", dbColumn: "address_line_2", ...ME_USER_ONLY, fillRules: [
+    { signal: "operator_address_extracted", value: "{{extracted}}", confidence: 80, because: "Address line 2 from documents" },
+  ] },
+  { key: "city", label: "City", entityType: "me", fieldType: "text", aiDescription: "Operator city", dbColumn: "city", ...ME_USER_ONLY, fillRules: [
+    { signal: "operator_address_extracted", value: "{{extracted}}", confidence: 80, because: "City extracted from documents" },
+  ] },
+  { key: "state", label: "State/Province", entityType: "me", fieldType: "text", aiDescription: "Operator state or province", dbColumn: "state", ...ME_USER_ONLY, fillRules: [
+    { signal: "operator_address_extracted", value: "{{extracted}}", confidence: 80, because: "State extracted from documents" },
+  ] },
+  { key: "postalCode", label: "Postal Code", entityType: "me", fieldType: "text", aiDescription: "Operator postal code", dbColumn: "postal_code", ...ME_USER_ONLY, fillRules: [
+    { signal: "operator_address_extracted", value: "{{extracted}}", confidence: 80, because: "Postal code extracted from documents" },
+  ] },
+  { key: "country", label: "Country", entityType: "me", fieldType: "country", vocabulary: "country", aiDescription: "Operator country", dbColumn: "country", ...ME_USER_ONLY, fillRules: [
+    { signal: "operator_address_extracted", value: "{{extracted}}", confidence: 80, because: "Country extracted from documents" },
+    { signal: "timezone_location_inferred", value: "{{extracted}}", confidence: 70, because: "Country inferred from timezone" },
+  ] },
+  { key: "professionalCredentials", label: "Credentials", entityType: "me", fieldType: "text", aiDescription: "Professional credentials or certifications", dbColumn: "professional_credentials", ...ME_USER_ONLY, fillRules: [
+    { signal: "linkedin_profile_scanned", value: "{{extracted}}", confidence: 78, because: "Credentials from your LinkedIn profile" },
+  ] },
   { key: "email", label: "Email", entityType: "me", fieldType: "email", aiDescription: "Auth email (read-only)", dbColumn: "email", isReadonly: true, requiredForCapabilities: [] },
 ];
 
 export const ME_BUSINESS_FIELDS: FieldDescriptor<"workspaces">[] = [
   { key: "name", label: "Business Name", entityType: "me", fieldType: "text", aiDescription: "Workspace/business display name", dbColumn: "name", ...ME_USER_ONLY },
-  { key: "tagline", label: "Tagline", entityType: "me", fieldType: "text", aiDescription: "One-line business description", dbColumn: "tagline", ...ME_USER_ONLY },
-  { key: "websiteUrl", label: "Website", entityType: "me", fieldType: "url", aiDescription: "Business website", dbColumn: "website_url", ...ME_USER_ONLY },
-  { key: "industry", label: "Industry", entityType: "me", fieldType: "text", aiDescription: "Industry the business operates in", dbColumn: "industry", ...ME_USER_ONLY },
-  { key: "legalBusinessName", label: "Legal Business Name", entityType: "me", fieldType: "text", aiDescription: "Registered legal name for contracts and invoices", dbColumn: "legal_business_name", formatRule: "Exact registered name", ...ME_USER_ONLY },
-  { key: "businessType", label: "Business Type", entityType: "me", fieldType: "select", vocabulary: "business_type", aiDescription: "Legal structure", dbColumn: "business_type", ...ME_USER_ONLY },
-  { key: "businessPhone", label: "Business Phone", entityType: "me", fieldType: "phone", aiDescription: "Business phone number", dbColumn: "business_phone", ...ME_USER_ONLY },
+  { key: "tagline", label: "Tagline", entityType: "me", fieldType: "text", aiDescription: "One-line business description", dbColumn: "tagline", ...ME_USER_ONLY, fillRules: [
+    { signal: "operator_bio_extracted", value: "{{extracted}}", confidence: 80, because: "Tagline extracted from your social or website bio" },
+  ] },
+  { key: "websiteUrl", label: "Website", entityType: "me", fieldType: "url", aiDescription: "Business website", dbColumn: "website_url", ...ME_USER_ONLY, fillRules: [
+    { signal: "workspace_website_found", value: "{{extracted}}", confidence: 88, because: "Business website discovered from email or social" },
+  ] },
+  { key: "industry", label: "Industry", entityType: "me", fieldType: "text", aiDescription: "Industry the business operates in", dbColumn: "industry", ...ME_USER_ONLY, fillRules: [
+    { signal: "invoice_industry_pattern", value: "{{extracted}}", confidence: 82, because: "Industry inferred from invoice descriptions and client types" },
+    { signal: "linkedin_industry_detected", value: "{{extracted}}", confidence: 85, because: "Industry from your LinkedIn profile" },
+  ] },
+  { key: "legalBusinessName", label: "Legal Business Name", entityType: "me", fieldType: "text", aiDescription: "Registered legal name for contracts and invoices", dbColumn: "legal_business_name", formatRule: "Exact registered name", ...ME_USER_ONLY, fillRules: [
+    { signal: "workspace_legal_name_extracted", value: "{{extracted}}", confidence: 88, because: "Legal business name from your documents" },
+  ] },
+  { key: "businessType", label: "Business Type", entityType: "me", fieldType: "select", vocabulary: "business_type", aiDescription: "Legal structure", dbColumn: "business_type", ...ME_USER_ONLY, fillRules: [
+    { signal: "invoice_business_type_pattern", value: "{{extracted}}", confidence: 80, because: "Business type inferred from invoice patterns (freelancer vs agency)" },
+  ] },
+  { key: "businessPhone", label: "Business Phone", entityType: "me", fieldType: "phone", aiDescription: "Business phone number", dbColumn: "business_phone", ...ME_USER_ONLY, fillRules: [
+    { signal: "operator_phone_extracted", value: "{{extracted}}", confidence: 82, because: "Business phone from your email signature" },
+  ] },
   { key: "businessEmail", label: "Business Email", entityType: "me", fieldType: "email", aiDescription: "Business contact email", dbColumn: "business_email", ...ME_USER_ONLY },
-  { key: "location", label: "Business Location", entityType: "me", fieldType: "text", aiDescription: "Where the business operates from", dbColumn: "location", ...ME_USER_ONLY },
+  { key: "location", label: "Business Location", entityType: "me", fieldType: "text", aiDescription: "Where the business operates from", dbColumn: "location", ...ME_USER_ONLY, fillRules: [
+    { signal: "timezone_location_inferred", value: "{{extracted}}", confidence: 72, because: "Location inferred from your timezone" },
+  ] },
   { key: "taxIdType", label: "Tax ID Type", entityType: "me", fieldType: "text", aiDescription: "Type of tax identifier (EIN, VAT, ...)", dbColumn: "tax_id_type", ...ME_USER_ONLY },
   { key: "taxIdLast4", label: "Tax ID (last 4)", entityType: "me", fieldType: "text", aiDescription: "Last four characters of the tax ID", dbColumn: "tax_id_last4", formatRule: "Max 4 characters; never store the full ID", ...ME_USER_ONLY },
   { key: "defaultCurrency", label: "Default Currency", entityType: "me", fieldType: "select", vocabulary: "currency", aiDescription: "Default currency for new work and billing", dbColumn: "default_currency", formatRule: "Uppercase ISO 4217", ...ME_USER_ONLY },
   { key: "paymentTerms", label: "Default Payment Terms", entityType: "me", fieldType: "select", vocabulary: "payment_terms", aiDescription: "Default payment terms for new invoices", dbColumn: "payment_terms", ...ME_USER_ONLY },
-  { key: "legalAddressLine1", label: "Legal Address", entityType: "me", fieldType: "text", aiDescription: "Legal address line 1", dbColumn: "legal_address_line_1", ...ME_USER_ONLY },
-  { key: "legalAddressLine2", label: "Legal Address Line 2", entityType: "me", fieldType: "text", aiDescription: "Legal address line 2", dbColumn: "legal_address_line_2", ...ME_USER_ONLY },
-  { key: "legalCity", label: "Legal City", entityType: "me", fieldType: "text", aiDescription: "Legal address city", dbColumn: "legal_city", ...ME_USER_ONLY },
-  { key: "legalState", label: "Legal State", entityType: "me", fieldType: "text", aiDescription: "Legal address state/province", dbColumn: "legal_state", ...ME_USER_ONLY },
-  { key: "legalPostalCode", label: "Legal Postal Code", entityType: "me", fieldType: "text", aiDescription: "Legal address postal code", dbColumn: "legal_postal_code", ...ME_USER_ONLY },
-  { key: "legalCountry", label: "Legal Country", entityType: "me", fieldType: "country", vocabulary: "country", aiDescription: "Legal address country", dbColumn: "legal_country", ...ME_USER_ONLY },
+  { key: "legalAddressLine1", label: "Legal Address", entityType: "me", fieldType: "text", aiDescription: "Legal address line 1", dbColumn: "legal_address_line_1", ...ME_USER_ONLY, fillRules: [
+    { signal: "operator_address_extracted", value: "{{extracted}}", confidence: 78, because: "Legal address from your business documents" },
+  ] },
+  { key: "legalAddressLine2", label: "Legal Address Line 2", entityType: "me", fieldType: "text", aiDescription: "Legal address line 2", dbColumn: "legal_address_line_2", ...ME_USER_ONLY, fillRules: [
+    { signal: "operator_address_extracted", value: "{{extracted}}", confidence: 78, because: "Legal address line 2 from documents" },
+  ] },
+  { key: "legalCity", label: "Legal City", entityType: "me", fieldType: "text", aiDescription: "Legal address city", dbColumn: "legal_city", ...ME_USER_ONLY, fillRules: [
+    { signal: "operator_address_extracted", value: "{{extracted}}", confidence: 78, because: "Legal city from documents" },
+  ] },
+  { key: "legalState", label: "Legal State", entityType: "me", fieldType: "text", aiDescription: "Legal address state/province", dbColumn: "legal_state", ...ME_USER_ONLY, fillRules: [
+    { signal: "operator_address_extracted", value: "{{extracted}}", confidence: 78, because: "Legal state from documents" },
+  ] },
+  { key: "legalPostalCode", label: "Legal Postal Code", entityType: "me", fieldType: "text", aiDescription: "Legal address postal code", dbColumn: "legal_postal_code", ...ME_USER_ONLY, fillRules: [
+    { signal: "operator_address_extracted", value: "{{extracted}}", confidence: 78, because: "Legal postal code from documents" },
+  ] },
+  { key: "legalCountry", label: "Legal Country", entityType: "me", fieldType: "country", vocabulary: "country", aiDescription: "Legal address country", dbColumn: "legal_country", ...ME_USER_ONLY, fillRules: [
+    { signal: "operator_address_extracted", value: "{{extracted}}", confidence: 78, because: "Legal country from documents" },
+  ] },
 ];
 
 // ============================================================================

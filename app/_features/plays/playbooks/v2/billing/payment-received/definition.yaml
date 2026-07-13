@@ -1,0 +1,79 @@
+# Payment Received
+# Drafts thank-you messages when payments are received.
+
+name: Payment Received
+slug: payment-received
+version: 1.0.0
+description: Drafts thank-you messages when payments arrive
+
+section: billing
+layer: act
+voice: billing
+
+trigger:
+  type: signal
+  signal: billing_payment_matched
+
+requirements:
+  categories:
+    required:
+      - billing
+
+steps:
+  - step: fetch
+    id: payment_details
+    from: billing.read_payments
+    where:
+      recent: true
+
+  - step: draft
+    id: thank_you
+    prompt: |
+      Draft a professional thank-you for receiving payment.
+
+      Customer: {{payment_details.customer}}
+      Amount: {{payment_details.amount}}
+      Invoice: {{payment_details.invoice_number}}
+
+      Keep it brief and professional.
+      Mention the invoice number for their records.
+    max_tokens: 150
+
+output:
+  type: email_draft
+  approval: per_entity
+
+value:
+  kind: relationship_maintained
+  estimate: 5
+
+instructions:
+  system: |
+    You are drafting thank-you notes for payment receipt.
+    Keep them warm but professional. Acknowledge the payment
+    and express appreciation for their business.
+
+  guidelines:
+    - Keep under 100 words
+    - Include invoice number for their records
+    - Express genuine appreciation
+    - No upselling or additional asks
+
+  avoid:
+    - Over-enthusiastic language
+    - Asking for more business in the same message
+    - Generic templates that don't mention specifics
+
+  examples:
+    - label: Standard thank you
+      content: |
+        Hi Sarah,
+
+        Thank you for the payment of $2,500 for invoice #1234.
+        I've marked it as paid in our records.
+
+        Appreciate your business!
+
+        Best,
+        [Name]
+      context: Use for most payment receipts

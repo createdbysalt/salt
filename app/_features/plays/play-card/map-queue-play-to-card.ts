@@ -5,6 +5,9 @@ import type { PlayCardViewModel } from "./types";
 /**
  * Map a prepared play (QueuePlay, backed by `play_runs`) into the unified card.
  * These are `acting` plays: an editable draft the user approves and sends.
+ *
+ * Note: QueuePlay is demo/mock data — it doesn't have v2 playbook info.
+ * V2 fields are set to null; real play_runs use mapPlayRunToCard which does v2 lookup.
  */
 export function mapQueuePlayToCard(play: QueuePlay): PlayCardViewModel {
   const player = playerById(play.playerId);
@@ -21,14 +24,29 @@ export function mapQueuePlayToCard(play: QueuePlay): PlayCardViewModel {
   return {
     id: play.id,
     kind: "acting",
+
+    // V2 attribution (not available for demo QueuePlay)
+    playbookSlug: null,
+    playbookName: play.playbook ?? null,
+    section: null,
+    sectionLabel: null,
+    layer: "act",
+    outputType: "email_draft",
+    approvalMode: "per_entity",
+    autoApplyThreshold: null,
+    confidenceExplanation: null,
+    valueEstimate: null,
+
+    // Legacy attribution
     playerSlug: play.playerId,
     playerName: player.name,
-    playbookName: play.playbook ?? null,
+
     subject: play.subject,
     targetLabel: play.recipient,
     targetPrefix: "To",
     preview: play.summary,
     confidence: typeof play.confidence === "number" ? play.confidence : null,
+    stakes: null,
     ageMinutes: play.ageMinutes,
     triggerLabel: play.source,
     channel: play.channel,

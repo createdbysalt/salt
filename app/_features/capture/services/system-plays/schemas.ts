@@ -4,6 +4,13 @@ import type { SystemPlaySlug } from "./types";
 
 const uuidSchema = z.string().uuid();
 
+/** UUID that treats empty string as undefined (for optional FK fields from AI tools) */
+const optionalUuidSchema = z.union([
+  z.literal("").transform(() => undefined),
+  z.string().uuid(),
+  z.undefined(),
+]);
+
 export const relationshipTypeSchema = z.enum([
   "client",
   "prospect",
@@ -30,6 +37,13 @@ export const findOrgsInputSchema = z.object({
   limit: z.number().int().min(1).max(25).optional(),
 });
 
+export const findWorkInputSchema = z.object({
+  query: z
+    .string()
+    .describe("Search by project/work name. Leave empty to list recent work items."),
+  limit: z.number().int().min(1).max(25).optional(),
+});
+
 export const createPersonInputSchema = z
   .object({
     name: z.string().min(1).optional(),
@@ -48,7 +62,7 @@ export const createPersonInputSchema = z
     notes: z.string().optional().describe("Initial notes about this person"),
     last_contact_at: z.string().optional().describe("Last contact date (ISO 8601 timestamp)"),
     first_contact_at: z.string().optional().describe("First contact date (ISO 8601 timestamp)"),
-    org_id: uuidSchema.optional(),
+    org_id: optionalUuidSchema,
     organization_name: z.string().min(1).optional(),
     domain: z.string().min(1).optional(),
     user_insists_person: z.boolean().optional(),
@@ -185,8 +199,8 @@ export const workBillingCycleSchema = z.enum([
 
 export const createWorkInputSchema = z.object({
   name: z.string().min(1),
-  person_id: uuidSchema.optional(),
-  org_id: uuidSchema.optional(),
+  person_id: optionalUuidSchema,
+  org_id: optionalUuidSchema,
   description: z.string().optional().describe("Project description or scope"),
   work_type: workTypeSchema.optional().describe("Type of work (project, retainer, hourly, event)"),
   status: z.string().optional().describe("Project status (e.g., active, on_hold, completed)"),
@@ -335,7 +349,7 @@ export const createClientMeetingInputSchema = z.object({
   location_type: locationTypeSchema.optional().default("google-meet").describe("How meeting will be held - defaults to 'google-meet'"),
   meeting_url: z.string().url().optional().describe("Meeting URL if virtual"),
   description: z.string().max(2000).optional(),
-  work_id: uuidSchema.optional().describe("Work/project ID to link this meeting to"),
+  work_id: optionalUuidSchema.describe("Work/project ID to link this meeting to"),
 });
 
 // ============================================================================
@@ -377,9 +391,9 @@ export const createBillingInputSchema = z.object({
   due_at: z.string().optional().describe("Due date (ISO format)"),
   issued_at: z.string().optional().describe("Issue date (ISO format)"),
   paid_at: z.string().optional().describe("Payment date (ISO format)"),
-  person_id: uuidSchema.optional().describe("Link to a person"),
-  organization_id: uuidSchema.optional().describe("Link to an organization"),
-  work_id: uuidSchema.optional().describe("Link to a work/project"),
+  person_id: optionalUuidSchema.describe("Link to a person"),
+  organization_id: optionalUuidSchema.describe("Link to an organization"),
+  work_id: optionalUuidSchema.describe("Link to a work/project"),
   tags: z.array(z.string()).optional().describe("Tags for categorization"),
 });
 
@@ -455,8 +469,8 @@ export const createFileInputSchema = z.object({
   currency: z.string().optional().describe("Currency code"),
   shared_with_client: z.boolean().optional().describe("Whether shared with client"),
   is_operator_asset: z.boolean().optional().default(false).describe("Whether this is an operator asset (branding, templates)"),
-  person_id: uuidSchema.optional().describe("Link to a person"),
-  organization_id: uuidSchema.optional().describe("Link to an organization"),
+  person_id: optionalUuidSchema.describe("Link to a person"),
+  organization_id: optionalUuidSchema.describe("Link to an organization"),
 });
 
 export const updateFileInputSchema = z.object({
@@ -642,6 +656,14 @@ export const SYSTEM_PLAY_TOOL_SPECS: SystemPlayToolSpec[] = [
     description:
       "Search organizations in Memory by name or domain. Always use this before creating or linking an org to get the correct org_id.",
     schema: findOrgsInputSchema,
+    risk: "read",
+    needsApproval: false,
+  },
+  {
+    toolName: "memory_find_work",
+    description:
+      "Search work/projects in Memory by name. Always use this before creating or updating work to get the correct work_id and check for duplicates.",
+    schema: findWorkInputSchema,
     risk: "read",
     needsApproval: false,
   },
@@ -1007,7 +1029,7 @@ export const SYSTEM_PLAY_TOOL_SPECS: SystemPlayToolSpec[] = [
 ];
 
 /** Lookup tools are separate from play slugs — keyed by toolName. */
-export const LOOKUP_TOOL_NAMES = ["memory_find_people", "memory_find_orgs", "memory_find_meetings", "memory_find_billing", "memory_find_files", "memory_find_me_facts", "memory_find_tags"] as const;
+export const LOOKUP_TOOL_NAMES = ["memory_find_people", "memory_find_orgs", "memory_find_work", "memory_find_meetings", "memory_find_billing", "memory_find_files", "memory_find_me_facts", "memory_find_tags"] as const;
 
 export function getSystemPlayToolSpecByName(
   toolName: string,

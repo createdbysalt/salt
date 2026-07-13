@@ -1,343 +1,263 @@
 ---
 name: playbook-creator
 description: >-
-  Author, evaluate, and improve Salt playbooks. Use whenever creating or
-  editing a playbook.md, writing PlayDefinition steps, authoring profile
-  fill_rules, adding evals.json, improving trigger/when_to_use, calibrating
-  confidence, choosing model slots, or making a playbook comprehensive enough
-  to own its operational domain. This skill should trigger even when the user
-  says "recipe", "automation", "keeper", "play", "rules", "workflow", or asks
-  how Salt should do something reliably.
+  Author, validate, and edit Salt playbooks (v2 YAML format). Use whenever
+  creating or editing playbook YAML files, adding triggers, writing steps,
+  or configuring system playbooks. This skill should trigger when the user
+  says "playbook", "recipe", "automation", "play", "workflow", or asks
+  how Salt should handle something automatically.
 disable-model-invocation: true
 ---
 
-# Playbook Creator
+# Playbook Creator (v2)
 
-This is Salt's skill-creator-style authoring engine for playbooks. Its job is not one-shot generation. Its job is to help produce playbooks that are comprehensive, validated, benchmarked, and good enough that Salt can trust them.
+Salt playbooks are YAML files that define automated workflows. They live in `app/_features/plays/playbooks/v2/` organized by section.
 
-A good playbook owns its operational domain:
+## Directory Structure
 
-- **Knowledge** - what entity/workflow it touches and what facts matter.
-- **Policy** - when to create, update, apply, wait, skip, or ask.
-- **Procedure** - how it turns inputs into a result.
-- **Resources** - references, scripts, and assets that prevent repeated guesswork.
-- **Proof** - evals and benchmark results.
-
-The typed Salt engine remains the safe primitive for schema validation, tool policy, RLS, and writes. The playbook owns the know-how; the engine executes safely.
-
-## Start Here
-
-First determine where the user is in the loop:
-
-1. **Intent capture** - they know the outcome but not the artifact.
-2. **Drafting** - they need `playbook.md`, JSON, and evals.
-3. **Improvement** - they have a playbook that feels thin or fails.
-4. **Benchmarking** - they need validation and pass-rate.
-5. **Trigger tuning** - the playbook exists but fires at the wrong time.
-
-Do the next useful step. If the request is broad, start with intent capture and domain ownership. If the playbook already exists, read it first and evaluate against the rubric.
-
-## Read References As Needed
-
-Read these files instead of keeping everything in the main skill:
-
-- `references/quality.md` - the passing rubric and eval quality bar.
-- `references/domain-ownership.md` - how to make a playbook own its operational space.
-- `references/schema.md` - frontmatter, `PlayDefinition`, `fill_rules`, evals, and artifact shape.
-- `references/model-routing.md` - Salt-curated model slots and client-facing copy rules.
-- `references/context-scaling.md` - connected-tool and `/memory` retrieval budgets.
-- `references/examples.md` - strong vs weak examples.
-
-Use `scripts/validate.ts` and `scripts/benchmark.ts` after drafting or changing artifacts. Use `scripts/scaffold.ts` when starting a new playbook.
-
-## The Creator Loop
-
-Use this loop every time:
-
-1. **Capture intent**
-   - Outcome: what should Salt do?
-   - Trigger: when should it run or propose?
-   - Domain: what entity/workflow does it own?
-   - Approval boundary: what applies automatically vs waits?
-   - Value: what time, money, or risk does it improve?
-
-2. **Research the domain**
-   - Find the existing write path, entity fields, enums, validators, and UI surfaces.
-   - Identify which parts are safe engine primitives and which parts must be authored as playbook knowledge.
-   - For profile and records playbooks, identify lifecycle policy: admission, entity taxonomy, person-vs-organization distinction, system/scam exclusion, identity resolution, fields, signals, confidence policy, fallback behavior, and provenance.
-   - Define the context budget: relevant connected tools, `/memory` scope, Spaces/Connections scope, entity anchors, time windows, result limits, ranking, and degradation behavior.
-
-3. **Draft the artifact**
-   - Create or update `playbook.md`.
-   - Include complete frontmatter.
-   - Write full `procedure_md` sections, including mandatory `## How it works`.
-   - For records playbooks, include a Record Surface Ownership matrix that covers every visible and durable record surface.
-   - Add one valid `json` block: `PlayDefinition` for acting, `fill_rules` for profile.
-   - Add optional `references/`, `scripts/`, or `assets/` when they make the playbook more self-describing or repeatable.
-
-4. **Write evals prompts-first**
-   - Draft realistic cases before assertions.
-   - Cover the highest-risk path, a normal path, and a boundary/negative case.
-   - Then add objective, discriminating assertions.
-
-5. **Validate and benchmark**
-   - Run the validator.
-   - Run the benchmark.
-   - Treat failures as information about the playbook, not just tests to silence.
-
-6. **Improve**
-   - Generalize from failures.
-   - Keep the playbook lean.
-   - Explain the why instead of adding brittle rules.
-   - Bundle deterministic helpers when the same work repeats.
-   - Repeat until the rubric and benchmark are green.
-
-7. **Tune triggering**
-   - Strengthen `when_to_use` and `trigger`.
-   - Add realistic should-trigger and should-not-trigger examples when needed.
-
-## Required UI Coverage
-
-The playbook detail page renders mostly authored fields. The creator must populate them:
-
-- Hero name, description, kind, and player: frontmatter `name`, `description`, `kind`, `player_slug`.
-- Overview tab: `procedure_md`.
-- Sidebar "When it runs": `when_to_use` and `trigger`; include Spaces or Connections here when they scope when/where the playbook runs.
-- Sidebar "What it uses" / connected apps / hero chips: `required_actions` derived from tool slugs in the definition; include Spaces, Connections, and memory/context surfaces here when they provide context.
-- Rules tab for profile playbooks: `fill_rules`.
-- Advanced tab: optional `scripts/`, `references/`, `assets`, plus raw rules JSON.
-
-Sidebar items must earn their place:
-
-- **When it runs** should show the trigger, qualifying signal, schedule/threshold, elapsed-time/deadline rule, Space/Connection scope, or manual start condition. Keep it to 2-4 items.
-- **What it uses** should show sources that materially affect the decision/output: required tools, high-trust evidence, relevant `/memory` surfaces, Spaces/Connections, or bundled resources. Keep it to 3-6 grouped items.
-- Exclude anything that does not change when the playbook runs, what it decides, who approves it, or why the user should trust it.
-
-The creator must ensure `procedure_md` includes:
-
-```markdown
-# <Playbook Name>
-
-## What this does
-
-## When it runs
-
-## How it works
-
-## What you approve
+```
+playbooks/v2/
+├── relationships/           # People & Orgs
+│   ├── _section.yaml       # Section metadata
+│   ├── follow-up.yaml      # Individual playbook
+│   └── health.yaml
+├── work/                   # Projects & tasks
+├── billing/                # Invoices & payments
+├── files/                  # Documents
+├── meetings/               # Scheduled time
+├── me/                     # Operator profile
+└── _meta/                  # System playbooks (always-on)
+    ├── _section.yaml
+    ├── daily-briefing.yaml
+    ├── memory-records/     # Package-style playbook
+    │   ├── definition.yaml
+    │   ├── PLAYBOOK.md
+    │   └── scripts/
+    │       ├── index.ts
+    │       ├── run.ts      # Signal-driven upkeep
+    │       └── intake.ts   # Multi-entity intake
+    ├── notes.yaml          # Combined notes system playbook
+    └── connections.yaml    # Combined connections system playbook
 ```
 
-For profile playbooks, add:
+## Playbook Types
 
-```markdown
-## Workspace context
+| Type | Section | Layer | Toggle | Use Case |
+|------|---------|-------|--------|----------|
+| **Regular** | Any except `_meta` | `act` | User can toggle | User-facing automations |
+| **System** | `_meta` | `act` or `learn` | Always on | Core Salt behaviors |
+| **Package** | Any | Either | Depends | Complex playbooks with scripts |
+
+## YAML Schema
+
+```yaml
+# Required fields
+name: Invoice Reminder
+slug: invoice-reminder           # Auto-inferred from name if omitted
+version: 1.0.0
+description: Drafts payment reminders for overdue invoices
+
+section: billing                 # relationships|work|billing|files|meetings|me|_meta
+layer: act                       # learn (memory) | act (action)
+
+# Trigger (single)
+trigger:
+  type: signal                   # signal | schedule | manual
+  signal: billing_due_date_passed
+
+# OR Multiple triggers
+triggers:
+  - type: signal
+    signal: capture_processed
+  - type: schedule
+    cron: "0 2 * * 0"            # Weekly Sunday 2am
+
+# Action playbooks require voice
+voice: billing                   # billing | follow-up | brief
+
+# Steps define the workflow
+steps:
+  - step: fetch
+    id: overdue_invoices
+    from: billing.read_invoices
+    where: { status: overdue }
+
+  - step: classify
+    id: tone
+    input: overdue_invoices      # Reference a fetch step
+    rules:
+      - if: "payment_history.on_time >= 3"
+        then: gentle
+    else: professional
+
+  - step: draft
+    id: reminder_email
+    prompt: |
+      Draft a {{tone}} payment reminder.
+    max_tokens: 200
+
+  - step: action
+    tool: send_email_draft
+    args:
+      to: "{{invoice.billing_email}}"
+      subject: "Payment reminder"
+      body: "{{reminder_email}}"
+    needsApproval: true
+
+output:
+  type: email_draft              # email_draft|notification|memory_update|finding|briefing
+  approval: per_entity           # none|per_entity|batch
+
+value:
+  kind: invoice_collected
+  estimate: 50
 ```
 
-For records-style playbooks, also include:
+## Step Types
 
-```markdown
-## Record lifecycle
+| Step | Purpose | Required Fields |
+|------|---------|-----------------|
+| `fetch` | Query data | `id`, `from`, `where?`, `select?`, `limit?` |
+| `classify` | Route with rules | `id`, `input` or `forEach`, `rules`, `else?` |
+| `draft` | Generate text | `id`, `prompt`, `max_tokens?` |
+| `action` | Call a tool | `tool`, `args?`, `needsApproval?` |
+| `branch` | Conditional routing | `if?`, `switch?`, `cases?`, `goto?` |
+| `forEach` | Loop over list | `id`, `over`, `steps` |
+| `compute` | Calculate value | `id`, `value` |
+| `label` | Jump target | `id` |
+| `goto` | Jump to label | `target` |
+
+## Layer Rules
+
+| Layer | Voice | Policy | Steps | Output |
+|-------|-------|--------|-------|--------|
+| `learn` | Forbidden | Required | Optional | `memory_update` |
+| `act` | Required | Optional | Required | Any |
+
+## Creating a New Playbook
+
+1. **Choose section**: Where does this belong? (`billing`, `relationships`, `_meta`, etc.)
+
+2. **Choose layer**:
+   - `learn` for memory/profile updates (keeper-style)
+   - `act` for workflows that produce user-facing output
+
+3. **Define trigger**:
+   - `signal`: Fires on entity events (see signal registry)
+   - `schedule`: Cron expression for periodic runs
+   - `manual`: User-initiated only
+
+4. **Write steps**: Start with `fetch`, then `classify`/`branch`, then `draft`/`action`
+
+5. **Test**: Restart dev server, check `/plays?tab=customize`
+
+## Signal Registry
+
+Valid signals are defined in:
+- `app/_lib/learning/signals.ts` - CAPTURE_SIGNAL_DESCRIPTIONS
+- `app/_features/plays/playbooks/records-engine/types.ts` - CAPTURE_SIGNAL_KEYS
+
+Common signals:
+```
+person_created, person_updated, person_no_contact_30_days
+org_created, org_updated
+work_created, work_updated, work_is_blocked
+billing_created, billing_due_date_passed, billing_payment_matched
+meeting_created, meeting_end_passed
+capture_email_received, capture_email_sent, capture_processed
+connection_inferred, relationship_at_risk
 ```
 
-If `## How it works` is missing or vague, the playbook is not complete. It should explain inputs/signals, admission, entity classification, identity resolution, derivation, decision order, confidence, fallback, conflicts, and provenance in user-facing language.
+## System Playbooks
 
-## Context Scaling
+System playbooks in `_meta/` are always-on and cannot be toggled by users.
 
-Playbooks must scale as users connect more tools and accumulate more `/memory`. Never author a playbook that assumes Salt can load every connected account or every memory record into context.
+Current system playbooks:
+- **Memory Records**: Signal-driven field upkeep + multi-entity intake
+- **Daily Briefing**: Morning summary
+- **Notes**: Detect + create notes from signals, archive stale, merge duplicates
+- **Connections**: Infer relationships from signals, monitor health
 
-Each playbook should define:
-
-- relevant tool families and the canonical signals they provide,
-- optional vs required sources,
-- `/memory` surfaces to retrieve from: people, orgs, work, files, billing, conversations, meetings, teams, and me,
-- Spaces and Connections when they scope triggers, visibility, approvals, or relationship context,
-- entity anchors such as person, organization, work item, file, invoice, conversation, meeting, team, or user/workspace profile,
-- time triggers such as schedules, deadlines, elapsed time, quiet periods, and staleness thresholds,
-- time windows and max records per source,
-- ranking when too many records match,
-- degradation when tools or memory are missing,
-- conflict policy when durable memory disagrees with connected-tool evidence.
-
-When this matters, add a `## Context Budget` section to the playbook's domain reference. Read `references/context-scaling.md` for the template.
-
-### Evidence Groups vs App-Specific Plays
-
-Default to capability groups in user-facing playbooks:
-
-- communication sources, not Gmail,
-- finance sources, not Stripe/Square,
-- billing sources, not QuickBooks,
-- scheduling sources, not Google Calendar,
-- documents/files, not Drive/Dropbox/Notion, unless the specific app changes the behavior.
-
-Name an app only when the playbook is explicitly about that app's native object model, permissions, actions, or user intent. Examples: "create a Stripe invoice", "sync a Notion database", "draft in Gmail", or "classify QuickBooks customers" can name the app. "A payment exists", "an invoice exists", "a reply thread exists", or "a contract file exists" should stay at the evidence-group level.
-
-If a playbook names a specific app, document why the app matters in `## Context Budget`: required app, fallback sources, missing-app degradation, and whether equivalent apps can provide the same canonical signal.
-
-## Acting Playbooks
-
-Use `kind: acting` when the playbook fetches, reasons, renders, or acts.
-
-The JSON block must be a `PlayDefinition`:
-
-- 1-10 linear steps.
-- `fetch` steps read only.
-- `guard` steps fail closed.
-- `llm` steps contain bounded judgment or copy.
-- `render` steps format deterministic output.
-- `act` steps use allowlisted non-destructive tools; mutating acts pair with approval.
-
-Use `copyClientFacing` for text that may leave Salt. Use `playPersonalize` for internal summaries, extraction, classification, or scratch copy.
-
-## Profile Playbooks
-
-Use `kind: profile` when the playbook keeps records accurate.
-
-The JSON block must be a `fill_rules` document for the fields the current engine can write. The playbook must still document the larger records policy even when the engine only supports a smaller write scope.
-
-Every records-style profile playbook must define these layers:
-
-1. **Admission** - what qualifies to become a durable record, what is skipped, and what waits for review.
-2. **Entity taxonomy** - how Salt distinguishes a person from an organization, team inbox, system sender, source artifact, scam/spam, newsletter, or generic alias.
-3. **Identity resolution** - when to update an existing record, suggest a merge, create a new record, or refuse to merge.
-4. **Relationship or status classification** - how Salt labels the record once admitted.
-5. **Record Surface Ownership** - every durable record surface labeled as write, suggest, read-only, or never-touch.
-6. **Field completion** - how each visible section is filled, which sources are trusted, and which fields need review.
-7. **Negative examples** - examples that must not create or update a record.
-
-For records playbooks, default to auto-apply above the configured threshold for low-risk writable surfaces. Exceptions always wait for review even when evidence is strong:
-
-- merges and identity unification,
-- organization reassignment when a different organization is already set,
-- archive, restore, inactive/active, or other high-impact record status changes,
-- overwrites of user-authored content,
-- subjective or client-facing summaries/notes.
-
-Activity and audit history are a hard never-touch boundary. A records playbook may read activity, capture events, routing decisions, tool execution logs, finding history, and provenance history as evidence. It must not rewrite, delete, mutate, or re-state those historical events as if the event itself changed.
-
-Current People Records policy owns the full durable person record, but the executable engine writes only the supported subset:
-
-- `relationship_type`
-- `title`
-- `org_link`
-
-For each rule:
-
-- Use a stable `id`.
-- Pick one field.
-- Choose one signal condition.
-- Set one value.
-- Calibrate confidence against the default 85 auto-apply threshold.
-- Write a short `because` line a user can understand.
-
-Threshold mechanics are fixed regardless of the configured number:
-
-```text
-confidence >= autoApplyThreshold -> applied
-confidence < autoApplyThreshold -> pending review
+System playbooks can have **multiple triggers** using the `triggers` array:
+```yaml
+triggers:
+  - type: signal
+    signal: capture_processed     # Intake on signals
+  - type: schedule
+    cron: "0 6 * * 1"             # Health check weekly
 ```
 
-Equality passes. A rule at `85` applies when the threshold is `85`; the same rule waits when the threshold is `90`. Fallback inference uses the same comparison (`70` or `40` confidence). The threshold changes only `applied` vs `pending`; it does not change which rule matched, what value was selected, evidence, provenance, safety, or approval boundaries.
+Use `branch` at the start to route by trigger type:
+```yaml
+steps:
+  - step: branch
+    id: route_trigger
+    switch: trigger.type
+    cases:
+      signal: { goto: intake_flow }
+      schedule: { goto: health_flow }
+```
 
-Every profile playbook should include threshold eval cases for below, equal, and above the configured threshold.
+## Package-Style Playbooks
 
-Every records-style profile playbook should also include admission/entity negative cases in its domain reference and eval plan, even if today's typed runner can only benchmark supported field writes. It may claim full record ownership as policy only when it includes a surface-by-surface ownership matrix and an executable-boundary note that says which surfaces the current engine can actually write.
+For complex playbooks with TypeScript logic:
 
-## Evals
+```
+memory-records/
+├── definition.yaml      # Playbook definition
+├── PLAYBOOK.md          # Documentation
+├── tools.yaml           # Tool declarations (optional)
+├── references/          # Domain docs (optional)
+└── scripts/
+    ├── index.ts         # Re-exports
+    ├── run.ts           # Signal-driven execution
+    └── intake.ts        # Parsing/orchestration logic
+```
 
-Create `evals.json` for every non-trivial playbook.
+Scripts can be imported by Ask Salt or other consumers:
+```typescript
+import { parseIntakeRequest } from "@/app/_features/plays/playbooks/v2/_meta/memory-records/scripts";
+```
 
-Good evals:
+## Validation
 
-- Use realistic input.
-- Check meaningful behavior.
-- Fail when the playbook is lazy, vague, or unsafe.
-- Include a normal case, a boundary case, and a negative/review case when possible.
-- For records playbooks, cover at least one should-create/update case, one should-skip case, one person-vs-organization or system-sender case, and one dedupe/merge boundary in the eval plan. If the current runner cannot execute that layer yet, capture it in the domain reference as a required future benchmark.
+Playbooks are validated at discovery time via Zod schemas:
+- `schema/v2/schema.ts` - Zod schemas
+- `schema/v2/parser.ts` - YAML parsing + validation
+- `schema/v2/discovery.ts` - Filesystem discovery
 
-Avoid assertions that only prove something exists. Prefer final field values, rendered content, guard behavior, or action boundaries.
+Validation errors show in dev server console. Fix all errors before committing.
 
-For acting playbooks with `llm` steps, add `llmOutputs` in `evals.json` keyed by the step `bind`, then assert against rendered output. Do not count a prompt-echo from the default LLM stub as proof of behavior.
+## UI Display
 
-## Validation Commands
+Playbooks appear in `/plays?tab=customize`:
+- Regular playbooks: Toggle on/off, show step count
+- System playbooks: "Always on" badge, no step count
 
-From the repo root:
+## Quick Reference
 
 ```bash
-pnpm exec tsx .cursor/skills/playbook-creator/scripts/validate.ts <slug-or-path>
-pnpm exec tsx .cursor/skills/playbook-creator/scripts/benchmark.ts <slug-or-path>
+# Check playbook discovery
+grep "PLAYBOOK DISCOVERY" in dev server output
+
+# Validate signals
+grep "CAPTURE_SIGNAL_KEYS" app/_features/plays/playbooks/records-engine/types.ts
+
+# Run intake tests
+pnpm test playbooks/v2/_meta/memory-records/scripts/intake.test.ts
 ```
 
-For all authored playbooks:
+## Checklist
 
-```bash
-pnpm playbooks:bench
-```
+Before committing a new playbook:
 
-## Scaffolding
-
-For a new playbook:
-
-```bash
-pnpm exec tsx .cursor/skills/playbook-creator/scripts/scaffold.ts <slug> --kind acting --player brief
-pnpm exec tsx .cursor/skills/playbook-creator/scripts/scaffold.ts <slug> --kind profile --player keeper
-```
-
-Scaffolded files are starters only. They do not pass the rubric until the domain reference, `How it works`, JSON, evals, and benchmark are complete.
-
-## Player Context vs Playbook References
-
-Domain knowledge lives in TWO places:
-
-| Location | Scope | Examples |
-|----------|-------|----------|
-| **Player context** (`player_context` table) | Shared across ALL playbooks for that player | Industry terms, tone preferences, workflow preferences, common entities |
-| **Playbook `references/`** | Specific to ONE playbook | Playbook-specific examples, edge-case handling, specialized domain rules |
-
-**Rule of three:** If the same knowledge would appear in 3+ playbooks for the same player, move it to player context.
-
-Player context is edited in **Plays → Customize → Players** and injected into every LLM step for that player's playbooks.
-
-When creating a playbook:
-1. Check if the player already has context that covers this domain knowledge
-2. If domain knowledge is shared, don't duplicate it in `references/domain.md`
-3. If domain knowledge is playbook-specific, put it in `references/`
-
-## Signal Registry and Trigger Validation
-
-Trigger signals must be registry-bounded. When authoring `trigger.signal`, use only keys from the signal registry:
-
-- `app/_features/plays/playbooks/signal-registry.ts` - canonical signal definitions
-- `app/_features/plays/playbooks/records-engine/types.ts` - signal key enums
-
-Invalid signal keys fail at compile time. To see available signals:
-
-```bash
-grep -h "SIGNAL_KEYS" app/_features/plays/playbooks/records-engine/types.ts
-```
-
-Acting-capable signals (can trigger acting playbooks, not just keeper):
-- `has_payment_received`, `has_invoice_sent`, `person_no_contact_30_days`
-- `work_created`, `work_has_signed_contract`, `work_is_blocked`
-- `billing_due_date_passed`, `meeting_end_passed`
-- `file_signature_event_*`
-
-## Review Checklist
-
-Before calling a playbook done:
-
-- Does it validate?
-- Does it benchmark green?
-- Does `## How it works` explain the real mechanism?
-- Does it own the domain knowledge instead of depending on hidden code?
-- For records playbooks, does it define admission, entity taxonomy, identity resolution, skip rules, Record Surface Ownership, and field completion?
-- For records playbooks, does it mark Activity and audit history as never-touch evidence?
-- Does it have a bounded connected-tool, `/memory`, Spaces, and Connections context strategy?
-- Are triggers specific enough?
-- Are approval boundaries clear?
-- Are model slots routed by stakes?
-- Are confidence scores calibrated?
-- Are eval assertions discriminating?
-- Are optional resources present when they reduce repeated work?
-
-If the answer to any item is no, improve the playbook and rerun the loop.
+- [ ] Valid YAML syntax
+- [ ] Valid section (`relationships`, `work`, `billing`, `files`, `meetings`, `me`, `_meta`)
+- [ ] Valid layer (`learn` or `act`)
+- [ ] Valid trigger signal (in signal registry)
+- [ ] Voice specified for `act` layer playbooks
+- [ ] All step IDs unique
+- [ ] All step references valid (forEach references existing fetch)
+- [ ] Output type valid (`email_draft`, `notification`, `memory_update`, `finding`, `briefing`)
+- [ ] No discovery errors in dev server
+- [ ] Shows in UI at `/plays?tab=customize`

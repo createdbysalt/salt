@@ -362,6 +362,10 @@ export interface StreamCaptureSummary {
   finding_id?: string | null;
   /** Deep link to the source message (Gmail thread when available). */
   source_url?: string | null;
+  /** Sender label (e.g., "Jane Doe" or "jane@example.com"). */
+  from_label?: string | null;
+  /** Content preview/snippet. */
+  body_preview?: string | null;
 }
 
 // ============================================================================

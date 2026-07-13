@@ -62,7 +62,7 @@ function buildDisplaySteps(parts: ToolLikePart[]): DisplayStep[] {
   const steps: DisplayStep[] = [];
 
   for (const part of parts) {
-    const label = formatToolStepLabel(toolPartName(part), part.input);
+    const label = formatToolStepLabel(toolPartName(part), part.input, part.output);
     const state = effectiveState(part);
     const last = steps[steps.length - 1];
     const canMerge =

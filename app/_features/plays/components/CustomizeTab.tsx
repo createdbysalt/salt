@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { cn } from "@repo/utils";
 import type {
@@ -16,8 +16,6 @@ import { ConnectorsBrowsePane } from "@/app/_features/connectors/components/deta
 import { ConnectorDetailPane } from "@/app/_features/connectors/components/detail/ConnectorDetailPane";
 import { ConnectorDetailPaneSkeleton } from "@/app/_features/connectors/components/detail/ConnectorDetailPaneSkeleton";
 import type { PlaybookBlueprintView, PlayTemplateView } from "@/app/_features/plays/types";
-import type { PlayerContextRow } from "@/app/_features/plays/players/queries";
-import type { PlayerSlug } from "@/app/_features/plays/players/capabilities";
 import {
   buildPlaysCustomizePath,
   syncPlaysCustomizeUrl,
@@ -27,8 +25,9 @@ import {
   type CustomizeSection,
 } from "./CustomizeSectionToggle";
 import { PlaybookTab } from "./PlaybookTab";
-import { PlayersSection } from "./PlayersSection";
+import { PlaybookTabV2 } from "./PlaybookTabV2";
 import { PlaysSectionHeader } from "./PlaysSectionHeader";
+import type { PlaybookV2QueryResult } from "@/app/_features/plays/playbooks/queries-v2";
 
 /**
  * Customize Tab
@@ -45,9 +44,6 @@ function parseCustomizeSection(value: string | null): CustomizeSection {
   if (value === "connectors") {
     return "connectors";
   }
-  if (value === "players") {
-    return "players";
-  }
   return "playbooks";
 }
 
@@ -59,7 +55,7 @@ const sectionHeaders: Record<
     eyebrow: "Reusable tactics",
     title: "Playbooks",
     description:
-      "The library of moves Salt runs on your behalf. Each playbook is owned by a player and tuned to your preferences.",
+      "The library of moves Salt runs on your behalf. Organized by section and tuned to your preferences.",
   },
   connectors: {
     eyebrow: "Account access",
@@ -67,19 +63,13 @@ const sectionHeaders: Record<
     description:
       "Connect the accounts Salt reads from. Salt asks before sending messages or running Plays.",
   },
-  players: {
-    eyebrow: "Domain experts",
-    title: "Players",
-    description:
-      "Each player specializes in a domain. Teach them your preferences and they'll apply that knowledge across all their playbooks.",
-  },
 };
 
 interface CustomizeTabProps {
   connectors: ConnectorsPageData;
   blueprints: PlaybookBlueprintView[];
   adoptedTemplates: PlayTemplateView[];
-  playerContexts: Record<PlayerSlug, PlayerContextRow | null>;
+  playbooksV2: PlaybookV2QueryResult | null;
   workspaceId: string;
   onBlueprintAdopted?: () => void;
   keeperUnseenCount?: number;
@@ -89,12 +79,13 @@ export function CustomizeTab({
   connectors,
   blueprints,
   adoptedTemplates,
-  playerContexts,
-  workspaceId,
+  playbooksV2,
+  workspaceId: _workspaceId,
   onBlueprintAdopted,
-  keeperUnseenCount,
+  keeperUnseenCount: _keeperUnseenCount,
 }: CustomizeTabProps) {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [connectorsData, setConnectorsData] = useState(connectors);
 
   useEffect(() => {
@@ -137,6 +128,14 @@ export function CustomizeTab({
   const [toolGroups, setToolGroups] =
     useState<ConnectorCapabilityGroups | null>(null);
   const [toolsLoading, setToolsLoading] = useState(false);
+
+  // Legacy customize=voices/players URLs now live under Me → Voice.
+  useEffect(() => {
+    const customize = searchParams.get("customize");
+    if (customize === "voices" || customize === "players") {
+      router.replace("/me?tab=voice");
+    }
+  }, [router, searchParams]);
 
   // Keep local state in sync with the URL (deep link, browser back/forward).
   useEffect(() => {
@@ -225,32 +224,38 @@ export function CustomizeTab({
           title={header.title}
           description={header.description}
         />
-        <CustomizeSectionToggle active={section} onChange={handleSectionChange} />
+        <CustomizeSectionToggle
+          active={section}
+          onChange={handleSectionChange}
+        />
       </div>
 
-      {section === "playbooks" ? (
+      {section === "playbooks" && (
         <motion.div
           key="playbooks"
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2 }}
         >
-          <PlaybookTab
-            blueprints={blueprints}
-            adoptedTemplates={adoptedTemplates}
-            onBlueprintAdopted={onBlueprintAdopted}
-          />
+          {playbooksV2 && playbooksV2.playbooks.length > 0 ? (
+            <PlaybookTabV2
+              playbooks={playbooksV2.playbooks}
+              counts={{
+                total: playbooksV2.counts.total,
+                bySection: playbooksV2.counts.bySection,
+              }}
+            />
+          ) : (
+            <PlaybookTab
+              blueprints={blueprints}
+              adoptedTemplates={adoptedTemplates}
+              onBlueprintAdopted={onBlueprintAdopted}
+            />
+          )}
         </motion.div>
-      ) : section === "players" ? (
-        <motion.div
-          key="players"
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.2 }}
-        >
-          <PlayersSection blueprints={blueprints} keeperUnseenCount={keeperUnseenCount} />
-        </motion.div>
-      ) : (
+      )}
+
+      {section === "connectors" && (
         // Master-detail: persistent rail (search + connected + available) on
         // the left, browse grid or the selected connector's detail on the right.
         <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[14rem_minmax(0,1fr)] lg:gap-8">
@@ -278,6 +283,7 @@ export function CustomizeTab({
           </motion.div>
         </div>
       )}
+
     </div>
   );
 }

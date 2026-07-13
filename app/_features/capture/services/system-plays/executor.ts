@@ -10,9 +10,13 @@ import "server-only";
  * - Links: link, unlink (simple add/remove)
  *
  * All operations are workspace-scoped and audit-logged.
+ *
+ * Watch expressions (Captures V2 Phase 3):
+ * When a Person/Org is created, register their identifiers for continuous awareness.
  */
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import { registerWatchExpressions } from "../watch-expressions";
 import { reportError } from "@/app/_lib/errors";
 import { evaluateWorkProfileFields, WORK_PROFILE_SLUG } from "@/app/_features/plays/playbooks/records-engine/apply-work-profile";
 import { loadProfilePlaybook } from "@/app/_features/plays/playbooks/records-engine/load-profile-playbook";
@@ -348,6 +352,16 @@ async function createPerson(
 
   await logActivity(admin, workspaceId, "created", "Person created", input.name, actorUserId);
 
+  registerWatchExpressions({
+    workspaceId,
+    targetSurface: "people",
+    targetEntityId: data.id,
+    emails: email ? [email] : undefined,
+    phones: input.phone ? [input.phone] : undefined,
+  }).catch((err) => {
+    console.warn("[system-plays] Watch expression registration failed:", err);
+  });
+
   return {
     success: true,
     entity_id: data.id,
@@ -494,6 +508,15 @@ async function createOrg(
   }
 
   await logActivity(admin, workspaceId, "created", "Org created", input.name, actorUserId);
+
+  registerWatchExpressions({
+    workspaceId,
+    targetSurface: "organizations",
+    targetEntityId: data.id,
+    domains: domain ? [domain] : undefined,
+  }).catch((err) => {
+    console.warn("[system-plays] Watch expression registration failed:", err);
+  });
 
   return {
     success: true,

@@ -3,6 +3,7 @@
 import { AccountSection } from "./sections/AccountSection"
 import { NotificationsSection } from "./sections/NotificationsSection"
 import { BillingSection } from "./sections/BillingSection"
+import { CaptureSection } from "./sections/CaptureSection"
 import { MemorySection } from "./sections/MemorySection"
 import { PlaysSection } from "./sections/PlaysSection"
 import { SettingsPage } from "./SettingsPage"
@@ -160,7 +161,8 @@ export function SettingsPageClient({ section, workspaceId, user, notificationPre
       )}
       {section === "memory" && <MemorySection />}
       {section === "plays" && <PlaysSection workspaceId={workspaceId} />}
-      {["privacy", "usage", "business", "capture"].includes(section) && (
+      {section === "capture" && <CaptureSection workspaceId={workspaceId} />}
+      {["privacy", "usage", "business"].includes(section) && (
         <PlaceholderSettingsSection section={section} />
       )}
 

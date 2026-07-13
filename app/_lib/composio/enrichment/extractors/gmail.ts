@@ -1,12 +1,57 @@
-import type { ConnectorCategory, ExtractorResult } from "../types";
+import type { ConnectorCategory, EnrichmentSeed, ExtractorResult } from "../types";
 import type { Extractor, ExtractorContext } from "./base";
 import { emptyResult } from "./base";
 import { getConnectionStatus } from "../../connections";
 import { fetchGmailMessagesPage, getGmailMessage } from "../../actions";
 import type { GmailMessage } from "../../types";
+import {
+  extractMessageIdFromRow,
+  extractSenderFromRow,
+  extractSubjectFromRow,
+  extractRecipientsFromRow,
+  extractEmailFromHeader,
+  headerMatchesTarget,
+} from "../../parsers/gmail-rows";
 
 const GMAIL_SEARCH_LIMIT = 10;
 const GMAIL_FULL_FETCH_LIMIT = 3;
+
+export function buildGmailPersonSearchQuery(seed: Pick<EnrichmentSeed, "email" | "name">): string | null {
+  if (seed.email?.trim()) {
+    const email = seed.email.trim();
+    return `from:${email} OR to:${email}`;
+  }
+
+  if (seed.name?.trim()) {
+    const quoted = `"${seed.name.trim()}"`;
+    return `from:${quoted} OR to:${quoted} OR ${quoted}`;
+  }
+
+  return null;
+}
+
+export const extractMessageIdFromGmailRow = extractMessageIdFromRow;
+export const extractSenderFromGmailRow = extractSenderFromRow;
+export const extractSubjectFromGmailRow = extractSubjectFromRow;
+export const messageFromHeaderMatchesTarget = headerMatchesTarget;
+
+function gmailRowMatchesTarget(
+  row: unknown,
+  target: Pick<EnrichmentSeed, "email" | "name">,
+): boolean {
+  const sender = extractSenderFromRow(row);
+  if (sender && headerMatchesTarget(sender, target)) {
+    return true;
+  }
+
+  for (const participant of extractRecipientsFromRow(row)) {
+    if (headerMatchesTarget(participant, target)) {
+      return true;
+    }
+  }
+
+  return false;
+}
 
 export const gmailExtractor: Extractor = {
   category: "email" as ConnectorCategory,
@@ -14,35 +59,41 @@ export const gmailExtractor: Extractor = {
 
   async extract(ctx: ExtractorContext): Promise<ExtractorResult> {
     const source = "gmail";
+    const query = buildGmailPersonSearchQuery(ctx.seed);
 
-    if (!ctx.seed.email) {
+    if (!query) {
       return emptyResult(source);
     }
 
     const connection = await getConnectionStatus("gmail", ctx.workspaceId);
     if (!connection.connected || !connection.composioConnectionId) {
+      console.log("[enrichment:gmail] Gmail not connected for workspace", ctx.workspaceId);
       return emptyResult(source);
     }
 
     try {
-      const query = `from:${ctx.seed.email} OR to:${ctx.seed.email}`;
       const page = await fetchGmailMessagesPage(
         { query, maxResults: GMAIL_SEARCH_LIMIT },
         connection.composioConnectionId,
         ctx.workspaceId,
-        { skipAuthCheck: true, workspaceId: ctx.workspaceId, unattended: true }
+        { skipAuthCheck: true, workspaceId: ctx.workspaceId, unattended: true },
       );
 
       if (!page.messages || page.messages.length === 0) {
+        console.log("[enrichment:gmail] No messages for query:", query);
         return emptyResult(source);
       }
 
+      console.log(
+        `[enrichment:gmail] Found ${page.messages.length} message(s) for query:`,
+        query,
+      );
+
+      const metadataExtraction = extractFromGmailMetadataRows(page.messages, ctx.seed);
+
       const messageIds = page.messages
         .slice(0, GMAIL_FULL_FETCH_LIMIT)
-        .map((m: unknown) => {
-          const msg = m as { id?: string; message_id?: string };
-          return msg.id ?? msg.message_id;
-        })
+        .map((row) => extractMessageIdFromGmailRow(row))
         .filter(Boolean) as string[];
 
       const fullMessages: GmailMessage[] = [];
@@ -52,26 +103,27 @@ export const gmailExtractor: Extractor = {
             messageId,
             connection.composioConnectionId,
             ctx.workspaceId,
-            { skipAuthCheck: true, workspaceId: ctx.workspaceId, unattended: true }
+            { skipAuthCheck: true, workspaceId: ctx.workspaceId, unattended: true },
           );
           if (msg) fullMessages.push(msg);
-        } catch {
-          // Skip failed message fetches
+        } catch (error) {
+          console.warn("[enrichment:gmail] Failed to hydrate message", messageId, error);
         }
       }
 
-      if (fullMessages.length === 0) {
-        return emptyResult(source);
-      }
+      const fullExtraction =
+        fullMessages.length > 0
+          ? extractFromGmailMessages(fullMessages, ctx.seed)
+          : { fields: {}, connections: {}, notes: [] as GmailExtraction["notes"] };
 
-      const extracted = extractFromGmailMessages(fullMessages, ctx.seed.email);
+      const merged = mergeGmailExtractions(metadataExtraction, fullExtraction);
 
       return {
         source,
-        fields: extracted.fields,
-        connections: extracted.connections,
-        notes: extracted.notes,
-        hasData: Object.keys(extracted.fields).length > 0 || extracted.notes.length > 0,
+        fields: merged.fields,
+        connections: merged.connections,
+        notes: merged.notes,
+        hasData: Object.keys(merged.fields).length > 0 || merged.notes.length > 0,
       };
     } catch (error) {
       console.error("[enrichment:gmail] Error extracting from Gmail:", error);
@@ -88,7 +140,87 @@ interface GmailExtraction {
   notes: Array<{ content: string; timestamp?: string }>;
 }
 
-function extractFromGmailMessages(messages: GmailMessage[], targetEmail: string): GmailExtraction {
+function mergeGmailExtractions(...extractions: GmailExtraction[]): GmailExtraction {
+  const merged: GmailExtraction = { fields: {}, connections: {}, notes: [] };
+
+  for (const extraction of extractions) {
+    for (const [key, field] of Object.entries(extraction.fields)) {
+      if (!merged.fields[key] || field.confidence > merged.fields[key].confidence) {
+        merged.fields[key] = field;
+      }
+    }
+
+    if (extraction.connections.orgs) {
+      merged.connections.orgs = [...(merged.connections.orgs ?? []), ...extraction.connections.orgs];
+    }
+
+    for (const note of extraction.notes) {
+      if (merged.notes.length >= 5) break;
+      if (!merged.notes.some((existing) => existing.content === note.content)) {
+        merged.notes.push(note);
+      }
+    }
+  }
+
+  return merged;
+}
+
+function applyHeaderExtraction(
+  fields: GmailExtraction["fields"],
+  headerValue: string,
+  target: Pick<EnrichmentSeed, "email" | "name">,
+): void {
+  const extractedEmail = extractEmailFromHeader(headerValue);
+  if (extractedEmail && !fields.email) {
+    fields.email = { value: extractedEmail, confidence: 0.95, raw: headerValue };
+  }
+
+  const nameMatch = headerValue.match(/^"?([^"<]+)"?\s*</);
+  if (nameMatch && !fields.name) {
+    const name = nameMatch[1].trim();
+    const emailForCompare = extractedEmail ?? target.email;
+    if (name && (!emailForCompare || name.toLowerCase() !== emailForCompare.split("@")[0])) {
+      fields.name = { value: name, confidence: 0.9, raw: headerValue };
+    }
+  }
+}
+
+function extractFromGmailMetadataRows(
+  rows: unknown[],
+  target: Pick<EnrichmentSeed, "email" | "name">,
+): GmailExtraction {
+  const fields: GmailExtraction["fields"] = {};
+  const notes: GmailExtraction["notes"] = [];
+
+  for (const row of rows) {
+    if (!gmailRowMatchesTarget(row, target)) {
+      continue;
+    }
+
+    const sender = extractSenderFromRow(row);
+    if (sender) {
+      applyHeaderExtraction(fields, sender, target);
+    }
+
+    for (const participant of extractRecipientsFromRow(row)) {
+      if (headerMatchesTarget(participant, target)) {
+        applyHeaderExtraction(fields, participant, target);
+      }
+    }
+
+    const subject = extractSubjectFromRow(row);
+    if (subject && notes.length < 5) {
+      notes.push({ content: `Email thread: "${subject}"` });
+    }
+  }
+
+  return { fields, connections: {}, notes };
+}
+
+function extractFromGmailMessages(
+  messages: GmailMessage[],
+  target: Pick<EnrichmentSeed, "email" | "name">,
+): GmailExtraction {
   const fields: GmailExtraction["fields"] = {};
   const orgs: Array<{ name: string; domain?: string }> = [];
   const notes: GmailExtraction["notes"] = [];
@@ -99,17 +231,12 @@ function extractFromGmailMessages(messages: GmailMessage[], targetEmail: string)
     const subject = headers.find((h) => h.name.toLowerCase() === "subject")?.value ?? "";
     const date = headers.find((h) => h.name.toLowerCase() === "date")?.value;
 
-    const isFromTarget = fromHeader.toLowerCase().includes(targetEmail.toLowerCase());
+    const isFromTarget = messageFromHeaderMatchesTarget(fromHeader, target);
 
     if (isFromTarget) {
-      const nameMatch = fromHeader.match(/^"?([^"<]+)"?\s*</);
-      if (nameMatch && !fields.name) {
-        const name = nameMatch[1].trim();
-        if (name && name !== targetEmail.split("@")[0]) {
-          fields.name = { value: name, confidence: 0.9, raw: fromHeader };
-        }
-      }
+      applyHeaderExtraction(fields, fromHeader, target);
 
+      const extractedEmail = fields.email?.value ?? target.email;
       const bodyText = extractBodyText(message);
       if (bodyText) {
         const signature = extractSignature(bodyText);
@@ -124,7 +251,7 @@ function extractFromGmailMessages(messages: GmailMessage[], targetEmail: string)
           }
           if (sigFields.organization && !fields.organization) {
             fields.organization = { value: sigFields.organization, confidence: 0.8, raw: signature };
-            const domain = targetEmail.split("@")[1];
+            const domain = typeof extractedEmail === "string" ? extractedEmail.split("@")[1] : undefined;
             if (domain && !domain.includes("gmail") && !domain.includes("yahoo") && !domain.includes("hotmail")) {
               orgs.push({ name: sigFields.organization, domain });
             }

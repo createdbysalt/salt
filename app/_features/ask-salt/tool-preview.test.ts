@@ -26,6 +26,34 @@ describe("generic executor previews (5.5.3)", () => {
     ).toBe("Run Notion create page");
   });
 
+  it("labels playbook steps with the playbook name", () => {
+    expect(formatToolStepLabel("load_playbook", { slug: "memory-records" })).toBe(
+      "Load Memory Records playbook",
+    );
+    expect(
+      formatToolStepLabel(
+        "load_playbook",
+        { slug: "memory-records" },
+        { found: true, name: "Memory Records" },
+      ),
+    ).toBe("Load Memory Records playbook");
+    expect(formatToolStepLabel("adopt_playbook", { slug: "reengage" })).toBe(
+      "Enable Reengage playbook",
+    );
+    expect(formatToolStepLabel("parse_intake", { slug: "memory-records" })).toBe(
+      "Parse intake (Memory Records)",
+    );
+    expect(
+      formatToolStepLabel("propose_play", {
+        slug: "reengage",
+        title: "Follow up with Dana",
+      }),
+    ).toBe("Queue play: Follow up with Dana");
+    expect(formatToolStepLabel("enrich_entity", { entity_type: "person", name: "Jane Example" })).toBe(
+      "Enrich Jane Example from connected apps",
+    );
+  });
+
   it("labels memory create and link steps with entity names", () => {
     expect(
       formatToolStepLabel("memory_create_work", { name: "Photon Website Redesign" }),

@@ -31,6 +31,8 @@ import type {
   ProfileProvenanceFeedItem,
   ProfileProvenanceStats,
 } from "./playbooks/records-engine/types";
+import { getPlaybookBySlug } from "./playbooks/schema/v2/discovery";
+import { getConnectorRegistry } from "@/app/_lib/composio/connector-registry";
 
 const DEFAULT_PLAYER_SLUG: PlayerSlug = "follow-up";
 
@@ -177,21 +179,37 @@ export async function listHqQueuePlays(): Promise<HqQueuePlayView[]> {
   );
 }
 
-export async function listActivityEntries(limit = 50): Promise<ActivityEntryRow[]> {
+export async function listActivityEntries(
+  offset = 0,
+  limit = 50,
+): Promise<{ entries: ActivityEntryRow[]; totalCount: number }> {
   const workspaceId = await getWorkspaceId();
   const supabase = await createClient();
 
-  const { data } = await supabase
-    .from("activity_entries")
-    .select(
-      "id, workspace_id, play_run_id, actor_user_id, action, title, detail, metadata, created_at",
-    )
-    .eq("workspace_id", workspaceId)
-    .order("created_at", { ascending: false })
-    .limit(limit);
+  const [{ data, error }, { count }] = await Promise.all([
+    supabase
+      .from("activity_entries")
+      .select(
+        "id, workspace_id, play_run_id, actor_user_id, action, title, detail, metadata, created_at",
+      )
+      .eq("workspace_id", workspaceId)
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1),
+    supabase
+      .from("activity_entries")
+      .select("id", { count: "exact", head: true })
+      .eq("workspace_id", workspaceId),
+  ]);
+
+  if (error) throw error;
 
   const rows = (data ?? []) as ActivityEntryRow[];
-  return enrichActivitySourceUrls(rows, workspaceId, supabase);
+  const enriched = await enrichActivitySourceUrls(rows, workspaceId, supabase);
+
+  return {
+    entries: enriched,
+    totalCount: count ?? 0,
+  };
 }
 
 function readMetadataString(
@@ -696,4 +714,52 @@ export async function listPlayers(): Promise<PlayerView[]> {
     description: (row.description as string | null) ?? null,
     isActive: Boolean(row.is_active),
   }));
+}
+
+export interface PlaybookConnectorStats {
+  connected: number;
+  required: number;
+  optional: number;
+}
+
+export async function getPlaybookConnectorStats(
+  playbookSlug: string
+): Promise<PlaybookConnectorStats> {
+  const parsed = getPlaybookBySlug(playbookSlug);
+  if (!parsed?.definition?.requirements?.categories) {
+    return { connected: 0, required: 0, optional: 0 };
+  }
+
+  const { required = [], optional = [] } = parsed.definition.requirements.categories;
+  const allCategories = new Set<string>([...required, ...optional]);
+
+  if (allCategories.size === 0) {
+    return { connected: 0, required: required.length, optional: optional.length };
+  }
+
+  const workspaceId = await getWorkspaceId();
+  const supabase = await createClient();
+  const registry = await getConnectorRegistry();
+
+  const { data: integrations } = await supabase
+    .from("workspace_integrations")
+    .select("provider, is_active, composio_connection_id")
+    .eq("workspace_id", workspaceId)
+    .eq("is_active", true)
+    .not("composio_connection_id", "is", null);
+
+  const connectedCategories = new Set<string>();
+  for (const integration of integrations ?? []) {
+    const provider = integration.provider as string;
+    const entry = registry.get(provider);
+    if (entry && allCategories.has(entry.category)) {
+      connectedCategories.add(entry.category);
+    }
+  }
+
+  return {
+    connected: connectedCategories.size,
+    required: required.length,
+    optional: optional.length,
+  };
 }

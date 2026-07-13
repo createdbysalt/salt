@@ -7,6 +7,8 @@ import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { nextStateForAction } from "./utils/play-state-machine";
 import { executePlayRun } from "./services/run-play";
 import { createRunPlayDeps } from "./services/run-play-deps";
+import { applyIntakePlayRun } from "./services/create-intake-play-run";
+import { dismissEvidence } from "@/app/_features/memory/evidence/actions";
 import { adoptPlaybookBlueprint } from "./playbooks/adopt-blueprint";
 import {
   approvePlaybookImprovementProposal,
@@ -213,6 +215,42 @@ export async function approvePlayRun(id: string): Promise<ActionResult<PlayRunRo
     }
   }
 
+  // Intake record path: create the Memory record from accumulated evidence
+  const metadata = run.metadata as { intake_record?: boolean } | null;
+  if (metadata?.intake_record) {
+    const intakeResult = await applyIntakePlayRun(id);
+    if (!intakeResult.ok) {
+      return {
+        ok: false,
+        errorCode: "INTAKE_FAILED",
+        message: intakeResult.error,
+      };
+    }
+
+    await logActivity({
+      workspaceId: workspace.id,
+      playRunId: id,
+      userId,
+      action: "ran",
+      title: run.title,
+      detail: `Created record: ${intakeResult.recordId}`,
+    });
+
+    revalidatePath("/hq");
+    revalidatePath("/plays");
+    revalidatePath("/people");
+    revalidatePath("/work");
+
+    // Reload the updated play run
+    const { data: updatedRun } = await supabase
+      .from("play_runs")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    return { ok: true, data: updatedRun as PlayRunRow };
+  }
+
   // Log-only completion (no compiled definition on this run's template).
   const { data, error } = await supabase
     .from("play_runs")
@@ -262,6 +300,15 @@ export async function dismissPlayRun(
       signalType: "dismissed",
       delta: { dismiss_reason: reason ?? null },
     });
+
+    // Dismiss underlying evidence for intake plays so it doesn't resurface
+    const metadata = existing.metadata as { intake_record?: boolean } | null;
+    if (metadata?.intake_record && existing.evidence_ids?.length) {
+      const evidenceId = existing.evidence_ids[0];
+      if (evidenceId) {
+        await dismissEvidence(evidenceId, reason ?? "Dismissed from Plays queue");
+      }
+    }
   }
 
   return result;
@@ -520,7 +567,7 @@ export async function applyKeeperPlayRun(
 
   const meta = run.metadata as Record<string, unknown> | null;
   if (!meta?.keeper_profile) {
-    return { success: false, error: "Not a Keeper profile play" };
+    return { success: false, error: "Not a Memory profile play" };
   }
 
   const personId = run.target_id as string | null;
@@ -603,7 +650,7 @@ export async function answerKeeperQuestionPlayRun(
 
   const meta = run.metadata as Record<string, unknown> | null;
   if (!meta?.keeper_question) {
-    return { success: false, error: "Not a Keeper question play" };
+    return { success: false, error: "Not a Memory question play" };
   }
 
   const personId = run.target_id as string | null;
@@ -910,5 +957,200 @@ export async function savePlayerContext(
   }
 
   revalidatePath("/plays");
+  return { success: true };
+}
+
+// ---------------------------------------------------------------------------
+// Play Feedback (LEARN → ACT → GROW)
+// ---------------------------------------------------------------------------
+
+export type PlayFeedback = "positive" | "negative";
+
+/**
+ * Submit feedback on an auto-handled play.
+ *
+ * Part of the GROW loop — feedback calibrates confidence thresholds over time.
+ * Negative feedback triggers playbook evolution analysis.
+ */
+export async function submitPlayFeedback(
+  playRunId: string,
+  feedback: PlayFeedback,
+): Promise<{ success: boolean; error?: string }> {
+  const { context } = await getTenantContext();
+  const workspace = requireWorkspaceMember(context);
+  const userId = context.userId;
+  if (!userId) {
+    return { success: false, error: "Sign in required" };
+  }
+
+  const supabase = await createClient();
+
+  const { data: run, error: fetchError } = await supabase
+    .from("play_runs")
+    .select("id, title, queue, stakes, confidence, metadata")
+    .eq("id", playRunId)
+    .eq("workspace_id", workspace.id)
+    .single();
+
+  if (fetchError || !run) {
+    return { success: false, error: fetchError?.message ?? "Play not found" };
+  }
+
+  const now = new Date().toISOString();
+  const { error: updateError } = await supabase
+    .from("play_runs")
+    .update({
+      user_feedback: feedback,
+      user_feedback_at: now,
+      updated_at: now,
+    })
+    .eq("id", playRunId)
+    .eq("workspace_id", workspace.id);
+
+  if (updateError) {
+    return { success: false, error: updateError.message };
+  }
+
+  await logActivity({
+    workspaceId: workspace.id,
+    playRunId,
+    userId,
+    action: "logged",
+    title: run.title as string,
+    detail: feedback === "positive" ? "Marked as helpful" : "Marked as unhelpful",
+  });
+
+  revalidatePath("/plays");
+  return { success: true };
+}
+
+// ============================================================================
+// Trust Layer Actions
+// ============================================================================
+
+export async function resolveConflictAction(input: {
+  conflictId: string;
+  resolutionValue: unknown;
+}): Promise<{ success: boolean; error?: string }> {
+  const { resolveConflict } = await import("@/app/_lib/memory-tools");
+
+  try {
+    await resolveConflict({
+      conflictId: input.conflictId,
+      resolvedBy: "user",
+      resolutionValue: input.resolutionValue,
+    });
+
+    revalidatePath("/plays/trust");
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+}
+
+// ============================================================================
+// Undo Actions
+// ============================================================================
+
+/**
+ * Undo an auto-applied action.
+ *
+ * This marks the play as dismissed and logs the undo action.
+ * For Memory profile updates, it also marks the provenance as reverted.
+ * The user can then manually correct the field if needed.
+ */
+export async function undoAutoAppliedAction(
+  activityEntryId: string,
+): Promise<{ success: boolean; error?: string }> {
+  const { context } = await getTenantContext();
+  const workspace = requireWorkspaceMember(context);
+  const userId = context.userId;
+  if (!userId) {
+    return { success: false, error: "Sign in required" };
+  }
+
+  const supabase = await createClient();
+
+  // Get the activity entry
+  const { data: entry, error: entryError } = await supabase
+    .from("activity_entries")
+    .select("id, play_run_id, action, title, metadata")
+    .eq("id", activityEntryId)
+    .eq("workspace_id", workspace.id)
+    .maybeSingle();
+
+  if (entryError || !entry) {
+    return { success: false, error: "Activity entry not found" };
+  }
+
+  // Check if this was an auto-applied action
+  const meta = entry.metadata as Record<string, unknown> | null;
+  if (entry.action !== "auto_applied" && meta?.auto_executed !== true) {
+    return { success: false, error: "This action cannot be undone — it was not auto-applied" };
+  }
+
+  const playRunId = entry.play_run_id;
+
+  // If there's an associated play run, mark it as dismissed
+  if (playRunId) {
+    const { error: updateError } = await supabase
+      .from("play_runs")
+      .update({
+        state: "dismissed",
+        dismissed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        metadata: {
+          ...(meta ?? {}),
+          undone_at: new Date().toISOString(),
+          undone_by: userId,
+        },
+      })
+      .eq("id", playRunId)
+      .eq("workspace_id", workspace.id);
+
+    if (updateError) {
+      return { success: false, error: updateError.message };
+    }
+
+    // If this was a keeper profile update, mark provenance as reverted
+    if (meta?.field && meta?.entity_id) {
+      const { createAdminClient } = await import("@/app/_lib/supabase/admin");
+      const admin = createAdminClient();
+
+      await admin
+        .from("profile_field_provenance")
+        .update({
+          status: "reverted",
+          evidence: {
+            reverted_at: new Date().toISOString(),
+            reverted_by: userId,
+          },
+        })
+        .eq("workspace_id", workspace.id)
+        .eq("entity_id", meta.entity_id as string)
+        .eq("field", meta.field as string)
+        .eq("status", "applied")
+        .order("set_at", { ascending: false })
+        .limit(1);
+    }
+  }
+
+  // Log the undo action
+  await logActivity({
+    workspaceId: workspace.id,
+    playRunId: playRunId ?? "",
+    userId,
+    action: "dismissed",
+    title: `Undid: ${entry.title}`,
+    detail: "You reverted this auto-applied action",
+    metadata: {
+      original_entry_id: activityEntryId,
+      original_action: entry.action,
+    },
+  });
+
+  revalidatePath("/plays");
+  revalidatePath("/hq");
+
   return { success: true };
 }

@@ -1,7 +1,121 @@
 import type { AskSaltContext } from "@/app/_features/shell/components/AskSaltPanel";
 import { playerById, type PlayerId } from "@/app/_lib/demo/plays-demo-data";
+import { getPlaybookBySlug } from "../playbooks/schema/v2/discovery";
+import {
+  SECTION_METADATA,
+  type PlaybookSection,
+  type PlaybookOutputType,
+  type PlaybookLayer,
+  type PlaybookApprovalMode,
+} from "../playbooks/schema/v2/types";
 import type { PlayRunRow } from "../types";
-import type { PlayCardViewModel, PlayCardKind } from "./types";
+import type { PlayCardViewModel, PlayCardKind, PlayCardErrorState } from "./types";
+
+/**
+ * V2 playbook resolution result.
+ * Contains all fields derivable from a v2 playbook definition.
+ */
+interface V2Resolution {
+  playbookSlug: string;
+  playbookName: string;
+  section: PlaybookSection;
+  sectionLabel: string;
+  layer: PlaybookLayer;
+  outputType: PlaybookOutputType;
+  approvalMode: PlaybookApprovalMode;
+  autoApplyThreshold: number | null;
+  confidenceExplanation: string | null;
+  valueEstimate: string | null;
+  /** True if playbook_slug was provided but lookup failed. */
+  notFound?: boolean;
+}
+
+/**
+ * Resolve v2 playbook fields from source_context.playbook_slug.
+ * Returns partial resolution with notFound flag if playbook lookup fails.
+ */
+function resolveV2Playbook(row: PlayRunRow): V2Resolution | null {
+  const playbookSlug = row.source_context?.playbook_slug;
+  if (!playbookSlug) return null;
+
+  const parsed = getPlaybookBySlug(playbookSlug);
+  if (!parsed) {
+    console.warn(`[mapPlayRunToCard] Playbook not found: ${playbookSlug}`);
+    return {
+      playbookSlug,
+      playbookName: "Unknown playbook",
+      section: "_meta",
+      sectionLabel: "System",
+      layer: "learn",
+      outputType: "memory_update",
+      approvalMode: "per_entity",
+      autoApplyThreshold: null,
+      confidenceExplanation: null,
+      valueEstimate: null,
+      notFound: true,
+    };
+  }
+
+  const def = parsed.definition;
+  const sectionMeta = SECTION_METADATA[def.section];
+
+  return {
+    playbookSlug: def.slug,
+    playbookName: def.name,
+    section: def.section,
+    sectionLabel: sectionMeta?.name ?? def.section,
+    layer: def.layer,
+    outputType: def.output.type,
+    approvalMode: def.output.approval ?? "per_entity",
+    autoApplyThreshold: def.policy?.auto_apply_threshold ?? null,
+    confidenceExplanation: def.policy?.confidence_explanation ?? null,
+    valueEstimate: def.value?.estimate ? `~${def.value.estimate} min saved` : null,
+  };
+}
+
+/**
+ * Detect error conditions in a play_run.
+ */
+function detectErrors(row: PlayRunRow, v2: V2Resolution | null): PlayCardErrorState | undefined {
+  const errors: PlayCardErrorState = {};
+  let hasErrors = false;
+
+  // Playbook not found
+  if (v2?.notFound) {
+    errors.playbookNotFound = true;
+    errors.message = "Playbook unavailable";
+    hasErrors = true;
+  }
+
+  // Empty draft for email plays
+  const isEmailDraft = v2?.outputType === "email_draft" || Boolean(row.draft_body);
+  if (isEmailDraft && !row.draft_body?.trim()) {
+    errors.draftIncomplete = true;
+    if (!errors.message) errors.message = "Draft incomplete";
+    hasErrors = true;
+  }
+
+  return hasErrors ? errors : undefined;
+}
+
+/**
+ * Derive PlayCardKind from v2 outputType for backward compatibility.
+ */
+function kindFromOutputType(outputType: PlaybookOutputType): PlayCardKind {
+  switch (outputType) {
+    case "email_draft":
+      return "acting";
+    case "memory_update":
+      return "profile";
+    case "notification":
+    case "finding":
+      return "risk";
+    case "briefing":
+      return "risk";
+    default:
+      return "risk";
+  }
+}
 
 /**
  * Map a database play_run row into the unified PlayCardViewModel.
@@ -9,11 +123,21 @@ import type { PlayCardViewModel, PlayCardKind } from "./types";
  * This is the canonical mapper for actual persisted plays (vs demo data).
  * All acting plays (prepared sends) and future records-type plays written
  * to play_runs should flow through here.
+ *
+ * V2-first: Attempts to resolve playbook via source_context.playbook_slug.
+ * Falls back to legacy player-based resolution if v2 lookup fails.
  */
 export function mapPlayRunToCard(row: PlayRunRow): PlayCardViewModel {
+  // V2-first: try to resolve from playbook definition
+  const v2 = resolveV2Playbook(row);
+
+  // Detect error conditions
+  const error = detectErrors(row, v2);
+
+  // Legacy fallback
   const playerSlug = resolvePlayerSlug(row);
   const player = playerById(playerSlug);
-  const kind = resolveKind(row);
+  const kind = v2 ? kindFromOutputType(v2.outputType) : resolveKind(row);
 
   const ageMinutes = Math.round(
     (Date.now() - new Date(row.created_at).getTime()) / 60_000
@@ -31,23 +155,38 @@ export function mapPlayRunToCard(row: PlayRunRow): PlayCardViewModel {
     id: row.id,
     title: row.title,
     recipientLabel: row.recipient_label ?? row.target_label ?? "this record",
-    sourceLabel: player.name,
+    sourceLabel: v2?.sectionLabel ?? player.name,
     href: "/plays",
   };
 
   return {
     id: row.id,
     kind,
+
+    // V2 attribution (preferred)
+    playbookSlug: v2?.playbookSlug ?? row.source_context?.playbook_slug ?? null,
+    playbookName: v2?.playbookName ?? readMetadataString(row, "playbook_name"),
+    section: v2?.section ?? null,
+    sectionLabel: v2?.sectionLabel ?? null,
+    layer: v2?.layer ?? null,
+    outputType: v2?.outputType ?? null,
+    approvalMode: v2?.approvalMode ?? null,
+    autoApplyThreshold: v2?.autoApplyThreshold ?? null,
+    confidenceExplanation: v2?.confidenceExplanation ?? null,
+    valueEstimate: v2?.valueEstimate ?? null,
+
+    // Legacy attribution (deprecated)
     playerSlug,
     playerName: row.player_name ?? player.name,
-    playbookName: readMetadataString(row, "playbook_name"),
+
     subject: row.title,
     targetLabel: row.recipient_label ?? row.target_label,
     targetPrefix: kind === "acting" ? "To" : "For",
     preview: row.preview,
     confidence: row.confidence,
+    stakes: (row.stakes as "low" | "medium" | "high" | null) ?? null,
     ageMinutes,
-    triggerLabel: readMetadataString(row, "trigger_label"),
+    triggerLabel: v2 ? row.source_context?.trigger_signal ?? null : readMetadataString(row, "trigger_label"),
     channel: row.channel,
     sourceUrl: readMetadataString(row, "source_url"),
 
@@ -64,7 +203,7 @@ export function mapPlayRunToCard(row: PlayRunRow): PlayCardViewModel {
         ? {
             field: readMetadataString(row, "profile_field") ?? "",
             proposedValue: readMetadataString(row, "profile_value") ?? "",
-            because: readMetadataString(row, "because"),
+            because: v2?.confidenceExplanation ?? readMetadataString(row, "because"),
           }
         : undefined,
 
@@ -108,6 +247,9 @@ export function mapPlayRunToCard(row: PlayRunRow): PlayCardViewModel {
 
     provenance: { source: "play_run", playRunId: row.id },
     askSalt,
+
+    // Error state (if any)
+    error,
   };
 }
 

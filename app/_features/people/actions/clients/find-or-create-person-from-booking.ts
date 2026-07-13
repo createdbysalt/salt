@@ -9,6 +9,7 @@
  */
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import { emitEntitySignal } from "@/app/_lib/learning";
 
 export interface BookingAttendee {
   name: string;
@@ -115,6 +116,20 @@ export async function findOrCreatePersonFromBooking(
     }
 
     console.log(`Created new lead person ${newPerson.id} (${attendee.name}) from booking`);
+
+    emitEntitySignal({
+      workspaceId,
+      surface: "person",
+      entityId: newPerson.id,
+      signal: "person_created",
+      entityLabel: attendee.name,
+      evidence: {
+        source: "booking",
+        email: attendee.email,
+        booking_source: source ?? null,
+      },
+    });
+
     return {
       success: true,
       personId: newPerson.id,

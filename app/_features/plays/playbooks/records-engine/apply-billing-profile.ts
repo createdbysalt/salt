@@ -9,7 +9,7 @@ import type {
 } from "./types";
 import { defaultBillingProfileRules, resolveRuleSetValue } from "./validate-rules";
 
-export const BILLING_PROFILE_SLUG = "keeper-billing-records";
+export const BILLING_PROFILE_SLUG = "memory-records";
 
 function buildBillingFacts(input: {
   number: string;

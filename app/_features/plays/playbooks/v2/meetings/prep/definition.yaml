@@ -1,0 +1,68 @@
+# Meeting Prep
+# Generates pre-meeting briefs with context on attendees, recent interactions,
+# and relevant work items.
+
+name: Meeting Prep
+slug: meeting-prep
+version: 1.0.0
+description: Prepares brief with attendee context before meetings
+
+section: meetings
+layer: act
+voice: brief
+
+trigger:
+  type: schedule
+  cron: "0 8 * * *"
+
+requirements:
+  categories:
+    required:
+      - calendar
+  capabilities:
+    required:
+      - read_events
+
+steps:
+  - step: fetch
+    id: upcoming_meetings
+    from: calendar.read_events
+    where:
+      within_hours: 4
+
+  - step: draft
+    id: meeting_brief
+    prompt: |
+      Create a brief for the upcoming meeting: {{meeting.title}}
+
+      Include:
+      - Who's attending and their context
+      - Recent interactions with attendees
+      - Related work items
+      - Suggested talking points
+    max_tokens: 400
+
+output:
+  type: briefing
+  approval: none
+
+value:
+  kind: meeting_prepared
+  estimate: 15
+
+instructions:
+  system: |
+    You are preparing meeting briefs for a solopreneur.
+    Focus on context that will help them be effective in the meeting.
+    Be concise and actionable.
+
+  guidelines:
+    - Lead with the most important context
+    - Include relationship history if relevant
+    - Suggest 2-3 specific talking points
+    - Note any open items or concerns
+
+  avoid:
+    - Generic prep that applies to any meeting
+    - Restating calendar event details
+    - Long paragraphs

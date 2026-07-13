@@ -22,6 +22,7 @@ import {
 const SALT_ICON_SRC = "/landing/salt-icon.svg";
 import { PlaysFilterGroupsContent } from "./PlaysFilterPopover";
 import { PlaysSearchField } from "./PlaysSearchField";
+import { CreatePlaybookButton } from "./CreatePlaybookButton";
 import { cn } from "@repo/utils";
 import { useRouter } from "next/navigation";
 const APPLE_EASE = [0.32, 0.72, 0, 1] as const;
@@ -164,6 +165,7 @@ export function PlaybookTab({
             ]}
           />
         }
+        trailingAction={<CreatePlaybookButton />}
       />
 
       {/* Bento grid */}
@@ -327,7 +329,7 @@ export function PlaybookTab({
                     {isProfile ? (
                       <>
                         <Sparkles className="size-3 text-muted-foreground" strokeWidth={2} />
-                        Keeper upkeep
+                        Memory upkeep
                       </>
                     ) : adopted ? (
                       <>

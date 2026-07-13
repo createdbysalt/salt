@@ -4,8 +4,10 @@ import type {
   EnrichmentResult,
   ExtractedNote,
   ExtractorResult,
+  ScanSummaryItem,
   SourcedField,
 } from "./types";
+import { getCategoryForConnector } from "./registry";
 
 export function consolidateResults(
   entityType: EnrichableEntityType,
@@ -18,9 +20,28 @@ export function consolidateResults(
   const notes: ExtractedNote[] = [];
   const sourcesQueried: string[] = [];
   const sourcesWithData: string[] = [];
+  const scanSummary: ScanSummaryItem[] = [];
 
   for (const result of results) {
     sourcesQueried.push(result.source);
+
+    const providerKey = result.source.split(":")[0];
+    const connectionCount =
+      (result.connections?.orgs?.length ?? 0) +
+      (result.connections?.work?.length ?? 0) +
+      (result.connections?.people?.length ?? 0) +
+      (result.connections?.billing?.length ?? 0) +
+      (result.connections?.meetings?.length ?? 0) +
+      (result.connections?.files?.length ?? 0);
+
+    scanSummary.push({
+      provider: providerKey,
+      category: getCategoryForConnector(providerKey) ?? "unknown",
+      fieldsExtracted: Object.keys(result.fields).length,
+      connectionsFound: connectionCount,
+      notesFound: result.notes?.length ?? 0,
+      hadData: result.hasData,
+    });
 
     if (!result.hasData) continue;
     sourcesWithData.push(result.source);
@@ -79,5 +100,6 @@ export function consolidateResults(
     notes,
     sourcesQueried,
     sourcesWithData,
+    scanSummary,
   };
 }

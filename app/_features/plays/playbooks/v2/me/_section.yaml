@@ -1,0 +1,13 @@
+name: Me
+slug: me
+description: Your profile and preferences
+icon: user
+
+memory_types:
+  - operator
+  - workspace
+
+signals: []
+
+templates:
+  - keeper

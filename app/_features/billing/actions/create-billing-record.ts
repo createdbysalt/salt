@@ -13,6 +13,7 @@ import {
   draftToInsertRow,
 } from "../utils/db-mapper";
 import { error, success, type ActionResponse } from "./schemas";
+import { emitEntitySignal } from "@/app/_lib/learning";
 
 async function findExistingManualBillingRecord(
   supabase: Awaited<ReturnType<typeof getWorkspaceContext>>["supabase"],
@@ -73,6 +74,20 @@ export async function createBillingRecordAction(
       console.error("Error creating billing record:", insertError);
       return error("CREATE_BILLING_RECORD_FAILED", insertError?.message ?? "Could not create billing record");
     }
+
+    emitEntitySignal({
+      workspaceId: workspace.id,
+      surface: "billing",
+      entityId: data.id,
+      signal: "billing_created",
+      entityLabel: draft.number ?? "New billing record",
+      evidence: {
+        source: "manual_create",
+        direction: draft.direction,
+        amount_cents: draft.amountCents,
+        currency: draft.currency,
+      },
+    });
 
     revalidatePath("/billing");
     revalidatePath(`/billing/${data.id}`);

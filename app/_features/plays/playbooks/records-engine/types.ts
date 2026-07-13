@@ -324,6 +324,8 @@ export const PROFILE_SIGNAL_OPS = ["eq", "neq", "exists", "not_exists", "gte"] a
 export type ProfileSignalOp = (typeof PROFILE_SIGNAL_OPS)[number];
 
 export const PERSON_PROFILE_SIGNAL_KEYS = [
+  "person_created",
+  "person_updated",
   "has_payment_received",
   "has_stripe_payment",
   "has_invoice_sent",
@@ -338,12 +340,27 @@ export const PERSON_PROFILE_SIGNAL_KEYS = [
   "email_domain_in_vendor_list",
   "person_no_contact_30_days",
   "person_appears_in_multiple_orgs",
+  // Duplicate detection
   "person_duplicate_email",
+  "person_duplicate_phone",
+  "person_name_fuzzy_match",
+  "person_same_name_same_org",
+  // Hygiene
+  "person_missing_email",
+  "person_missing_relationship_type",
+  "person_missing_org",
+  "person_no_activity_30d",
+  "person_no_activity_60d",
+  "person_no_activity_90d",
+  "person_no_activity_180d",
+  "person_orphan",
 ] as const;
 
 export type PersonProfileSignalKey = (typeof PERSON_PROFILE_SIGNAL_KEYS)[number];
 
 export const ORG_PROFILE_SIGNAL_KEYS = [
+  "org_created",
+  "org_updated",
   "org_domain_known",
   "org_created_from_domain",
   "org_has_payment_received",
@@ -355,15 +372,24 @@ export const ORG_PROFILE_SIGNAL_KEYS = [
   "inferred_industry",
   "inferred_industry_parent",
   "inferred_industry_child",
+  // Duplicate detection
+  "org_duplicate_domain",
+  "org_name_fuzzy_match",
+  "org_same_billing_email",
+  // Hygiene
+  "org_missing_domain",
   "org_missing_industry",
   "org_missing_key_contact",
-  "org_duplicate_domain",
+  "org_missing_primary_contact",
+  "org_no_activity_90d",
+  "org_no_activity_180d",
 ] as const;
 
 export type OrgProfileSignalKey = (typeof ORG_PROFILE_SIGNAL_KEYS)[number];
 
 export const WORK_PROFILE_SIGNAL_KEYS = [
   "work_created",
+  "work_updated",
   "work_has_signed_contract",
   "work_has_kickoff",
   "work_is_blocked",
@@ -372,11 +398,24 @@ export const WORK_PROFILE_SIGNAL_KEYS = [
   "inferred_description",
   "inferred_deadline",
   "inferred_start_date",
+  // Duplicate detection
+  "work_duplicate_name_same_org",
+  "work_duplicate_po_number",
+  // Hygiene
+  "work_missing_client",
+  "work_missing_status",
+  "work_missing_deadline",
+  "work_missing_value",
+  "work_stale_active",
+  "work_no_activity_60d",
+  "work_orphan",
 ] as const;
 
 export type WorkProfileSignalKey = (typeof WORK_PROFILE_SIGNAL_KEYS)[number];
 
 export const BILLING_PROFILE_SIGNAL_KEYS = [
+  "billing_created",
+  "billing_updated",
   "billing_payment_matched",
   "billing_amount_paid_covers_total",
   "billing_due_date_passed",
@@ -385,17 +424,32 @@ export const BILLING_PROFILE_SIGNAL_KEYS = [
   "inferred_organization_id",
   "inferred_person_id",
   "inferred_work_id",
+  // Duplicate detection
+  "billing_duplicate_number",
+  "billing_duplicate_amount_date",
+  // Hygiene
+  "billing_missing_party",
+  "billing_missing_due_date",
+  "billing_overdue_90d",
+  "billing_orphan",
 ] as const;
 
 export type BillingProfileSignalKey = (typeof BILLING_PROFILE_SIGNAL_KEYS)[number];
 
 export const MEETING_PROFILE_SIGNAL_KEYS = [
+  "meeting_created",
+  "meeting_updated",
   "meeting_synced_from_calendar",
   "meeting_end_passed",
   "meeting_has_attendance_evidence",
   "meeting_cancelled_by_calendar",
   "meeting_attendee_email_match",
   "inferred_meeting_type",
+  // Duplicate detection
+  "meeting_duplicate_time_attendees",
+  // Hygiene
+  "meeting_missing_attendees",
+  "meeting_past_no_outcome",
 ] as const;
 
 export type MeetingProfileSignalKey = (typeof MEETING_PROFILE_SIGNAL_KEYS)[number];
@@ -411,6 +465,13 @@ export const FILE_PROFILE_SIGNAL_KEYS = [
   "inferred_due_date",
   "inferred_expiry_date",
   "inferred_signed_date",
+  // Duplicate detection
+  "file_duplicate_hash",
+  "file_duplicate_name_same_entity",
+  // Hygiene
+  "file_missing_category",
+  "file_missing_linked_entity",
+  "file_orphan",
 ] as const;
 
 export type FileProfileSignalKey = (typeof FILE_PROFILE_SIGNAL_KEYS)[number];
@@ -421,6 +482,19 @@ export type FileProfileSignalKey = (typeof FILE_PROFILE_SIGNAL_KEYS)[number];
  */
 export const CAPTURE_SIGNAL_KEYS = [
   "entity_learning_extracted",
+  "capture_email_received",
+  "capture_email_sent",
+  "capture_meeting_completed",
+  "capture_processed",
+  "org_person_contacted",
+  "note_created",
+  "note_flagged",
+  "preference_detected",
+  "context_extracted",
+  "connection_inferred",
+  "connection_strengthened",
+  "relationship_at_risk",
+  "file_shared",
 ] as const;
 
 export type CaptureSignalKey = (typeof CAPTURE_SIGNAL_KEYS)[number];

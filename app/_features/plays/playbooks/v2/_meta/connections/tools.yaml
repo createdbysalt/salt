@@ -1,0 +1,83 @@
+# Connections Playbook Tools
+# MCP tools for inferring and maintaining entity connections
+
+tools:
+  - name: memory_link_entities
+    description: Create or strengthen a connection between two entities
+    parameters:
+      from_type:
+        type: string
+        enum: [person, org, work, meeting, file, billing]
+        description: Type of the source entity
+      from_id:
+        type: string
+        description: ID of the source entity
+      to_type:
+        type: string
+        enum: [person, org, work, meeting, file, billing]
+        description: Type of the target entity
+      to_id:
+        type: string
+        description: ID of the target entity
+      relationship:
+        type: string
+        description: Type of relationship (works_at, collaborator, etc.)
+      confidence:
+        type: number
+        description: Confidence score (0-100)
+      source_type:
+        type: string
+        description: Source of the inference (signal, calendar, billing, etc.)
+      source_id:
+        type: string
+        description: ID of the source signal or event
+    protected: false
+
+  - name: memory_update_connection_confidence
+    description: Update confidence score on an existing connection
+    parameters:
+      from_type:
+        type: string
+      from_id:
+        type: string
+      to_type:
+        type: string
+      to_id:
+        type: string
+      confidence:
+        type: number
+      reason:
+        type: string
+    protected: false
+
+  - name: emit_signal
+    description: Emit a signal for other playbooks to react to
+    parameters:
+      signal:
+        type: string
+        description: Signal name (e.g., relationship_at_risk)
+      entity_type:
+        type: string
+      entity_id:
+        type: string
+      evidence:
+        type: object
+        description: Additional context about the signal
+    protected: false
+
+  - name: memoryUpdateField
+    description: Update a field on an entity
+    parameters:
+      entity_type:
+        type: string
+      entity_id:
+        type: string
+      field:
+        type: string
+      value:
+        type: string
+      confidence:
+        type: number
+      because:
+        type: string
+    protected: true

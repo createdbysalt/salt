@@ -12,6 +12,7 @@ import {
   determineExecutionPath,
   type ExecutionPath,
 } from "../execution-router";
+import { getPlaybookThreshold } from "../schema/v2/discovery";
 import {
   accumulateEvidence,
   getAggregatedConfidence,
@@ -22,6 +23,10 @@ import {
   generateEvidenceSummary,
 } from "@/app/_features/me/actions/salt-learnings";
 import { resolveEvidence } from "../evidence-accumulator";
+import {
+  createPlayRecord,
+  type PlayTargetType,
+} from "@/app/_features/plays/lib/play-record";
 import type { ProfileFieldResult, ProfileEntityType } from "./types";
 
 export interface ConfidenceGateInput {
@@ -122,6 +127,11 @@ export async function gateProfileFieldMutation(
     playbookSlug: input.playbookSlug,
   });
 
+  // Get playbook-specific threshold if available
+  const playbookThreshold = input.playbookSlug
+    ? getPlaybookThreshold(input.playbookSlug) ?? undefined
+    : undefined;
+
   // Determine execution path based on aggregated confidence
   const executionPath = await determineExecutionPath({
     workspaceId: input.workspaceId,
@@ -131,6 +141,7 @@ export async function gateProfileFieldMutation(
     proposedValue: input.proposedValue,
     currentValue: input.currentValue,
     aggregatedConfidence,
+    playbookThreshold,
   });
 
   if (executionPath.path === "auto_execute") {
@@ -172,6 +183,26 @@ export async function gateProfileFieldMutation(
       { learningId, appliedAt: new Date().toISOString() },
     );
 
+    // Create play record for the auto-executed action
+    await createPlayRecord({
+      workspaceId: input.workspaceId,
+      playerSlug: "keeper",
+      playbookSlug: input.playbookSlug,
+      title: `Updated ${input.field.replace(/_/g, " ")} for ${input.entityLabel}`,
+      preview: `${input.proposedValue}`,
+      targetType: keeperEntityType as PlayTargetType,
+      targetId: input.entityId,
+      targetLabel: input.entityLabel,
+      confidence: aggregatedConfidence,
+      stakes: "low",
+      sourceContext: {
+        source: "playbook",
+        playbook_slug: input.playbookSlug,
+      },
+      state: "ran",
+      useBudgetRouting: false,
+    });
+
     return {
       path: "auto_execute",
       shouldWrite: true,
@@ -191,16 +222,62 @@ export async function gateProfileFieldMutation(
       { reason: executionPath.reason, queuedForApproval: true },
     );
 
+    // Create play record for approval
+    await createPlayRecord({
+      workspaceId: input.workspaceId,
+      playerSlug: "keeper",
+      playbookSlug: input.playbookSlug,
+      title: `Update ${input.field.replace(/_/g, " ")} for ${input.entityLabel}?`,
+      preview: `Change to: ${input.proposedValue}`,
+      draftBody: JSON.stringify({
+        field: input.field,
+        currentValue: input.currentValue,
+        proposedValue: input.proposedValue,
+        reason: executionPath.reason,
+      }),
+      targetType: keeperEntityType as PlayTargetType,
+      targetId: input.entityId,
+      targetLabel: input.entityLabel,
+      confidence: aggregatedConfidence,
+      stakes: "medium",
+      sourceContext: {
+        source: "playbook",
+        playbook_slug: input.playbookSlug,
+      },
+      state: "queued",
+      useBudgetRouting: true,
+    });
+
     return {
       path: "approval_required",
       shouldWrite: false,
-      shouldCreatePlayRun: true,
+      shouldCreatePlayRun: false,
       aggregatedConfidence,
       evidenceId,
     };
   }
 
   // Path is "accumulate" — evidence stored, waiting for more signal
+  // Log activity for the "Watching" category
+  const admin = (await import("@/app/_lib/supabase/admin")).createAdminClient();
+  await admin.from("activity_entries").insert({
+    workspace_id: input.workspaceId,
+    action: "accumulated",
+    title: `Watching: ${input.field.replace(/_/g, " ")} for ${input.entityLabel}`,
+    detail: `Confidence ${aggregatedConfidence}% — waiting for more signal`,
+    metadata: {
+      entity_type: input.entityType,
+      entity_id: input.entityId,
+      entity_label: input.entityLabel,
+      field: input.field,
+      proposed_value: input.proposedValue,
+      confidence: aggregatedConfidence,
+      threshold: executionPath.path === "accumulate" ? executionPath.threshold : undefined,
+      evidence_id: evidenceId,
+      player_slug: "keeper",
+    },
+  });
+
   return {
     path: "accumulate",
     shouldWrite: false,

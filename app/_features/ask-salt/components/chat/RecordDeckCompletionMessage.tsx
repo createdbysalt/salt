@@ -86,13 +86,28 @@ export function RecordDeckCompletionMessage({ entries }: RecordDeckCompletionMes
         </div>
 
         <div data-testid="memory-record-completion-carousel">
-          <div
-            className={cn(
-              "flex items-center gap-2",
-              showSlider ? "px-0" : "",
-            )}
-          >
-            {showSlider ? (
+          <div className="relative overflow-hidden">
+            <AnimatePresence mode="wait" initial={false}>
+              {activeEntry ? (
+                <motion.div
+                  key={activeEntry.id}
+                  initial={{ opacity: 0, x: slideDirection * 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: slideDirection * -20 }}
+                  transition={{ duration: 0.24, ease: SLIDE_EASE }}
+                >
+                  <MemoryRecordCompletionCard
+                    entry={activeEntry}
+                    onUndo={() => handleUndo(activeEntry)}
+                    undoPending={isPending}
+                  />
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
+          </div>
+
+          {showSlider ? (
+            <div className="mt-3 flex items-center justify-between gap-3">
               <button
                 type="button"
                 aria-label="Previous record"
@@ -102,55 +117,29 @@ export function RecordDeckCompletionMessage({ entries }: RecordDeckCompletionMes
               >
                 <ChevronLeft className="size-4" strokeWidth={2.25} />
               </button>
-            ) : null}
 
-            <div className="min-w-0 flex-1">
-              <div className="relative overflow-hidden">
-                <AnimatePresence mode="wait" initial={false}>
-                  {activeEntry ? (
-                    <motion.div
-                      key={activeEntry.id}
-                      initial={{ opacity: 0, x: slideDirection * 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: slideDirection * -20 }}
-                      transition={{ duration: 0.24, ease: SLIDE_EASE }}
-                    >
-                      <MemoryRecordCompletionCard
-                        entry={activeEntry}
-                        onUndo={() => handleUndo(activeEntry)}
-                        undoPending={isPending}
-                      />
-                    </motion.div>
-                  ) : null}
-                </AnimatePresence>
+              <div className="flex min-w-0 flex-1 items-center justify-center gap-2">
+                <div className="flex items-center gap-1.5">
+                  {visibleEntries.map((entry, index) => (
+                    <button
+                      key={entry.id}
+                      type="button"
+                      aria-label={`View ${entry.linkLabel}`}
+                      onClick={() => goToIndex(index)}
+                      className={cn(
+                        "h-1.5 rounded-full transition-all",
+                        index === activeIndex
+                          ? "w-5 bg-foreground"
+                          : "w-1.5 bg-border hover:bg-foreground/35",
+                      )}
+                    />
+                  ))}
+                </div>
+                <span className="text-[11px] tabular-nums text-muted-foreground">
+                  {activeIndex + 1}/{visibleEntries.length}
+                </span>
               </div>
 
-              {showSlider ? (
-                <div className="mt-2.5 flex items-center justify-center gap-2">
-                  <div className="flex items-center gap-1.5">
-                    {visibleEntries.map((entry, index) => (
-                      <button
-                        key={entry.id}
-                        type="button"
-                        aria-label={`View ${entry.linkLabel}`}
-                        onClick={() => goToIndex(index)}
-                        className={cn(
-                          "h-1.5 rounded-full transition-all",
-                          index === activeIndex
-                            ? "w-5 bg-foreground"
-                            : "w-1.5 bg-border hover:bg-foreground/35",
-                        )}
-                      />
-                    ))}
-                  </div>
-                  <span className="text-[11px] tabular-nums text-muted-foreground">
-                    {activeIndex + 1}/{visibleEntries.length}
-                  </span>
-                </div>
-              ) : null}
-            </div>
-
-            {showSlider ? (
               <button
                 type="button"
                 aria-label="Next record"
@@ -160,8 +149,8 @@ export function RecordDeckCompletionMessage({ entries }: RecordDeckCompletionMes
               >
                 <ChevronRight className="size-4" strokeWidth={2.25} />
               </button>
-            ) : null}
-          </div>
+            </div>
+          ) : null}
         </div>
       </div>
     </MessageContent>

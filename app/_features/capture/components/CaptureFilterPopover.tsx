@@ -4,10 +4,14 @@ import { Popover, PopoverContent, PopoverTrigger } from "@repo/ui";
 import { SlidersHorizontal, Sparkles, Calendar, CheckCircle2 } from "lucide-react";
 import { cn } from "@repo/utils";
 import type { CaptureSource, CaptureStatus } from "@/app/_lib/demo/capture-demo-data";
-import type { IntelligenceStreamFilter } from "@/app/_features/capture/services/intelligence/capture-intelligence-outcome";
+import type {
+  CaptureCategory,
+  IntelligenceStreamFilter,
+} from "@/app/_features/capture/services/intelligence/capture-intelligence-outcome";
 
 export type StreamStatusFilter = CaptureStatus | "all";
 export type StreamIntelligenceFilter = IntelligenceStreamFilter;
+export type StreamCategoryFilter = CaptureCategory | "all";
 export type StreamSourceFilter = CaptureSource | "all";
 export type StreamDateFilter = "all" | "Today" | "Yesterday" | "Earlier this week";
 
@@ -33,6 +37,15 @@ const INTELLIGENCE_STATUS_OPTIONS: { id: StreamIntelligenceFilter; label: string
   { id: "scan_error", label: "Scan error" },
 ];
 
+/** New simplified category options */
+const CATEGORY_OPTIONS: { id: StreamCategoryFilter; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "queued", label: "Queued" },
+  { id: "no-signal", label: "No Signal" },
+  { id: "processing", label: "Processing" },
+  { id: "error", label: "Error" },
+];
+
 const DATE_OPTIONS: { id: StreamDateFilter; label: string }[] = [
   { id: "all", label: "All time" },
   { id: "Today", label: "Today" },
@@ -47,7 +60,10 @@ type StreamProps = {
   onStatus: (v: StreamStatusFilter) => void;
   intelligenceStatus?: StreamIntelligenceFilter;
   onIntelligenceStatus?: (v: StreamIntelligenceFilter) => void;
+  category?: StreamCategoryFilter;
+  onCategory?: (v: StreamCategoryFilter) => void;
   useIntelligenceFilters?: boolean;
+  useCategoryFilters?: boolean;
   date: StreamDateFilter;
   onDate: (v: StreamDateFilter) => void;
 };
@@ -56,12 +72,16 @@ export function countCaptureStreamFilters({
   source,
   status,
   intelligenceStatus = "all",
+  category = "all",
   useIntelligenceFilters = false,
+  useCategoryFilters = false,
   date,
-}: Pick<StreamProps, "source" | "status" | "intelligenceStatus" | "useIntelligenceFilters" | "date">): number {
-  const statusActive = useIntelligenceFilters
-    ? intelligenceStatus !== "all"
-    : status !== "all";
+}: Pick<StreamProps, "source" | "status" | "intelligenceStatus" | "category" | "useIntelligenceFilters" | "useCategoryFilters" | "date">): number {
+  const statusActive = useCategoryFilters
+    ? category !== "all"
+    : useIntelligenceFilters
+      ? intelligenceStatus !== "all"
+      : status !== "all";
   return (source !== "all" ? 1 : 0) + (statusActive ? 1 : 0) + (date !== "all" ? 1 : 0);
 }
 
@@ -72,17 +92,31 @@ export function CaptureStreamFilterContent({
   onStatus,
   intelligenceStatus = "all",
   onIntelligenceStatus,
+  category = "all",
+  onCategory,
   useIntelligenceFilters = false,
+  useCategoryFilters = false,
   date,
   onDate,
 }: StreamProps) {
-  const statusOptions = useIntelligenceFilters
-    ? INTELLIGENCE_STATUS_OPTIONS
-    : STATUS_OPTIONS;
-  const activeStatus = useIntelligenceFilters ? intelligenceStatus : status;
-  const onStatusChange = useIntelligenceFilters
-    ? (id: StreamIntelligenceFilter) => onIntelligenceStatus?.(id)
-    : (id: StreamStatusFilter) => onStatus(id);
+  // Use new category filters when available, otherwise fall back to intelligence/legacy
+  const statusOptions = useCategoryFilters
+    ? CATEGORY_OPTIONS
+    : useIntelligenceFilters
+      ? INTELLIGENCE_STATUS_OPTIONS
+      : STATUS_OPTIONS;
+
+  const activeStatus = useCategoryFilters
+    ? category
+    : useIntelligenceFilters
+      ? intelligenceStatus
+      : status;
+
+  const onStatusChange = useCategoryFilters
+    ? (id: StreamCategoryFilter) => onCategory?.(id)
+    : useIntelligenceFilters
+      ? (id: StreamIntelligenceFilter) => onIntelligenceStatus?.(id)
+      : (id: StreamStatusFilter) => onStatus(id);
 
   return (
     <>
@@ -93,12 +127,12 @@ export function CaptureStreamFilterContent({
           </Chip>
         ))}
       </Section>
-      <Section icon={CheckCircle2} label="Status">
+      <Section icon={CheckCircle2} label="Outcome">
         {statusOptions.map((o) => (
           <Chip
             key={o.id}
             active={activeStatus === o.id}
-            onClick={() => onStatusChange(o.id as StreamStatusFilter & StreamIntelligenceFilter)}
+            onClick={() => onStatusChange(o.id as StreamCategoryFilter & StreamStatusFilter & StreamIntelligenceFilter)}
           >
             {o.label}
           </Chip>

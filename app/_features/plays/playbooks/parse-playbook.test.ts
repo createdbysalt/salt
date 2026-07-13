@@ -1,16 +1,57 @@
 import { describe, expect, it } from "vitest";
-import fs from "node:fs";
-import path from "node:path";
 import { parsePlaybookMarkdown, deriveToolkitSlugsFromActions } from "./parse-playbook";
 import { discoverPlaybookDirs, readPlaybookSource } from "./discover-playbooks";
 import { MEMORY_MUTATING_SLUGS } from "./memory-monopoly";
 
 describe("parsePlaybookMarkdown", () => {
-  it("parses keeper-people-records playbook", () => {
-    const root = path.join(process.cwd(), "app/_features/plays/playbooks/keeper-people-records/playbook.md");
-    const parsed = parsePlaybookMarkdown(fs.readFileSync(root, "utf8"), root);
+  it("parses a profile playbook with fill rules", () => {
+    const source = `---
+slug: memory-records
+name: Memory Records
+kind: profile
+player_slug: keeper
+description: Unified memory intake
+when_to_use: Always on
+---
 
-    expect(parsed.frontmatter.slug).toBe("keeper-people-records");
+## What this does
+Keeps Memory up to date.
+
+## When it runs
+On entity changes and captures.
+
+## How it works
+Accumulates evidence and applies updates.
+
+## What you approve
+New records and field updates.
+
+\`\`\`json
+{
+  "version": 1,
+  "fields": ["relationship_type"],
+  "rules": [
+    {
+      "id": "person-payment-client",
+      "field": "relationship_type",
+      "when": {
+        "signal": "has_payment_received",
+        "op": "eq",
+        "value": true
+      },
+      "set": {
+        "value": "client"
+      },
+      "confidence": 90,
+      "because": "Payment received"
+    }
+  ]
+}
+\`\`\`
+`;
+    const parsed = parsePlaybookMarkdown(source, "memory-records/playbook.md");
+
+    expect(parsed.frontmatter.slug).toBe("memory-records");
     expect(parsed.frontmatter.kind).toBe("profile");
     expect(parsed.frontmatter.player_slug).toBe("keeper");
     expect(parsed.fill_rules?.rules.length).toBeGreaterThan(0);

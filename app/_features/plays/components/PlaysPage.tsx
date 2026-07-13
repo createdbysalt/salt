@@ -2,12 +2,11 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Loader2, Sparkles, Zap } from "lucide-react";
+import { Loader2, Zap } from "lucide-react";
+import { Button } from "@repo/ui";
+import { cn } from "@repo/utils";
 import { syncAndScanCaptures } from "@/app/_features/capture/actions/run-intelligence-scan";
 import {
-  PLAYERS,
-  TONE_SOFT,
-  type PlayerId,
   type QueuePlay,
 } from "@/app/_lib/demo/plays-demo-data";
 import type { AskSaltContext } from "@/app/_features/shell/components/AskSaltPanel";
@@ -22,7 +21,9 @@ import { PlaysSectionHeader } from "./PlaysSectionHeader";
 import { PlaysTabs } from "./PlaysTabs";
 import { QueueToggle } from "./QueueToggle";
 import { CustomizeTab } from "./CustomizeTab";
+import { getSectionMeta } from "./PlaybookSectionNav";
 import { PlayQueueList } from "./PlayCard/PlayQueueList";
+import { LearningTab } from "./LearningTab";
 import { mapFindingToCard } from "../play-card/map-finding-to-card";
 import { mapQueuePlayToCard } from "../play-card/map-queue-play-to-card";
 import { mapHandledFindingToCard } from "../play-card/map-handled-finding-to-card";
@@ -30,10 +31,28 @@ import { validatePlayCard } from "../play-card/validate-play-card";
 import type { PlayCardViewModel } from "../play-card/types";
 import { PlaysPageSkeleton } from "./PlaysPageSkeleton";
 import { AutoHandledTimeline } from "./AutoHandledTimeline";
-import { PlaysFilterGroupsContent } from "./PlaysFilterPopover";
 import { PlaysSearchField } from "./PlaysSearchField";
+import {
+  countQueueFilters,
+  EMPTY_QUEUE_FILTERS,
+  matchesItemKindFilter,
+  QueueActiveFilterBadges,
+  QueueFilterPanel,
+  QUEUE_ITEM_KIND_LABELS,
+  type QueueFiltersState,
+  type QueueItemKindFilter,
+} from "./QueueFilterMenu";
+import {
+  getSectionFromFindingType,
+  getSectionFromLearningEntity,
+  getSectionFromQueuePlay,
+  matchesSectionFilter,
+  QUEUE_SECTION_ORDER,
+  type QueueSectionFilter,
+} from "../utils/queue-section";
 import type { PlaysActivityView, PlaysTab } from "@/app/_features/plays/load-plays-page-data";
 import { usePlaysTabCache, type PlaysTabData } from "../hooks/usePlaysTabCache";
+import { usePlayRunsRealtime } from "../hooks/usePlayRunsRealtime";
 
 /**
  * Plays Page — Redesigned 2026-06-13
@@ -66,28 +85,6 @@ function openAskSalt(options?: {
 
 function parseActivityView(value: PlaysActivityView): ActivityView {
   return value === "captures" ? "captures" : "actions";
-}
-
-function getFindingPlayerId(finding: FindingWithContext): PlayerId {
-  const metadata = finding.evidence?.metadata;
-  if (
-    metadata &&
-    typeof metadata === "object" &&
-    !Array.isArray(metadata) &&
-    (metadata as Record<string, unknown>).keeper_profile === true
-  ) {
-    return "keeper";
-  }
-  if (finding.finding_type.startsWith("revenue_")) return "client-risk";
-  if (finding.finding_type.startsWith("pending_")) return "follow-up";
-  if (
-    finding.finding_type === "needs_routing" ||
-    finding.finding_type === "new_person" ||
-    finding.finding_type === "new_org"
-  ) {
-    return "keeper";
-  }
-  return "brief";
 }
 
 function findingMatchesSearch(finding: FindingWithContext, term: string): boolean {
@@ -126,7 +123,7 @@ export function PlaysPage({
 }: {
   initialTab: PlaysTab;
   initialActivityView: PlaysActivityView;
-  initialQueueFilter: "needs_you" | "auto_handled";
+  initialQueueFilter: "needs_you" | "auto_handled" | "learning";
   initialData: PlaysTabData;
 }) {
   const {
@@ -149,18 +146,28 @@ export function PlaysPage({
   const {
     initialQueue,
     initialActivity,
+    activityTotalCount,
     connectors,
     initialFindings,
     autoHandledFindings,
+    learningEvidence,
     streamCaptures,
     captureStats,
     hasCaptureData,
     blueprints,
     adoptedTemplates,
-    playerContexts,
+    playbooksV2,
     workspaceId,
     keeperUnseenCount,
   } = activeData ?? initialData;
+
+  // Real-time subscription for play_runs changes
+  usePlayRunsRealtime({
+    workspaceId,
+    enabled: tab === "queue",
+    onInsert: invalidateActiveTab,
+    onUpdate: invalidateActiveTab,
+  });
 
   function handleEditCard(vm: PlayCardViewModel) {
     openAskSalt({
@@ -169,7 +176,6 @@ export function PlaysPage({
     });
   }
 
-  const showCreatePlay = tab === "queue";
 
   const [isPipelinePending, startPipelineTransition] = useTransition();
   const [actionResult, setActionResult] = useState<{
@@ -177,44 +183,156 @@ export function PlaysPage({
     message: string;
   } | null>(null);
   const [queueSearch, setQueueSearch] = useState("");
-  const [queuePlayerFilter, setQueuePlayerFilter] = useState<PlayerId | "all">("all");
+  const [queueFilters, setQueueFilters] = useState<QueueFiltersState>(EMPTY_QUEUE_FILTERS);
 
   const normalizedQueueSearch = queueSearch.trim().toLowerCase();
+  const activeQueueFilterCount = countQueueFilters(queueFilters, queueFilter);
   const hasActiveQueueFilter =
-    normalizedQueueSearch.length > 0 || queuePlayerFilter !== "all";
+    normalizedQueueSearch.length > 0 || activeQueueFilterCount > 0;
+
+  const sectionLabels = useMemo(
+    () =>
+      Object.fromEntries(
+        QUEUE_SECTION_ORDER.map((section) => [section, getSectionMeta(section).label]),
+      ) as Record<QueueSectionFilter, string>,
+    [],
+  );
+
+  const queueSectionOptions = useMemo(() => {
+    const counts = new Map<QueueSectionFilter, number>();
+
+    if (queueFilter === "needs_you") {
+      for (const finding of initialFindings) {
+        const section = getSectionFromFindingType(finding.finding_type);
+        counts.set(section, (counts.get(section) ?? 0) + 1);
+      }
+      for (const play of initialQueue) {
+        const section = getSectionFromQueuePlay(play.playerId);
+        counts.set(section, (counts.get(section) ?? 0) + 1);
+      }
+    } else if (queueFilter === "auto_handled") {
+      for (const finding of autoHandledFindings) {
+        const section = getSectionFromFindingType(finding.finding_type);
+        counts.set(section, (counts.get(section) ?? 0) + 1);
+      }
+    } else {
+      for (const item of learningEvidence ?? []) {
+        const section = getSectionFromLearningEntity(item.entityType);
+        counts.set(section, (counts.get(section) ?? 0) + 1);
+      }
+    }
+
+    return QUEUE_SECTION_ORDER.filter((section) => (counts.get(section) ?? 0) > 0).map(
+      (section) => ({
+        id: section,
+        label: sectionLabels[section],
+        count: counts.get(section) ?? 0,
+      }),
+    );
+  }, [
+    autoHandledFindings,
+    initialFindings,
+    initialQueue,
+    learningEvidence,
+    queueFilter,
+    sectionLabels,
+  ]);
+
+  const queueItemKindOptions = useMemo(() => {
+    if (queueFilter !== "needs_you") return [];
+
+    const options: Array<{ id: QueueItemKindFilter; label: string; count: number }> = [];
+    if (initialFindings.length > 0) {
+      options.push({
+        id: "finding",
+        label: QUEUE_ITEM_KIND_LABELS.finding,
+        count: initialFindings.length,
+      });
+    }
+    if (initialQueue.length > 0) {
+      options.push({
+        id: "prepared_play",
+        label: QUEUE_ITEM_KIND_LABELS.prepared_play,
+        count: initialQueue.length,
+      });
+    }
+    return options;
+  }, [initialFindings.length, initialQueue.length, queueFilter]);
 
   const filteredFindings = useMemo(
     () =>
       initialFindings.filter((finding) => {
-        if (queuePlayerFilter !== "all" && getFindingPlayerId(finding) !== queuePlayerFilter) {
+        if (
+          !matchesSectionFilter(
+            queueFilters.sections,
+            getSectionFromFindingType(finding.finding_type),
+          )
+        ) {
+          return false;
+        }
+        if (!matchesItemKindFilter(queueFilters.itemKinds, "finding")) {
           return false;
         }
         return findingMatchesSearch(finding, normalizedQueueSearch);
       }),
-    [initialFindings, normalizedQueueSearch, queuePlayerFilter]
+    [initialFindings, normalizedQueueSearch, queueFilters]
   );
 
   const filteredAutoHandledFindings = useMemo(
     () =>
       autoHandledFindings.filter((finding) => {
-        if (queuePlayerFilter !== "all" && getFindingPlayerId(finding) !== queuePlayerFilter) {
+        if (
+          !matchesSectionFilter(
+            queueFilters.sections,
+            getSectionFromFindingType(finding.finding_type),
+          )
+        ) {
           return false;
         }
         return findingMatchesSearch(finding, normalizedQueueSearch);
       }),
-    [autoHandledFindings, normalizedQueueSearch, queuePlayerFilter]
+    [autoHandledFindings, normalizedQueueSearch, queueFilters]
   );
 
   const filteredQueue = useMemo(
     () =>
       initialQueue.filter((play) => {
-        if (queuePlayerFilter !== "all" && play.playerId !== queuePlayerFilter) {
+        if (
+          !matchesSectionFilter(
+            queueFilters.sections,
+            getSectionFromQueuePlay(play.playerId),
+          )
+        ) {
+          return false;
+        }
+        if (!matchesItemKindFilter(queueFilters.itemKinds, "prepared_play")) {
           return false;
         }
         return playMatchesSearch(play, normalizedQueueSearch);
       }),
-    [initialQueue, normalizedQueueSearch, queuePlayerFilter]
+    [initialQueue, normalizedQueueSearch, queueFilters]
   );
+
+  const filteredLearningEvidence = useMemo(() => {
+    const items = learningEvidence ?? [];
+    return items.filter((item) => {
+      if (
+        !matchesSectionFilter(
+          queueFilters.sections,
+          getSectionFromLearningEntity(item.entityType),
+        )
+      ) {
+        return false;
+      }
+      if (!normalizedQueueSearch) return true;
+      return (
+        item.entityLabel.toLowerCase().includes(normalizedQueueSearch) ||
+        item.fields.some((field) =>
+          field.fieldPath.toLowerCase().includes(normalizedQueueSearch)
+        )
+      );
+    });
+  }, [learningEvidence, normalizedQueueSearch, queueFilters.sections]);
 
   // Unify findings (scan signals shown as plays) and prepared plays into one
   // ordered list of view models, rendered by the single PlayCard.
@@ -290,6 +408,7 @@ export function PlaysPage({
   const queueCounts = {
     needs_you: needsYouCount,
     auto_handled: autoHandledCount,
+    learning: learningEvidence?.length ?? 0,
   };
 
   return (
@@ -297,40 +416,9 @@ export function PlaysPage({
       <div aria-hidden className="salt-ambient-wash" />
 
       <div className="mx-auto w-full max-w-[1400px] space-y-8">
-        {/* Tab Bar + Create Button */}
+        {/* Tab Bar */}
         <div className="flex flex-wrap items-center justify-between gap-4">
           <PlaysTabs active={tab} onChange={handleTabChange} />
-          {showCreatePlay && (
-            <div className="flex items-center gap-2">
-              {/* Debug affordance (dev builds only): production ingestion is
-                  the trigger webhook + paginated backfill; this manual path
-                  exists to exercise the pipeline locally. */}
-              {process.env.NODE_ENV === "development" && (
-                <button
-                  type="button"
-                  onClick={handleSyncAndScan}
-                  disabled={isPipelinePending}
-                  className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full border border-dashed border-amber-500/50 bg-amber-500/10 pl-3 pr-4 text-[13px] font-medium text-amber-600 transition hover:bg-amber-500/20 disabled:opacity-50"
-                >
-                  {isPipelinePending ? (
-                    <Loader2 className="size-4 animate-spin" strokeWidth={2} />
-                  ) : (
-                    <Zap className="size-4" strokeWidth={2} />
-                  )}
-                  {isPipelinePending ? "Syncing & scanning..." : "Sync & Scan"}
-                </button>
-              )}
-
-              <button
-                type="button"
-                onClick={() => openAskSalt()}
-                className="group inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full border border-border/60 bg-card pl-3 pr-4 text-[13px] font-semibold text-foreground shadow-[0_8px_24px_-8px_rgba(0,0,0,0.25)] transition hover:bg-card/90 hover-lift"
-              >
-                <Sparkles className="size-4 text-flame" strokeWidth={2.25} />
-                Create a Play
-              </button>
-            </div>
-          )}
         </div>
 
         {/* Sync / Scan result toast */}
@@ -369,12 +457,26 @@ export function PlaysPage({
               {/* Header with Toggle */}
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <PlaysSectionHeader
-                  eyebrow={queueFilter === "needs_you" ? "Needs your attention" : "Salt handled"}
-                  title={queueFilter === "needs_you" ? "Needs You" : "Auto-handled"}
+                  eyebrow={
+                    queueFilter === "needs_you"
+                      ? "Needs your attention"
+                      : queueFilter === "learning"
+                        ? "Building confidence"
+                        : "Salt handled"
+                  }
+                  title={
+                    queueFilter === "needs_you"
+                      ? "Needs You"
+                      : queueFilter === "learning"
+                        ? "Watching"
+                        : "Auto-handled"
+                  }
                   description={
                     queueFilter === "needs_you"
                       ? "Unresolved decisions waiting for you. Approve, edit, apply, or dismiss."
-                      : "Recent confident Keeper and Salt updates. Activity keeps the full history."
+                      : queueFilter === "learning"
+                        ? "Salt is gathering signals. Accept when ready, or wait for more evidence."
+                        : "Recent confident Memory and Salt updates. Activity keeps the full history."
                   }
                 />
                 <QueueToggle
@@ -384,44 +486,60 @@ export function PlaysPage({
                 />
               </div>
 
-              <PlaysSearchField
-                layout="toolbar-actions"
-                value={queueSearch}
-                onChange={setQueueSearch}
-                placeholder={
-                  queueFilter === "needs_you"
-                    ? "Search queued plays"
-                    : "Search handled updates"
-                }
-                filterActive={queuePlayerFilter !== "all"}
-                filterContent={
-                  <PlaysFilterGroupsContent
-                    groups={[
-                      {
-                        label: "From",
-                        options: PLAYERS.map((player) => ({
-                          id: player.id,
-                          label: player.name,
-                          monogram: player.monogram,
-                          swatchClass: TONE_SOFT[player.tone],
-                        })),
-                        value: queuePlayerFilter === "all" ? null : queuePlayerFilter,
-                        onChange: (id) => setQueuePlayerFilter((id as PlayerId) ?? "all"),
-                      },
-                    ]}
-                  />
-                }
-                displayContent={
-                  <div className="border-b border-border/60 px-3 py-2.5">
-                    <p className="text-xs font-medium text-foreground">Display</p>
-                    <p className="mt-0.5 text-[11px] text-muted-foreground">
-                      {queueFilter === "needs_you"
-                        ? "Choose how queued plays are shown"
-                        : "Choose how auto-handled updates are shown"}
-                    </p>
-                  </div>
-                }
-              />
+              <div className="space-y-3">
+                <PlaysSearchField
+                  value={queueSearch}
+                  onChange={setQueueSearch}
+                  placeholder={
+                    queueFilter === "needs_you"
+                      ? "Search queued plays"
+                      : queueFilter === "learning"
+                        ? "Search watching…"
+                        : "Search handled updates"
+                  }
+                  filterActive={activeQueueFilterCount > 0}
+                  filterActiveCount={activeQueueFilterCount}
+                  filterTitle=""
+                  filterContentClassName="w-72 gap-0 overflow-hidden rounded-2xl border-border/60 p-0"
+                  filterContent={
+                    <QueueFilterPanel
+                      tab={queueFilter}
+                      state={queueFilters}
+                      onChange={setQueueFilters}
+                      sectionOptions={queueSectionOptions}
+                      itemKindOptions={queueItemKindOptions}
+                    />
+                  }
+                  trailingAction={
+                    process.env.NODE_ENV === "development" ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleSyncAndScan}
+                        disabled={isPipelinePending}
+                        className={cn(
+                          "h-9 shrink-0 rounded-full border-border/60 bg-card px-3.5 gap-1.5 text-sm font-medium text-foreground shadow-none hover:border-border hover:bg-muted/40",
+                        )}
+                      >
+                        {isPipelinePending ? (
+                          <Loader2 className="size-3.5 animate-spin" strokeWidth={2.25} />
+                        ) : (
+                          <Zap className="size-3.5" strokeWidth={2.25} />
+                        )}
+                        {isPipelinePending ? "Syncing…" : "Sync & Scan"}
+                      </Button>
+                    ) : undefined
+                  }
+                />
+
+                <QueueActiveFilterBadges
+                  tab={queueFilter}
+                  state={queueFilters}
+                  onChange={setQueueFilters}
+                  sectionLabels={sectionLabels}
+                />
+              </div>
 
               {/* Queue Content — one unified PlayCard list for every item */}
               {queueFilter === "needs_you" ? (
@@ -435,6 +553,20 @@ export function PlaysPage({
                     hasActiveQueueFilter
                       ? "Try clearing search or adjusting the filters."
                       : "Salt's drafting the next batch. Check back soon."
+                  }
+                />
+              ) : queueFilter === "learning" ? (
+                <LearningTab
+                  evidence={filteredLearningEvidence}
+                  workspaceId={workspaceId ?? ""}
+                  onUpdate={invalidateActiveTab}
+                  emptyTitle={
+                    hasActiveQueueFilter ? "No matching evidence" : undefined
+                  }
+                  emptyDescription={
+                    hasActiveQueueFilter
+                      ? "Try clearing search or adjusting the filters."
+                      : undefined
                   }
                 />
               ) : (
@@ -463,7 +595,7 @@ export function PlaysPage({
                 connectors={connectors}
                 blueprints={blueprints}
                 adoptedTemplates={adoptedTemplates}
-                playerContexts={playerContexts}
+                playbooksV2={playbooksV2}
                 workspaceId={workspaceId ?? ""}
                 onBlueprintAdopted={invalidateActiveTab}
                 keeperUnseenCount={keeperUnseenCount}
@@ -500,7 +632,10 @@ export function PlaysPage({
                 />
               </div>
               {activityView === "actions" ? (
-                <ActivityTab initialActivity={initialActivity} />
+                <ActivityTab
+                  initialActivity={initialActivity}
+                  initialTotalCount={activityTotalCount}
+                />
               ) : (
                 <CaptureStreamTab
                   realStreamCaptures={streamCaptures}

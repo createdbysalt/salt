@@ -4,9 +4,10 @@ import { getProfilePlaybookSettings } from "@/app/_features/plays/queries";
 import { PEOPLE_PROFILE_SLUG } from "@/app/_features/plays/playbooks/records-engine/apply-person-profile";
 import { getWorkspaceContext } from "@/app/_lib/utils/user-dashboard";
 import { getWorkspaceFiles } from "@/app/_features/files/queries";
+import { getVoices } from "@/app/_features/me/voices/queries";
 
 export default async function MeRoute() {
-  const [{ workspace }, data, notes, activity, settings, icpSegments, files] = await Promise.all([
+  const [{ workspace }, data, notes, activity, settings, icpSegments, files, voiceProfiles] = await Promise.all([
     getWorkspaceContext(),
     getMeData(),
     getOperatorNotes(),
@@ -14,6 +15,7 @@ export default async function MeRoute() {
     getProfilePlaybookSettings(PEOPLE_PROFILE_SLUG),
     getICPSegments(),
     getWorkspaceFiles(),
+    getWorkspaceContext().then(({ workspace }) => getVoices(workspace.id)),
   ]);
 
   return (
@@ -25,6 +27,7 @@ export default async function MeRoute() {
       icpSegments={icpSegments}
       workspaceId={workspace.id}
       files={files.filter((file) => file.isOperatorAsset)}
+      voiceProfiles={voiceProfiles}
     />
   );
 }

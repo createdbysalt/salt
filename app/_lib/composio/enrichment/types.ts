@@ -7,15 +7,8 @@ export type EnrichableEntityType =
   | "file"
   | "me";
 
-export type ConnectorCategory =
-  | "email"
-  | "calendar"
-  | "billing"
-  | "crm"
-  | "meetings"
-  | "documents"
-  | "project_management"
-  | "storage";
+// Re-export from unified registry to avoid duplication
+export type { ConnectorCategory } from "../unified-connector-registry";
 
 export interface SourcedField {
   value: string | number | boolean;
@@ -70,6 +63,15 @@ export interface EnrichmentConnections {
   files?: FileConnectionCandidate[];
 }
 
+export interface ScanSummaryItem {
+  provider: string;
+  category: string;
+  fieldsExtracted: number;
+  connectionsFound: number;
+  notesFound: number;
+  hadData: boolean;
+}
+
 export interface EnrichmentResult {
   entityType: EnrichableEntityType;
   fields: Record<string, SourcedField>;
@@ -77,6 +79,7 @@ export interface EnrichmentResult {
   notes: ExtractedNote[];
   sourcesQueried: string[];
   sourcesWithData: string[];
+  scanSummary?: ScanSummaryItem[];
 }
 
 export interface EnrichmentSeed {

@@ -12,6 +12,10 @@ import {
 import { createClient } from "@/app/_lib/supabase/server";
 import { getVerifiedWorkspaceMembership } from "@/app/_lib/tenancy/workspace-membership";
 import { resolveMockContentEnabled } from "@/app/_lib/demo/mock-content";
+import {
+  operatorGreetingName,
+  operatorProfileFullName,
+} from "@/app/_features/me/utils/profile-name";
 import { SupabaseClient, User } from "@supabase/supabase-js";
 
 type ProfileData = {
@@ -34,7 +38,9 @@ export interface SidebarProps {
 const getProfile = cache(async (supabase: SupabaseClient, userId: string) => {
   const { data } = await supabase
     .from("profiles")
-    .select("saas_tier")
+    .select(
+      "saas_tier, display_name, first_name, last_name, full_name, email, preferred_name",
+    )
     .eq("id", userId)
     .single();
   return data;
@@ -194,17 +200,17 @@ export async function DashboardLayoutWrapper({
     getWorkspaceDetails(supabase, workspaceMembership.id),
   ]);
 
-  // Extract first name for greetings
-  const metaFirstName = (user.user_metadata?.first_name as string | undefined)?.trim();
-  const metaFullName = (
-    (user.user_metadata?.full_name as string | undefined) ||
-    (user.user_metadata?.name as string | undefined) ||
-    ""
-  ).trim();
-  const emailLocalPart = user.email?.split("@")[0] || "";
-  const firstName =
-    metaFirstName || metaFullName.split(/\s+/)[0] || emailLocalPart || "";
-  const fullName = metaFullName;
+  // Greeting names come from Me profile (preferred_name / display_name), not auth metadata.
+  const profileNameRow = {
+    display_name: profile?.display_name,
+    first_name: profile?.first_name,
+    last_name: profile?.last_name,
+    full_name: profile?.full_name,
+    email: profile?.email ?? user.email,
+    preferred_name: profile?.preferred_name,
+  };
+  const firstName = operatorGreetingName(profileNameRow);
+  const fullName = operatorProfileFullName(profileNameRow);
   return (
     <CommandPaletteProvider>
       <DashboardUserProvider

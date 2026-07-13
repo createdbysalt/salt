@@ -64,6 +64,7 @@ const detail = {
   procedureMd: "1. Draft a friendly check-in.",
   approvalRequired: true,
   hasActingSteps: true,
+  chatContract: null,
 };
 
 beforeEach(() => {

@@ -34,6 +34,7 @@ export interface ConnectorBackfillResult {
   debug?: {
     itemsFetched: number;
     skippedNoise: number;
+    dropped: number;
     duplicates: number;
     insertErrors: number;
     declined: number;
@@ -64,12 +65,18 @@ function unwrapItems(raw: unknown): unknown[] {
   return [];
 }
 
+interface IngestRowsOptions {
+  isBootstrap: boolean;
+  useGatePipeline?: boolean;
+  userEmail?: string | null;
+}
+
 async function ingestRows(
   workspaceId: string,
   integrationId: string | null,
   adapter: CaptureAdapter,
   rows: unknown[],
-  isBootstrap: boolean,
+  options: IngestRowsOptions,
 ): Promise<
   NonNullable<ConnectorBackfillResult["debug"]> & {
     created: number;
@@ -79,6 +86,7 @@ async function ingestRows(
   const stats = {
     itemsFetched: rows.length,
     skippedNoise: 0,
+    dropped: 0,
     duplicates: 0,
     insertErrors: 0,
     declined: 0,
@@ -96,7 +104,9 @@ async function ingestRows(
     envelope.raw = { ...envelope.raw, source: "composio_backfill" };
 
     const result = await ingestEnvelope(workspaceId, integrationId, envelope, {
-      isBootstrap,
+      isBootstrap: options.isBootstrap,
+      useGatePipeline: options.useGatePipeline ?? true,
+      userEmail: options.userEmail,
     });
     switch (result.outcome) {
       case "created":
@@ -109,6 +119,10 @@ async function ingestRows(
         break;
       case "noise":
         stats.skippedNoise++;
+        stats.envelopes.push(envelope);
+        break;
+      case "dropped":
+        stats.dropped++;
         break;
       case "error":
         stats.insertErrors++;
@@ -199,7 +213,11 @@ async function runConnectorBackfill(
     connection.integrationId,
     spec.adapter,
     rows,
-    options.isBootstrap ?? false,
+    {
+      isBootstrap: options.isBootstrap ?? false,
+      useGatePipeline: true,
+      userEmail: connection.email ?? null,
+    },
   );
 
   await absorbDerivedSignals(
@@ -210,7 +228,7 @@ async function runConnectorBackfill(
   );
 
   console.log(
-    `[connector-backfill] ${spec.provider}: created=${stats.created}, fetched=${stats.itemsFetched}, dupes=${stats.duplicates}, declined=${stats.declined}, errors=${stats.insertErrors}`,
+    `[connector-backfill] ${spec.provider}: created=${stats.created}, fetched=${stats.itemsFetched}, dupes=${stats.duplicates}, dropped=${stats.dropped}, declined=${stats.declined}, errors=${stats.insertErrors}`,
   );
 
   const { created, envelopes: _envelopes, ...debug } = stats;
@@ -403,7 +421,11 @@ export async function backfillCalBookings(
     connection.integrationId,
     calCaptureAdapter,
     rows,
-    options.isBootstrap ?? false,
+    {
+      isBootstrap: options.isBootstrap ?? false,
+      useGatePipeline: true,
+      userEmail: connection.email ?? null,
+    },
   );
 
   await absorbDerivedSignals(

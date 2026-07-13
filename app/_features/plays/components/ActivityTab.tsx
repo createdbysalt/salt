@@ -1,53 +1,119 @@
-import { useMemo, useState } from "react";
+"use client";
+
+import { useCallback, useMemo, useState, useTransition } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { RotateCcw, CheckCircle2, Clock, Zap, X, ChevronDown, Sparkles, Workflow, Target, Calendar, CalendarClock } from "lucide-react";
+import {
+  RotateCcw,
+  CheckCircle2,
+  Clock,
+  Zap,
+  X,
+  ChevronDown,
+  Sparkles,
+  Workflow,
+  Target,
+  Eye,
+  Loader2,
+  Undo2,
+  List,
+  FileText,
+  User,
+} from "lucide-react";
+import { Badge, Checkbox } from "@repo/ui";
 import type { ActivityEntryRow } from "@/app/_features/plays/types";
 import { mapActivityEntryForUi } from "@/app/_features/plays/utils/map-activity-entry";
-import { playerById, TONE_SOFT, type ActivityEntry, type ActivityStatus } from "@/app/_lib/demo/plays-demo-data";
+import {
+  type ActivityCategory,
+  type ActivityEntry,
+} from "@/app/_lib/demo/plays-demo-data";
 import { SourceExternalLink } from "@/app/_features/capture/components/SourceExternalLink";
+import { loadMoreActivityEntries } from "@/app/_features/plays/actions/load-more-activity";
+import { undoAutoAppliedAction } from "@/app/_features/plays/actions";
 import { cn } from "@repo/utils";
 import { PlaysSearchField } from "./PlaysSearchField";
 
 const APPLE_EASE = [0.32, 0.72, 0, 1] as const;
+const PAGE_SIZE = 50;
 
-const STATUS_STYLES: Record<ActivityStatus, { label: string; cls: string; icon: typeof CheckCircle2 }> = {
-  approved: { label: "Approved", cls: "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300", icon: CheckCircle2 },
-  pending: { label: "Pending", cls: "bg-flame/15 text-flame", icon: Clock },
-  "auto-applied": { label: "Auto-applied", cls: "bg-sky/15 text-sky", icon: Zap },
-  dismissed: { label: "Dismissed", cls: "bg-muted text-muted-foreground", icon: X },
-  scheduled: { label: "Scheduled", cls: "bg-violet-500/15 text-violet-700 dark:text-violet-300", icon: CalendarClock },
+const CATEGORY_STYLES: Record<
+  ActivityCategory,
+  { label: string; cls: string; icon: typeof CheckCircle2 }
+> = {
+  "salt-acted": {
+    label: "Salt Acted",
+    cls: "bg-sky/15 text-sky",
+    icon: Zap,
+  },
+  "you-decided": {
+    label: "You Decided",
+    cls: "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300",
+    icon: CheckCircle2,
+  },
+  "in-progress": {
+    label: "In Progress",
+    cls: "bg-flame/15 text-flame",
+    icon: Clock,
+  },
+  watching: {
+    label: "Watching",
+    cls: "bg-violet-500/15 text-violet-700 dark:text-violet-300",
+    icon: Eye,
+  },
 };
 
-const STATUS_FILTERS: { id: ActivityStatus | "all"; label: string }[] = [
-  { id: "all", label: "All" },
-  { id: "approved", label: "Approved" },
-  { id: "pending", label: "Pending" },
-  { id: "auto-applied", label: "Auto-applied" },
-  { id: "dismissed", label: "Dismissed" },
-  { id: "scheduled", label: "Scheduled" },
+type DateFilter = "Today" | "Yesterday" | "Earlier this week";
+
+const CATEGORY_OPTIONS: { id: ActivityCategory; label: string }[] = [
+  { id: "salt-acted", label: "Salt Acted" },
+  { id: "you-decided", label: "You Decided" },
+  { id: "in-progress", label: "In Progress" },
+  { id: "watching", label: "Watching" },
 ];
 
-type DateFilter = "all" | "Today" | "Yesterday" | "Earlier this week";
-const DATE_FILTERS: { id: DateFilter; label: string }[] = [
-  { id: "all", label: "All time" },
+const DATE_OPTIONS: { id: DateFilter; label: string }[] = [
   { id: "Today", label: "Today" },
   { id: "Yesterday", label: "Yesterday" },
   { id: "Earlier this week", label: "Earlier this week" },
 ];
 
+export type ActivityFiltersState = {
+  categories: ActivityCategory[];
+  dates: DateFilter[];
+};
+
+function countActivityFilters(state: ActivityFiltersState): number {
+  return state.categories.length + state.dates.length;
+}
+
+function toggleValue<T extends string>(values: T[], value: T, checked: boolean): T[] {
+  if (checked) {
+    return values.includes(value) ? values : [...values, value];
+  }
+  return values.filter((item) => item !== value);
+}
+
 export function ActivityTab({
   initialActivity,
+  initialTotalCount = 0,
 }: {
   initialActivity: ActivityEntryRow[];
+  initialTotalCount?: number;
 }) {
+  const [activityRows, setActivityRows] = useState(initialActivity);
+  const [totalCount, setTotalCount] = useState(initialTotalCount);
+  const [isPending, startTransition] = useTransition();
+
   const activitySource = useMemo(
-    () => initialActivity.map(mapActivityEntryForUi),
-    [initialActivity],
+    () => activityRows.map(mapActivityEntryForUi),
+    [activityRows],
   );
   const [q, setQ] = useState("");
-  const [statusFilter, setStatusFilter] = useState<ActivityStatus | "all">("all");
-  const [dateFilter, setDateFilter] = useState<DateFilter>("all");
+  const [filters, setFilters] = useState<ActivityFiltersState>({
+    categories: [],
+    dates: [],
+  });
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [undoingId, setUndoingId] = useState<string | null>(null);
 
   const toggleExpand = (id: string) =>
     setExpanded((prev) => {
@@ -56,15 +122,35 @@ export function ActivityTab({
       return next;
     });
 
+  const handleUndo = useCallback((entryId: string) => {
+    setUndoingId(entryId);
+    startTransition(async () => {
+      const result = await undoAutoAppliedAction(entryId);
+      setUndoingId(null);
+      if (result.success) {
+        // Remove the undone entry from the list
+        setActivityRows((prev) => prev.filter((row) => row.id !== entryId));
+        setTotalCount((prev) => Math.max(0, prev - 1));
+      }
+    });
+  }, []);
+
   const entries = useMemo(() => {
     const term = q.trim().toLowerCase();
     return activitySource
-      .filter((e) => (statusFilter === "all" ? true : e.status === statusFilter))
-      .filter((e) => (dateFilter === "all" ? true : e.dayGroup === dateFilter))
       .filter((e) =>
-        !term ? true : e.title.toLowerCase().includes(term) || e.target.toLowerCase().includes(term)
+        filters.categories.length === 0 ? true : filters.categories.includes(e.category),
+      )
+      .filter((e) =>
+        filters.dates.length === 0 ? true : filters.dates.includes(e.dayGroup as DateFilter),
+      )
+      .filter((e) =>
+        !term
+          ? true
+          : e.title.toLowerCase().includes(term) ||
+            e.target.toLowerCase().includes(term),
       );
-  }, [q, statusFilter, dateFilter, activitySource]);
+  }, [q, filters, activitySource]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, ActivityEntry[]>();
@@ -79,17 +165,24 @@ export function ActivityTab({
   const counts = useMemo(() => {
     const today = activitySource.filter((e) => e.dayGroup === "Today");
     return {
-      approved: today.filter((e) => e.status === "approved").length,
-      pending: today.filter((e) => e.status === "pending").length,
-      auto: today.filter((e) => e.status === "auto-applied").length,
-      dismissed: today.filter((e) => e.status === "dismissed").length,
-      scheduled: today.filter((e) => e.status === "scheduled").length,
+      saltActed: today.filter((e) => e.category === "salt-acted").length,
+      youDecided: today.filter((e) => e.category === "you-decided").length,
+      inProgress: today.filter((e) => e.category === "in-progress").length,
+      watching: today.filter((e) => e.category === "watching").length,
       total: today.length,
     };
   }, [activitySource]);
 
-  const activeFilterCount =
-    (statusFilter !== "all" ? 1 : 0) + (dateFilter !== "all" ? 1 : 0);
+  const activeFilterCount = countActivityFilters(filters);
+  const hasMore = activityRows.length < totalCount;
+
+  const handleLoadMore = useCallback(() => {
+    startTransition(async () => {
+      const result = await loadMoreActivityEntries(activityRows.length, PAGE_SIZE);
+      setActivityRows((prev) => [...prev, ...result.entries]);
+      setTotalCount(result.totalCount);
+    });
+  }, [activityRows.length]);
 
   return (
     <motion.div
@@ -102,233 +195,595 @@ export function ActivityTab({
       <section className="glass-card rounded-3xl p-5">
         <header className="flex items-center justify-between mb-4">
           <div>
-            <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-semibold">Today's trust ledger</p>
-            <h3 className="font-display text-lg tracking-tight mt-0.5">{counts.total} actions today</h3>
+            <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-semibold">
+              Today's activity
+            </p>
+            <h3 className="font-display text-lg tracking-tight mt-0.5">
+              {counts.total} actions today
+            </h3>
           </div>
           <p className="text-[11px] text-muted-foreground max-w-[280px] text-right hidden md:block">
-            Click any row to see the trigger, sources, outcome, and what Salt learned.
+            Click any row to see details about what happened.
           </p>
         </header>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-2.5">
-          <CountTile label="Approved" value={counts.approved} tone="emerald" />
-          <CountTile label="Pending" value={counts.pending} tone="flame" />
-          <CountTile label="Auto-applied" value={counts.auto} tone="sky" />
-          <CountTile label="Dismissed" value={counts.dismissed} tone="muted" />
-          <CountTile label="Scheduled" value={counts.scheduled} tone="violet" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+          <CountTile label="Salt Acted" value={counts.saltActed} tone="sky" />
+          <CountTile label="You Decided" value={counts.youDecided} tone="emerald" />
+          <CountTile label="In Progress" value={counts.inProgress} tone="flame" />
+          <CountTile label="Watching" value={counts.watching} tone="violet" />
         </div>
       </section>
 
       {/* Search + filter */}
-      <PlaysSearchField
-        value={q}
-        onChange={setQ}
-        placeholder="Search activity…"
-        filterActive={activeFilterCount > 0}
-        filterContent={
-          <ActivityFilterContent
-            statusFilter={statusFilter}
-            onStatusFilter={setStatusFilter}
-            dateFilter={dateFilter}
-            onDateFilter={setDateFilter}
-          />
-        }
-      />
+      <div className="space-y-3">
+        <PlaysSearchField
+          value={q}
+          onChange={setQ}
+          placeholder="Search activity…"
+          filterActive={activeFilterCount > 0}
+          filterActiveCount={activeFilterCount}
+          filterTitle=""
+          filterContentClassName="w-72 gap-0 overflow-hidden rounded-2xl border-border/60 p-0"
+          filterContent={
+            <ActivityFilterPanel state={filters} onChange={setFilters} />
+          }
+        />
+
+        <ActivityActiveFilterBadges state={filters} onChange={setFilters} />
+      </div>
 
       {/* Day-grouped timeline */}
       {grouped.length === 0 ? (
         <div className="glass-card rounded-3xl p-10 text-center">
           <p className="font-display text-2xl tracking-tight">No matching activity</p>
-          <p className="text-sm text-muted-foreground mt-1">Adjust the filters or search.</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Adjust the filters or search.
+          </p>
         </div>
       ) : (
         <div className="space-y-5">
           {grouped.map(([day, items]) => (
             <section key={day} className="space-y-2">
               <header className="px-2 flex items-center gap-3">
-                <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-semibold">{day}</p>
+                <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground font-semibold">
+                  {day}
+                </p>
                 <div className="h-px flex-1 bg-border/60" />
-                <span className="text-[11px] text-muted-foreground tabular-nums">{items.length}</span>
+                <span className="text-[11px] text-muted-foreground tabular-nums">
+                  {items.length}
+                </span>
               </header>
               <ul className="glass-card rounded-3xl divide-y divide-border/40 overflow-hidden">
-                {items.map((e) => {
-                  const player = playerById(e.playerId);
-                  const PlayerIcon = player.icon;
-                  const status = STATUS_STYLES[e.status];
-                  const StatusIcon = status.icon;
-                  const isOpen = expanded.has(e.id);
-                  const canUndo = e.status === "auto-applied" || e.status === "approved";
-
-                  return (
-                    <li key={e.id} className="group">
-                      <button
-                        type="button"
-                        onClick={() => toggleExpand(e.id)}
-                        aria-expanded={isOpen}
-                        className="w-full grid grid-cols-[32px_56px_36px_1fr_auto_20px] items-center gap-3 px-4 py-3.5 hover:bg-muted/40 transition text-left"
-                      >
-                        <span className="flex items-center justify-center">
-                          {canUndo ? (
-                            <span
-                              role="button"
-                              tabIndex={0}
-                              onClick={(ev) => ev.stopPropagation()}
-                              className="size-7 grid place-items-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition"
-                              title="Undo"
-                              aria-label="Undo"
-                            >
-                              <RotateCcw className="size-3.5" strokeWidth={2.25} />
-                            </span>
-                          ) : null}
-                        </span>
-                        <span className="text-[11px] text-muted-foreground font-medium tabular-nums">{e.time}</span>
-                        <span className={cn("size-8 rounded-xl grid place-items-center", TONE_SOFT[player.tone])}>
-                          <PlayerIcon className="size-3.5" strokeWidth={2.25} />
-                        </span>
-                        <div className="min-w-0">
-                          <p className="text-[13px] font-medium leading-tight truncate">{e.title}</p>
-                          <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
-                            {e.target} · <span className="font-medium">{e.playbook}</span> · by {player.name}
-                            {e.sourceUrl ? (
-                              <>
-                                {" "}
-                                ·{" "}
-                                <SourceExternalLink
-                                  href={e.sourceUrl}
-                                  className="inline-flex align-baseline"
-                                  onClick={(ev) => ev.stopPropagation()}
-                                />
-                              </>
-                            ) : null}
-                          </p>
-                        </div>
-                        <span className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap", status.cls)}>
-                          <StatusIcon className="size-3" strokeWidth={2.5} />
-                          {status.label}
-                        </span>
-                        <ChevronDown
-                          className={cn(
-                            "size-4 text-muted-foreground transition-transform duration-300",
-                            isOpen && "rotate-180 text-foreground"
-                          )}
-                        />
-                      </button>
-
-                      <AnimatePresence initial={false}>
-                        {isOpen && (
-                          <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: "auto", opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: 0.28, ease: APPLE_EASE }}
-                            className="overflow-hidden"
-                          >
-                            <div className="px-4 pb-5 pt-1 pl-[88px] pr-6 space-y-3.5">
-                              <DetailRow icon={Target} label="Trigger" value={e.trigger ?? "—"} />
-                              <DetailRow
-                                icon={Workflow}
-                                label="Sources used"
-                                value={
-                                  e.sources && e.sources.length > 0 ? (
-                                    <div className="flex flex-wrap gap-1.5">
-                                      {e.sources.map((s) => (
-                                        <span
-                                          key={s}
-                                          className="inline-flex items-center px-2 py-0.5 rounded-full bg-muted text-[11px] text-foreground/80"
-                                        >
-                                          {s}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  ) : (
-                                    "—"
-                                  )
-                                }
-                              />
-                              <DetailRow icon={CheckCircle2} label="Outcome" value={e.outcome ?? "—"} />
-                              {e.sourceUrl ? (
-                                <DetailRow
-                                  icon={Workflow}
-                                  label="Source email"
-                                  value={<SourceExternalLink href={e.sourceUrl} />}
-                                />
-                              ) : null}
-                              <DetailRow
-                                icon={Sparkles}
-                                label="What Salt learned"
-                                value={e.learned && e.learned !== "—" ? e.learned : "Nothing yet — still pending."}
-                              />
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </li>
-                  );
-                })}
+                {items.map((e) => (
+                  <ActivityRow
+                    key={e.id}
+                    entry={e}
+                    isOpen={expanded.has(e.id)}
+                    onToggle={() => toggleExpand(e.id)}
+                    onUndo={handleUndo}
+                    isUndoing={undoingId === e.id}
+                  />
+                ))}
               </ul>
             </section>
           ))}
+
+          {/* Load more */}
+          {hasMore && (
+            <div className="flex justify-center pt-2">
+              <button
+                type="button"
+                onClick={handleLoadMore}
+                disabled={isPending}
+                className="inline-flex items-center gap-2 h-10 px-5 rounded-full border border-border/60 bg-card text-sm font-medium text-foreground/80 hover:border-border hover:text-foreground transition disabled:opacity-60"
+              >
+                {isPending ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    Loading…
+                  </>
+                ) : (
+                  <>Load more ({totalCount - activityRows.length} remaining)</>
+                )}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </motion.div>
   );
 }
 
-function ActivityFilterContent({
-  statusFilter,
-  onStatusFilter,
-  dateFilter,
-  onDateFilter,
+function ActivityRow({
+  entry: e,
+  isOpen,
+  onToggle,
+  onUndo,
+  isUndoing,
 }: {
-  statusFilter: ActivityStatus | "all";
-  onStatusFilter: (s: ActivityStatus | "all") => void;
-  dateFilter: DateFilter;
-  onDateFilter: (d: DateFilter) => void;
+  entry: ActivityEntry;
+  isOpen: boolean;
+  onToggle: () => void;
+  onUndo: (entryId: string) => void;
+  isUndoing: boolean;
 }) {
+  const categoryStyle = CATEGORY_STYLES[e.category];
+  const CategoryIcon = categoryStyle.icon;
+  const isActionCategory = e.category === "salt-acted" || e.category === "you-decided";
+  const canUndo = isActionCategory && e.reversible !== false;
+  const isUserAction = e.category === "you-decided";
+
   return (
-    <>
-      <PopoverSection icon={Sparkles} label="Status">
-        {STATUS_FILTERS.map((o) => (
-          <FilterChip key={o.id} active={statusFilter === o.id} onClick={() => onStatusFilter(o.id)}>
-            {o.label}
-          </FilterChip>
-        ))}
-      </PopoverSection>
-      <PopoverSection icon={Calendar} label="Date">
-        {DATE_FILTERS.map((o) => (
-          <FilterChip key={o.id} active={dateFilter === o.id} onClick={() => onDateFilter(o.id)}>
-            {o.label}
-          </FilterChip>
-        ))}
-      </PopoverSection>
-    </>
+    <li className="group">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={isOpen}
+        className="w-full grid grid-cols-[32px_56px_36px_1fr_auto_20px] items-center gap-3 px-4 py-3.5 hover:bg-muted/40 transition text-left"
+      >
+        <span className="flex items-center justify-center">
+          {canUndo ? (
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={(ev) => {
+                ev.stopPropagation();
+                if (!isUndoing) onUndo(e.id);
+              }}
+              onKeyDown={(ev) => {
+                if (ev.key === "Enter" || ev.key === " ") {
+                  ev.stopPropagation();
+                  if (!isUndoing) onUndo(e.id);
+                }
+              }}
+              className={cn(
+                "size-7 grid place-items-center rounded-full transition",
+                isUndoing
+                  ? "text-muted-foreground cursor-wait"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer",
+              )}
+              title="Undo"
+              aria-label="Undo"
+            >
+              {isUndoing ? (
+                <Loader2 className="size-3.5 animate-spin" strokeWidth={2.25} />
+              ) : (
+                <RotateCcw className="size-3.5" strokeWidth={2.25} />
+              )}
+            </span>
+          ) : null}
+        </span>
+        <span className="text-[11px] text-muted-foreground font-medium tabular-nums">
+          {e.time}
+        </span>
+        {isUserAction ? (
+          <span className="size-8 shrink-0 rounded-xl grid place-items-center bg-muted text-foreground">
+            <User className="size-3.5" strokeWidth={2.25} />
+          </span>
+        ) : (
+          <span className="surface-aurora grid size-8 shrink-0 place-items-center rounded-xl">
+            <Sparkles className="relative z-10 size-3.5 text-white" strokeWidth={2.5} />
+          </span>
+        )}
+        <div className="min-w-0">
+          <p className="text-[13px] font-medium leading-tight truncate">
+            {e.title}
+          </p>
+          <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
+            {e.target}
+            {e.sourceUrl ? (
+              <>
+                {" "}
+                ·{" "}
+                <SourceExternalLink
+                  href={e.sourceUrl}
+                  className="inline-flex align-baseline"
+                  onClick={(ev) => ev.stopPropagation()}
+                />
+              </>
+            ) : null}
+          </p>
+        </div>
+        <span
+          className={cn(
+            "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap",
+            categoryStyle.cls,
+          )}
+        >
+          <CategoryIcon className="size-3" strokeWidth={2.5} />
+          {categoryStyle.label}
+        </span>
+        <ChevronDown
+          className={cn(
+            "size-4 text-muted-foreground transition-transform duration-300",
+            isOpen && "rotate-180 text-foreground",
+          )}
+        />
+      </button>
+
+      <AnimatePresence initial={false}>
+        {isOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.28, ease: APPLE_EASE }}
+            className="overflow-hidden"
+          >
+            <ActivityCardDetail entry={e} onUndo={onUndo} isUndoing={isUndoing} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </li>
   );
 }
 
-function PopoverSection({ icon: Icon, label, children }: { icon: typeof CheckCircle2; label: string; children: React.ReactNode }) {
+function ActivityCardDetail({
+  entry: e,
+  onUndo,
+  isUndoing,
+}: {
+  entry: ActivityEntry;
+  onUndo: (entryId: string) => void;
+  isUndoing: boolean;
+}) {
   return (
-    <div>
-      <p className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-semibold mb-2">
-        <Icon className="size-3.5" strokeWidth={2} />
-        {label}
-      </p>
-      <div className="flex flex-wrap gap-1.5">{children}</div>
+    <div className="px-4 pb-5 pt-1 pl-[88px] pr-6 space-y-3.5">
+      {/* Salt Acted: Why confident, What happened, Sources, Undo (if reversible) */}
+      {e.category === "salt-acted" && (
+        <>
+          <DetailRow
+            icon={Sparkles}
+            label="Why confident"
+            value={e.confidenceReason ?? "Similar actions approved before"}
+          />
+          <DetailRow
+            icon={CheckCircle2}
+            label="What happened"
+            value={e.outcome ?? "—"}
+          />
+          <DetailRow
+            icon={FileText}
+            label="Sources"
+            value={
+              e.sources && e.sources.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {e.sources.map((s) => (
+                    <span
+                      key={s}
+                      className="inline-flex items-center px-2 py-0.5 rounded-full bg-muted text-[11px] text-foreground/80"
+                    >
+                      {s}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                "—"
+              )
+            }
+          />
+          {e.reversible !== false && (
+            <DetailRow
+              icon={Undo2}
+              label="Undo"
+              value={
+                <button
+                  type="button"
+                  onClick={() => onUndo(e.id)}
+                  disabled={isUndoing}
+                  className="text-xs font-medium text-foreground/80 hover:text-foreground underline disabled:opacity-50 disabled:cursor-wait"
+                >
+                  {isUndoing ? "Reverting..." : "Revert this action"}
+                </button>
+              }
+            />
+          )}
+        </>
+      )}
+
+      {/* You Decided: Your decision, What shipped, Sources, Undo (if reversible) */}
+      {e.category === "you-decided" && (
+        <>
+          <DetailRow
+            icon={CheckCircle2}
+            label="Your decision"
+            value={e.status === "dismissed" ? "Dismissed" : "Approved"}
+          />
+          <DetailRow
+            icon={Workflow}
+            label="What shipped"
+            value={e.outcome ?? "—"}
+          />
+          <DetailRow
+            icon={FileText}
+            label="Sources"
+            value={
+              e.sources && e.sources.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {e.sources.map((s) => (
+                    <span
+                      key={s}
+                      className="inline-flex items-center px-2 py-0.5 rounded-full bg-muted text-[11px] text-foreground/80"
+                    >
+                      {s}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                "—"
+              )
+            }
+          />
+          {e.reversible !== false && (
+            <DetailRow
+              icon={Undo2}
+              label="Undo"
+              value={
+                <button
+                  type="button"
+                  onClick={() => onUndo(e.id)}
+                  disabled={isUndoing}
+                  className="text-xs font-medium text-foreground/80 hover:text-foreground underline disabled:opacity-50 disabled:cursor-wait"
+                >
+                  {isUndoing ? "Reverting..." : "Revert this action"}
+                </button>
+              }
+            />
+          )}
+        </>
+      )}
+
+      {/* In Progress: What's staged, Next step, ETA */}
+      {e.category === "in-progress" && (
+        <>
+          <DetailRow
+            icon={Clock}
+            label="What's staged"
+            value={e.outcome ?? "Draft ready for review"}
+          />
+          <DetailRow
+            icon={Target}
+            label="Next step"
+            value="Review and approve"
+          />
+          <DetailRow
+            icon={Clock}
+            label="ETA"
+            value={e.eta ?? "Waiting on you"}
+          />
+        </>
+      )}
+
+      {/* Watching: Evidence so far, Confidence, Threshold, Signals */}
+      {e.category === "watching" && (
+        <>
+          <DetailRow
+            icon={Eye}
+            label="Evidence so far"
+            value={e.evidenceSummary ?? "Gathering signals..."}
+          />
+          <DetailRow
+            icon={Sparkles}
+            label="Confidence"
+            value={
+              e.confidencePercent !== undefined
+                ? `${e.confidencePercent}%`
+                : "Building confidence..."
+            }
+          />
+          <DetailRow
+            icon={Target}
+            label="Threshold"
+            value={
+              e.confidenceThreshold !== undefined
+                ? `${e.confidenceThreshold}% to auto-act`
+                : "—"
+            }
+          />
+          <DetailRow
+            icon={List}
+            label="Signals"
+            value={
+              e.signals && e.signals.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {e.signals.map((s, i) => (
+                    <span
+                      key={i}
+                      className="inline-flex items-center px-2 py-0.5 rounded-full bg-muted text-[11px] text-foreground/80"
+                    >
+                      {s}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                "Gathering..."
+              )
+            }
+          />
+        </>
+      )}
+
+      {e.sourceUrl ? (
+        <DetailRow
+          icon={Workflow}
+          label="Source"
+          value={<SourceExternalLink href={e.sourceUrl} />}
+        />
+      ) : null}
     </div>
   );
 }
 
-function FilterChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+function ActivityFilterPanel({
+  state,
+  onChange,
+}: {
+  state: ActivityFiltersState;
+  onChange: (state: ActivityFiltersState) => void;
+}) {
+  const activeCount = countActivityFilters(state);
+
+  function updateCategories(category: ActivityCategory, checked: boolean) {
+    onChange({
+      ...state,
+      categories: toggleValue(state.categories, category, checked),
+    });
+  }
+
+  function updateDates(date: DateFilter, checked: boolean) {
+    onChange({
+      ...state,
+      dates: toggleValue(state.dates, date, checked),
+    });
+  }
+
+  function clearAll() {
+    onChange({ categories: [], dates: [] });
+  }
+
   return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "h-8 px-3 rounded-full text-[12px] font-medium border transition-all",
-        active
-          ? "bg-foreground text-background border-foreground"
-          : "bg-card text-foreground/80 border-border/60 hover:border-border"
+    <div className="flex flex-col">
+      {activeCount > 0 ? (
+        <div className="flex items-center justify-between border-b border-border/60 px-3 py-2.5">
+          <p className="text-xs text-muted-foreground">
+            {activeCount} filter{activeCount === 1 ? "" : "s"} active
+          </p>
+          <button
+            type="button"
+            onClick={clearAll}
+            className="text-xs font-medium text-foreground/80 hover:text-foreground transition"
+          >
+            Clear all
+          </button>
+        </div>
+      ) : (
+        <div className="border-b border-border/60 px-3 py-2.5">
+          <p className="text-xs font-medium text-foreground">Filter activity</p>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            Combine category and date filters
+          </p>
+        </div>
       )}
-    >
-      {children}
-    </button>
+
+      <div className="max-h-[min(52vh,420px)] overflow-y-auto">
+        <div className="border-b border-border/60 p-2">
+          <p className="px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            Category
+          </p>
+          <div className="mt-1 space-y-0.5">
+            {CATEGORY_OPTIONS.map((option) => {
+              const checked = state.categories.includes(option.id);
+              const catStyle = CATEGORY_STYLES[option.id];
+              return (
+                <label
+                  key={option.id}
+                  className="flex items-center gap-2.5 rounded-lg px-2 py-2 hover:bg-muted/60 cursor-pointer text-sm"
+                >
+                  <Checkbox
+                    className="rounded-[4px]"
+                    checked={checked}
+                    onCheckedChange={(value) => updateCategories(option.id, value === true)}
+                  />
+                  <span className="min-w-0 flex-1 flex items-center gap-2">
+                    {option.label}
+                    <catStyle.icon className="size-3 text-muted-foreground" />
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="p-2">
+          <p className="px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            Date
+          </p>
+          <div className="mt-1 space-y-0.5">
+            {DATE_OPTIONS.map((option) => {
+              const checked = state.dates.includes(option.id);
+              return (
+                <label
+                  key={option.id}
+                  className="flex items-center gap-2.5 rounded-lg px-2 py-2 hover:bg-muted/60 cursor-pointer text-sm"
+                >
+                  <Checkbox
+                    className="rounded-[4px]"
+                    checked={checked}
+                    onCheckedChange={(value) => updateDates(option.id, value === true)}
+                  />
+                  <span className="min-w-0 flex-1">{option.label}</span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ActivityActiveFilterBadges({
+  state,
+  onChange,
+}: {
+  state: ActivityFiltersState;
+  onChange: (state: ActivityFiltersState) => void;
+}) {
+  const activeCount = countActivityFilters(state);
+  if (activeCount === 0) return null;
+
+  function removeCategory(category: ActivityCategory) {
+    onChange({
+      ...state,
+      categories: state.categories.filter((item) => item !== category),
+    });
+  }
+
+  function removeDate(date: DateFilter) {
+    onChange({
+      ...state,
+      dates: state.dates.filter((item) => item !== date),
+    });
+  }
+
+  function clearAll() {
+    onChange({ categories: [], dates: [] });
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {state.categories.map((category) => (
+        <Badge
+          key={`category-${category}`}
+          variant="secondary"
+          className="h-7 gap-1 rounded-full px-2.5 text-xs font-medium cursor-pointer hover:bg-secondary/80"
+          onClick={() => removeCategory(category)}
+        >
+          {CATEGORY_STYLES[category].label}
+          <X className="size-3" />
+        </Badge>
+      ))}
+
+      {state.dates.map((date) => (
+        <Badge
+          key={`date-${date}`}
+          variant="secondary"
+          className="h-7 gap-1 rounded-full px-2.5 text-xs font-medium cursor-pointer hover:bg-secondary/80"
+          onClick={() => removeDate(date)}
+        >
+          {date}
+          <X className="size-3" />
+        </Badge>
+      ))}
+
+      <button
+        type="button"
+        onClick={clearAll}
+        className="text-xs font-medium text-muted-foreground transition hover:text-foreground"
+      >
+        Clear all
+      </button>
+    </div>
   );
 }
 
@@ -344,13 +799,23 @@ function DetailRow({
   return (
     <div className="grid grid-cols-[20px_120px_1fr] gap-3 items-start">
       <Icon className="size-3.5 text-muted-foreground mt-0.5" strokeWidth={2} />
-      <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-semibold pt-0.5">{label}</p>
+      <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-semibold pt-0.5">
+        {label}
+      </p>
       <div className="text-[12.5px] text-foreground/85 leading-relaxed">{value}</div>
     </div>
   );
 }
 
-function CountTile({ label, value, tone }: { label: string; value: number; tone: "emerald" | "flame" | "sky" | "muted" | "violet" }) {
+function CountTile({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone: "emerald" | "flame" | "sky" | "muted" | "violet";
+}) {
   const cls = {
     emerald: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
     flame: "bg-flame/15 text-flame",
@@ -360,8 +825,12 @@ function CountTile({ label, value, tone }: { label: string; value: number; tone:
   }[tone];
   return (
     <div className={cn("rounded-2xl p-3.5 flex items-baseline justify-between gap-2", cls)}>
-      <p className="font-display text-2xl tracking-tight tabular-nums leading-none">{value}</p>
-      <p className="text-[10px] uppercase tracking-[0.12em] font-semibold opacity-80">{label}</p>
+      <p className="font-display text-2xl tracking-tight tabular-nums leading-none">
+        {value}
+      </p>
+      <p className="text-[10px] uppercase tracking-[0.12em] font-semibold opacity-80">
+        {label}
+      </p>
     </div>
   );
 }

@@ -11,7 +11,7 @@ import type {
 } from "./types";
 import { defaultOrgProfileRules, resolveRuleSetValue } from "./validate-rules";
 
-export const ORG_PROFILE_SLUG = "keeper-organizations-records";
+export const ORG_PROFILE_SLUG = "memory-records";
 
 function buildOrgFacts(input: {
   name: string;

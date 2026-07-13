@@ -17,7 +17,7 @@ export const hubspotManifest: ConnectorManifest = {
       action: "HUBSPOT_SEARCH_CONTACTS",
       query: {
         template: "email:{seed.email}",
-        fallback: "firstname:{seed.name}",
+        fallback: "firstname:{seed.firstName} lastname:{seed.lastName}",
       },
       responseSelector: "results",
       fieldMappings: [

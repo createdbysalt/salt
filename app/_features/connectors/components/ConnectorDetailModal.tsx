@@ -46,7 +46,11 @@ import {
   updateConnectorEmailMode,
 } from "../actions";
 import { setCaptureEnabled } from "../actions/capture-toggle";
+import { connectComposioApiKeyProvider } from "../actions/composio-connect";
 import { ConnectorIcon } from "./connector-icons";
+import { ConnectorApiKeyConnectSection } from "./ConnectorApiKeyConnectSection";
+import { ConnectorConnectHelp } from "./ConnectorConnectHelp";
+import { usesInlineApiKeyConnect } from "../utils/inline-api-key-connect";
 import { ToolPermissionsToolbar } from "./detail/ToolPermissionsToolbar";
 import {
   buildToolEmptyMessage,
@@ -458,7 +462,11 @@ export function ConnectorDetailModal({
     (capability) => Boolean(capability.toolSlug),
   );
   const canManageTools = hasToggleableTools && (status?.connected ?? false);
-  const showConnectCta = !definition.comingSoon && !status?.connected;
+  const inlineApiKeyConnect = definition
+    ? usesInlineApiKeyConnect(definition)
+    : false;
+  const showConnectCta =
+    !definition.comingSoon && !status?.connected && !inlineApiKeyConnect;
   const showDisconnectCta = status?.connected && !definition.comingSoon;
   const controlsDisabled = savingPreferences || loading;
   const hasToolSections =
@@ -541,6 +549,26 @@ export function ConnectorDetailModal({
     }
   };
 
+  const handleApiKeySubmit = async (
+    apiKey: string,
+    extraFields: Record<string, string>,
+  ): Promise<boolean> => {
+    if (!definition?.providerKey) {
+      return false;
+    }
+    const result = await connectComposioApiKeyProvider({
+      provider: definition.providerKey,
+      apiKey,
+      extraFields: Object.keys(extraFields).length ? extraFields : undefined,
+    });
+    if (result.success) {
+      toast.success(`${definition.name} connected!`);
+      router.refresh();
+      return true;
+    }
+    return false;
+  };
+
   const linkIcon = (label: string) => {
     switch (label) {
       case "Documentation":
@@ -582,10 +610,13 @@ export function ConnectorDetailModal({
                   </span>
                 ) : null}
               </div>
-              {!status?.connected && definition.connectHelp ? (
-                <p className="max-w-xl pt-1 text-xs leading-relaxed text-muted-foreground">
-                  {definition.connectHelp}
-                </p>
+              {!status?.connected && definition.connectHelp && !inlineApiKeyConnect ? (
+                <div className="max-w-xl pt-2">
+                  <ConnectorConnectHelp
+                    content={definition.connectHelp}
+                    className="text-xs"
+                  />
+                </div>
               ) : null}
             </div>
           </div>
@@ -751,6 +782,12 @@ export function ConnectorDetailModal({
             </div>
 
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-6 py-3 pb-5">
+              {!status?.connected && inlineApiKeyConnect ? (
+                <ConnectorApiKeyConnectSection
+                  definition={definition}
+                  onSubmit={handleApiKeySubmit}
+                />
+              ) : null}
               {panelTab === "activity" ? (
                 <ConnectorActivityList entries={activity} loading={activityLoading} />
               ) : (

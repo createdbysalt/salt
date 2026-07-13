@@ -182,8 +182,9 @@ describe("injection evals (5.5.7)", () => {
     });
 
     it("signal triggers only accept registry-bounded keys", () => {
+      // Signal registry moved to shared learning module
       const registry = readFileSync(
-        join(process.cwd(), "app/_features/plays/playbooks/signal-registry.ts"),
+        join(process.cwd(), "app/_lib/learning/signals.ts"),
         "utf-8",
       );
       // The registry must validate signal keys

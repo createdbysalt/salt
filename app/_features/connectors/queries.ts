@@ -296,7 +296,7 @@ export async function getConnectorsPageData(): Promise<ConnectorsPageData> {
       ),
     ),
     loadProviderSettings(workspaceId, [
-      ...getToolPreferenceProviders(),
+      ...connectableEntries.map((entry) => entry.providerKey),
     ]),
     getWorkspaceTrustLevel(workspaceId),
   ]);

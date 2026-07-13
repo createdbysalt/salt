@@ -120,30 +120,39 @@ export function buildConnectorDiscoveryTools(
         return { tools: [], note: `Catalog search failed: ${error.message}` };
       }
 
-      const rows = (data ?? [])
-        .filter((row) => !disabledTools.includes(row.tool_slug))
-        .map((row) => {
-          const classification = Array.isArray(row.tool_classifications)
-            ? row.tool_classifications[0]
-            : row.tool_classifications;
-          return {
-            slug: row.tool_slug,
-            toolkit: row.toolkit_slug,
-            name: row.name,
-            description: row.description?.slice(0, 200) ?? null,
-            risk: classification?.risk ?? "unknown",
-          };
-        })
-        // Destructive tools never execute via AI — don't advertise them.
-        .filter((row) => row.risk !== "destructive");
+      const allRows = (data ?? []).map((row) => {
+        const classification = Array.isArray(row.tool_classifications)
+          ? row.tool_classifications[0]
+          : row.tool_classifications;
+        return {
+          slug: row.tool_slug,
+          toolkit: row.toolkit_slug,
+          name: row.name,
+          description: row.description?.slice(0, 200) ?? null,
+          risk: classification?.risk ?? "unknown",
+          isDisabled: disabledTools.includes(row.tool_slug),
+        };
+      });
 
-      return {
-        tools: rows,
-        note:
-          rows.length === 0
-            ? "No approved tools matched. The catalog only lists tools reviewed for AI use on connected apps."
-            : undefined,
-      };
+      // Check if any matched tools are disabled (user turned them off in settings)
+      const disabledMatches = allRows.filter((r) => r.isDisabled);
+      const rows = allRows
+        .filter((row) => !row.isDisabled)
+        // Destructive tools never execute via AI — don't advertise them.
+        .filter((row) => row.risk !== "destructive")
+        .map(({ isDisabled: _, ...row }) => row);
+
+      let note: string | undefined;
+      if (rows.length === 0 && disabledMatches.length > 0) {
+        const names = disabledMatches.map((r) => r.name).join(", ");
+        note = `Found ${disabledMatches.length} matching tool(s) but they're disabled: ${names}. The user can enable them in Connections settings.`;
+      } else if (rows.length === 0) {
+        note = "No approved tools matched. The catalog only lists tools reviewed for AI use on connected apps.";
+      } else if (disabledMatches.length > 0) {
+        note = `${disabledMatches.length} additional tool(s) matched but are disabled. The user can enable them in Connections settings.`;
+      }
+
+      return { tools: rows, note };
     },
   });
 

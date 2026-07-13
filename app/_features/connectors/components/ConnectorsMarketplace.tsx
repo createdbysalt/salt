@@ -28,6 +28,7 @@ import { PlaysSectionHeader } from "@/app/_features/plays/components/PlaysSectio
 import { ConnectorIcon } from "./connector-icons";
 import { ConnectorsFilterPopover } from "./ConnectorsFilterPopover";
 import { ConnectorDetailModal } from "./ConnectorDetailModal";
+import { usesInlineApiKeyConnect } from "../utils/inline-api-key-connect";
 
 interface ConnectorsMarketplaceProps {
   data: ConnectorsPageData;
@@ -135,9 +136,15 @@ function ConnectorRowCard({
 
   const handleConnectClick = (event: React.MouseEvent) => {
     event.stopPropagation();
-    if (canConnect) {
-      onConnect();
+    if (!canConnect) {
+      return;
     }
+    // Guided API-key setup belongs on the detail page, not a quick-connect dialog.
+    if (usesInlineApiKeyConnect(definition)) {
+      onOpen();
+      return;
+    }
+    onConnect();
   };
 
   return (

@@ -1,0 +1,20 @@
+name: Billing
+slug: billing
+description: Cash flow, invoices, and payments
+icon: credit-card
+
+memory_types:
+  - billing_record
+
+signals:
+  - billing_created
+  - billing_updated
+  - billing_payment_matched
+  - billing_due_date_passed
+  - billing_amount_paid_covers_total
+
+templates:
+  - keeper
+  - invoice-reminder
+  - payment-received
+  - cash-runway

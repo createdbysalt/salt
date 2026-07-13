@@ -20,12 +20,12 @@ function cacheKey(tab: PlaysTab, activityView: ActivityView): string {
 export function usePlaysTabCache(initial: {
   tab: PlaysTab;
   activityView: ActivityView;
-  queueFilter?: "needs_you" | "auto_handled";
+  queueFilter?: "needs_you" | "auto_handled" | "learning";
   data: PlaysTabData;
 }) {
   const [tab, setTab] = useState<PlaysTab>(initial.tab);
   const [activityView, setActivityView] = useState<ActivityView>(initial.activityView);
-  const [queueFilter, setQueueFilter] = useState<"needs_you" | "auto_handled">(
+  const [queueFilter, setQueueFilter] = useState<"needs_you" | "auto_handled" | "learning">(
     initial.queueFilter ?? "needs_you",
   );
   const [cache, setCache] = useState<Record<string, PlaysTabData>>(() => ({
@@ -74,9 +74,9 @@ export function usePlaysTabCache(initial: {
     [activityView, ensureTabData],
   );
 
-  const handleQueueFilterChange = useCallback((nextFilter: "needs_you" | "auto_handled") => {
+  const handleQueueFilterChange = useCallback((nextFilter: "needs_you" | "auto_handled" | "learning") => {
     setQueueFilter(nextFilter);
-    syncPlaysUrl(tab, nextFilter, activityView);
+    syncPlaysUrl(tab, nextFilter as "needs_you" | "auto_handled", activityView);
   }, [activityView, tab]);
 
   const handleActivityViewChange = useCallback(

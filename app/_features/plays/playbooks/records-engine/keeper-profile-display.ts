@@ -2,9 +2,14 @@ import type { ProfileFieldKey, ProfileFieldResult } from "./types";
 import { getRelationshipLabel } from "@/app/_features/memory/taxonomy/registry";
 
 export const KEEPER_PLAYBOOK_DISPLAY_NAMES: Record<string, string> = {
-  "keeper-people-records": "People Records",
-  "keeper-organizations-records": "Organizations Records",
-  "keeper-work-records": "Work Records",
+  "memory-records": "Memory Records",
+  // Legacy mappings for backward compatibility
+  "keeper-people-records": "Memory Records",
+  "keeper-organizations-records": "Memory Records",
+  "keeper-work-records": "Memory Records",
+  "keeper-billing-records": "Memory Records",
+  "keeper-files-records": "Memory Records",
+  "keeper-meetings-records": "Memory Records",
 };
 
 const FIELD_LABELS: Partial<Record<ProfileFieldKey, string>> = {

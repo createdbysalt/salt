@@ -1,7 +1,8 @@
 import type { ConnectorCategory, EnrichableEntityType } from "./types";
+import { buildProviderToCategoryMap } from "../unified-connector-registry";
 
 export const ENTITY_ENRICHMENT_CATEGORIES: Record<EnrichableEntityType, ConnectorCategory[]> = {
-  person: ["email", "calendar", "billing", "crm", "meetings", "documents"],
+  person: ["email", "calendar", "billing", "crm", "meetings", "documents", "communication"],
   org: ["billing", "crm", "documents", "email"],
   work: ["project_management", "documents", "billing", "email", "calendar"],
   billing: ["email", "billing", "documents"],
@@ -10,43 +11,13 @@ export const ENTITY_ENRICHMENT_CATEGORIES: Record<EnrichableEntityType, Connecto
   me: ["email", "calendar", "billing"],
 };
 
-export const CONNECTOR_TO_CATEGORY: Record<string, ConnectorCategory> = {
-  // Email
-  gmail: "email",
-  outlook: "email",
-  yahoo_mail: "email",
-  // Calendar
-  googlecalendar: "calendar",
-  outlook_calendar: "calendar",
-  cal: "calendar",
-  // Billing
-  stripe: "billing",
-  quickbooks: "billing",
-  xero: "billing",
-  freshbooks: "billing",
-  // CRM
-  hubspot: "crm",
-  salesforce: "crm",
-  pipedrive: "crm",
-  // Meetings (transcripts)
-  fireflies: "meetings",
-  otter: "meetings",
-  // Documents (search/read)
-  googledocs: "documents",
-  googlesheets: "documents",
-  notion: "documents",
-  // Storage (file listing/metadata)
-  googledrive: "storage",
-  dropbox: "storage",
-  onedrive: "storage",
-  box: "storage",
-  // Project management
-  asana: "project_management",
-  linear: "project_management",
-  jira: "project_management",
-  trello: "project_management",
-  monday: "project_management",
-};
+/**
+ * Provider key → category mapping — DERIVED FROM UNIFIED REGISTRY
+ *
+ * This map is now built from the unified connector registry.
+ * To add a connector, edit: app/_lib/composio/unified-connector-registry.ts
+ */
+export const CONNECTOR_TO_CATEGORY: Record<string, ConnectorCategory> = buildProviderToCategoryMap();
 
 export const PERSON_FIELD_SCHEMA = {
   identity: ["name", "email", "phone", "billing_email", "timezone"],
@@ -138,6 +109,15 @@ export const CATEGORY_PROVIDES_FIELDS: Record<ConnectorCategory, Partial<Record<
     person: [],
     org: [],
     work: ["status", "deadline", "description", "assignee"],
+    billing: [],
+    meeting: [],
+    file: [],
+    me: [],
+  },
+  communication: {
+    person: ["name"],
+    org: [],
+    work: [],
     billing: [],
     meeting: [],
     file: [],

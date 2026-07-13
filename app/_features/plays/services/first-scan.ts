@@ -27,7 +27,7 @@ const STARTER_PLAYERS = [
   },
   {
     slug: "keeper",
-    name: "Keeper",
+    name: "Memory",
     role_label: "Record upkeep",
     tone: "ink",
     department: "knowledge",

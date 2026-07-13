@@ -1,5 +1,11 @@
 import type { AskSaltContext } from "@/app/_features/shell/components/AskSaltPanel";
 import type { PlayerId } from "@/app/_lib/demo/plays-demo-data";
+import type {
+  PlaybookSection,
+  PlaybookLayer,
+  PlaybookOutputType,
+  PlaybookApprovalMode,
+} from "@/app/_features/plays/playbooks/schema/v2/types";
 
 /**
  * Play Card contract — the single UI model every queue item maps into.
@@ -10,6 +16,9 @@ import type { PlayerId } from "@/app/_lib/demo/plays-demo-data";
  * INTERNAL code terms only. They pick a body layout. They must NEVER appear in
  * UI copy, labels, chips, or filters. Users only ever see the playbook name and
  * the action verb.
+ *
+ * @deprecated Use `outputType` from v2 playbook instead. Kind is derived for
+ * backward compatibility but will be removed once all cards flow through v2.
  */
 export type PlayCardKind = "acting" | "profile" | "question" | "risk" | "routing";
 
@@ -49,16 +58,68 @@ export interface PlayCardQuestionOption {
   label: string;
 }
 
+/**
+ * Error states that can affect card rendering or actions.
+ * Cards with errors are still rendered but with degraded UX.
+ */
+export interface PlayCardErrorState {
+  /** Playbook slug was provided but lookup failed. */
+  playbookNotFound?: boolean;
+  /** Target entity (person/org/work) no longer exists. */
+  entityDeleted?: boolean;
+  /** Draft body is empty for an email_draft play. */
+  draftIncomplete?: boolean;
+  /** Source capture/email no longer exists. */
+  sourceUnavailable?: boolean;
+  /** Generic error message to display. */
+  message?: string;
+}
+
 export interface PlayCardViewModel {
   id: string;
+  /**
+   * @deprecated Derived from `outputType` for backward compatibility.
+   * Use `outputType` to determine card body layout.
+   */
   kind: PlayCardKind;
   /** Defaults to "needs_you" when omitted. */
   mode?: PlayCardMode;
 
-  // Attribution (required) — Player is shown as a name, never a category chip.
-  playerSlug: PlayerId;
-  playerName: string;
+  // ─────────────────────────────────────────────────────────────────────────────
+  // V2 Attribution (preferred) — Section · Playbook
+  // ─────────────────────────────────────────────────────────────────────────────
+  /** v2 playbook slug from source_context.playbook_slug */
+  playbookSlug?: string | null;
+  /** v2 playbook name for display */
   playbookName: string | null;
+  /** v2 section (relationships, billing, etc.) */
+  section?: PlaybookSection | null;
+  /** v2 section display label */
+  sectionLabel?: string | null;
+  /** v2 layer: learn (memory) or act (action) */
+  layer?: PlaybookLayer | null;
+  /** v2 output type: email_draft, memory_update, notification, etc. */
+  outputType?: PlaybookOutputType | null;
+  /** v2 approval mode: none, per_entity, batch */
+  approvalMode?: PlaybookApprovalMode | null;
+  /** v2 auto-apply threshold (for learn layer) */
+  autoApplyThreshold?: number | null;
+  /** v2 confidence explanation from policy */
+  confidenceExplanation?: string | null;
+  /** v2 value estimate (e.g., "~10 min saved") */
+  valueEstimate?: string | null;
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Legacy Attribution (deprecated) — Player-based
+  // ─────────────────────────────────────────────────────────────────────────────
+  /**
+   * @deprecated Use `section` instead. Players are retired.
+   */
+  playerSlug: PlayerId;
+  /**
+   * @deprecated Use `sectionLabel` instead. Players are retired.
+   */
+  playerName: string;
 
   // Decision context (required-ish)
   subject: string;
@@ -66,6 +127,7 @@ export interface PlayCardViewModel {
   targetPrefix: PlayCardTargetPrefix;
   preview: string | null;
   confidence: number | null;
+  stakes: "low" | "medium" | "high" | null;
   ageMinutes: number | null;
   triggerLabel: string | null;
   channel: string | null;
@@ -89,4 +151,7 @@ export interface PlayCardViewModel {
   // Trust + routing
   provenance: PlayCardProvenance;
   askSalt: AskSaltContext;
+
+  // Error state (optional — present when card has issues)
+  error?: PlayCardErrorState;
 }

@@ -25,7 +25,6 @@ import {
 import { Button } from "@repo/ui";
 import { cn } from "@repo/utils";
 import { useDashboardShell } from "../contexts/DashboardShellContext";
-import { TopBarChatsMenu } from "./TopBarChatsMenu";
 
 /**
  * SiteHeader - Consistent header across all dashboard pages
@@ -163,8 +162,6 @@ export function SiteHeader({
           </button>
 
           <div className="ml-auto flex shrink-0 items-center gap-1.5 lg:ml-0 lg:gap-3">
-            <TopBarChatsMenu />
-
             <button
               type="button"
               className={cn(

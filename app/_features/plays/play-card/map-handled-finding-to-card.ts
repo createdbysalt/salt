@@ -1,6 +1,7 @@
 import type { AskSaltContext } from "@/app/_features/shell/components/AskSaltPanel";
 import {
   FINDING_TYPE_LABELS,
+  type FindingType,
   type FindingWithContext,
 } from "@/app/_features/capture/types/intelligence-findings";
 import { playerById, type PlayerId } from "@/app/_lib/demo/plays-demo-data";
@@ -9,7 +10,39 @@ import {
   keeperPlaybookDisplayName,
 } from "@/app/_features/plays/playbooks/records-engine/keeper-profile-display";
 import type { ProfileFieldKey } from "@/app/_features/plays/playbooks/records-engine/types";
+import type { PlaybookSection } from "@/app/_features/plays/playbooks/schema/v2/types";
 import type { PlayCardViewModel } from "./types";
+
+/**
+ * Derive v2 section from finding type.
+ */
+function getSectionFromFindingType(type: FindingType): PlaybookSection {
+  if (type.startsWith("revenue_")) return "billing";
+  if (type.startsWith("pending_")) return "relationships";
+  if (type === "new_person" || type === "new_org" || type === "needs_routing") {
+    return "relationships";
+  }
+  if (type === "referral") return "relationships";
+  return "_meta";
+}
+
+/**
+ * Get section label for display.
+ */
+function getSectionLabel(section: PlaybookSection): string {
+  const labels: Record<PlaybookSection, string> = {
+    relationships: "Relationships",
+    work: "Work",
+    billing: "Billing",
+    files: "Files",
+    meetings: "Meetings",
+    me: "Me",
+    connections: "Connections",
+    notes: "Notes",
+    _meta: "System",
+  };
+  return labels[section];
+}
 
 const FIELD_LABELS: Record<string, string> = {
   relationship_type: "relationship",
@@ -52,6 +85,8 @@ export function mapHandledFindingToCard(finding: FindingWithContext): PlayCardVi
     ? keeperPlaybookDisplayName(blueprintSlug)
     : FINDING_TYPE_LABELS[finding.finding_type];
 
+  const section = getSectionFromFindingType(finding.finding_type);
+
   const askSalt: AskSaltContext = {
     type: "play",
     id: finding.id,
@@ -65,14 +100,29 @@ export function mapHandledFindingToCard(finding: FindingWithContext): PlayCardVi
     id: finding.id,
     kind: isKeeper ? "profile" : "risk",
     mode: "handled",
+
+    // V2 attribution (derived from finding)
+    playbookSlug: blueprintSlug,
+    playbookName,
+    section,
+    sectionLabel: getSectionLabel(section),
+    layer: "learn",
+    outputType: isKeeper ? "memory_update" : "notification",
+    approvalMode: "none", // Auto-handled = no approval needed
+    autoApplyThreshold: null,
+    confidenceExplanation: null,
+    valueEstimate: null,
+
+    // Legacy attribution
     playerSlug,
     playerName: player.name,
-    playbookName,
+
     subject: finding.title,
     targetLabel,
     targetPrefix: "For",
     preview: finding.content,
     confidence: finding.confidence ?? null,
+    stakes: null,
     ageMinutes: null,
     triggerLabel: null,
     channel: null,

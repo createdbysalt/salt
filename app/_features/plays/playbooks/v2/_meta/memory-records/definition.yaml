@@ -1,0 +1,2023 @@
+# Memory Records - GENERATED FILE
+# DO NOT EDIT - Generated from field-registry.ts
+# Run: pnpm generate:playbooks
+
+name: Memory Records
+slug: memory-records
+version: 2.0.0
+description: Salt keeps your records complete and accurate by learning from your connected accounts.
+
+section: _meta
+layer: learn
+
+trigger:
+  type: signal
+  signal: entity_learning_extracted
+
+requirements:
+  categories:
+    optional: [email, calendar, billing, crm, documents]
+
+output:
+  type: memory_update
+  approval: per_entity
+
+value:
+  kind: record_maintenance
+  estimate: 5
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# POLICY - Generated from field-registry.ts
+# Total: 138 fields, 156 fill rules, 93 signals
+# ═══════════════════════════════════════════════════════════════════════════════
+
+policy:
+  auto_apply_threshold: 85
+
+  procedure: |
+    When a learning signal arrives for an entity:
+    1. Load the current facts using memoryGetFacts
+    2. Match the signal against fill_rules below
+    3. For matching rules, call memoryUpdateField with the rule's value and confidence
+    4. The tool handles threshold checking — you just provide the confidence
+
+    Generated from field-registry.ts with 156 fill rules across 138 fields.
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # SIGNALS (93 total)
+  # ─────────────────────────────────────────────────────────────────────────────
+  signals:
+    - has_payment_received
+    - has_stripe_payment
+    - has_invoice_sent
+    - is_bidirectional_thread
+    - you_initiated
+    - has_calendar_meeting
+    - has_signature
+    - email_count
+    - email_count_gte_5
+    - email_count_gte_10
+    - email_domain_is_personal
+    - email_domain_matches_workspace
+    - email_domain_in_partner_list
+    - email_domain_in_vendor_list
+    - person_name_extracted
+    - person_email_extracted
+    - person_phone_extracted
+    - person_title_extracted
+    - person_timezone_detected
+    - person_address_extracted
+    - capture_email_received
+    - capture_email_sent
+    - capture_meeting_completed
+    - org_domain_known
+    - org_created_from_domain
+    - org_has_payment_received
+    - org_has_invoice_sent
+    - org_has_primary_contact
+    - org_has_people
+    - org_domain_in_partner_list
+    - org_domain_in_vendor_list
+    - org_industry_inferred
+    - org_website_found
+    - org_address_extracted
+    - org_tax_id_extracted
+    - org_person_contacted
+    - work_has_signed_contract
+    - work_has_kickoff
+    - work_is_blocked
+    - work_has_completed_deliverable
+    - work_has_due_date
+    - work_proposal_sent
+    - work_proposal_accepted
+    - work_invoice_created
+    - work_payment_received
+    - work_scope_extracted
+    - work_value_extracted
+    - work_timeline_mentioned
+    - work_type_inferred
+    - work_stage_inferred
+    - billing_payment_matched
+    - billing_amount_paid_covers_total
+    - billing_due_date_passed
+    - billing_party_email_match
+    - billing_invoice_parsed
+    - billing_receipt_parsed
+    - billing_stripe_synced
+    - meeting_synced_from_calendar
+    - meeting_end_passed
+    - meeting_has_attendance_evidence
+    - meeting_cancelled_by_calendar
+    - meeting_type_inferred
+    - meeting_attendees_extracted
+    - file_signature_event_sent
+    - file_signature_event_viewed
+    - file_signature_event_signed
+    - file_signature_event_expired
+    - file_category_inferred
+    - file_document_type_inferred
+    - file_amount_extracted
+    - file_date_extracted
+    - calendar_timezone_detected
+    - operator_signature_has_title
+    - linkedin_profile_scanned
+    - operator_bio_extracted
+    - invoice_industry_pattern
+    - linkedin_industry_detected
+    - timezone_location_inferred
+    - invoice_business_type_pattern
+    - email_signoff_name_detected
+    - operator_phone_extracted
+    - operator_address_extracted
+    - workspace_website_found
+    - workspace_legal_name_extracted
+    - note_created
+    - note_flagged
+    - preference_detected
+    - context_extracted
+    - capture_processed
+    - connection_inferred
+    - connection_strengthened
+    - relationship_at_risk
+    - file_shared
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # FIELDS (138 total)
+  # ─────────────────────────────────────────────────────────────────────────────
+  fields:
+    # People (15 fields)
+    - name
+    - email
+    - billingEmail
+    - phone
+    - timezone
+    - title
+    - relationshipType
+    - addressLine1
+    - addressLine2
+    - city
+    - state
+    - postalCode
+    - country
+    - recordStatus
+    - lastContactedAt
+
+    # Organizations (17 fields)
+    - name
+    - billingEmail
+    - industryParent
+    - industryChild
+    - relationshipType
+    - primaryContact
+    - addressLine1
+    - addressLine2
+    - city
+    - state
+    - postalCode
+    - country
+    - taxId
+    - website
+    - recordStatus
+    - lastContactedAt
+
+    # Work (28 fields)
+    - name
+    - status
+    - workType
+    - stage
+    - serviceId
+    - billingContactId
+    - contractValueCents
+    - finalPriceCents
+    - scopeItems
+    - currency
+    - paymentTerms
+    - paymentType
+    - hourlyRateCents
+    - hoursEstimate
+    - retainerMrrCents
+    - renewalDate
+    - billingCycle
+    - decisionDate
+    - startDate
+    - deadline
+    - poNumber
+    - estimatedTimeline
+    - discountPercent
+    - discountAmountCents
+    - discountReason
+
+    # Billing (15 fields)
+    - number
+    - status
+    - direction
+    - category
+    - organization
+    - billingContact
+    - linkedWork
+    - vendorLabel
+    - amountCents
+    - amountPaidCents
+    - currency
+    - issuedAt
+    - dueAt
+    - paidAt
+    - appUrl
+
+    # Files (15 fields)
+    - title
+    - url
+    - category
+    - documentType
+    - description
+    - lifecycleStatus
+    - totalAmountCents
+    - currency
+    - dueDate
+    - expiryDate
+    - signedDate
+    - followUpDate
+    - sharedWithClient
+    - isOperatorAsset
+
+    # Meetings (13 fields)
+    - title
+    - meetingType
+    - status
+    - startTime
+    - endTime
+    - locationType
+    - meetingUrl
+    - address
+    - phoneNumber
+    - description
+    - notes
+    - visibility
+    - attendees
+
+    # Me Identity (16 fields)
+    - preferredName
+    - fullName
+    - gender
+    - roleTitle
+    - phone
+    - timezone
+    - workingHours
+    - location
+    - addressLine1
+    - addressLine2
+    - city
+    - state
+    - postalCode
+    - country
+    - professionalCredentials
+
+    # Me Business (19 fields)
+    - name
+    - tagline
+    - websiteUrl
+    - industry
+    - legalBusinessName
+    - businessType
+    - businessPhone
+    - businessEmail
+    - location
+    - taxIdType
+    - taxIdLast4
+    - defaultCurrency
+    - paymentTerms
+    - legalAddressLine1
+    - legalAddressLine2
+    - legalCity
+    - legalState
+    - legalPostalCode
+    - legalCountry
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # FILL RULES (156 total)
+  # ─────────────────────────────────────────────────────────────────────────────
+  fill_rules:
+    # People
+    - id: person-name-person-name-extracted
+      field: name
+      when:
+        signal: person_name_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 90
+      because: Name extracted from email or signature
+
+    - id: person-email-person-email-extracted
+      field: email
+      when:
+        signal: person_email_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 95
+      because: Email address extracted from thread
+
+    - id: person-billingEmail-has-invoice-sent
+      field: billingEmail
+      when:
+        signal: has_invoice_sent
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 85
+      because: Email used for invoice delivery
+
+    - id: person-phone-person-phone-extracted
+      field: phone
+      when:
+        signal: person_phone_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 85
+      because: Phone extracted from email signature
+
+    - id: person-timezone-person-timezone-detected
+      field: timezone
+      when:
+        signal: person_timezone_detected
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 88
+      because: Timezone detected from email headers or calendar
+
+    - id: person-title-person-title-extracted
+      field: title
+      when:
+        signal: person_title_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 80
+      because: Title extracted from email signature
+
+    - id: person-relationshipType-has-payment-received
+      field: relationshipType
+      when:
+        signal: has_payment_received
+        op: eq
+        value: true
+      set:
+        value: "client"
+      confidence: 95
+      because: They paid you — strong client signal
+
+    - id: person-relationshipType-has-invoice-sent
+      field: relationshipType
+      when:
+        signal: has_invoice_sent
+        op: eq
+        value: true
+      set:
+        value: "client"
+      confidence: 90
+      because: You invoiced them — likely a client
+
+    - id: person-relationshipType-email-domain-matches-workspace
+      field: relationshipType
+      when:
+        signal: email_domain_matches_workspace
+        op: eq
+        value: true
+      set:
+        value: "team"
+      confidence: 92
+      because: Same email domain as your workspace
+
+    - id: person-relationshipType-email-domain-in-partner-list
+      field: relationshipType
+      when:
+        signal: email_domain_in_partner_list
+        op: eq
+        value: true
+      set:
+        value: "partner"
+      confidence: 90
+      because: Email domain is on your partner list
+
+    - id: person-relationshipType-email-domain-in-vendor-list
+      field: relationshipType
+      when:
+        signal: email_domain_in_vendor_list
+        op: eq
+        value: true
+      set:
+        value: "vendor"
+      confidence: 88
+      because: Email domain is on your vendor list
+
+    - id: person-relationshipType-you-initiated
+      field: relationshipType
+      when:
+        signal: you_initiated
+        op: eq
+        value: true
+      set:
+        value: "prospect"
+      confidence: 75
+      because: You initiated contact, no stronger evidence
+
+    - id: person-addressLine1-person-address-extracted
+      field: addressLine1
+      when:
+        signal: person_address_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 82
+      because: Address extracted from signature or documents
+
+    - id: person-addressLine2-person-address-extracted
+      field: addressLine2
+      when:
+        signal: person_address_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 82
+      because: Address line 2 extracted from signature
+
+    - id: person-city-person-address-extracted
+      field: city
+      when:
+        signal: person_address_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 82
+      because: City extracted from address
+
+    - id: person-state-person-address-extracted
+      field: state
+      when:
+        signal: person_address_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 82
+      because: State extracted from address
+
+    - id: person-postalCode-person-address-extracted
+      field: postalCode
+      when:
+        signal: person_address_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 82
+      because: Postal code extracted from address
+
+    - id: person-country-person-address-extracted
+      field: country
+      when:
+        signal: person_address_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 82
+      because: Country extracted from address
+
+    - id: person-country-person-timezone-detected
+      field: country
+      when:
+        signal: person_timezone_detected
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 70
+      because: Country inferred from timezone
+
+    - id: person-recordStatus-email-count-gte-5
+      field: recordStatus
+      when:
+        signal: email_count_gte_5
+        op: eq
+        value: true
+      set:
+        value: "active"
+      confidence: 85
+      because: Recent email activity indicates active relationship
+
+    - id: person-recordStatus-has-calendar-meeting
+      field: recordStatus
+      when:
+        signal: has_calendar_meeting
+        op: eq
+        value: true
+      set:
+        value: "active"
+      confidence: 88
+      because: Recent meeting indicates active relationship
+
+    - id: person-lastContactedAt-capture-email-received
+      field: lastContactedAt
+      when:
+        signal: capture_email_received
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 100
+      because: Email received from this person
+
+    - id: person-lastContactedAt-capture-email-sent
+      field: lastContactedAt
+      when:
+        signal: capture_email_sent
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 100
+      because: Email sent to this person
+
+    - id: person-lastContactedAt-capture-meeting-completed
+      field: lastContactedAt
+      when:
+        signal: capture_meeting_completed
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 100
+      because: Meeting with this person completed
+
+    # Organizations
+    - id: org-name-org-created-from-domain
+      field: name
+      when:
+        signal: org_created_from_domain
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 85
+      because: Name derived from email domain
+
+    - id: org-billingEmail-org-has-invoice-sent
+      field: billingEmail
+      when:
+        signal: org_has_invoice_sent
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 85
+      because: Email used for org invoice delivery
+
+    - id: org-industryParent-org-industry-inferred
+      field: industryParent
+      when:
+        signal: org_industry_inferred
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 75
+      because: Industry inferred from domain or context
+
+    - id: org-industryChild-org-industry-inferred
+      field: industryChild
+      when:
+        signal: org_industry_inferred
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 70
+      because: Sub-industry inferred from context
+
+    - id: org-relationshipType-org-has-payment-received
+      field: relationshipType
+      when:
+        signal: org_has_payment_received
+        op: eq
+        value: true
+      set:
+        value: "client"
+      confidence: 95
+      because: This organization paid you
+
+    - id: org-relationshipType-org-has-invoice-sent
+      field: relationshipType
+      when:
+        signal: org_has_invoice_sent
+        op: eq
+        value: true
+      set:
+        value: "client"
+      confidence: 90
+      because: You invoiced this organization
+
+    - id: org-relationshipType-org-domain-in-partner-list
+      field: relationshipType
+      when:
+        signal: org_domain_in_partner_list
+        op: eq
+        value: true
+      set:
+        value: "partner"
+      confidence: 90
+      because: Domain is on your partner list
+
+    - id: org-relationshipType-org-domain-in-vendor-list
+      field: relationshipType
+      when:
+        signal: org_domain_in_vendor_list
+        op: eq
+        value: true
+      set:
+        value: "vendor"
+      confidence: 88
+      because: Domain is on your vendor list
+
+    - id: org-primaryContact-org-has-primary-contact
+      field: primaryContact
+      when:
+        signal: org_has_primary_contact
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 85
+      because: Primary contact identified from activity
+
+    - id: org-addressLine1-org-address-extracted
+      field: addressLine1
+      when:
+        signal: org_address_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 82
+      because: Address extracted from documents or invoices
+
+    - id: org-addressLine2-org-address-extracted
+      field: addressLine2
+      when:
+        signal: org_address_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 82
+      because: Address line 2 extracted from documents
+
+    - id: org-city-org-address-extracted
+      field: city
+      when:
+        signal: org_address_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 82
+      because: City extracted from org address
+
+    - id: org-state-org-address-extracted
+      field: state
+      when:
+        signal: org_address_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 82
+      because: State extracted from org address
+
+    - id: org-postalCode-org-address-extracted
+      field: postalCode
+      when:
+        signal: org_address_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 82
+      because: Postal code extracted from org address
+
+    - id: org-country-org-address-extracted
+      field: country
+      when:
+        signal: org_address_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 82
+      because: Country extracted from org address
+
+    - id: org-taxId-org-tax-id-extracted
+      field: taxId
+      when:
+        signal: org_tax_id_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 90
+      because: Tax ID extracted from invoice or documents
+
+    - id: org-website-org-website-found
+      field: website
+      when:
+        signal: org_website_found
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 85
+      because: Website discovered from domain or email
+
+    - id: org-recordStatus-org-has-people
+      field: recordStatus
+      when:
+        signal: org_has_people
+        op: eq
+        value: true
+      set:
+        value: "active"
+      confidence: 80
+      because: Org has active linked people
+
+    - id: org-recordStatus-org-has-payment-received
+      field: recordStatus
+      when:
+        signal: org_has_payment_received
+        op: eq
+        value: true
+      set:
+        value: "active"
+      confidence: 90
+      because: Recent payment indicates active relationship
+
+    - id: org-lastContactedAt-org-person-contacted
+      field: lastContactedAt
+      when:
+        signal: org_person_contacted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 100
+      because: Someone at this org was contacted
+
+    # Work
+    - id: work-name-work-scope-extracted
+      field: name
+      when:
+        signal: work_scope_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 80
+      because: Name derived from proposal/contract title
+
+    - id: work-status-work-proposal-sent
+      field: status
+      when:
+        signal: work_proposal_sent
+        op: eq
+        value: true
+      set:
+        value: "proposed"
+      confidence: 90
+      because: Proposal sent — awaiting decision
+
+    - id: work-status-work-proposal-accepted
+      field: status
+      when:
+        signal: work_proposal_accepted
+        op: eq
+        value: true
+      set:
+        value: "won"
+      confidence: 95
+      because: Client accepted the proposal
+
+    - id: work-status-work-has-signed-contract
+      field: status
+      when:
+        signal: work_has_signed_contract
+        op: eq
+        value: true
+      set:
+        value: "signed"
+      confidence: 95
+      because: Contract was signed
+
+    - id: work-status-work-has-kickoff
+      field: status
+      when:
+        signal: work_has_kickoff
+        op: eq
+        value: true
+      set:
+        value: "active"
+      confidence: 90
+      because: Kickoff meeting occurred — work is active
+
+    - id: work-status-work-has-completed-deliverable
+      field: status
+      when:
+        signal: work_has_completed_deliverable
+        op: eq
+        value: true
+      set:
+        value: "completed"
+      confidence: 85
+      because: Final deliverable was completed
+
+    - id: work-status-work-is-blocked
+      field: status
+      when:
+        signal: work_is_blocked
+        op: eq
+        value: true
+      set:
+        value: "stalled"
+      confidence: 80
+      because: Work appears blocked or waiting
+
+    - id: work-workType-work-type-inferred
+      field: workType
+      when:
+        signal: work_type_inferred
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 75
+      because: Work type inferred from proposal or context
+
+    - id: work-stage-work-stage-inferred
+      field: stage
+      when:
+        signal: work_stage_inferred
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 75
+      because: Stage inferred from activity pattern
+
+    - id: work-serviceId-work-scope-extracted
+      field: serviceId
+      when:
+        signal: work_scope_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 70
+      because: Service matched from scope description
+
+    - id: work-billingContactId-work-invoice-created
+      field: billingContactId
+      when:
+        signal: work_invoice_created
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 85
+      because: Invoice recipient identified as billing contact
+
+    - id: work-contractValueCents-work-value-extracted
+      field: contractValueCents
+      when:
+        signal: work_value_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 88
+      because: Value extracted from proposal or contract
+
+    - id: work-finalPriceCents-work-value-extracted
+      field: finalPriceCents
+      when:
+        signal: work_value_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 88
+      because: Final price extracted from contract
+
+    - id: work-scopeItems-work-scope-extracted
+      field: scopeItems
+      when:
+        signal: work_scope_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 85
+      because: Scope items extracted from proposal
+
+    - id: work-currency-work-value-extracted
+      field: currency
+      when:
+        signal: work_value_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 90
+      because: Currency detected from monetary values
+
+    - id: work-paymentTerms-work-scope-extracted
+      field: paymentTerms
+      when:
+        signal: work_scope_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 80
+      because: Payment terms extracted from contract
+
+    - id: work-paymentType-work-type-inferred
+      field: paymentType
+      when:
+        signal: work_type_inferred
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 75
+      because: Payment type inferred from work type
+
+    - id: work-hourlyRateCents-work-value-extracted
+      field: hourlyRateCents
+      when:
+        signal: work_value_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 85
+      because: Hourly rate extracted from proposal
+
+    - id: work-hoursEstimate-work-scope-extracted
+      field: hoursEstimate
+      when:
+        signal: work_scope_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 80
+      because: Hours estimate extracted from proposal
+
+    - id: work-retainerMrrCents-work-value-extracted
+      field: retainerMrrCents
+      when:
+        signal: work_value_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 88
+      because: MRR extracted from retainer contract
+
+    - id: work-renewalDate-work-scope-extracted
+      field: renewalDate
+      when:
+        signal: work_scope_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 85
+      because: Renewal date extracted from retainer terms
+
+    - id: work-billingCycle-work-scope-extracted
+      field: billingCycle
+      when:
+        signal: work_scope_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 82
+      because: Billing cycle extracted from contract
+
+    - id: work-decisionDate-work-timeline-mentioned
+      field: decisionDate
+      when:
+        signal: work_timeline_mentioned
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 75
+      because: Decision deadline mentioned in email
+
+    - id: work-startDate-work-has-kickoff
+      field: startDate
+      when:
+        signal: work_has_kickoff
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 90
+      because: Start date from kickoff meeting
+
+    - id: work-startDate-work-scope-extracted
+      field: startDate
+      when:
+        signal: work_scope_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 80
+      because: Start date extracted from contract
+
+    - id: work-deadline-work-has-due-date
+      field: deadline
+      when:
+        signal: work_has_due_date
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 88
+      because: Deadline mentioned or set
+
+    - id: work-deadline-work-scope-extracted
+      field: deadline
+      when:
+        signal: work_scope_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 82
+      because: Deadline extracted from contract
+
+    - id: work-poNumber-work-scope-extracted
+      field: poNumber
+      when:
+        signal: work_scope_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 90
+      because: PO number extracted from documents
+
+    - id: work-estimatedTimeline-work-timeline-mentioned
+      field: estimatedTimeline
+      when:
+        signal: work_timeline_mentioned
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 78
+      because: Timeline mentioned in email or proposal
+
+    - id: work-discountPercent-work-value-extracted
+      field: discountPercent
+      when:
+        signal: work_value_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 85
+      because: Discount percentage extracted from proposal
+
+    - id: work-discountAmountCents-work-value-extracted
+      field: discountAmountCents
+      when:
+        signal: work_value_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 85
+      because: Discount amount extracted from proposal
+
+    - id: work-discountReason-work-value-extracted
+      field: discountReason
+      when:
+        signal: work_value_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 75
+      because: Discount reason mentioned in proposal
+
+    # Billing
+    - id: billing-number-billing-invoice-parsed
+      field: number
+      when:
+        signal: billing_invoice_parsed
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 95
+      because: Invoice number extracted from document
+
+    - id: billing-number-billing-stripe-synced
+      field: number
+      when:
+        signal: billing_stripe_synced
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 98
+      because: Invoice number from Stripe
+
+    - id: billing-status-billing-amount-paid-covers-total
+      field: status
+      when:
+        signal: billing_amount_paid_covers_total
+        op: eq
+        value: true
+      set:
+        value: "paid"
+      confidence: 98
+      because: Payment received covers the invoice amount
+
+    - id: billing-status-billing-payment-matched
+      field: status
+      when:
+        signal: billing_payment_matched
+        op: eq
+        value: true
+      set:
+        value: "partial"
+      confidence: 90
+      because: Partial payment received
+
+    - id: billing-status-billing-due-date-passed
+      field: status
+      when:
+        signal: billing_due_date_passed
+        op: eq
+        value: true
+      set:
+        value: "overdue"
+      confidence: 95
+      because: Due date has passed without full payment
+
+    - id: billing-category-billing-invoice-parsed
+      field: category
+      when:
+        signal: billing_invoice_parsed
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 75
+      because: Category inferred from invoice content
+
+    - id: billing-organization-billing-party-email-match
+      field: organization
+      when:
+        signal: billing_party_email_match
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 88
+      because: Organization matched from billing email domain
+
+    - id: billing-billingContact-billing-party-email-match
+      field: billingContact
+      when:
+        signal: billing_party_email_match
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 88
+      because: Person matched from billing email
+
+    - id: billing-linkedWork-billing-invoice-parsed
+      field: linkedWork
+      when:
+        signal: billing_invoice_parsed
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 80
+      because: Work linked from invoice description or PO
+
+    - id: billing-vendorLabel-billing-invoice-parsed
+      field: vendorLabel
+      when:
+        signal: billing_invoice_parsed
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 85
+      because: Vendor name extracted from bill
+
+    - id: billing-amountCents-billing-invoice-parsed
+      field: amountCents
+      when:
+        signal: billing_invoice_parsed
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 95
+      because: Amount extracted from invoice
+
+    - id: billing-amountCents-billing-stripe-synced
+      field: amountCents
+      when:
+        signal: billing_stripe_synced
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 98
+      because: Amount from Stripe
+
+    - id: billing-amountPaidCents-billing-payment-matched
+      field: amountPaidCents
+      when:
+        signal: billing_payment_matched
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 98
+      because: Payment amount matched to invoice
+
+    - id: billing-amountPaidCents-billing-stripe-synced
+      field: amountPaidCents
+      when:
+        signal: billing_stripe_synced
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 98
+      because: Payment amount from Stripe
+
+    - id: billing-currency-billing-invoice-parsed
+      field: currency
+      when:
+        signal: billing_invoice_parsed
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 95
+      because: Currency detected from invoice
+
+    - id: billing-currency-billing-stripe-synced
+      field: currency
+      when:
+        signal: billing_stripe_synced
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 98
+      because: Currency from Stripe
+
+    - id: billing-issuedAt-billing-invoice-parsed
+      field: issuedAt
+      when:
+        signal: billing_invoice_parsed
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 92
+      because: Issue date extracted from invoice
+
+    - id: billing-issuedAt-billing-stripe-synced
+      field: issuedAt
+      when:
+        signal: billing_stripe_synced
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 98
+      because: Issue date from Stripe
+
+    - id: billing-dueAt-billing-invoice-parsed
+      field: dueAt
+      when:
+        signal: billing_invoice_parsed
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 92
+      because: Due date extracted from invoice
+
+    - id: billing-dueAt-billing-stripe-synced
+      field: dueAt
+      when:
+        signal: billing_stripe_synced
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 98
+      because: Due date from Stripe
+
+    - id: billing-paidAt-billing-amount-paid-covers-total
+      field: paidAt
+      when:
+        signal: billing_amount_paid_covers_total
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 98
+      because: Paid date from payment matching
+
+    - id: billing-paidAt-billing-stripe-synced
+      field: paidAt
+      when:
+        signal: billing_stripe_synced
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 98
+      because: Paid date from Stripe
+
+    - id: billing-appUrl-billing-stripe-synced
+      field: appUrl
+      when:
+        signal: billing_stripe_synced
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 100
+      because: Stripe hosted invoice URL
+
+    # Files
+    - id: file-category-file-category-inferred
+      field: category
+      when:
+        signal: file_category_inferred
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 85
+      because: Category inferred from file content
+
+    - id: file-documentType-file-document-type-inferred
+      field: documentType
+      when:
+        signal: file_document_type_inferred
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 85
+      because: Document type inferred from content
+
+    - id: file-description-file-document-type-inferred
+      field: description
+      when:
+        signal: file_document_type_inferred
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 75
+      because: Description generated from document analysis
+
+    - id: file-lifecycleStatus-file-signature-event-sent
+      field: lifecycleStatus
+      when:
+        signal: file_signature_event_sent
+        op: eq
+        value: true
+      set:
+        value: "sent"
+      confidence: 95
+      because: Document was sent for signature
+
+    - id: file-lifecycleStatus-file-signature-event-viewed
+      field: lifecycleStatus
+      when:
+        signal: file_signature_event_viewed
+        op: eq
+        value: true
+      set:
+        value: "viewed"
+      confidence: 92
+      because: Recipient viewed the document
+
+    - id: file-lifecycleStatus-file-signature-event-signed
+      field: lifecycleStatus
+      when:
+        signal: file_signature_event_signed
+        op: eq
+        value: true
+      set:
+        value: "signed"
+      confidence: 98
+      because: Document was signed
+
+    - id: file-lifecycleStatus-file-signature-event-expired
+      field: lifecycleStatus
+      when:
+        signal: file_signature_event_expired
+        op: eq
+        value: true
+      set:
+        value: "expired"
+      confidence: 95
+      because: Signature request expired
+
+    - id: file-totalAmountCents-file-amount-extracted
+      field: totalAmountCents
+      when:
+        signal: file_amount_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 90
+      because: Amount extracted from financial document
+
+    - id: file-currency-file-amount-extracted
+      field: currency
+      when:
+        signal: file_amount_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 90
+      because: Currency detected from document amounts
+
+    - id: file-dueDate-file-date-extracted
+      field: dueDate
+      when:
+        signal: file_date_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 88
+      because: Due date extracted from document
+
+    - id: file-expiryDate-file-date-extracted
+      field: expiryDate
+      when:
+        signal: file_date_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 88
+      because: Expiry date extracted from document
+
+    - id: file-expiryDate-file-signature-event-expired
+      field: expiryDate
+      when:
+        signal: file_signature_event_expired
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 95
+      because: Expiry from signature event
+
+    - id: file-signedDate-file-signature-event-signed
+      field: signedDate
+      when:
+        signal: file_signature_event_signed
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 98
+      because: Signed date from signature event
+
+    - id: file-followUpDate-file-date-extracted
+      field: followUpDate
+      when:
+        signal: file_date_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 75
+      because: Follow-up date suggested based on document context
+
+    # Meetings
+    - id: meeting-meetingType-meeting-type-inferred
+      field: meetingType
+      when:
+        signal: meeting_type_inferred
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 80
+      because: Meeting type inferred from title or description
+
+    - id: meeting-status-meeting-synced-from-calendar
+      field: status
+      when:
+        signal: meeting_synced_from_calendar
+        op: eq
+        value: true
+      set:
+        value: "scheduled"
+      confidence: 95
+      because: Meeting synced from calendar
+
+    - id: meeting-status-meeting-has-attendance-evidence
+      field: status
+      when:
+        signal: meeting_has_attendance_evidence
+        op: eq
+        value: true
+      set:
+        value: "completed"
+      confidence: 90
+      because: Evidence shows the meeting happened
+
+    - id: meeting-status-meeting-end-passed
+      field: status
+      when:
+        signal: meeting_end_passed
+        op: eq
+        value: true
+      set:
+        value: "completed"
+      confidence: 85
+      because: Meeting end time has passed
+
+    - id: meeting-status-meeting-cancelled-by-calendar
+      field: status
+      when:
+        signal: meeting_cancelled_by_calendar
+        op: eq
+        value: true
+      set:
+        value: "cancelled"
+      confidence: 95
+      because: Calendar event was cancelled
+
+    - id: meeting-startTime-meeting-synced-from-calendar
+      field: startTime
+      when:
+        signal: meeting_synced_from_calendar
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 98
+      because: Start time from calendar sync
+
+    - id: meeting-endTime-meeting-synced-from-calendar
+      field: endTime
+      when:
+        signal: meeting_synced_from_calendar
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 98
+      because: End time from calendar sync
+
+    - id: meeting-locationType-meeting-synced-from-calendar
+      field: locationType
+      when:
+        signal: meeting_synced_from_calendar
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 90
+      because: Location type inferred from calendar event
+
+    - id: meeting-meetingUrl-meeting-synced-from-calendar
+      field: meetingUrl
+      when:
+        signal: meeting_synced_from_calendar
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 95
+      because: Meeting URL from calendar event
+
+    - id: meeting-address-meeting-synced-from-calendar
+      field: address
+      when:
+        signal: meeting_synced_from_calendar
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 88
+      because: Address from calendar event location
+
+    - id: meeting-phoneNumber-meeting-synced-from-calendar
+      field: phoneNumber
+      when:
+        signal: meeting_synced_from_calendar
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 85
+      because: Dial-in number from calendar event
+
+    - id: meeting-description-meeting-synced-from-calendar
+      field: description
+      when:
+        signal: meeting_synced_from_calendar
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 92
+      because: Description from calendar event
+
+    - id: meeting-attendees-meeting-attendees-extracted
+      field: attendees
+      when:
+        signal: meeting_attendees_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 95
+      because: Attendees from calendar event
+
+    # Me Identity
+    - id: me-preferredName-email-signoff-name-detected
+      field: preferredName
+      when:
+        signal: email_signoff_name_detected
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 90
+      because: You consistently sign emails with this name
+
+    - id: me-fullName-linkedin-profile-scanned
+      field: fullName
+      when:
+        signal: linkedin_profile_scanned
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 88
+      because: Full name from your LinkedIn profile
+
+    - id: me-roleTitle-operator-signature-has-title
+      field: roleTitle
+      when:
+        signal: operator_signature_has_title
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 88
+      because: Title extracted from your outgoing email signature
+
+    - id: me-roleTitle-linkedin-profile-scanned
+      field: roleTitle
+      when:
+        signal: linkedin_profile_scanned
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 85
+      because: Title from your LinkedIn profile
+
+    - id: me-phone-operator-phone-extracted
+      field: phone
+      when:
+        signal: operator_phone_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 85
+      because: Phone number from your email signature
+
+    - id: me-timezone-calendar-timezone-detected
+      field: timezone
+      when:
+        signal: calendar_timezone_detected
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 95
+      because: Calendar consistently shows this timezone
+
+    - id: me-location-timezone-location-inferred
+      field: location
+      when:
+        signal: timezone_location_inferred
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 75
+      because: Location inferred from your timezone
+
+    - id: me-location-linkedin-profile-scanned
+      field: location
+      when:
+        signal: linkedin_profile_scanned
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 82
+      because: Location from your LinkedIn profile
+
+    - id: me-addressLine1-operator-address-extracted
+      field: addressLine1
+      when:
+        signal: operator_address_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 80
+      because: Address extracted from your documents
+
+    - id: me-addressLine2-operator-address-extracted
+      field: addressLine2
+      when:
+        signal: operator_address_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 80
+      because: Address line 2 from documents
+
+    - id: me-city-operator-address-extracted
+      field: city
+      when:
+        signal: operator_address_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 80
+      because: City extracted from documents
+
+    - id: me-state-operator-address-extracted
+      field: state
+      when:
+        signal: operator_address_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 80
+      because: State extracted from documents
+
+    - id: me-postalCode-operator-address-extracted
+      field: postalCode
+      when:
+        signal: operator_address_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 80
+      because: Postal code extracted from documents
+
+    - id: me-country-operator-address-extracted
+      field: country
+      when:
+        signal: operator_address_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 80
+      because: Country extracted from documents
+
+    - id: me-country-timezone-location-inferred
+      field: country
+      when:
+        signal: timezone_location_inferred
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 70
+      because: Country inferred from timezone
+
+    - id: me-professionalCredentials-linkedin-profile-scanned
+      field: professionalCredentials
+      when:
+        signal: linkedin_profile_scanned
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 78
+      because: Credentials from your LinkedIn profile
+
+    # Me Business
+    - id: me-tagline-operator-bio-extracted
+      field: tagline
+      when:
+        signal: operator_bio_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 80
+      because: Tagline extracted from your social or website bio
+
+    - id: me-websiteUrl-workspace-website-found
+      field: websiteUrl
+      when:
+        signal: workspace_website_found
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 88
+      because: Business website discovered from email or social
+
+    - id: me-industry-invoice-industry-pattern
+      field: industry
+      when:
+        signal: invoice_industry_pattern
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 82
+      because: Industry inferred from invoice descriptions and client types
+
+    - id: me-industry-linkedin-industry-detected
+      field: industry
+      when:
+        signal: linkedin_industry_detected
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 85
+      because: Industry from your LinkedIn profile
+
+    - id: me-legalBusinessName-workspace-legal-name-extracted
+      field: legalBusinessName
+      when:
+        signal: workspace_legal_name_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 88
+      because: Legal business name from your documents
+
+    - id: me-businessType-invoice-business-type-pattern
+      field: businessType
+      when:
+        signal: invoice_business_type_pattern
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 80
+      because: Business type inferred from invoice patterns (freelancer vs agency)
+
+    - id: me-businessPhone-operator-phone-extracted
+      field: businessPhone
+      when:
+        signal: operator_phone_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 82
+      because: Business phone from your email signature
+
+    - id: me-location-timezone-location-inferred
+      field: location
+      when:
+        signal: timezone_location_inferred
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 72
+      because: Location inferred from your timezone
+
+    - id: me-legalAddressLine1-operator-address-extracted
+      field: legalAddressLine1
+      when:
+        signal: operator_address_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 78
+      because: Legal address from your business documents
+
+    - id: me-legalAddressLine2-operator-address-extracted
+      field: legalAddressLine2
+      when:
+        signal: operator_address_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 78
+      because: Legal address line 2 from documents
+
+    - id: me-legalCity-operator-address-extracted
+      field: legalCity
+      when:
+        signal: operator_address_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 78
+      because: Legal city from documents
+
+    - id: me-legalState-operator-address-extracted
+      field: legalState
+      when:
+        signal: operator_address_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 78
+      because: Legal state from documents
+
+    - id: me-legalPostalCode-operator-address-extracted
+      field: legalPostalCode
+      when:
+        signal: operator_address_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 78
+      because: Legal postal code from documents
+
+    - id: me-legalCountry-operator-address-extracted
+      field: legalCountry
+      when:
+        signal: operator_address_extracted
+        op: eq
+        value: true
+      set:
+        value: "{{extracted}}"
+      confidence: 78
+      because: Legal country from documents
+

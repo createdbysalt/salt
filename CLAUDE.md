@@ -284,6 +284,7 @@ pnpm exec playwright show-trace path/to/trace.zip
 | Feature Briefs (public) | `./brand-identity/product/features/` |
 | Auth Flow | `./docs/architecture/auth-flow.md` |
 | Database Schema | `./docs/architecture/database-schema.md` |
+| **Connector System** | `./docs/architecture/connector-system.md` |
 | Security Model | `./docs/architecture/security-model.md` |
 | API Standards | `./docs/guides/api-standards.md` |
 | Testing Strategy | `./docs/guides/testing-strategy.md` |
@@ -294,6 +295,19 @@ pnpm exec playwright show-trace path/to/trace.zip
 | Stripe Integration | `./docs/guides/stripe-integration.md` |
 | Folder Structure | `./docs/reference/folder-structure.md` |
 | Environment Variables | `./docs/reference/environment-variables.md` |
+
+### LEARN → ACT → GROW Primitives
+
+Salt's proactive AI is built on three primitives. **Read these before building playbooks or tools.**
+
+| Topic | File | Purpose |
+|-------|------|---------|
+| **Primitives Overview** | `./docs/architecture/primitives.md` | **START HERE** — Signals, Tools, Playbooks |
+| Signals Reference | `./docs/architecture/signals.md` | Signal taxonomy and registry |
+| Tools Reference | `./docs/architecture/tools.md` | Tool contracts and risk classes |
+| Playbooks Reference | `./docs/architecture/playbooks.md` | Playbook structure and execution model |
+| Memory Tools | `./app/_lib/memory-tools/CLAUDE.md` | Protected Memory mutation tools |
+| Playbook Schema v2 | `./app/_features/plays/playbooks/schema/v2/CLAUDE.md` | YAML schema for playbook definitions |
 
 ### Design System (AI-Optimized)
 
@@ -362,7 +376,7 @@ AI agents live in `.claude/agents/` and commands in `.claude/commands/`:
 | `/research` | Pre-build research with Gemini Deep Research |
 | `/replicate` | Pixel-perfect component replication from URLs |
 | `/ralph` | Autonomous agent loop for PRD execution |
-| `/connector` | Composio connector lifecycle: `add <names...>`, `audit`, `test`, `enable`, `icons` — batched, reuses `.scratch/` scripts |
+| `/connector` | Composio connector lifecycle: `add <names...>`, `audit`, `test`, `enable`, `icons` — **read `docs/architecture/connector-system.md` first** |
 | `/devup` | Restart dev server on :3000 and verify it actually serves; root-causes failures instead of blind-restarting |
 | `/devup-staging` | Same as `/devup` with **staging Supabase** + 1Password (`.env.staging.1password`) |
 | `/push` | Atomic commit + push + branch-state report; `staging` mode handles the PR, `status` mode is read-only |
@@ -395,6 +409,7 @@ AI agents live in `.claude/agents/` and commands in `.claude/commands/`:
 | **Error Handling** | All server actions must return a standard `Result<T, E>` object. |
 | **Testing** | Co-locate unit tests. Isolate E2E in `e2e/`. No Jest. No Cypress. |
 | **Locators** | E2E tests use role-based locators only (`getByRole`, `getByLabel`). |
+| **Connectors** | **MUST read `docs/architecture/connector-system.md` before adding/modifying connectors.** Add to unified registry first; capture adapters and Ask Salt derive from it. |
 | **File Creation** | **NEVER use Bash heredocs (`cat << EOF`, `tee`, `echo >`) to create files.** Always use the `Write` tool. Bash heredocs get persisted verbatim in `settings.local.json` when permissions are "always allowed", bloating the file and corrupting pattern matching. This applies to ALL agents, commands, and scripts that produce output files. |
 
 ---

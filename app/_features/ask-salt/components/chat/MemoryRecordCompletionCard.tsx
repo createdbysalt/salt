@@ -54,41 +54,43 @@ export function MemoryRecordCompletionCard({
       className="w-full overflow-hidden rounded-2xl border border-border/60 bg-card shadow-[var(--shadow-card)]"
       data-testid="memory-record-completion-card"
     >
-      <div className="surface-aurora relative px-4 py-3.5 text-white">
+      <div className="surface-aurora relative px-4 py-4 text-white sm:px-5 sm:py-4">
         <div className="relative z-10 min-w-0">
           <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/80">
-            <Icon className="size-3.5" strokeWidth={2.25} />
+            <Icon className="size-3.5 shrink-0" strokeWidth={2.25} />
             {meta.label}
           </div>
-          <p className="mt-2 font-display text-xl tracking-tight text-white">{entry.linkLabel}</p>
+          <p className="mt-2.5 break-words font-display text-[1.35rem] leading-tight tracking-tight text-white">
+            {entry.linkLabel}
+          </p>
           {entry.subtitle ? (
             <p
               className={cn(
-                "mt-1 text-sm text-white/75",
+                "mt-1.5 text-sm text-white/75",
                 entry.recordKind === "note"
                   ? "line-clamp-3 whitespace-normal"
-                  : "truncate",
+                  : "break-words",
               )}
             >
               {entry.subtitle}
             </p>
           ) : (
-            <p className="mt-1 text-sm text-white/75">Added to Memory</p>
+            <p className="mt-1.5 text-sm text-white/75">Added to Memory</p>
           )}
         </div>
       </div>
 
-      <div className="flex items-center gap-2 px-4 py-3">
+      <div className="flex flex-col gap-2 border-t border-border/50 px-4 py-3.5">
         {entry.href ? (
           <Link
             href={entry.href}
-            className="inline-flex h-9 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full bg-foreground px-4 text-sm font-medium text-background transition hover:bg-foreground/90"
+            className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-full bg-foreground px-4 text-sm font-medium text-background transition hover:bg-foreground/90"
           >
             Open in {meta.label}
-            <ArrowUpRight className="size-3.5" strokeWidth={2.25} />
+            <ArrowUpRight className="size-3.5 shrink-0" strokeWidth={2.25} />
           </Link>
         ) : (
-          <span className="inline-flex h-9 min-w-0 flex-1 items-center justify-center rounded-full border border-border/60 px-4 text-sm font-medium text-muted-foreground">
+          <span className="inline-flex h-10 w-full items-center justify-center rounded-full border border-border/60 px-4 text-sm font-medium text-muted-foreground">
             Saved
           </span>
         )}
@@ -97,7 +99,7 @@ export function MemoryRecordCompletionCard({
             type="button"
             disabled={undoPending}
             onClick={onUndo}
-            className="inline-flex h-9 shrink-0 items-center justify-center gap-1 rounded-full border border-border/60 px-3.5 text-sm font-medium text-muted-foreground transition hover:border-border hover:text-foreground disabled:opacity-50"
+            className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-full text-sm font-medium text-muted-foreground transition hover:bg-muted/60 hover:text-foreground disabled:opacity-50"
           >
             {undoPending ? <Loader2 className="size-3.5 animate-spin" /> : null}
             Undo
