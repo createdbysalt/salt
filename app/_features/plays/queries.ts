@@ -20,10 +20,7 @@ import type {
 import type { PlaybookBlueprintRow } from "./playbooks/types";
 import type { PlayDefinition } from "./utils/play-definition";
 import type { PlayTemplateRow } from "./types";
-import {
-  getAuthoredPlaybookBlueprintRow,
-  loadAuthoredPlaybookBlueprintViews,
-} from "./playbooks/load-authored-playbook-blueprints";
+// v1 authored playbooks removed - v2 playbooks are filesystem-based
 import { normalizePlaybookTrigger } from "./utils/playbook-display";
 import type {
   ProfileFillRulesDocument,
@@ -110,27 +107,13 @@ async function getWorkspaceId(): Promise<string> {
   return workspace.id;
 }
 
-export async function listQueuedPlayRuns(): Promise<QueuePlayView[]> {
+export async function listQueuedPlayRuns(): Promise<PlayRunRow[]> {
   const workspaceId = await getWorkspaceId();
   const supabase = await createClient();
 
   const { data, error } = await supabase
     .from("play_runs")
-    .select(
-      `
-      id,
-      title,
-      preview,
-      draft_body,
-      recipient_label,
-      channel,
-      confidence,
-      created_at,
-      template_id,
-      players:player_id ( slug, name ),
-      play_templates:template_id ( name )
-    `,
-    )
+    .select("*")
     .eq("workspace_id", workspaceId)
     .in("state", ["queued", "draft"])
     .order("created_at", { ascending: true })
@@ -138,18 +121,7 @@ export async function listQueuedPlayRuns(): Promise<QueuePlayView[]> {
 
   if (error || !data) return [];
 
-  return data.map((row) => {
-    const playerJoin = Array.isArray(row.players) ? row.players[0] : row.players;
-    const templateJoin = Array.isArray(row.play_templates)
-      ? row.play_templates[0]
-      : row.play_templates;
-
-    return mapPlayRunToQueueView({
-      ...(row as unknown as PlayRunRow),
-      player_slug: playerJoin?.slug ?? null,
-      template_name: templateJoin?.name ?? null,
-    });
-  });
+  return data as PlayRunRow[];
 }
 
 export async function listHqQueuePlays(): Promise<HqQueuePlayView[]> {
@@ -381,52 +353,20 @@ function mapBlueprintRow(row: PlaybookBlueprintRow): PlaybookBlueprintView {
   };
 }
 
+/**
+ * @deprecated v1 playbooks retired. Use getPlaybooksV2ForWorkspace() instead.
+ */
 export async function listPlaybookBlueprints(): Promise<PlaybookBlueprintView[]> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("playbook_blueprints")
-    .select("*")
-    .eq("status", "active")
-    .order("player_slug")
-    .order("name");
-
-  const dbBlueprints = !error && data ? (data as PlaybookBlueprintRow[]).map(mapBlueprintRow) : [];
-  const dbSlugs = new Set(dbBlueprints.map((bp) => bp.slug));
-
-  // Merge: database playbooks + authored playbooks not already in database
-  const authoredBlueprints = loadAuthoredPlaybookBlueprintViews(mapBlueprintRow)
-    .filter((bp) => !dbSlugs.has(bp.slug));
-
-  return [...dbBlueprints, ...authoredBlueprints]
-    .sort((a, b) => a.playerSlug.localeCompare(b.playerSlug) || a.name.localeCompare(b.name));
+  return [];
 }
 
+/**
+ * @deprecated v1 playbooks retired. Returns null.
+ */
 export async function getProfileBlueprintDetail(
-  slug: string,
+  _slug: string,
 ): Promise<(PlaybookBlueprintView & { fillRules: ProfileFillRulesDocument | null }) | null> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("playbook_blueprints")
-    .select("*")
-    .eq("slug", slug)
-    .eq("kind", "profile")
-    .maybeSingle();
-
-  if (!error && data) {
-    const row = data as PlaybookBlueprintRow;
-    return {
-      ...mapBlueprintRow(row),
-      fillRules: row.fill_rules,
-    };
-  }
-
-  const authored = getAuthoredPlaybookBlueprintRow(slug);
-  if (!authored || authored.kind !== "profile") return null;
-
-  return {
-    ...mapBlueprintRow(authored),
-    fillRules: authored.fill_rules,
-  };
+  return null;
 }
 
 export interface ActingBlueprintDetail extends PlaybookBlueprintView {
@@ -438,58 +378,12 @@ export interface ActingBlueprintDetail extends PlaybookBlueprintView {
 }
 
 /**
- * Get acting blueprint detail with its workspace template (if adopted).
- * Supports both global Salt-authored and workspace-scoped user-created playbooks.
+ * @deprecated v1 playbooks retired. Returns null.
  */
 export async function getActingBlueprintDetail(
-  slug: string,
+  _slug: string,
 ): Promise<ActingBlueprintDetail | null> {
-  const workspaceId = await getWorkspaceId();
-  const supabase = await createClient();
-
-  const { data, error } = await supabase
-    .from("playbook_blueprints")
-    .select("*")
-    .eq("slug", slug)
-    .eq("kind", "acting")
-    .maybeSingle();
-
-  if (error || !data) {
-    const authored = getAuthoredPlaybookBlueprintRow(slug);
-    if (!authored || authored.kind !== "acting") return null;
-
-    const { data: templateRow } = await supabase
-      .from("play_templates")
-      .select("*")
-      .eq("workspace_id", workspaceId)
-      .eq("blueprint_slug", slug)
-      .maybeSingle();
-
-    return {
-      ...mapBlueprintRow(authored),
-      definition: authored.definition,
-      procedureMd: authored.procedure_md ?? "",
-      requiredToolkits: authored.required_toolkits ?? [],
-      template: templateRow ? mapTemplateRow(templateRow as PlayTemplateRow) : null,
-    };
-  }
-
-  const row = data as PlaybookBlueprintRow;
-
-  const { data: templateRow } = await supabase
-    .from("play_templates")
-    .select("*")
-    .eq("workspace_id", workspaceId)
-    .eq("blueprint_slug", slug)
-    .maybeSingle();
-
-  return {
-    ...mapBlueprintRow(row),
-    definition: row.definition,
-    procedureMd: row.procedure_md ?? "",
-    requiredToolkits: row.required_toolkits ?? [],
-    template: templateRow ? mapTemplateRow(templateRow as PlayTemplateRow) : null,
-  };
+  return null;
 }
 
 export async function getProfileProvenanceStats(
@@ -615,49 +509,11 @@ export async function getProfilePlaybookSettings(
   };
 }
 
+/**
+ * @deprecated v1 playbooks retired. Returns empty array.
+ */
 export async function listPlayTemplates(): Promise<PlayTemplateView[]> {
-  const workspaceId = await getWorkspaceId();
-  const supabase = await createClient();
-
-  const [{ data: templates }, { data: blueprints }] = await Promise.all([
-    supabase
-      .from("play_templates")
-      .select(
-        `
-        id, slug, name, description, is_active, blueprint_slug, blueprint_version,
-        players:player_id ( slug )
-      `,
-      )
-      .eq("workspace_id", workspaceId)
-      .order("name"),
-    supabase.from("playbook_blueprints").select("slug, version"),
-  ]);
-
-  const blueprintVersions = new Map(
-    (blueprints ?? []).map((b: { slug: string; version: number }) => [b.slug, b.version]),
-  );
-
-  return (templates ?? []).map((row) => {
-    const playerSlug = (row.players as { slug?: string } | null)?.slug ?? null;
-    const blueprintSlug = row.blueprint_slug as string | null;
-    const adoptedVersion = row.blueprint_version as number | null;
-    const latestVersion = blueprintSlug
-      ? blueprintVersions.get(blueprintSlug) ?? adoptedVersion
-      : null;
-
-    return {
-      id: row.id as string,
-      slug: row.slug as string,
-      name: row.name as string,
-      description: (row.description as string | null) ?? null,
-      playerSlug: playerSlug ? mapPlayerSlug(playerSlug) : null,
-      blueprintSlug,
-      blueprintVersion: adoptedVersion,
-      isActive: Boolean(row.is_active),
-      upgradeAvailable:
-        Boolean(blueprintSlug && latestVersion && adoptedVersion && latestVersion > adoptedVersion),
-    };
-  });
+  return [];
 }
 
 export async function listKeeperActivityEntries(
@@ -695,25 +551,12 @@ export async function listKeeperActivityEntries(
   };
 }
 
+/**
+ * @deprecated Players retired 2026-07-13. Returns empty array.
+ * Use playbook sections instead.
+ */
 export async function listPlayers(): Promise<PlayerView[]> {
-  const workspaceId = await getWorkspaceId();
-  const supabase = await createClient();
-
-  const { data } = await supabase
-    .from("players")
-    .select("id, slug, name, role_label, description, is_active")
-    .eq("workspace_id", workspaceId)
-    .eq("is_active", true)
-    .order("name");
-
-  return (data ?? []).map((row) => ({
-    id: row.id as string,
-    slug: mapPlayerSlug(row.slug as string),
-    name: row.name as string,
-    roleLabel: (row.role_label as string | null) ?? null,
-    description: (row.description as string | null) ?? null,
-    isActive: Boolean(row.is_active),
-  }));
+  return [];
 }
 
 export interface PlaybookConnectorStats {

@@ -8,6 +8,7 @@ import {
   User,
   Link,
   Settings,
+  MessageSquare,
   type LucideIcon,
 } from "lucide-react";
 
@@ -21,6 +22,7 @@ export type PlaybookSection =
   | "me"
   | "connections"
   | "notes"
+  | "communication"
   | "_meta";
 
 export type SectionColor =
@@ -32,7 +34,8 @@ export type SectionColor =
   | "indigo"
   | "rose"
   | "teal"
-  | "slate";
+  | "slate"
+  | "cyan";
 
 interface SectionMeta {
   label: string;
@@ -117,6 +120,14 @@ export const SECTION_COLOR_STYLES: Record<
     accent: "rgb(100, 116, 139)",
     dot: "bg-slate-500",
   },
+  cyan: {
+    bg: "bg-cyan-500/10",
+    text: "text-cyan-500",
+    border: "border-cyan-500/20",
+    ring: "ring-cyan-500/10 hover:ring-cyan-500/25",
+    accent: "rgb(6, 182, 212)",
+    dot: "bg-cyan-500",
+  },
 };
 
 const SECTION_META: Record<Exclude<PlaybookSection, "all">, SectionMeta> = {
@@ -139,9 +150,9 @@ const SECTION_META: Record<Exclude<PlaybookSection, "all">, SectionMeta> = {
     color: "emerald",
   },
   files: {
-    label: "Files",
+    label: "Resources",
     icon: File,
-    description: "Documents and attachments",
+    description: "Documents, links, and live-watched repos",
     color: "amber",
   },
   meetings: {
@@ -167,6 +178,12 @@ const SECTION_META: Record<Exclude<PlaybookSection, "all">, SectionMeta> = {
     icon: FileText,
     description: "Preferences and context",
     color: "indigo",
+  },
+  communication: {
+    label: "Communication",
+    icon: MessageSquare,
+    description: "Email and messaging",
+    color: "cyan",
   },
   _meta: {
     label: "System",

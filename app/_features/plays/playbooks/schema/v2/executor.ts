@@ -19,6 +19,7 @@ import type {
   PlaybookFetchStep,
   PlaybookClassifyStep,
   PlaybookDraftStep,
+  PlaybookActionStep,
   VoiceProfile,
 } from "./types";
 import {
@@ -33,6 +34,8 @@ function getStepId(step: PlaybookStep, fallback: string): string {
   return "id" in step && typeof step.id === "string" ? step.id : fallback;
 }
 
+export type WorkspaceTrustLevel = "read_only" | "act_with_approval" | "trust";
+
 export interface ExecutionContextV2 {
   workspaceId: string;
   userId: string;
@@ -45,17 +48,24 @@ export interface ExecutionContextV2 {
   connectedCategories: Set<string>;
   connectedCapabilities: Set<string>;
   voice?: VoiceProfile;
+  trustLevel?: WorkspaceTrustLevel;
+  toolApprovalOverrides?: Map<string, boolean>;
 }
 
 export interface StepResult {
   stepId: string;
-  status: "success" | "skipped" | "error";
+  status: "success" | "skipped" | "error" | "paused";
   data?: unknown;
   error?: string;
+  pausedForApproval?: {
+    toolSlug: string;
+    args: Record<string, unknown>;
+    stepIndex: number;
+  };
 }
 
 export interface ExecutionResultV2 {
-  status: "success" | "skipped" | "error";
+  status: "success" | "skipped" | "error" | "paused";
   playbookSlug: string;
   layer: "learn" | "act";
   reason?: string;
@@ -63,6 +73,12 @@ export interface ExecutionResultV2 {
   outputCount?: number;
   playRunIds?: string[];
   durationMs: number;
+  pausedAt?: {
+    stepIndex: number;
+    toolSlug: string;
+    args: Record<string, unknown>;
+    playRunId?: string;
+  };
 }
 
 export async function buildExecutionContextV2(
@@ -159,8 +175,32 @@ export async function executePlaybookV2(
   if (playbook.steps) {
     for (const [index, step] of playbook.steps.entries()) {
       const stepId = getStepId(step, `${playbook.slug}-step-${index}`);
-      const result = await executeStep(step, context, stepData);
+      const result = await executeStep(step, context, stepData, index);
       stepResults.push(result);
+
+      if (result.status === "paused" && result.pausedForApproval) {
+        const playRunId = await createPausedPlayRun(
+          playbook,
+          context,
+          index,
+          result.pausedForApproval,
+          stepData
+        );
+        return {
+          status: "paused",
+          playbookSlug: playbook.slug,
+          layer: playbook.layer,
+          reason: `Paused at step "${stepId}" for approval`,
+          stepResults,
+          durationMs: Date.now() - startTime,
+          pausedAt: {
+            stepIndex: index,
+            toolSlug: result.pausedForApproval.toolSlug,
+            args: result.pausedForApproval.args,
+            playRunId,
+          },
+        };
+      }
 
       if (result.status === "error") {
         return {
@@ -199,7 +239,8 @@ export async function executePlaybookV2(
 async function executeStep(
   step: PlaybookStep,
   context: ExecutionContextV2,
-  stepData: Map<string, unknown>
+  stepData: Map<string, unknown>,
+  stepIndex: number
 ): Promise<StepResult> {
   switch (step.step) {
     case "fetch":
@@ -208,6 +249,8 @@ async function executeStep(
       return executeClassifyStep(step, stepData);
     case "draft":
       return executeDraftStep(step, context, stepData);
+    case "action":
+      return executeActionStep(step, context, stepData, stepIndex);
     default:
       return {
         stepId: getStepId(step, "unknown"),
@@ -411,6 +454,140 @@ async function executeDraftStep(
       error: error instanceof Error ? error.message : "Draft generation failed",
     };
   }
+}
+
+async function executeActionStep(
+  step: PlaybookActionStep,
+  context: ExecutionContextV2,
+  stepData: Map<string, unknown>,
+  stepIndex: number
+): Promise<StepResult> {
+  const stepId = step.id ?? `action-${stepIndex}`;
+  const args = step.args ?? {};
+  const interpolatedArgs = interpolateArgs(args, stepData, context);
+
+  const needsApproval = await checkStepNeedsApproval(
+    step,
+    context
+  );
+
+  if (needsApproval) {
+    return {
+      stepId,
+      status: "paused",
+      pausedForApproval: {
+        toolSlug: step.tool,
+        args: interpolatedArgs,
+        stepIndex,
+      },
+    };
+  }
+
+  return {
+    stepId,
+    status: "success",
+    data: {
+      _stub: true,
+      message: "Action step execution pending - approval gate implemented, execution via Ask Salt path",
+      tool: step.tool,
+      args: interpolatedArgs,
+    },
+  };
+}
+
+async function checkStepNeedsApproval(
+  step: PlaybookActionStep,
+  context: ExecutionContextV2
+): Promise<boolean> {
+  if (step.approval === "required") {
+    return true;
+  }
+
+  if (context.trustLevel === "act_with_approval") {
+    return true;
+  }
+
+  if (context.trustLevel === "trust") {
+    if (context.toolApprovalOverrides?.get(step.tool) === true) {
+      return true;
+    }
+
+    const { getComposioToolPolicy } = await import("@/app/_lib/composio/tool-policy");
+    const policy = getComposioToolPolicy(step.tool);
+    if (policy?.requiresHumanConfirmation) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function interpolateArgs(
+  args: Record<string, unknown>,
+  stepData: Map<string, unknown>,
+  context: ExecutionContextV2
+): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(args)) {
+    if (typeof value === "string") {
+      result[key] = interpolatePrompt(value, stepData, context);
+    } else {
+      result[key] = value;
+    }
+  }
+
+  return result;
+}
+
+async function createPausedPlayRun(
+  playbook: PlaybookDefinitionV2,
+  context: ExecutionContextV2,
+  stepIndex: number,
+  pauseInfo: {
+    toolSlug: string;
+    args: Record<string, unknown>;
+  },
+  stepData: Map<string, unknown>
+): Promise<string | undefined> {
+  const admin = createAdminClient();
+
+  const stepDataObj: Record<string, unknown> = {};
+  for (const [k, v] of stepData) {
+    stepDataObj[k] = v;
+  }
+
+  const { data: run, error } = await admin
+    .from("play_runs")
+    .insert({
+      workspace_id: context.workspaceId,
+      state: "queued",
+      title: `${playbook.name} — Approval Required`,
+      preview: `Waiting for approval to execute ${pauseInfo.toolSlug}`,
+      trigger_source: context.triggeredBy.type,
+      trigger_evidence: {
+        playbook_slug: playbook.slug,
+        triggered_by: context.triggeredBy,
+        voice: context.voice?.slug,
+      },
+      context_inputs: stepDataObj,
+      paused_at_step: stepIndex,
+      paused_for_approval: true,
+      approval_context: {
+        tool_slug: pauseInfo.toolSlug,
+        args: pauseInfo.args,
+        step_index: stepIndex,
+      },
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    console.error("Failed to create paused play run:", error);
+    return undefined;
+  }
+
+  return run?.id as string | undefined;
 }
 
 function interpolatePrompt(

@@ -2,7 +2,7 @@
 
 import { useSearchParams, useRouter } from "next/navigation";
 import { PlaysSectionHeader } from "@/app/_features/plays/components/PlaysSectionHeader";
-import { MemoryListAddButton } from "@/app/_features/memory/components/MemoryListAddButton";
+import { AddResourceButton } from "@/app/_features/resources/components/AddResourceButton";
 import { memoryListShellClass } from "@/app/_features/memory/utils/memory-layout";
 import type { MemoryFile } from "../data";
 import { FilesDirectoryTable } from "./FilesDirectoryTable";
@@ -22,7 +22,7 @@ export function FilesPage({ initialFiles }: FilesPageProps) {
     if (id) params.set("preview", id);
     else params.delete("preview");
     const qs = params.toString();
-    router.replace(qs ? `/files?${qs}` : "/files", { scroll: false });
+    router.replace(qs ? `/resources?${qs}` : "/resources", { scroll: false });
   };
 
   return (
@@ -32,9 +32,9 @@ export function FilesPage({ initialFiles }: FilesPageProps) {
       <div className={memoryListShellClass}>
         <PlaysSectionHeader
           eyebrow="Memory"
-          title="Files"
-          description="Every document, link, photo, video, email, and transcript — linked to the people, orgs, and work they belong to."
-          action={<MemoryListAddButton kind="file" label="Add file" />}
+          title="Resources"
+          description="Documents, external links, and live-watched repos — linked to the people, orgs, and work they belong to."
+          action={<AddResourceButton />}
         />
 
         <FilesDirectoryTable

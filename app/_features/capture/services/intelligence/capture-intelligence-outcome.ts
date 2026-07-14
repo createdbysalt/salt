@@ -149,15 +149,15 @@ export type IntelligenceStreamFilter =
 export type CaptureCategory = "queued" | "no-signal" | "processing" | "error";
 
 export const CAPTURE_CATEGORY_LABELS: Record<CaptureCategory, string> = {
-  queued: "Queued",
-  "no-signal": "No Signal",
+  queued: "Triggered Play",
+  "no-signal": "No Action",
   processing: "Processing",
   error: "Error",
 };
 
 export const CAPTURE_CATEGORY_DETAIL: Record<CaptureCategory, string> = {
-  queued: "Found signal — check your Queue",
-  "no-signal": "Salt reviewed, nothing actionable",
+  queued: "Triggered a play — check Plays",
+  "no-signal": "Salt reviewed, no action needed",
   processing: "Still being analyzed",
   error: "Couldn't process this capture",
 };
@@ -178,4 +178,38 @@ export function mapOutcomeToCategory(outcome: CaptureIntelligenceOutcome): Captu
     case "scan_error":
       return "error";
   }
+}
+
+/**
+ * Derive capture category from enriched metadata.
+ * The new enrichment system is the source of truth when available.
+ */
+export function categoryFromEnrichment(
+  enrichedMetadata: { enriched_at?: string | null; signals_matched?: string[]; linked_records?: unknown[] } | null | undefined,
+  fallbackOutcome: CaptureIntelligenceOutcome
+): CaptureCategory {
+  // If no enrichment data, fall back to old intelligence outcome
+  if (!enrichedMetadata?.enriched_at) {
+    return mapOutcomeToCategory(fallbackOutcome);
+  }
+
+  // Enrichment completed - determine category from results
+  const signals = enrichedMetadata.signals_matched ?? [];
+  const linkedRecords = enrichedMetadata.linked_records ?? [];
+
+  // If we have meaningful signals or linked records, it's queued for review
+  const hasActionableSignals = signals.some((s) =>
+    s.startsWith("capture_email_received") ||
+    s.startsWith("capture_calendar_") ||
+    s.includes("is_reply") ||
+    s.includes("invoice") ||
+    s.includes("payment")
+  );
+
+  if (hasActionableSignals || linkedRecords.length > 0) {
+    return "queued";
+  }
+
+  // Enriched but no actionable signals
+  return "no-signal";
 }

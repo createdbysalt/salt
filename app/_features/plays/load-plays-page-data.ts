@@ -3,8 +3,6 @@ import "server-only";
 import {
   listActivityEntries,
   listQueuedPlayRuns,
-  listPlaybookBlueprints,
-  listPlayTemplates,
 } from "@/app/_features/plays/queries";
 import { getPlaybooksV2ForWorkspace, type PlaybookV2QueryResult } from "@/app/_features/plays/playbooks/queries-v2";
 import { getConnectorsPageData } from "@/app/_features/connectors/queries";
@@ -19,18 +17,18 @@ import {
 } from "@/app/_features/capture/queries/intelligence-findings";
 import { getLearningEvidence } from "@/app/_features/plays/queries/learning-evidence";
 import { getUnseenLearningsCount } from "@/app/_features/me/actions/salt-learnings";
-import type { ActivityEntryRow, PlaybookBlueprintView, PlayTemplateView, PlayerSlug } from "@/app/_features/plays/types";
+import type { ActivityEntryRow } from "@/app/_features/plays/types";
 import type { ConnectorsPageData } from "@/app/_features/connectors";
 import type { FindingWithContext } from "@/app/_features/capture/types/intelligence-findings";
 import type { StreamCaptureSummary } from "@/app/_features/capture/types";
-import type { QueuePlayView } from "@/app/_features/plays/types";
+import type { PlayRunRow } from "@/app/_features/plays/types";
 import type { GroupedLearningEvidence } from "@/app/_features/plays/queries/learning-evidence";
 
 export type PlaysTab = "queue" | "customize" | "activity";
 export type PlaysActivityView = "actions" | "captures";
 
 export type PlaysPageData = {
-  initialQueue: QueuePlayView[];
+  initialQueue: PlayRunRow[];
   initialActivity: ActivityEntryRow[];
   activityTotalCount: number;
   connectors: ConnectorsPageData | null;
@@ -51,8 +49,6 @@ export type PlaysPageData = {
     scanError?: number;
   } | null;
   hasCaptureData: boolean;
-  blueprints: PlaybookBlueprintView[];
-  adoptedTemplates: PlayTemplateView[];
   playbooksV2: PlaybookV2QueryResult | null;
   workspaceId: string | null;
   keeperUnseenCount: number;
@@ -94,8 +90,6 @@ export function emptyPlaysPageData(): PlaysPageData {
     streamCaptures: [],
     captureStats: null,
     hasCaptureData: false,
-    blueprints: [],
-    adoptedTemplates: [],
     playbooksV2: null,
     workspaceId: null,
     keeperUnseenCount: 0,
@@ -135,10 +129,8 @@ export async function loadPlaysPageData(options: {
   }
 
   if (tab === "customize") {
-    const [connectors, blueprints, adoptedTemplates, playbooksV2, keeperUnseenCount] = await Promise.all([
+    const [connectors, playbooksV2, keeperUnseenCount] = await Promise.all([
       getConnectorsPageData(),
-      listPlaybookBlueprints(),
-      listPlayTemplates(),
       getPlaybooksV2ForWorkspace(),
       workspaceId ? getUnseenLearningsCount(workspaceId) : Promise.resolve(0),
     ]);
@@ -146,8 +138,6 @@ export async function loadPlaysPageData(options: {
     return {
       ...base,
       connectors,
-      blueprints,
-      adoptedTemplates,
       playbooksV2,
       workspaceId: workspaceId ?? null,
       keeperUnseenCount,

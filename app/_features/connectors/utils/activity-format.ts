@@ -120,7 +120,7 @@ const CURATED_ACTIONS: Record<string, string> = {
   STRIPE_CREATE_INVOICE: "Drafted an invoice",
   STRIPE_CREATE_CUSTOMER: "Added a Stripe customer",
   // Cal.com
-  CAL_LIST_BOOKINGS: "Checked your bookings",
+  CAL_GET_TEAM_BOOKINGS: "Checked your bookings",
 };
 
 /**

@@ -20,6 +20,7 @@ const PlaybookSectionSchema = z.enum([
   "me",
   "connections",
   "notes",
+  "communication",
   "_meta",
 ]);
 
@@ -106,7 +107,7 @@ const PlaybookOutputSchema = z.object({
 
 const PlaybookValueModelSchema = z.object({
   kind: z.string().min(1),
-  estimate: z.number().int().positive().optional(),
+  estimate: z.number().int().nonnegative().optional(), // Allow 0 for playbooks with no direct time savings
 });
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -223,12 +224,15 @@ const PlaybookBranchStepSchema = z.object({
   goto: z.string().optional(),
 });
 
+const PlaybookStepApprovalSchema = z.enum(["required"]);
+
 const PlaybookActionStepSchema = z.object({
   step: z.literal("action"),
   id: z.string().optional(),
   tool: z.string().min(1),
   args: z.record(z.unknown()).optional(),
   needsApproval: z.boolean().optional(),
+  approval: PlaybookStepApprovalSchema.optional(),
 });
 
 const PlaybookComputeStepSchema = z.object({

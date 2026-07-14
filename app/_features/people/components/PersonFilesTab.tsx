@@ -149,7 +149,7 @@ export function PersonFilesTab({ person }: { person: Person }) {
           <Input
             value={globalFilter}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setGlobalFilter(e.target.value)}
-            placeholder="Search files…"
+            placeholder="Search resources…"
             className="pl-9 h-9 rounded-full bg-card border-border/60"
           />
         </div>
@@ -274,7 +274,7 @@ export function PersonFilesTab({ person }: { person: Person }) {
                   colSpan={columns.length}
                   className="h-24 text-center text-muted-foreground text-sm"
                 >
-                  No files linked.
+                  No resources linked.
                 </TableCell>
               </TableRow>
             )}

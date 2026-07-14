@@ -103,7 +103,7 @@ describe("unified-connector-registry", () => {
       expect(toolkits).toContain("gmail");
       expect(toolkits).toContain("stripe");
       // Disabled connectors should not be included
-      expect(toolkits).not.toContain("hubspot"); // askSalt.enabled = false
+      expect(toolkits).not.toContain("salesforce"); // askSalt.enabled = false
     });
   });
 

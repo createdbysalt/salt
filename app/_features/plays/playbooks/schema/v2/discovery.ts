@@ -33,6 +33,9 @@ const SECTIONS: PlaybookSection[] = [
   "files",
   "meetings",
   "me",
+  "connections",
+  "notes",
+  "communication",
   "_meta",
 ];
 

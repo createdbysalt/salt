@@ -5,13 +5,15 @@ import type { PersonProfileFieldKey } from "@/app/_features/plays/playbooks/reco
 import { routePlay, type PlayQueue, type PlayStakes } from "@/app/_features/plays/lib/play-record";
 
 /**
- * Keeper Play Run creation service.
+ * Memory Records Play Run creation service.
  *
- * This is the single write path for Keeper-originated plays (profile suggestions
- * and relationship questions). All Keeper output that belongs in the approval
- * queue should flow through here, NOT through intelligence_findings.
+ * Creates play_runs for Memory record suggestions (profile updates,
+ * relationship questions, risk signals). All Memory-learning output
+ * that belongs in the approval queue should flow through here.
  *
- * See docs/plans/2026-06-25-play-card-contract.md (Phase 2).
+ * Note: "Keeper" in this filename is legacy terminology. The current
+ * architecture uses sections (relationships, billing, etc.) not players.
+ * See brand-identity/product-internal/terminology-engineering.md.
  */
 
 export interface CreateKeeperProfilePlayRunInput {
@@ -107,8 +109,7 @@ export async function createKeeperProfilePlayRun(
       },
       evidence_ids: input.evidenceIds ?? [],
       metadata: {
-        player_slug: "keeper",
-        playbook_name: "People Records",
+                playbook_name: "People Records",
         keeper_profile: true,
         profile_field: input.field,
         profile_value: input.proposedValue,
@@ -191,8 +192,7 @@ export async function createKeeperQuestionPlayRun(
       },
       evidence_ids: input.evidenceIds ?? [],
       metadata: {
-        player_slug: "keeper",
-        playbook_name: "People Records",
+                playbook_name: "People Records",
         keeper_question: true,
         question_field: input.field,
         question_options: input.options,
@@ -283,8 +283,7 @@ export async function createRiskPlayRun(
       },
       evidence_ids: input.evidenceIds ?? [],
       metadata: {
-        player_slug: "keeper",
-        playbook_name: "Client Risk",
+                playbook_name: "Client Risk",
         play_card_kind: "risk",
         risk_signal: input.signal,
         risk_recommendation: input.recommendation,
@@ -340,8 +339,7 @@ export async function createRoutingPlayRun(
       },
       evidence_ids: input.evidenceIds ?? [],
       metadata: {
-        player_slug: "keeper",
-        playbook_name: "Route Signal",
+                playbook_name: "Route Signal",
         play_card_kind: "routing",
         from_email: input.fromEmail,
         from_name: input.fromName,

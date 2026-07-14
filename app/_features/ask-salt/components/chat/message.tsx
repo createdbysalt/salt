@@ -34,12 +34,15 @@ export type MessageResponseProps = React.ComponentProps<typeof Streamdown>;
 
 /** Streaming-safe markdown. Memoized on children so deltas re-render cheaply. */
 export const MessageResponse = React.memo(
-  ({ className, ...props }: MessageResponseProps) => (
+  ({ className, linkSafety, ...props }: MessageResponseProps) => (
     <Streamdown
       className={cn(
         "size-full [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
         className,
       )}
+      // Disable link safety modal by default — it renders block elements (div)
+      // inside markdown paragraphs, causing React hydration errors.
+      linkSafety={linkSafety ?? { enabled: false }}
       {...props}
     />
   ),

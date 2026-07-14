@@ -14,11 +14,11 @@ import type {
 import type { PersonSignals } from "@/app/_features/capture/services/system-plays/person-signals";
 import type { CaptureSourceType } from "@/app/_features/capture/types";
 
-type DocumentsProvider = "notion" | "googledocs" | "googlesheets" | "googleslides";
+type KnownDocumentsProvider = "notion" | "googledocs" | "googlesheets" | "googleslides";
 
-const DOCUMENTS_PROVIDERS: DocumentsProvider[] = ["notion", "googledocs", "googlesheets", "googleslides"];
+const KNOWN_DOCUMENTS_PROVIDERS: KnownDocumentsProvider[] = ["notion", "googledocs", "googlesheets", "googleslides"];
 
-const DOCUMENTS_TRIGGER_SLUGS: Record<DocumentsProvider, string[]> = {
+const DOCUMENTS_TRIGGER_SLUGS: Record<KnownDocumentsProvider, string[]> = {
   notion: ["NOTION_PAGE_CREATED", "NOTION_PAGE_CONTENT_UPDATED"],
   googledocs: ["GOOGLEDOCS_DOCUMENT_CREATED_TRIGGER", "GOOGLEDOCS_DOCUMENT_UPDATED_TRIGGER"],
   // NEW_SPREADSHEET_CREATED watches all new spreadsheets (no ID required).
@@ -27,6 +27,10 @@ const DOCUMENTS_TRIGGER_SLUGS: Record<DocumentsProvider, string[]> = {
   googleslides: ["GOOGLESLIDES_SLIDE_ADDED_TRIGGER"],
 };
 
+function isKnownDocumentsProvider(provider: string): provider is KnownDocumentsProvider {
+  return KNOWN_DOCUMENTS_PROVIDERS.includes(provider as KnownDocumentsProvider);
+}
+
 function deriveDocumentsSignals(
   envelopes: readonly CaptureEnvelope[],
   _context: SignalDerivationContext
@@ -34,8 +38,7 @@ function deriveDocumentsSignals(
   const contacts = new Map<string, PersonSignals>();
 
   for (const envelope of envelopes) {
-    if (!isDocumentsSource(envelope.sourceType)) continue;
-
+    // Documents adapters already filter by category - process all envelopes
     for (const participant of envelope.participants) {
       if (!participant.email) continue;
 
@@ -48,9 +51,7 @@ function deriveDocumentsSignals(
   return contacts;
 }
 
-function isDocumentsSource(sourceType: CaptureSourceType): boolean {
-  return DOCUMENTS_PROVIDERS.includes(sourceType as DocumentsProvider);
-}
+// Documents adapters already filter by category - no need for source type check
 
 function normalizeGenericDocuments(
   payload: unknown,
@@ -105,10 +106,14 @@ function normalizeGenericDocuments(
   };
 }
 
-export function createDocumentsCategoryAdapter(
-  provider: DocumentsProvider
-): CaptureAdapter {
-  const triggerSlugs = DOCUMENTS_TRIGGER_SLUGS[provider] ?? [];
+/**
+ * Create a documents adapter for ANY provider.
+ * Known providers get specific parsing; unknown get generic extraction.
+ */
+export function createDocumentsCategoryAdapter(provider: string): CaptureAdapter {
+  const triggerSlugs = isKnownDocumentsProvider(provider)
+    ? DOCUMENTS_TRIGGER_SLUGS[provider]
+    : []; // Unknown providers: triggers come from DB
 
   return {
     sourceType: provider as CaptureSourceType,
@@ -117,18 +122,21 @@ export function createDocumentsCategoryAdapter(
     deriveSignals: deriveDocumentsSignals,
 
     normalize(payload: unknown): CaptureEnvelope | null {
+      // All documents providers currently use generic extraction
       return normalizeGenericDocuments(payload, provider as CaptureSourceType);
     },
   };
 }
 
-export const documentsCategoryAdapters = DOCUMENTS_PROVIDERS.map(
+/** Known provider adapters (for backward compatibility). */
+export const documentsCategoryAdapters = KNOWN_DOCUMENTS_PROVIDERS.map(
   createDocumentsCategoryAdapter
 );
 
-export function getDocumentsAdapter(provider: string): CaptureAdapter | null {
-  if (!DOCUMENTS_PROVIDERS.includes(provider as DocumentsProvider)) {
-    return null;
-  }
-  return createDocumentsCategoryAdapter(provider as DocumentsProvider);
+/**
+ * Get documents adapter for ANY provider in the documents category.
+ * Always returns an adapter — unknown providers get generic extraction.
+ */
+export function getDocumentsAdapter(provider: string): CaptureAdapter {
+  return createDocumentsCategoryAdapter(provider);
 }

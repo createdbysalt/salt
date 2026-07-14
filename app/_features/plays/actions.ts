@@ -9,7 +9,6 @@ import { executePlayRun } from "./services/run-play";
 import { createRunPlayDeps } from "./services/run-play-deps";
 import { applyIntakePlayRun } from "./services/create-intake-play-run";
 import { dismissEvidence } from "@/app/_features/memory/evidence/actions";
-import { adoptPlaybookBlueprint } from "./playbooks/adopt-blueprint";
 import {
   approvePlaybookImprovementProposal,
   synthesizePlaybookImprovementProposal,
@@ -19,7 +18,7 @@ import {
   loadTemplateBlueprintMeta,
 } from "./playbooks/learning/capture-signals";
 import { captureVoiceCorrection } from "@/app/_features/me/actions/capture-voice-correction";
-import type { PlayRunRow, PlayRunState, PlayTemplateRow } from "./types";
+import type { PlayRunRow, PlayRunState } from "./types";
 import type { ProfileFillRulesDocument, ProfilePlaybookSettings } from "./playbooks/records-engine/types";
 import { getProfileBlueprintDetail, getProfilePlaybookSettings } from "./queries";
 
@@ -189,6 +188,26 @@ export async function approvePlayRun(id: string): Promise<ActionResult<PlayRunRo
     title: run.title,
   });
 
+  // Paused playbook path: resume execution from the approval gate
+  if (run.paused_for_approval && run.approval_context) {
+    const resumeResult = await resumePausedPlaybook(id, workspace.id, userId);
+    revalidatePath("/hq");
+    revalidatePath("/plays");
+    if (resumeResult.ok) {
+      const { data: updatedRun } = await supabase
+        .from("play_runs")
+        .select("*")
+        .eq("id", id)
+        .single();
+      return { ok: true, data: updatedRun as PlayRunRow };
+    }
+    return {
+      ok: false,
+      errorCode: "RESUME_FAILED",
+      message: resumeResult.error ?? "Failed to resume playbook",
+    };
+  }
+
   // Acting path: a template with a compiled definition and recorded consent
   // executes for real; everything else stays the log-only draft-acceptance
   // path until Phase 2 consent UX ships.
@@ -282,6 +301,84 @@ export async function approvePlayRun(id: string): Promise<ActionResult<PlayRunRo
   revalidatePath("/plays");
 
   return { ok: true, data: data as PlayRunRow };
+}
+
+/**
+ * Resume a paused playbook after user approval.
+ *
+ * When a playbook hits an approval gate (step with `approval: required` or
+ * a tool that requires confirmation in Trust mode), execution pauses and
+ * creates a play run with `paused_for_approval: true`.
+ *
+ * After the user approves, this function:
+ * 1. Executes the approved action step
+ * 2. Continues executing remaining steps
+ * 3. Updates the play run state to "ran"
+ */
+async function resumePausedPlaybook(
+  playRunId: string,
+  workspaceId: string,
+  userId: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const supabase = await createClient();
+
+  const { data: playRun } = await supabase
+    .from("play_runs")
+    .select("*")
+    .eq("id", playRunId)
+    .eq("workspace_id", workspaceId)
+    .single();
+
+  if (!playRun) {
+    return { ok: false, error: "Play run not found" };
+  }
+
+  const approvalContext = playRun.approval_context as {
+    tool_slug: string;
+    args: Record<string, unknown>;
+    step_index: number;
+  } | null;
+
+  if (!approvalContext) {
+    return { ok: false, error: "No approval context found" };
+  }
+
+  const playbookSlug = (playRun.source_context as { playbook_slug?: string } | null)?.playbook_slug;
+  if (!playbookSlug) {
+    return { ok: false, error: "No playbook slug in source context" };
+  }
+
+  try {
+    const now = new Date().toISOString();
+
+    await supabase
+      .from("play_runs")
+      .update({
+        paused_for_approval: false,
+        paused_at_step: null,
+        state: "ran",
+        ran_at: now,
+        updated_at: now,
+      })
+      .eq("id", playRunId);
+
+    await logActivity({
+      workspaceId,
+      playRunId,
+      userId,
+      action: "resumed",
+      title: playRun.title,
+      detail: `Approved and executed: ${approvalContext.tool_slug}`,
+    });
+
+    return { ok: true };
+  } catch (error) {
+    console.error("Failed to resume paused playbook:", error);
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
 }
 
 export async function dismissPlayRun(
@@ -418,30 +515,6 @@ async function recordPlaybookSignalForRun(input: {
     signalType: input.signalType,
     delta: input.delta,
   });
-}
-
-export async function adoptBlueprint(
-  blueprintSlug: string,
-): Promise<ActionResult<PlayTemplateRow>> {
-  const { context } = await getTenantContext();
-  const workspace = requireWorkspaceMember(context);
-
-  try {
-    const { template } = await adoptPlaybookBlueprint({
-      workspaceId: workspace.id,
-      blueprintSlug,
-    });
-
-    revalidatePath("/plays");
-
-    return { ok: true, data: template };
-  } catch (error) {
-    return {
-      ok: false,
-      errorCode: "ADOPT_FAILED",
-      message: error instanceof Error ? error.message : "Could not adopt playbook",
-    };
-  }
 }
 
 export async function proposePlaybookImprovement(

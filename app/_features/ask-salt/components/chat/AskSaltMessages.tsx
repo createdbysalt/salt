@@ -11,7 +11,6 @@ import { useAskSaltScroll } from "../../hooks/useAskSaltScroll";
 import {
   AskSaltMessage,
   type ConnectorSlotProps,
-  type MessageOptions,
 } from "./AskSaltMessage";
 import { resolveAskSaltClientError } from "../../ask-salt-errors";
 import { Shimmer } from "./shimmer";
@@ -39,9 +38,6 @@ export type AskSaltMessagesProps = {
   approvalsBusy?: boolean;
   onApproval?: (approvalId: string, approved: boolean) => void;
   connector?: AskSaltConnectorHandlers;
-  /** Tapping an option submits it as the next user message. */
-  onOptionSelect?: (text: string) => void;
-  optionsDisabled?: boolean;
   /** Rendered above the thread (context card, idle starter actions). */
   before?: React.ReactNode;
   /** Rendered below the thread (review confirmation, created state). */
@@ -50,6 +46,8 @@ export type AskSaltMessagesProps = {
   centered?: boolean;
   /** Changes (new conversation) reset stick-to-bottom state. */
   resetKey?: string | null;
+  /** Staged entity-context greeting: show Thinking before the ack message. */
+  stagedThinking?: boolean;
 };
 
 export function AskSaltMessages({
@@ -60,12 +58,11 @@ export function AskSaltMessages({
   approvalsBusy = false,
   onApproval,
   connector,
-  onOptionSelect,
-  optionsDisabled = false,
   before,
   after,
   centered = false,
   resetKey = null,
+  stagedThinking = false,
 }: AskSaltMessagesProps) {
   const { containerRef, isAtBottom, scrollToBottom, reset } = useAskSaltScroll();
 
@@ -100,29 +97,27 @@ export function AskSaltMessages({
         }
       : null;
 
-  const lastMetadata =
-    lastMessage?.role === "assistant" ? uiMessageMetadata(lastMessage) : null;
-  const inlineConnectLabel = connectorSlot?.action?.canConnect
-    ? `connect ${connectorSlot.action.name}`.toLowerCase()
-    : null;
-  const lastSuggestions = Array.isArray(lastMetadata?.suggestions)
-    ? (lastMetadata.suggestions as string[]).filter(
-        (item): item is string =>
-          typeof item === "string" &&
-          item.length > 0 &&
-          // The inline connect button already covers this action.
-          item.toLowerCase() !== inlineConnectLabel,
-      )
-    : [];
-  const optionsSlot: MessageOptions | null =
-    onOptionSelect && lastSuggestions.length > 0
-      ? { items: lastSuggestions, disabled: optionsDisabled, onSelect: onOptionSelect }
-      : null;
-
   const showThinking =
-    processing || (chatStatus === "submitted" && lastMessage?.role !== "assistant");
+    stagedThinking ||
+    processing ||
+    (chatStatus === "submitted" && lastMessage?.role !== "assistant");
 
   const showChatError = chatStatus === "error" && chatError !== null;
+
+  React.useEffect(() => {
+    const summary = messages.map((m) => ({
+      id: m.id.slice(0, 8),
+      role: m.role,
+      text: m.parts
+        .filter((p): p is { type: "text"; text: string } => p.type === "text")
+        .map((p) => p.text)
+        .join(" ")
+        .slice(0, 60),
+    }));
+    // #region agent log
+    fetch('http://127.0.0.1:7443/ingest/a7cd7781-629e-483f-bcc8-d958046d0b66',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9523cd'},body:JSON.stringify({sessionId:'9523cd',location:'AskSaltMessages.tsx:render',message:'messages state',data:{count:messages.length,summary,chatStatus,processing,showThinking},timestamp:Date.now(),hypothesisId:'H1,H3,H4'})}).catch(()=>{});
+    // #endregion
+  }, [messages, chatStatus, processing, showThinking]);
 
   return (
     <div className="relative min-h-0 flex-1">
@@ -144,7 +139,6 @@ export function AskSaltMessages({
               approvalsBusy={approvalsBusy}
               onApproval={onApproval}
               connectorSlot={index === messages.length - 1 ? connectorSlot : null}
-              options={index === messages.length - 1 ? optionsSlot : null}
             />
           ))}
 
@@ -177,7 +171,10 @@ export function AskSaltMessages({
 
 export function ThinkingMessage({ label = "Thinking…" }: { label?: string }) {
   return (
-    <div className="flex items-start gap-2.5" data-role="assistant">
+    <div
+      className="flex items-start gap-2.5 animate-in fade-in duration-200"
+      data-role="assistant"
+    >
       <span className="surface-aurora grid size-7 shrink-0 place-items-center rounded-full">
         <Sparkles className="relative z-10 size-3.5 text-white" strokeWidth={2.5} />
       </span>

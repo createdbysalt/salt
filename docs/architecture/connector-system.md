@@ -7,16 +7,15 @@ Salt's connector system enables users to connect third-party services (Gmail, St
 ## Table of Contents
 
 1. [System Overview](#system-overview)
-2. [The Unified Registry](#the-unified-registry)
-3. [Connector Lifecycle](#connector-lifecycle)
-4. [Adding a New Connector](#adding-a-new-connector)
-5. [Capture Adapters](#capture-adapters)
-6. [Ask Salt Integration](#ask-salt-integration)
-7. [Enrichment System](#enrichment-system)
-8. [Testing Connectors](#testing-connectors)
-9. [Troubleshooting](#troubleshooting)
-10. [Trigger Audit Process](#trigger-audit-process)
-11. [Reference: Verified Trigger Configuration](#reference-verified-trigger-configuration)
+2. [Architecture Decision: Hybrid Registry](#architecture-decision-hybrid-registry-db--code-fallback)
+3. [Adding a New Connector](#adding-a-new-connector) ← **Start here**
+4. [Capture Adapters](#capture-adapters)
+5. [Ask Salt Integration](#ask-salt-integration)
+6. [Enrichment System](#enrichment-system)
+7. [Testing Connectors](#testing-connectors)
+8. [Troubleshooting](#troubleshooting)
+9. [Trigger Audit Process](#trigger-audit-process)
+10. [Reference: Verified Trigger Configuration](#reference-verified-trigger-configuration)
 
 ---
 
@@ -24,22 +23,21 @@ Salt's connector system enables users to connect third-party services (Gmail, St
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                         UNIFIED CONNECTOR REGISTRY                           │
-│                  app/_lib/composio/unified-connector-registry.ts             │
+│                         DATABASE (Source of Truth)                           │
 │                                                                              │
-│   gmail: { category, triggerSlugs, askSalt, meta, phase }                   │
-│   stripe: { ... }                                                           │
-│   slack: { ... }                                                            │
+│   connector_catalog     250+ apps synced from Composio                      │
+│   connector_overrides   Salt metadata: featured, auth_config_id, tier       │
+│   tool_classifications  Risk class + approval requirements                  │
 └─────────────────────────────────────────────────────────────────────────────┘
                                       │
         ┌─────────────────────────────┼─────────────────────────────┐
         ▼                             ▼                             ▼
 ┌───────────────┐           ┌───────────────┐            ┌───────────────┐
 │   CAPTURE     │           │   ASK SALT    │            │  ENRICHMENT   │
-│   ADAPTERS    │           │   MANIFEST    │            │   REGISTRY    │
+│   ADAPTERS    │           │   TOOLS       │            │   REGISTRY    │
 │               │           │               │            │               │
-│ Webhooks →    │           │ AI tool       │            │ Field mapping │
-│ capture_events│           │ access list   │            │ by category   │
+│ Category-based│           │ AI tool       │            │ Field mapping │
+│ generic extract│          │ access list   │            │ by category   │
 └───────────────┘           └───────────────┘            └───────────────┘
         │                             │                             │
         ▼                             ▼                             ▼
@@ -51,115 +49,150 @@ Salt's connector system enables users to connect third-party services (Gmail, St
 
 ### Key Principles
 
-1. **Single Source of Truth** — The unified registry defines each connector ONCE
-2. **Derived Systems** — Capture, Ask Salt, and Enrichment derive from the registry
-3. **Category-Based** — Connectors are grouped by category (email, calendar, billing, etc.)
+1. **Database as Source of Truth** — Connector catalog synced from Composio nightly
+2. **Category-Based Adapters** — Adapters accept ANY provider in their category (generic extraction)
+3. **Scalable by Default** — Add connectors via DB; no code changes needed
 4. **Composio Backend** — OAuth and API execution handled by Composio SDK
 
 ### Key Files
 
 | File | Purpose |
 |------|---------|
-| `app/_lib/composio/unified-connector-registry.ts` | **THE** single source of truth |
+| `app/_lib/composio/connector-registry.ts` | **DB-backed registry** (reads from `connector_catalog` + cache) |
+| `app/_lib/composio/unified-connector-registry.ts` | ⚠️ Deprecated fallback (code-first, kept for transition) |
+| `app/_lib/composio/classification-store.ts` | Tool classification lookup (DB + heuristic fallback) |
+| `app/_lib/composio/tool-classification-heuristics.ts` | Auto-classify tools by slug pattern |
 | `app/_lib/composio/connections.ts` | OAuth initiate/callback/disconnect |
 | `app/_lib/composio/trigger-subscriptions.ts` | Create/delete Composio triggers |
 | `app/_features/capture/adapters/registry.ts` | Route triggers to adapters |
 | `app/_features/capture/adapters/categories/` | Category-based capture adapters |
-| `app/_lib/composio/connector-manifest.ts` | Ask Salt tool access list |
 | `app/_lib/composio/enrichment/registry.ts` | Category → field mapping |
 | `app/_features/connectors/` | UI components and queries |
 
+### Key Database Tables
+
+| Table | Purpose |
+|-------|---------|
+| `connector_catalog` | All Composio apps (synced nightly) |
+| `connector_overrides` | Salt metadata: phase, featured, auth config ID |
+| `connector_trigger_types` | Available triggers per toolkit |
+| `tool_classifications` | Risk class, approval requirements |
+| `workspace_integrations` | User connections per workspace |
+| `workspace_tool_preferences` | Per-tool approval overrides (Trust mode) |
+
 ---
 
-## The Unified Registry
+## Architecture Decision: Hybrid Registry (DB + Code Fallback)
 
-The unified registry (`app/_lib/composio/unified-connector-registry.ts`) is the single source of truth for all connector definitions.
+**Decision Date:** 2026-07-13  
+**Updated:** 2026-07-13 (migrated to DB-first with code fallback)
 
-### Registry Entry Structure
+### Current Approach: Database as Source of Truth
 
-```typescript
-export const CONNECTOR_REGISTRY: Record<string, ConnectorDefinition> = {
-  gmail: {
-    // Database key (workspace_integrations.provider)
-    providerKey: "gmail",
-    
-    // UI catalog ID for display
-    catalogId: "google",
-    
-    // Category for routing (email, calendar, billing, crm, etc.)
-    category: "email",
-    
-    // Authentication method
-    authMethod: "oauth",  // or "api_key"
-    
-    // Composio trigger slugs for real-time capture
-    // Empty array = backfill only (no real-time webhooks)
-    triggerSlugs: ["GMAIL_NEW_GMAIL_MESSAGE"],
-    
-    // Ask Salt AI tool configuration
-    askSalt: {
-      enabled: true,           // Can Ask Salt use this connector?
-      slugPrefix: "GMAIL_",    // Tool slug prefix for filtering
-    },
-    
-    // UI display metadata
-    meta: {
-      displayName: "Gmail",
-      tagline: "Search, read, and send email — sends only after you approve.",
-      developedBy: "Google",
-      links: [
-        { label: "Website", href: "https://www.google.com/gmail/about/" },
-        { label: "Documentation", href: "https://developers.google.com/workspace/gmail/api/guides" },
-        { label: "Support", href: "https://support.google.com/mail" },
-      ],
-    },
-    
-    // Release status
-    phase: "released",  // or "beta" or "coming_soon"
-  },
-};
+The connector registry now lives in the database with a code fallback for resilience:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              COMPOSIO API                                    │
+│                         250+ apps, 3000+ tools                               │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      │ Nightly sync cron
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         DATABASE (Source of Truth)                           │
+│                                                                              │
+│   connector_catalog      - All Composio apps (synced nightly)               │
+│   connector_overrides    - Salt-specific metadata (phase, featured, etc.)   │
+│   connector_trigger_types - Available triggers per toolkit                  │
+│   tool_classifications   - Risk class + approval requirements               │
+│   workspace_integrations - User connections                                  │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      │ 5-minute cache
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│   connector-registry.ts  - DB-backed registry with code fallback            │
+│   classification-store.ts - Tool classification with heuristic fallback     │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Categories
+### Why Hybrid?
+
+| Layer | Source | Fallback | Why |
+|-------|--------|----------|-----|
+| **Connector catalog** | DB (`connector_catalog`) | Code (`unified-connector-registry.ts`) | Scale to 250+ apps |
+| **Tool classification** | DB (`tool_classifications`) | Heuristics (`tool-classification-heuristics.ts`) | Auto-classify new tools |
+| **Trigger subscriptions** | DB (`connector_trigger_types`) | Code fallback | Enable new triggers without deploy |
+| **Auth configs** | Env vars | — | Secure, per-environment |
+| **User connections** | DB (`workspace_integrations`) | — | User data, must persist |
+
+The code fallback ensures the system keeps working even if the DB sync fails.
+
+### Auth Config Resolution
+
+Auth config IDs (required for Composio OAuth) come from environment variables:
+
+```bash
+# .env.1password or Vercel env vars
+COMPOSIO_AUTH_CONFIG_GMAIL=ac_xxx
+COMPOSIO_AUTH_CONFIG_GOOGLECALENDAR=ac_yyy
+COMPOSIO_AUTH_CONFIG_STRIPE=ac_zzz
+```
+
+The unified registry maps provider keys to env var names:
+
+```typescript
+// unified-connector-registry.ts
+gmail: {
+  authConfigEnvVar: "COMPOSIO_AUTH_CONFIG_GMAIL",
+  // ...
+}
+```
+
+### What Lives Where
+
+| Data | Location | Why |
+|------|----------|-----|
+| Connector definitions | Code (`unified-connector-registry.ts`) | Version controlled, testable |
+| Auth config IDs | Env vars (1Password → Vercel) | Per-environment, secure |
+| User connections | DB (`workspace_integrations`) | User data, must persist |
+| Tool classifications | DB (`tool_classifications`) | Large dataset, Composio-synced |
+
+---
+
+## Connector Categories
+
+Category adapters accept ANY provider in their category. Known providers get specific parsing; unknown providers get generic extraction.
 
 ```typescript
 type ConnectorCategory =
-  | "email"              // Gmail, Outlook
-  | "calendar"           // Google Calendar, Calendly, Cal.com
-  | "billing"            // Stripe, QuickBooks
-  | "crm"                // HubSpot, Salesforce, Pipedrive
-  | "meetings"           // Fireflies, Otter
-  | "documents"          // Notion, Google Docs/Sheets/Slides
-  | "storage"            // Google Drive, Dropbox
-  | "project_management" // Asana, Linear, Jira
-  | "communication";     // Slack
+  | "email"              // Gmail, Outlook, Zoho Mail, ProtonMail, ...
+  | "calendar"           // Google Calendar, Calendly, Cal.com, ...
+  | "billing"            // Stripe, QuickBooks, Wave, ...
+  | "crm"                // HubSpot, Salesforce, Pipedrive, ...
+  | "meetings"           // Fireflies, Otter, ...
+  | "documents"          // Notion, Google Docs/Sheets/Slides, ...
+  | "storage"            // Google Drive, Dropbox, OneDrive, ...
+  | "project_management" // Asana, Linear, Jira, Trello, Monday, ...
+  | "communication";     // Slack, Discord, ...
 ```
 
-### Derived Exports
-
-The registry provides helper functions used by other systems:
+### Key Registry Functions
 
 ```typescript
-// Get connector by provider key
-getConnector("gmail") // → ConnectorDefinition | null
+// DB-backed registry (app/_lib/composio/connector-registry.ts)
+await getConnectorRegistryEntry("gmail")     // → ConnectorRegistryEntry | null
+await listCatalogEntries()                   // → All visible connectors
+await listFeaturedEntries()                  // → Salt-curated connectors
+await listConnectableEntries()               // → Connectors with auth config
 
-// Get connector by catalog ID (for UI)
-getConnectorByCatalogId("google") // → ConnectorDefinition | null
+// Category lookup (app/_lib/composio/enrichment/registry.ts)
+getCategoryForConnector("gmail")             // → "email"
 
-// Get trigger slugs for a provider
-getTriggerSlugsForProvider("gmail") // → ["GMAIL_NEW_GMAIL_MESSAGE"]
-
-// Get all providers in a category
-getProvidersForCategory("email") // → ["gmail", "outlook"]
-
-// Get category for a provider
-getCategoryForProvider("gmail") // → "email"
-
-// Get Ask Salt manifest (only enabled connectors)
-getAskSaltManifest() // → AskSaltManifestEntry[]
-
-// Get connector metadata for UI
-getConnectorMetaWithFallback("google", "Gmail", "Email service")
+// Category adapters (app/_features/capture/adapters/categories/)
+getEmailAdapter("protonmail")                // → CaptureAdapter (generic)
+getAdapterForCategory("email", "zoho_mail")  // → CaptureAdapter (generic)
 ```
 
 ---
@@ -187,7 +220,7 @@ User authorizes in provider
   └─ Creates/updates workspace_integrations row
   └─ Auto-enables capture (if adapter exists)
   └─ Creates triggers in Composio
-  └─ Redirects to /connections
+  └─ Redirects to /plays?tab=customize&customize=connectors
 ```
 
 ### 2. API Key Connection Flow
@@ -273,22 +306,79 @@ CREATE TABLE workspace_integrations (
 
 ## Adding a New Connector
 
+### Quick Start (Scalable Approach - No Code Required)
+
+As of Phase 4 (2026-07-13), category adapters accept ANY provider in their category. For most connectors, you only need database changes:
+
+**1. Enable an existing Composio connector (DB only):**
+
+```sql
+-- Add to connector_catalog (or update if synced from Composio)
+INSERT INTO connector_catalog (provider_key, toolkit_slug, name, description, category, auth_method, meta)
+VALUES (
+  'zoho_mail',
+  'zoho_mail', 
+  'Zoho Mail',
+  'Email for business — read and send with your approval',
+  'email',  -- Category determines which adapter handles it
+  'oauth',
+  '{"showInCatalog": true, "phase": "2"}'::jsonb
+) ON CONFLICT (provider_key) DO UPDATE SET
+  meta = connector_catalog.meta || '{"showInCatalog": true}'::jsonb;
+
+-- Add override with auth config
+INSERT INTO connector_overrides (provider_key, tier, auth_config_id, featured)
+VALUES ('zoho_mail', 'capture', 'your-composio-auth-config-id', false);
+```
+
+**2. Verify it works:**
+- The email category adapter will automatically handle Zoho Mail payloads
+- Generic extraction pulls common fields (id, subject, from, to, timestamp)
+- No code changes needed
+
+**How it works:**
+- `getCategoryForConnector("zoho_mail")` returns `"email"` from DB
+- `getEmailAdapter("zoho_mail")` returns a generic email adapter
+- Generic normalizer extracts common email fields
+
+### When Code IS Required
+
+Add provider-specific code only when:
+- Generic extraction misses important fields
+- Payload structure is non-standard
+- You need custom signal derivation
+
+```typescript
+// In app/_features/capture/adapters/categories/email.ts
+// Add to the switch statement in createEmailCategoryAdapter():
+
+case "zoho_mail":
+  return normalizeZohoMail(payload);  // Custom parser
+
+// Add normalizer function:
+function normalizeZohoMail(payload: unknown): CaptureEnvelope | null {
+  // Custom parsing for Zoho-specific payload structure
+}
+```
+
 ### Quick Checklist (OAuth Connectors)
 
-1. [ ] Add entry to unified registry
-2. [ ] Add category adapter (or extend existing)
-3. [ ] Verify Composio triggers exist (or mark as backfill-only with empty `triggerSlugs: []`)
+1. [ ] Add entry to `connector_catalog` with correct `category`
+2. [ ] Add `connector_overrides` with `auth_config_id`
+3. [ ] Set `showInCatalog: true` in meta to make visible in UI
 4. [ ] Test OAuth flow
-5. [ ] Test capture pipeline
+5. [ ] Test capture pipeline (generic extraction works automatically)
+6. [ ] (Optional) Add custom normalizer if generic extraction insufficient
 
 ### Quick Checklist (API Key Connectors)
 
 1. [ ] Create API_KEY auth config in Composio (`composio.authConfigs.create(...)`)
-2. [ ] Add entry to unified registry with `authMethod: "api_key"`
-3. [ ] Add migration for `connector_catalog` (auth_method) and `connector_overrides` (auth_config_id, api_key_field_name, api_key_form)
-4. [ ] Add `connectHelp` markdown with step-by-step instructions
-5. [ ] Test API key connect flow
-6. [ ] Test capture pipeline (if triggers exist)
+2. [ ] Add entry to `connector_catalog` with `auth_method: 'api_key'`
+3. [ ] Add `connector_overrides` with `auth_config_id`, `api_key_field_name`, `api_key_form`
+4. [ ] Add `connectHelp` in meta with step-by-step instructions
+5. [ ] Set `showInCatalog: true` in meta
+6. [ ] Test API key connect flow
+7. [ ] Test capture pipeline
 
 ### Backfill-Only Connectors
 
@@ -299,38 +389,36 @@ Some connectors have no real-time triggers available in Composio:
 
 For these, set `triggerSlugs: []` in the registry. Capture happens via scheduled backfill jobs, not webhooks.
 
-### Step 1: Add to Unified Registry
+### Step 1: Add to Database
 
-Edit `app/_lib/composio/unified-connector-registry.ts`:
+Add to `connector_catalog` and `connector_overrides`:
 
-```typescript
-// In CONNECTOR_REGISTRY object:
+```sql
+-- 1. Add to catalog (or verify it's synced from Composio)
+INSERT INTO connector_catalog (provider_key, toolkit_slug, name, description, category, auth_method, meta)
+VALUES (
+  'linear',
+  'linear', 
+  'Linear',
+  'Track issues and projects.',
+  'project_management',
+  'oauth',
+  '{"showInCatalog": true, "tagline": "Track issues and projects.", "developedBy": "Linear"}'::jsonb
+) ON CONFLICT (provider_key) DO UPDATE SET
+  meta = connector_catalog.meta || '{"showInCatalog": true}'::jsonb;
 
-linear: {
-  providerKey: "linear",
-  catalogId: "linear",
-  category: "project_management",
-  authMethod: "oauth",
-  triggerSlugs: [
-    "LINEAR_ISSUE_CREATED_TRIGGER",
-    "LINEAR_ISSUE_UPDATED_TRIGGER",
-  ],
-  askSalt: { enabled: true, slugPrefix: "LINEAR_" },
-  meta: {
-    displayName: "Linear",
-    tagline: "Track issues and projects.",
-    developedBy: "Linear",
-    links: [
-      { label: "Website", href: "https://linear.app" },
-      { label: "Documentation", href: "https://developers.linear.app" },
-      { label: "Support", href: "https://linear.app/contact" },
-    ],
-  },
-  phase: "released",
-},
+-- 2. Add override with auth config and Ask Salt exposure
+INSERT INTO connector_overrides (provider_key, tier, auth_config_id, ask_salt_slug_prefix, ask_salt_label)
+VALUES ('linear', 'capture', 'your-composio-auth-config-id', 'LINEAR_', 'Linear');
+
+-- 3. Add trigger types (if any)
+INSERT INTO connector_trigger_types (toolkit_slug, trigger_slug, is_enabled)
+VALUES 
+  ('linear', 'LINEAR_ISSUE_CREATED_TRIGGER', true),
+  ('linear', 'LINEAR_ISSUE_UPDATED_TRIGGER', true);
 ```
 
-### Step 2: Audit and Find Available Triggers
+### Step 2: Audit Available Triggers
 
 **Before making ANY trigger changes**, run the audit script:
 
@@ -361,20 +449,33 @@ main();
 "
 ```
 
-### Step 3: Create/Extend Category Adapter
+### Step 3: Custom Adapter (Optional)
 
-If your connector's category already has an adapter, extend it. Otherwise, create one.
+> **Note:** As of Phase 4, category adapters accept ANY provider with generic extraction.
+> You only need custom code if generic extraction is insufficient.
 
-**Extending existing adapter** (`app/_features/capture/adapters/categories/project-management.ts`):
+**Check if generic extraction works first:**
 
 ```typescript
-type ProjectManagementProvider = "asana" | "linear" | "jira";
+import { getProjectManagementAdapter } from "./adapters/categories/project-management";
 
-const PM_PROVIDERS: ProjectManagementProvider[] = ["asana", "linear", "jira"];
+const adapter = getProjectManagementAdapter("linear");
+const envelope = adapter.normalize(samplePayload);
+console.log(envelope);  // Check if fields are extracted correctly
+```
 
-const PM_TRIGGER_SLUGS: Record<ProjectManagementProvider, string[]> = {
-  asana: ["ASANA_TASK_CREATED", "ASANA_TASK_UPDATED"],
-  linear: ["LINEAR_ISSUE_CREATED_TRIGGER", "LINEAR_ISSUE_UPDATED_TRIGGER"],
+**Add custom normalizer only if needed:**
+
+```typescript
+// In app/_features/capture/adapters/categories/project-management.ts
+// Add to the normalize switch statement:
+
+case "linear":
+  return normalizeLinear(payload);  // Custom parser
+
+// Add normalizer:
+function normalizeLinear(payload: unknown): CaptureEnvelope | null {
+  // Custom parsing for Linear-specific fields
   jira: ["JIRA_NEW_ISSUE_TRIGGER", "JIRA_UPDATED_ISSUE_TRIGGER"],
 };
 
@@ -406,39 +507,48 @@ function normalizeLinear(payload: unknown): CaptureEnvelope | null {
 }
 ```
 
-**Creating new category adapter:**
+**Creating new category adapter (rarely needed):**
+
+> **Note:** As of Phase 4, new category adapters are rarely needed. Existing adapters
+> accept any provider in their category with generic extraction. Only create a new
+> category adapter if you're adding an entirely new category (not email, calendar,
+> billing, storage, crm, meetings, documents, project_management, or communication).
 
 ```typescript
 // app/_features/capture/adapters/categories/my-category.ts
 
 import type { CaptureAdapter, CaptureEnvelope } from "../types";
 
-type MyCategoryProvider = "provider1" | "provider2";
+type KnownMyCategoryProvider = "provider1" | "provider2";
 
-const PROVIDERS: MyCategoryProvider[] = ["provider1", "provider2"];
+const KNOWN_PROVIDERS: KnownMyCategoryProvider[] = ["provider1", "provider2"];
 
-const TRIGGER_SLUGS: Record<MyCategoryProvider, string[]> = {
+function isKnownProvider(p: string): p is KnownMyCategoryProvider {
+  return KNOWN_PROVIDERS.includes(p as KnownMyCategoryProvider);
+}
+
+const TRIGGER_SLUGS: Record<KnownMyCategoryProvider, string[]> = {
   provider1: ["PROVIDER1_EVENT_TRIGGER"],
   provider2: ["PROVIDER2_EVENT_TRIGGER"],
 };
 
-function normalize(payload: unknown): CaptureEnvelope | null {
-  // Parse payload into standard envelope
+function normalizeGeneric(payload: unknown, sourceType: string): CaptureEnvelope | null {
+  // Generic extraction for unknown providers
 }
 
-export function createMyCategoryAdapter(provider: MyCategoryProvider): CaptureAdapter {
+export function createMyCategoryAdapter(provider: string): CaptureAdapter {
   return {
     sourceType: provider,
     toolkit: provider,
-    triggerSlugs: TRIGGER_SLUGS[provider] ?? [],
+    triggerSlugs: isKnownProvider(provider) ? TRIGGER_SLUGS[provider] : [],
     deriveSignals: (envelopes, context) => new Map(),
-    normalize,
+    normalize: (payload) => normalizeGeneric(payload, provider),
   };
 }
 
-export function getMyCategoryAdapter(provider: string): CaptureAdapter | null {
-  if (!PROVIDERS.includes(provider as MyCategoryProvider)) return null;
-  return createMyCategoryAdapter(provider as MyCategoryProvider);
+// Always returns an adapter — never null
+export function getMyCategoryAdapter(provider: string): CaptureAdapter {
+  return createMyCategoryAdapter(provider);
 }
 ```
 
@@ -480,6 +590,21 @@ INSERT INTO connector_catalog (
 
 ## Capture Adapters
 
+### Scalable Design (Phase 4)
+
+Category adapters accept ANY provider in their category:
+
+```typescript
+// Known provider → specific parsing
+getEmailAdapter("gmail")        // → Gmail-specific normalizer
+
+// Unknown provider → generic extraction  
+getEmailAdapter("protonmail")   // → Generic email normalizer
+getEmailAdapter("zoho_mail")    // → Generic email normalizer
+```
+
+This means you can add new email connectors (Zoho, ProtonMail, FastMail) without writing adapter code. Generic extraction pulls common fields (id, subject, from, to, timestamp).
+
 ### Architecture
 
 ```
@@ -491,13 +616,16 @@ Composio Webhook
   └─ Extract trigger slug + payload
         │
         ▼
-adapterForTriggerSlug(slug)
-  └─ Looks up in BY_TRIGGER_SLUG map
-  └─ Returns CaptureAdapter
+getCategoryForConnector(provider)
+  └─ Returns category from DB (e.g., "email")
+        │
+        ▼
+getAdapterForCategory(category, provider)
+  └─ Returns category adapter (generic or specific)
         │
         ▼
 adapter.normalize(payload)
-  └─ Returns CaptureEnvelope
+  └─ Returns CaptureEnvelope (generic extraction if unknown)
         │
         ▼
 ingestEnvelope()
@@ -538,30 +666,40 @@ Connectors without Composio triggers (Calendly, Dropbox, QuickBooks) are backfil
 ### How It Works
 
 1. User sends message to Ask Salt
-2. System checks `ASK_SALT_CONNECTOR_MANIFEST` for enabled connectors
+2. System checks `connector_overrides.ask_salt_slug_prefix` for enabled connectors
 3. Loads Composio tools for each connected + enabled connector
 4. AI uses tools to answer user's question
 
 ### Enabling Ask Salt for a Connector
 
-In the unified registry, set:
+In `connector_overrides`, set:
+
+```sql
+UPDATE connector_overrides
+SET ask_salt_slug_prefix = 'GMAIL_',
+    ask_salt_label = 'Gmail'
+WHERE provider_key = 'gmail';
+```
+
+Or via the DB-backed registry:
 
 ```typescript
-askSalt: {
-  enabled: true,
-  slugPrefix: "GMAIL_",  // Must match Composio tool prefix
-},
+// Check if connector is Ask Salt enabled
+const entries = await listAskSaltEntries();
+// Returns connectors with ask_salt_slug_prefix set
 ```
 
 ### Tool Policy
 
-Tools are classified by risk level in `app/_lib/composio/tool-policy.ts`:
+Tools are auto-classified by slug pattern in `app/_lib/composio/tool-classification-heuristics.ts`:
 
-| Risk | Examples | Approval |
-|------|----------|----------|
-| `read` | GMAIL_GET_MESSAGE | Auto-approved |
-| `mutating` | GMAIL_SEND_EMAIL | Requires approval |
-| `destructive` | GMAIL_DELETE_MESSAGE | Always blocked |
+| Risk | Pattern | Examples | Execution |
+|------|---------|----------|-----------|
+| `read` | GET_*, LIST_*, SEARCH_* | GMAIL_GET_MESSAGE | Auto-execute |
+| `mutating` | CREATE_*, SEND_*, UPDATE_* | GMAIL_SEND_EMAIL | Depends on trust level |
+| `destructive` | DELETE_*, REMOVE_* | GMAIL_DELETE_MESSAGE | Never execute |
+
+See `docs/architecture/tool-classification.md` for the full classification system.
 
 ---
 
@@ -608,6 +746,37 @@ const CATEGORY_PROVIDES_FIELDS: Record<ConnectorCategory, Partial<Record<Enricha
 
 ## Testing Connectors
 
+### Verify New Connector Works (Quick Check)
+
+Run the adapter tests to confirm the infrastructure handles any provider:
+
+```bash
+# Run all adapter tests (includes generic adapter tests)
+pnpm test app/_features/capture/adapters --run
+
+# Expected output includes:
+# ✓ email adapter accepts unknown provider and returns generic adapter
+# ✓ generic adapter can normalize a basic payload
+```
+
+### Test a Specific Provider
+
+```typescript
+// Quick verification in Node REPL or test file
+import { getEmailAdapter } from "./app/_features/capture/adapters/categories/email";
+
+const adapter = getEmailAdapter("zoho_mail");
+console.log(adapter.sourceType);  // "zoho_mail"
+
+const envelope = adapter.normalize({
+  id: "msg-123",
+  subject: "Test email from Zoho",
+  from: "sender@example.com",
+});
+console.log(envelope?.externalId);  // "msg-123"
+console.log(envelope?.title);       // "Test email from Zoho"
+```
+
 ### Unit Tests
 
 ```typescript
@@ -617,9 +786,14 @@ import { describe, it, expect } from "vitest";
 import { createMyCategoryAdapter } from "./my-category";
 
 describe("my-category adapter", () => {
-  const adapter = createMyCategoryAdapter("provider1");
+  it("accepts any provider and returns working adapter", () => {
+    const adapter = createMyCategoryAdapter("unknown_provider");
+    expect(adapter).not.toBeNull();
+    expect(adapter.sourceType).toBe("unknown_provider");
+  });
 
   it("normalizes valid payload", () => {
+    const adapter = createMyCategoryAdapter("provider1");
     const payload = { id: "123", title: "Test" };
     const envelope = adapter.normalize(payload);
     
@@ -629,6 +803,7 @@ describe("my-category adapter", () => {
   });
 
   it("returns null for invalid payload", () => {
+    const adapter = createMyCategoryAdapter("provider1");
     expect(adapter.normalize(null)).toBeNull();
     expect(adapter.normalize({})).toBeNull();
   });
@@ -733,16 +908,17 @@ The audit script:
 | Connector | Configured Triggers | Available | Status |
 |-----------|---------------------|-----------|--------|
 | Gmail | `GMAIL_NEW_GMAIL_MESSAGE` | 2 | ✅ Verified |
-| Outlook | `OUTLOOK_EMAIL_TRIGGER`, `OUTLOOK_CALENDAR_EVENT_ADDED_TRIGGER` | 4 | ✅ Verified |
+| Outlook | `OUTLOOK_MESSAGE_TRIGGER`, `OUTLOOK_SENT_MESSAGE_TRIGGER` | 4 | ✅ Verified |
 | Google Calendar | `GOOGLECALENDAR_GOOGLE_CALENDAR_EVENT_CREATED_TRIGGER` | 7 | ✅ Verified |
 | Google Drive | `GOOGLEDRIVE_FILE_CREATED_TRIGGER` | 7 | ✅ Verified |
 | Google Docs | `GOOGLEDOCS_DOCUMENT_CREATED_TRIGGER`, `GOOGLEDOCS_DOCUMENT_UPDATED_TRIGGER` | 10 | ✅ Verified |
 | Google Sheets | `GOOGLESHEETS_NEW_SPREADSHEET_CREATED_TRIGGER` | 16 | ✅ Verified |
 | Google Slides | `GOOGLESLIDES_SLIDE_ADDED_TRIGGER` | 1 | ✅ Verified |
 | Slack | `SLACK_CHANNEL_MESSAGE_RECEIVED`, `SLACK_DIRECT_MESSAGE_RECEIVED` | 9 | ✅ Verified |
-| HubSpot | `HUBSPOT_NEW_CONTACT_TRIGGER`, `HUBSPOT_NEW_DEAL_TRIGGER` | 2 | ✅ Verified |
+| HubSpot | `HUBSPOT_CONTACT_CREATED_TRIGGER`, `HUBSPOT_DEAL_STAGE_UPDATED_TRIGGER` | 2 | ✅ Verified |
 | Notion | `NOTION_PAGE_CREATED`, `NOTION_PAGE_CONTENT_UPDATED` | 8 | ✅ Verified |
-| Stripe | 7 triggers (payment events) | 7 | ✅ Verified |
+| Stripe | `STRIPE_INVOICE_PAYMENT_SUCCEEDED_TRIGGER`, `STRIPE_CHECKOUT_SESSION_COMPLETED_TRIGGER`, `STRIPE_SUBSCRIPTION_ADDED_TRIGGER`, `STRIPE_SUBSCRIPTION_DELETED_TRIGGER`, `STRIPE_CHARGE_FAILED_TRIGGER` | 7+ | ✅ Verified |
+| Salesforce | `SALESFORCE_ACCOUNT_CREATED_OR_UPDATED_TRIGGER`, `SALESFORCE_CONTACT_UPDATED_TRIGGER`, `SALESFORCE_LEAD_CREATED_OR_UPDATED_TRIGGER`, `SALESFORCE_OPPORTUNITY_UPDATED_TRIGGER` | 4+ | ⏸ Registry only (`coming_soon`) |
 | Calendly | None (backfill-only) | 0 | ✅ Correct |
 | QuickBooks | None (backfill-only) | 0 | ✅ Correct |
 | Dropbox | None (backfill-only) | 0 | ✅ Correct |
@@ -772,21 +948,115 @@ Some triggers exist but require specific configuration (spreadsheet ID, search q
 
 ## Reference: Connector Summary
 
+> **Canonical source:** `app/_lib/composio/unified-connector-registry.ts`. Update the registry first, then sync this table.
+>
+> **Triggers** = count of `triggerSlugs` Salt configures for capture. **Ask Salt** = `askSalt.enabled`. **Phase** = rollout status in the registry.
+
 | Provider | Category | Triggers | Ask Salt | Phase |
 |----------|----------|----------|----------|-------|
 | gmail | email | 1 | ✅ | released |
-| outlook | email | 2 | ✅ | released |
+| outlook | email | 2 | ✅ | beta |
 | googlecalendar | calendar | 1 | ✅ | released |
-| calendly | calendar | 0 | ❌ | beta |
-| cal | calendar | 0 | ❌ | beta |
+| calendly | calendar | 0 | ✅ | beta |
+| cal | calendar | 0 | ✅ | beta |
 | googledrive | storage | 1 | ✅ | released |
-| dropbox | storage | 0 | ❌ | beta |
-| stripe | billing | 7 | ✅ | released |
-| quickbooks | billing | 0 | ❌ | beta |
-| hubspot | crm | 2 | ❌ | beta |
-| salesforce | crm | 0 | ❌ | coming_soon |
-| slack | communication | 2 | ❌ | released |
-| notion | documents | 2 | ❌ | beta |
+| dropbox | storage | 0 | ✅ | beta |
+| stripe | billing | 5 | ✅ | released |
+| quickbooks | billing | 0 | ✅ | beta |
+| hubspot | crm | 2 | ✅ | beta |
+| salesforce | crm | 4* | ❌ | coming_soon |
+| slack | communication | 2 | ✅ | beta |
+| notion | documents | 2 | ✅ | beta |
 | googledocs | documents | 2 | ✅ | released |
 | googlesheets | documents | 1 | ✅ | released |
 | googleslides | documents | 1 | ✅ | released |
+
+\*Salesforce triggers are defined in the registry but capture is not shipped yet (`coming_soon`, Ask Salt disabled).
+
+---
+
+## Appendix: DB Schema Reference
+
+### Why User Connections Won't Break
+
+User connections are stored in `workspace_integrations`, not in the registry:
+
+```sql
+-- This table stays the same regardless of registry source
+workspace_integrations (
+  workspace_id,
+  provider,           -- "gmail", "stripe", etc.
+  composio_connection_id,
+  is_active,
+  ...
+)
+```
+
+The registry defines WHAT connectors exist. The integrations table stores WHO is connected. Changing the registry source doesn't touch user data.
+
+### DB Schema (For Future Reference)
+
+When ready to migrate, use these tables (already exist, currently unused):
+
+```sql
+-- Connector definitions (synced from Composio + manual additions)
+connector_catalog (
+  provider_key TEXT PRIMARY KEY,  -- "gmail"
+  toolkit_slug TEXT,              -- "gmail" (Composio toolkit)
+  name TEXT,                      -- "Gmail"
+  description TEXT,
+  category TEXT,                  -- "email"
+  auth_method TEXT,               -- "oauth" | "api_key"
+  coming_soon BOOLEAN,
+  logo_url TEXT,
+  meta JSONB                      -- Display copy, links, etc.
+)
+
+-- Salt-specific overrides (tier, auth config, Ask Salt exposure)
+connector_overrides (
+  provider_key TEXT PRIMARY KEY REFERENCES connector_catalog,
+  tier TEXT,                      -- "catalog_only" | "action" | "capture"
+  auth_config_id TEXT,            -- Composio auth config ID
+  auth_config_env_var TEXT,       -- Env var name for per-environment override
+  ask_salt_slug_prefix TEXT,      -- "GMAIL_" for tool filtering
+  ask_salt_label TEXT             -- Display name in Ask Salt
+)
+```
+
+### Seed Script Pattern
+
+```typescript
+// scripts/seed-connector-catalog.ts
+import { CONNECTOR_REGISTRY } from "../app/_lib/composio/unified-connector-registry";
+import { createAdminClient } from "../app/_lib/supabase/admin";
+
+async function seed() {
+  const supabase = createAdminClient();
+  
+  for (const [key, connector] of Object.entries(CONNECTOR_REGISTRY)) {
+    await supabase.from("connector_catalog").upsert({
+      provider_key: connector.providerKey,
+      toolkit_slug: connector.providerKey,
+      name: connector.meta.displayName,
+      description: connector.meta.tagline,
+      category: connector.category,
+      auth_method: connector.authMethod,
+      coming_soon: connector.phase === "coming_soon",
+      meta: connector.meta,
+    });
+    
+    await supabase.from("connector_overrides").upsert({
+      provider_key: connector.providerKey,
+      tier: connector.askSalt.enabled ? "action" : "catalog_only",
+      ask_salt_slug_prefix: connector.askSalt.enabled ? connector.askSalt.slugPrefix : null,
+    });
+  }
+}
+```
+
+### Decision Log
+
+| Date | Decision | Rationale |
+|------|----------|-----------|
+| 2026-07-13 | Code-first registry | 15 connectors, small team, simplicity wins |
+| TBD | Migrate to DB | When scale triggers above are hit |

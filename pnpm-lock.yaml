@@ -76,8 +76,8 @@ importers:
         specifier: ^0.10.0
         version: 0.10.0(ws@8.21.0)(zod@3.25.76)
       '@composio/vercel':
-        specifier: ^0.9.2
-        version: 0.9.2(@composio/core@0.10.0(ws@8.21.0)(zod@3.25.76))(ai@6.0.193(zod@3.25.76))
+        specifier: ^0.8.0
+        version: 0.8.0(@composio/core@0.10.0(ws@8.21.0)(zod@3.25.76))(ai@6.0.193(zod@3.25.76))
       '@dnd-kit/core':
         specifier: ^6.3.1
         version: 6.3.1(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -1462,10 +1462,10 @@ packages:
     peerDependencies:
       zod: '>=3.25.76 <5'
 
-  '@composio/vercel@0.9.2':
-    resolution: {integrity: sha512-H5lFRszFvr41Cc+s5DUJ3+W2+oYySWhNAf24FvHdZYXX08SPaRy0K64+MTQyL4wHvO5RDwN1woNfMOddNn60ew==}
+  '@composio/vercel@0.8.0':
+    resolution: {integrity: sha512-qWAB1UI1T0S92WwdVkLh43bfRq3mvX8rCxru/cRHcwF4iTAKzS8Q+KSQOGNs45DHA7bJYsdSIhUzsXRAYKszSQ==}
     peerDependencies:
-      '@composio/core': '>=0.10.0 <1.0.0'
+      '@composio/core': 0.8.0
       ai: 6.0.193
 
   '@corex/deepmerge@4.0.43':
@@ -7993,13 +7993,21 @@ packages:
     resolution: {integrity: sha512-7x81NCL719oNbsq/3mh+hVrAWmFuEYUqrq/Iw3kUzH8ReypT9QQ0BLoJS7/G9k6N81XjW4qHWtjWwe/9eLy1EQ==}
     engines: {node: '>=12'}
 
-  openai@6.39.1:
-    resolution: {integrity: sha512-z3dO9fEWOXBzlXynVb/xZ/tujzUjFWQWn3C0n0mw6Vo0zJTbEkaN4b2cLWjhJ6haJQx8LlREoafHRl+Gu/Hl+A==}
-    hasBin: true
+  openai@6.46.0:
+    resolution: {integrity: sha512-DFg6jEPT2RO+oAyXtddeUJU8zkGy1OQ1AjGzNIJUMQG03TTqvCpy9tBpQ+2VVVnvrl3E56F8GEin2JYtWpITtA==}
     peerDependencies:
+      '@aws-sdk/credential-provider-node': '>=3.972.0 <4'
+      '@smithy/hash-node': '>=4.3.0 <5'
+      '@smithy/signature-v4': '>=5.4.0 <6'
       ws: '>=8.20.1'
       zod: ^3.25 || ^4.0
     peerDependenciesMeta:
+      '@aws-sdk/credential-provider-node':
+        optional: true
+      '@smithy/hash-node':
+        optional: true
+      '@smithy/signature-v4':
+        optional: true
       ws:
         optional: true
       zod:
@@ -10180,6 +10188,11 @@ packages:
     peerDependencies:
       zod: ^3.25 || ^4
 
+  zod-to-json-schema@3.25.2:
+    resolution: {integrity: sha512-O/PgfnpT1xKSDeQYSCfRI5Gy3hPf91mKVDuYLUHZJMiDFptvP41MSnWofm8dnCm0256ZNfZIM7DSzuSMAFnjHA==}
+    peerDependencies:
+      zod: ^3.25.28 || ^4
+
   zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
@@ -11468,19 +11481,22 @@ snapshots:
       '@composio/json-schema-to-zod': 0.1.20(zod@3.25.76)
       '@types/json-schema': 7.0.15
       chalk: 4.1.2
-      openai: 6.39.1(ws@8.21.0)(zod@3.25.76)
+      openai: 6.46.0(ws@8.21.0)(zod@3.25.76)
       pusher-js: 8.5.0
-      semver: 7.7.4
+      semver: 7.8.4
       zod: 3.25.76
-      zod-to-json-schema: 3.25.1(zod@3.25.76)
+      zod-to-json-schema: 3.25.2(zod@3.25.76)
     transitivePeerDependencies:
+      - '@aws-sdk/credential-provider-node'
+      - '@smithy/hash-node'
+      - '@smithy/signature-v4'
       - ws
 
   '@composio/json-schema-to-zod@0.1.20(zod@3.25.76)':
     dependencies:
       zod: 3.25.76
 
-  '@composio/vercel@0.9.2(@composio/core@0.10.0(ws@8.21.0)(zod@3.25.76))(ai@6.0.193(zod@3.25.76))':
+  '@composio/vercel@0.8.0(@composio/core@0.10.0(ws@8.21.0)(zod@3.25.76))(ai@6.0.193(zod@3.25.76))':
     dependencies:
       '@composio/core': 0.10.0(ws@8.21.0)(zod@3.25.76)
       ai: 6.0.193(zod@3.25.76)
@@ -12225,7 +12241,7 @@ snapshots:
       pkce-challenge: 5.0.1
       raw-body: 3.0.2
       zod: 3.25.76
-      zod-to-json-schema: 3.25.1(zod@3.25.76)
+      zod-to-json-schema: 3.25.2(zod@3.25.76)
     optionalDependencies:
       '@cfworker/json-schema': 4.1.1
     transitivePeerDependencies:
@@ -13553,7 +13569,7 @@ snapshots:
       groq-js: 1.14.1
       pkg-dir: 5.0.0
       prettier: 3.8.0
-      semver: 7.7.4
+      semver: 7.8.4
       validate-npm-package-name: 3.0.0
     transitivePeerDependencies:
       - '@types/node'
@@ -14744,7 +14760,7 @@ snapshots:
       '@typescript-eslint/visitor-keys': 8.53.0
       debug: 4.4.3(supports-color@8.1.1)
       minimatch: 10.2.5
-      semver: 7.7.4
+      semver: 7.8.4
       tinyglobby: 0.2.16
       ts-api-utils: 2.4.0(typescript@5.9.3)
       typescript: 5.9.3
@@ -17498,7 +17514,7 @@ snapshots:
 
   is-bun-module@2.0.0:
     dependencies:
-      semver: 7.7.4
+      semver: 7.8.4
 
   is-callable@1.2.7: {}
 
@@ -18112,7 +18128,7 @@ snapshots:
 
   make-dir@4.0.0:
     dependencies:
-      semver: 7.7.4
+      semver: 7.8.4
 
   map-obj@1.0.1: {}
 
@@ -18881,7 +18897,7 @@ snapshots:
     dependencies:
       hosted-git-info: 4.1.0
       is-core-module: 2.16.1
-      semver: 7.7.4
+      semver: 7.8.4
       validate-npm-package-license: 3.0.4
 
   normalize-path@3.0.0: {}
@@ -18988,7 +19004,7 @@ snapshots:
       is-docker: 2.2.1
       is-wsl: 2.2.0
 
-  openai@6.39.1(ws@8.21.0)(zod@3.25.76):
+  openai@6.46.0(ws@8.21.0)(zod@3.25.76):
     optionalDependencies:
       ws: 8.21.0
       zod: 3.25.76
@@ -21622,6 +21638,10 @@ snapshots:
       readable-stream: 4.7.0
 
   zod-to-json-schema@3.25.1(zod@3.25.76):
+    dependencies:
+      zod: 3.25.76
+
+  zod-to-json-schema@3.25.2(zod@3.25.76):
     dependencies:
       zod: 3.25.76
 

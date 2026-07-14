@@ -6,9 +6,7 @@ import { Loader2, Zap } from "lucide-react";
 import { Button } from "@repo/ui";
 import { cn } from "@repo/utils";
 import { syncAndScanCaptures } from "@/app/_features/capture/actions/run-intelligence-scan";
-import {
-  type QueuePlay,
-} from "@/app/_lib/demo/plays-demo-data";
+import type { PlayRunRow } from "../types";
 import type { AskSaltContext } from "@/app/_features/shell/components/AskSaltPanel";
 import {
   FINDING_TYPE_LABELS,
@@ -25,7 +23,7 @@ import { getSectionMeta } from "./PlaybookSectionNav";
 import { PlayQueueList } from "./PlayCard/PlayQueueList";
 import { LearningTab } from "./LearningTab";
 import { mapFindingToCard } from "../play-card/map-finding-to-card";
-import { mapQueuePlayToCard } from "../play-card/map-queue-play-to-card";
+import { mapPlayRunToCardClient } from "../play-card/map-play-run-to-card-client";
 import { mapHandledFindingToCard } from "../play-card/map-handled-finding-to-card";
 import { validatePlayCard } from "../play-card/validate-play-card";
 import type { PlayCardViewModel } from "../play-card/types";
@@ -45,7 +43,7 @@ import {
 import {
   getSectionFromFindingType,
   getSectionFromLearningEntity,
-  getSectionFromQueuePlay,
+  getSectionFromPlayRun,
   matchesSectionFilter,
   QUEUE_SECTION_ORDER,
   type QueueSectionFilter,
@@ -101,18 +99,19 @@ function findingMatchesSearch(finding: FindingWithContext, term: string): boolea
     .some((value) => value?.toLowerCase().includes(term));
 }
 
-function playMatchesSearch(play: QueuePlay, term: string): boolean {
+function playMatchesSearch(play: PlayRunRow, term: string): boolean {
   if (!term) return true;
   return [
-    play.subject,
-    play.summary,
-    play.recipient,
-    play.source,
+    play.title,
+    play.preview,
+    play.recipient_label,
+    play.target_label,
     play.channel,
-    play.playbook,
+    play.player_name,
+    play.source_context?.playbook_slug,
   ]
     .filter(Boolean)
-    .some((value) => value?.toLowerCase().includes(term));
+    .some((value) => (value as string)?.toLowerCase().includes(term));
 }
 
 export function PlaysPage({
@@ -154,8 +153,6 @@ export function PlaysPage({
     streamCaptures,
     captureStats,
     hasCaptureData,
-    blueprints,
-    adoptedTemplates,
     playbooksV2,
     workspaceId,
     keeperUnseenCount,
@@ -207,7 +204,7 @@ export function PlaysPage({
         counts.set(section, (counts.get(section) ?? 0) + 1);
       }
       for (const play of initialQueue) {
-        const section = getSectionFromQueuePlay(play.playerId);
+        const section = getSectionFromPlayRun(play);
         counts.set(section, (counts.get(section) ?? 0) + 1);
       }
     } else if (queueFilter === "auto_handled") {
@@ -300,7 +297,7 @@ export function PlaysPage({
         if (
           !matchesSectionFilter(
             queueFilters.sections,
-            getSectionFromQueuePlay(play.playerId),
+            getSectionFromPlayRun(play),
           )
         ) {
           return false;
@@ -339,7 +336,7 @@ export function PlaysPage({
   const queueCards = useMemo<PlayCardViewModel[]>(
     () => [
       ...filteredFindings.map(mapFindingToCard),
-      ...filteredQueue.map(mapQueuePlayToCard),
+      ...filteredQueue.map(mapPlayRunToCardClient),
     ],
     [filteredFindings, filteredQueue]
   );
@@ -392,7 +389,7 @@ export function PlaysPage({
     () =>
       [
         ...initialFindings.map(mapFindingToCard),
-        ...initialQueue.map(mapQueuePlayToCard),
+        ...initialQueue.map(mapPlayRunToCardClient),
       ].filter((vm) => validatePlayCard(vm).ok).length,
     [initialFindings, initialQueue]
   );
@@ -593,11 +590,8 @@ export function PlaysPage({
             >
               <CustomizeTab
                 connectors={connectors}
-                blueprints={blueprints}
-                adoptedTemplates={adoptedTemplates}
                 playbooksV2={playbooksV2}
                 workspaceId={workspaceId ?? ""}
-                onBlueprintAdopted={invalidateActiveTab}
                 keeperUnseenCount={keeperUnseenCount}
               />
             </motion.div>

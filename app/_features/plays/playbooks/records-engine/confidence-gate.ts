@@ -186,8 +186,7 @@ export async function gateProfileFieldMutation(
     // Create play record for the auto-executed action
     await createPlayRecord({
       workspaceId: input.workspaceId,
-      playerSlug: "keeper",
-      playbookSlug: input.playbookSlug,
+            playbookSlug: input.playbookSlug,
       title: `Updated ${input.field.replace(/_/g, " ")} for ${input.entityLabel}`,
       preview: `${input.proposedValue}`,
       targetType: keeperEntityType as PlayTargetType,
@@ -225,8 +224,7 @@ export async function gateProfileFieldMutation(
     // Create play record for approval
     await createPlayRecord({
       workspaceId: input.workspaceId,
-      playerSlug: "keeper",
-      playbookSlug: input.playbookSlug,
+            playbookSlug: input.playbookSlug,
       title: `Update ${input.field.replace(/_/g, " ")} for ${input.entityLabel}?`,
       preview: `Change to: ${input.proposedValue}`,
       draftBody: JSON.stringify({

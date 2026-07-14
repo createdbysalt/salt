@@ -29,9 +29,20 @@ plays/
 │   ├── routing-evals/      # Playbook routing tests
 │   └── v2/                 # Playbook package directories
 ├── play-card/              # Play card components and types
-├── players/                # Player definitions (deprecated → sections)
 └── analytics/              # Trust dashboard analytics
 ```
+
+## Terminology Note
+
+**Players are retired.** The old "player" concept (Keeper, Scout, etc.) has been replaced by **sections**. If you see `player_slug` in database queries or old code, that's legacy. New code uses sections.
+
+| Current Term | Purpose |
+|--------------|---------|
+| **Section** | Domain grouping (relationships, work, billing, etc.) |
+| **Layer** | learn (enrich Memory) vs act (create outputs) |
+| **System Play** | Atomic operation (`system:create-person`, etc.) |
+
+See `brand-identity/product-internal/terminology-engineering.md` and `section-capabilities.ts`.
 
 ## Playbook Engine
 

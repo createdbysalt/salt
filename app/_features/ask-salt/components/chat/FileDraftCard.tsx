@@ -138,11 +138,11 @@ export function FileDraftCard({
       }
 
       if (onComplete) {
-        toast.success("Added to Files");
+        toast.success("Added to Resources");
         onComplete(result.data.href);
       } else {
         setSavedHref(result.data.href);
-        toast.success("Added to Files");
+        toast.success("Added to Resources");
         if (navigateOnSave) {
           router.push(result.data.href);
         }
@@ -161,7 +161,7 @@ export function FileDraftCard({
           <div className="relative z-10 min-w-0">
             <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/80">
               <FileText className="size-3.5 shrink-0" strokeWidth={2.25} />
-              Files
+              Resources
             </div>
             <p className="mt-2.5 break-words font-display text-[1.35rem] leading-tight tracking-tight text-white">
               {initialDraft.fileName}
@@ -175,7 +175,7 @@ export function FileDraftCard({
             href={savedHref}
             className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-full bg-foreground px-4 text-sm font-medium text-background transition hover:bg-foreground/90"
           >
-            Open in Files
+            Open in Resources
             <ArrowUpRight className="size-3.5 shrink-0" strokeWidth={2.25} />
           </Link>
         </div>
@@ -192,7 +192,7 @@ export function FileDraftCard({
         <div className="relative z-10 min-w-0">
           <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/80">
             <FileText className="size-3.5 shrink-0" strokeWidth={2.25} />
-            Files
+            Resources
           </div>
           <p className="mt-2.5 break-words font-display text-[1.35rem] leading-tight tracking-tight text-white">
             {initialDraft.fileName}
@@ -234,7 +234,7 @@ export function FileDraftCard({
           className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-full bg-foreground px-4 text-sm font-medium text-background transition hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isPending ? <Loader2 className="size-4 animate-spin" strokeWidth={2.25} /> : null}
-          Add to Files
+          Add to Resources
         </button>
       </div>
     </article>

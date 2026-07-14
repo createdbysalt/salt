@@ -9,7 +9,9 @@ import {
   Check,
   ChevronRight,
   CreditCard,
+  ExternalLink,
   File,
+  Link as LinkIcon,
   Loader2,
   MessageSquare,
   MoreHorizontal,
@@ -31,6 +33,7 @@ import {
 } from "@repo/ui";
 import { cn } from "@repo/utils";
 import { MemoryCreateLinkButton } from "@/app/_features/memory/components/MemoryCreateLinkButton";
+import { AddResourceButton } from "@/app/_features/resources/components/AddResourceButton";
 import { RadixAfterHydration } from "@/app/_features/memory/components/RadixAfterHydration";
 import {
   MemoryRecordTabSearch,
@@ -52,6 +55,7 @@ const FILTER_OPTIONS: { value: FilterOption; label: string; icon: typeof User }[
   { value: "billing", label: "Billing", icon: CreditCard },
   { value: "meeting", label: "Meetings", icon: Calendar },
   { value: "conversation", label: "Conversations", icon: MessageSquare },
+  { value: "resource", label: "Resources", icon: LinkIcon },
   { value: "file", label: "Files", icon: File },
   { value: "note", label: "Notes", icon: StickyNote },
 ];
@@ -65,6 +69,7 @@ const NODE_TYPE_ICONS: Record<NodeType, typeof User> = {
   note: StickyNote,
   conversation: MessageSquare,
   meeting: Calendar,
+  resource: LinkIcon,
 };
 
 const filterIconButtonClass = memoryRecordFilterIconButtonClass;
@@ -85,6 +90,7 @@ function groupByType(
     note: [],
     conversation: [],
     meeting: [],
+    resource: [],
   };
 
   for (const conn of connections) {
@@ -117,6 +123,9 @@ function ConnectionRow({
 }) {
   const Icon = NODE_TYPE_ICONS[node.nodeType];
   const trailingMeta = formatTypeLabel(node.nodeType);
+  const isResource = node.nodeType === "resource";
+  const resourceMeta = isResource && node.metadata?.type === "resource" ? node.metadata : null;
+  const isLive = resourceMeta?.mode === "live";
 
   const content = (
     <>
@@ -129,9 +138,17 @@ function ConnectionRow({
           <p className="mt-0.5 truncate text-xs text-muted-foreground">{node.sublabel}</p>
         ) : null}
       </div>
-      <span className="hidden max-w-[160px] truncate text-xs text-muted-foreground sm:block">
-        {trailingMeta}
-      </span>
+      <div className="hidden items-center gap-2 sm:flex">
+        {isLive && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-xs font-medium text-success">
+            <span className="size-1.5 rounded-full bg-success" />
+            Live
+          </span>
+        )}
+        <span className="max-w-[120px] truncate text-xs text-muted-foreground">
+          {trailingMeta}
+        </span>
+      </div>
     </>
   );
 
@@ -322,6 +339,7 @@ export function UnifiedConnectionsTab({
       note: grouped.note.length,
       conversation: grouped.conversation.length,
       meeting: grouped.meeting.length,
+      resource: grouped.resource.length,
     };
     return result;
   }, [connections.length, grouped]);
@@ -353,16 +371,26 @@ export function UnifiedConnectionsTab({
     <MemoryRecordTabShell
       title="Connections"
       action={
-        onLink ? (
-          <MemoryCreateLinkButton
-            variant="panel"
-            recordKind={recordKind}
-            recordId={recordId}
-            recordName={recordName}
-            existingConnections={existingAsConnections}
-            onLink={onLink}
-          />
-        ) : null
+        <div className="flex items-center gap-2">
+          {recordKind !== "file" && (
+            <AddResourceButton
+              variant="panel"
+              entityType={recordKind}
+              entityId={recordId}
+              entityName={recordName}
+            />
+          )}
+          {onLink && (
+            <MemoryCreateLinkButton
+              variant="panel"
+              recordKind={recordKind}
+              recordId={recordId}
+              recordName={recordName}
+              existingConnections={existingAsConnections}
+              onLink={onLink}
+            />
+          )}
+        </div>
       }
       showToolbar={showToolbarControls}
       toolbar={
@@ -391,7 +419,7 @@ export function UnifiedConnectionsTab({
             Nothing is connected to this {recordKind} yet.
           </p>
           <p className="mx-auto mt-1 max-w-sm text-xs text-muted-foreground/80">
-            Link people, organizations, work, payments, or files so Salt can see the full context.
+            Link people, organizations, work, payments, files, or external resources so Salt can see the full context.
           </p>
         </div>
       ) : null}

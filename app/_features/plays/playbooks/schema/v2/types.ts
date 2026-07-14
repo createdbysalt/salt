@@ -27,6 +27,7 @@ export type PlaybookSection =
   | "me"
   | "connections"
   | "notes"
+  | "communication"
   | "_meta";
 
 export type PlaybookTriggerType = "signal" | "schedule" | "manual";
@@ -38,6 +39,12 @@ export interface PlaybookSignalTrigger {
   /** Multiple signals (v2 packages like duplicate-detector, memory-hygiene) */
   signals?: string[];
   surface?: string;
+  /**
+   * Minimum play-fit score (0-100) required to auto-dispatch this playbook.
+   * If capture's fit score is below this, the play won't queue automatically.
+   * Default: 70 for act-layer, uses workspace threshold for learn-layer.
+   */
+  confidence_threshold?: number;
 }
 
 export interface PlaybookScheduleTrigger {
@@ -188,12 +195,15 @@ export interface PlaybookBranchStep {
   goto?: string;
 }
 
+export type PlaybookStepApproval = "required";
+
 export interface PlaybookActionStep {
   step: "action";
   id?: string;
   tool: string;
   args?: Record<string, unknown>;
   needsApproval?: boolean;
+  approval?: PlaybookStepApproval;
 }
 
 export interface PlaybookComputeStep {
@@ -517,6 +527,25 @@ export const SECTION_METADATA: Record<PlaybookSection, SectionMetadata> = {
       "capture_processed",
     ],
     templates: ["memory", "intake", "lifecycle"],
+  },
+  communication: {
+    name: "Communication",
+    slug: "communication",
+    description: "Email intelligence and inbox organization",
+    icon: "mail",
+    memory_types: ["capture"],
+    signals: [
+      "capture_email_received",
+      "capture_email_sent",
+      "email_urgency_high",
+      "email_classified_action_required",
+      "email_classified_money_moves",
+      "email_classified_opportunities",
+      "email_classified_updates",
+      "email_classified_subscribed",
+      "email_classified_noise",
+    ],
+    templates: ["email-triage", "auto-label-inbox", "auto-archive-noise", "email-digest", "setup-inbox-labels"],
   },
   _meta: {
     name: "System",

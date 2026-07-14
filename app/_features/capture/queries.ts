@@ -13,6 +13,7 @@ import type { FindingEvidence } from "./types/intelligence-findings";
 import {
   readIntelligenceMeta,
   resolveCaptureIntelligenceOutcome,
+  categoryFromEnrichment,
   type CaptureFindingLink,
 } from "./services/intelligence/capture-intelligence-outcome";
 import { resolveCaptureSourceUrl } from "./utils/capture-source-url";
@@ -149,6 +150,7 @@ export const getCaptureStream = cache(async (
     .from("capture_events")
     .select(`
       id,
+      workspace_id,
       title,
       capture_type,
       source_type,
@@ -159,7 +161,9 @@ export const getCaptureStream = cache(async (
       created_at,
       processed_at,
       extracted_data,
-      gate_action
+      enriched_metadata,
+      gate_action,
+      is_bootstrap
     `)
     .eq("workspace_id", workspaceId)
     .order("created_at", { ascending: false })
@@ -178,7 +182,10 @@ export const getCaptureStream = cache(async (
   const { data, error } = await query;
 
   if (error) {
-    console.error("[capture-queries] getCaptureStream error:", error);
+    console.error("[capture-queries] getCaptureStream error:", JSON.stringify(error, null, 2));
+    console.error("[capture-queries] workspaceId:", workspaceId);
+    console.error("[capture-queries] error.message:", error.message);
+    console.error("[capture-queries] error.code:", error.code);
     return [];
   }
 
@@ -206,6 +213,7 @@ export const getCaptureStream = cache(async (
 
     return {
       capture_id: row.id,
+      workspace_id: row.workspace_id,
       title: row.title,
       capture_type: row.capture_type,
       source_type: row.source_type,
@@ -217,13 +225,20 @@ export const getCaptureStream = cache(async (
       intelligence_outcome,
       finding_id:
         findingLink?.finding_id ?? intelligenceMeta?.finding_id ?? null,
-      source_url: resolveCaptureSourceUrl({
-        sourceType: row.source_type as CaptureSourceType,
-        sourceExternalId: row.source_external_id,
-        extractedData: row.extracted_data,
-      }),
+      source_url:
+        // Prefer deep_link from enriched_metadata (populated during enrichment)
+        (row.enriched_metadata as { deep_link?: string | null } | null)?.deep_link ??
+        // Fall back to resolved URL (e.g., Gmail thread link)
+        resolveCaptureSourceUrl({
+          sourceType: row.source_type as CaptureSourceType,
+          sourceExternalId: row.source_external_id,
+          extractedData: row.extracted_data,
+        }),
       from_label: fromLabel,
       body_preview: bodyPreview,
+      extracted_data: row.extracted_data as Record<string, unknown> | null,
+      enriched_metadata: row.enriched_metadata as StreamCaptureSummary["enriched_metadata"] ?? null,
+      is_bootstrap: row.is_bootstrap ?? false,
     };
   });
 });
@@ -377,7 +392,7 @@ export const getTodayCaptureStats = cache(async (
 
   const { data: captures, error: captureError } = await supabase
     .from("capture_events")
-    .select("id, origin, state, extracted_data")
+    .select("id, origin, state, extracted_data, enriched_metadata")
     .eq("workspace_id", workspaceId)
     .gte("created_at", today.toISOString());
 
@@ -422,20 +437,27 @@ export const getTodayCaptureStats = cache(async (
       findingLink: findingLinks.get(row.id) ?? null,
       routingState: row.state as CaptureState,
     });
-    switch (outcome) {
-      case "finding_created":
+    const category = categoryFromEnrichment(
+      row.enriched_metadata as {
+        enriched_at?: string | null;
+        signals_matched?: string[];
+        linked_records?: unknown[];
+      } | null,
+      outcome
+    );
+
+    switch (category) {
+      case "queued":
         findingCreated++;
         break;
-      case "no_signal":
+      case "no-signal":
         noSignal++;
         break;
-      case "scan_error":
-        scanError++;
-        break;
-      case "awaiting_scan":
+      case "processing":
         awaitingScan++;
         break;
-      default:
+      case "error":
+        scanError++;
         break;
     }
   }

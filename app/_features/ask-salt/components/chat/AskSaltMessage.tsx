@@ -3,7 +3,10 @@
 import * as React from "react";
 import { Sparkles } from "lucide-react";
 import type { UIMessage } from "ai";
+import { cn } from "@repo/utils";
 import { uiMessageMetadata } from "../../message-adapters";
+import { EntityContextCard } from "../EntityContextCard";
+import type { EntityContext } from "../../types/entity-context";
 import { askSaltEmptyReplyFallback } from "../../ask-salt-errors";
 import { InlineConnectPrompt } from "../InlineConnectPrompt";
 import {
@@ -65,8 +68,6 @@ export type AskSaltMessageProps = {
   onApproval?: (approvalId: string, approved: boolean) => void;
   /** Inline connect affordance — provided only for the active connector turn. */
   connectorSlot?: ConnectorSlotProps | null;
-  /** Clickable next-step options — provided only for the active turn. */
-  options?: MessageOptions | null;
 };
 
 export function AskSaltMessage({
@@ -76,18 +77,38 @@ export function AskSaltMessage({
   approvalsBusy = false,
   onApproval,
   connectorSlot = null,
-  options = null,
 }: AskSaltMessageProps) {
   const metadata = uiMessageMetadata(message);
 
   if (message.role === "user") {
+    const entityContext = metadata?.entityContext as EntityContext | undefined;
     const text = message.parts
       .filter((part): part is { type: "text"; text: string } => part.type === "text")
       .map((part) => part.text)
       .join("\n")
       .trim();
     const fileParts = message.parts.filter((part) => part.type === "file");
-    if (!text && fileParts.length === 0) return null;
+    if (!text && fileParts.length === 0 && !entityContext) {
+      // #region agent log
+      fetch('http://127.0.0.1:7443/ingest/a7cd7781-629e-483f-bcc8-d958046d0b66',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9523cd'},body:JSON.stringify({sessionId:'9523cd',location:'AskSaltMessage.tsx:userHidden',message:'user message hidden (empty)',data:{messageId:message.id,partsCount:message.parts.length},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
+      // #endregion
+      return null;
+    }
+
+    // Render EntityContextCard for context messages
+    if (entityContext) {
+      return (
+        <div
+          className="flex justify-end animate-in fade-in slide-in-from-bottom-2 duration-300"
+          data-role="user"
+        >
+          <div className="max-w-[92%]">
+            <EntityContextCard context={entityContext} />
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="flex justify-end" data-role="user">
         <div className="max-w-[92%] space-y-2">
@@ -146,20 +167,24 @@ export function AskSaltMessage({
       : null;
   const userAttachments = findUserAttachmentsBeforeAssistantMessage(allMessages, message.id);
 
-  const hasOptions = Boolean(options && options.items.length > 0);
   const hasVisibleContent =
     textParts.length > 0 ||
     toolParts.length > 0 ||
     artifacts.length > 0 ||
     recordDeckItems.length > 0 ||
     connectorSlot !== null ||
-    hasOptions ||
     emptyReplyFallback !== null;
 
   if (!hasVisibleContent && !isStreaming) return null;
 
   return (
-    <div className="flex items-start gap-2.5" data-role="assistant">
+    <div
+      className={cn(
+        "flex items-start gap-2.5",
+        !isStreaming && "animate-in fade-in slide-in-from-bottom-2 duration-300",
+      )}
+      data-role="assistant"
+    >
       <span className="surface-aurora grid size-7 shrink-0 place-items-center rounded-full">
         <Sparkles className="relative z-10 size-3.5 text-white" strokeWidth={2.5} />
       </span>
@@ -203,7 +228,6 @@ export function AskSaltMessage({
               <AskSaltRecordDeck items={recordDeckItems} attachments={userAttachments} />
             )}
             {connectorSlot && <InlineConnectPrompt {...connectorSlot} />}
-            {hasOptions && options && <MessageOptionList options={options} />}
           </>
         ) : (
           <div className="flex min-h-[22px] items-center text-[13px] leading-relaxed">
@@ -217,16 +241,24 @@ export function AskSaltMessage({
   );
 }
 
-function MessageOptionList({ options }: { options: MessageOptions }) {
+export function MessageOptionList({ options }: { options: MessageOptions }) {
   return (
-    <div className="space-y-1.5" data-testid="message-options">
-      {options.items.map((item) => (
+    <div
+      className="flex flex-wrap gap-2 animate-in fade-in slide-in-from-bottom-2 duration-300"
+      data-testid="message-options"
+    >
+      {options.items.map((item, index) => (
         <button
           key={item}
           type="button"
           disabled={options.disabled}
           onClick={() => options.onSelect(item)}
-          className="flex w-full items-center rounded-xl border border-border/50 bg-muted/30 px-3 py-2.5 text-left text-[13px] leading-snug text-foreground transition hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-50"
+          className={cn(
+            "animate-in fade-in slide-in-from-bottom-1 rounded-full border border-border/55 bg-muted/35 px-3 py-1.5 text-left text-xs leading-snug text-foreground transition hover:border-border hover:bg-muted/60 disabled:cursor-not-allowed disabled:opacity-50 duration-200",
+            index === 1 && "delay-75",
+            index === 2 && "delay-150",
+            index >= 3 && "delay-200",
+          )}
         >
           {item}
         </button>

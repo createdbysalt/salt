@@ -15,14 +15,16 @@ describe("email category adapter", () => {
       expect(adapter?.sourceType).toBe("outlook");
     });
 
-    it("returns null for unknown provider", () => {
+    it("returns adapter with generic extraction for unknown provider", () => {
       const adapter = getEmailAdapter("unknown");
-      expect(adapter).toBeNull();
+      expect(adapter).not.toBeNull();
+      expect(adapter.sourceType).toBe("unknown");
     });
 
-    it("returns null for non-email provider", () => {
+    it("returns adapter with generic extraction for non-email provider", () => {
       const adapter = getEmailAdapter("stripe");
-      expect(adapter).toBeNull();
+      expect(adapter).not.toBeNull();
+      expect(adapter.sourceType).toBe("stripe");
     });
   });
 

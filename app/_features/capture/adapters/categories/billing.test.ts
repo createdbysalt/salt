@@ -15,12 +15,16 @@ describe("billing category adapter", () => {
       expect(adapter?.sourceType).toBe("quickbooks");
     });
 
-    it("returns null for unknown provider", () => {
-      expect(getBillingAdapter("unknown")).toBeNull();
+    it("returns adapter with generic extraction for unknown provider", () => {
+      const adapter = getBillingAdapter("unknown");
+      expect(adapter).not.toBeNull();
+      expect(adapter.sourceType).toBe("unknown");
     });
 
-    it("returns null for non-billing provider", () => {
-      expect(getBillingAdapter("gmail")).toBeNull();
+    it("returns adapter with generic extraction for non-billing provider", () => {
+      const adapter = getBillingAdapter("gmail");
+      expect(adapter).not.toBeNull();
+      expect(adapter.sourceType).toBe("gmail");
     });
   });
 

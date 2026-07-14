@@ -62,6 +62,7 @@ export type PlaybookSection =
   | "me"
   | "connections"
   | "notes"
+  | "communication"
   | "_meta";
 
 export type PlaybookKind = "acting" | "profile";
@@ -118,6 +119,14 @@ export interface PlayRunRow {
   updated_at: string;
   player_slug?: string | null;
   player_name?: string | null;
+  // Trust model approval gates (Phase 7)
+  paused_at_step?: number | null;
+  paused_for_approval?: boolean;
+  approval_context?: {
+    tool_slug: string;
+    args: Record<string, unknown>;
+    step_index: number;
+  } | null;
 }
 
 export interface PlayTemplateRow {

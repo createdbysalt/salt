@@ -14,11 +14,11 @@ import type {
 import type { PersonSignals } from "@/app/_features/capture/services/system-plays/person-signals";
 import type { CaptureSourceType } from "@/app/_features/capture/types";
 
-type BillingProvider = "stripe" | "quickbooks" | "xero";
+type KnownBillingProvider = "stripe" | "quickbooks" | "xero";
 
-const BILLING_PROVIDERS: BillingProvider[] = ["stripe", "quickbooks", "xero"];
+const KNOWN_BILLING_PROVIDERS: KnownBillingProvider[] = ["stripe", "quickbooks", "xero"];
 
-const BILLING_TRIGGER_SLUGS: Record<BillingProvider, string[]> = {
+const BILLING_TRIGGER_SLUGS: Record<KnownBillingProvider, string[]> = {
   stripe: [
     "STRIPE_INVOICE_PAYMENT_SUCCEEDED_TRIGGER",
     "STRIPE_CHECKOUT_SESSION_COMPLETED_TRIGGER",
@@ -30,6 +30,10 @@ const BILLING_TRIGGER_SLUGS: Record<BillingProvider, string[]> = {
   xero: [], // Backfill only — Composio has no Xero triggers
 };
 
+function isKnownBillingProvider(provider: string): provider is KnownBillingProvider {
+  return KNOWN_BILLING_PROVIDERS.includes(provider as KnownBillingProvider);
+}
+
 function deriveBillingSignals(
   envelopes: readonly CaptureEnvelope[],
   _context: SignalDerivationContext
@@ -37,28 +41,47 @@ function deriveBillingSignals(
   const contacts = new Map<string, PersonSignals>();
 
   for (const envelope of envelopes) {
-    if (!isBillingSource(envelope.sourceType)) continue;
-
+    // Billing adapters already filter by category - process all envelopes
     const customerEmail = envelope.extracted.customer_email as string | null;
     if (!customerEmail) continue;
 
     const existing = contacts.get(customerEmail) ?? {};
     const isStripe = envelope.sourceType === "stripe";
+    const raw = envelope.raw as Record<string, unknown>;
+    const objectType = raw.object_type as string | undefined;
+    const status = envelope.extracted.status as string | undefined;
+    const amountPaid = envelope.extracted.amount_paid as number | undefined;
 
-    contacts.set(customerEmail, {
-      ...existing,
-      has_payment_received: true,
-      has_stripe_payment: isStripe || existing.has_stripe_payment,
-      has_invoice_sent: true,
-    });
+    const isCharge = objectType === "charge";
+    const isInvoice = objectType === "invoice";
+    const isPaid = status === "paid" || status === "succeeded" || (amountPaid ?? 0) > 0;
+
+    const signals: PersonSignals = { ...existing };
+
+    if (isInvoice) {
+      signals.has_invoice_sent = true;
+      if (isPaid) {
+        signals.has_payment_received = true;
+        if (isStripe) signals.has_stripe_payment = true;
+      }
+    } else if (isCharge) {
+      if (isPaid) {
+        signals.has_payment_received = true;
+        if (isStripe) signals.has_stripe_payment = true;
+      }
+    } else {
+      signals.has_invoice_sent = true;
+      signals.has_payment_received = true;
+      if (isStripe) signals.has_stripe_payment = true;
+    }
+
+    contacts.set(customerEmail, signals);
   }
 
   return contacts;
 }
 
-function isBillingSource(sourceType: CaptureSourceType): boolean {
-  return BILLING_PROVIDERS.includes(sourceType as BillingProvider);
-}
+// Billing adapters already filter by category - no need for source type check
 
 function normalizeStripe(payload: unknown): CaptureEnvelope | null {
   if (!payload || typeof payload !== "object") return null;
@@ -73,10 +96,17 @@ function normalizeStripe(payload: unknown): CaptureEnvelope | null {
   if (!externalId) return null;
 
   const eventType = (record.type as string) ?? null;
-  const customerEmail = (obj.customer_email as string) ?? (obj.email as string);
-  const customerName = (obj.customer_name as string) ?? (obj.name as string);
+  const objectType = (obj.object as string) ?? null;
+  const billingDetails = obj.billing_details as Record<string, unknown> | undefined;
+  const customerEmail = (obj.customer_email as string) ??
+    (obj.email as string) ??
+    (billingDetails?.email as string);
+  const customerName = (obj.customer_name as string) ??
+    (obj.name as string) ??
+    (billingDetails?.name as string);
   const amountPaid =
-    typeof obj.amount_paid === "number" ? obj.amount_paid / 100 : null;
+    typeof obj.amount_paid === "number" ? obj.amount_paid / 100 :
+    typeof obj.amount === "number" ? obj.amount / 100 : null;
   const amountDue =
     typeof obj.amount_due === "number" ? obj.amount_due / 100 : null;
 
@@ -109,6 +139,7 @@ function normalizeStripe(payload: unknown): CaptureEnvelope | null {
     },
     raw: {
       stripeEventId: externalId,
+      object_type: objectType,
       source: "composio_trigger",
     },
     noise: null,
@@ -197,10 +228,14 @@ function normalizeGenericBilling(
   };
 }
 
-export function createBillingCategoryAdapter(
-  provider: BillingProvider
-): CaptureAdapter {
-  const triggerSlugs = BILLING_TRIGGER_SLUGS[provider] ?? [];
+/**
+ * Create a billing adapter for ANY provider.
+ * Known providers get specific parsing; unknown get generic extraction.
+ */
+export function createBillingCategoryAdapter(provider: string): CaptureAdapter {
+  const triggerSlugs = isKnownBillingProvider(provider)
+    ? BILLING_TRIGGER_SLUGS[provider]
+    : []; // Unknown providers: triggers come from DB
 
   return {
     sourceType: provider as CaptureSourceType,
@@ -209,25 +244,29 @@ export function createBillingCategoryAdapter(
     deriveSignals: deriveBillingSignals,
 
     normalize(payload: unknown): CaptureEnvelope | null {
+      // Route known providers to specific parsing
       switch (provider) {
         case "stripe":
           return normalizeStripe(payload);
         case "quickbooks":
           return normalizeQuickbooks(payload);
         default:
+          // Any unknown billing provider gets generic extraction
           return normalizeGenericBilling(payload, provider as CaptureSourceType);
       }
     },
   };
 }
 
-export const billingCategoryAdapters = BILLING_PROVIDERS.map(
+/** Known provider adapters (for backward compatibility). */
+export const billingCategoryAdapters = KNOWN_BILLING_PROVIDERS.map(
   createBillingCategoryAdapter
 );
 
-export function getBillingAdapter(provider: string): CaptureAdapter | null {
-  if (!BILLING_PROVIDERS.includes(provider as BillingProvider)) {
-    return null;
-  }
-  return createBillingCategoryAdapter(provider as BillingProvider);
+/**
+ * Get billing adapter for ANY provider in the billing category.
+ * Always returns an adapter — unknown providers get generic extraction.
+ */
+export function getBillingAdapter(provider: string): CaptureAdapter {
+  return createBillingCategoryAdapter(provider);
 }

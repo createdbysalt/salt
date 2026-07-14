@@ -1,15 +1,19 @@
 import "server-only";
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
-import type { PlaybookBlueprintRow, PlaybookTriggerSignal } from "./types";
 import { isValidSignalKey, getSignalDefinition } from "./signal-registry";
-import { loadAuthoredPlaybookBlueprintRows } from "./load-authored-playbook-blueprints";
 import { discoverV2Playbooks, getPlaybookBySlug } from "./schema/v2/discovery";
 import type { LearningEntityType } from "@/app/_lib/memory-tools";
 
-export interface SignalTriggerMatch {
-  blueprint: PlaybookBlueprintRow;
-  signalKey: string;
+/**
+ * Minimal playbook info needed for trigger dispatch.
+ */
+export interface PlaybookTriggerInfo {
+  slug: string;
+  name: string;
+  description: string;
+  layer: "learn" | "act";
+  section: string;
 }
 
 export interface SignalTriggerContext {
@@ -31,49 +35,22 @@ export interface DispatchResult {
 
 /**
  * Build a lookup of signal key → playbooks that trigger on that signal.
- * Includes both v1 authored playbooks and v2 playbook packages.
  */
-export function buildSignalTriggerIndex(): Map<string, PlaybookBlueprintRow[]> {
-  const index = new Map<string, PlaybookBlueprintRow[]>();
+export function buildSignalTriggerIndex(): Map<string, PlaybookTriggerInfo[]> {
+  const index = new Map<string, PlaybookTriggerInfo[]>();
 
-  // Add v1 authored playbooks
-  const v1Blueprints = loadAuthoredPlaybookBlueprintRows();
-
-  for (const blueprint of v1Blueprints) {
-    const trigger = blueprint.trigger;
-    if (!trigger || trigger.type !== "signal") continue;
-
-    const signalTrigger = trigger as PlaybookTriggerSignal;
-    const signalKey = signalTrigger.signal;
-
-    if (!isValidSignalKey(signalKey)) {
-      console.warn(
-        `[trigger-dispatch] Playbook "${blueprint.slug}" has invalid signal key: ${signalKey}`,
-      );
-      continue;
-    }
-
-    const existing = index.get(signalKey) ?? [];
-    existing.push(blueprint);
-    index.set(signalKey, existing);
-  }
-
-  // Add v2 playbook packages
-  const v2Discovery = discoverV2Playbooks();
-  for (const parsed of v2Discovery.allPlaybooks) {
+  const discovery = discoverV2Playbooks();
+  for (const parsed of discovery.allPlaybooks) {
     const def = parsed.definition;
 
-    // Collect all triggers (single or array)
     const allTriggers = [
       ...(def.trigger ? [def.trigger] : []),
       ...(def.triggers || []),
     ];
 
-    // Filter to signal-type triggers only
     const signalTriggers = allTriggers.filter((t) => t.type === "signal");
     if (signalTriggers.length === 0) continue;
 
-    // Support both single signal and signals array within each trigger
     const signalKeys: string[] = [];
     for (const trigger of signalTriggers) {
       if ("signal" in trigger && trigger.signal) {
@@ -86,49 +63,30 @@ export function buildSignalTriggerIndex(): Map<string, PlaybookBlueprintRow[]> {
 
     if (signalKeys.length === 0) {
       console.warn(
-        `[trigger-dispatch] v2 Playbook "${def.slug}" has no signals defined`,
+        `[trigger-dispatch] Playbook "${def.slug}" has no signals defined`,
       );
       continue;
     }
 
-    // Register for each signal
     for (const signalKey of signalKeys) {
       if (!isValidSignalKey(signalKey)) {
         console.warn(
-          `[trigger-dispatch] v2 Playbook "${def.slug}" has invalid signal key: ${signalKey}`,
+          `[trigger-dispatch] Playbook "${def.slug}" has invalid signal key: ${signalKey}`,
         );
         continue;
       }
 
-      // Convert v2 definition to v1 blueprint row format for compatibility
-      const now = new Date().toISOString();
-      const blueprintRow: PlaybookBlueprintRow = {
+      const playbookInfo: PlaybookTriggerInfo = {
         slug: def.slug,
         name: def.name,
-        kind: def.layer === "learn" ? "profile" : "acting",
-        player_slug: def.section, // Section-based grouping (players retired)
         description: def.description,
-        when_to_use: null,
-        trigger: { type: "signal", signal: signalKey },
-        procedure_md: "",
-        // v2 playbooks use their own execution model, not v1 steps
-        definition: { version: 1, steps: [] },
-        fill_rules: null,
-        required_actions: [],
-        required_toolkits: [],
-        value_model: null, // v2 playbooks use their own value model
-        version: 1,
-        status: "active",
-        created_at: now,
-        updated_at: now,
-        workspace_id: null,
-        origin: "salt",
+        layer: def.layer,
+        section: def.section,
       };
 
       const existing = index.get(signalKey) ?? [];
-      // Avoid duplicates if v1 and v2 both define same slug
-      if (!existing.some(b => b.slug === def.slug)) {
-        existing.push(blueprintRow);
+      if (!existing.some((p) => p.slug === def.slug)) {
+        existing.push(playbookInfo);
       }
       index.set(signalKey, existing);
     }
@@ -140,36 +98,33 @@ export function buildSignalTriggerIndex(): Map<string, PlaybookBlueprintRow[]> {
 /**
  * Find playbooks that should fire for a given signal key.
  */
-export function findPlaybooksForSignal(signalKey: string): PlaybookBlueprintRow[] {
+export function findPlaybooksForSignal(signalKey: string): PlaybookTriggerInfo[] {
   const index = buildSignalTriggerIndex();
   return index.get(signalKey) ?? [];
 }
 
 /**
- * Check if a playbook is adopted in the workspace.
+ * Check if a playbook is enabled in the workspace.
+ *
+ * Playbooks are enabled by default. Users can disable them via the toggle
+ * which writes to profile_playbook_settings.
  */
-async function isPlaybookAdopted(
+async function isPlaybookEnabled(
   workspaceId: string,
   playbookSlug: string,
-): Promise<{ adopted: boolean; templateId?: string; isActive?: boolean }> {
+): Promise<boolean> {
   const admin = createAdminClient();
 
-  const { data: template } = await admin
-    .from("play_templates")
-    .select("id, is_active")
+  const { data: setting } = await admin
+    .from("profile_playbook_settings")
+    .select("enabled")
     .eq("workspace_id", workspaceId)
     .eq("blueprint_slug", playbookSlug)
     .maybeSingle();
 
-  if (!template) {
-    return { adopted: false };
-  }
-
-  return {
-    adopted: true,
-    templateId: template.id as string,
-    isActive: template.is_active as boolean,
-  };
+  // No setting = enabled by default
+  // Setting exists = use its value
+  return setting?.enabled ?? true;
 }
 
 interface PlaybookScriptInput {
@@ -196,49 +151,31 @@ interface PlaybookScriptResult {
 /**
  * Run a playbook package script.
  *
- * This dynamically imports the scripts/run.ts from a playbook package
- * and executes it with the signal context.
+ * NOTE: Dynamic imports don't work with Turbopack. Script execution is
+ * temporarily disabled until we implement a Turbopack-compatible approach
+ * (e.g., a static registry or API-based execution).
  */
 async function runPlaybookPackageScript(
-  input: PlaybookScriptInput
-): Promise<PlaybookScriptResult> {
-  const scriptPath = `${input.packagePath}/scripts/run`;
-
-  try {
-    const scriptModule = await import(scriptPath);
-
-    if (typeof scriptModule.run !== "function") {
-      throw new Error(`Playbook script at ${scriptPath} does not export a run function`);
-    }
-
-    const result = await scriptModule.run({
-      workspaceId: input.workspaceId,
-      signal: input.signal,
-      entityType: input.entityType,
-      entityId: input.entityId,
-      entityLabel: input.entityLabel,
-    });
-
-    return {
-      scriptExecutionId: `script_${Date.now()}_${input.entityId.slice(0, 8)}`,
-      rulesEvaluated: result.rulesEvaluated ?? 0,
-      rulesMatched: result.rulesMatched ?? 0,
-      updates: result.updates ?? [],
-    };
-  } catch (error) {
-    console.error(`[trigger-dispatch] Script execution failed for ${input.packagePath}:`, error);
-    throw error;
-  }
+  _input: PlaybookScriptInput
+): Promise<PlaybookScriptResult | null> {
+  // TODO: Implement Turbopack-compatible script execution
+  // Dynamic imports like `import(scriptPath)` fail with Turbopack.
+  // Options: static registry, API route execution, or build-time bundling.
+  console.warn(
+    `[trigger-dispatch] Script execution disabled (Turbopack incompatible). ` +
+    `Playbook: ${_input.packagePath}`
+  );
+  return null;
 }
 
 /**
  * Dispatch a signal to matching playbooks.
  *
- * For acting playbooks: creates a queued play_run (proposal) for human approval.
- * For keeper/profile playbooks with scripts: runs the script directly.
- * For keeper/profile playbooks without scripts: returns info only (records-engine handles execution).
+ * For act-layer playbooks: creates a queued play_run (proposal) for human approval.
+ * For learn-layer playbooks with scripts: runs the script directly.
+ * For learn-layer playbooks without scripts: returns info only (records-engine handles).
  *
- * Only dispatches to adopted + active playbooks.
+ * Only dispatches to enabled playbooks.
  */
 export async function dispatchSignalTrigger(
   context: SignalTriggerContext,
@@ -252,68 +189,59 @@ export async function dispatchSignalTrigger(
   const results: DispatchResult[] = [];
   const admin = createAdminClient();
 
-  for (const blueprint of matchingPlaybooks) {
-    const adoption = await isPlaybookAdopted(context.workspaceId, blueprint.slug);
+  for (const playbook of matchingPlaybooks) {
+    const enabled = await isPlaybookEnabled(context.workspaceId, playbook.slug);
 
-    if (!adoption.adopted) {
+    if (!enabled) {
       results.push({
         success: false,
-        playbookSlug: blueprint.slug,
-        skipped: "not_adopted",
+        playbookSlug: playbook.slug,
+        skipped: "disabled",
       });
       continue;
     }
 
-    if (!adoption.isActive) {
-      results.push({
-        success: false,
-        playbookSlug: blueprint.slug,
-        skipped: "inactive",
-      });
-      continue;
-    }
-
-    if (blueprint.kind === "profile") {
-      // Check if this is a v2 playbook package with a script
-      const v2Playbook = getPlaybookBySlug(blueprint.slug);
+    if (playbook.layer === "learn") {
+      const v2Playbook = getPlaybookBySlug(playbook.slug);
       if (v2Playbook?.hasScript && v2Playbook.packagePath) {
-        // Run the playbook package script
-        try {
-          const scriptResult = await runPlaybookPackageScript({
-            packagePath: v2Playbook.packagePath,
-            workspaceId: context.workspaceId,
-            signal: context.signalKey,
-            entityType: context.entitySurface as LearningEntityType,
-            entityId: context.entityId,
-            entityLabel: context.entityLabel,
-          });
+        const scriptResult = await runPlaybookPackageScript({
+          packagePath: v2Playbook.packagePath,
+          workspaceId: context.workspaceId,
+          signal: context.signalKey,
+          entityType: context.entitySurface as LearningEntityType,
+          entityId: context.entityId,
+          entityLabel: context.entityLabel,
+        });
 
+        if (scriptResult) {
           results.push({
             success: true,
-            playbookSlug: blueprint.slug,
+            playbookSlug: playbook.slug,
             playRunId: scriptResult.scriptExecutionId,
           });
-        } catch (error) {
+        } else {
+          // Script execution disabled (Turbopack incompatible)
           results.push({
-            success: false,
-            playbookSlug: blueprint.slug,
-            error: error instanceof Error ? error.message : "Script execution failed",
+            success: true,
+            playbookSlug: playbook.slug,
+            skipped: "script_disabled",
           });
         }
         continue;
       }
 
-      // No script - legacy profile playbook, skip (records-engine handles separately)
+      // No script - records-engine handles separately
       results.push({
         success: true,
-        playbookSlug: blueprint.slug,
-        skipped: "profile_kind",
+        playbookSlug: playbook.slug,
+        skipped: "learn_layer",
       });
       continue;
     }
 
+    // Act-layer playbook: create queued play_run
     const signalDef = getSignalDefinition(context.signalKey);
-    const title = `${blueprint.name} — ${context.entityLabel ?? context.entityId}`;
+    const title = `${playbook.name} — ${context.entityLabel ?? context.entityId}`;
     const preview = signalDef
       ? `Triggered by: ${signalDef.description}`
       : `Signal: ${context.signalKey}`;
@@ -322,7 +250,6 @@ export async function dispatchSignalTrigger(
       .from("play_runs")
       .insert({
         workspace_id: context.workspaceId,
-        template_id: adoption.templateId,
         state: "queued",
         title,
         preview,
@@ -346,7 +273,7 @@ export async function dispatchSignalTrigger(
     if (insertError || !run) {
       results.push({
         success: false,
-        playbookSlug: blueprint.slug,
+        playbookSlug: playbook.slug,
         error: insertError?.message ?? "Insert failed",
       });
       continue;
@@ -354,7 +281,7 @@ export async function dispatchSignalTrigger(
 
     results.push({
       success: true,
-      playbookSlug: blueprint.slug,
+      playbookSlug: playbook.slug,
       playRunId: run.id as string,
     });
   }
@@ -363,12 +290,124 @@ export async function dispatchSignalTrigger(
 }
 
 /**
+ * Update a capture's enriched_metadata.plays_dispatched with dispatch results.
+ * Call this after dispatchSignalTrigger to record which plays were triggered.
+ */
+export async function updateCaptureWithDispatchResults(
+  captureId: string,
+  results: DispatchResult[]
+): Promise<void> {
+  const successfulDispatches = results.filter(
+    (r) => r.success && r.playRunId && !r.skipped
+  );
+
+  if (successfulDispatches.length === 0) return;
+
+  const admin = createAdminClient();
+
+  // Fetch current enriched_metadata
+  const { data: capture } = await admin
+    .from("capture_events")
+    .select("enriched_metadata")
+    .eq("id", captureId)
+    .single();
+
+  if (!capture) return;
+
+  const currentMetadata = (capture.enriched_metadata as Record<string, unknown>) ?? {};
+  const currentDispatched = (currentMetadata.plays_dispatched as unknown[]) ?? [];
+
+  // Add new dispatches
+  const newDispatches = successfulDispatches.map((r) => ({
+    play_slug: r.playbookSlug,
+    play_name: r.playbookSlug.replace(/-/g, " "),
+    play_run_id: r.playRunId!,
+    state: "queued",
+    dispatched_at: new Date().toISOString(),
+  }));
+
+  // Merge avoiding duplicates
+  const existingRunIds = new Set(
+    currentDispatched
+      .filter((d): d is { play_run_id: string } => typeof d === "object" && d !== null && "play_run_id" in d)
+      .map((d) => d.play_run_id)
+  );
+  const uniqueNewDispatches = newDispatches.filter(
+    (d) => !existingRunIds.has(d.play_run_id)
+  );
+
+  if (uniqueNewDispatches.length === 0) return;
+
+  await admin
+    .from("capture_events")
+    .update({
+      enriched_metadata: {
+        ...currentMetadata,
+        plays_dispatched: [...currentDispatched, ...uniqueNewDispatches],
+      },
+    })
+    .eq("id", captureId);
+}
+
+/**
  * Get all signal keys that have at least one playbook trigger.
- * Useful for knowing which signals to watch for.
  */
 export function getActiveSignalTriggers(): string[] {
   const index = buildSignalTriggerIndex();
   return Array.from(index.keys());
+}
+
+const DEFAULT_ACT_THRESHOLD = 70;
+const DEFAULT_LEARN_THRESHOLD = 85;
+
+/**
+ * Get the confidence threshold for a playbook.
+ */
+export function getPlaybookThreshold(playbookSlug: string): number {
+  const playbook = getPlaybookBySlug(playbookSlug);
+
+  if (playbook) {
+    const def = playbook.definition;
+
+    const allTriggers = [
+      ...(def.trigger ? [def.trigger] : []),
+      ...(def.triggers || []),
+    ];
+
+    for (const trigger of allTriggers) {
+      if (trigger.type === "signal" && "confidence_threshold" in trigger) {
+        const threshold = (trigger as { confidence_threshold?: number }).confidence_threshold;
+        if (typeof threshold === "number") {
+          return threshold;
+        }
+      }
+    }
+
+    return def.layer === "act" ? DEFAULT_ACT_THRESHOLD : DEFAULT_LEARN_THRESHOLD;
+  }
+
+  return DEFAULT_ACT_THRESHOLD;
+}
+
+/**
+ * Build a map of playbook slug → confidence threshold.
+ */
+export function buildPlaybookThresholdIndex(): Map<string, number> {
+  const index = new Map<string, number>();
+  const triggerIndex = buildSignalTriggerIndex();
+
+  const slugs = new Set<string>();
+  for (const playbooks of triggerIndex.values()) {
+    for (const pb of playbooks) {
+      slugs.add(pb.slug);
+    }
+  }
+
+  for (const slug of slugs) {
+    index.set(slug, getPlaybookThreshold(slug));
+  }
+
+  return index;
 }
 
 /**
@@ -380,14 +419,6 @@ export function hasPlaybookForSignal(signalKey: string): boolean {
 
 /**
  * Process a batch of signals for an entity.
- * Returns all signals that had playbook triggers dispatched.
- *
- * @param workspaceId - The workspace ID
- * @param entitySurface - The entity surface (person, organization, etc.)
- * @param entityId - The entity ID
- * @param entityLabel - Human-readable entity label
- * @param signals - Object of signal keys to boolean values (true = signal is active)
- * @param evidence - Optional evidence to attach to play_runs
  */
 export async function processEntitySignals(input: {
   workspaceId: string;

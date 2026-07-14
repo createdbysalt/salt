@@ -14,11 +14,11 @@ import type {
 import type { PersonSignals } from "@/app/_features/capture/services/system-plays/person-signals";
 import type { CaptureSourceType } from "@/app/_features/capture/types";
 
-type CrmProvider = "hubspot" | "salesforce" | "pipedrive";
+type KnownCrmProvider = "hubspot" | "salesforce" | "pipedrive";
 
-const CRM_PROVIDERS: CrmProvider[] = ["hubspot", "salesforce", "pipedrive"];
+const KNOWN_CRM_PROVIDERS: KnownCrmProvider[] = ["hubspot", "salesforce", "pipedrive"];
 
-const CRM_TRIGGER_SLUGS: Record<CrmProvider, string[]> = {
+const CRM_TRIGGER_SLUGS: Record<KnownCrmProvider, string[]> = {
   hubspot: [
     "HUBSPOT_CONTACT_CREATED_TRIGGER",
     "HUBSPOT_DEAL_STAGE_UPDATED_TRIGGER",
@@ -35,6 +35,10 @@ const CRM_TRIGGER_SLUGS: Record<CrmProvider, string[]> = {
   ],
 };
 
+function isKnownCrmProvider(provider: string): provider is KnownCrmProvider {
+  return KNOWN_CRM_PROVIDERS.includes(provider as KnownCrmProvider);
+}
+
 function deriveCrmSignals(
   envelopes: readonly CaptureEnvelope[],
   _context: SignalDerivationContext
@@ -42,8 +46,7 @@ function deriveCrmSignals(
   const contacts = new Map<string, PersonSignals>();
 
   for (const envelope of envelopes) {
-    if (!isCrmSource(envelope.sourceType)) continue;
-
+    // CRM adapters already filter by category - process all envelopes
     const contactEmail = envelope.extracted.email as string | null;
     if (!contactEmail) continue;
 
@@ -55,9 +58,7 @@ function deriveCrmSignals(
   return contacts;
 }
 
-function isCrmSource(sourceType: CaptureSourceType): boolean {
-  return CRM_PROVIDERS.includes(sourceType as CrmProvider);
-}
+// CRM adapters already filter by category - no need for source type check
 
 function normalizeGenericCrm(
   payload: unknown,
@@ -107,8 +108,14 @@ function normalizeGenericCrm(
   };
 }
 
-export function createCrmCategoryAdapter(provider: CrmProvider): CaptureAdapter {
-  const triggerSlugs = CRM_TRIGGER_SLUGS[provider] ?? [];
+/**
+ * Create a CRM adapter for ANY provider.
+ * Known providers get specific parsing; unknown get generic extraction.
+ */
+export function createCrmCategoryAdapter(provider: string): CaptureAdapter {
+  const triggerSlugs = isKnownCrmProvider(provider)
+    ? CRM_TRIGGER_SLUGS[provider]
+    : []; // Unknown providers: triggers come from DB
 
   return {
     sourceType: provider as CaptureSourceType,
@@ -117,16 +124,19 @@ export function createCrmCategoryAdapter(provider: CrmProvider): CaptureAdapter 
     deriveSignals: deriveCrmSignals,
 
     normalize(payload: unknown): CaptureEnvelope | null {
+      // All CRM providers currently use generic extraction
       return normalizeGenericCrm(payload, provider as CaptureSourceType);
     },
   };
 }
 
-export const crmCategoryAdapters = CRM_PROVIDERS.map(createCrmCategoryAdapter);
+/** Known provider adapters (for backward compatibility). */
+export const crmCategoryAdapters = KNOWN_CRM_PROVIDERS.map(createCrmCategoryAdapter);
 
-export function getCrmAdapter(provider: string): CaptureAdapter | null {
-  if (!CRM_PROVIDERS.includes(provider as CrmProvider)) {
-    return null;
-  }
-  return createCrmCategoryAdapter(provider as CrmProvider);
+/**
+ * Get CRM adapter for ANY provider in the CRM category.
+ * Always returns an adapter — unknown providers get generic extraction.
+ */
+export function getCrmAdapter(provider: string): CaptureAdapter {
+  return createCrmCategoryAdapter(provider);
 }

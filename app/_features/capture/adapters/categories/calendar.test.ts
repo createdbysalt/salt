@@ -15,12 +15,16 @@ describe("calendar category adapter", () => {
       expect(adapter?.sourceType).toBe("cal");
     });
 
-    it("returns null for unknown provider", () => {
-      expect(getCalendarAdapter("unknown")).toBeNull();
+    it("returns adapter with generic extraction for unknown provider", () => {
+      const adapter = getCalendarAdapter("unknown");
+      expect(adapter).not.toBeNull();
+      expect(adapter.sourceType).toBe("unknown");
     });
 
-    it("returns null for non-calendar provider", () => {
-      expect(getCalendarAdapter("gmail")).toBeNull();
+    it("returns adapter with generic extraction for non-calendar provider", () => {
+      const adapter = getCalendarAdapter("gmail");
+      expect(adapter).not.toBeNull();
+      expect(adapter.sourceType).toBe("gmail");
     });
   });
 

@@ -125,3 +125,28 @@ export function createTextUIMessage(
     ...(metadata ? { metadata } : {}),
   };
 }
+
+/**
+ * Create a user message that represents entity context.
+ * The message will be rendered as an EntityContextCard in the chat.
+ */
+export function createContextUIMessage(
+  contextPrompt: string,
+  entityContext: {
+    type: string;
+    id: string;
+    title: string;
+    actionLabel: string;
+    subtitle?: string;
+    href?: string;
+  },
+): UIMessage {
+  return {
+    id: crypto.randomUUID(),
+    role: "user",
+    parts: [{ type: "text", text: contextPrompt }],
+    metadata: {
+      entityContext,
+    },
+  };
+}

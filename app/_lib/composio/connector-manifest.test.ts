@@ -6,9 +6,15 @@ import {
 } from "./tool-policy-registry";
 import { composioToolInputSchemas } from "./tool-policy";
 import {
-  ASK_SALT_CONNECTOR_MANIFEST,
-  manifestEntryForSlug,
-} from "./connector-manifest";
+  getAskSaltManifest,
+  type AskSaltManifestEntry,
+} from "./unified-connector-registry";
+
+const ASK_SALT_CONNECTOR_MANIFEST: readonly AskSaltManifestEntry[] = getAskSaltManifest();
+
+function manifestEntryForSlug(slug: string): AskSaltManifestEntry | null {
+  return ASK_SALT_CONNECTOR_MANIFEST.find((entry) => slug.startsWith(entry.slugPrefix)) ?? null;
+}
 
 /**
  * Consistency guard: adding a connector or tool to Ask Salt touches several

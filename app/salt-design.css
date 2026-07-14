@@ -12,6 +12,7 @@
   --color-flame: var(--flame);
   --color-violet: var(--violet);
   --color-teal: var(--teal);
+  --color-amber: var(--amber);
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -85,6 +86,7 @@
   --sky: oklch(0.74 0.1 250);
   --violet: oklch(0.66 0.18 320);
   --teal: oklch(0.74 0.1 175);
+  --amber: oklch(0.78 0.14 85);
 
   --background: oklch(0.99 0.008 75);
   --foreground: oklch(0.16 0.012 60);

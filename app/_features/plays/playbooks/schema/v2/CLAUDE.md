@@ -2,6 +2,8 @@
 
 Section-based, YAML-only playbook definitions.
 
+> **Playbook not showing in UI?** See [`docs/guides/playbook-troubleshooting.md`](../../../../../docs/guides/playbook-troubleshooting.md) — invalid playbooks are silently dropped. Run `curl localhost:3000/api/debug/playbooks | jq '.allErrors'` to see validation errors.
+
 ## Key Concepts
 
 | Concept | Description | Example |
@@ -126,6 +128,32 @@ instructions:
 3. **Voice**: Required for `act` layer, forbidden for `learn` layer
 4. **Step IDs**: Must be unique within a playbook
 5. **Step references**: `forEach` must reference an existing fetch step
+6. **value.estimate**: Must be >= 0 (not negative)
+7. **output.type**: Must be one of: `email_draft`, `notification`, `memory_update`, `finding`, `briefing`
+
+## YAML Gotchas
+
+**Quote strings with colons** — YAML interprets `key: value` as a mapping:
+
+```yaml
+# ❌ WRONG - parsed as nested object
+guidelines:
+  - Create labels: Action, Money
+
+# ✓ RIGHT - quoted string  
+guidelines:
+  - "Create labels: Action, Money"
+```
+
+**Escape quotes** — apostrophes in strings can break parsing:
+
+```yaml
+# ❌ WRONG
+- "It's been a while" or similar
+
+# ✓ RIGHT
+- '"It''s been a while" or similar'
+```
 
 ## Usage
 

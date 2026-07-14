@@ -1,7 +1,6 @@
 "use client";
 
-import type { ActivityEntryRow, PlaybookBlueprintView, PlayTemplateView } from "@/app/_features/plays/types";
-import type { QueuePlay } from "@/app/_lib/demo/plays-demo-data";
+import type { ActivityEntryRow, PlayRunRow } from "@/app/_features/plays/types";
 import type { ConnectorsPageData } from "@/app/_features/connectors";
 import type { FindingWithContext } from "@/app/_features/capture/types/intelligence-findings";
 import type { StreamCaptureSummary } from "@/app/_features/capture/types";
@@ -15,7 +14,7 @@ import { EMPTY_CONNECTORS } from "../hooks/usePlaysTabCache";
 type Props = {
   initialTab: PlaysTab;
   initialActivityView: PlaysActivityView;
-  initialQueue: QueuePlay[];
+  initialQueue: PlayRunRow[];
   initialActivity: ActivityEntryRow[];
   activityTotalCount?: number;
   connectors: ConnectorsPageData | null;
@@ -36,8 +35,6 @@ type Props = {
     scanError?: number;
   } | null;
   hasCaptureData: boolean;
-  blueprints: PlaybookBlueprintView[];
-  adoptedTemplates: PlayTemplateView[];
   playbooksV2: PlaybookV2QueryResult | null;
   initialQueueFilter: "needs_you" | "auto_handled" | "learning";
   workspaceId: string | null;
@@ -62,8 +59,6 @@ export function PlaysPageClient(props: Props) {
         streamCaptures: props.streamCaptures,
         captureStats: props.captureStats,
         hasCaptureData: props.hasCaptureData,
-        blueprints: props.blueprints,
-        adoptedTemplates: props.adoptedTemplates,
         playbooksV2: props.playbooksV2,
         workspaceId: props.workspaceId ?? null,
         keeperUnseenCount: props.keeperUnseenCount ?? 0,

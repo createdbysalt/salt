@@ -90,6 +90,7 @@ const SECTION_LABELS: Record<PlaybookSection, { label: string; desc: string }> =
     me: { label: "Me", desc: "Your profile" },
     connections: { label: "Connections", desc: "Entity links" },
     notes: { label: "Notes", desc: "Preferences and context" },
+    communication: { label: "Communication", desc: "Email and messaging" },
     _meta: { label: "System", desc: "Cross-cutting operations" },
   };
 
@@ -195,6 +196,7 @@ export const getPlaybooksV2 = cache(
       me: 0,
       connections: 0,
       notes: 0,
+      communication: 0,
       _meta: 0,
     };
 

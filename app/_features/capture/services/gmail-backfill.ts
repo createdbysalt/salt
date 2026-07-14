@@ -18,7 +18,7 @@ import "server-only";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { getConnectionStatus } from "@/app/_lib/composio/connections";
 import { fetchGmailMessagesPage } from "@/app/_lib/composio/actions";
-import { gmailCaptureAdapter } from "../adapters/gmail";
+import { getCategoryAdapter } from "../adapters/categories";
 import type { CaptureEnvelope, EnvelopeParticipant } from "../adapters/types";
 import { BOOTSTRAP_LIMITS } from "../types";
 import { ingestEnvelope } from "./ingest-envelope";
@@ -246,6 +246,17 @@ export async function backfillGmailCaptures(
     };
   }
 
+  const gmailAdapter = getCategoryAdapter("gmail");
+  if (!gmailAdapter) {
+    console.error(`[gmail-backfill] No adapter for gmail`);
+    return {
+      success: false,
+      capturesCreated: 0,
+      contactsDiscovered: 0,
+      error: "No adapter for gmail",
+    };
+  }
+
   const afterDate = formatGmailAfterDate(lookbackDays);
   const queries: string[] = [];
   if (includeSent) {
@@ -306,7 +317,7 @@ export async function backfillGmailCaptures(
           fetched++;
           debug.messagesFetched++;
 
-          const envelope = gmailCaptureAdapter.normalize(row);
+          const envelope = gmailAdapter.normalize(row);
           if (!envelope) {
             debug.declined++;
             continue;
@@ -367,7 +378,7 @@ export async function backfillGmailCaptures(
       BOOTSTRAP_LIMITS.MAX_PEOPLE,
     );
     const derivedSignals =
-      gmailCaptureAdapter.deriveSignals?.(bootstrapEnvelopes, {
+      gmailAdapter.deriveSignals?.(bootstrapEnvelopes, {
         userEmail: connection.email ?? null,
       }) ?? new Map<string, PersonSignals>();
     contactsCreated = await createPeopleFromContacts(

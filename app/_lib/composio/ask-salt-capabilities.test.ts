@@ -21,7 +21,7 @@ vi.mock("@/app/_features/connectors/queries", () => ({
   getWorkspaceConnectorPolicy: vi.fn(async () => ({
     disabledTools: [],
     trustByProvider: {},
-    emailMode: "draft",
+    emailModeByProvider: { gmail: "draft", outlook: "draft" },
   })),
 }));
 
@@ -173,6 +173,12 @@ function capabilitiesFixture(
         diagnostic: "not_connected",
       },
     ],
+    policyRestrictions: {
+      trustLevel: "act_with_approval",
+      emailModeByProvider: { gmail: "draft", outlook: "draft" },
+      sendEnabledByProvider: { gmail: false, outlook: false },
+      blockedCapabilities: [],
+    },
     ...overrides,
   };
 }

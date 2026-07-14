@@ -41,12 +41,12 @@ const CATEGORY_STYLES: Record<
 > = {
   "salt-acted": {
     label: "Salt Acted",
-    cls: "bg-sky/15 text-sky",
+    cls: "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300",
     icon: Zap,
   },
   "you-decided": {
     label: "You Decided",
-    cls: "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300",
+    cls: "bg-muted text-muted-foreground",
     icon: CheckCircle2,
   },
   "in-progress": {
@@ -56,7 +56,7 @@ const CATEGORY_STYLES: Record<
   },
   watching: {
     label: "Watching",
-    cls: "bg-violet-500/15 text-violet-700 dark:text-violet-300",
+    cls: "bg-sky/15 text-sky",
     icon: Eye,
   },
 };
@@ -207,10 +207,10 @@ export function ActivityTab({
           </p>
         </header>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
-          <CountTile label="Salt Acted" value={counts.saltActed} tone="sky" />
-          <CountTile label="You Decided" value={counts.youDecided} tone="emerald" />
+          <CountTile label="Salt Acted" value={counts.saltActed} tone="emerald" />
+          <CountTile label="You Decided" value={counts.youDecided} tone="muted" />
           <CountTile label="In Progress" value={counts.inProgress} tone="flame" />
-          <CountTile label="Watching" value={counts.watching} tone="violet" />
+          <CountTile label="Watching" value={counts.watching} tone="sky" />
         </div>
       </section>
 

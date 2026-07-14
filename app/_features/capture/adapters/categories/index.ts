@@ -1,12 +1,18 @@
 /**
- * Category Adapter Registry (Captures V2 Phase 1).
+ * Category Adapter Registry (Captures V2 + Scalable Connectors Phase 4).
  *
  * Routes triggers to category-based adapters instead of app-specific adapters.
- * Uses the 8 categories from enrichment/registry.ts:
- * - email, calendar, billing, crm, meetings, documents, storage, project_management
+ * Uses the 9 categories from enrichment/registry.ts:
+ * - email, calendar, billing, crm, meetings, documents, storage, project_management, communication
  *
- * Category adapters handle any app in their category, falling back to generic
- * extraction when provider-specific parsing isn't available.
+ * **Scalable architecture:**
+ * - Category adapters accept ANY provider in their category
+ * - Known providers get specific parsing; unknown get generic extraction
+ * - Category mapping comes from DB (connector_catalog.category)
+ * - Infrastructure ready for 250+ connectors; UI shows only enabled ones
+ *
+ * NOTE: App-specific adapters (gmail.ts, googlecalendar.ts, etc.) are RETIRED.
+ * All capture normalization now goes through category adapters.
  */
 
 import type { CaptureAdapter } from "../types";
@@ -22,24 +28,13 @@ import { getDocumentsAdapter } from "./documents";
 import { getProjectManagementAdapter } from "./project-management";
 import { getCommunicationAdapter } from "./communication";
 
-// Existing app-specific adapters (Phase 1 fallback)
-import { gmailCaptureAdapter } from "../gmail";
-import { googleCalendarCaptureAdapter } from "../googlecalendar";
-import { googleDriveCaptureAdapter } from "../googledrive";
-import { stripeCaptureAdapter } from "../stripe";
-import { calCaptureAdapter } from "../cal";
+/**
+ * Category → adapter getter mapping.
+ * All getters now accept ANY provider string and return an adapter (never null).
+ */
+type CategoryAdapterGetter = (provider: string) => CaptureAdapter;
 
-const APP_SPECIFIC_ADAPTERS: Record<string, CaptureAdapter> = {
-  gmail: gmailCaptureAdapter,
-  googlecalendar: googleCalendarCaptureAdapter,
-  googledrive: googleDriveCaptureAdapter,
-  stripe: stripeCaptureAdapter,
-  cal: calCaptureAdapter,
-};
-
-type CategoryAdapterGetter = (provider: string) => CaptureAdapter | null;
-
-const CATEGORY_ADAPTERS: Partial<Record<ConnectorCategory, CategoryAdapterGetter>> = {
+const CATEGORY_ADAPTERS: Record<ConnectorCategory, CategoryAdapterGetter> = {
   email: getEmailAdapter,
   calendar: getCalendarAdapter,
   billing: getBillingAdapter,
@@ -52,12 +47,10 @@ const CATEGORY_ADAPTERS: Partial<Record<ConnectorCategory, CategoryAdapterGetter
 };
 
 /**
- * Get adapter by category, falling back to app-specific adapter if needed.
+ * Get adapter by category for a provider.
  *
- * Priority:
- * 1. Category adapter (handles any app in category)
- * 2. App-specific adapter (legacy, proven)
- * 3. null (no adapter available)
+ * Returns an adapter for ANY provider that has a category mapping in the DB.
+ * Known providers get specific parsing; unknown get generic extraction.
  */
 export function getCategoryAdapter(provider: string): CaptureAdapter | null {
   const category = getCategoryForConnector(provider);
@@ -65,28 +58,39 @@ export function getCategoryAdapter(provider: string): CaptureAdapter | null {
   if (category) {
     const categoryGetter = CATEGORY_ADAPTERS[category];
     if (categoryGetter) {
-      const adapter = categoryGetter(provider);
-      if (adapter) return adapter;
+      return categoryGetter(provider);
     }
   }
 
-  return APP_SPECIFIC_ADAPTERS[provider] ?? null;
+  return null;
 }
 
 /**
- * Get adapter by toolkit (provider key), with category fallback.
+ * Get adapter by toolkit (provider key).
+ * Alias for getCategoryAdapter — all adapters are category-based.
  */
 export function adapterForToolkitWithCategory(toolkit: string): CaptureAdapter | null {
-  // Try category adapter first
-  const categoryAdapter = getCategoryAdapter(toolkit);
-  if (categoryAdapter) return categoryAdapter;
-
-  // Fall back to app-specific
-  return APP_SPECIFIC_ADAPTERS[toolkit] ?? null;
+  return getCategoryAdapter(toolkit);
 }
 
 /**
- * List all available category adapters.
+ * Get adapter for a provider when category is already known.
+ * Use this when you have the category from DB and don't need another lookup.
+ */
+export function getAdapterForCategory(
+  category: ConnectorCategory,
+  provider: string
+): CaptureAdapter {
+  const categoryGetter = CATEGORY_ADAPTERS[category];
+  return categoryGetter(provider);
+}
+
+/**
+ * List known category adapters with their hardcoded providers.
+ *
+ * @deprecated Use DB-backed category lookup via getCategoryForConnector().
+ * This function only returns KNOWN providers, not all enabled connectors.
+ * For backward compatibility with existing trigger slug mapping.
  */
 export function listCategoryAdapters(): { category: ConnectorCategory; providers: string[] }[] {
   return [

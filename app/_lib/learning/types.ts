@@ -40,7 +40,8 @@ export type SignalSurface =
   | "meeting"
   | "file"
   | "note"
-  | "operator";
+  | "operator"
+  | "capture";
 
 export interface SignalDefinition {
   key: string;

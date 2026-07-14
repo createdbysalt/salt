@@ -13,6 +13,10 @@
 
 import type { LucideIcon } from "lucide-react";
 import type { CaptureIntelligenceOutcome } from "./services/intelligence/capture-intelligence-outcome";
+import type { EnrichedMetadata, SuggestedAction } from "./services/enrichment/types";
+
+/** Re-export enriched metadata types for external consumption. */
+export type { EnrichedMetadata as EnrichedCaptureMetadata, SuggestedAction } from "./services/enrichment/types";
 
 // ============================================================================
 // Database Enum Types (must match SQL schema exactly)
@@ -349,6 +353,7 @@ export type { CaptureIntelligenceOutcome };
 
 export interface StreamCaptureSummary {
   capture_id: string;
+  workspace_id: string;
   title: string | null;
   capture_type: CaptureEventType;
   source_type: CaptureSourceType;
@@ -366,6 +371,12 @@ export interface StreamCaptureSummary {
   from_label?: string | null;
   /** Content preview/snippet. */
   body_preview?: string | null;
+  /** Raw extracted data from the adapter (area-specific fields). */
+  extracted_data?: Record<string, unknown> | null;
+  /** Enriched metadata (signals, linked records, play-fit, actions). */
+  enriched_metadata?: EnrichedMetadata | null;
+  /** Whether this capture was from initial sync (true) or real-time webhook (false). */
+  is_bootstrap?: boolean;
 }
 
 // ============================================================================

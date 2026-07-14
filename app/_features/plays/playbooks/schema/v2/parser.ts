@@ -20,7 +20,7 @@ import {
   type ParsedPlaybookV2,
   type SectionMetadata,
 } from "./types";
-import { isValidSignalKey } from "@/app/_lib/learning";
+import { isValidSignalKey } from "@/app/_lib/learning/signals";
 
 export interface ParsePlaybookV2Options {
   validateSignals?: boolean;

@@ -76,7 +76,6 @@ import { ConnectorIcon } from "../connector-icons";
 import { ApiKeyConnectDialog } from "../ApiKeyConnectDialog";
 import { ConnectorApiKeyConnectSection } from "../ConnectorApiKeyConnectSection";
 import { usesInlineApiKeyConnect } from "../../utils/inline-api-key-connect";
-import { getConnectorMeta } from "./connector-meta";
 import { ToolCategorySection, filterCapabilities } from "./ToolCategorySection";
 import { ToolPermissionsToolbar } from "./ToolPermissionsToolbar";
 import {
@@ -197,6 +196,30 @@ export function ConnectorDetailPane({
     captureState?.enabled ?? false,
   );
   const [savingCapture, setSavingCapture] = React.useState(false);
+
+  // Trust mode approval preferences (Phase 7)
+  const trustMode = data.workspaceTrustLevel === "trust";
+  const [toolApprovalOverrides, setToolApprovalOverrides] = React.useState<Record<string, boolean>>({});
+
+  const handleToolApprovalChange = React.useCallback(
+    async (toolSlug: string, requiresApproval: boolean) => {
+      setToolApprovalOverrides((prev) => ({
+        ...prev,
+        [toolSlug]: requiresApproval,
+      }));
+
+      const { updateToolApprovalPreference } = await import("../../actions");
+      const result = await updateToolApprovalPreference(toolSlug, requiresApproval);
+      if (!result.success) {
+        setToolApprovalOverrides((prev) => {
+          const next = { ...prev };
+          delete next[toolSlug];
+          return next;
+        });
+      }
+    },
+    [],
+  );
 
   const [connecting, setConnecting] = React.useState(false);
   const [disconnecting, setDisconnecting] = React.useState(false);
@@ -322,7 +345,12 @@ export function ConnectorDetailPane({
     return null;
   }
 
-  const meta = getConnectorMeta(connectorId, definition.name, definition.description);
+  const meta = {
+    displayName: definition.name,
+    tagline: definition.tagline ?? definition.description,
+    developedBy: definition.developedBy ?? null,
+    links: definition.links ?? [],
+  };
   const recentActivity = activity ? activity.slice(0, OVERVIEW_ACTIVITY_PREVIEW) : null;
   const hasMoreActivity = (activity?.length ?? 0) > OVERVIEW_ACTIVITY_PREVIEW;
 
@@ -871,6 +899,9 @@ export function ConnectorDetailPane({
                     controlsDisabled={false}
                     onBulkChange={handleBulkChange}
                     onToolChange={handleToolChange}
+                    trustMode={trustMode}
+                    toolApprovalOverrides={toolApprovalOverrides}
+                    onToolApprovalChange={handleToolApprovalChange}
                   />
                 ) : null}
                 {showFilteredWrite ? (
@@ -882,6 +913,9 @@ export function ConnectorDetailPane({
                     controlsDisabled={false}
                     onBulkChange={handleBulkChange}
                     onToolChange={handleToolChange}
+                    trustMode={trustMode}
+                    toolApprovalOverrides={toolApprovalOverrides}
+                    onToolApprovalChange={handleToolApprovalChange}
                   />
                 ) : null}
               </div>
@@ -1010,11 +1044,14 @@ export function ConnectorDetailPane({
   );
 }
 
-function AboutSections({
-  meta,
-}: {
-  meta: ReturnType<typeof getConnectorMeta>;
-}) {
+interface ConnectorMeta {
+  displayName: string;
+  tagline: string;
+  developedBy: string | null;
+  links: Array<{ label: string; href: string }>;
+}
+
+function AboutSections({ meta }: { meta: ConnectorMeta }) {
   return (
     <>
       {meta.links.length > 0 ? (

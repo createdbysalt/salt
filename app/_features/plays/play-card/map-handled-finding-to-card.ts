@@ -39,6 +39,7 @@ function getSectionLabel(section: PlaybookSection): string {
     me: "Me",
     connections: "Connections",
     notes: "Notes",
+    communication: "Communication",
     _meta: "System",
   };
   return labels[section];

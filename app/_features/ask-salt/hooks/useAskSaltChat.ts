@@ -5,6 +5,10 @@ import { DefaultChatTransport, type UIMessage } from "ai";
 import { useMemo, useRef } from "react";
 import { stripIncompleteToolParts } from "../message-adapters";
 
+export interface UseAskSaltChatOptions {
+  captureId?: string | null;
+}
+
 /**
  * Ask Salt chat transport. Uses a ref-backed conversation id so the first
  * send after createAskSaltConversation hits the API with the real id.
@@ -12,9 +16,15 @@ import { stripIncompleteToolParts } from "../message-adapters";
  * The useChat `id` stays stable for the panel lifetime so assigning a DB
  * conversation id does not recreate the chat and drop an in-flight send.
  */
-export function useAskSaltChat(getConversationId: () => string | null) {
+export function useAskSaltChat(
+  getConversationId: () => string | null,
+  options: UseAskSaltChatOptions = {}
+) {
   const conversationIdRef = useRef(getConversationId);
   conversationIdRef.current = getConversationId;
+
+  const captureIdRef = useRef(options.captureId);
+  captureIdRef.current = options.captureId;
 
   const chatSessionIdRef = useRef<string | null>(null);
   if (!chatSessionIdRef.current) {
@@ -48,6 +58,7 @@ export function useAskSaltChat(getConversationId: () => string | null) {
               messages: safeMessages,
               trigger,
               messageId,
+              captureId: captureIdRef.current ?? undefined,
             },
           };
         },
@@ -59,5 +70,16 @@ export function useAskSaltChat(getConversationId: () => string | null) {
     id: chatSessionIdRef.current,
     transport,
     messages: [],
+    // Auto-send when user approves/denies a tool requiring confirmation
+    sendAutomaticallyWhen: ({ messages }) =>
+      messages.some((m) =>
+        m.parts.some((part) => {
+          if (typeof part !== "object" || part === null || !("state" in part)) {
+            return false;
+          }
+          const state = (part as { state?: string }).state;
+          return state === "approval-responded" || state === "output-denied";
+        }),
+      ),
   });
 }

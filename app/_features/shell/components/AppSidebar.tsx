@@ -62,7 +62,7 @@ const MEMORY_NAV = [
   { title: "Orgs", url: "/orgs" },
   { title: "Work", url: "/work" },
   { title: "Billing", url: "/billing" },
-  { title: "Files", url: "/files" },
+  { title: "Resources", url: "/resources" },
   { title: "Meetings", url: "/meetings" },
   { title: "Me", url: "/me" },
 ];

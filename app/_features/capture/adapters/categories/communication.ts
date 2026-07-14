@@ -13,16 +13,20 @@ import type {
 import type { PersonSignals } from "@/app/_features/capture/services/system-plays/person-signals";
 import type { CaptureSourceType } from "@/app/_features/capture/types";
 
-type MessagingProvider = "slack";
+type KnownMessagingProvider = "slack";
 
-const MESSAGING_PROVIDERS: MessagingProvider[] = ["slack"];
+const KNOWN_MESSAGING_PROVIDERS: KnownMessagingProvider[] = ["slack"];
 
-const MESSAGING_TRIGGER_SLUGS: Record<MessagingProvider, string[]> = {
+const MESSAGING_TRIGGER_SLUGS: Record<KnownMessagingProvider, string[]> = {
   slack: [
     "SLACK_CHANNEL_MESSAGE_RECEIVED",
     "SLACK_DIRECT_MESSAGE_RECEIVED",
   ],
 };
+
+function isKnownMessagingProvider(provider: string): provider is KnownMessagingProvider {
+  return KNOWN_MESSAGING_PROVIDERS.includes(provider as KnownMessagingProvider);
+}
 
 function deriveMessagingSignals(
   envelopes: readonly CaptureEnvelope[],
@@ -31,8 +35,7 @@ function deriveMessagingSignals(
   const contacts = new Map<string, PersonSignals>();
 
   for (const envelope of envelopes) {
-    if (!isMessagingSource(envelope.sourceType)) continue;
-
+    // Messaging adapters already filter by category - process all envelopes
     for (const participant of envelope.participants) {
       if (!participant.email) continue;
 
@@ -45,9 +48,7 @@ function deriveMessagingSignals(
   return contacts;
 }
 
-function isMessagingSource(sourceType: CaptureSourceType): boolean {
-  return MESSAGING_PROVIDERS.includes(sourceType as MessagingProvider);
-}
+// Messaging adapters already filter by category - no need for source type check
 
 function normalizeSlack(payload: unknown): CaptureEnvelope | null {
   if (!payload || typeof payload !== "object") return null;
@@ -134,10 +135,14 @@ function normalizeGenericMessaging(
   };
 }
 
-export function createMessagingCategoryAdapter(
-  provider: MessagingProvider
-): CaptureAdapter {
-  const triggerSlugs = MESSAGING_TRIGGER_SLUGS[provider] ?? [];
+/**
+ * Create a messaging adapter for ANY provider.
+ * Known providers get specific parsing; unknown get generic extraction.
+ */
+export function createMessagingCategoryAdapter(provider: string): CaptureAdapter {
+  const triggerSlugs = isKnownMessagingProvider(provider)
+    ? MESSAGING_TRIGGER_SLUGS[provider]
+    : []; // Unknown providers: triggers come from DB
 
   return {
     sourceType: provider as CaptureSourceType,
@@ -146,25 +151,29 @@ export function createMessagingCategoryAdapter(
     deriveSignals: deriveMessagingSignals,
 
     normalize(payload: unknown): CaptureEnvelope | null {
+      // Route known providers to specific parsing
       switch (provider) {
         case "slack":
           return normalizeSlack(payload);
         default:
+          // Any unknown messaging provider gets generic extraction
           return normalizeGenericMessaging(payload, provider as CaptureSourceType);
       }
     },
   };
 }
 
-export const messagingCategoryAdapters = MESSAGING_PROVIDERS.map(
+/** Known provider adapters (for backward compatibility). */
+export const messagingCategoryAdapters = KNOWN_MESSAGING_PROVIDERS.map(
   createMessagingCategoryAdapter
 );
 
-export function getMessagingAdapter(provider: string): CaptureAdapter | null {
-  if (!MESSAGING_PROVIDERS.includes(provider as MessagingProvider)) {
-    return null;
-  }
-  return createMessagingCategoryAdapter(provider as MessagingProvider);
+/**
+ * Get messaging adapter for ANY provider in the communication category.
+ * Always returns an adapter — unknown providers get generic extraction.
+ */
+export function getMessagingAdapter(provider: string): CaptureAdapter {
+  return createMessagingCategoryAdapter(provider);
 }
 
 export const getCommunicationAdapter = getMessagingAdapter;

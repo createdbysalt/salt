@@ -13,7 +13,6 @@ import {
   validateMemoryMonopoly,
   isMemoryMutatingSlug,
 } from "@/app/_features/plays/playbooks/memory-monopoly";
-import { GENERAL_PLAYER_CAPABILITIES } from "@/app/_features/plays/players/capabilities";
 import { getComposioToolPolicy } from "@/app/_lib/composio/tool-policy-registry";
 import {
   slugify,
@@ -102,11 +101,12 @@ function validateUserPlaybookDraft(input: {
     definition = validation.definition;
     requiredActions = validation.requiredActions;
 
-    const monopolyCheck = validateMemoryMonopoly(requiredActions, "general");
+    // User-created playbooks are never in _meta section, so they can't write Memory
+    const monopolyCheck = validateMemoryMonopoly(requiredActions, "relationships");
     if (!monopolyCheck.ok) {
       errors.push(
         `User playbooks cannot mutate Memory records: ${monopolyCheck.violations.join(", ")}. ` +
-          "These actions are reserved for Keeper playbooks.",
+          "These actions are reserved for system playbooks.",
       );
     }
 
@@ -621,16 +621,16 @@ export function buildPlaybookTools(options: BuildPlaybookToolsOptions): ToolSet 
           status: draft.isValid ? "success" : "error",
           userId: userId ?? null,
           args: { name, slug: draft.slug, isValid: draft.isValid },
-          error: draft.isValid ? undefined : draft.validationErrors.join("; "),
+          error: draft.isValid ? undefined : (draft.validationErrors ?? []).join("; "),
         });
 
         if (!draft.isValid) {
           return {
             drafted: false as const,
-            errors: draft.validationErrors,
+            errors: draft.validationErrors ?? [],
             message:
               "This playbook has validation errors. " +
-              draft.validationErrors.join(" ") +
+              (draft.validationErrors ?? []).join(" ") +
               " Fix these issues and try again.",
           };
         }

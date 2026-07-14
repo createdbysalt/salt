@@ -23,7 +23,9 @@ import {
 } from "../app/_lib/composio/providers";
 import { COMPOSIO_TOOL_SLUGS } from "../app/_lib/composio/tool-slugs";
 import { getComposioToolPolicy } from "../app/_lib/composio/tool-policy-registry";
-import { ASK_SALT_CONNECTOR_MANIFEST } from "../app/_lib/composio/connector-manifest";
+import { getAskSaltManifest } from "../app/_lib/composio/unified-connector-registry";
+
+const ASK_SALT_CONNECTOR_MANIFEST = getAskSaltManifest();
 
 function q(value: string): string {
   return `'${value.replace(/'/g, "''")}'`;

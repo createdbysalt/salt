@@ -79,15 +79,16 @@ describe("getConnectedProvidersForEnrichment", () => {
 });
 
 describe("hasConnectorManifest", () => {
-  it("returns true for providers with manifests", () => {
+  it("returns true for Ask Salt enabled providers", () => {
     expect(hasConnectorManifest("gmail")).toBe(true);
     expect(hasConnectorManifest("hubspot")).toBe(true);
     expect(hasConnectorManifest("stripe")).toBe(true);
-    expect(hasConnectorManifest("GMAIL")).toBe(true);
+    expect(hasConnectorManifest("outlook")).toBe(true);
+    expect(hasConnectorManifest("GMAIL")).toBe(true); // case-insensitive
   });
 
-  it("returns false for providers without manifests", () => {
-    expect(hasConnectorManifest("outlook")).toBe(false);
+  it("returns false for providers without manifests (Ask Salt disabled)", () => {
+    // These connectors are NOT Ask Salt enabled in unified-connector-registry
     expect(hasConnectorManifest("salesforce")).toBe(false);
     expect(hasConnectorManifest("unknown")).toBe(false);
   });

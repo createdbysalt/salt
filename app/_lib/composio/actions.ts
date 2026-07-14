@@ -20,10 +20,10 @@ import { getApprovedToolClassification } from "./classification-store";
 import { requireMatchingComposioUserId } from "./require-composio-user";
 import { COMPOSIO_TOOL_SLUGS } from "./tool-slugs";
 import { formatComposioToolError } from "./composio-errors";
+import { isSendEmailTool, getProviderForSendTool, getEmailProviderCapability } from "./capability-config";
 import type {
   GmailSendEmailInput, GmailCreateDraftInput, GmailMessage, GmailLabel,
   CalendarEventInput, CalendarEvent,
-  CalBookingInput, CalBooking, CalEventType,
   FirefliesTranscriptInput, FirefliesTranscript, FirefliesMeeting,
 } from "./types";
 
@@ -200,13 +200,16 @@ export async function executeComposioAction<T, R>(
           `Composio tool ${toolSlug} requires the connector to be set to "Act with approval" in connector settings`,
         );
       }
-      if (
-        toolSlug === COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL &&
-        connectorPolicy.emailMode !== "send"
-      ) {
-        throw new Error(
-          "Email mode is set to draft — Salt creates drafts instead of sending. Switch to Send mode in Gmail connector settings to send email.",
-        );
+      // Check email mode per provider (generic for all email providers)
+      if (isSendEmailTool(toolSlug)) {
+        const emailProvider = getProviderForSendTool(toolSlug);
+        if (emailProvider && connectorPolicy.emailModeByProvider?.[emailProvider] !== "send") {
+          const cap = getEmailProviderCapability(emailProvider);
+          const label = cap?.label ?? emailProvider;
+          throw new Error(
+            `${label} is in draft mode — Salt creates drafts instead of sending. Switch to Send mode in ${label} connector settings to send email.`,
+          );
+        }
       }
     }
 
@@ -246,7 +249,34 @@ export async function executeComposioAction<T, R>(
     return unwrapToolResult<R>(result);
   } catch (error) {
     const message = formatComposioToolError(error, toolSlug);
-    console.error("Error executing Composio tool:", toolSlug, error);
+
+    // Enhanced diagnostics for connection issues
+    const errorObj = error as { response?: { status?: number; data?: unknown }; code?: number; slug?: string };
+    const isExpired = message.includes("EXPIRED") || errorObj.slug === "ActionExecute_ConnectedAccountExpired";
+    const isAuthError = errorObj.response?.status === 401 || errorObj.response?.status === 403;
+
+    console.error("[composio-tool-exec] Tool execution failed:", {
+      toolSlug,
+      connectionId,
+      workspaceId: options?.workspaceId,
+      errorMessage: message,
+      isExpired,
+      isAuthError,
+      httpStatus: errorObj.response?.status,
+      composioCode: errorObj.code,
+      composioSlug: errorObj.slug,
+      timestamp: new Date().toISOString(),
+    });
+
+    if (isExpired) {
+      console.error("[composio-tool-exec] CONNECTION EXPIRED - user needs to re-authenticate", {
+        connectionId,
+        toolSlug,
+        workspaceId: options?.workspaceId,
+        suggestedAction: "Disconnect and reconnect the provider at /connections",
+      });
+    }
+
     await logOutcome("error", validatedInput, message);
     throw new Error(message, { cause: error instanceof Error ? error : undefined });
   }
@@ -438,62 +468,9 @@ export async function updateCalendarEvent(
 }
 
 // ══════════════════════════════════════════════════════════════════════
-// CAL / CAL.COM (Phase 2)
+// CAL.COM — handled via connector-backfills.ts + cal-booking-processor.ts
+// No action wrappers needed; backfill calls executeComposioAction directly.
 // ══════════════════════════════════════════════════════════════════════
-
-export async function createCalBooking(
-  input: CalBookingInput,
-  connectionId: string,
-  userId: string,
-): Promise<CalBooking> {
-  return executeComposioAction<CalBookingInput, CalBooking>(
-    COMPOSIO_TOOL_SLUGS.CAL_CREATE_BOOKING,
-    input,
-    connectionId,
-    userId,
-    { humanApproved: true },
-  );
-}
-
-export async function listCalBookings(
-  params: { userId?: string; status?: string; limit?: number },
-  connectionId: string,
-  composioUserId: string,
-): Promise<CalBooking[]> {
-  return executeComposioAction<typeof params, CalBooking[]>(
-    COMPOSIO_TOOL_SLUGS.CAL_LIST_BOOKINGS,
-    params,
-    connectionId,
-    composioUserId,
-  );
-}
-
-export async function listCalEventTypes(
-  connectionId: string,
-  userId: string,
-): Promise<CalEventType[]> {
-  return executeComposioAction<Record<string, never>, CalEventType[]>(
-    COMPOSIO_TOOL_SLUGS.CAL_LIST_EVENT_TYPES,
-    {},
-    connectionId,
-    userId,
-  );
-}
-
-export async function cancelCalBooking(
-  bookingId: number,
-  reason: string | undefined,
-  connectionId: string,
-  userId: string,
-): Promise<void> {
-  return executeComposioAction<{ id: number; reason?: string }, void>(
-    COMPOSIO_TOOL_SLUGS.CAL_CANCEL_BOOKING,
-    { id: bookingId, reason },
-    connectionId,
-    userId,
-    { humanApproved: true },
-  );
-}
 
 // ══════════════════════════════════════════════════════════════════════
 // FIREFLIES (Phase 2)
@@ -531,7 +508,7 @@ export async function searchFirefliesMeetings(
   userId: string,
 ): Promise<FirefliesMeeting[]> {
   return executeComposioAction<{ query: string }, FirefliesMeeting[]>(
-    COMPOSIO_TOOL_SLUGS.FIREFLIES_SEARCH_MEETINGS,
+    COMPOSIO_TOOL_SLUGS.FIREFLIES_SEARCH_TRANSCRIPTS,
     { query },
     connectionId,
     userId,

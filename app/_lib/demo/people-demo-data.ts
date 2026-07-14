@@ -49,7 +49,7 @@ export type ActivityEvent = {
 export type Connection = {
   id: string;
   name: string;
-  type: "person" | "org" | "work" | "billing" | "file" | "note" | "conversation" | "meeting";
+  type: "person" | "org" | "work" | "billing" | "file" | "note" | "conversation" | "meeting" | "resource";
   subtitle?: string;
 };
 

@@ -6,7 +6,6 @@ import { resolveCapabilityTool } from "@/app/_lib/composio/capability-resolver";
 import { getComposioProviderForToolSlug } from "@/app/_features/connectors/connector-capabilities";
 import { sendLlm } from "@/app/_lib/ai/gpt";
 import { assembleOperatorContext, type ContentSurface } from "@/app/_lib/ai/assembleOperatorContext";
-import { assemblePlayerContext } from "../players/queries";
 import { capturePlaybookLearningSignal } from "../playbooks/learning/capture-signals";
 import type { OpportunityGapRow, PlayRunRow, PlayTemplateRow } from "../types";
 import type { PlayLlmStep } from "../utils/play-definition";
@@ -166,10 +165,8 @@ export function createRunPlayDeps(): RunPlayDeps {
             surface: (context.channel as ContentSurface) ?? "default",
           }).catch(() => "")
         : "";
-      // Inject player context (domain knowledge, preferences) if available.
-      const playerContext = context.playerSlug
-        ? await assemblePlayerContext(context.workspaceId, context.playerSlug).catch(() => "")
-        : "";
+      // Player context is deprecated - sections replace players
+      const playerContext = "";
       const systemContent = [
         operatorContext,
         playerContext ? `<player-context>\n${playerContext}\n</player-context>` : "",

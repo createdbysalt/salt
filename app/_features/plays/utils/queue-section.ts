@@ -1,7 +1,7 @@
 import type { FindingType } from "@/app/_features/capture/types/intelligence-findings";
-import type { PlayerId } from "@/app/_lib/demo/plays-demo-data";
 import type { LearningEntityType } from "@/app/_lib/learning";
 import type { PlaybookSection } from "@/app/_features/plays/playbooks/schema/v2/types";
+import type { PlayRunRow } from "../types";
 
 export type QueueSectionFilter = Exclude<
   PlaybookSection,
@@ -32,21 +32,26 @@ export function getSectionFromFindingType(type: FindingType): QueueSectionFilter
   return "_meta";
 }
 
-export function getSectionFromQueuePlay(playerId: PlayerId): QueueSectionFilter {
-  switch (playerId) {
-    case "follow-up":
-    case "client-risk":
-      return "relationships";
-    case "billing":
-      return "billing";
-    case "keeper":
-      return "_meta";
-    case "brief":
-    case "scope":
-    case "general":
-    default:
-      return "work";
+export function getSectionFromPlayRun(play: PlayRunRow): QueueSectionFilter {
+  const slug = play.player_slug ?? play.source_context?.playbook_slug;
+  if (!slug) return "work";
+
+  if (slug.includes("follow-up") || slug.includes("client-risk") || slug.includes("person") || slug.includes("org")) {
+    return "relationships";
   }
+  if (slug.includes("billing") || slug.includes("invoice") || slug.includes("payment")) {
+    return "billing";
+  }
+  if (slug.includes("keeper") || slug.includes("meta") || slug.includes("intake")) {
+    return "_meta";
+  }
+  if (slug.includes("meeting") || slug.includes("calendar")) {
+    return "meetings";
+  }
+  if (slug.includes("file")) {
+    return "files";
+  }
+  return "work";
 }
 
 export function getSectionFromLearningEntity(

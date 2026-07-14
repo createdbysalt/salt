@@ -3,7 +3,7 @@ import "server-only";
 import fs from "node:fs";
 import path from "node:path";
 
-import { discoverPlaybookDirs } from "./discover-playbooks";
+import { getPlaybookBySlug } from "./schema/v2/discovery";
 
 export type PlaybookResourceCategory = "script" | "reference" | "asset";
 
@@ -127,12 +127,12 @@ function readCategory(
 }
 
 export function loadPlaybookResources(slug: string): PlaybookResource[] {
-  const discovered = discoverPlaybookDirs().find((item) => item.slug === slug);
-  if (!discovered) return [];
+  const playbook = getPlaybookBySlug(slug);
+  if (!playbook?.packagePath) return [];
 
   return [
-    ...readCategory(discovered.dir, "script"),
-    ...readCategory(discovered.dir, "reference"),
-    ...readCategory(discovered.dir, "asset"),
+    ...readCategory(playbook.packagePath, "script"),
+    ...readCategory(playbook.packagePath, "reference"),
+    ...readCategory(playbook.packagePath, "asset"),
   ];
 }

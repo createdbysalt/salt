@@ -712,3 +712,69 @@ export async function submitCaptureCorrection(
     }
   };
 }
+
+// ============================================================================
+// Re-enrich Stuck Captures
+// ============================================================================
+
+/**
+ * Re-enrich captures that are stuck in "processing" state (missing enriched_at).
+ * This fixes captures where enrichment failed silently during ingest.
+ */
+export async function reEnrichStuckCaptures(
+  options: { limit?: number } = {}
+): Promise<ActionResult<{ processed: number; failed: number }>> {
+  const { context } = await getTenantContext();
+  const workspaceId = context.workspace?.id;
+  if (!workspaceId) {
+    return { success: false, error: "Not authenticated" };
+  }
+
+  const { limit = 50 } = options;
+  const admin = createAdminClient();
+
+  // Find captures with missing enriched_at (stuck in processing)
+  const { data: stuckCaptures, error: fetchError } = await admin
+    .from("capture_events")
+    .select("id, source_type, raw_payload, extracted_data")
+    .eq("workspace_id", workspaceId)
+    .or("enriched_metadata.is.null,enriched_metadata->>enriched_at.is.null")
+    .neq("state", "dismissed")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (fetchError) {
+    console.error("[reEnrichStuckCaptures] Fetch error:", fetchError);
+    return { success: false, error: "Failed to fetch stuck captures" };
+  }
+
+  if (!stuckCaptures || stuckCaptures.length === 0) {
+    return { success: true, data: { processed: 0, failed: 0 } };
+  }
+
+  // Import reenrichCapture dynamically to avoid circular deps
+  const { reenrichCapture } = await import("./services/enrichment");
+
+  let processed = 0;
+  let failed = 0;
+
+  for (const capture of stuckCaptures) {
+    try {
+      const result = await reenrichCapture(capture.id, workspaceId, null);
+      if (result) {
+        processed++;
+      } else {
+        failed++;
+      }
+    } catch (err) {
+      console.warn(
+        `[reEnrichStuckCaptures] Failed to re-enrich ${capture.id}:`,
+        err instanceof Error ? err.message : err
+      );
+      failed++;
+    }
+  }
+
+  revalidatePath("/plays");
+  return { success: true, data: { processed, failed } };
+}

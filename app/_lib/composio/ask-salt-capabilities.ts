@@ -8,11 +8,11 @@ import { loadAskSaltComposioToolsDetailed } from "./load-ask-salt-tools";
 import { ASK_SALT_COMPOSIO_TOOLKITS } from "./ask-salt-tools";
 import { getComposioToolPolicy } from "./tool-policy-registry";
 import { COMPOSIO_TOOL_SLUGS } from "./tool-slugs";
-import { getConnectorRegistry } from "./connector-registry";
-import { askSaltManifestLabels } from "./connector-manifest";
+import { getAskSaltLabels, isRegisteredProvider } from "./unified-connector-registry";
+import { EMAIL_PROVIDER_CAPABILITIES } from "./capability-config";
 
-/** Human-facing toolkit labels, derived from the connector manifest. */
-const ASK_SALT_TOOLKIT_LABELS: Record<string, string> = askSaltManifestLabels();
+/** Human-facing toolkit labels, derived from the unified connector registry. */
+const ASK_SALT_TOOLKIT_LABELS: Record<string, string> = getAskSaltLabels();
 
 function toolkitLabel(toolkit: string): string {
   return ASK_SALT_TOOLKIT_LABELS[toolkit] ?? toolkit;
@@ -48,10 +48,9 @@ export interface AskSaltConnectionStatus {
 export async function getAskSaltConnectionStatuses(
   workspaceId: string,
 ): Promise<AskSaltConnectionStatus[]> {
-  const registry = await getConnectorRegistry();
   return Promise.all(
     ASK_SALT_COMPOSIO_TOOLKITS.map(async (toolkit): Promise<AskSaltConnectionStatus> => {
-      if (!registry.has(toolkit)) {
+      if (!isRegisteredProvider(toolkit)) {
         return { toolkit, label: toolkitLabel(toolkit), connected: false, email: null };
       }
       const status = await getConnectionStatus(toolkit, workspaceId);
@@ -83,6 +82,17 @@ export interface AskSaltProviderCapability {
   diagnostic: AskSaltProviderDiagnostic;
 }
 
+export interface AskSaltPolicyRestrictions {
+  /** Workspace trust level — affects what actions are available. */
+  trustLevel: "read_only" | "act_with_approval" | "trust";
+  /** Email mode per provider (gmail, outlook) — "draft" blocks sending. */
+  emailModeByProvider: Record<string, "draft" | "send">;
+  /** True when provider is connected AND in send mode. */
+  sendEnabledByProvider: Record<string, boolean>;
+  /** User-friendly explanations of what's blocked and how to fix it. */
+  blockedCapabilities: string[];
+}
+
 export interface AskSaltCapabilities {
   /** True when COMPOSIO_API_KEY is present so connectors can load at all. */
   composioConfigured: boolean;
@@ -92,6 +102,8 @@ export interface AskSaltCapabilities {
   providers: AskSaltProviderCapability[];
   /** Set when the Composio session/tool fetch threw for connected toolkits. */
   loadError: string | null;
+  /** Policy restrictions that affect what Ask Salt can do. */
+  policyRestrictions: AskSaltPolicyRestrictions;
 }
 
 function annotateSlug(slug: string): string {
@@ -132,7 +144,18 @@ export async function resolveAskSaltCapabilities(
       loadedSlugs: [],
       diagnostic: status.connected ? "integration_api_offline" : "not_connected",
     }));
-    return { composioConfigured, composioTools: {}, providers, loadError: null };
+    return {
+      composioConfigured,
+      composioTools: {},
+      providers,
+      loadError: null,
+      policyRestrictions: {
+        trustLevel: "read_only",
+        emailModeByProvider: { gmail: "draft", outlook: "draft" },
+        sendEnabledByProvider: { gmail: false, outlook: false },
+        blockedCapabilities: ["Connector tools are unavailable (server configuration issue)."],
+      },
+    };
   }
 
   const load = await loadAskSaltComposioToolsDetailed(workspaceId, { userId });
@@ -183,11 +206,49 @@ export async function resolveAskSaltCapabilities(
     };
   });
 
+  // Build policy restrictions with user-friendly explanations
+  const blockedCapabilities: string[] = [];
+  const trustLevel = Object.values(connectorPolicy.trustByProvider)[0] ?? "read_only";
+  const emailModeByProvider = connectorPolicy.emailModeByProvider;
+
+  // Check email provider restrictions - uses centralized capability config
+  const sendEnabledByProvider: Record<string, boolean> = {};
+
+  for (const { provider: key, label } of EMAIL_PROVIDER_CAPABILITIES) {
+    const connected = statuses.some((s) => s.toolkit === key && s.connected);
+    const mode = emailModeByProvider[key] ?? "draft";
+    sendEnabledByProvider[key] = connected && mode === "send";
+
+    if (connected && mode === "draft") {
+      blockedCapabilities.push(
+        `${label} is in Draft mode — I can create email drafts but cannot send them directly. ` +
+        `To enable sending, go to Settings → Connectors → ${label} and change Email Mode to 'Send'.`
+      );
+    }
+  }
+
+  // Check trust level restrictions
+  if (trustLevel === "read_only") {
+    const connectedApps = statuses.filter((s) => s.connected).map((s) => s.label);
+    if (connectedApps.length > 0) {
+      blockedCapabilities.push(
+        `Salt is in Read-only mode — I can read from ${connectedApps.join(", ")} but cannot take actions. ` +
+        "To enable actions, go to Settings → Plays and change permissions to 'Ask' or 'Trust'."
+      );
+    }
+  }
+
   return {
     composioConfigured,
     composioTools: { ...load.tools, ...discoveryTools },
     providers,
     loadError: load.loadError,
+    policyRestrictions: {
+      trustLevel: trustLevel as AskSaltPolicyRestrictions["trustLevel"],
+      emailModeByProvider,
+      sendEnabledByProvider,
+      blockedCapabilities,
+    },
   };
 }
 
@@ -281,8 +342,61 @@ export function buildAskSaltCapabilityBlock(capabilities: AskSaltCapabilities): 
     }
   }
 
+  // Add policy restriction explanations so the model can explain what's blocked
+  if (capabilities.policyRestrictions.blockedCapabilities.length > 0) {
+    lines.push("");
+    lines.push("Policy restrictions (explain these to users when relevant):");
+    for (const restriction of capabilities.policyRestrictions.blockedCapabilities) {
+      lines.push(`- ${restriction}`);
+    }
+  }
+
+  // Email provider instructions - generate for each connected email provider
+  // Uses centralized capability config so new providers are automatic
+  for (const { provider: key, label, sendTool, draftTool } of EMAIL_PROVIDER_CAPABILITIES) {
+    const provider = capabilities.providers.find((p) => p.toolkit === key);
+    if (provider?.connected) {
+      lines.push("");
+      const sendEnabled = capabilities.policyRestrictions.sendEnabledByProvider[key];
+      const sendToolLoaded = provider.loadedSlugs.includes(sendTool);
+      const draftToolLoaded = provider.loadedSlugs.includes(draftTool);
+
+      if (sendEnabled && sendToolLoaded) {
+        lines.push(`${label.toUpperCase()} INSTRUCTIONS (Send Mode ENABLED):`);
+        lines.push(`- DEFAULT: Use ${sendTool} for ALL email requests unless user explicitly says 'draft'`);
+        lines.push(`- User says 'send', 'email', 'send an email', 'send email to' → use ${sendTool}`);
+        lines.push(`- User says 'draft', 'create draft', 'save as draft' → use ${draftTool}`);
+        lines.push(`- NEVER use ${draftTool} when user says 'send' - that's the wrong tool`);
+        lines.push(`- The ${sendTool} tool requires approval before executing`);
+      } else if (sendEnabled && !sendToolLoaded) {
+        // Send mode is enabled but send tool isn't loaded - likely trust level issue
+        lines.push(`${label.toUpperCase()} INSTRUCTIONS (Send Mode ENABLED but blocked):`);
+        lines.push(`- Email send mode is ON, but ${sendTool} is blocked by workspace trust level`);
+        lines.push(`- User needs to change Settings → Plays permission to 'Ask' or 'Trust' to enable send`);
+        lines.push(`- For now, use ${draftTool} and tell the user to check their Plays permission setting`);
+      } else {
+        lines.push(`${label.toUpperCase()} INSTRUCTIONS (Draft Mode - send is disabled):`);
+        lines.push(`- All email requests create drafts via ${draftTool}`);
+        lines.push(`- ${sendTool} is not available in draft mode`);
+        lines.push(`- Tell the user the email is in their ${label} Drafts folder for review`);
+      }
+    }
+  }
+
+  // Troubleshooting guidance for missing tools
+  lines.push("");
+  lines.push("TROUBLESHOOTING — If a user asks why a specific tool isn't working:");
+  lines.push("1. **Not connected**: The app isn't linked yet → Settings → Connectors to connect it.");
+  lines.push("2. **Read-only mode**: Mutating tools (send, create, update) are blocked → Settings → Plays to change permission to 'Ask' or 'Trust'. This is a WORKSPACE setting, not per-connector.");
+  lines.push("3. **Draft mode (email)**: Send tools are blocked → Settings → Connectors → [Gmail/Outlook] to enable Send mode.");
+  lines.push("4. **Tool disabled**: Specific tool turned off → Settings → Connectors → [App] → Tools section.");
+  lines.push("5. **Destructive action**: DELETE operations are always blocked for safety — no setting to enable.");
+  lines.push("6. **Load error**: Temporary API issue → try again in a moment.");
+  lines.push("IMPORTANT: Permission level (Read/Ask/Trust) is in Settings → Plays. Email mode (Draft/Send) is in Settings → Connectors → Gmail.");
+
+  lines.push("");
   lines.push(
-    "Only the tools listed above are available this turn. Never claim a listed tool is unavailable, and never claim a connected app is disconnected. If a request needs a tool that is not listed, say which app must be connected or enabled and offer to connect it.",
+    "Only the tools listed above are available this turn. Never claim a listed tool is unavailable, and never claim a connected app is disconnected. If a request needs a tool that is not listed, explain which policy restriction applies and how the user can change it in Settings.",
   );
 
   return lines.join("\n");

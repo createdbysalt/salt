@@ -7,7 +7,6 @@ import {
 } from "@/app/_features/plays/load-plays-page-data";
 import { PlaysPageClient } from "@/app/_features/plays/components/PlaysPageClient";
 import { PlaysPageSkeleton } from "@/app/_features/plays/components/PlaysPageSkeleton";
-import { mapQueuePlayForUi } from "@/app/_features/plays/utils/map-queue-play";
 import { parsePlaysQueueFilter } from "@/app/_features/plays/plays-tab-routing";
 
 type SearchParams = Promise<{ tab?: string; filter?: string; view?: string }>;
@@ -31,7 +30,7 @@ async function PlaysPageWithData({
       initialTab={tab}
       initialActivityView={activityView}
       initialQueueFilter={queueFilter}
-      initialQueue={data.initialQueue.map(mapQueuePlayForUi)}
+      initialQueue={data.initialQueue}
       initialActivity={data.initialActivity}
       activityTotalCount={data.activityTotalCount}
       connectors={data.connectors}
@@ -42,8 +41,6 @@ async function PlaysPageWithData({
       streamCaptures={data.streamCaptures}
       captureStats={data.captureStats}
       hasCaptureData={data.hasCaptureData}
-      blueprints={data.blueprints}
-      adoptedTemplates={data.adoptedTemplates}
       playbooksV2={data.playbooksV2}
       workspaceId={data.workspaceId}
     />

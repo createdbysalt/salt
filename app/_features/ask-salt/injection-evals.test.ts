@@ -228,13 +228,13 @@ describe("injection evals (5.5.7)", () => {
     });
 
     it("signal keys cannot be injected via playbook adoption", () => {
-      // Playbook triggers are declared at compile time, not runtime
-      const parsePlaybook = readFileSync(
-        join(process.cwd(), "app/_features/plays/playbooks/parse-playbook.ts"),
+      // Playbook triggers are declared at compile time via YAML, not runtime
+      const v2Parser = readFileSync(
+        join(process.cwd(), "app/_features/plays/playbooks/schema/v2/parser.ts"),
         "utf-8",
       );
-      // Trigger is parsed from frontmatter, not from user input
-      expect(parsePlaybook).toContain("trigger:");
+      // Trigger is parsed from YAML definition, not from user input
+      expect(v2Parser).toContain("trigger");
 
       // The adopt-blueprint flow does not accept trigger as input
       const adoptBlueprint = readFileSync(

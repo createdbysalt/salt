@@ -158,7 +158,7 @@ export function OrgFilesTab({
           <Input
             value={globalFilter}
             onChange={(e) => setGlobalFilter(e.target.value)}
-            placeholder="Search files…"
+            placeholder="Search resources…"
             className="pl-9 h-9 rounded-full bg-card border-border/60"
           />
         </div>
@@ -168,18 +168,18 @@ export function OrgFilesTab({
           <SaltActionButton
             onClick={() => {
               if (hasFileSource) {
-                router.push("/files");
+                router.push("/resources");
                 return;
               }
               toast("Upload coming soon");
             }}
             title={
               hasFileSource
-                ? "Open Files to manage linked assets"
-                : "Salt will upload and link this file for you"
+                ? "Open Resources to manage linked assets"
+                : "Salt will upload and link this resource for you"
             }
           >
-            {hasFileSource ? "Add via Files" : "Upload file"}
+            {hasFileSource ? "Add via Resources" : "Upload file"}
           </SaltActionButton>
         </div>
       </div>
@@ -293,7 +293,7 @@ export function OrgFilesTab({
                   colSpan={columns.length}
                   className="h-24 text-center text-muted-foreground text-sm"
                 >
-                  No files linked.
+                  No resources linked.
                 </TableCell>
               </TableRow>
             )}

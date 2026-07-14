@@ -286,6 +286,7 @@ pnpm exec playwright show-trace path/to/trace.zip
 | Database Schema | `./docs/architecture/database-schema.md` |
 | **Connector System** | `./docs/architecture/connector-system.md` |
 | Security Model | `./docs/architecture/security-model.md` |
+| Entity Context System | `./docs/architecture/entity-context-system.md` |
 | API Standards | `./docs/guides/api-standards.md` |
 | Testing Strategy | `./docs/guides/testing-strategy.md` |
 | UI Patterns & Tailwind v4 | `./docs/guides/ui-patterns.md` |
@@ -308,6 +309,7 @@ Salt's proactive AI is built on three primitives. **Read these before building p
 | Playbooks Reference | `./docs/architecture/playbooks.md` | Playbook structure and execution model |
 | Memory Tools | `./app/_lib/memory-tools/CLAUDE.md` | Protected Memory mutation tools |
 | Playbook Schema v2 | `./app/_features/plays/playbooks/schema/v2/CLAUDE.md` | YAML schema for playbook definitions |
+| **Playbook Troubleshooting** | `./docs/guides/playbook-troubleshooting.md` | **Debug missing playbooks** — silent validation errors |
 
 ### Design System (AI-Optimized)
 

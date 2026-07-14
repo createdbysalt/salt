@@ -19,6 +19,7 @@ import { adapterForTriggerSlug } from "@/app/_features/capture/adapters/registry
 import { ingestEnvelope } from "@/app/_features/capture/services/ingest-envelope";
 import { isFeatureEnabled, FeatureFlag } from "@/app/_lib/feature-flags";
 import { enrichWebhookPayload } from "@/app/_lib/composio/webhook-enrichment";
+import { routeResourceWebhook } from "@/app/_lib/resources/live/signal-router";
 
 export const maxDuration = 60;
 
@@ -174,6 +175,30 @@ export async function POST(req: NextRequest) {
     // Unknown event kinds ack with 200 — retries won't make them known.
     console.warn("[composio-webhook] unrecognized event shape — acked");
     return NextResponse.json({ ok: true, handled: "ignored" });
+  }
+
+  // Check if this is a resource-bound trigger (Live mode)
+  const eventData = isRecord(parsed) ? parsed : {};
+  const metadata = isRecord(eventData.metadata) ? eventData.metadata : {};
+  const triggerConfig = isRecord(metadata.triggerConfig) ? metadata.triggerConfig : {};
+
+  if (triggerConfig.resourceId) {
+    const resourceResult = await routeResourceWebhook({
+      triggerName: event.triggerSlug,
+      triggerId: str(metadata.triggerId) ?? "",
+      payload: event.payload as Record<string, unknown>,
+      metadata: {
+        resourceId: str(triggerConfig.resourceId) ?? undefined,
+        resourceType: str(triggerConfig.resourceType) ?? undefined,
+      },
+    });
+
+    return NextResponse.json({
+      ok: true,
+      handled: "resource_signal",
+      success: resourceResult.success,
+      signalKey: resourceResult.signal?.key,
+    });
   }
 
   const adapter = adapterForTriggerSlug(event.triggerSlug);

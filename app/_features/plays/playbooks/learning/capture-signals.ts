@@ -1,37 +1,53 @@
-import "server-only";
+/**
+ * Playbook Learning Signals
+ *
+ * Captures learning signals from playbook runs for improvement proposals.
+ * @deprecated This module is being phased out in favor of v2 playbooks.
+ */
 
-import { createAdminClient } from "@/app/_lib/supabase/admin";
-import type { PlaybookLearningSignalInput } from "../types";
-
-export async function capturePlaybookLearningSignal(
-  input: PlaybookLearningSignalInput,
-): Promise<void> {
-  if (!input.blueprintSlug && !input.templateId) {
-    return;
-  }
-
-  const admin = createAdminClient();
-  await admin.from("playbook_learning_signals").insert({
-    workspace_id: input.workspaceId,
-    blueprint_slug: input.blueprintSlug,
-    template_id: input.templateId,
-    play_run_id: input.playRunId,
-    signal_type: input.signalType,
-    delta: input.delta,
-  });
+export interface PlaybookLearningSignal {
+  workspaceId: string;
+  blueprintSlug: string;
+  templateId?: string | null;
+  playRunId?: string | null;
+  signalType:
+    | "approved"
+    | "dismissed"
+    | "edited"
+    | "failed"
+    | "guard_skipped"
+    | "timed_out";
+  delta?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
 }
 
-export async function loadTemplateBlueprintMeta(
-  templateId: string,
-  workspaceId: string,
-): Promise<{ blueprint_slug: string | null; slug: string } | null> {
-  const admin = createAdminClient();
-  const { data } = await admin
-    .from("play_templates")
-    .select("blueprint_slug, slug")
-    .eq("id", templateId)
-    .eq("workspace_id", workspaceId)
-    .maybeSingle();
+export interface BlueprintMeta {
+  slug: string;
+  blueprint_slug: string;
+  name: string;
+  version: number;
+  playerSlug?: string;
+}
 
-  return data ?? null;
+/**
+ * Capture a learning signal from a playbook run.
+ * @deprecated Use v2 playbook signals instead.
+ */
+export async function capturePlaybookLearningSignal(
+  _signal: PlaybookLearningSignal
+): Promise<void> {
+  // Stub - v1 learning signals are deprecated
+  // Signals are now captured via v2 playbook routing
+}
+
+/**
+ * Load blueprint metadata for a template.
+ * @deprecated Use v2 discovery instead.
+ */
+export async function loadTemplateBlueprintMeta(
+  _templateId: string,
+  _workspaceId?: string
+): Promise<BlueprintMeta | null> {
+  // Stub - returns null as v1 blueprints are deprecated
+  return null;
 }

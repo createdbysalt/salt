@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Check, ChevronRight, Search } from "lucide-react";
+import { ChevronRight, Search } from "lucide-react";
 import { cn } from "@repo/utils";
 import type {
   ConnectorCategory,
@@ -116,13 +116,7 @@ function ConnectorLinkCard({
       </div>
 
       <div className="flex w-8 shrink-0 items-center justify-end">
-        {isConnected ? (
-          <Check
-            className="size-[18px] text-success"
-            strokeWidth={2.5}
-            aria-label="Connected"
-          />
-        ) : definition.comingSoon ? (
+        {definition.comingSoon ? (
           <span className="text-[11px] font-medium text-muted-foreground">Soon</span>
         ) : (
           <ChevronRight

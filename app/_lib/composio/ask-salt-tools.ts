@@ -4,10 +4,11 @@ import type { ToolSet } from "ai";
 import { compactToolResultForAskSalt } from "@/app/_features/ask-salt/context-budget";
 import { COMPOSIO_TOOL_SLUGS } from "./tool-slugs";
 import { executeComposioAction } from "./actions";
+import { isSendEmailTool, getProviderForSendTool } from "./capability-config";
 import {
-  askSaltManifestSlugPrefixes,
-  askSaltManifestToolkits,
-} from "./connector-manifest";
+  getAskSaltSlugPrefixes,
+  getAskSaltToolkits,
+} from "./unified-connector-registry";
 import {
   getComposioToolPolicy,
   listAgentExposableToolSlugs,
@@ -21,10 +22,10 @@ import {
 import type { OutcomeExpected } from "@/app/_lib/learning/outcomes";
 
 /** Per-app connectors Ask Salt supports — derived from the connector manifest. */
-export const ASK_SALT_COMPOSIO_TOOLKITS: string[] = askSaltManifestToolkits();
+export const ASK_SALT_COMPOSIO_TOOLKITS: string[] = getAskSaltToolkits();
 
 /** Toolkit key → tool slug prefix, derived from the connector manifest. */
-const TOOLKIT_SLUG_PREFIXES: Record<string, string> = askSaltManifestSlugPrefixes();
+const TOOLKIT_SLUG_PREFIXES: Record<string, string> = getAskSaltSlugPrefixes();
 
 /**
  * Exact tool slugs Ask Salt preloads for the given toolkits.
@@ -44,7 +45,7 @@ export const ASK_SALT_PRELOAD_TOOL_SLUGS: string[] = askSaltPreloadSlugsForToolk
   ASK_SALT_COMPOSIO_TOOLKITS,
 );
 
-export type AskSaltTrustLevel = "read_only" | "act_with_approval";
+export type AskSaltTrustLevel = "read_only" | "act_with_approval" | "trust";
 export type AskSaltEmailMode = "draft" | "send";
 
 export interface AskSaltToolPolicyOptions {
@@ -56,8 +57,8 @@ export interface AskSaltToolPolicyOptions {
    * Missing provider = read_only.
    */
   trustByProvider?: Record<string, AskSaltTrustLevel>;
-  /** Gmail email mode. In draft mode, GMAIL_SEND_EMAIL is never registered. */
-  emailMode?: AskSaltEmailMode;
+  /** Email mode per provider (gmail, outlook). In draft mode, send tools are blocked. */
+  emailModeByProvider?: Record<string, AskSaltEmailMode>;
 }
 
 export interface AskSaltToolWrapOptions extends AskSaltToolPolicyOptions {
@@ -128,17 +129,18 @@ export function isAskSaltSlugAllowed(
   if (policy.risk === "mutating" && options.trustByProvider) {
     const provider = providerForSlug(slug);
     const trust = provider ? options.trustByProvider[provider] : undefined;
-    if (trust !== "act_with_approval") {
+    // Allow mutating tools in "act_with_approval" or "trust" mode
+    if (trust !== "act_with_approval" && trust !== "trust") {
       return false;
     }
   }
 
-  if (
-    slug === COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL &&
-    options.emailMode !== undefined &&
-    options.emailMode !== "send"
-  ) {
-    return false;
+  // Block send tools when provider is in draft mode
+  if (options.emailModeByProvider && isSendEmailTool(slug)) {
+    const provider = getProviderForSendTool(slug);
+    if (provider && options.emailModeByProvider[provider] !== "send") {
+      return false;
+    }
   }
 
   return true;
@@ -205,7 +207,6 @@ function withPolicyEnforcedExecute(
       try {
         await createPlayRecord({
           workspaceId,
-          playerSlug: "keeper",
           title: formatToolTitle(slug, input as Record<string, unknown>),
           preview: formatToolPreview(slug, input as Record<string, unknown>),
           channel: toolkitToChannel(toolkit),
@@ -301,12 +302,13 @@ function getOutcomeExpectation(slug: string): {
  *   toolkit tools are dropped)
  * - destructive tools are never registered, regardless of approval
  * - workspace-disabled tools are never registered
- * - trust ladder: mutating tools only register at act_with_approval trust
+ * - trust ladder: mutating tools only register at act_with_approval or trust
  * - email mode: GMAIL_SEND_EMAIL only registers in send mode
  * - tool arguments are validated against Salt's Zod schemas before execution
  * - every execution is recorded in the workspace audit log
- * - mutating tools require human approval (AI SDK needsApproval), except
- *   draft creation, which never leaves the user's own mailbox
+ * - in "ask" mode: all mutating tools require human approval
+ * - in "trust" mode: only tools with requires_human_confirmation=true need approval
+ * - draft creation never requires approval (never leaves user's mailbox)
  */
 export function wrapComposioToolsForAskSalt(
   tools: ToolSet,
@@ -325,10 +327,21 @@ export function wrapComposioToolsForAskSalt(
 
     const enforcedTool = withPolicyEnforcedExecute(name, policy, tool, options);
 
+    const provider = providerForSlug(name);
+    const trustLevel = provider
+      ? (options.trustByProvider?.[provider] ?? "read_only")
+      : "read_only";
+
+    // Draft creation never needs approval - it only saves to user's drafts folder
+    const isDraftTool = name === COMPOSIO_TOOL_SLUGS.GMAIL_CREATE_DRAFT ||
+                        name === COMPOSIO_TOOL_SLUGS.OUTLOOK_CREATE_DRAFT;
+
     const entry =
-      policy.requiresHumanConfirmation
+      trustLevel === "act_with_approval" && policy.risk === "mutating" && !isDraftTool
         ? { ...enforcedTool, needsApproval: true as const }
-        : enforcedTool;
+        : trustLevel === "trust" && policy.requiresHumanConfirmation
+          ? { ...enforcedTool, needsApproval: true as const }
+          : enforcedTool;
     wrapped[name] = entry;
 
     for (const alias of composioToolNameAliases(name)) {

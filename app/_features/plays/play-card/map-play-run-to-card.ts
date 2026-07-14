@@ -182,7 +182,9 @@ export function mapPlayRunToCard(row: PlayRunRow): PlayCardViewModel {
     subject: row.title,
     targetLabel: row.recipient_label ?? row.target_label,
     targetPrefix: kind === "acting" ? "To" : "For",
-    preview: row.preview,
+    preview: row.paused_for_approval && row.approval_context
+      ? `Waiting for approval: ${formatToolSlug(row.approval_context.tool_slug)}`
+      : row.preview,
     confidence: row.confidence,
     stakes: (row.stakes as "low" | "medium" | "high" | null) ?? null,
     ageMinutes,
@@ -307,4 +309,12 @@ function readMetadataOptions(
       return { value: rec.value, label: rec.label };
     })
     .filter((opt): opt is { value: string; label: string } => opt !== null);
+}
+
+function formatToolSlug(slug: string): string {
+  return slug
+    .replace(/_/g, " ")
+    .replace(/^(GMAIL|GOOGLECALENDAR|STRIPE|SLACK|NOTION)\s*/i, "")
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 }

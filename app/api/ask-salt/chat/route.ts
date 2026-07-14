@@ -25,6 +25,11 @@ import { compactAskSaltMessagesForModel, formatEarlierRecapSystemSection } from 
 import { stripIncompleteToolParts } from "@/app/_features/ask-salt/message-adapters";
 import { buildSystemPlayTools } from "@/app/_features/ask-salt/system-play-tools";
 import { buildPlaybookTools } from "@/app/_features/ask-salt/playbook-tools";
+import { buildCaptureReviewTools } from "@/app/_features/ask-salt/capture-review-tools";
+import {
+  loadCaptureReviewContext,
+  formatCaptureContextForPrompt,
+} from "@/app/_features/ask-salt/capture-review-context";
 import {
   resolveAskSaltPlaybooks,
   resolveAskSaltBlueprints,
@@ -84,9 +89,11 @@ Watching for missing data (after playbook intake creates):
 - Call add_to_watching when parse_intake or enrichment leaves critical fields empty (email, phone, org link, domain, deadline, etc.).
 
 Connected tools:
-- Each app is a separate connector — only tools for connected apps are available, and the authoritative list for this turn is in "Current capabilities" below. Trust that list over any assumption.
+- The "Current capabilities" section below is the AUTHORITATIVE source for what tools are available and how to use them. Follow its instructions exactly.
+- **DIRECT EXECUTION**: When the user asks to perform a connector action (send email, create event, etc.) OUTSIDE of a playbook flow, call the tool directly. These tools execute immediately when the user approves them in chat — do NOT use propose_play for direct user requests.
+- propose_play is ONLY for playbook-orchestrated automation, not for direct user commands in chat.
 - Be concise, cite sources when listing emails or events, and never claim an external action was taken without tool results.
-- For email: creating a draft (not sending) means this workspace is in draft mode — create the draft and tell the user it's waiting in their drafts. Tools marked "needs approval" pause for the user to confirm before they run.
+- Tools marked "needs approval" pause for the user to confirm before they run.
 - Tool failures are user-safe by design: if a tool returns success/queued/found/ok false with an errorId, briefly apologize, say Salt could not complete that step, suggest trying again or contacting support with the reference ID, and never repeat backend details, table names, stack traces, SQL, env var names, or raw tool error text.
 - After any tool failure or partial success, you MUST still reply in plain language summarizing what you accomplished and what is still blocked. Never end a turn with only tool steps and no user-facing message.
 
@@ -114,12 +121,15 @@ Entity notes (about people, orgs, work):
 - The tool saves the note directly to the entity's Notes tab. Because the user said it, it's saved with high confidence and confirmed immediately.
 - Do NOT use this for facts about the user themselves (use remember_about_me instead).
 
-Files Memory:
-- Use memory_save_file when the user asks to save, add, store, or file an upload, screenshot, document, or external link in Files Memory.
+Resources:
+- Use memory_save_file when the user asks to save, add, store, or file an upload, screenshot, document, or external link in Resources.
+- Resources come in two modes: Static (just a link/file reference) and Live (Salt monitors for activity like commits, file changes, comments).
 - For chat attachments, set fileType to file and attachmentIndex to the attachment order (0 for the first file). For URLs, set fileType to link and externalUrl.
-- Resolve the connected person, org, or work first with memory_find_people / memory_find_orgs / memory_create_work when the user names someone. Pass personId when known; always include personName.
-- Put structured classification in category (brand_asset, deliverable, contract, screenshot, other). Put the user's free-form explanation of what the file is, why it matters, or story/context into description — not into category or the file name.
-- The tool drafts the file; it does not save until the user taps Add to Files on the draft card. Never claim a file was saved until that write succeeds.
+- Auto-detect resourceType from URLs: github_repo, github_pr, figma_file, linear_issue, gdrive_doc, slack_channel, etc. Default to "url" for unrecognized links.
+- Set mode to "live" only for supported resource types when the user wants Salt to monitor activity (e.g., "track commits", "watch for changes").
+- Resolve the connected person, org, or work first with memory_find_people / memory_find_orgs / memory_find_work when the user names someone. Pass personId when known.
+- Put structured classification in category (brand_asset, deliverable, contract, screenshot, other). Put the user's free-form explanation of what the resource is, why it matters, or story/context into description.
+- The tool drafts the resource; it does not save until the user taps Add to Resources on the draft card. Never claim a resource was saved until that write succeeds.
 
 Corrections (teaching Salt):
 - When the user says something Salt learned is wrong — "Jane isn't a client", "that's not right", "you got that wrong" — call correct_previous_action to record their feedback.
@@ -139,6 +149,7 @@ type AskSaltChatRequest = {
   message?: UIMessage;
   trigger?: string;
   messageId?: string;
+  captureId?: string;
 };
 
 function uiMessageToText(message: UIMessage): string {
@@ -324,6 +335,19 @@ export async function POST(request: Request) {
   const memoryTools = buildMemoryTools({ workspaceId: workspace.id, userId });
   const watchingTools = buildWatchingTools({ workspaceId: workspace.id, userId });
   const intakeTools = buildIntakeTools();
+
+  const captureReviewTools = body.captureId
+    ? buildCaptureReviewTools({
+        workspaceId: workspace.id,
+        userId,
+        captureId: body.captureId,
+      })
+    : {};
+
+  const captureContext = body.captureId
+    ? await loadCaptureReviewContext(body.captureId, workspace.id)
+    : null;
+
   const tools = {
     ...systemTools,
     ...playbookTools,
@@ -335,6 +359,7 @@ export async function POST(request: Request) {
     ...memoryTools,
     ...watchingTools,
     ...intakeTools,
+    ...captureReviewTools,
     ...capabilities.composioTools,
   };
 
@@ -365,6 +390,22 @@ export async function POST(request: Request) {
   }).catch(() => {});
   // #endregion
 
+  const captureReviewSection = captureContext
+    ? `## Capture Review Mode
+
+You are reviewing a specific capture. The user clicked "Review with Salt" on this capture and wants help understanding it, correcting Salt's decision, or taking action.
+
+${formatCaptureContextForPrompt(captureContext)}
+
+### Available Actions
+- Use \`trigger_play_for_capture\` to run a specific play for this capture
+- Use \`add_sender_to_watching\` to watch for future emails from this sender
+- Use \`link_capture_to_record\` to link this capture to a Person, Org, or Work
+- Use \`recategorize_capture\` to correct Salt's categorization
+
+Start by acknowledging what the capture is and asking how you can help.`
+    : null;
+
   const systemSections = [
     ASK_SALT_SYSTEM,
     // Lethal-trifecta defense (5.5.4): connector-fetched content (email
@@ -373,6 +414,7 @@ export async function POST(request: Request) {
     // so injected content can never steer an action without the user seeing
     // the full argument preview.
     UNTRUSTED_CONTENT_SYSTEM_SECTION,
+    captureReviewSection,
     operatorContext,
     buildAskSaltCapabilityBlock(capabilities),
     buildAskSaltPlaybookIndexBlock(playbooks, blueprints),

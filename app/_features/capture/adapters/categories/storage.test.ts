@@ -15,12 +15,16 @@ describe("storage category adapter", () => {
       expect(adapter?.sourceType).toBe("dropbox");
     });
 
-    it("returns null for unknown provider", () => {
-      expect(getStorageAdapter("unknown")).toBeNull();
+    it("returns adapter with generic extraction for unknown provider", () => {
+      const adapter = getStorageAdapter("unknown");
+      expect(adapter).not.toBeNull();
+      expect(adapter.sourceType).toBe("unknown");
     });
 
-    it("returns null for non-storage provider", () => {
-      expect(getStorageAdapter("gmail")).toBeNull();
+    it("returns adapter with generic extraction for non-storage provider", () => {
+      const adapter = getStorageAdapter("gmail");
+      expect(adapter).not.toBeNull();
+      expect(adapter.sourceType).toBe("gmail");
     });
   });
 

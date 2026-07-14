@@ -49,7 +49,7 @@ async function connectorActivityProviders(
 export async function updateWorkspaceTrustLevel(
   trustLevel: ConnectorTrustLevel,
 ): Promise<ConnectorActionResult<void>> {
-  if (trustLevel !== "read_only" && trustLevel !== "act_with_approval") {
+  if (trustLevel !== "read_only" && trustLevel !== "act_with_approval" && trustLevel !== "trust") {
     return { success: false, error: "Unknown trust level." };
   }
 
@@ -88,8 +88,11 @@ export async function updateConnectorEmailMode(input: {
 
   const entry = await getConnectorRegistryEntryByCatalogId(connectorId);
   const provider = entry?.providerKey;
-  if (provider !== "gmail") {
-    return { success: false, error: "Email mode only applies to Gmail." };
+  // Email mode applies to email providers (Gmail, Outlook)
+  const { getEmailProviders } = await import("@/app/_lib/composio/capability-config");
+  const emailProviders = getEmailProviders();
+  if (!provider || !emailProviders.includes(provider)) {
+    return { success: false, error: "Email mode only applies to email providers." };
   }
 
   const { context } = await getTenantContext();
@@ -256,6 +259,97 @@ export async function updateConnectorToolPreferences(input: {
     if (updateError) {
       console.error("[connectors] failed to save tool preferences:", updateError);
       return { success: false, error: "Failed to save tool preferences." };
+    }
+  }
+
+  revalidatePath("/plays");
+  return { success: true, data: undefined };
+}
+
+// ---------------------------------------------------------------------------
+// Tool Approval Preferences (Trust Mode Phase 7)
+// ---------------------------------------------------------------------------
+
+export interface ToolApprovalPreference {
+  toolSlug: string;
+  requiresApproval: boolean;
+}
+
+/**
+ * Get per-tool approval preferences for the workspace.
+ * Only relevant in Trust mode — in Ask mode, all tools require approval.
+ */
+export async function getToolApprovalPreferences(): Promise<
+  ConnectorActionResult<Record<string, boolean>>
+> {
+  const { context } = await getTenantContext();
+  const workspace = requireWorkspaceMember(context);
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("workspace_tool_preferences")
+    .select("tool_slug, requires_approval")
+    .eq("workspace_id", workspace.id);
+
+  if (error) {
+    console.error("[connectors] failed to load tool preferences:", error);
+    return { success: false, error: "Failed to load tool preferences." };
+  }
+
+  const prefs: Record<string, boolean> = {};
+  for (const row of data ?? []) {
+    prefs[row.tool_slug] = row.requires_approval;
+  }
+
+  return { success: true, data: prefs };
+}
+
+/**
+ * Update approval requirement for a single tool.
+ * Only escalation allowed — can't set requires_approval=false for destructive tools.
+ */
+export async function updateToolApprovalPreference(
+  toolSlug: string,
+  requiresApproval: boolean,
+): Promise<ConnectorActionResult<void>> {
+  const { context } = await getTenantContext();
+  const workspace = requireWorkspaceMember(context);
+  const userId = context.userId;
+
+  if (!userId) {
+    return { success: false, error: "Sign in required." };
+  }
+
+  const supabase = await createClient();
+
+  if (requiresApproval) {
+    const { error } = await supabase
+      .from("workspace_tool_preferences")
+      .upsert(
+        {
+          workspace_id: workspace.id,
+          tool_slug: toolSlug,
+          requires_approval: true,
+          updated_at: new Date().toISOString(),
+          updated_by: userId,
+        },
+        { onConflict: "workspace_id,tool_slug" },
+      );
+
+    if (error) {
+      console.error("[connectors] failed to set tool approval:", error);
+      return { success: false, error: "Failed to save preference." };
+    }
+  } else {
+    const { error } = await supabase
+      .from("workspace_tool_preferences")
+      .delete()
+      .eq("workspace_id", workspace.id)
+      .eq("tool_slug", toolSlug);
+
+    if (error) {
+      console.error("[connectors] failed to remove tool approval:", error);
+      return { success: false, error: "Failed to save preference." };
     }
   }
 

@@ -65,11 +65,17 @@ describe("wrapComposioToolsForAskSalt", () => {
     expect(Object.keys(wrapped)).toHaveLength(2);
   });
 
-  it("requires approval for mutating tools but not read tools", () => {
-    const wrapped = wrapComposioToolsForAskSalt({
-      [COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL]: makeTool(),
-      [COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES]: makeTool(),
-    });
+  it("requires approval for mutating tools but not read tools (act_with_approval mode)", () => {
+    const wrapped = wrapComposioToolsForAskSalt(
+      {
+        [COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL]: makeTool(),
+        [COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES]: makeTool(),
+      },
+      {
+        trustByProvider: { gmail: "act_with_approval" },
+        emailModeByProvider: { gmail: "send" },
+      },
+    );
 
     expect(wrapped[COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL]?.needsApproval).toBe(true);
     expect(
@@ -174,7 +180,7 @@ describe("trust ladder and email mode", () => {
       },
       {
         trustByProvider: { gmail: "read_only" },
-        emailMode: "send",
+        emailModeByProvider: { gmail: "send" },
       },
     );
 
@@ -187,7 +193,7 @@ describe("trust ladder and email mode", () => {
   it("missing provider trust is treated as read-only", () => {
     const wrapped = wrapComposioToolsForAskSalt(
       { [COMPOSIO_TOOL_SLUGS.GOOGLECALENDAR_CREATE_EVENT]: makeTool() },
-      { trustByProvider: { gmail: "act_with_approval" }, emailMode: "send" },
+      { trustByProvider: { gmail: "act_with_approval" }, emailModeByProvider: { gmail: "send" } },
     );
 
     expect(wrapped).toEqual({});
@@ -199,7 +205,7 @@ describe("trust ladder and email mode", () => {
         [COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL]: makeTool(),
         [COMPOSIO_TOOL_SLUGS.GMAIL_CREATE_DRAFT]: makeTool(),
       },
-      { trustByProvider: ACT, emailMode: "draft" },
+      { trustByProvider: ACT, emailModeByProvider: { gmail: "draft" } },
     );
 
     expect(wrapped[COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL]).toBeUndefined();
@@ -212,7 +218,7 @@ describe("trust ladder and email mode", () => {
   it("send mode registers send behind approval", () => {
     const wrapped = wrapComposioToolsForAskSalt(
       { [COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL]: makeTool() },
-      { trustByProvider: ACT, emailMode: "send" },
+      { trustByProvider: ACT, emailModeByProvider: { gmail: "send" } },
     );
 
     expect(wrapped[COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL]?.needsApproval).toBe(true);
@@ -224,7 +230,7 @@ describe("ASK_SALT_PRELOAD_TOOL_SLUGS", () => {
     expect(ASK_SALT_PRELOAD_TOOL_SLUGS.length).toBeGreaterThan(0);
     for (const slug of ASK_SALT_PRELOAD_TOOL_SLUGS) {
       expect(slug).toMatch(
-        /^(GMAIL_|GOOGLECALENDAR_|GOOGLEDRIVE_|GOOGLEDOCS_|GOOGLESHEETS_|GOOGLESLIDES_|STRIPE_)/,
+        /^(GMAIL_|GOOGLECALENDAR_|GOOGLEDRIVE_|GOOGLEDOCS_|GOOGLESHEETS_|GOOGLESLIDES_|STRIPE_|CAL_|OUTLOOK_|SLACK_|HUBSPOT_|QUICKBOOKS_|CALENDLY_|DROPBOX_|NOTION_)/,
       );
     }
   });

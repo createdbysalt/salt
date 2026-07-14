@@ -15,6 +15,9 @@ Stripe is an **API-key connector** (the user's own Stripe account, Phase 1C): no
 
 | File | Purpose |
 |------|---------|
+| `connector-registry.ts` | **DB-backed connector catalog** (reads from `connector_catalog` with 5-min cache) |
+| `classification-store.ts` | Tool classification lookup (DB + heuristic fallback) |
+| `tool-classification-heuristics.ts` | Auto-classify tools by slug pattern (GET_* → read, DELETE_* → destructive) |
 | `client.ts` | Singleton Composio clients (`getComposioClient`, `getComposioAgentClient`) |
 | `connections.ts` | OAuth initiate/callback/disconnect; persists to `workspace_integrations` |
 | `oauth-state.ts` | HMAC-signed, expiring OAuth state + safe return URLs |
@@ -22,6 +25,8 @@ Stripe is an **API-key connector** (the user's own Stripe account, Phase 1C): no
 | `tool-policy.ts` | Provider/action allowlist; mutating tools require approval |
 | `actions.ts` | Server-side tool execution wrapper |
 | `providers.ts` | Salt provider keys ↔ Composio app/toolkit names |
+| `unified-connector-registry.ts` | ⚠️ **Deprecated** — code fallback, kept for resilience |
+| `tool-policy-registry.ts` | ⚠️ **Deprecated** — manual tool classifications, use DB instead |
 
 ## Environment
 
@@ -51,7 +56,19 @@ Useful paths in that checkout:
 ## Related
 
 - **Connector System Architecture**: `docs/architecture/connector-system.md` — **START HERE**
-- Unified Registry (single source of truth): `app/_lib/composio/unified-connector-registry.ts`
+- **Tool Classification**: `docs/architecture/tool-classification.md` — heuristics, overrides, risk classes
+- DB-backed Registry: `app/_lib/composio/connector-registry.ts`
 - Capture Adapters: `app/_features/capture/adapters/`
 - Connector catalog & Settings UI: `app/_features/connectors/`
 - Callback route: `app/api/integrations/composio/callback/route.ts`
+
+## Database Tables
+
+| Table | Purpose |
+|-------|---------|
+| `connector_catalog` | All Composio apps (synced nightly from Composio API) |
+| `connector_overrides` | Salt metadata: phase, featured, auth config ID |
+| `connector_trigger_types` | Available triggers per toolkit |
+| `tool_classifications` | Risk class (read/mutating/destructive), approval requirements |
+| `workspace_integrations` | User connections per workspace |
+| `workspace_tool_preferences` | Per-tool approval overrides (Trust mode) |

@@ -4,6 +4,7 @@ import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { classifyCaptureNoise } from "./intelligence/capture-noise";
 import { processCaptureForEvidence } from "@/app/_features/memory/evidence";
 import { runGatePipeline, type GatePipelineInput } from "./gates";
+import { enrichAndPersist } from "./enrichment";
 import type { CaptureEnvelope } from "../adapters/types";
 import type { CaptureOrigin, CaptureState } from "../types";
 import type { GatePipelineResult } from "../types/gate-result";
@@ -109,6 +110,27 @@ export async function ingestEnvelope(
       processCaptureForEvidence(data.id).catch((err) => {
         console.warn(
           `[ingest-envelope] Evidence processing failed for ${data.id}:`,
+          err instanceof Error ? err.message : err
+        );
+      });
+
+      // Extract admission signals from gate result for criteria engine
+      const admissionResult = gateResult?.gateResults.admission;
+      const admissionSignals = admissionResult && "signals" in admissionResult
+        ? admissionResult.signals
+        : undefined;
+      const admissionScore = admissionResult && "confidence" in admissionResult
+        ? admissionResult.confidence
+        : undefined;
+
+      enrichAndPersist(data.id, envelope, {
+        workspaceId,
+        userEmail: options.userEmail ?? null,
+        admissionSignals,
+        admissionScore,
+      }).catch((err) => {
+        console.warn(
+          `[ingest-envelope] Enrichment failed for ${data.id}:`,
           err instanceof Error ? err.message : err
         );
       });

@@ -4,7 +4,7 @@ import "server-only";
  * Cal.com booking processor (connector-platform Phase 4.2).
  *
  * Port of the retired native webhook/sync logic onto the Composio polling
- * path: for every booking CAL_LIST_BOOKINGS returns, resolve the booker to a
+ * path: for every booking CAL_GET_TEAM_BOOKINGS returns, resolve the booker to a
  * person (auto-creating a lead) and upsert the meetings record keyed
  * by cal_booking_id. Because polling sees booking STATE rather than events,
  * one pass covers created, rescheduled (times updated), and cancelled
@@ -216,7 +216,7 @@ async function processOne(
 }
 
 /**
- * Upsert people + meetings from a raw CAL_LIST_BOOKINGS page.
+ * Upsert people + meetings from a raw CAL_GET_TEAM_BOOKINGS page.
  * Per-booking failures isolate.
  */
 export async function processCalBookings(

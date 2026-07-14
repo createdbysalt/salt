@@ -15,7 +15,6 @@ import { ConnectorsRail, connectorsPaneSurfaceClassName } from "@/app/_features/
 import { ConnectorsBrowsePane } from "@/app/_features/connectors/components/detail/ConnectorsBrowsePane";
 import { ConnectorDetailPane } from "@/app/_features/connectors/components/detail/ConnectorDetailPane";
 import { ConnectorDetailPaneSkeleton } from "@/app/_features/connectors/components/detail/ConnectorDetailPaneSkeleton";
-import type { PlaybookBlueprintView, PlayTemplateView } from "@/app/_features/plays/types";
 import {
   buildPlaysCustomizePath,
   syncPlaysCustomizeUrl,
@@ -24,7 +23,6 @@ import {
   CustomizeSectionToggle,
   type CustomizeSection,
 } from "./CustomizeSectionToggle";
-import { PlaybookTab } from "./PlaybookTab";
 import { PlaybookTabV2 } from "./PlaybookTabV2";
 import { PlaysSectionHeader } from "./PlaysSectionHeader";
 import type { PlaybookV2QueryResult } from "@/app/_features/plays/playbooks/queries-v2";
@@ -67,21 +65,15 @@ const sectionHeaders: Record<
 
 interface CustomizeTabProps {
   connectors: ConnectorsPageData;
-  blueprints: PlaybookBlueprintView[];
-  adoptedTemplates: PlayTemplateView[];
   playbooksV2: PlaybookV2QueryResult | null;
   workspaceId: string;
-  onBlueprintAdopted?: () => void;
   keeperUnseenCount?: number;
 }
 
 export function CustomizeTab({
   connectors,
-  blueprints,
-  adoptedTemplates,
   playbooksV2,
   workspaceId: _workspaceId,
-  onBlueprintAdopted,
   keeperUnseenCount: _keeperUnseenCount,
 }: CustomizeTabProps) {
   const searchParams = useSearchParams();
@@ -237,7 +229,7 @@ export function CustomizeTab({
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2 }}
         >
-          {playbooksV2 && playbooksV2.playbooks.length > 0 ? (
+          {playbooksV2 ? (
             <PlaybookTabV2
               playbooks={playbooksV2.playbooks}
               counts={{
@@ -246,11 +238,9 @@ export function CustomizeTab({
               }}
             />
           ) : (
-            <PlaybookTab
-              blueprints={blueprints}
-              adoptedTemplates={adoptedTemplates}
-              onBlueprintAdopted={onBlueprintAdopted}
-            />
+            <div className="py-12 text-center">
+              <p className="text-sm text-muted-foreground">Loading playbooks...</p>
+            </div>
           )}
         </motion.div>
       )}

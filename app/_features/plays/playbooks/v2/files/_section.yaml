@@ -1,6 +1,6 @@
 name: Files
 slug: files
-description: Documents and attachments
+description: Documents, attachments, and external resources
 icon: file
 
 memory_types:
@@ -11,6 +11,19 @@ signals:
   - file_signature_event_signed
   - file_signature_event_viewed
   - file_signature_event_expired
+  # Live mode resource signals
+  - github_pr_opened
+  - github_pr_merged
+  - github_pr_closed
+  - github_push
+  - github_release
+  - github_issue_opened
+  - github_issue_closed
+  - figma_file_updated
+  - gdrive_doc_updated
+  - linear_issue_updated
+  - slack_message_received
+  - resource_activity
 
 templates:
   - keeper

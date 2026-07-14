@@ -1,0 +1,49 @@
+name: Communication
+slug: communication
+description: Email intelligence, inbox triage, and behavioral learning
+icon: mail
+color: amber
+
+memory_types:
+  - capture
+
+signals:
+  # Core capture signals
+  - capture_email_received
+  - capture_email_sent
+  - capture_processed
+  # Email intelligence signals
+  - email_urgency_high
+  - email_deadline_mentioned
+  - email_money_amount_detected
+  - email_invoice_attached
+  - email_payment_link_detected
+  - email_question_asked
+  - email_action_requested
+  # Sender signals
+  - sender_first_contact
+  - sender_reply_expected
+  - sender_high_engagement
+  - sender_vip
+  # Thread signals
+  - thread_stale_48h
+  - thread_awaiting_reply
+  # Classification signals
+  - email_classified_action_required
+  - email_classified_money_moves
+  - email_classified_opportunities
+  - email_classified_updates
+  - email_classified_subscribed
+  - email_classified_noise
+  # Behavioral feedback signals
+  - email_archived_fast
+  - email_archived_unread
+  - email_replied_fast
+  - email_snoozed
+  - email_marked_important
+  - email_training_more_like_this
+  - email_training_less_like_this
+
+templates:
+  - email-triage
+  - email-digest

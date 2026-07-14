@@ -171,6 +171,12 @@ export interface ConnectorApiKeyForm {
   extraFields?: readonly ConnectorApiKeyExtraField[];
 }
 
+/** External link displayed in the connector detail sidebar. */
+export interface ConnectorLink {
+  label: string;
+  href: string;
+}
+
 export interface ConnectorDefinition {
   id: ConnectorCatalogId;
   /** workspace_integrations.provider when persisted */
@@ -194,6 +200,12 @@ export interface ConnectorDefinition {
    * WABA ID on Composio's hosted page).
    */
   connectHelp?: string;
+  /** Short tagline describing what the connector does. */
+  tagline?: string;
+  /** Company/org that developed the connector (e.g. "Google", "Stripe"). */
+  developedBy?: string;
+  /** External links (Website, Documentation, Support). */
+  links?: ConnectorLink[];
 }
 
 export interface ConnectorRuntimeStatus {
@@ -231,7 +243,7 @@ export interface ConnectorActivityEntry {
   createdAt: string;
 }
 
-export type ConnectorTrustLevel = "read_only" | "act_with_approval";
+export type ConnectorTrustLevel = "read_only" | "act_with_approval" | "trust";
 export type ConnectorEmailMode = "draft" | "send";
 
 export interface ConnectorTrustSettings {

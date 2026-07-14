@@ -55,7 +55,11 @@ function stepIsError(state: ToolPartState): boolean {
 }
 
 function stepIsDone(state: ToolPartState): boolean {
-  return state === "output-available" || state === "approval-responded";
+  return state === "output-available";
+}
+
+function stepIsExecuting(state: ToolPartState): boolean {
+  return state === "approval-responded";
 }
 
 function buildDisplaySteps(parts: ToolLikePart[]): DisplayStep[] {
@@ -70,7 +74,8 @@ function buildDisplaySteps(parts: ToolLikePart[]): DisplayStep[] {
       last.label === label &&
       stepIsDone(effectiveState(last.part)) &&
       stepIsDone(state) &&
-      state !== "approval-requested";
+      state !== "approval-requested" &&
+      !stepIsExecuting(state);
 
     if (canMerge) {
       last.count += 1;
@@ -90,7 +95,7 @@ function buildDisplaySteps(parts: ToolLikePart[]): DisplayStep[] {
 }
 
 function StepStatus({ state }: { state: ToolPartState }) {
-  if (stepIsRunning(state)) {
+  if (stepIsRunning(state) || stepIsExecuting(state)) {
     return (
       <span className="grid size-5 shrink-0 place-items-center rounded-full bg-muted">
         <Loader2 className="size-3 animate-spin text-muted-foreground" />
@@ -188,6 +193,12 @@ function ThoughtStep({
             onDeny={() => onApproval(approvalId, false)}
           />
         ) : null}
+
+        {stepIsExecuting(state) ? (
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            Executing…
+          </p>
+        ) : null}
       </div>
     </li>
   );
@@ -211,20 +222,30 @@ export function MessageThoughtProcess({
   const hasError = parts.some((part) => stepIsError(effectiveState(part)));
   const [open, setOpen] = React.useState(false);
 
+  const hasExecuting = parts.some((part) => stepIsExecuting(effectiveState(part)));
+
   React.useEffect(() => {
-    if (needsApproval || hasError) {
+    if (needsApproval || hasError || hasExecuting) {
       setOpen(true);
     }
-  }, [needsApproval, hasError]);
+  }, [needsApproval, hasError, hasExecuting]);
 
-  const doneCount = parts.filter((part) => stepIsDone(effectiveState(part))).length;
+  const executingCount = parts.filter((part) => stepIsExecuting(effectiveState(part))).length;
+  const hasInFlight = parts.some((part) => {
+    const state = effectiveState(part);
+    return stepIsRunning(state) || stepIsExecuting(state);
+  });
   const stepCount = displaySteps.length;
-  const isWorking = isStreaming && doneCount < parts.length;
+  // Keep "Thinking…" visible for the full assistant turn — including after tools
+  // finish while the model is still streaming the reply.
+  const isWorking = isStreaming || hasInFlight;
   const stepLabel =
     stepCount === 1 ? "1 step" : `${stepCount} steps`;
   const collapsedSummary = hasError
     ? `${stepLabel} · 1 issue`
-    : stepLabel;
+    : executingCount > 0
+      ? `${stepLabel} · Executing`
+      : stepLabel;
 
   return (
     <Collapsible
@@ -236,8 +257,9 @@ export function MessageThoughtProcess({
       <CollapsibleTrigger className="group/thought inline-flex max-w-full items-center gap-1.5 rounded-full border border-border/55 bg-muted/35 px-3 py-1.5 text-left text-xs font-medium text-muted-foreground transition hover:border-border hover:bg-muted/55 hover:text-foreground">
         {!open && isWorking ? (
           <>
+            <Loader2 className="size-3 shrink-0 animate-spin" />
             <Shimmer className="shrink-0 font-medium" duration={1.4}>
-              Thinking…
+              {executingCount > 0 ? "Executing…" : "Thinking…"}
             </Shimmer>
             <span aria-hidden className="text-muted-foreground/50">
               ·

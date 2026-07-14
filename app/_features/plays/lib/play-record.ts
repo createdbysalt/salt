@@ -51,8 +51,10 @@ export interface SourceContext {
 
 export interface CreatePlayRecordInput {
   workspaceId: string;
-  playerId?: string;
-  playerSlug?: string;
+  /** @deprecated Players retired 2026-07-13; use playbookSlug for attribution */
+  playerId?: never;
+  /** @deprecated Players retired 2026-07-13; use playbookSlug for attribution */
+  playerSlug?: never;
   playbookSlug?: string;
   title: string;
   preview?: string;
@@ -206,24 +208,12 @@ export async function createPlayRecord(
     state = "ran";
   }
 
-  // Get player_id from slug if needed
-  let playerId = input.playerId;
-  if (!playerId && input.playerSlug) {
-    const { data: player } = await admin
-      .from("players")
-      .select("id")
-      .eq("workspace_id", input.workspaceId)
-      .eq("slug", input.playerSlug)
-      .single();
-    playerId = player?.id;
-  }
-
   // Insert play run
+  // Note: player_id is deprecated (2026-07-13). Players replaced by sections.
   const { data: playRun, error } = await admin
     .from("play_runs")
     .insert({
       workspace_id: input.workspaceId,
-      player_id: playerId,
       title: input.title,
       preview: input.preview,
       channel: input.channel,

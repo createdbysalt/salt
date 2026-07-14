@@ -1,0 +1,50 @@
+# Email Digest
+# Batches low-priority emails into a daily digest.
+# ACT layer — creates digest notification.
+
+name: Email Digest
+slug: email-digest
+version: 1.0.0
+description: Batch low-priority emails into a daily digest
+
+section: communication
+layer: act
+voice: brief
+
+trigger:
+  type: schedule
+  cron: "0 18 * * *"
+
+steps:
+  - step: fetch
+    id: pending_digests
+    from: capture.batch_digest_emails
+    where:
+      hours: 24
+      limit: 50
+
+  - step: draft
+    id: digest_content
+    prompt: |
+      Create a digest summary of these batched emails.
+      Group by category and list subject + sender.
+      Total count: {{pending_digests.length}}
+    max_tokens: 500
+
+output:
+  type: briefing
+  approval: none
+
+value:
+  kind: time_saved
+  estimate: 5
+
+instructions:
+  system: |
+    Create a daily digest of low-priority emails that were batched.
+    Post the digest to HQ feed at 6pm daily.
+  guidelines:
+    - Query emails where triage_action = batch_digest from last 24 hours
+    - Group emails by category
+    - Create a readable summary with counts
+    - Post to HQ feed with "View All" action
