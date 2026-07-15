@@ -2,6 +2,11 @@ import "server-only";
 
 import { cache } from "react";
 import { listQueueFindings } from "@/app/_features/capture/queries/intelligence-findings";
+import {
+  listTodayMeetings,
+  meetingDisplayLabel,
+} from "@/app/_features/meetings/queries";
+import { getConnectionStatus } from "@/app/_lib/composio/connections";
 import { getWorkspaceContext } from "@/app/_lib/utils/user-dashboard";
 import {
   buildSparkline,
@@ -97,37 +102,23 @@ async function loadMomentum(workspaceId: string): Promise<HqSideRailData["moment
   };
 }
 
-async function loadTodaySchedule(workspaceId: string): Promise<HqScheduleItem[]> {
-  const { supabase } = await getWorkspaceContext();
+async function loadTodaySchedule(): Promise<HqScheduleItem[]> {
+  const meetings = await listTodayMeetings();
   const now = new Date();
-  const todayStart = startOfDay(now);
-  const tomorrow = new Date(todayStart);
-  tomorrow.setDate(todayStart.getDate() + 1);
 
-  const { data } = await supabase
-    .from("meetings")
-    .select("id, title, start_time, end_time, people:person_id(name), organizations:organization_id(name)")
-    .eq("workspace_id", workspaceId)
-    .eq("status", "scheduled")
-    .gte("start_time", todayStart.toISOString())
-    .lt("start_time", tomorrow.toISOString())
-    .order("start_time", { ascending: true })
-    .limit(6);
-
-  return (data ?? []).map((row) => {
-    const start = new Date(row.start_time as string);
-    const end = new Date((row.end_time as string | null) ?? start.getTime() + 30 * 60_000);
-    const person = row.people as unknown as { name: string } | null;
-    const org = row.organizations as unknown as { name: string } | null;
+  return meetings.map((meeting) => {
+    const start = new Date(meeting.startTime);
+    const end = new Date(meeting.endTime);
     const minutesUntil = (start.getTime() - now.getTime()) / 60_000;
 
     return {
+      id: meeting.id,
       time: formatClockTime(start),
-      title: row.title as string,
-      who: person?.name ?? org?.name ?? "Meeting",
+      title: meeting.title,
+      who: meetingDisplayLabel(meeting),
       dur: formatDurationMinutes(start, end),
       hot: minutesUntil >= 0 && minutesUntil <= 120,
-      href: `/meetings`,
+      href: `/meetings/${meeting.id}`,
     };
   });
 }
@@ -147,13 +138,21 @@ async function loadHeadsUp(): Promise<HqHeadsUpItem[]> {
 
 export const loadHqSideRailData = cache(async (): Promise<HqSideRailData> => {
   const { studio } = await getWorkspaceContext();
-  const [momentum, schedule, headsUp] = await Promise.all([
+  const [momentum, schedule, headsUp, calendarStatus] = await Promise.all([
     loadMomentum(studio.id),
-    loadTodaySchedule(studio.id),
+    loadTodaySchedule(),
     loadHeadsUp(),
+    getConnectionStatus("googlecalendar", studio.id),
   ]);
 
-  return { momentum, schedule, headsUp };
+  return {
+    momentum,
+    schedule,
+    headsUp,
+    scheduleContext: {
+      hasCalendarConnected: calendarStatus.connected,
+    },
+  };
 });
 
 async function loadRevenueStats(workspaceId: string): Promise<HqRevenueStats> {

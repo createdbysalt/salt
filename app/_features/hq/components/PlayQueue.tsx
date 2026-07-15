@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type Ref } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   AnimatePresence,
   motion,
@@ -10,7 +11,6 @@ import {
 } from "framer-motion";
 import {
   ArrowUpRight,
-  Calendar,
   CheckCircle2,
   Clock,
   Edit3,
@@ -26,13 +26,19 @@ import {
   HQ_QUEUE_CHANNEL,
   HQ_QUEUE_TONE_SOFT,
   type HqQueueChannel,
-  type HqQueuePlay,
 } from "@/app/_lib/demo/hq-play-queue";
-import type { HqQueuePlayView } from "@/app/_features/plays/types";
+import type { PlayCardViewModel } from "@/app/_features/plays/play-card/types";
 import {
   approvePlayRun,
+  applyKeeperPlayRun,
   dismissPlayRun,
 } from "@/app/_features/plays/actions";
+import {
+  actOnFinding,
+  applyKeeperProfileFinding,
+  applyMemoryPlan,
+  dismissFinding,
+} from "@/app/_features/capture/actions/intelligence-findings";
 import {
   ApproveCelebration,
   useApproveCelebration,
@@ -56,15 +62,28 @@ function stackMotion(stackIndex: number) {
   };
 }
 
-function SourceStack({
-  channel,
-  channels,
-}: {
-  channel: HqQueueChannel;
-  channels?: HqQueueChannel[];
-}) {
-  const stack = channels ?? [channel];
-  const label = stack.map((key) => HQ_QUEUE_CHANNEL[key].label).join(" · ");
+function mapQueueChannel(channel: string | null): HqQueueChannel {
+  const allowed: HqQueueChannel[] = ["Gmail", "Slack", "Notion", "Memory", "Stripe"];
+  if (channel && allowed.includes(channel as HqQueueChannel)) {
+    return channel as HqQueueChannel;
+  }
+  return "Memory";
+}
+
+function formatEta(vm: PlayCardViewModel): string {
+  if (vm.ageMinutes != null) {
+    return `${vm.ageMinutes}m ago`;
+  }
+  return "Ready to review";
+}
+
+function formatRecipient(vm: PlayCardViewModel): string {
+  if (!vm.targetLabel) return "Ready to review";
+  return `${vm.targetPrefix} ${vm.targetLabel}`;
+}
+
+function SourceStack({ channel }: { channel: HqQueueChannel }) {
+  const { Icon, color, label } = HQ_QUEUE_CHANNEL[channel];
 
   return (
     <span
@@ -75,17 +94,9 @@ function SourceStack({
         <span className="grid size-5 place-items-center overflow-hidden rounded-full bg-card ring-1 ring-border/60">
           <img src={SALT_ICON_PATH} alt="Salt" className="size-3.5" />
         </span>
-        {stack.map((key) => {
-          const { Icon, color } = HQ_QUEUE_CHANNEL[key];
-          return (
-            <span
-              key={key}
-              className="grid size-5 place-items-center rounded-full bg-card ring-1 ring-border/60"
-            >
-              <Icon className="size-3" style={{ color }} />
-            </span>
-          );
-        })}
+        <span className="grid size-5 place-items-center rounded-full bg-card ring-1 ring-border/60">
+          <Icon className="size-3" style={{ color }} />
+        </span>
       </span>
       <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
         {label}
@@ -94,8 +105,14 @@ function SourceStack({
   );
 }
 
-export function PlayQueue({ initialPlays }: { initialPlays: HqQueuePlayView[] }) {
-  const [plays] = useState<HqQueuePlay[]>(initialPlays);
+type PlayQueueProps = {
+  initialCards: PlayCardViewModel[];
+  streakDays?: number;
+};
+
+export function PlayQueue({ initialCards, streakDays = 0 }: PlayQueueProps) {
+  const router = useRouter();
+  const [cards] = useState(initialCards);
   const [statuses, setStatuses] = useState<Record<string, Status>>({});
   const [combo, setCombo] = useState(0);
   const [comboKey, setComboKey] = useState(0);
@@ -104,36 +121,108 @@ export function PlayQueue({ initialPlays }: { initialPlays: HqQueuePlayView[] })
   const { burst, fireCelebration } = useApproveCelebration();
   const reduceMotion = useReducedMotion();
 
-  const visible = plays.filter((play) => {
-    const status = statuses[play.id];
+  const visible = cards.filter((card) => {
+    const status = statuses[card.id];
     return status !== "approved" && status !== "skipped";
   });
 
+  const handlePrimary = useCallback(
+    (vm: PlayCardViewModel, source?: HTMLElement | null) => {
+      const action = vm.primaryAction;
+      if (!action) return;
+
+      setStatuses((current) => (current[vm.id] ? current : { ...current, [vm.id]: "approved" }));
+      if (source) fireCelebration(source);
+
+      if (action.kind === "approve_send" && vm.provenance.source === "play_run") {
+        const { playRunId } = vm.provenance;
+        void approvePlayRun(playRunId).then(() => router.refresh());
+        setCombo((current) => {
+          const next = current + 1;
+          setComboKey((key) => key + 1);
+          return next;
+        });
+        if (comboTimer.current) clearTimeout(comboTimer.current);
+        comboTimer.current = setTimeout(() => setCombo(0), 4000);
+        toast.success(action.label, {
+          description: "Salt will finish this on Plays after you confirm.",
+        });
+        return;
+      }
+
+      if (action.kind === "apply_memory" && vm.provenance.source === "play_run") {
+        const { playRunId } = vm.provenance;
+        void (async () => {
+          const result = await applyKeeperPlayRun(playRunId);
+          if (result.success) {
+            toast.success(action.label);
+            router.refresh();
+          } else {
+            toast.error(result.error ?? "Could not apply");
+            setStatuses((current) => {
+              const next = { ...current };
+              delete next[vm.id];
+              return next;
+            });
+          }
+        })();
+        return;
+      }
+
+      if (vm.provenance.source === "finding") {
+        const { findingId, apply } = vm.provenance;
+        void (async () => {
+          const result =
+            apply === "keeper_profile"
+              ? await applyKeeperProfileFinding(findingId)
+              : apply === "memory_plan"
+                ? await applyMemoryPlan(findingId)
+                : await actOnFinding(findingId);
+          if (result.success) {
+            setCombo((current) => {
+              const next = current + 1;
+              setComboKey((key) => key + 1);
+              return next;
+            });
+            if (comboTimer.current) clearTimeout(comboTimer.current);
+            comboTimer.current = setTimeout(() => setCombo(0), 4000);
+            toast.success(action.label);
+            router.refresh();
+          } else {
+            toast.error(result.error ?? "Could not apply");
+            setStatuses((current) => {
+              const next = { ...current };
+              delete next[vm.id];
+              return next;
+            });
+          }
+        })();
+      }
+    },
+    [fireCelebration, router],
+  );
+
   const act = useCallback(
-    (id: string, action: "approved" | "skipped", source?: HTMLElement | null) => {
-    setStatuses((current) => (current[id] ? current : { ...current, [id]: action }));
+    (vm: PlayCardViewModel, action: "approved" | "skipped", source?: HTMLElement | null) => {
+      if (action === "approved") {
+        handlePrimary(vm, source);
+        return;
+      }
 
-    if (action === "approved") {
-      void approvePlayRun(id);
-      fireCelebration(source ?? approveBtnRefs.current.get(id) ?? null);
-      setCombo((current) => {
-        const next = current + 1;
-        setComboKey((key) => key + 1);
-        return next;
-      });
-      if (comboTimer.current) clearTimeout(comboTimer.current);
-      comboTimer.current = setTimeout(() => setCombo(0), 4000);
-      toast.success("Approved", {
-        description: "Salt will finish this on Plays after you confirm.",
-      });
-      return;
-    }
+      setStatuses((current) => (current[vm.id] ? current : { ...current, [vm.id]: action }));
 
-    void dismissPlayRun(id);
-    setCombo(0);
-    toast("Dismissed", { description: "Removed from your HQ queue." });
-  },
-    [fireCelebration]
+      if (vm.provenance.source === "play_run") {
+        const { playRunId } = vm.provenance;
+        void dismissPlayRun(playRunId).then(() => router.refresh());
+      } else {
+        const { findingId } = vm.provenance;
+        void dismissFinding(findingId).then(() => router.refresh());
+      }
+
+      setCombo(0);
+      toast("Dismissed", { description: "Removed from your HQ queue." });
+    },
+    [handlePrimary, router],
   );
 
   useEffect(() => {
@@ -155,10 +244,10 @@ export function PlayQueue({ initialPlays }: { initialPlays: HqQueuePlayView[] })
 
       if (key === "a" || key === "enter") {
         event.preventDefault();
-        act(current.id, "approved", approveBtnRefs.current.get(current.id) ?? null);
+        act(current, "approved", approveBtnRefs.current.get(current.id) ?? null);
       } else if (key === "d" || key === "x" || key === "backspace") {
         event.preventDefault();
-        act(current.id, "skipped");
+        act(current, "skipped");
       }
     }
 
@@ -167,9 +256,8 @@ export function PlayQueue({ initialPlays }: { initialPlays: HqQueuePlayView[] })
   }, [visible, act]);
 
   const totalDone = Object.keys(statuses).length;
-  const stackedPlays = visible.slice(0, STACK_MAX_VISIBLE);
-  const stackDepth = Math.max(0, stackedPlays.length - 1);
-  const hiddenQueueCount = Math.max(0, visible.length - STACK_MAX_VISIBLE);
+  const stackedCards = visible.slice(0, STACK_MAX_VISIBLE);
+  const stackDepth = Math.max(0, stackedCards.length - 1);
 
   const emptyVariants: Variants = reduceMotion
     ? { initial: { opacity: 1 }, animate: { opacity: 1 } }
@@ -214,7 +302,7 @@ export function PlayQueue({ initialPlays }: { initialPlays: HqQueuePlayView[] })
           <div className="mb-1 flex items-center gap-2">
             <span id="play-queue-heading" className="chip flex items-center gap-1.5">
               <Sparkles className="size-3.5 text-flame" strokeWidth={2.5} />
-              Plays ready
+              Needs you
             </span>
             <AnimatePresence>
               {combo > 0 && (
@@ -234,12 +322,14 @@ export function PlayQueue({ initialPlays }: { initialPlays: HqQueuePlayView[] })
         <div className="flex items-center gap-3">
           <div className="hidden items-center gap-1.5 text-[11px] text-muted-foreground md:flex">
             <span className="kbd">A</span> approve
-            <span className="kbd ml-2">S</span> schedule
             <span className="kbd ml-2">D</span> dismiss
           </div>
-          <span className="flex items-center gap-1 text-sm font-medium text-muted-foreground tabular-nums">
-            {totalDone}/{plays.length} <ArrowUpRight className="size-3.5" />
-          </span>
+          <Link
+            href="/plays"
+            className="flex items-center gap-1 text-sm font-medium text-muted-foreground transition hover:text-foreground tabular-nums"
+          >
+            {totalDone}/{cards.length} <ArrowUpRight className="size-3.5" />
+          </Link>
         </div>
       </header>
 
@@ -253,17 +343,19 @@ export function PlayQueue({ initialPlays }: { initialPlays: HqQueuePlayView[] })
         }}
       >
         <AnimatePresence mode="popLayout" initial={false}>
-          {stackedPlays.map((play, stackIndex) => {
+          {stackedCards.map((card, stackIndex) => {
             const isTop = stackIndex === 0;
-            const status = statuses[play.id];
+            const status = statuses[card.id];
             const exitX = status === "approved" ? 120 : status === "skipped" ? -120 : 0;
-            const player = getHqQueuePlayer(play.playerId);
+            const player = getHqQueuePlayer(card.playerSlug);
             const PlayerIcon = player.icon;
             const stackStyle = stackMotion(stackIndex);
+            const channel = mapQueueChannel(card.channel);
+            const primaryLabel = card.primaryAction?.label ?? "Approve";
 
             return (
               <motion.article
-                key={play.id}
+                key={card.id}
                 layout
                 initial={
                   reduceMotion
@@ -313,26 +405,34 @@ export function PlayQueue({ initialPlays }: { initialPlays: HqQueuePlayView[] })
                         </span>
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-1.5 text-[13px] leading-tight">
-                            <span className="font-semibold tracking-tight">{player.name}</span>
+                            <span className="font-semibold tracking-tight">
+                              {card.sectionLabel ?? player.name}
+                            </span>
                             <span className="text-muted-foreground">·</span>
-                            <span className="text-muted-foreground">{play.playbook}</span>
+                            <span className="text-muted-foreground">
+                              {card.playbookName ?? "Play"}
+                            </span>
                           </div>
                           <p className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground">
-                            <Clock className="size-3" /> {play.eta}
+                            <Clock className="size-3" /> {formatEta(card)}
                           </p>
                         </div>
                       </div>
-                      <SourceStack channel={play.channel} channels={play.channels} />
+                      <SourceStack channel={channel} />
                     </div>
 
                     <div className="relative">
                       <h3 className="text-[17px] font-semibold leading-snug tracking-tight">
-                        {play.title}
+                        {card.subject}
                       </h3>
-                      <p className="mt-1.5 text-[12px] text-muted-foreground">To {play.recipient}</p>
-                      <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
-                        {play.preview}
+                      <p className="mt-1.5 text-[12px] text-muted-foreground">
+                        {formatRecipient(card)}
                       </p>
+                      {card.preview ? (
+                        <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
+                          {card.preview}
+                        </p>
+                      ) : null}
                     </div>
 
                     <footer className="relative mt-5 flex flex-wrap items-center justify-between gap-3">
@@ -344,20 +444,9 @@ export function PlayQueue({ initialPlays }: { initialPlays: HqQueuePlayView[] })
                       </Link>
                       <div className="ml-auto inline-flex items-center gap-1 rounded-2xl border border-border/50 bg-muted/60 p-1">
                         <IconActionButton
-                          label="Schedule"
-                          shortcut="S"
-                          onClick={() =>
-                            toast("Scheduled", {
-                              description: `${play.title} — pick a time on Plays`,
-                            })
-                          }
-                        >
-                          <Calendar className="size-[18px]" strokeWidth={1.75} />
-                        </IconActionButton>
-                        <IconActionButton
                           label="Dismiss"
                           shortcut="D"
-                          onClick={() => act(play.id, "skipped")}
+                          onClick={() => act(card, "skipped")}
                         >
                           <X className="size-[18px]" strokeWidth={1.75} />
                         </IconActionButton>
@@ -375,18 +464,18 @@ export function PlayQueue({ initialPlays }: { initialPlays: HqQueuePlayView[] })
                         <motion.button
                           type="button"
                           ref={(el) => {
-                            if (el) approveBtnRefs.current.set(play.id, el);
-                            else approveBtnRefs.current.delete(play.id);
+                            if (el) approveBtnRefs.current.set(card.id, el);
+                            else approveBtnRefs.current.delete(card.id);
                           }}
-                          onClick={(event) => act(play.id, "approved", event.currentTarget)}
+                          onClick={(event) => act(card, "approved", event.currentTarget)}
                           whileHover={!reduceMotion ? { scale: 1.02, y: -1 } : undefined}
                           whileTap={!reduceMotion ? { scale: 0.96 } : undefined}
                           transition={SPRING}
                           className="ml-1 inline-flex h-9 items-center gap-1.5 rounded-xl bg-foreground px-4 text-[13px] font-semibold text-background transition hover:opacity-90"
-                          aria-label="Approve and send"
+                          aria-label={primaryLabel}
                         >
                           <CheckCircle2 className="size-4" strokeWidth={2} />
-                          Approve &amp; send
+                          {primaryLabel}
                         </motion.button>
                       </div>
                     </footer>
@@ -402,12 +491,6 @@ export function PlayQueue({ initialPlays }: { initialPlays: HqQueuePlayView[] })
             );
           })}
         </AnimatePresence>
-
-        {hiddenQueueCount > 0 && (
-          <p className="absolute bottom-0 left-1 px-1 text-[11px] font-medium text-muted-foreground">
-            +{hiddenQueueCount} more in queue
-          </p>
-        )}
 
         {visible.length === 0 && (
           <motion.div
@@ -427,8 +510,16 @@ export function PlayQueue({ initialPlays }: { initialPlays: HqQueuePlayView[] })
             </motion.div>
             <p className="font-display text-2xl tracking-tight">Inbox zero, momentum max.</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Streak +1 · Salt&apos;s drafting tomorrow&apos;s queue.
+              {streakDays > 0
+                ? `Streak +${streakDays} · Salt's drafting tomorrow's queue.`
+                : "Queue clear on Plays — Salt's drafting tomorrow's queue."}
             </p>
+            <Link
+              href="/plays"
+              className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-foreground underline hover:no-underline"
+            >
+              Open Plays queue <ArrowUpRight className="size-3.5" />
+            </Link>
           </motion.div>
         )}
       </div>

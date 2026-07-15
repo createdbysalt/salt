@@ -580,6 +580,47 @@ export const getMeetingActivity = cache(
 // List queries (for the directory table)
 // ============================================================================
 
+export function meetingDisplayLabel(meeting: MeetingDetailRecord): string {
+  if (meeting.person?.name) return meeting.person.name;
+  if (meeting.org?.name) return meeting.org.name;
+  const clientAttendee = meeting.attendees.find((attendee) => attendee.role === "client");
+  if (clientAttendee?.name) return clientAttendee.name;
+  if (meeting.attendees[0]?.name) return meeting.attendees[0].name;
+  return "Meeting";
+}
+
+function startOfLocalDay(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+/** Scheduled meetings starting today — same source as /meetings, filtered for HQ side rail. */
+export const listTodayMeetings = cache(async (): Promise<MeetingDetailRecord[]> => {
+  const { workspace, supabase } = await getWorkspaceContext();
+  const now = new Date();
+  const todayStart = startOfLocalDay(now);
+  const tomorrow = new Date(todayStart);
+  tomorrow.setDate(todayStart.getDate() + 1);
+
+  const { data, error } = await supabase
+    .from("meetings")
+    .select(MEETING_SELECT)
+    .eq("workspace_id", workspace.id)
+    .is("deleted_at", null)
+    .is("archived_at", null)
+    .eq("status", "scheduled")
+    .gte("start_time", todayStart.toISOString())
+    .lt("start_time", tomorrow.toISOString())
+    .order("start_time", { ascending: true })
+    .limit(6);
+
+  if (error) {
+    console.error("Error fetching today's meetings:", error.message, error.code, error.hint, error.details);
+    throw error;
+  }
+
+  return (data ?? []).map((row) => mapMeetingRow(row as Record<string, unknown>));
+});
+
 export const getMeetings = cache(async (): Promise<MeetingDetailRecord[]> => {
   const { workspace, supabase } = await getWorkspaceContext();
 

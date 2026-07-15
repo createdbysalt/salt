@@ -1,12 +1,13 @@
 export type HqEventTone = "flame" | "sky" | "violet" | "muted";
 
 export type HqScheduleItem = {
+  id: string;
   time: string;
   title: string;
   who: string;
   dur: string;
   hot?: boolean;
-  href?: string;
+  href: string;
 };
 
 export type HqHeadsUpItem = {
@@ -27,6 +28,9 @@ export type HqSideRailData = {
   momentum: HqMomentumData;
   schedule: HqScheduleItem[];
   headsUp: HqHeadsUpItem[];
+  scheduleContext: {
+    hasCalendarConnected: boolean;
+  };
 };
 
 export type HqRevenueStats = {

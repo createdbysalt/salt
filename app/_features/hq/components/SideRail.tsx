@@ -9,7 +9,7 @@ type Props = {
 };
 
 export function SideRail({ data }: Props) {
-  const { momentum, schedule, headsUp } = data;
+  const { momentum, schedule, headsUp, scheduleContext } = data;
 
   return (
     <aside className="space-y-3">
@@ -73,38 +73,47 @@ export function SideRail({ data }: Props) {
         <ul className="space-y-1">
           {schedule.length === 0 ? (
             <li className="px-2 py-3 text-sm text-muted-foreground">
-              Connect calendar to see today&apos;s meetings.
+              {scheduleContext.hasCalendarConnected ? (
+                <>
+                  No meetings on your calendar today.{" "}
+                  <Link href="/meetings" className="font-medium text-foreground hover:underline">
+                    View all meetings
+                  </Link>
+                </>
+              ) : (
+                <>
+                  Connect calendar to sync today&apos;s meetings.{" "}
+                  <Link
+                    href="?settings=connectors"
+                    className="font-medium text-foreground hover:underline"
+                  >
+                    Connect Google Calendar
+                  </Link>
+                </>
+              )}
             </li>
           ) : null}
           {schedule.map((item) => (
-            <li
-              key={`${item.time}-${item.title}`}
-              className="group relative -mx-2 flex cursor-pointer gap-4 rounded-xl px-2 py-2.5 transition hover:bg-muted/60"
-            >
-              <div className="w-12 shrink-0 pt-0.5">
-                <p className="text-sm font-semibold tabular-nums">{item.time}</p>
-                <p className="text-[10px] text-muted-foreground">{item.dur}</p>
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5">
-                  <p className="truncate text-sm font-medium leading-tight">{item.title}</p>
-                  {item.hot ? (
-                    <span className="size-1.5 animate-pulse-glow rounded-full bg-flame" />
-                  ) : null}
+            <li key={item.id}>
+              <Link
+                href={item.href}
+                className="group relative -mx-2 flex gap-4 rounded-xl px-2 py-2.5 transition hover:bg-muted/60"
+              >
+                <div className="w-12 shrink-0 pt-0.5">
+                  <p className="text-sm font-semibold tabular-nums">{item.time}</p>
+                  <p className="text-[10px] text-muted-foreground">{item.dur}</p>
                 </div>
-                <p className="mt-0.5 text-[11px] text-muted-foreground">{item.who}</p>
-              </div>
-              {item.href ? (
-                <Link
-                  href={item.href}
-                  className="grid shrink-0 self-center place-items-center"
-                  aria-label={`Open ${item.title}`}
-                >
-                  <ArrowUpRight className="size-3.5 text-muted-foreground opacity-0 transition group-hover:opacity-100" />
-                </Link>
-              ) : (
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <p className="truncate text-sm font-medium leading-tight">{item.title}</p>
+                    {item.hot ? (
+                      <span className="size-1.5 animate-pulse-glow rounded-full bg-flame" />
+                    ) : null}
+                  </div>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">{item.who}</p>
+                </div>
                 <ArrowUpRight className="size-3.5 shrink-0 self-center text-muted-foreground opacity-0 transition group-hover:opacity-100" />
-              )}
+              </Link>
             </li>
           ))}
         </ul>
