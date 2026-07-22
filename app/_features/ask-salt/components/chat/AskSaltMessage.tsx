@@ -17,6 +17,7 @@ import { ArtifactCard, extractSavedArtifacts } from "./artifact-card";
 import { AskSaltRecordDeck } from "./AskSaltRecordDeck";
 import { MessageContent, MessageResponse } from "./message";
 import { MessageThoughtProcess } from "./MessageThoughtProcess";
+import { TextWithMentions } from "./MentionPill";
 import { Shimmer } from "./shimmer";
 import type { ToolPartState } from "./tool";
 
@@ -142,7 +143,7 @@ export function AskSaltMessage({
           )}
           {text ? (
             <div className="whitespace-pre-wrap rounded-2xl rounded-br-md bg-foreground px-3.5 py-2.5 text-[13px] leading-relaxed text-background">
-              {text}
+              <TextWithMentions text={text} />
             </div>
           ) : null}
         </div>

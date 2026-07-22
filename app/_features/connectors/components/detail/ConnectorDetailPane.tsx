@@ -995,7 +995,7 @@ export function ConnectorDetailPane({
         <aside className="space-y-6 lg:sticky lg:top-6">
           <section className="scroll-mt-6">
             <ConnectorPermissionsSection
-              isGmail={connectorId === "google"}
+              isEmailProvider={connectorId === "google" || connectorId === "outlook"}
               connected={connected}
               settings={localTrustSettings}
               saving={savingTrust}

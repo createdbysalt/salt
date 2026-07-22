@@ -150,24 +150,46 @@ export async function loadAskSaltComposioToolsDetailed(
         .filter(([, authConfigId]) => authConfigId !== ""),
     );
 
-    // Load ALL tools from connected toolkits - Composio returns everything,
-    // filtering happens at wrap time via wrapComposioToolsForAskSalt() which
-    // enforces trust level, email mode, disabled tools, and blocks destructive.
-    console.log("[ask-salt] creating composio session", {
+    // Only load tools for PRIORITY toolkits to stay under context limits.
+    // Discovery tools (search_connector_tools + execute_connector_action)
+    // handle everything else via on-demand schema lookup.
+    const PRIORITY_TOOLKITS = [
+      "gmail",
+      "googlecalendar",
+      "googledrive",
+      "stripe",
+      "quickbooks",
+      "slack",
+    ];
+    const priorityToolkits = connectedToolkits.filter((t) =>
+      PRIORITY_TOOLKITS.includes(t),
+    );
+
+    console.log("[ask-salt] loading priority toolkit tools", {
       workspaceId,
-      connectedToolkits,
-      authConfigKeys: Object.keys(authConfigs),
+      connectedToolkits: connectedToolkits.length,
+      priorityToolkits,
     });
 
-    const session = await composio.create(workspaceId, {
-      toolkits: connectedToolkits,
-      authConfigs,
-      preload: { tools: "all" },
-    });
+    let tools: ToolSet = {};
+    if (priorityToolkits.length > 0) {
+      const priorityAuthConfigs = Object.fromEntries(
+        priorityToolkits
+          .map((toolkit) => [toolkit, authConfigs[toolkit]] as const)
+          .filter(([, id]) => id),
+      );
 
-    console.log("[ask-salt] session created, fetching tools...");
-    const tools = await session.tools();
-    console.log("[ask-salt] tools fetched", { toolCount: Object.keys(tools).length });
+      const session = await composio.create(workspaceId, {
+        toolkits: priorityToolkits,
+        authConfigs: priorityAuthConfigs,
+        preload: { tools: "all" },
+      });
+
+      tools = await session.tools();
+      console.log("[ask-salt] priority tools loaded", {
+        toolCount: Object.keys(tools).length,
+      });
+    }
     // #region agent log
     const rawKeys = Object.keys(tools);
     const googledocsRaw = rawKeys.filter((k) => k.toUpperCase().includes("GOOGLEDOCS"));

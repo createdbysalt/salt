@@ -636,7 +636,7 @@ const AUTH_CONFIG_IDS: Record<string, string> = {
 
   // Billing (Stripe uses API key auth config)
   stripe: "ac_X574CtxR9zWw",
-  quickbooks: "ac_vUqirBfZMIcK",
+  quickbooks: "ac_XDGLSE9KQU8y",
 
   // CRM
   hubspot: "ac_xnt7oRMMSIa2",

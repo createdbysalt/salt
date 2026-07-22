@@ -14,6 +14,7 @@ import {
   listAgentExposableToolSlugs,
   type ComposioToolPolicy,
 } from "./tool-policy";
+import { classifyToolByHeuristic } from "./tool-classification-heuristics";
 import {
   createPlayRecord,
   classifyStakes,
@@ -109,6 +110,29 @@ export function resolveComposioToolName(
 }
 
 /**
+ * Get policy for a tool slug, with heuristic fallback for unclassified tools.
+ * This enables new connectors to work immediately via pattern matching
+ * (QUICKBOOKS_GET_* → read, QUICKBOOKS_CREATE_* → mutating, etc.)
+ */
+function getPolicyWithHeuristicFallback(slug: string): ComposioToolPolicy | null {
+  const dbPolicy = getComposioToolPolicy(slug);
+  if (dbPolicy) return dbPolicy;
+
+  // Heuristic fallback only for known Ask Salt toolkits — router meta-tools
+  // (COMPOSIO_*) and other unknown prefixes stay dropped.
+  if (!providerForSlug(slug)) {
+    return null;
+  }
+
+  const heuristic = classifyToolByHeuristic(slug);
+  return {
+    slug,
+    risk: heuristic.risk,
+    requiresHumanConfirmation: heuristic.requiresHumanConfirmation,
+  };
+}
+
+/**
  * Registration-time policy: should this slug be offered to the agent at all?
  * Used for both the session preload list and the wrapped ToolSet so excluded
  * tools never even reach the model.
@@ -117,7 +141,7 @@ export function isAskSaltSlugAllowed(
   slug: string,
   options: AskSaltToolPolicyOptions,
 ): boolean {
-  const policy = getComposioToolPolicy(slug);
+  const policy = getPolicyWithHeuristicFallback(slug);
   if (!policy || policy.risk === "destructive") {
     return false;
   }
@@ -320,7 +344,7 @@ export function wrapComposioToolsForAskSalt(
     if (!isAskSaltSlugAllowed(name, options)) {
       continue;
     }
-    const policy = getComposioToolPolicy(name);
+    const policy = getPolicyWithHeuristicFallback(name);
     if (!policy) {
       continue;
     }
@@ -336,12 +360,18 @@ export function wrapComposioToolsForAskSalt(
     const isDraftTool = name === COMPOSIO_TOOL_SLUGS.GMAIL_CREATE_DRAFT ||
                         name === COMPOSIO_TOOL_SLUGS.OUTLOOK_CREATE_DRAFT;
 
+    // Ensure tool has 'parameters' (AI SDK expects it, Composio uses 'inputSchema')
+    const toolAny = enforcedTool as Record<string, unknown>;
+    const toolWithParams = toolAny.parameters
+      ? enforcedTool
+      : { ...enforcedTool, parameters: toolAny.inputSchema };
+
     const entry =
       trustLevel === "act_with_approval" && policy.risk === "mutating" && !isDraftTool
-        ? { ...enforcedTool, needsApproval: true as const }
+        ? { ...toolWithParams, needsApproval: true as const }
         : trustLevel === "trust" && policy.requiresHumanConfirmation
-          ? { ...enforcedTool, needsApproval: true as const }
-          : enforcedTool;
+          ? { ...toolWithParams, needsApproval: true as const }
+          : toolWithParams;
     wrapped[name] = entry;
 
     for (const alias of composioToolNameAliases(name)) {

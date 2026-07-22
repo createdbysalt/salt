@@ -195,9 +195,9 @@ export async function executeComposioAction<T, R>(
       const trust = provider
         ? connectorPolicy.trustByProvider[provider]
         : undefined;
-      if (trust !== "act_with_approval") {
+      if (trust !== "act_with_approval" && trust !== "trust") {
         throw new Error(
-          `Composio tool ${toolSlug} requires the connector to be set to "Act with approval" in connector settings`,
+          `Composio tool ${toolSlug} requires the connector to be set to "Ask" or "Trust" in Settings → Plays`,
         );
       }
       // Check email mode per provider (generic for all email providers)

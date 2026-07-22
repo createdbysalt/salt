@@ -1,0 +1,69 @@
+# Retainer Billing Automation
+# Generates monthly invoices for active retainers on billing day,
+# attaches engagement reports, and sends to billing contacts.
+
+name: Retainer Billing Automation
+slug: retainer-billing
+version: 1.0.0
+description: Auto-generates and sends monthly retainer invoices
+
+section: billing
+layer: act
+voice: billing
+
+trigger:
+  type: schedule
+  schedule: "0 9 1 * *"  # 9am on 1st of month
+
+requirements:
+  categories:
+    required:
+      - billing
+      - gmail
+  capabilities:
+    required:
+      - read_contracts
+      - create_invoice
+      - read_analytics
+      - send_email
+
+steps:
+  - step: fetch
+    id: active_retainers
+    from: billing.contracts
+    where:
+      type: retainer
+      status: active
+
+  - step: generate
+    id: invoice
+    forEach: active_retainers
+    from: billing.create_invoice
+    params:
+      amount: "{{retainer.monthly_amount}}"
+      due_date: "+30 days"
+
+  - step: compile
+    id: engagement_report
+    forEach: active_retainers
+    from: analytics.monthly_summary
+    params:
+      include_highlights: true
+      include_metrics: true
+
+  - step: send
+    id: deliver_invoice
+    forEach: active_retainers
+    to: "{{retainer.billing_contact}}"
+    cc: operator
+    subject: "{{month}} Invoice - {{client.name}}"
+    attachments:
+      - "{{invoice.pdf}}"
+      - "{{engagement_report.pdf}}"
+    include_payment_link: true
+
+output:
+  type: invoice_sent
+  approval: never
+
+stakes: low

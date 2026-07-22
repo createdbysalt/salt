@@ -1,0 +1,76 @@
+# Engagement Crisis Alert
+# Monitors social metrics for significant drops, analyzes root causes
+# by comparing to competitors, and builds recovery playbooks.
+
+name: Engagement Crisis Alert
+slug: engagement-crisis
+version: 1.0.0
+description: Detects engagement drops and drafts recovery plans
+
+section: work
+layer: act
+voice: strategy
+
+trigger:
+  type: signal
+  signal: engagement_drop_critical
+
+requirements:
+  categories:
+    required:
+      - instagram
+      - work
+  capabilities:
+    required:
+      - read_analytics
+      - competitor_tracking
+      - read_content_history
+
+steps:
+  - step: detect
+    id: engagement_drop
+    from: analytics.engagement_metrics
+    where:
+      week_over_week_change: "< -25%"
+
+  - step: analyze
+    id: competitor_comparison
+    from: analytics.competitor_posts
+    params:
+      count: 500
+      timeframe: 30_days
+
+  - step: diagnose
+    id: root_cause
+    prompt: |
+      Analyze the engagement drop for {{client.name}}.
+
+      Their metrics: {{engagement_drop}}
+      Competitor data: {{competitor_comparison}}
+
+      Identify:
+      1. Algorithm changes
+      2. Content strategy gaps
+      3. Posting pattern issues
+
+  - step: draft
+    id: recovery_plan
+    prompt: |
+      Create a 30-day recovery plan for {{client.name}}.
+
+      Root cause: {{root_cause}}
+
+      Structure:
+      - Week 1-2: Immediate pivots
+      - Week 3-4: New content strategy
+      - Ongoing: Monitoring cadence
+
+      Be specific and actionable.
+    max_tokens: 500
+
+output:
+  type: strategy_brief
+  approval: always
+
+stakes: high
+urgency: high

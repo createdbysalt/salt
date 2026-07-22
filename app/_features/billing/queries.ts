@@ -97,8 +97,7 @@ async function fetchBillingRelatedPlays(
       title,
       recipient_label,
       channel,
-      state,
-      players!play_runs_player_id_fkey ( slug, name )
+      state
     `,
     )
     .eq("workspace_id", workspace.id)
@@ -116,7 +115,6 @@ async function fetchBillingRelatedPlays(
   }
 
   return (data ?? []).map((row) => {
-    const player = Array.isArray(row.players) ? row.players[0] : row.players;
     const state =
       row.state === "scheduled"
         ? "scheduled"
@@ -129,13 +127,8 @@ async function fetchBillingRelatedPlays(
       subject: row.title as string,
       recipient: (row.recipient_label as string | null) ?? partyLabel,
       channel: (row.channel as string | null) ?? "Gmail",
-      playerName: (player?.name as string | null) ?? "Salt",
-      playerMonogram: ((player?.name as string | null) ?? "SA")
-        .split(" ")
-        .map((part) => part[0])
-        .join("")
-        .slice(0, 2)
-        .toUpperCase(),
+      playerName: "Salt",
+      playerMonogram: "SA",
       state,
     } satisfies BillingPlaySummary;
   });

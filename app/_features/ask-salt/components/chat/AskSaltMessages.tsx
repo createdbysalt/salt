@@ -128,19 +128,21 @@ export function AskSaltMessages({
         <div className={cn("space-y-5", centered && "mx-auto w-full max-w-2xl")}>
           {before}
 
-          {messages.map((message, index) => (
-            <AskSaltMessage
-              key={message.id}
-              message={message}
-              allMessages={messages}
-              isStreaming={
-                chatStatus === "streaming" && index === messages.length - 1
-              }
-              approvalsBusy={approvalsBusy}
-              onApproval={onApproval}
-              connectorSlot={index === messages.length - 1 ? connectorSlot : null}
-            />
-          ))}
+          {messages
+            .filter((msg, idx, arr) => arr.findIndex((m) => m.id === msg.id) === idx)
+            .map((message, index, deduped) => (
+              <AskSaltMessage
+                key={message.id}
+                message={message}
+                allMessages={messages}
+                isStreaming={
+                  chatStatus === "streaming" && index === deduped.length - 1
+                }
+                approvalsBusy={approvalsBusy}
+                onApproval={onApproval}
+                connectorSlot={index === deduped.length - 1 ? connectorSlot : null}
+              />
+            ))}
 
           {showThinking && <ThinkingMessage />}
 
