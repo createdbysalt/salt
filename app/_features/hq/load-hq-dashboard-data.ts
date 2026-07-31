@@ -11,9 +11,10 @@ import { getWorkspaceContext } from "@/app/_lib/utils/user-dashboard";
 import {
   buildSparkline,
   buildWeeklyActivityBars,
-  computeActivityStreak,
   computeWeekOverWeekPct,
+  estimateMinutesSaved,
   formatClockTime,
+  formatMinutesSaved,
   formatDurationMinutes,
   formatShortDate,
   getWeekNumber,
@@ -55,7 +56,7 @@ function formatProposalStage(status: string): string {
   }
 }
 
-async function loadMomentum(workspaceId: string): Promise<HqSideRailData["momentum"]> {
+async function loadTimeSaved(workspaceId: string): Promise<HqSideRailData["timeSaved"]> {
   const { supabase } = await getWorkspaceContext();
   const now = new Date();
   const fourteenDaysAgo = startOfDay(now);
@@ -64,41 +65,47 @@ async function loadMomentum(workspaceId: string): Promise<HqSideRailData["moment
 
   const { data } = await supabase
     .from("play_runs")
-    .select("state, ran_at, approved_at")
+    .select("state, ran_at, approved_at, stakes")
     .eq("workspace_id", workspaceId)
     .in("state", ["ran", "approved"])
     .or(`ran_at.gte.${rangeStartIso},approved_at.gte.${rangeStartIso}`);
 
-  const activityDates = (data ?? [])
-    .map((row) => playRunActivityTimestamp(row))
-    .filter((date): date is Date => date !== null)
-    .filter((date) => startOfDay(date) >= fourteenDaysAgo);
+  const activity = (data ?? [])
+    .map((row) => ({
+      date: playRunActivityTimestamp(row),
+      minutes: estimateMinutesSaved(row.stakes as string | null),
+    }))
+    .filter((entry): entry is { date: Date; minutes: number } => entry.date !== null)
+    .filter((entry) => startOfDay(entry.date) >= fourteenDaysAgo);
 
-  const streakDays = computeActivityStreak(activityDates, now);
-
-  const countsByDay = Array.from({ length: 7 }, (_, index) => {
+  const minutesByDay = Array.from({ length: 7 }, (_, index) => {
     const day = startOfDay(now);
     day.setDate(now.getDate() - (6 - index));
     const key = toDateKey(day);
-    return activityDates.filter((date) => toDateKey(startOfDay(date)) === key).length;
+    return activity
+      .filter((entry) => toDateKey(startOfDay(entry.date)) === key)
+      .reduce((sum, entry) => sum + entry.minutes, 0);
   });
 
-  const thisWeek = countsByDay.reduce((sum, count) => sum + count, 0);
+  const minutesThisWeek = minutesByDay.reduce((sum, minutes) => sum + minutes, 0);
   const lastWeekStart = startOfDay(now);
   lastWeekStart.setDate(now.getDate() - 13);
   const lastWeekEnd = startOfDay(now);
   lastWeekEnd.setDate(now.getDate() - 7);
-  const lastWeek = activityDates.filter((date) => {
-    const day = startOfDay(date);
-    return day >= lastWeekStart && day < lastWeekEnd;
-  }).length;
+  const minutesLastWeek = activity
+    .filter((entry) => {
+      const day = startOfDay(entry.date);
+      return day >= lastWeekStart && day < lastWeekEnd;
+    })
+    .reduce((sum, entry) => sum + entry.minutes, 0);
 
   return {
-    streakDays,
-    weekOverWeekPct: computeWeekOverWeekPct(thisWeek, lastWeek),
-    weeklyActivity: buildWeeklyActivityBars(countsByDay),
+    minutesThisWeek,
+    valueLabel: formatMinutesSaved(minutesThisWeek),
+    weekOverWeekPct: computeWeekOverWeekPct(minutesThisWeek, minutesLastWeek),
+    weeklyActivity: buildWeeklyActivityBars(minutesByDay),
     weekLabel: `Week ${getWeekNumber(now)}`,
-    hasActivity: activityDates.length > 0,
+    hasActivity: activity.length > 0,
   };
 }
 
@@ -138,15 +145,15 @@ async function loadHeadsUp(): Promise<HqHeadsUpItem[]> {
 
 export const loadHqSideRailData = cache(async (): Promise<HqSideRailData> => {
   const { studio } = await getWorkspaceContext();
-  const [momentum, schedule, headsUp, calendarStatus] = await Promise.all([
-    loadMomentum(studio.id),
+  const [timeSaved, schedule, headsUp, calendarStatus] = await Promise.all([
+    loadTimeSaved(studio.id),
     loadTodaySchedule(),
     loadHeadsUp(),
     getConnectionStatus("googlecalendar", studio.id),
   ]);
 
   return {
-    momentum,
+    timeSaved,
     schedule,
     headsUp,
     scheduleContext: {

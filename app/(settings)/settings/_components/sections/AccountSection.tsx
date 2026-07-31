@@ -1,8 +1,10 @@
 "use client"
 
 import * as React from "react"
+import { useRouter } from "next/navigation"
 import { Pencil } from "lucide-react"
 import { toast } from "sonner"
+import { createClient } from "@/app/_lib/supabase/client"
 import {
   Avatar,
   AvatarFallback,
@@ -66,8 +68,22 @@ export function AccountSection({
   const [emailDialogOpen, setEmailDialogOpen] = React.useState(false)
   const [newEmail, setNewEmail] = React.useState("")
   const [isSaving, setIsSaving] = React.useState(false)
+  const [isSigningOut, setIsSigningOut] = React.useState(false)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
+  const router = useRouter()
   const { theme, setTheme } = useTheme()
+
+  const handleSignOut = async () => {
+    setIsSigningOut(true)
+    try {
+      const supabase = createClient()
+      await supabase.auth.signOut()
+      router.push("/signin")
+    } catch (error) {
+      toast.error("Failed to sign out")
+      setIsSigningOut(false)
+    }
+  }
 
   const handleThemeChange = async (value: "light" | "dark") => {
     setTheme(value)
@@ -240,8 +256,23 @@ export function AccountSection({
       {showAccountActions ? (
         <SettingsSection title="Account">
           <SettingsCard>
+            <SettingsRow label="Log out" description="Sign out of this device">
+              <Button
+                variant="outline"
+                onClick={handleSignOut}
+                disabled={isSigningOut}
+              >
+                {isSigningOut ? "Signing out..." : "Log out"}
+              </Button>
+            </SettingsRow>
+
             <SettingsRow label="Sign out of all devices">
-              <Button variant="link" className="text-muted-foreground h-auto p-0">
+              <Button
+                variant="link"
+                className="text-muted-foreground h-auto p-0"
+                onClick={handleSignOut}
+                disabled={isSigningOut}
+              >
                 Sign out everywhere
               </Button>
             </SettingsRow>

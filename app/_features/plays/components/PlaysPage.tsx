@@ -51,6 +51,8 @@ import {
 import type { PlaysActivityView, PlaysTab } from "@/app/_features/plays/load-plays-page-data";
 import { usePlaysTabCache, type PlaysTabData } from "../hooks/usePlaysTabCache";
 import { usePlayRunsRealtime } from "../hooks/usePlayRunsRealtime";
+import type { HqBriefingData } from "@/app/_features/plays/types";
+import type { HqSideRailData } from "@/app/_features/hq/types";
 
 /**
  * Plays Page — Redesigned 2026-06-13
@@ -119,11 +121,15 @@ export function PlaysPage({
   initialActivityView,
   initialQueueFilter,
   initialData,
+  sideRail,
+  briefing,
 }: {
   initialTab: PlaysTab;
   initialActivityView: PlaysActivityView;
   initialQueueFilter: "needs_you" | "auto_handled" | "learning";
   initialData: PlaysTabData;
+  sideRail?: HqSideRailData;
+  briefing?: HqBriefingData;
 }) {
   const {
     tab,
@@ -149,6 +155,7 @@ export function PlaysPage({
     connectors,
     initialFindings,
     autoHandledFindings,
+    playsRanToday,
     learningEvidence,
     streamCaptures,
     captureStats,
@@ -404,7 +411,7 @@ export function PlaysPage({
 
   const queueCounts = {
     needs_you: needsYouCount,
-    auto_handled: autoHandledCount,
+    auto_handled: playsRanToday ?? autoHandledCount,
     learning: learningEvidence?.length ?? 0,
   };
 

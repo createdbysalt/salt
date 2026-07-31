@@ -21,6 +21,7 @@ function toPlaysTabData(data: PlaysPageData): PlaysTabData {
     initialFindings: data.initialFindings,
     autoHandledFindings: data.autoHandledFindings,
     findingCounts: data.findingCounts,
+    playsRanToday: data.playsRanToday ?? 0,
     learningEvidence: data.learningEvidence,
     streamCaptures: data.streamCaptures,
     captureStats: data.captureStats,

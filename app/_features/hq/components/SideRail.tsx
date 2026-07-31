@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Calendar, Lightbulb, ArrowUpRight, Flame, TrendingDown, TrendingUp } from "lucide-react";
+import { Calendar, Lightbulb, ArrowUpRight, Timer, TrendingDown, TrendingUp } from "lucide-react";
 import type { HqSideRailData } from "@/app/_features/hq/types";
 
 type Props = {
@@ -9,7 +9,7 @@ type Props = {
 };
 
 export function SideRail({ data }: Props) {
-  const { momentum, schedule, headsUp, scheduleContext } = data;
+  const { timeSaved, schedule, headsUp, scheduleContext } = data;
 
   return (
     <aside className="space-y-3">
@@ -19,16 +19,16 @@ export function SideRail({ data }: Props) {
       >
         <div className="flex items-center justify-between">
           <span className="chip">
-            <Flame className="size-3 text-flame" /> Momentum
+            <Timer className="size-3 text-flame" /> Time saved
           </span>
-          <span className="text-[11px] tabular-nums text-muted-foreground">{momentum.weekLabel}</span>
+          <span className="text-[11px] tabular-nums text-muted-foreground">{timeSaved.weekLabel}</span>
         </div>
         <div className="mt-4 flex items-baseline gap-2">
-          <span className="font-display text-5xl tracking-tight">{momentum.streakDays}</span>
-          <span className="text-sm text-muted-foreground">day streak</span>
+          <span className="font-display text-5xl tracking-tight">{timeSaved.valueLabel}</span>
+          <span className="text-sm text-muted-foreground">back this week</span>
         </div>
         <div className="mt-4 flex h-8 gap-1">
-          {momentum.weeklyActivity.map((height, index) => (
+          {timeSaved.weeklyActivity.map((height, index) => (
             <div
               key={index}
               className="surface-aurora flex-1 rounded-md"
@@ -41,19 +41,19 @@ export function SideRail({ data }: Props) {
           ))}
         </div>
         <div className="mt-3 flex items-center gap-1 text-[11px] text-muted-foreground">
-          {momentum.weekOverWeekPct === null ? (
+          {timeSaved.weekOverWeekPct === null ? (
             <span>
-              {momentum.hasActivity
-                ? "Play activity this week"
-                : "Approve plays to build momentum"}
+              {timeSaved.hasActivity
+                ? "Time saved by plays this week"
+                : "Approve plays to get time back"}
             </span>
-          ) : momentum.weekOverWeekPct >= 0 ? (
+          ) : timeSaved.weekOverWeekPct >= 0 ? (
             <>
-              <TrendingUp className="size-3 text-flame" /> +{momentum.weekOverWeekPct}% vs last week
+              <TrendingUp className="size-3 text-flame" /> +{timeSaved.weekOverWeekPct}% vs last week
             </>
           ) : (
             <>
-              <TrendingDown className="size-3 text-muted-foreground" /> {momentum.weekOverWeekPct}% vs last week
+              <TrendingDown className="size-3 text-muted-foreground" /> {timeSaved.weekOverWeekPct}% vs last week
             </>
           )}
         </div>

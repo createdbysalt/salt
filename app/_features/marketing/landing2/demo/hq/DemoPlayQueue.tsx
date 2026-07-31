@@ -384,9 +384,9 @@ export function PlayQueue({
             >
               <Sparkles className="size-6 text-white relative z-10" strokeWidth={2.25} />
             </motion.div>
-            <p className="font-display text-2xl tracking-tight">Inbox zero, momentum max.</p>
+            <p className="font-display text-2xl tracking-tight">Inbox zero, hours back.</p>
             <p className="text-sm text-muted-foreground mt-1">
-              Streak +1 · Salt's drafting tomorrow's queue.
+              4h 20m back this week · Salt's drafting tomorrow's queue.
             </p>
           </motion.div>
         )}

@@ -76,7 +76,11 @@ export function HqDashboardView({ briefing, queueCards, sideRail }: Props) {
                   <BriefingHero briefing={briefing} sideRail={sideRail} />
                   <PlayQueue
                     initialCards={queueCards}
-                    streakDays={sideRail.momentum.streakDays}
+                    timeSavedLabel={
+                      sideRail.timeSaved.minutesThisWeek > 0
+                        ? sideRail.timeSaved.valueLabel
+                        : null
+                    }
                   />
                 </div>
                 <div id="hq-side-rail-anchor" className="min-w-0">

@@ -47,7 +47,7 @@ export function BriefingHero({ briefing, sideRail }: Props) {
 
   const stats = [
     { label: "Cleared", value: briefing.clearedAmountLabel ?? "—" },
-    { label: "Auto-Handled", value: String(briefing.autoSentCount) },
+    { label: "Auto-Handled", value: `${ranToday}` },
     { label: "Need you", value: String(awaiting) },
   ] as const;
 

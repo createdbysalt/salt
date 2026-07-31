@@ -25,7 +25,7 @@ test.describe("HQ dashboard", () => {
       timeout: 15000,
     });
     await expect(page.getByRole("heading", { name: /heads up/i })).toBeVisible();
-    await expect(page.getByText("Momentum", { exact: true })).toBeVisible();
+    await expect(page.getByText("Time saved", { exact: true })).toBeVisible();
   });
 
   test("HQ tabs switch sections", async ({ page }) => {

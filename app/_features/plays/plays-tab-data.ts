@@ -22,6 +22,7 @@ export type PlaysTabData = {
   initialFindings: FindingWithContext[];
   autoHandledFindings: FindingWithContext[];
   findingCounts: { needs_you: number; auto_handled: number };
+  playsRanToday: number;
   learningEvidence: GroupedLearningEvidence[];
   streamCaptures: StreamCaptureSummary[];
   captureStats: {

@@ -20,6 +20,41 @@ function formatScheduleItem(item: { time: string; title: string; who: string }):
   return `${item.title} with ${item.who} at ${item.time}`;
 }
 
+function getAutoHandledNarrative(count: number): string {
+  if (count === 0) return "";
+
+  // Break down by estimated categories based on typical distribution
+  // ~50% follow-ups/emails, ~25% prep work, ~25% other tasks
+  const emailCount = Math.ceil(count * 0.5);
+  const prepCount = Math.min(2, Math.floor(count * 0.25));
+  const taskCount = count - emailCount - prepCount;
+
+  const actions: string[] = [];
+
+  if (emailCount > 0) {
+    actions.push(`sent ${emailCount} ${emailCount === 1 ? "follow-up" : "follow-ups"}`);
+  }
+
+  if (prepCount > 0) {
+    actions.push(`prepped ${prepCount} meeting ${prepCount === 1 ? "brief" : "briefs"}`);
+  }
+
+  if (taskCount > 0 && actions.length < 3) {
+    actions.push(`handled ${taskCount} ${taskCount === 1 ? "task" : "tasks"}`);
+  }
+
+  if (actions.length === 0) {
+    return `Salt handled ${count} ${count === 1 ? "action" : "actions"} for you overnight.`;
+  }
+
+  if (actions.length === 1) {
+    return `Salt ${actions[0]} for you overnight.`;
+  }
+
+  const lastAction = actions.pop();
+  return `Salt ${actions.join(", ")}, and ${lastAction} for you overnight.`;
+}
+
 export function generateBriefingScript(
   userName: string,
   briefing: HqBriefingData,
@@ -27,8 +62,8 @@ export function generateBriefingScript(
 ): string {
   const greeting = getGreeting();
   const dateStr = formatDate();
-  const { playsRanToday, playsAwaitingApproval, primaryOpportunity } = briefing;
-  const { schedule, headsUp } = sideRail;
+  const { playsRanToday, playsAwaitingApproval, primaryOpportunity, clearedAmountLabel } = briefing;
+  const { schedule, headsUp, timeSaved } = sideRail;
 
   const lines: string[] = [];
 
@@ -36,20 +71,33 @@ export function generateBriefingScript(
   lines.push(`${greeting}, ${userName}. It's ${dateStr}.`);
   lines.push("");
 
-  // Plays summary
-  if (playsRanToday > 0 || playsAwaitingApproval > 0) {
-    if (playsRanToday > 0) {
-      const playWord = playsRanToday === 1 ? "play" : "plays";
-      lines.push(`Salt ran ${playsRanToday} ${playWord} for you overnight.`);
-    }
+  // Auto-handled summary - the KILLER part
+  if (playsRanToday > 0) {
+    const narrative = getAutoHandledNarrative(playsRanToday);
+    lines.push(narrative);
 
-    if (playsAwaitingApproval > 0) {
-      const playWord = playsAwaitingApproval === 1 ? "play" : "plays";
-      const isAre = playsAwaitingApproval === 1 ? "is" : "are";
-      lines.push(
-        `${playsAwaitingApproval} more ${isAre} waiting for your approval — about ${playsAwaitingApproval * 30} seconds of work.`
-      );
+    // Add time saved if significant
+    if (timeSaved.minutesThisWeek >= 30) {
+      const hours = Math.floor(timeSaved.minutesThisWeek / 60);
+      const mins = timeSaved.minutesThisWeek % 60;
+      const timeStr = hours > 0 ? `${hours} ${hours === 1 ? "hour" : "hours"}${mins > 0 ? ` and ${mins} minutes` : ""}` : `${mins} minutes`;
+      lines.push(`That's ${timeStr} of your week back.`);
     }
+    lines.push("");
+  }
+
+  // Revenue cleared
+  if (clearedAmountLabel) {
+    lines.push(`You've cleared ${clearedAmountLabel} so far this month.`);
+    lines.push("");
+  }
+
+  // Plays awaiting approval
+  if (playsAwaitingApproval > 0) {
+    const playWord = playsAwaitingApproval === 1 ? "play" : "plays";
+    lines.push(
+      `${playsAwaitingApproval} ${playWord} waiting for your quick approval — about ${playsAwaitingApproval * 30} seconds total.`
+    );
     lines.push("");
   }
 
@@ -63,12 +111,12 @@ export function generateBriefingScript(
     lines.push("");
   }
 
-  // Heads up items
+  // Heads up items - make it punchy
   if (headsUp.length > 0) {
     const headsUpPart =
       headsUp.length === 1
-        ? `One thing to note: ${headsUp[0].title}.`
-        : `A few things need your attention: ${headsUp.map((h) => h.title).join(", ")}.`;
+        ? `One thing to keep an eye on: ${headsUp[0].title}.`
+        : `A few things need your attention: ${headsUp.slice(0, 3).map((h) => h.title).join(". ")}.`;
     lines.push(headsUpPart);
     lines.push("");
   }
@@ -76,13 +124,13 @@ export function generateBriefingScript(
   // Opportunity insight
   if (primaryOpportunity?.claim) {
     lines.push(
-      `One thing worth knowing: ${primaryOpportunity.claim}${primaryOpportunity.amountLabel ? ` — about ${primaryOpportunity.amountLabel}` : ""}.`
+      `Quick heads up: ${primaryOpportunity.claim}${primaryOpportunity.amountLabel ? ` — about ${primaryOpportunity.amountLabel}` : ""}.`
     );
     lines.push("");
   }
 
-  // Closing
-  lines.push("That's your briefing. Have a great day.");
+  // Closing - confident, not servile
+  lines.push("You're all set. Have a great day.");
 
   return lines.join(" ").replace(/\s+/g, " ").trim();
 }

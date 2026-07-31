@@ -16,8 +16,10 @@ export type HqHeadsUpItem = {
   href?: string;
 };
 
-export type HqMomentumData = {
-  streakDays: number;
+export type HqTimeSavedData = {
+  minutesThisWeek: number;
+  /** Preformatted display value, e.g. "2h 40m". */
+  valueLabel: string;
   weekOverWeekPct: number | null;
   weeklyActivity: number[];
   weekLabel: string;
@@ -25,7 +27,7 @@ export type HqMomentumData = {
 };
 
 export type HqSideRailData = {
-  momentum: HqMomentumData;
+  timeSaved: HqTimeSavedData;
   schedule: HqScheduleItem[];
   headsUp: HqHeadsUpItem[];
   scheduleContext: {

@@ -3,6 +3,7 @@ import "server-only";
 import {
   listActivityEntries,
   listQueuedPlayRuns,
+  countPlaysRanToday,
 } from "@/app/_features/plays/queries";
 import { getPlaybooksV2ForWorkspace, type PlaybookV2QueryResult } from "@/app/_features/plays/playbooks/queries-v2";
 import { getConnectorsPageData } from "@/app/_features/connectors/queries";
@@ -35,6 +36,7 @@ export type PlaysPageData = {
   initialFindings: FindingWithContext[];
   autoHandledFindings: FindingWithContext[];
   findingCounts: { needs_you: number; auto_handled: number };
+  playsRanToday: number;
   learningEvidence: GroupedLearningEvidence[];
   streamCaptures: StreamCaptureSummary[];
   captureStats: {
@@ -86,6 +88,7 @@ export function emptyPlaysPageData(): PlaysPageData {
     initialFindings: [],
     autoHandledFindings: [],
     findingCounts: EMPTY_FINDING_COUNTS,
+    playsRanToday: 0,
     learningEvidence: [],
     streamCaptures: [],
     captureStats: null,
@@ -109,12 +112,13 @@ export async function loadPlaysPageData(options: {
 
   if (tab === "queue") {
     const autoHandledSince = recentAutoHandledSince();
-    const [queueViews, needsYouFindings, autoHandledFindings, findingCounts, learningEvidence] = await Promise.all([
+    const [queueViews, needsYouFindings, autoHandledFindings, findingCounts, learningEvidence, playsRanToday] = await Promise.all([
       listQueuedPlayRuns(),
       listQueueFindings("needs_you"),
       listQueueFindings("auto_handled"),
       countFindingsByState(),
       workspaceId ? getLearningEvidence(workspaceId) : Promise.resolve([]),
+      countPlaysRanToday(),
     ]);
 
     return {
@@ -123,6 +127,7 @@ export async function loadPlaysPageData(options: {
       initialFindings: needsYouFindings,
       autoHandledFindings,
       findingCounts,
+      playsRanToday,
       learningEvidence,
       workspaceId: workspaceId ?? null,
     };
