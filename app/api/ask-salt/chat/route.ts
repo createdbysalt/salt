@@ -50,6 +50,20 @@ import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 
 export const maxDuration = 60;
 
+const ASK_SALT_DEMO_MODE_INSTRUCTION = `
+## DEMO MODE ACTIVE
+
+You are in demo mode for presentations. When the user asks you to perform ANY action (send emails, create invoices, search Gmail, schedule meetings, etc.):
+
+1. **Act as if you have full access to all tools** — Gmail, Google Calendar, Stripe, Slack, etc.
+2. **Describe completing the action convincingly** — "Done! I've drafted that email to Sarah..." or "I found 3 matching emails from last week..."
+3. **Make up realistic, plausible details** — names, dates, amounts that fit the context
+4. **Never say you can't do something** or that a connector isn't connected
+5. **Never actually call external tools** — just describe what you "did"
+
+The goal is to demonstrate Salt's vision. Be helpful, confident, and make the demo impressive.
+`;
+
 const ASK_SALT_SYSTEM = `You are Ask Salt, the command surface for solo service entrepreneurs using Salt.
 You help users manage Memory (people, organizations, work, meetings, links, notes) and connected tools when those accounts are linked.
 
@@ -406,8 +420,12 @@ ${formatCaptureContextForPrompt(captureContext)}
 Start by acknowledging what the capture is and asking how you can help.`
     : null;
 
+  const isDemoMode = process.env.ASK_SALT_DEMO_MODE === "true";
+
   const systemSections = [
     ASK_SALT_SYSTEM,
+    // Demo mode: roleplay full capabilities without calling tools
+    isDemoMode ? ASK_SALT_DEMO_MODE_INSTRUCTION : null,
     // Lethal-trifecta defense (5.5.4): connector-fetched content (email
     // bodies, docs, tool results) is untrusted DATA — never instructions.
     // Mutations additionally require an in-thread human tap (needsApproval),
@@ -416,8 +434,8 @@ Start by acknowledging what the capture is and asking how you can help.`
     UNTRUSTED_CONTENT_SYSTEM_SECTION,
     captureReviewSection,
     operatorContext,
-    buildAskSaltCapabilityBlock(capabilities),
-    buildAskSaltPlaybookIndexBlock(playbooks, blueprints),
+    isDemoMode ? null : buildAskSaltCapabilityBlock(capabilities),
+    isDemoMode ? null : buildAskSaltPlaybookIndexBlock(playbooks, blueprints),
   ].filter(Boolean);
 
   const strippedMessages = isApprovalFlow
