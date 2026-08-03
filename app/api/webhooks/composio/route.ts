@@ -261,6 +261,10 @@ export async function POST(req: NextRequest) {
     {
       useGatePipeline: isFeatureEnabled(FeatureFlag.CAPTURE_GATE_PIPELINE),
       userEmail,
+      // Serverless: unawaited enrichment dies when the instance freezes
+      // after the response. Composio retries on slow acks are harmless —
+      // the envelope dedupe key makes replays idempotent.
+      awaitEnrichment: true,
     },
   );
 

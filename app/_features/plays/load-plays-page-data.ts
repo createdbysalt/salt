@@ -12,6 +12,7 @@ import {
   getTodayCaptureStats,
   hasCaptures,
 } from "@/app/_features/capture/queries";
+import { CAPTURE_STREAM_INITIAL_LIMIT } from "@/app/_features/capture/stream-constants";
 import {
   listQueueFindings,
   countFindingsByState,
@@ -151,7 +152,7 @@ export async function loadPlaysPageData(options: {
 
   if (activityView === "captures" && workspaceId) {
     const [streamCaptures, captureStats, hasCaptureData] = await Promise.all([
-      getCaptureStream(workspaceId, { limit: 100 }),
+      getCaptureStream(workspaceId, { limit: CAPTURE_STREAM_INITIAL_LIMIT }),
       getTodayCaptureStats(workspaceId),
       hasCaptures(workspaceId),
     ]);

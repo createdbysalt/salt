@@ -138,12 +138,14 @@ export const getCaptureStream = cache(async (
   options: {
     limit?: number;
     offset?: number;
+    /** Cursor: only return captures created strictly before this ISO timestamp. */
+    before?: string;
     state?: CaptureState;
     origin?: "added" | "found";
     includeDropped?: boolean;
   } = {}
 ): Promise<StreamCaptureSummary[]> => {
-  const { limit = 50, offset = 0, state, origin, includeDropped = false } = options;
+  const { limit = 50, offset = 0, before, state, origin, includeDropped = false } = options;
   const supabase = await createClient();
 
   let query = supabase
@@ -169,6 +171,9 @@ export const getCaptureStream = cache(async (
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
 
+  if (before) {
+    query = query.lt("created_at", before);
+  }
   if (state) {
     query = query.eq("state", state);
   }
@@ -390,11 +395,13 @@ export const getTodayCaptureStats = cache(async (
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
 
+  // Mirror the stream's drop filter so the summary matches what the stream shows
   const { data: captures, error: captureError } = await supabase
     .from("capture_events")
     .select("id, origin, state, extracted_data, enriched_metadata")
     .eq("workspace_id", workspaceId)
-    .gte("created_at", today.toISOString());
+    .gte("created_at", today.toISOString())
+    .or("gate_action.is.null,gate_action.neq.drop");
 
   if (captureError) {
     console.error("[capture-queries] getTodayCaptureStats error:", captureError);

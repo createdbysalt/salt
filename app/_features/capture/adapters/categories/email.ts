@@ -40,6 +40,12 @@ type KnownEmailProvider = "gmail" | "outlook" | "yahoo_mail";
 
 const KNOWN_EMAIL_PROVIDERS: KnownEmailProvider[] = ["gmail", "outlook", "yahoo_mail"];
 
+/**
+ * Email source types the intelligence scan should cover. Single source of
+ * truth so the scan follows this adapter as providers are added.
+ */
+export const EMAIL_SCAN_SOURCE_TYPES: readonly string[] = KNOWN_EMAIL_PROVIDERS;
+
 /** Attachment metadata for enrichment */
 interface AttachmentMeta {
   name: string;

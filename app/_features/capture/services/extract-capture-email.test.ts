@@ -72,6 +72,56 @@ describe("extractCaptureEmailFields", () => {
   it("returns null when no sender can be resolved", () => {
     expect(extractCaptureEmailFields({ snippet: "hello" })).toBeNull();
   });
+
+  it("reads the category-adapter shape (Outlook) with no raw headers", () => {
+    // Outlook webhook rows: raw_payload has only pointer fields, and
+    // extracted_data uses the flat adapter shape without a `type` field.
+    const adapterExtracted = {
+      subject: "Invoice question",
+      snippet: "Quick question about last month's invoice",
+      sender_email: "Dana@Client.CO",
+      sender_name: "Dana Client",
+      to: ["you@studio.com"],
+      cc: [],
+      bcc: [],
+      thread_id: "conv-9",
+      isSentByUser: false,
+      is_reply: true,
+      has_attachments: false,
+      attachments: [],
+      deep_link: null,
+    };
+
+    const fields = extractCaptureEmailFields(
+      { messageId: "AAMk-1", source: "composio_trigger" },
+      adapterExtracted as never
+    );
+
+    expect(fields).not.toBeNull();
+    expect(fields?.from_email).toBe("dana@client.co");
+    expect(fields?.from_name).toBe("Dana Client");
+    expect(fields?.subject).toBe("Invoice question");
+    expect(fields?.snippet).toContain("Quick question");
+    expect(fields?.thread_id).toBe("conv-9");
+    expect(fields?.is_sent_by_user).toBe(false);
+  });
+
+  it("flags adapter-shape sent mail via isSentByUser", () => {
+    const fields = extractCaptureEmailFields(
+      { messageId: "AAMk-2" },
+      {
+        subject: "Re: proposal",
+        snippet: "Sent from my studio",
+        sender_email: "you@studio.com",
+        sender_name: null,
+        to: ["dana@client.co"],
+        thread_id: "conv-10",
+        isSentByUser: true,
+      } as never
+    );
+
+    expect(fields?.is_sent_by_user).toBe(true);
+  });
 });
 
 describe("extractEmailToAnalyze", () => {

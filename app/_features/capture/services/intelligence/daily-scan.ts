@@ -38,6 +38,7 @@ import {
   shouldReanalyzeCapture,
 } from "./capture-intelligence-outcome";
 import { repairVendorFindings } from "./repair-vendor-findings";
+import { EMAIL_SCAN_SOURCE_TYPES } from "../../adapters/categories/email";
 import { loadSenderProfileRegistry } from "../../queries/sender-profiles";
 import { learnVendorFromClassification } from "./sender-profile-learn";
 import type { SenderProfileRegistry } from "../../types/sender-profiles";
@@ -127,6 +128,17 @@ function isSentCapture(row: CaptureEventRow): boolean {
   if (row.extracted_data?.type === "message") {
     return (row.extracted_data.labels ?? []).includes("SENT");
   }
+  // Category email adapters write a flat shape with isSentByUser (no `type`).
+  const adapterExtracted = row.extracted_data as
+    | { isSentByUser?: unknown; labels?: unknown }
+    | null;
+  if (adapterExtracted?.isSentByUser === true) return true;
+  if (
+    Array.isArray(adapterExtracted?.labels) &&
+    adapterExtracted.labels.includes("SENT")
+  ) {
+    return true;
+  }
   const labelIds = (row.raw_payload?.labelIds as string[] | undefined) ?? [];
   return labelIds.includes("SENT");
 }
@@ -165,7 +177,7 @@ async function fetchCapturesInLookback(
       .from("capture_events")
       .select("id, source_type, source_external_id, raw_payload, extracted_data")
       .eq("workspace_id", workspaceId)
-      .eq("source_type", "gmail")
+      .in("source_type", [...EMAIL_SCAN_SOURCE_TYPES])
       .gte("created_at", cutoff)
       .order("created_at", { ascending: false });
 
@@ -469,7 +481,7 @@ export async function runDailyScan(
 
   if (emails.length === 0) {
     result.errors.push(
-      `No Gmail captures in the last ${lookbackHours}h for this workspace. Use Sync Captures after connecting Gmail at /connections.`
+      `No email captures in the last ${lookbackHours}h for this workspace. Use Sync Captures after connecting an email account at /connections.`
     );
     return result;
   }
@@ -510,17 +522,27 @@ export async function runDailyScan(
     try {
       result.emailsProcessed++;
 
+      // Legacy MessageExtractedData rows treat any thread_id as prior thread;
+      // adapter-shape rows (Outlook et al.) always carry a conversation id, so
+      // rely on their explicit is_reply flag and subject instead.
+      const adapterShape = rawEmail.extracted_data as
+        | { subject?: unknown; is_reply?: unknown }
+        | null;
+      const subjectForReply =
+        rawEmail.extracted_data?.type === "message"
+          ? (rawEmail.extracted_data.subject ?? "")
+          : typeof adapterShape?.subject === "string"
+            ? adapterShape.subject
+            : "";
+
       const email = extractEmailToAnalyze(
         rawEmail.id,
         rawEmail.raw_payload,
         rawEmail.extracted_data,
         {
           has_prior_thread:
-            /^re:/i.test(
-              (rawEmail.extracted_data?.type === "message"
-                ? rawEmail.extracted_data.subject
-                : "") ?? ""
-            ) ||
+            /^re:/i.test(subjectForReply) ||
+            adapterShape?.is_reply === true ||
             Boolean(
               rawEmail.extracted_data?.type === "message" &&
                 rawEmail.extracted_data.thread_id

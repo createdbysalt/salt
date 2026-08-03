@@ -214,6 +214,14 @@ export interface ConnectorRuntimeStatus {
   error?: string;
   /** Was connected, now expired — Composio needs a re-auth. Distinct from never-connected. */
   needsReconnect?: boolean;
+  /**
+   * Connected with capture on, but no captures for STALE_AFTER_DAYS — the
+   * token may be silently dead (Composio never reported an expiry). Softer
+   * than needsReconnect: "check this", not "this is broken".
+   */
+  stale?: boolean;
+  /** Most recent capture for this provider (ISO). Null = none since connecting. */
+  lastActivityAt?: string | null;
 }
 
 /** Persisted in workspace_integrations.config for Composio connectors. */

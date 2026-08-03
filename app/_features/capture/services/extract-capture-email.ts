@@ -101,6 +101,41 @@ function fromExtractedData(
   };
 }
 
+/**
+ * Category email adapters (adapters/categories/email.ts) write a flat shape —
+ * sender_email/snippet/isSentByUser — with no `type` discriminant and, for
+ * non-Gmail sources, a raw_payload that carries no headers to fall back on.
+ */
+function fromAdapterExtracted(
+  extracted: Record<string, unknown>
+): CaptureEmailFields | null {
+  const senderEmail =
+    typeof extracted.sender_email === "string" && extracted.sender_email.trim()
+      ? extracted.sender_email.trim().toLowerCase()
+      : null;
+  if (!senderEmail) return null;
+
+  const snippet = typeof extracted.snippet === "string" ? extracted.snippet : "";
+  const toEmails = Array.isArray(extracted.to)
+    ? extracted.to.filter((e): e is string => typeof e === "string")
+    : [];
+
+  return {
+    from_email: senderEmail,
+    from_name:
+      typeof extracted.sender_name === "string" && extracted.sender_name.trim()
+        ? extracted.sender_name.trim()
+        : null,
+    to_emails: toEmails.map((e) => e.trim().toLowerCase()),
+    subject: typeof extracted.subject === "string" ? extracted.subject : "",
+    snippet,
+    body_text: snippet || null,
+    sent_at: new Date().toISOString(),
+    thread_id: typeof extracted.thread_id === "string" ? extracted.thread_id : "",
+    is_sent_by_user: extracted.isSentByUser === true,
+  };
+}
+
 function fromRawPayload(rawPayload: Record<string, unknown>): CaptureEmailFields | null {
   const headers = getGmailHeaders(rawPayload);
   const getHeader = (name: string) =>
@@ -137,6 +172,13 @@ export function extractCaptureEmailFields(
   if (extractedData && extractedData.type === "message") {
     const fromExtracted = fromExtractedData("", extractedData);
     if (fromExtracted) return fromExtracted;
+  }
+
+  if (extractedData && typeof extractedData === "object") {
+    const fromAdapter = fromAdapterExtracted(
+      extractedData as unknown as Record<string, unknown>
+    );
+    if (fromAdapter) return fromAdapter;
   }
 
   if (!rawPayload || typeof rawPayload !== "object") {

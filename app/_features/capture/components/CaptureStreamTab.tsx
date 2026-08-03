@@ -3,6 +3,8 @@
 import { useMemo, useState, useTransition, useCallback, type MouseEvent, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { retryCaptureIntelligence } from "../actions/retry-capture";
+import { loadMoreStreamCaptures } from "../actions/load-more-captures";
+import { CAPTURE_STREAM_INITIAL_LIMIT } from "../stream-constants";
 import {
   CheckCircle2,
   Clock,
@@ -24,6 +26,7 @@ import {
   ExternalLink,
   Play,
   Eye,
+  Loader2,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { CaptureStatus, StreamEntry } from "@/app/_lib/demo/capture-demo-data";
@@ -85,7 +88,10 @@ type WatchTriggerEntry = {
   matched_value: string;
 };
 
-type RealStreamEntry = StreamEntry & {
+// dayGroup widened beyond the demo union: older captures group under month
+// labels ("July 2026") once pagination reaches past the current week.
+type RealStreamEntry = Omit<StreamEntry, "dayGroup"> & {
+  dayGroup: string;
   intelligenceOutcome?: CaptureIntelligenceOutcome;
   category: CaptureCategory;
   sourceUrl?: string | null;
@@ -328,20 +334,62 @@ export function CaptureStreamTab({
   realStats = null,
   hasRealData = false,
 }: CaptureStreamTabProps = {}) {
+  // Older pages fetched on demand via "Load older captures"
+  const [olderCaptures, setOlderCaptures] = useState<StreamCaptureSummary[]>([]);
+  const [exhausted, setExhausted] = useState(false);
+  const [isLoadingMore, startLoadMoreTransition] = useTransition();
+
+  // Merge the server-rendered first page with loaded pages, deduped by id
+  // (a background refresh of the first page can overlap already-loaded rows)
+  const allCaptures = useMemo(() => {
+    const seen = new Set<string>();
+    const merged: StreamCaptureSummary[] = [];
+    for (const c of [...realStreamCaptures, ...olderCaptures]) {
+      if (seen.has(c.capture_id)) continue;
+      seen.add(c.capture_id);
+      merged.push(c);
+    }
+    return merged;
+  }, [realStreamCaptures, olderCaptures]);
+
+  // If the first page came back full, assume more exist until a page runs dry
+  const hasMore = !exhausted && allCaptures.length >= CAPTURE_STREAM_INITIAL_LIMIT;
+
+  const handleLoadMore = useCallback(() => {
+    const oldest = allCaptures[allCaptures.length - 1];
+    if (!oldest) return;
+    startLoadMoreTransition(async () => {
+      const result = await loadMoreStreamCaptures({ before: oldest.created_at });
+      if (!result.success) {
+        console.error("[CaptureStreamTab] Load more failed:", result.error);
+        return;
+      }
+      setOlderCaptures((prev) => [...prev, ...result.captures]);
+      if (!result.hasMore) setExhausted(true);
+    });
+  }, [allCaptures]);
 
   // Convert real captures to stream entries format with new categories
   const realStreamEntries: RealStreamEntry[] = useMemo(() => {
-    if (!hasRealData || realStreamCaptures.length === 0) return [];
+    if (!hasRealData || allCaptures.length === 0) return [];
 
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+    const weekStart = new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000);
 
-    return realStreamCaptures.map((c) => {
+    return allCaptures.map((c) => {
       const createdAt = new Date(c.created_at);
-      let dayGroup: StreamEntry["dayGroup"] = "Earlier this week";
+      let dayGroup: string;
       if (createdAt >= today) dayGroup = "Today";
       else if (createdAt >= yesterday) dayGroup = "Yesterday";
+      else if (createdAt >= weekStart) dayGroup = "Earlier this week";
+      else {
+        dayGroup = createdAt.toLocaleDateString("en-US", {
+          month: "long",
+          year: "numeric",
+        });
+      }
 
       const sourceMeta = getSourceMeta(c.source_type);
       const outcome = c.intelligence_outcome;
@@ -356,7 +404,11 @@ export function CaptureStreamTab({
       return {
         id: c.capture_id,
         dayGroup,
-        time: createdAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }),
+        // Clock time is meaningless in multi-day groups — show the date there
+        time:
+          createdAt >= yesterday
+            ? createdAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+            : createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
         source: c.origin as "added" | "found",
         origin: c.source_type as StreamEntry["origin"],
         status,
@@ -379,7 +431,7 @@ export function CaptureStreamTab({
         isBootstrap: c.is_bootstrap ?? false,
       } as RealStreamEntry;
     });
-  }, [realStreamCaptures, hasRealData]);
+  }, [allCaptures, hasRealData]);
 
   // Use real capture data only
   const stream = realStreamEntries;
@@ -463,10 +515,20 @@ export function CaptureStreamTab({
         if (timing === "this-week") return e.dayGroup === "Earlier this week";
         return true;
       })
-      // Search filter
-      .filter((e) =>
-        !term ? true : e.snippet.toLowerCase().includes(term) || e.routedTo.toLowerCase().includes(term)
-      );
+      // Search filter — matches title, outcome, sender, subject, and app
+      // (both the label "Gmail" and the raw source type "gmail")
+      .filter((e) => {
+        if (!term) return true;
+        const haystack = [
+          e.snippet,
+          e.routedTo,
+          e.from,
+          e.subject,
+          e.origin,
+          ...(e.sources ?? []),
+        ];
+        return haystack.some((value) => value?.toLowerCase().includes(term));
+      });
   }, [q, state, area, timing, stream]);
 
   const grouped = useMemo(() => {
@@ -481,9 +543,25 @@ export function CaptureStreamTab({
 
   const counts = useMemo(() => {
     const today = stream.filter((e) => e.dayGroup === "Today");
+    const watching = today.filter((e) => (e.watchesTriggered?.length ?? 0) > 0).length;
+
+    // Prefer server-side today stats — the loaded stream is capped, so client
+    // counts undercount on days with more captures than the page size
+    if (realStats) {
+      return {
+        queued: realStats.findingCreated ?? 0,
+        watching,
+        "no-signal": realStats.noSignal ?? 0,
+        processing: realStats.awaitingScan ?? 0,
+        error: realStats.scanError ?? 0,
+        noSignal: realStats.noSignal ?? 0,
+        total: realStats.total,
+      };
+    }
+
     const byCategory = {
       queued: today.filter((e) => e.category === "queued").length,
-      watching: today.filter((e) => (e.watchesTriggered?.length ?? 0) > 0).length,
+      watching,
       "no-signal": today.filter((e) => e.category === "no-signal").length,
       processing: today.filter((e) => e.category === "processing").length,
       error: today.filter((e) => e.category === "error").length,
@@ -493,7 +571,7 @@ export function CaptureStreamTab({
       noSignal: byCategory["no-signal"],
       total: today.length,
     };
-  }, [stream]);
+  }, [stream, realStats]);
 
   const handleCountTileClick = useCallback((id: CaptureCategory | "watching") => {
     setState((prev) => (prev === id ? "all" : id));
@@ -607,6 +685,20 @@ export function CaptureStreamTab({
               </ul>
             </section>
           ))}
+        </div>
+      )}
+
+      {!isEmptyDataset && hasMore && (
+        <div className="flex justify-center pt-1">
+          <button
+            type="button"
+            onClick={handleLoadMore}
+            disabled={isLoadingMore}
+            className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/80 px-4 py-2 text-[12px] font-medium text-foreground/80 shadow-sm transition hover:border-border hover:text-foreground disabled:opacity-60"
+          >
+            {isLoadingMore && <Loader2 className="size-3.5 animate-spin" strokeWidth={2} />}
+            {isLoadingMore ? "Loading older captures…" : "Load older captures"}
+          </button>
         </div>
       )}
     </motion.div>

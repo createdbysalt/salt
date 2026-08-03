@@ -56,6 +56,12 @@ function RailItem({
             className="size-2 shrink-0 rounded-full bg-amber-500"
             aria-label="Reconnect needed"
           />
+        ) : status.connected && status.stale ? (
+          <span
+            className="size-2 shrink-0 rounded-full bg-amber-500"
+            title="No recent activity — may need reconnecting"
+            aria-label="No recent activity — may need reconnecting"
+          />
         ) : status.connected ? (
           <Check
             className={cn(

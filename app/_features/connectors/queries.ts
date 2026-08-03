@@ -20,6 +20,7 @@ import {
   type ConnectorCapabilityGroups,
 } from "./connector-capabilities";
 import { deriveConnectorOverview } from "./content-contract";
+import { isConnectionStale } from "./staleness";
 import {
   getDisabledToolsFromConfig,
   getEmailModeFromConfig,
@@ -75,6 +76,8 @@ interface ProviderSettings {
   trustLevel: ConnectorTrustLevel;
   emailMode: EmailMode;
   captureEnabled: boolean;
+  /** When the integration row was created — bounds never-captured staleness. */
+  connectedAt: string | null;
 }
 
 async function loadProviderSettings(
@@ -84,7 +87,7 @@ async function loadProviderSettings(
   const supabase = await createClient();
   const { data: rows } = await supabase
     .from("workspace_integrations")
-    .select("provider, config, trust_level, capture_enabled")
+    .select("provider, config, trust_level, capture_enabled, created_at")
     .eq("workspace_id", workspaceId)
     .in("provider", [...providers]);
 
@@ -101,6 +104,7 @@ async function loadProviderSettings(
             : "read_only",
       emailMode: getEmailModeFromConfig(config),
       captureEnabled: row.capture_enabled === true,
+      connectedAt: (row.created_at as string | null) ?? null,
     };
   }
   return byProvider;
@@ -319,6 +323,33 @@ export async function getConnectorsPageData(): Promise<ConnectorsPageData> {
     emailMode: "draft",
   };
 
+  // Last capture per connected, capture-enabled, trigger-based provider —
+  // powers the "connected but quiet" staleness signal. A silently dead token
+  // keeps composio_status "connected" while captures stop; the expiry
+  // webhook is not guaranteed, so silence is the only reliable tell.
+  const staleCandidates = connectableEntries.filter((entry, index) => {
+    if (!statuses[index].connected) return false;
+    if (!settingsByProvider[entry.providerKey]?.captureEnabled) return false;
+    const adapter = adapterForToolkit(entry.providerKey);
+    return adapter !== null && adapter.triggerSlugs.length > 0;
+  });
+  const lastCaptureByProvider = new Map(
+    await Promise.all(
+      staleCandidates.map(async (entry) => {
+        const adapter = adapterForToolkit(entry.providerKey);
+        const { data: row } = await supabase
+          .from("capture_events")
+          .select("created_at")
+          .eq("workspace_id", workspaceId)
+          .eq("source_type", adapter?.sourceType ?? entry.providerKey)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        return [entry.providerKey, (row?.created_at as string | null) ?? null] as const;
+      }),
+    ),
+  );
+
   const connectors: ConnectorsPageData["connectors"] = {};
   const disabledToolsByConnector: ConnectorsPageData["disabledToolsByConnector"] =
     {};
@@ -331,6 +362,20 @@ export async function getConnectorsPageData(): Promise<ConnectorsPageData> {
   connectableEntries.forEach((entry, index) => {
     const status = statuses[index];
     const key = entry.catalogId as ConnectorCatalogId;
+    const providerSettings = settingsByProvider[entry.providerKey];
+    const trackedForStaleness = lastCaptureByProvider.has(entry.providerKey);
+    const lastActivityAt = trackedForStaleness
+      ? (lastCaptureByProvider.get(entry.providerKey) ?? null)
+      : undefined;
+    const stale =
+      trackedForStaleness &&
+      isConnectionStale({
+        connected: status.connected,
+        captureEnabled: providerSettings?.captureEnabled ?? false,
+        hasRealtimeTriggers: true,
+        lastCaptureAt: lastActivityAt ?? null,
+        connectedAt: providerSettings?.connectedAt ?? null,
+      });
     connectors[key] = {
       connected: status.connected,
       label:
@@ -339,6 +384,8 @@ export async function getConnectorsPageData(): Promise<ConnectorsPageData> {
           ? "Connected"
           : undefined),
       needsReconnect: status.composioStatus === "expired",
+      stale: stale || undefined,
+      lastActivityAt,
     };
 
     const settings = settingsByProvider[entry.providerKey];
