@@ -82,6 +82,15 @@ function resolveExploreLinks(
   return normalizeFooterExploreLinks(resolveLinks(links, fallback));
 }
 
+function ensureRequiredLegalLinks(links: SanityLink[]): SanityLink[] {
+  const seenHrefs = new Set(links.map((link) => link.href));
+  const missingRequiredLinks = FOOTER_LEGAL_LINKS_FALLBACK.filter(
+    (link) => !seenHrefs.has(link.href)
+  );
+
+  return [...links, ...missingRequiredLinks];
+}
+
 function resolveSocialLinks(social?: SiteSettingsSocial | null): ResolvedSocialLink[] {
   const merged: SiteSettingsSocial = {
     ...SITE_SOCIAL_FALLBACK,
@@ -105,9 +114,8 @@ export function resolveSiteSettings(
       settings?.footerNavigation,
       FOOTER_EXPLORE_LINKS_FALLBACK
     ),
-    footerLegalLinks: resolveLinks(
-      settings?.legalNavigation,
-      FOOTER_LEGAL_LINKS_FALLBACK
+    footerLegalLinks: ensureRequiredLegalLinks(
+      resolveLinks(settings?.legalNavigation, FOOTER_LEGAL_LINKS_FALLBACK)
     ),
     supportEmail: settings?.supportEmail?.trim() || SUPPORT_EMAIL_FALLBACK,
     llmInfoEyebrow:

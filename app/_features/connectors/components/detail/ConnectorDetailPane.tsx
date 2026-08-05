@@ -153,12 +153,10 @@ export function ConnectorDetailPane({
   const definition = definitionsById[connectorId] ?? null;
   const status = data.connectors[connectorId];
   const connected = Boolean(status?.connected);
-  // Expired connection: not "connected", but was — show reconnect, not connect.
+  // Expired or failed live verification: not "connected", but was — show
+  // reconnect, not connect. Quiet connections are auto-verified server-side.
   const needsReconnect = Boolean(status?.needsReconnect);
-  // Connected but quiet: capture is on and nothing has arrived for a week+.
-  // Softer than needsReconnect — the token may be silently dead.
-  const stale = connected && Boolean(status?.stale);
-  const staleDays = daysSince(status?.lastActivityAt ?? null);
+  const lastActivityDays = daysSince(status?.lastActivityAt ?? null);
   const inlineApiKeyConnect = definition
     ? usesInlineApiKeyConnect(definition)
     : false;
@@ -618,31 +616,26 @@ export function ConnectorDetailPane({
               ) : definition.comingSoon ? (
                 <span className="text-xs text-muted-foreground">Coming soon</span>
               ) : null}
-              {stale ? (
-                <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
-                  {staleDays !== null
-                    ? `No activity for ${staleDays} days`
-                    : "No activity yet"}
-                </span>
-              ) : null}
               {connected && status?.label ? (
                 <span className="truncate text-xs text-muted-foreground">
                   {status.label}
                 </span>
               ) : null}
+              {connected && status?.lastActivityAt !== undefined ? (
+                <span className="truncate text-xs text-muted-foreground">
+                  {lastActivityDays === null
+                    ? "No activity yet"
+                    : lastActivityDays === 0
+                      ? "Active today"
+                      : `Last activity ${lastActivityDays}d ago`}
+                </span>
+              ) : null}
             </div>
             {needsReconnect ? (
               <p className="max-w-xl pt-1 text-xs leading-relaxed text-muted-foreground">
-                This connection expired. Reconnect so Salt keeps learning from
-                it — your tool preferences are kept.
-              </p>
-            ) : stale ? (
-              <p className="max-w-xl pt-1 text-xs leading-relaxed text-muted-foreground">
-                {staleDays !== null
-                  ? `Salt last saw activity from this account ${staleDays} days ago.`
-                  : "Salt hasn't seen any activity from this account since it was connected."}{" "}
-                The connection may have quietly expired — reconnect to refresh
-                access. Your tool preferences are kept.
+                This connection stopped working — Salt verified it can no
+                longer reach the account. Reconnect to restore access; your
+                tool preferences are kept.
               </p>
             ) : !connected && definition.connectHelp && !inlineApiKeyConnect ? (
               <p className="max-w-xl pt-1 text-xs leading-relaxed text-muted-foreground">
@@ -653,24 +646,6 @@ export function ConnectorDetailPane({
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          {stale && !definition.comingSoon ? (
-            <Button
-              type="button"
-              size="sm"
-              className="rounded-full px-4"
-              disabled={connecting}
-              onClick={() => void handleConnect()}
-            >
-              {connecting ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  Reconnecting
-                </>
-              ) : (
-                `Reconnect ${meta.displayName}`
-              )}
-            </Button>
-          ) : null}
           {connected && !definition.comingSoon ? (
             <AlertDialog>
               <AlertDialogTrigger asChild>

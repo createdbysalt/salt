@@ -140,12 +140,12 @@ export async function middleware(request: NextRequest) {
   const csp = [
     "default-src 'self'",
     // GTM / GA4 / Meta Pixel — see tracking handoff §0 (usesalt.io marketing analytics)
-    "script-src 'self' 'unsafe-eval' 'unsafe-inline' *.stripe.com https://*.googletagmanager.com https://connect.facebook.net",
+    "script-src 'self' 'unsafe-eval' 'unsafe-inline' *.stripe.com https://*.googletagmanager.com https://connect.facebook.net https://policies.termageddon.com",
     "style-src 'self' 'unsafe-inline'", // unsafe-inline needed for styled-components, CSS-in-JS
     "img-src 'self' data: https: blob:", // Allow images from any HTTPS source (GA4/Meta pixel beacons)
     "font-src 'self' data:",
     "media-src 'self' blob: data:", // Allow audio/video from blob and data URLs (briefing audio)
-    `connect-src 'self' *.stripe.com *.supabase.co wss://*.supabase.co *.sanity.io https://*.googletagmanager.com https://*.google-analytics.com https://*.analytics.google.com https://connect.facebook.net https://*.facebook.com ${devLogIngestOrigins}`.trim(),
+    `connect-src 'self' *.stripe.com *.supabase.co wss://*.supabase.co *.sanity.io https://*.googletagmanager.com https://*.google-analytics.com https://*.analytics.google.com https://connect.facebook.net https://*.facebook.com https://policies.termageddon.com ${devLogIngestOrigins}`.trim(),
     "frame-src 'self' *.stripe.com", // Allow Stripe iframe/redirect
     "form-action 'self' *.stripe.com", // Allow form submission to Stripe
     "base-uri 'self'",

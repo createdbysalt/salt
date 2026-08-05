@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { resolveSiteSettings } from "./site-settings-config";
 import {
   FOOTER_EXPLORE_LINKS_FALLBACK,
+  FOOTER_LEGAL_LINKS_FALLBACK,
   NAV_CTA_FALLBACK,
 } from "./site-settings-fallback";
 
@@ -11,6 +12,7 @@ describe("resolveSiteSettings", () => {
 
     expect(resolved.ctaButton).toEqual(NAV_CTA_FALLBACK);
     expect(resolved.footerExploreLinks).toEqual(FOOTER_EXPLORE_LINKS_FALLBACK);
+    expect(resolved.footerLegalLinks).toEqual(FOOTER_LEGAL_LINKS_FALLBACK);
     expect(resolved.supportEmail).toBe("support@usesalt.io");
     expect(resolved.socialLinks.length).toBeGreaterThan(0);
   });
@@ -53,6 +55,13 @@ describe("resolveSiteSettings", () => {
     expect(resolved.footerExploreLinks[0]?.text).toBe("Blog");
     expect(resolved.footerExploreLinks[1]?.href).toBe("/pricing");
     expect(resolved.footerLegalLinks[0]?.href).toBe("/privacy-policy");
+    expect(resolved.footerLegalLinks.map((link) => link.href)).toEqual([
+      "/privacy-policy",
+      "/terms-of-use",
+      "/early-access",
+      "/cookie-policy",
+      "/disclaimer",
+    ]);
     expect(resolved.supportEmail).toBe("hello@usesalt.io");
     expect(resolved.socialLinks.some((link) => link.platform === "linkedin")).toBe(
       true

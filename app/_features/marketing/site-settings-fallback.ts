@@ -36,6 +36,7 @@ export const FOOTER_LEGAL_LINKS_FALLBACK: SanityLink[] = [
   { text: "Terms", linkType: "internal", href: "/terms-of-use" },
   { text: "Early Access Terms", linkType: "internal", href: "/early-access" },
   { text: "Cookies", linkType: "internal", href: "/cookie-policy" },
+  { text: "Disclaimer", linkType: "internal", href: "/disclaimer" },
 ];
 
 export const SUPPORT_EMAIL_FALLBACK = "support@usesalt.io";

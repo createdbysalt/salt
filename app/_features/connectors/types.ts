@@ -212,14 +212,12 @@ export interface ConnectorRuntimeStatus {
   connected: boolean;
   label?: string;
   error?: string;
-  /** Was connected, now expired — Composio needs a re-auth. Distinct from never-connected. */
-  needsReconnect?: boolean;
   /**
-   * Connected with capture on, but no captures for STALE_AFTER_DAYS — the
-   * token may be silently dead (Composio never reported an expiry). Softer
-   * than needsReconnect: "check this", not "this is broken".
+   * Expired or failed live verification — Composio needs a re-auth. Distinct
+   * from never-connected. Quiet connections are auto-verified server-side
+   * (connection-verify.ts), so this is the single "not working" signal.
    */
-  stale?: boolean;
+  needsReconnect?: boolean;
   /** Most recent capture for this provider (ISO). Null = none since connecting. */
   lastActivityAt?: string | null;
 }

@@ -21,6 +21,7 @@ import {
 } from "./connector-capabilities";
 import { deriveConnectorOverview } from "./content-contract";
 import { isConnectionStale } from "./staleness";
+import { verifySuspectConnection } from "./connection-verify";
 import {
   getDisabledToolsFromConfig,
   getEmailModeFromConfig,
@@ -78,6 +79,8 @@ interface ProviderSettings {
   captureEnabled: boolean;
   /** When the integration row was created — bounds never-captured staleness. */
   connectedAt: string | null;
+  /** Raw config for verification cache read + merge-back. */
+  rawConfig: Record<string, unknown> | null;
 }
 
 async function loadProviderSettings(
@@ -105,6 +108,7 @@ async function loadProviderSettings(
       emailMode: getEmailModeFromConfig(config),
       captureEnabled: row.capture_enabled === true,
       connectedAt: (row.created_at as string | null) ?? null,
+      rawConfig: config,
     };
   }
   return byProvider;
@@ -323,19 +327,21 @@ export async function getConnectorsPageData(): Promise<ConnectorsPageData> {
     emailMode: "draft",
   };
 
-  // Last capture per connected, capture-enabled, trigger-based provider —
-  // powers the "connected but quiet" staleness signal. A silently dead token
-  // keeps composio_status "connected" while captures stop; the expiry
-  // webhook is not guaranteed, so silence is the only reliable tell.
-  const staleCandidates = connectableEntries.filter((entry, index) => {
-    if (!statuses[index].connected) return false;
-    if (!settingsByProvider[entry.providerKey]?.captureEnabled) return false;
-    const adapter = adapterForToolkit(entry.providerKey);
-    return adapter !== null && adapter.triggerSlugs.length > 0;
-  });
+  // Last capture per connected, capture-enabled, trigger-based provider. A
+  // silently dead token keeps composio_status "connected" while captures
+  // stop, and the expiry webhook is not guaranteed — so silence decides
+  // WHICH connections get a live verification below.
+  const staleCandidates = connectableEntries
+    .map((entry, index) => ({ entry, status: statuses[index] }))
+    .filter(({ entry, status }) => {
+      if (!status.connected) return false;
+      if (!settingsByProvider[entry.providerKey]?.captureEnabled) return false;
+      const adapter = adapterForToolkit(entry.providerKey);
+      return adapter !== null && adapter.triggerSlugs.length > 0;
+    });
   const lastCaptureByProvider = new Map(
     await Promise.all(
-      staleCandidates.map(async (entry) => {
+      staleCandidates.map(async ({ entry }) => {
         const adapter = adapterForToolkit(entry.providerKey);
         const { data: row } = await supabase
           .from("capture_events")
@@ -350,6 +356,35 @@ export async function getConnectorsPageData(): Promise<ConnectorsPageData> {
     ),
   );
 
+  // Quiet connections get an automatic live check (Composio status + token
+  // refresh, cached for an hour) so the surface stays binary: Connected, or
+  // Reconnect needed. A broken verdict persists composio_status = "expired",
+  // flipping every consumer to the existing reconnect state.
+  const brokenProviders = new Set<string>();
+  await Promise.all(
+    staleCandidates.map(async ({ entry, status }) => {
+      const providerSettings = settingsByProvider[entry.providerKey];
+      const quiet = isConnectionStale({
+        connected: status.connected,
+        captureEnabled: providerSettings?.captureEnabled ?? false,
+        hasRealtimeTriggers: true,
+        lastCaptureAt: lastCaptureByProvider.get(entry.providerKey) ?? null,
+        connectedAt: providerSettings?.connectedAt ?? null,
+      });
+      if (!quiet || !status.integrationId || !status.composioConnectionId) {
+        return;
+      }
+      const verdict = await verifySuspectConnection({
+        integrationId: status.integrationId,
+        connectionId: status.composioConnectionId,
+        config: providerSettings?.rawConfig ?? null,
+      });
+      if (verdict === "broken") {
+        brokenProviders.add(entry.providerKey);
+      }
+    }),
+  );
+
   const connectors: ConnectorsPageData["connectors"] = {};
   const disabledToolsByConnector: ConnectorsPageData["disabledToolsByConnector"] =
     {};
@@ -362,29 +397,18 @@ export async function getConnectorsPageData(): Promise<ConnectorsPageData> {
   connectableEntries.forEach((entry, index) => {
     const status = statuses[index];
     const key = entry.catalogId as ConnectorCatalogId;
-    const providerSettings = settingsByProvider[entry.providerKey];
-    const trackedForStaleness = lastCaptureByProvider.has(entry.providerKey);
-    const lastActivityAt = trackedForStaleness
+    const lastActivityAt = lastCaptureByProvider.has(entry.providerKey)
       ? (lastCaptureByProvider.get(entry.providerKey) ?? null)
       : undefined;
-    const stale =
-      trackedForStaleness &&
-      isConnectionStale({
-        connected: status.connected,
-        captureEnabled: providerSettings?.captureEnabled ?? false,
-        hasRealtimeTriggers: true,
-        lastCaptureAt: lastActivityAt ?? null,
-        connectedAt: providerSettings?.connectedAt ?? null,
-      });
+    const verifiedBroken = brokenProviders.has(entry.providerKey);
     connectors[key] = {
-      connected: status.connected,
+      connected: status.connected && !verifiedBroken,
       label:
         status.email ??
         (status.connected && entry.authMethod === "api_key"
           ? "Connected"
           : undefined),
-      needsReconnect: status.composioStatus === "expired",
-      stale: stale || undefined,
+      needsReconnect: verifiedBroken || status.composioStatus === "expired",
       lastActivityAt,
     };
 
