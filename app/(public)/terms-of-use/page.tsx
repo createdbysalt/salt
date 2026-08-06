@@ -1,23 +1,19 @@
-import { getSEOTags } from "@/app/_lib/seo";
-import { TermageddonPage } from "@/app/_features/marketing/components/TermageddonPage";
-import config from "@/config";
-
-const TERMAGEDDON_TERMS_ID = "YUdKS1NYSklkbGRrYnpWUFExRTlQUT09";
+import {
+  generateUnifiedLegalMetadata,
+  UnifiedLegalPage,
+  legalDefaultTitle,
+} from "@/app/_features/marketing/components/UnifiedLegalPage";
 
 export async function generateMetadata() {
-  return getSEOTags({
-    title: `Terms of Service | ${config.appName}`,
-    description:
-      "Terms and conditions governing your use of Salt by Simcoe House Inc.",
+  return generateUnifiedLegalMetadata({
+    routeSlug: "terms-of-use",
     canonicalUrlRelative: "/terms-of-use",
+    defaultTitle: legalDefaultTitle("Terms of Use"),
+    defaultDescription:
+      "Terms and conditions governing your use of the Salt website by Simcoe House Inc.",
   });
 }
 
 export default function TermsOfUsePage() {
-  return (
-    <TermageddonPage
-      title="Terms of Service"
-      policyId={TERMAGEDDON_TERMS_ID}
-    />
-  );
+  return <UnifiedLegalPage routeSlug="terms-of-use" />;
 }

@@ -295,6 +295,7 @@ pnpm exec playwright show-trace path/to/trace.zip
 | Error Handling | `./docs/guides/error-handling.md` |
 | Stripe Integration | `./docs/guides/stripe-integration.md` |
 | **Cookie Compliance** | `./docs/guides/cookie-compliance.md` |
+| **Legal Documents System** | `./brand-identity/legal/CLAUDE.md` |
 | Folder Structure | `./docs/reference/folder-structure.md` |
 | Environment Variables | `./docs/reference/environment-variables.md` |
 

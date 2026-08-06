@@ -28,6 +28,38 @@ export const legalPage = defineType({
       validation: (rule) => rule.required(),
     }),
     defineField({
+      name: 'managementType',
+      title: 'Management Type',
+      type: 'string',
+      group: 'content',
+      description: 'How this legal page is managed. Termageddon pages auto-update from their service; self-managed pages use the body content below.',
+      options: {
+        list: [
+          { title: 'Termageddon (auto-updating)', value: 'termageddon' },
+          { title: 'Self-managed (edit in Sanity)', value: 'self-managed' },
+        ],
+        layout: 'radio',
+      },
+      initialValue: 'self-managed',
+      validation: (rule) => rule.required(),
+    }),
+    defineField({
+      name: 'termageddonPolicyId',
+      title: 'Termageddon Policy ID',
+      type: 'string',
+      group: 'content',
+      description: 'The base64-encoded policy ID from Termageddon. Find this in your Termageddon dashboard under the embed code.',
+      hidden: ({ parent }) => parent?.managementType !== 'termageddon',
+      validation: (rule) =>
+        rule.custom((value, context) => {
+          const parent = context.parent as { managementType?: string }
+          if (parent?.managementType === 'termageddon' && !value) {
+            return 'Policy ID is required for Termageddon-managed pages'
+          }
+          return true
+        }),
+    }),
+    defineField({
       name: 'title',
       title: 'Title',
       type: 'string',
@@ -53,6 +85,8 @@ export const legalPage = defineType({
       title: 'Body',
       type: 'array',
       group: 'content',
+      description: 'Content for self-managed pages. Ignored for Termageddon-managed pages.',
+      hidden: ({ parent }) => parent?.managementType === 'termageddon',
       of: [
         defineArrayMember({
           type: 'block',
@@ -87,12 +121,14 @@ export const legalPage = defineType({
     }),
   ],
   preview: {
-    select: { title: 'title', lastUpdated: 'lastUpdated', language: 'language' },
-    prepare({ title, lastUpdated, language }) {
+    select: { title: 'title', lastUpdated: 'lastUpdated', language: 'language', managementType: 'managementType' },
+    prepare({ title, lastUpdated, language, managementType }) {
       const langLabel = language ? `[${language.toUpperCase()}]` : ''
+      const typeLabel = managementType === 'termageddon' ? '🔗 Termageddon' : '📝 Self-managed'
+      const dateLabel = lastUpdated ? `Updated: ${lastUpdated}` : 'No date'
       return {
         title: `${langLabel} ${title}`.trim(),
-        subtitle: lastUpdated ? `Updated: ${lastUpdated}` : 'No date',
+        subtitle: `${typeLabel} · ${dateLabel}`,
       }
     },
   },

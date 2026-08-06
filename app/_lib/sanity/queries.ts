@@ -168,6 +168,8 @@ const legalPageFields = `
   _type,
   title,
   slug,
+  managementType,
+  termageddonPolicyId,
   body,
   lastUpdated,
   seo

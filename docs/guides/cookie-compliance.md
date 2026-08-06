@@ -63,3 +63,10 @@ grep -r "useEffect.*init\|\.init(\|\.configure(" app/_components --include="*.ts
 2. Update `/subprocessors` (Sanity + markdown fallback)
 3. Update cookie policy (Sanity + markdown fallback)
 4. Test: reject all cookies → verify service doesn't load (check Network tab)
+
+## Related: Legal Documents System
+
+Cookie policy is one of several legal pages. See `brand-identity/legal/CLAUDE.md` for:
+- Which pages are Termageddon-managed vs. self-managed
+- How to add new legal pages
+- Termageddon policy IDs and questionnaire updates

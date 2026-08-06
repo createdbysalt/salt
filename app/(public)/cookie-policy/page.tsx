@@ -1,12 +1,12 @@
 import { CookiePolicyPreferencesAction } from "@/app/_features/marketing/components/CookiePolicyPreferencesAction";
 import {
-  generateLegalRouteMetadata,
-  LegalRoutePage,
+  generateUnifiedLegalMetadata,
+  UnifiedLegalPage,
   legalDefaultTitle,
-} from "@/app/_features/marketing/components/LegalRoutePage";
+} from "@/app/_features/marketing/components/UnifiedLegalPage";
 
 export async function generateMetadata() {
-  return generateLegalRouteMetadata({
+  return generateUnifiedLegalMetadata({
     routeSlug: "cookie-policy",
     canonicalUrlRelative: "/cookie-policy",
     defaultTitle: legalDefaultTitle("Cookie Policy"),
@@ -17,11 +17,8 @@ export async function generateMetadata() {
 
 export default function CookiePolicyPage() {
   return (
-    <LegalRoutePage
+    <UnifiedLegalPage
       routeSlug="cookie-policy"
-      canonicalUrlRelative="/cookie-policy"
-      defaultTitle={legalDefaultTitle("Cookie Policy")}
-      defaultDescription=""
       afterHeader={<CookiePolicyPreferencesAction />}
     />
   );

@@ -1,11 +1,11 @@
 import {
-  generateLegalRouteMetadata,
-  LegalRoutePage,
+  generateUnifiedLegalMetadata,
+  UnifiedLegalPage,
   legalDefaultTitle,
-} from "@/app/_features/marketing/components/LegalRoutePage";
+} from "@/app/_features/marketing/components/UnifiedLegalPage";
 
 export async function generateMetadata() {
-  return generateLegalRouteMetadata({
+  return generateUnifiedLegalMetadata({
     routeSlug: "subprocessors",
     canonicalUrlRelative: "/subprocessors",
     defaultTitle: legalDefaultTitle("Subprocessors"),
@@ -15,12 +15,5 @@ export async function generateMetadata() {
 }
 
 export default function SubprocessorsPage() {
-  return (
-    <LegalRoutePage
-      routeSlug="subprocessors"
-      canonicalUrlRelative="/subprocessors"
-      defaultTitle={legalDefaultTitle("Subprocessors")}
-      defaultDescription=""
-    />
-  );
+  return <UnifiedLegalPage routeSlug="subprocessors" />;
 }
