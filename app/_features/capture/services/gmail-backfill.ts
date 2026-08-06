@@ -16,7 +16,7 @@ import "server-only";
  */
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
-import { getConnectionStatus } from "@/app/_lib/composio/connections";
+import { getConnectionStatusAdmin } from "@/app/_lib/composio/connections";
 import { fetchGmailMessagesPage } from "@/app/_lib/composio/actions";
 import { getCategoryAdapter } from "../adapters/categories";
 import type { CaptureEnvelope, EnvelopeParticipant } from "../adapters/types";
@@ -235,7 +235,7 @@ export async function backfillGmailCaptures(
     isBootstrap = false,
   } = options;
 
-  const connection = await getConnectionStatus("gmail", workspaceId);
+  const connection = await getConnectionStatusAdmin("gmail", workspaceId);
   if (!connection.connected || !connection.composioConnectionId) {
     console.error(`[gmail-backfill] Gmail not connected for workspace ${workspaceId}`);
     return {

@@ -1,7 +1,7 @@
 import type { ConnectorCategory, ExtractorResult } from "../types";
 import type { Extractor, ExtractorContext } from "./base";
 import { emptyResult } from "./base";
-import { getConnectionStatus } from "../../connections";
+import { getConnectionStatusAdmin } from "../../connections";
 
 export const driveExtractor: Extractor = {
   category: "storage" as ConnectorCategory,
@@ -10,7 +10,7 @@ export const driveExtractor: Extractor = {
   async extract(ctx: ExtractorContext): Promise<ExtractorResult> {
     const source = "drive";
 
-    const connection = await getConnectionStatus("googledrive", ctx.workspaceId);
+    const connection = await getConnectionStatusAdmin("googledrive", ctx.workspaceId);
     if (!connection.connected || !connection.composioConnectionId) {
       return emptyResult(source);
     }

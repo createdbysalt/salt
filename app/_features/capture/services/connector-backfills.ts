@@ -15,7 +15,7 @@ import "server-only";
  * decisions.
  */
 
-import { getConnectionStatus } from "@/app/_lib/composio/connections";
+import { getConnectionStatusAdmin } from "@/app/_lib/composio/connections";
 import { executeComposioAction } from "@/app/_lib/composio/actions";
 import { COMPOSIO_TOOL_SLUGS } from "@/app/_lib/composio/tool-slugs";
 import type { CaptureAdapter, CaptureEnvelope } from "../adapters/types";
@@ -178,7 +178,7 @@ async function runConnectorBackfill(
   spec: BackfillFetch,
   options: { isBootstrap?: boolean } = {},
 ): Promise<ConnectorBackfillResult> {
-  const connection = await getConnectionStatus(spec.provider, workspaceId);
+  const connection = await getConnectionStatusAdmin(spec.provider, workspaceId);
   if (!connection.connected || !connection.composioConnectionId) {
     return {
       success: false,
@@ -392,7 +392,7 @@ export async function backfillCalBookings(
   workspaceId: string,
   options: { isBootstrap?: boolean } = {},
 ): Promise<ConnectorBackfillResult> {
-  const connection = await getConnectionStatus("cal", workspaceId);
+  const connection = await getConnectionStatusAdmin("cal", workspaceId);
   if (!connection.connected || !connection.composioConnectionId) {
     return { success: false, capturesCreated: 0, error: "cal not connected" };
   }

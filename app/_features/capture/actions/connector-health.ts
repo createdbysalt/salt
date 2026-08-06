@@ -2,9 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAuthenticatedWorkspaceMember } from "@/app/_lib/composio/workspace-auth";
-import { enableCaptureTriggers } from "@/app/_lib/composio/trigger-subscriptions";
-import { createAdminClient } from "@/app/_lib/supabase/admin";
-import { adapterForToolkit } from "../adapters/registry";
+import { setCaptureState } from "@/app/_lib/composio/capture-state";
 import {
   checkWorkspaceConnectorHealth,
   type WorkspaceHealthReport,
@@ -46,28 +44,12 @@ export async function fixConnectorCapture(
     return { success: false, error: member.error };
   }
 
-  const adapter = adapterForToolkit(provider);
-  if (!adapter) {
-    return { success: false, error: "No capture adapter for this connector" };
-  }
-
   try {
-    // Register triggers
-    const triggerResult = await enableCaptureTriggers(member.workspaceId, provider);
-    if (!triggerResult.ok) {
-      return {
-        success: false,
-        error: triggerResult.error ?? "Failed to register triggers",
-      };
+    // Single write path: registers triggers and flips the flag together.
+    const result = await setCaptureState(member.workspaceId, provider, true);
+    if (!result.ok) {
+      return { success: false, error: result.error };
     }
-
-    // Enable capture flag
-    const admin = createAdminClient();
-    await admin
-      .from("workspace_integrations")
-      .update({ capture_enabled: true })
-      .eq("workspace_id", member.workspaceId)
-      .eq("provider", provider);
 
     revalidatePath("/settings/capture");
     return { success: true };

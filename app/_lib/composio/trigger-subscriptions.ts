@@ -46,8 +46,11 @@ function configWith(
 /**
  * Get trigger slugs enabled for capture from the database.
  * Falls back to adapter.triggerSlugs if DB lookup fails (backward compat).
+ *
+ * Exported so trigger reconciliation computes coverage from the same
+ * source of truth the enable path subscribes with.
  */
-async function getEnabledTriggerSlugs(
+export async function getCaptureTriggerSlugs(
   toolkitSlug: string,
 ): Promise<readonly string[]> {
   try {
@@ -79,7 +82,7 @@ async function getEnabledTriggerSlugs(
     return adapter?.triggerSlugs ?? [];
   } catch (error) {
     console.error(
-      `[trigger-subscriptions] getEnabledTriggerSlugs threw for ${toolkitSlug}:`,
+      `[trigger-subscriptions] getCaptureTriggerSlugs threw for ${toolkitSlug}:`,
       error,
     );
     // Fall back to adapter
@@ -115,7 +118,7 @@ export async function enableCaptureTriggers(
   }
 
   // Get enabled triggers from DB (falls back to adapter.triggerSlugs)
-  const triggerSlugs = await getEnabledTriggerSlugs(provider);
+  const triggerSlugs = await getCaptureTriggerSlugs(provider);
   if (triggerSlugs.length === 0) {
     // No triggers configured — backfill-only connector
     return { ok: true, created: [] };

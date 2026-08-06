@@ -41,8 +41,9 @@ export async function GET(req: NextRequest) {
     // Log summary
     console.log(
       `[Trigger reconciliation cron] Complete: ${result.connectionsSeen} connections, ` +
-        `${result.triggersVerified} verified, ${result.triggersStale} stale, ` +
-        `${result.triggersRepaired} repaired, ${result.failures.length} failures`,
+        `${result.instancesSeen} instances seen, ${result.triggersCreated} created, ` +
+        `${result.orphansDeleted} orphans deleted, ${result.configsUpdated} configs updated, ` +
+        `${result.failures.length} failures`,
     );
 
     // Log failures for alerting
@@ -50,7 +51,7 @@ export async function GET(req: NextRequest) {
       console.error(
         `[Trigger reconciliation cron] ${result.failures.length} failure(s):`,
         result.failures
-          .map((f) => `${f.provider}@${f.workspaceId}: ${f.error}`)
+          .map((f) => `${f.provider}@${f.workspaceId} (${f.detail}): ${f.error}`)
           .join("; "),
       );
     }

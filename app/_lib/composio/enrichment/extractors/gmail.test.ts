@@ -13,7 +13,7 @@ import * as actions from "../../actions";
 vi.mock("../../connections");
 vi.mock("../../actions");
 
-const mockGetConnectionStatus = vi.mocked(connections.getConnectionStatus);
+const mockGetConnectionStatus = vi.mocked(connections.getConnectionStatusAdmin);
 const mockFetchGmailMessagesPage = vi.mocked(actions.fetchGmailMessagesPage);
 const mockGetGmailMessage = vi.mocked(actions.getGmailMessage);
 
