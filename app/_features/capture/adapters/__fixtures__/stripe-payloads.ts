@@ -126,3 +126,100 @@ export const STRIPE_CUSTOMER_OBJECT = {
   email: "billing@northwind.com",
   name: "Northwind Studio",
 };
+
+/**
+ * Remaining trigger payloads — verified against the live Composio trigger
+ * schemas 2026-08-05 (composio-trigger-schemas.json): every STRIPE_*_TRIGGER
+ * sends { body, event_type } where `body` is the full Stripe webhook event.
+ */
+
+/** STRIPE_CHECKOUT_SESSION_COMPLETED_TRIGGER — customer under customer_details. */
+export const STRIPE_TRIGGER_CHECKOUT_SESSION_COMPLETED = {
+  event_type: "checkout.session.completed",
+  body: {
+    id: "evt_1Qr9dLkdIwHu7ix6DvOz6uJ",
+    object: "event",
+    type: "checkout.session.completed",
+    data: {
+      object: {
+        id: "cs_test_a1B2c3D4e5F6g7H8i9J0",
+        object: "checkout.session",
+        amount_total: 95000,
+        currency: "usd",
+        customer: "cus_QPz71fJ8kQxT2a",
+        customer_details: {
+          email: "billing@northwind.com",
+          name: "Northwind Studio",
+        },
+        payment_status: "paid",
+        status: "complete",
+        created: 1783209600,
+      },
+    },
+  },
+};
+
+/** STRIPE_SUBSCRIPTION_ADDED_TRIGGER — no email on the subscription object. */
+export const STRIPE_TRIGGER_SUBSCRIPTION_ADDED = {
+  event_type: "customer.subscription.created",
+  body: {
+    id: "evt_1Qs0eMkdIwHu7ix7EwPa7vK",
+    object: "event",
+    type: "customer.subscription.created",
+    data: {
+      object: {
+        id: "sub_1Qs0eMkdIwHu7ix8FxQb8wL",
+        object: "subscription",
+        customer: "cus_QPz71fJ8kQxT2a",
+        status: "active",
+        currency: "usd",
+        created: 1783296000,
+      },
+    },
+  },
+};
+
+/** STRIPE_SUBSCRIPTION_DELETED_TRIGGER. */
+export const STRIPE_TRIGGER_SUBSCRIPTION_DELETED = {
+  event_type: "customer.subscription.deleted",
+  body: {
+    id: "evt_1Qt1fNkdIwHu7ix9GyRc9xM",
+    object: "event",
+    type: "customer.subscription.deleted",
+    data: {
+      object: {
+        id: "sub_1Qs0eMkdIwHu7ix8FxQb8wL",
+        object: "subscription",
+        customer: "cus_QPz71fJ8kQxT2a",
+        status: "canceled",
+        currency: "usd",
+        created: 1783296000,
+        canceled_at: 1783382400,
+      },
+    },
+  },
+};
+
+/** STRIPE_CHARGE_FAILED_TRIGGER — billing_details carries the email. */
+export const STRIPE_TRIGGER_CHARGE_FAILED = {
+  event_type: "charge.failed",
+  body: {
+    id: "evt_1Qu2gOkdIwHu7ixAHzSdAyN",
+    object: "event",
+    type: "charge.failed",
+    data: {
+      object: {
+        id: "ch_3Qu2gOkdIwHu7ixB0AtEbBzO",
+        object: "charge",
+        amount: 45000,
+        currency: "usd",
+        status: "failed",
+        customer: "cus_QPz71fJ8kQxT2a",
+        billing_details: { email: "billing@northwind.com", name: "Northwind Studio" },
+        failure_code: "card_declined",
+        failure_message: "Your card was declined.",
+        created: 1783468800,
+      },
+    },
+  },
+};

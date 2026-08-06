@@ -59,7 +59,15 @@ function isSelf(email: string | null, userEmail: string | null): boolean {
 
 function normalizeGoogleDrive(payload: unknown): CaptureEnvelope | null {
   if (!payload || typeof payload !== "object") return null;
-  const record = payload as Record<string, unknown>;
+  const outer = payload as Record<string, unknown>;
+
+  // GOOGLEDRIVE_FILE_CREATED_TRIGGER wraps the resource in a `file`
+  // envelope ({ creator, event_type, file }) — verified against the live
+  // trigger schema 2026-08-05. Flat payloads (backfill rows) still parse.
+  const record =
+    typeof outer.file === "object" && outer.file !== null && !Array.isArray(outer.file)
+      ? (outer.file as Record<string, unknown>)
+      : outer;
 
   const externalId = (record.id as string) ?? (record.fileId as string);
   if (!externalId) return null;
@@ -67,13 +75,18 @@ function normalizeGoogleDrive(payload: unknown): CaptureEnvelope | null {
   const name = (record.name as string) ?? null;
   const mimeType = (record.mimeType as string) ?? null;
   const owners = (record.owners as Array<Record<string, unknown>>) ?? [];
+  const creator =
+    record !== outer ? (outer.creator as Record<string, unknown> | undefined) : undefined;
   const sharingUser = record.sharingUser as Record<string, unknown> | undefined;
 
   const participants: EnvelopeParticipant[] = [];
 
-  for (const owner of owners) {
+  const ownerLike = creator ? [creator, ...owners] : owners;
+  const seen = new Set<string>();
+  for (const owner of ownerLike) {
     const email = (owner.emailAddress as string)?.toLowerCase();
-    if (email) {
+    if (email && !seen.has(email)) {
+      seen.add(email);
       participants.push({
         email,
         name: (owner.displayName as string) ?? null,

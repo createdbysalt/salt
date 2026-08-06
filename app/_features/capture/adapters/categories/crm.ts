@@ -11,6 +11,7 @@ import type {
   EnvelopeParticipant,
   SignalDerivationContext,
 } from "../types";
+import { isRecord, pickString, unwrapRecord } from "../normalize-utils";
 import type { PersonSignals } from "@/app/_features/capture/services/system-plays/person-signals";
 import type { CaptureSourceType } from "@/app/_features/capture/types";
 
@@ -60,28 +61,69 @@ function deriveCrmSignals(
 
 // CRM adapters already filter by category - no need for source type check
 
+/**
+ * HubSpot triggers send ID-only payloads — verified against the live
+ * Composio trigger schemas 2026-08-05 (__fixtures__/composio-trigger-schemas.json):
+ * { objectId, subscriptionType, subscription_id }. No contact/deal details,
+ * so the envelope is a pointer: the external ID keys dedupe and a later
+ * enrichment fetch (Outlook pattern) can hydrate names/emails.
+ */
+function normalizeHubspot(payload: unknown): CaptureEnvelope | null {
+  if (!isRecord(payload)) return null;
+
+  const objectId = pickString(payload, ["objectId", "object_id"]);
+  const subscriptionType = pickString(payload, [
+    "subscriptionType",
+    "subscription_type",
+  ]);
+
+  // Not the ID-only trigger shape — fall through to generic extraction
+  // (backfill rows carry full objects).
+  if (!objectId || !subscriptionType) {
+    return normalizeGenericCrm(payload, "hubspot" as CaptureSourceType);
+  }
+
+  const isContact = subscriptionType.startsWith("contact");
+
+  return {
+    sourceType: "hubspot" as CaptureSourceType,
+    captureType: isContact ? "contact" : "note",
+    // objectId spaces overlap across HubSpot object types — scope by type.
+    externalId: `${subscriptionType}:${objectId}`,
+    title: `HubSpot: ${subscriptionType}`,
+    occurredAt: null,
+    participants: [],
+    threadId: null,
+    extracted: {
+      object_id: objectId,
+      subscription_type: subscriptionType,
+      needs_hydration: true,
+    },
+    raw: {
+      crmId: objectId,
+      subscriptionType,
+      source: "composio_trigger",
+    },
+    noise: null,
+  };
+}
+
 function normalizeGenericCrm(
   payload: unknown,
   sourceType: CaptureSourceType
 ): CaptureEnvelope | null {
-  if (!payload || typeof payload !== "object") return null;
-  const record = payload as Record<string, unknown>;
+  if (!isRecord(payload)) return null;
+
+  // Try one level of trigger nesting (contact/deal/lead/data envelopes).
+  const record = unwrapRecord(payload, ["contact", "deal", "lead", "organization", "data"]);
 
   const externalId =
-    (record.id as string) ??
-    (record.Id as string) ??
-    (record.contactId as string);
+    pickString(record, ["id", "Id", "contactId", "contact_id", "objectId", "object_id"]) ??
+    pickString(payload, ["id", "Id", "objectId", "object_id"]);
   if (!externalId) return null;
 
-  const name =
-    (record.name as string) ??
-    (record.Name as string) ??
-    null;
-
-  const email =
-    (record.email as string) ??
-    (record.Email as string) ??
-    null;
+  const name = pickString(record, ["name", "Name", "title"]);
+  const email = pickString(record, ["email", "Email"]);
 
   const participants: EnvelopeParticipant[] = email
     ? [{ email: email.toLowerCase(), name, role: "other" }]
@@ -92,13 +134,14 @@ function normalizeGenericCrm(
     captureType: "contact",
     externalId,
     title: name,
-    occurredAt: (record.created_at as string) ?? (record.CreatedDate as string) ?? null,
+    occurredAt:
+      pickString(record, ["created_at", "createdAt", "CreatedDate", "add_time"]) ?? null,
     participants,
     threadId: null,
     extracted: {
       name,
       email: email?.toLowerCase() ?? null,
-      company: (record.company as string) ?? null,
+      company: pickString(record, ["company", "org_name"]),
     },
     raw: {
       crmId: externalId,
@@ -124,8 +167,13 @@ export function createCrmCategoryAdapter(provider: string): CaptureAdapter {
     deriveSignals: deriveCrmSignals,
 
     normalize(payload: unknown): CaptureEnvelope | null {
-      // All CRM providers currently use generic extraction
-      return normalizeGenericCrm(payload, provider as CaptureSourceType);
+      switch (provider) {
+        case "hubspot":
+          return normalizeHubspot(payload);
+        default:
+          // Other CRM providers use generic extraction
+          return normalizeGenericCrm(payload, provider as CaptureSourceType);
+      }
     },
   };
 }

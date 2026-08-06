@@ -38,6 +38,57 @@ interface NormalizedTriggerEvent {
   payload: unknown;
 }
 
+/**
+ * Non-success ingress outcomes (capture pipeline repair, Phase 0).
+ * Persisted to connector_sync_events so "what happened to webhooks for
+ * provider X in the last 24h" is a SQL query, not archaeology.
+ */
+type WebhookFailureOutcome =
+  | "ignored"
+  | "no_adapter"
+  | "no_account"
+  | "no_integration"
+  | "inactive_integration"
+  | "capture_disabled"
+  | "malformed_payload"
+  | "declined"
+  | "dropped"
+  | "ingest_error";
+
+async function recordWebhookOutcome(
+  admin: ReturnType<typeof createAdminClient>,
+  outcome: WebhookFailureOutcome,
+  context: {
+    triggerSlug: string | null;
+    connectedAccountId: string | null;
+    payload?: unknown;
+    detail?: Record<string, unknown>;
+  },
+): Promise<void> {
+  // Privacy: persist a key sample only — never payload values.
+  const payloadKeys = isRecord(context.payload)
+    ? Object.keys(context.payload).slice(0, 25)
+    : null;
+  try {
+    await admin.from("connector_sync_events").insert({
+      kind: "webhook_outcome",
+      subject_slug: context.triggerSlug ?? "unknown_trigger",
+      detail: {
+        outcome,
+        connectedAccountId: context.connectedAccountId,
+        ...(payloadKeys ? { payloadKeys } : {}),
+        ...context.detail,
+      } as never,
+    });
+  } catch (error) {
+    // Observability must never break the ingress ack path.
+    console.error("[composio-webhook] failed to record outcome", {
+      outcome,
+      error,
+    });
+  }
+}
+
 /** Normalize V1/V2/V3/V4 webhook envelopes to one shape (spellings vary). */
 function normalizeWebhookEvent(body: unknown): NormalizedTriggerEvent {
   if (!isRecord(body)) {
@@ -174,6 +225,11 @@ export async function POST(req: NextRequest) {
   if (event.kind !== "trigger" || !event.triggerSlug) {
     // Unknown event kinds ack with 200 — retries won't make them known.
     console.warn("[composio-webhook] unrecognized event shape — acked");
+    await recordWebhookOutcome(admin, "ignored", {
+      triggerSlug: event.triggerSlug,
+      connectedAccountId: event.connectedAccountId,
+      payload: event.payload,
+    });
     return NextResponse.json({ ok: true, handled: "ignored" });
   }
 
@@ -203,12 +259,22 @@ export async function POST(req: NextRequest) {
 
   const adapter = adapterForTriggerSlug(event.triggerSlug);
   if (!adapter) {
+    await recordWebhookOutcome(admin, "no_adapter", {
+      triggerSlug: event.triggerSlug,
+      connectedAccountId: event.connectedAccountId,
+      payload: event.payload,
+    });
     return NextResponse.json({ ok: true, handled: "no_adapter" });
   }
 
   if (!event.connectedAccountId) {
     console.warn("[composio-webhook] trigger without a connected account id — acked", {
       triggerSlug: event.triggerSlug,
+    });
+    await recordWebhookOutcome(admin, "no_account", {
+      triggerSlug: event.triggerSlug,
+      connectedAccountId: null,
+      payload: event.payload,
     });
     return NextResponse.json({ ok: true, handled: "no_account" });
   }
@@ -220,9 +286,23 @@ export async function POST(req: NextRequest) {
     .maybeSingle();
 
   if (!integration?.is_active) {
+    // Distinguish "no row" (orphaned trigger firing at a stale connection)
+    // from "row exists but deactivated" — different repairs.
+    await recordWebhookOutcome(
+      admin,
+      integration ? "inactive_integration" : "no_integration",
+      {
+        triggerSlug: event.triggerSlug,
+        connectedAccountId: event.connectedAccountId,
+      },
+    );
     return NextResponse.json({ ok: true, handled: "inactive_integration" });
   }
   if (!integration.capture_enabled) {
+    await recordWebhookOutcome(admin, "capture_disabled", {
+      triggerSlug: event.triggerSlug,
+      connectedAccountId: event.connectedAccountId,
+    });
     return NextResponse.json({ ok: true, handled: "capture_disabled" });
   }
 
@@ -244,10 +324,28 @@ export async function POST(req: NextRequest) {
       triggerSlug: event.triggerSlug,
       error,
     });
+    await recordWebhookOutcome(admin, "malformed_payload", {
+      triggerSlug: event.triggerSlug,
+      connectedAccountId: event.connectedAccountId,
+      payload: payloadToNormalize,
+      detail: {
+        sourceType: adapter.sourceType,
+        error: error instanceof Error ? error.message : String(error),
+      },
+    });
     return NextResponse.json({ ok: true, handled: "malformed_payload" });
   }
 
   if (!envelope) {
+    // The adapter recognized the slug but couldn't build an envelope —
+    // historically the silent killer (payload shape drift). The key sample
+    // shows what the payload actually looked like.
+    await recordWebhookOutcome(admin, "declined", {
+      triggerSlug: event.triggerSlug,
+      connectedAccountId: event.connectedAccountId,
+      payload: payloadToNormalize,
+      detail: { sourceType: adapter.sourceType, enriched: enrichment.enriched },
+    });
     return NextResponse.json({ ok: true, handled: "declined" });
   }
 
@@ -267,6 +365,22 @@ export async function POST(req: NextRequest) {
       awaitEnrichment: true,
     },
   );
+
+  if (result.outcome === "dropped" || result.outcome === "error") {
+    await recordWebhookOutcome(
+      admin,
+      result.outcome === "dropped" ? "dropped" : "ingest_error",
+      {
+        triggerSlug: event.triggerSlug,
+        connectedAccountId: event.connectedAccountId,
+        detail: {
+          sourceType: adapter.sourceType,
+          ...(result.noiseReason ? { reason: result.noiseReason } : {}),
+          ...(result.error ? { error: result.error } : {}),
+        },
+      },
+    );
+  }
 
   return NextResponse.json({
     ok: true,

@@ -62,8 +62,15 @@ function normalizeGoogleCalendar(payload: unknown): CaptureEnvelope | null {
   if (!payload || typeof payload !== "object") return null;
   const record = payload as Record<string, unknown>;
 
+  // Two shapes reach this normalizer — verified against the live Composio
+  // trigger schema 2026-08-05 (__fixtures__/composio-trigger-schemas.json):
+  //   Trigger:  { event_id, calendar_id, summary, organizer_email,
+  //               organizer_name, start_time, end_time } (flat snake_case)
+  //   API/backfill: Google Calendar event resource (id, start.dateTime,
+  //               organizer.email, attendees[])
   const externalId =
     (record.id as string) ??
+    (record.event_id as string) ??
     (record.eventId as string) ??
     (record.iCalUID as string);
   if (!externalId) return null;
@@ -75,14 +82,28 @@ function normalizeGoogleCalendar(payload: unknown): CaptureEnvelope | null {
   const organizer = record.organizer as Record<string, unknown> | undefined;
 
   const occurredAt =
-    (start?.dateTime as string) ?? (start?.date as string) ?? null;
+    (start?.dateTime as string) ??
+    (start?.date as string) ??
+    (record.start_time as string) ??
+    null;
+  const endsAt =
+    (end?.dateTime as string) ??
+    (end?.date as string) ??
+    (record.end_time as string) ??
+    null;
+
+  const organizerEmail =
+    ((organizer?.email as string) ?? (record.organizer_email as string))?.toLowerCase() ??
+    null;
+  const organizerName =
+    (organizer?.displayName as string) ?? (record.organizer_name as string) ?? null;
 
   const participants: EnvelopeParticipant[] = [];
 
-  if (organizer?.email) {
+  if (organizerEmail) {
     participants.push({
-      email: (organizer.email as string).toLowerCase(),
-      name: (organizer.displayName as string) ?? null,
+      email: organizerEmail,
+      name: organizerName,
       role: "organizer",
     });
   }
@@ -104,12 +125,12 @@ function normalizeGoogleCalendar(payload: unknown): CaptureEnvelope | null {
     title: summary,
     occurredAt,
     participants,
-    threadId: null,
+    threadId: (record.calendar_id as string) ?? null,
     extracted: {
       summary,
       start: occurredAt,
-      end: (end?.dateTime as string) ?? (end?.date as string) ?? null,
-      organizer_email: (organizer?.email as string)?.toLowerCase() ?? null,
+      end: endsAt,
+      organizer_email: organizerEmail,
       attendee_count: attendees.length,
       location: (record.location as string) ?? null,
       status: (record.status as string) ?? null,

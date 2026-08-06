@@ -11,6 +11,7 @@ import type {
   EnvelopeParticipant,
   SignalDerivationContext,
 } from "../types";
+import { isRecord, pickString, unwrapRecord } from "../normalize-utils";
 import type { PersonSignals } from "@/app/_features/capture/services/system-plays/person-signals";
 import type { CaptureSourceType } from "@/app/_features/capture/types";
 
@@ -85,7 +86,17 @@ function deriveBillingSignals(
 
 function normalizeStripe(payload: unknown): CaptureEnvelope | null {
   if (!payload || typeof payload !== "object") return null;
-  const record = payload as Record<string, unknown>;
+  const outer = payload as Record<string, unknown>;
+
+  // Composio STRIPE_*_TRIGGER payloads wrap the full Stripe webhook event in
+  // a `body` envelope: { body: { id, type, data: { object } }, event_type }
+  // — verified against the live trigger schemas 2026-08-05
+  // (__fixtures__/composio-trigger-schemas.json). Raw Stripe events and bare
+  // objects (backfill rows) must keep parsing too.
+  const record =
+    typeof outer.body === "object" && outer.body !== null && !Array.isArray(outer.body)
+      ? (outer.body as Record<string, unknown>)
+      : outer;
 
   const dataObject = (record.data as Record<string, unknown>)?.object as
     | Record<string, unknown>
@@ -95,18 +106,24 @@ function normalizeStripe(payload: unknown): CaptureEnvelope | null {
   const externalId = (obj.id as string) ?? (record.id as string);
   if (!externalId) return null;
 
-  const eventType = (record.type as string) ?? null;
+  const eventType =
+    (record.type as string) ?? (outer.event_type as string) ?? null;
   const objectType = (obj.object as string) ?? null;
   const billingDetails = obj.billing_details as Record<string, unknown> | undefined;
+  // checkout.session carries the customer under customer_details
+  const customerDetails = obj.customer_details as Record<string, unknown> | undefined;
   const customerEmail = (obj.customer_email as string) ??
     (obj.email as string) ??
-    (billingDetails?.email as string);
+    (billingDetails?.email as string) ??
+    (customerDetails?.email as string);
   const customerName = (obj.customer_name as string) ??
     (obj.name as string) ??
-    (billingDetails?.name as string);
+    (billingDetails?.name as string) ??
+    (customerDetails?.name as string);
   const amountPaid =
     typeof obj.amount_paid === "number" ? obj.amount_paid / 100 :
-    typeof obj.amount === "number" ? obj.amount / 100 : null;
+    typeof obj.amount === "number" ? obj.amount / 100 :
+    typeof obj.amount_total === "number" ? obj.amount_total / 100 : null;
   const amountDue =
     typeof obj.amount_due === "number" ? obj.amount_due / 100 : null;
 
@@ -190,35 +207,41 @@ function normalizeGenericBilling(
   payload: unknown,
   sourceType: CaptureSourceType
 ): CaptureEnvelope | null {
-  if (!payload || typeof payload !== "object") return null;
-  const record = payload as Record<string, unknown>;
+  if (!isRecord(payload)) return null;
+
+  // Try one level of trigger nesting before giving up — providers wrap the
+  // billing object in envelopes like body/data/invoice/payment.
+  const record = unwrapRecord(payload, ["body", "data", "invoice", "payment", "object"]);
 
   const externalId =
-    (record.id as string) ??
-    (record.Id as string) ??
-    (record.invoice_id as string);
+    pickString(record, ["id", "Id", "invoice_id", "invoiceId", "payment_id", "paymentId"]) ??
+    pickString(payload, ["id", "Id", "invoice_id", "invoiceId"]);
   if (!externalId) return null;
 
-  const customerEmail =
-    (record.customer_email as string) ??
-    (record.email as string) ??
-    null;
+  const customerEmail = pickString(record, [
+    "customer_email",
+    "customerEmail",
+    "email",
+  ]);
 
   const participants: EnvelopeParticipant[] = customerEmail
     ? [{ email: customerEmail.toLowerCase(), name: null, role: "payer" }]
     : [];
+
+  const amountRaw = record.amount ?? record.total ?? record.amount_paid;
 
   return {
     sourceType,
     captureType: "payment",
     externalId,
     title: `Payment ${externalId}`,
-    occurredAt: (record.created_at as string) ?? (record.date as string) ?? null,
+    occurredAt:
+      pickString(record, ["created_at", "createdAt", "date", "timestamp"]) ?? null,
     participants,
     threadId: null,
     extracted: {
       customer_email: customerEmail?.toLowerCase() ?? null,
-      amount_paid: (record.amount as number) ?? (record.total as number) ?? null,
+      amount_paid: typeof amountRaw === "number" ? amountRaw : null,
     },
     raw: {
       paymentId: externalId,

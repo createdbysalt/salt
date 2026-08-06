@@ -10,6 +10,7 @@ import type {
   EnvelopeParticipant,
   SignalDerivationContext,
 } from "../types";
+import { isRecord, pickString, unwrapRecord } from "../normalize-utils";
 import type { PersonSignals } from "@/app/_features/capture/services/system-plays/person-signals";
 import type { CaptureSourceType } from "@/app/_features/capture/types";
 
@@ -50,50 +51,87 @@ function deriveMessagingSignals(
 
 // Messaging adapters already filter by category - no need for source type check
 
+/**
+ * Slack trigger payloads — verified against the live Composio trigger
+ * schemas 2026-08-05 (__fixtures__/composio-trigger-schemas.json):
+ * { channel, channel_type, ts, text, user, team_id, thread_ts?, bot_id? }.
+ * `user` is a STRING member ID (e.g. "U0AB12CD3"), never an object with an
+ * email — participants stay empty until an enrichment fetch resolves the
+ * member; the sender ID is preserved in extracted.sender_id.
+ */
 function normalizeSlack(payload: unknown): CaptureEnvelope | null {
-  if (!payload || typeof payload !== "object") return null;
-  const record = payload as Record<string, unknown>;
+  if (!isRecord(payload)) return null;
+  const record = payload;
 
-  const externalId =
-    (record.ts as string) ??
-    (record.client_msg_id as string) ??
-    (record.message_id as string);
-  if (!externalId) return null;
+  const ts = pickString(record, ["ts", "client_msg_id", "message_id"]);
+  if (!ts) return null;
 
-  const text = (record.text as string) ?? null;
-  const channel = (record.channel as string) ?? null;
-  const user = record.user as Record<string, unknown> | undefined;
+  // Bot chatter is not a relationship signal — decline (recorded as a
+  // webhook outcome by the ingress). Upstream triggerConfig filtering is
+  // Phase 6; this keeps bots out of capture_events until then.
+  const botId = pickString(record, ["bot_id"]);
+  if (botId) return null;
 
+  const text = pickString(record, ["text"]);
+  const channel = pickString(record, ["channel", "channel_id"]);
+  const channelType = pickString(record, ["channel_type"]);
+  const senderId =
+    typeof record.user === "string" && record.user.length > 0
+      ? record.user
+      : isRecord(record.user)
+        ? pickString(record.user, ["id"])
+        : null;
+
+  // Legacy shape support: user as an object with email (enriched payloads).
   const participants: EnvelopeParticipant[] = [];
-  if (user?.email) {
-    participants.push({
-      email: (user.email as string).toLowerCase(),
-      name: (user.name as string) ?? (user.real_name as string) ?? null,
-      role: "from",
-    });
+  if (isRecord(record.user)) {
+    const email = pickString(record.user, ["email"]);
+    if (email && email.includes("@")) {
+      participants.push({
+        email: email.toLowerCase(),
+        name: pickString(record.user, ["name", "real_name"]),
+        role: "from",
+      });
+    }
   }
+
+  // ts is only unique within a channel — scope the dedupe key.
+  const externalId = channel ? `${channel}:${ts}` : ts;
+
+  const parsedTs = parseFloat(ts);
 
   return {
     sourceType: "slack" as CaptureSourceType,
     captureType: "message",
     externalId,
     title: text?.slice(0, 100) ?? null,
-    occurredAt: record.ts
-      ? new Date(parseFloat(record.ts as string) * 1000).toISOString()
+    occurredAt: Number.isFinite(parsedTs)
+      ? new Date(parsedTs * 1000).toISOString()
       : null,
     participants,
-    threadId: (record.thread_ts as string) ?? channel ?? null,
+    threadId: pickString(record, ["thread_ts"]) ?? channel ?? null,
     extracted: {
       text,
       channel,
+      channel_type: channelType,
+      sender_id: senderId,
       sender_email: participants[0]?.email ?? null,
       sender_name: participants[0]?.name ?? null,
+      team_id: pickString(record, ["team_id"]),
     },
     raw: {
       messageId: externalId,
+      channel,
+      ts,
       source: "composio_trigger",
     },
-    noise: null,
+    noise: {
+      sourceType: "slack" as CaptureSourceType,
+      fromEmail: participants[0]?.email ?? undefined,
+      subject: text?.slice(0, 100) ?? undefined,
+      bodyText: text ?? undefined,
+      isSentByUser: false,
+    },
   };
 }
 
@@ -101,29 +139,28 @@ function normalizeGenericMessaging(
   payload: unknown,
   sourceType: CaptureSourceType
 ): CaptureEnvelope | null {
-  if (!payload || typeof payload !== "object") return null;
-  const record = payload as Record<string, unknown>;
+  if (!isRecord(payload)) return null;
+
+  // Try one level of trigger nesting (message/data envelopes).
+  const record = unwrapRecord(payload, ["message", "data", "event"]);
 
   const externalId =
-    (record.id as string) ??
-    (record.messageId as string) ??
-    (record.message_id as string);
+    pickString(record, ["id", "messageId", "message_id", "ts"]) ??
+    pickString(payload, ["id", "messageId", "message_id"]);
   if (!externalId) return null;
 
-  const text =
-    (record.text as string) ??
-    (record.content as string) ??
-    (record.body as string) ??
-    null;
+  const text = pickString(record, ["text", "content", "body"]);
 
   return {
     sourceType,
     captureType: "message",
     externalId,
     title: text?.slice(0, 100) ?? null,
-    occurredAt: (record.timestamp as string) ?? (record.created_at as string) ?? null,
+    occurredAt:
+      pickString(record, ["timestamp", "created_at", "createdAt"]) ?? null,
     participants: [],
-    threadId: (record.threadId as string) ?? (record.channel as string) ?? null,
+    threadId:
+      pickString(record, ["threadId", "thread_id", "thread_ts", "channel"]) ?? null,
     extracted: {
       text,
     },
@@ -131,7 +168,12 @@ function normalizeGenericMessaging(
       messageId: externalId,
       source: "composio_trigger",
     },
-    noise: null,
+    noise: {
+      sourceType,
+      subject: text?.slice(0, 100) ?? undefined,
+      bodyText: text ?? undefined,
+      isSentByUser: false,
+    },
   };
 }
 
