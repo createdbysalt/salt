@@ -37,7 +37,7 @@ describe("resolveSiteSettings", () => {
       ],
       legalNavigation: [
         {
-          text: "Privacy",
+          text: "Privacy Policy",
           linkType: "internal",
           href: "/privacy-policy",
         },
