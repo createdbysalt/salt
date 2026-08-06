@@ -294,6 +294,7 @@ pnpm exec playwright show-trace path/to/trace.zip
 | Memory Activity Parity | `./docs/guides/memory-activity-parity.md` |
 | Error Handling | `./docs/guides/error-handling.md` |
 | Stripe Integration | `./docs/guides/stripe-integration.md` |
+| **Cookie Compliance** | `./docs/guides/cookie-compliance.md` |
 | Folder Structure | `./docs/reference/folder-structure.md` |
 | Environment Variables | `./docs/reference/environment-variables.md` |
 
@@ -413,6 +414,7 @@ AI agents live in `.claude/agents/` and commands in `.claude/commands/`:
 | **Locators** | E2E tests use role-based locators only (`getByRole`, `getByLabel`). |
 | **Connectors** | **MUST read `docs/architecture/connector-system.md` before adding/modifying connectors.** Add to unified registry first; capture adapters and Ask Salt derive from it. |
 | **File Creation** | **NEVER use Bash heredocs (`cat << EOF`, `tee`, `echo >`) to create files.** Always use the `Write` tool. Bash heredocs get persisted verbatim in `settings.local.json` when permissions are "always allowed", bloating the file and corrupting pattern matching. This applies to ALL agents, commands, and scripts that produce output files. |
+| **Third-Party Scripts** | **Any SDK/script that tracks users MUST be consent-gated.** Read `docs/guides/cookie-compliance.md` before adding analytics, chat, pixels, or similar. Update `/subprocessors` and cookie policy when adding services. |
 
 ---
 

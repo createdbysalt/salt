@@ -47,6 +47,11 @@ export const LEGAL_ROUTE_CONFIG: Record<string, LegalRouteConfig> = {
     markdownSlug: "service-terms",
     fallbackTitle: "Service Terms",
   },
+  subprocessors: {
+    sanitySlug: "subprocessors",
+    markdownSlug: "subprocessors",
+    fallbackTitle: "Subprocessors",
+  },
 };
 
 function formatSanityDate(value?: string): string | null {
