@@ -188,13 +188,13 @@ function legalPagesItems(S: StructureBuilder) {
           .title('Privacy Policy')
       ),
     S.listItem()
-      .title('Website Terms of Use')
+      .title('Terms of Service')
       .icon(DocumentTextIcon)
       .child(
         S.document()
           .schemaType('legalPage')
-          .documentId('legal-terms-of-use')
-          .title('Website Terms of Use')
+          .documentId('legal-terms-of-service')
+          .title('Terms of Service')
       ),
     S.listItem()
       .title('Cookie Policy')

@@ -57,7 +57,7 @@ describe("resolveSiteSettings", () => {
     expect(resolved.footerLegalLinks[0]?.href).toBe("/privacy-policy");
     expect(resolved.footerLegalLinks.map((link) => link.href)).toEqual([
       "/privacy-policy",
-      "/terms-of-use",
+      "/terms-of-service",
       "/early-access",
       "/cookie-policy",
       "/disclaimer",

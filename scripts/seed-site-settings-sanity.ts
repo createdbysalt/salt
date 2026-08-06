@@ -102,7 +102,7 @@ async function main() {
         _key: 'terms',
         text: 'Terms of Service',
         linkType: 'internal',
-        href: '/terms-of-use',
+        href: '/terms-of-service',
       },
       {
         _type: 'link',

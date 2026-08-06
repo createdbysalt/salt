@@ -64,14 +64,14 @@ const LEGAL_PAGES: LegalPageSeed[] = [
     },
   },
   {
-    _id: "legal-terms-of-use",
+    _id: "legal-terms-of-service",
     markdownSlug: "website-terms-of-use",
-    routeSlug: "terms-of-use",
-    fallbackTitle: "Website Terms of Use",
+    routeSlug: "terms-of-service",
+    fallbackTitle: "Terms of Service",
     seo: {
-      title: "Website Terms of Use | Salt",
+      title: "Terms of Service | Salt",
       description:
-        "Terms governing your use of usesalt.io, including the marketing site and waitlist.",
+        "Terms governing your use of usesalt.io, including the website and application.",
     },
   },
   {

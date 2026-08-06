@@ -5,7 +5,7 @@ import { FadeUpBlur } from "@/app/_components/effects/fade-up-blur";
 import { CookieSettingsLink } from "./CookieSettingsLink";
 
 const FOOTER_LINKS: { href: string; label: string; external?: boolean }[] = [
-  { href: "/terms-of-use", label: "Terms" },
+  { href: "/terms-of-service", label: "Terms" },
   { href: "/privacy-policy", label: "Privacy" },
   { href: "/cookie-policy", label: "Cookies" },
   { href: "mailto:hello@usesalt.io", label: "Contact", external: true },

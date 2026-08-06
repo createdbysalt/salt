@@ -160,7 +160,7 @@ export function waitlistPrimaryCtaHtml(
 }
 
 export function waitlistFooterLinksText(siteUrl: string): string {
-  return `https://usesalt.io/privacy-policy · https://usesalt.io/terms-of-use · https://usesalt.io/early-access · ${siteUrl}`;
+  return `https://usesalt.io/privacy-policy · https://usesalt.io/terms-of-service · https://usesalt.io/early-access · ${siteUrl}`;
 }
 
 export function waitlistFooterRowHtml(siteUrl: string, year: number): string {
@@ -174,7 +174,7 @@ export function waitlistFooterRowHtml(siteUrl: string, year: number): string {
       <p style="margin: 0; font-size: 12px; line-height: 18px; color: ${c.muted};">
         <a href="https://usesalt.io/privacy-policy" style="color: ${c.muted}; text-decoration: none;">Privacy</a>
         &nbsp;·&nbsp;
-        <a href="https://usesalt.io/terms-of-use" style="color: ${c.muted}; text-decoration: none;">Terms</a>
+        <a href="https://usesalt.io/terms-of-service" style="color: ${c.muted}; text-decoration: none;">Terms</a>
         &nbsp;·&nbsp;
         <a href="https://usesalt.io/early-access" style="color: ${c.muted}; text-decoration: none;">Early access</a>
       </p>
