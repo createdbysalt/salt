@@ -56,11 +56,42 @@ describe("single-gate invariant (5.5.1)", () => {
     expect(gate).toContain("getComposioClient().tools.execute(");
   });
 
-  it("play executor routes tool execution through the gate (5.5.1 parity)", () => {
-    const deps = read("app/_features/plays/services/run-play-deps.ts");
-    expect(deps).toContain('import { executeComposioAction } from "@/app/_lib/composio/actions"');
-    expect(deps).toContain("executeComposioAction(");
-    expect(deps.includes(".tools.execute(")).toBe(false);
-    expect(deps.includes("getComposioClient()")).toBe(false);
+  /**
+   * Play-side tool execution funnels through `executeConnectorTool`, which is
+   * the only play module allowed to call the gate. Both the executor and the
+   * paused-playbook resume path go through it, so the invariant is checked at
+   * the shared helper and at every caller.
+   */
+  it("the shared play connector helper routes through the gate (5.5.1 parity)", () => {
+    const helper = read("app/_features/plays/services/execute-connector-tool.ts");
+    expect(helper).toContain(
+      'import { executeComposioAction } from "@/app/_lib/composio/actions"',
+    );
+    expect(helper).toContain("executeComposioAction<");
+    expect(helper.includes(".tools.execute(")).toBe(false);
+    expect(helper.includes("getComposioClient()")).toBe(false);
+  });
+
+  it("every play execution path delegates to that helper", () => {
+    const callers = [
+      "app/_features/plays/services/run-play-deps.ts",
+      "app/_features/plays/services/resume-paused-playbook-deps.ts",
+    ];
+
+    for (const file of callers) {
+      const source = read(file);
+      expect(
+        source.includes("executeConnectorTool("),
+        `${file} must execute tools through executeConnectorTool`,
+      ).toBe(true);
+      expect(
+        source.includes(".tools.execute("),
+        `${file} must not call composio.tools.execute directly`,
+      ).toBe(false);
+      expect(
+        source.includes("getComposioClient()"),
+        `${file} must not construct the raw Composio client`,
+      ).toBe(false);
+    }
   });
 });

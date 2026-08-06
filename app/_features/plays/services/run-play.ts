@@ -42,6 +42,13 @@ export interface RunPlayStepJournalEntry {
   /** Bound value for fetch/render/llm steps so resumed runs can rebind. */
   boundValue?: unknown;
   externalId?: string;
+  /**
+   * Concrete tool slug executed by fetch and act steps, recorded after
+   * capability resolution. Usage metering derives play billability and
+   * itemized COGS from this, and it survives a resume — which is why it lives
+   * in the journal rather than in a local accumulator.
+   */
+  toolSlug?: string;
   completedAt: string;
 }
 
@@ -105,6 +112,20 @@ export interface RunPlayDeps {
     patch: Record<string, unknown>,
   ): Promise<PlayRunRow | null>;
   now(): string;
+  /**
+   * Usage metering (pricing G1). Called once, after the run is finalized as
+   * `ran` — the single write point for play billing.
+   *
+   * Optional so the pure executor stays testable without a ledger. Failures
+   * are swallowed by the orchestrator: a play that already sent an email must
+   * not be reported as failed because metering could not write.
+   */
+  recordPlayUsage?(input: {
+    workspaceId: string;
+    playRunId: string;
+    toolSlugs: string[];
+    llmSlots: (string | null | undefined)[];
+  }): Promise<void>;
   /** Optional hook for playbook learning loop */
   onLearningSignal?(
     signal: {
@@ -443,6 +464,7 @@ export async function executePlayRun(
           kind: step.kind,
           status: "completed",
           boundValue: result,
+          toolSlug,
           completedAt: deps.now(),
         });
       } else if (step.kind === "render") {
@@ -597,6 +619,7 @@ export async function executePlayRun(
           kind: step.kind,
           status: "completed",
           externalId: extractExternalId(result),
+          toolSlug,
           completedAt: deps.now(),
         });
       }
@@ -621,6 +644,35 @@ export async function executePlayRun(
           ? `Play ran — ${actCount} action${actCount === 1 ? "" : "s"} executed`
           : "Play ran — no external actions required",
     });
+
+    // Meter only on success. Failed and guard-skipped runs return before this
+    // point, which is what satisfies G4 without needing a credit path: a play
+    // that never succeeded was never billed.
+    if (deps.recordPlayUsage) {
+      try {
+        await deps.recordPlayUsage({
+          workspaceId,
+          playRunId: runId,
+          toolSlugs: journal
+            .filter((entry) => entry.status === "completed" && entry.toolSlug)
+            .map((entry) => entry.toolSlug as string),
+          llmSlots: journal
+            .filter((entry) => entry.kind === "llm" && entry.status === "completed")
+            .map((entry) => {
+              const step = definition.steps[entry.index];
+              return step?.kind === "llm" ? step.modelSlot : undefined;
+            }),
+        });
+      } catch (meteringError) {
+        // The external effect already happened. Losing a ledger row is a
+        // revenue problem for the reconciliation job to catch, not a reason
+        // to tell the caller a delivered play failed.
+        console.error(
+          `[run-play] usage metering failed for run ${runId}:`,
+          meteringError,
+        );
+      }
+    }
 
     return { ok: true, outcome: "ran", run: finalized ?? run };
   } catch (error) {

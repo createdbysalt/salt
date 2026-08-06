@@ -294,6 +294,7 @@ pnpm exec playwright show-trace path/to/trace.zip
 | Memory Activity Parity | `./docs/guides/memory-activity-parity.md` |
 | Error Handling | `./docs/guides/error-handling.md` |
 | Stripe Integration | `./docs/guides/stripe-integration.md` |
+| **Billing & Metering** | `./docs/architecture/billing-metering.md` |
 | **Cookie Compliance** | `./docs/guides/cookie-compliance.md` |
 | **Legal Documents System** | `./brand-identity/legal/CLAUDE.md` |
 | Folder Structure | `./docs/reference/folder-structure.md` |
@@ -354,6 +355,7 @@ Context-specific instructions exist in subdirectories:
 - `app/CLAUDE.md` - App-level patterns
 - `app/_features/CLAUDE.md` - Feature module conventions
 - `app/_lib/CLAUDE.md` - Shared library guidelines
+- `app/_lib/usage/CLAUDE.md` - Metering, tiers, entitlements (Salt SaaS billing)
 - `e2e/CLAUDE.md` - E2E testing specifics
 - `docs/CLAUDE.md` - Documentation standards
 - `brand-identity/CLAUDE.md` - Brand voice, positioning, and product docs
@@ -414,6 +416,7 @@ AI agents live in `.claude/agents/` and commands in `.claude/commands/`:
 | **Testing** | Co-locate unit tests. Isolate E2E in `e2e/`. No Jest. No Cypress. |
 | **Locators** | E2E tests use role-based locators only (`getByRole`, `getByLabel`). |
 | **Connectors** | **MUST read `docs/architecture/connector-system.md` before adding/modifying connectors.** Add to unified registry first; capture adapters and Ask Salt derive from it. |
+| **Vendor Spend** | **Any code path that calls a paid vendor API (LLM, Composio, embeddings, TTS) MUST meter at the spend primitive, not at the feature.** Read `docs/architecture/billing-metering.md` first. Never add billing logic to playbooks, plays, or Ask Salt — billability derives from the tool's `external_effect`. |
 | **File Creation** | **NEVER use Bash heredocs (`cat << EOF`, `tee`, `echo >`) to create files.** Always use the `Write` tool. Bash heredocs get persisted verbatim in `settings.local.json` when permissions are "always allowed", bloating the file and corrupting pattern matching. This applies to ALL agents, commands, and scripts that produce output files. |
 | **Third-Party Scripts** | **Any SDK/script that tracks users MUST be consent-gated.** Read `docs/guides/cookie-compliance.md` before adding analytics, chat, pixels, or similar. Update `/subprocessors` and cookie policy when adding services. |
 
@@ -429,6 +432,7 @@ Core utilities and integrations used across the app:
 |--------|---------|
 | `supabase/` | Database client (server, client, admin, middleware) |
 | `stripe/` | Payment integration (Salt SaaS billing only — user Stripe accounts connect via Composio) |
+| `usage/` | Play metering, usage ledger, tier catalog, workspace entitlements |
 | `security/` | Auth tokens, safe redirects, URL validation |
 | `permissions/` | RLS helpers and permission checks |
 | `tenancy/` | Multi-tenant context and guards |

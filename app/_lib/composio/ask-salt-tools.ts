@@ -241,6 +241,10 @@ function withPolicyEnforcedExecute(
           outcomeExpected,
           outcomeWindowHours,
           useBudgetRouting: false, // User-approved actions bypass budget
+          // Pricing §1: a standalone external action counts as one play. The
+          // tool ran above, so the record must carry it or the play meters as
+          // non-billable.
+          executedToolSlugs: [slug],
         });
       } catch (error) {
         // Log but don't fail the tool execution

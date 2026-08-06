@@ -8,6 +8,9 @@ import { nextStateForAction } from "./utils/play-state-machine";
 import { executePlayRun } from "./services/run-play";
 import { createRunPlayDeps } from "./services/run-play-deps";
 import { applyIntakePlayRun } from "./services/create-intake-play-run";
+import { meterInternalPlay } from "./services/meter-play";
+import { resumePausedPlaybook as resumePausedPlaybookService } from "./services/resume-paused-playbook";
+import { createResumePausedPlaybookDeps } from "./services/resume-paused-playbook-deps";
 import { dismissEvidence } from "@/app/_features/memory/evidence/actions";
 import {
   approvePlaybookImprovementProposal,
@@ -255,6 +258,8 @@ export async function approvePlayRun(id: string): Promise<ActionResult<PlayRunRo
       detail: `Created record: ${intakeResult.recordId}`,
     });
 
+    await meterInternalPlay(workspace.id, id);
+
     revalidatePath("/hq");
     revalidatePath("/plays");
     revalidatePath("/people");
@@ -297,6 +302,8 @@ export async function approvePlayRun(id: string): Promise<ActionResult<PlayRunRo
     detail: "Approved (logged — this play has no pre-approved actions to execute)",
   });
 
+  await meterInternalPlay(workspace.id, id);
+
   revalidatePath("/hq");
   revalidatePath("/plays");
 
@@ -304,81 +311,24 @@ export async function approvePlayRun(id: string): Promise<ActionResult<PlayRunRo
 }
 
 /**
- * Resume a paused playbook after user approval.
+ * Resume a playbook that paused at an approval gate.
  *
- * When a playbook hits an approval gate (step with `approval: required` or
- * a tool that requires confirmation in Trust mode), execution pauses and
- * creates a play run with `paused_for_approval: true`.
+ * Thin wrapper: the logic lives in `services/resume-paused-playbook.ts` so the
+ * execution path can be tested without Supabase or a live connector.
  *
- * After the user approves, this function:
- * 1. Executes the approved action step
- * 2. Continues executing remaining steps
- * 3. Updates the play run state to "ran"
+ * Fixed 2026-08-05. This previously flipped the run to `ran` and logged
+ * "Approved and executed: <slug>" without ever calling the tool, so approving
+ * a paused send reported success for an email that was never sent.
  */
 async function resumePausedPlaybook(
   playRunId: string,
   workspaceId: string,
   userId: string
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  const supabase = await createClient();
-
-  const { data: playRun } = await supabase
-    .from("play_runs")
-    .select("*")
-    .eq("id", playRunId)
-    .eq("workspace_id", workspaceId)
-    .single();
-
-  if (!playRun) {
-    return { ok: false, error: "Play run not found" };
-  }
-
-  const approvalContext = playRun.approval_context as {
-    tool_slug: string;
-    args: Record<string, unknown>;
-    step_index: number;
-  } | null;
-
-  if (!approvalContext) {
-    return { ok: false, error: "No approval context found" };
-  }
-
-  const playbookSlug = (playRun.source_context as { playbook_slug?: string } | null)?.playbook_slug;
-  if (!playbookSlug) {
-    return { ok: false, error: "No playbook slug in source context" };
-  }
-
-  try {
-    const now = new Date().toISOString();
-
-    await supabase
-      .from("play_runs")
-      .update({
-        paused_for_approval: false,
-        paused_at_step: null,
-        state: "ran",
-        ran_at: now,
-        updated_at: now,
-      })
-      .eq("id", playRunId);
-
-    await logActivity({
-      workspaceId,
-      playRunId,
-      userId,
-      action: "resumed",
-      title: playRun.title,
-      detail: `Approved and executed: ${approvalContext.tool_slug}`,
-    });
-
-    return { ok: true };
-  } catch (error) {
-    console.error("Failed to resume paused playbook:", error);
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : "Unknown error",
-    };
-  }
+  return resumePausedPlaybookService(
+    { playRunId, workspaceId, userId },
+    createResumePausedPlaybookDeps(),
+  );
 }
 
 export async function dismissPlayRun(
@@ -687,6 +637,8 @@ export async function applyKeeperPlayRun(
     detail: `Applied ${field} = ${meta.profile_value}`,
   });
 
+  await meterInternalPlay(workspace.id, playRunId);
+
   revalidatePath("/plays");
   revalidatePath("/hq");
   revalidatePath(`/people/${personId}`);
@@ -777,6 +729,8 @@ export async function answerKeeperQuestionPlayRun(
     detail: `Answered ${field} = ${answer}`,
   });
 
+  await meterInternalPlay(workspace.id, playRunId);
+
   revalidatePath("/plays");
   revalidatePath("/hq");
   revalidatePath(`/people/${personId}`);
@@ -840,6 +794,8 @@ export async function acknowledgeRiskPlayRun(
     title: run.title as string,
     detail: "Risk acknowledged — no immediate action taken",
   });
+
+  await meterInternalPlay(workspace.id, playRunId);
 
   revalidatePath("/plays");
   revalidatePath("/hq");
@@ -949,6 +905,8 @@ export async function routePlayRunToProfile(
     title: run.title as string,
     detail: `Routed to ${target.type}: ${target.createName ?? targetId}`,
   });
+
+  await meterInternalPlay(workspace.id, playRunId);
 
   revalidatePath("/plays");
   revalidatePath("/hq");

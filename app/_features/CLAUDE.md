@@ -59,7 +59,7 @@ _features/[feature]/
 | `meetings` | Meeting intelligence |
 | `shell` | App shell, sidebar, command palette, routes |
 | `auth` | Authentication, authorization, session management |
-| `billing` | Stripe subscriptions, payments |
+| `billing` | **Client** invoices/payments (`billing_records`). Salt's own SaaS metering lives in `app/_lib/usage/` — see `docs/architecture/billing-metering.md` |
 | `messaging` | Comments, conversations |
 | `relationships` | Shared relationship components/actions (legacy infra) |
 | `capture` | Capture stream components (used inside Plays) |

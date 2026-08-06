@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Tool, ToolCallOptions, ToolSet } from "ai";
 import { COMPOSIO_TOOL_SLUGS } from "./tool-slugs";
 import { executeComposioAction } from "./actions";
+import { createPlayRecord } from "@/app/_features/plays/lib/play-record";
 import {
   ASK_SALT_PRELOAD_TOOL_SLUGS,
   composioToolNameAliases,
@@ -13,8 +14,18 @@ vi.mock("./actions", () => ({
   executeComposioAction: vi.fn(async () => "gate-result"),
 }));
 
+vi.mock("@/app/_features/plays/lib/play-record", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/app/_features/plays/lib/play-record")>()),
+  createPlayRecord: vi.fn(async () => ({
+    playId: "run-1",
+    queue: "auto_handled" as const,
+    state: "ran",
+  })),
+}));
+
 beforeEach(() => {
   vi.mocked(executeComposioAction).mockClear();
+  vi.mocked(createPlayRecord).mockClear();
 });
 
 const callOptions = { toolCallId: "call-1", messages: [] } as ToolCallOptions;
@@ -139,6 +150,39 @@ describe("single-gate execution (5.5.1)", () => {
       "ws-1",
       expect.objectContaining({ humanApproved: true }),
     );
+  });
+
+  // Pricing §1: a standalone external action counts as one billable play, and
+  // billability is derived from the slugs on the record. Drop this and the send
+  // still happens — it just stops being charged for.
+  it("passes the executed slug to the play record so the play meters as billable", async () => {
+    const wrapped = wrapComposioToolsForAskSalt(
+      { [COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL]: makeTool() },
+      GATE_CONTEXT,
+    );
+
+    await wrapped[COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL]?.execute?.(
+      { recipient_email: "a@b.com", subject: "hi", body: "hello" },
+      callOptions,
+    );
+
+    expect(createPlayRecord).toHaveBeenCalledWith(
+      expect.objectContaining({
+        state: "ran",
+        executedToolSlugs: [COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL],
+      }),
+    );
+  });
+
+  it("does not create a play record for read tools", async () => {
+    const wrapped = wrapComposioToolsForAskSalt(
+      { [COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES]: makeTool() },
+      GATE_CONTEXT,
+    );
+
+    await wrapped[COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES]?.execute?.({}, callOptions);
+
+    expect(createPlayRecord).not.toHaveBeenCalled();
   });
 
   it("refuses to execute without workspace context", async () => {

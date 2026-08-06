@@ -1,5 +1,7 @@
 # 💳 Payment Architecture (Stripe)
 
+> **Partially stale.** This describes checkout and webhook mechanics only, and some route paths predate the current app. For subscriptions, tiers, entitlements, usage metering, and vendor-spend accounting, read [Billing & Metering](./billing-metering.md) — that is the source of truth.
+
 ## 1. Core Flows
 
 * **Checkout:** Frontend calls `POST /api/billing/checkout` -> Backend creates Stripe Session -> Returns URL -> Frontend Redirects.

@@ -1,10 +1,10 @@
 import "server-only";
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
-import { executeComposioAction } from "@/app/_lib/composio/actions";
 import { resolveCapabilityTool } from "@/app/_lib/composio/capability-resolver";
-import { getComposioProviderForToolSlug } from "@/app/_features/connectors/connector-capabilities";
+import { executeConnectorTool } from "./execute-connector-tool";
 import { sendLlm } from "@/app/_lib/ai/gpt";
+import { recordPlayExecution } from "@/app/_lib/usage/record-play-usage";
 import { assembleOperatorContext, type ContentSurface } from "@/app/_lib/ai/assembleOperatorContext";
 import { capturePlaybookLearningSignal } from "../playbooks/learning/capture-signals";
 import type { OpportunityGapRow, PlayRunRow, PlayTemplateRow } from "../types";
@@ -117,39 +117,11 @@ export function createRunPlayDeps(): RunPlayDeps {
     },
 
     async executeTool(toolSlug, params, context) {
-      const provider = getComposioProviderForToolSlug(toolSlug);
-      if (!provider) {
-        throw new Error(`No connector provider known for tool ${toolSlug}`);
-      }
-
-      const { data: integration } = await admin
-        .from("workspace_integrations")
-        .select("composio_connection_id, user_id")
-        .eq("workspace_id", context.workspaceId)
-        .eq("provider", `composio:${provider}`)
-        .eq("composio_status", "connected")
-        .maybeSingle();
-
-      if (!integration?.composio_connection_id || !integration.user_id) {
-        throw new Error(
-          `Connector ${provider} is not connected — connect it in Settings before this play can run`,
-        );
-      }
-
-      return executeComposioAction(
-        toolSlug,
-        params,
-        integration.composio_connection_id,
-        integration.user_id,
-        {
-          // No user session in the executor; consent provenance is the play
-          // approver, carried as actorUserId per the Part 2 contract.
-          skipAuthCheck: true,
-          workspaceId: context.workspaceId,
-          actorUserId: context.actorUserId,
-          play: { approvedActions: context.approvedActions },
-        },
-      );
+      return executeConnectorTool(toolSlug, params, {
+        workspaceId: context.workspaceId,
+        actorUserId: context.actorUserId,
+        approvedActions: context.approvedActions,
+      });
     },
 
     async runLlmStep(step: PlayLlmStep, inputs, context) {
@@ -230,6 +202,15 @@ export function createRunPlayDeps(): RunPlayDeps {
     },
 
     now: () => new Date().toISOString(),
+
+    async recordPlayUsage(input) {
+      await recordPlayExecution({
+        workspaceId: input.workspaceId,
+        playRunId: input.playRunId,
+        toolSlugs: input.toolSlugs,
+        llmSlots: input.llmSlots,
+      });
+    },
 
     async onLearningSignal(signal, context) {
       const template = context.template;

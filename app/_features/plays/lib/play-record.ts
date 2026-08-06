@@ -20,6 +20,7 @@ import {
   setExpectedOutcome,
   type OutcomeExpected,
 } from "@/app/_lib/learning/outcomes";
+import { recordPlayExecution } from "@/app/_lib/usage/record-play-usage";
 
 // ============================================================================
 // Types
@@ -82,6 +83,18 @@ export interface CreatePlayRecordInput {
   outcomeWindowHours?: number;
   /** Use budget-aware routing (default true) */
   useBudgetRouting?: boolean;
+
+  /**
+   * Tool slugs already executed by the caller before this record was written.
+   *
+   * Records created here describe work that has *already happened* elsewhere
+   * (Ask Salt runs the tool, then logs it), so the caller is the only one who
+   * knows what ran. Metering derives billability from these slugs; omitting
+   * them on a path that touched an external system under-bills it.
+   */
+  executedToolSlugs?: readonly string[];
+  /** Model slots for language-model steps the caller already ran. */
+  executedLlmSlots?: readonly (string | null | undefined)[];
 }
 
 export interface CreatePlayRecordResult {
@@ -259,6 +272,28 @@ export async function createPlayRecord(
       ...(wasAutoExecuted ? { auto_executed: true } : {}),
     },
   });
+
+  if (state === "ran") {
+    // Second metering point (pricing §1). `executePlayRun` covers plays that
+    // run through the executor; this covers the ones that land here already
+    // finished — Ask Salt's approved-in-chat actions above all, which are
+    // external sends and therefore billable.
+    //
+    // Never allowed to fail the caller: the work is already done, and refusing
+    // to return a play id because a ledger insert failed would be worse than
+    // an unmetered play. The ledger is idempotent on the run id, so a retry or
+    // a later backfill lands exactly once.
+    try {
+      await recordPlayExecution({
+        workspaceId: input.workspaceId,
+        playRunId: playRun.id,
+        toolSlugs: input.executedToolSlugs ?? [],
+        llmSlots: input.executedLlmSlots,
+      });
+    } catch (error) {
+      console.error("[usage] failed to meter play record", playRun.id, error);
+    }
+  }
 
   return {
     playId: playRun.id,

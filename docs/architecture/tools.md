@@ -13,6 +13,7 @@ Every tool MUST declare:
 | Property | Description | Example |
 |----------|-------------|---------|
 | `risk` | Risk classification | `read`, `mutating`, `destructive` |
+| `external_effect` | Whether executing the tool produces an effect outside Salt | `true` for `GMAIL_SEND_EMAIL`, `false` for `memory_update_field` |
 | `inputs` | Required parameters with types | `{ entityId: string, field: string, value: string }` |
 | `outputs` | Return type | `{ action: "applied" \| "accumulated", confidence: number }` |
 | `protection` | How safety is enforced | Confidence threshold, approval required, blocked |
@@ -29,6 +30,29 @@ Every tool MUST declare:
 | `destructive` | Never executed by Salt | Blocked at tool layer | `delete_customer`, `void_invoice`, `remove_permission` |
 
 **Destructive tools are unreachable.** They're defined in the policy registry but Salt cannot execute them. Users must perform destructive actions in the source application (Stripe, Gmail, etc.).
+
+---
+
+## External Effect (the billable boundary)
+
+`external_effect` is orthogonal to `risk`. Risk decides whether a tool may run; external effect decides whether running it costs the customer a play.
+
+A play is billable when **at least one tool it executed carries `external_effect: true`**. Deriving billability from tool contracts gives metering exactly one classification point — there are no per-play judgement calls, and a hybrid play with internal and external steps bills exactly once.
+
+| `external_effect` | Meaning | Examples |
+|---|---|---|
+| `true` | Leaves Salt — a third party can observe it | `GMAIL_SEND_EMAIL`, `GOOGLECALENDAR_CREATE_EVENT`, `SLACK_SEND_MESSAGE`, `STRIPE_CREATE_INVOICE` |
+| `false` | Internal, or housekeeping inside the user's own account | All Memory tools, all `read` tools, `GMAIL_ADD_LABEL_TO_EMAIL` |
+
+**Memory tools are never billable.** Memory mutations, entity linking, and Keeper maintenance are LEARN-layer work. They are still metered with `billable: false` so the margin monitor can see the spend, but they never reach an invoice — charging for them would be charging the user for Salt organizing itself.
+
+**Resolution order** (`app/_lib/composio/external-effect.ts`):
+
+1. `tool_classifications.external_effect` when explicitly set
+2. Slug overrides — mailbox housekeeping is internal; drafts written into an external mailbox are external
+3. Risk class — `read` is internal, everything else is external, since Composio tools act on third-party systems by definition
+
+The fallback direction is toward *not* billing. See [Billing & Metering](./billing-metering.md) for how the ledger consumes this and [Pricing Proposal §1](../reference/pricing-proposal-tiered-plays.md) for the business rules it implements.
 
 ---
 
@@ -558,6 +582,7 @@ if (incomplete.length > 0 || stale.length > 0) {
 
 **Checklist for new tools:**
 - [ ] Risk class defined (`read` / `mutating` / `destructive`)
+- [ ] `external_effect` confirmed — the heuristic default is correct for most tools, but override it in `external-effect.ts` when the tool is housekeeping inside the user's own account
 - [ ] Input validation (Zod schema)
 - [ ] Output type defined
 - [ ] Protection logic implemented

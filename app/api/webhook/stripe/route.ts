@@ -9,6 +9,14 @@
  */
 
 import { getStripeClient } from "@/app/_lib/stripe/stripe-client";
+import {
+  downgradeWorkspaceSubscription,
+  mapStripeStatus,
+  resolveTierFromPriceId,
+  resolveTierFromStripe,
+  syncWorkspaceSubscription,
+  updateWorkspaceSubscriptionStatus,
+} from "@/app/_lib/stripe/subscription-sync";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { headers } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
@@ -172,9 +180,10 @@ async function handleSubscriptionCheckout(
   // Retrieve subscription details
   const subscription = await stripe.subscriptions.retrieve(subscriptionId);
   const priceId = subscription.items.data[0].price.id;
-  
-  // Determine tier from metadata
-  const tier = session.metadata?.tier || "pro";
+
+  // Determine tier from metadata. Unrecognised values resolve to starter so an
+  // ambiguous checkout can never grant the largest bundle.
+  const tier = resolveTierFromStripe(session.metadata?.tier);
 
   // Find user
   let profile;
@@ -239,6 +248,16 @@ async function handleSubscriptionCheckout(
     .from("ai_credit_balances")
     .update({ monthly_allocation: creditAllocations[tier as keyof typeof creditAllocations] || 500 })
     .eq("user_id", profile.id);
+
+  // Mirror the tier onto the workspaces this user owns. `profiles` records
+  // what the account bought; `workspace_subscriptions` is what the product
+  // reads for capacity, because plays pool at the workspace (pricing §2).
+  await syncWorkspaceSubscription({
+    supabase,
+    userId: profile.id,
+    subscription,
+    tier,
+  });
 }
 
 /**
@@ -301,6 +320,21 @@ async function handleSubscriptionUpdate(
         : null,
     })
     .eq("stripe_subscription_id", subscription.id);
+
+  // Upgrades and downgrades arrive here as a price change with no checkout
+  // metadata, so the tier is recovered from the price id. An unknown price
+  // leaves the stored tier alone rather than silently resetting capacity.
+  await updateWorkspaceSubscriptionStatus(
+    supabase,
+    subscription.id,
+    mapStripeStatus(subscription.status),
+    {
+      cancelAtPeriodEnd: subscription.cancel_at_period_end === true,
+      currentPeriodStart: (subscription as any).current_period_start ?? null,
+      currentPeriodEnd: (subscription as any).current_period_end ?? null,
+      tier: resolveTierFromPriceId(subscription.items.data[0]?.price.id),
+    },
+  );
 }
 
 /**
@@ -327,6 +361,11 @@ async function handleSubscriptionDeleted(
       canceled_at: new Date().toISOString(),
     })
     .eq("stripe_subscription_id", subscription.id);
+
+  // Capacity drops to Starter. Access is deliberately not revoked here —
+  // tiers differ on capacity only, and pricing §6.1 forbids a state where
+  // captures stop.
+  await downgradeWorkspaceSubscription(supabase, subscription.id);
 }
 
 /**
@@ -343,6 +382,22 @@ async function handleInvoicePaymentSucceeded(
     .from("profiles")
     .update({ has_access: true })
     .eq("customer_id", customerId);
+
+  // A successful payment clears a past_due workspace and, on renewal, opens
+  // the next bundle window that `countBillablePlays` aggregates over.
+  const subscriptionId = (invoice as any).subscription as string | null;
+  if (subscriptionId) {
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+    await updateWorkspaceSubscriptionStatus(
+      supabase,
+      subscriptionId,
+      mapStripeStatus(subscription.status),
+      {
+        currentPeriodStart: (subscription as any).current_period_start ?? null,
+        currentPeriodEnd: (subscription as any).current_period_end ?? null,
+      },
+    );
+  }
 }
 
 /**
@@ -359,6 +414,11 @@ async function handleInvoicePaymentFailed(
     .from("profiles")
     .update({ saas_subscription_status: "past_due" })
     .eq("customer_id", customerId);
+
+  const subscriptionId = (invoice as any).subscription as string | null;
+  if (subscriptionId) {
+    await updateWorkspaceSubscriptionStatus(supabase, subscriptionId, "past_due");
+  }
 
   // TODO: Send payment failure notification email
   console.log(`Payment failed for customer ${customerId}, invoice ${invoice.id}`);
