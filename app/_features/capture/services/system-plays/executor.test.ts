@@ -97,6 +97,72 @@ describe("executeSystemPlay create-person", () => {
       })
     );
   });
+
+  it("logs created people to Activity and Auto-handled play runs", async () => {
+    const peopleLookup = createQueryBuilder({ data: null, error: null });
+    const peopleInsert = createQueryBuilder({
+      data: { id: "new-person-id" },
+      error: null,
+    });
+    const activityInsert = createQueryBuilder({ data: null, error: null });
+    const playRunInsert = createQueryBuilder({ data: null, error: null });
+    let peopleCall = 0;
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "people") {
+        peopleCall += 1;
+        return peopleCall === 1 ? peopleLookup : peopleInsert;
+      }
+      if (table === "activity_entries") {
+        return activityInsert;
+      }
+      if (table === "play_runs") {
+        return playRunInsert;
+      }
+      return createQueryBuilder({ data: null, error: null });
+    });
+
+    const result = await executeSystemPlay("ws-1", "system:create-person", {
+      name: "Jane Doe",
+      email: "jane@acme.com",
+    });
+
+    expect(result.success).toBe(true);
+    expect(activityInsert.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspace_id: "ws-1",
+        action: "created",
+        title: "Person created",
+        detail: "Jane Doe",
+        metadata: expect.objectContaining({
+          source: "system_play",
+          player_slug: "keeper",
+          auto_executed: true,
+          entity_type: "person",
+          entity_id: "new-person-id",
+        }),
+      })
+    );
+    expect(playRunInsert.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspace_id: "ws-1",
+        target_type: "person",
+        target_id: "new-person-id",
+        target_label: "Jane Doe",
+        title: "Added Jane Doe to People",
+        state: "approved",
+        queue: "auto_handled",
+        metadata: expect.objectContaining({
+          keeper_profile: true,
+          section: "relationships",
+          profile_entity_type: "person",
+          profile_entity_id: "new-person-id",
+          profile_field: "record",
+          profile_value: "Jane Doe",
+        }),
+      })
+    );
+  });
 });
 
 describe("executeSystemPlay create-work", () => {

@@ -132,7 +132,33 @@ async function fetchEntityData(
   }
 
   const { data } = await query.maybeSingle();
-  return data as Record<string, unknown> | null;
+  if (!data) return null;
+
+  const record = data as Record<string, unknown>;
+
+  // org_link / key_contact live in the organization_people junction, not as
+  // columns — hydrate them so facts and signals see the relationship.
+  if (entityType === "person") {
+    const { data: orgLink } = await admin
+      .from("organization_people")
+      .select("organization_id, is_primary")
+      .eq("person_id", entityId)
+      .order("is_primary", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    record.organization_id = orgLink?.organization_id ?? null;
+  } else if (entityType === "organization") {
+    const { data: primaryContact } = await admin
+      .from("organization_people")
+      .select("person_id")
+      .eq("organization_id", entityId)
+      .eq("is_primary", true)
+      .limit(1)
+      .maybeSingle();
+    record.primary_contact_id = primaryContact?.person_id ?? null;
+  }
+
+  return record;
 }
 
 function extractEntityFields(
@@ -142,7 +168,7 @@ function extractEntityFields(
   switch (entityType) {
     case "person":
       return {
-        name: data.display_name ?? data.name,
+        name: data.name,
         email: data.email,
         relationship_type: data.relationship_type,
         title: data.title,

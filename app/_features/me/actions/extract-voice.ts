@@ -1,6 +1,6 @@
 "use server";
 
-import { sendLlm, type LlmChatMessage } from "@/app/_lib/ai/gpt";
+import { sendLlm, workspaceSpend, type LlmChatMessage } from "@/app/_lib/ai/gpt";
 import { getWorkspaceContext } from "@/app/_lib/utils/user-dashboard";
 import {
   buildVoiceExtractionPrompt,
@@ -22,7 +22,7 @@ type ExtractVoiceResult =
 export async function extractVoiceFromSamples(
   input: ExtractVoiceInput
 ): Promise<ExtractVoiceResult> {
-  const { userId } = await getWorkspaceContext();
+  const { workspace, userId } = await getWorkspaceContext();
 
   const { samples } = input;
 
@@ -81,7 +81,7 @@ Return ONLY valid JSON, no markdown, no explanation.`,
     { role: "user", content: prompt },
   ];
 
-  const response = await sendLlm(messages, userId, {
+  const response = await sendLlm(messages, workspaceSpend(workspace.id, userId), {
     routingKey: "extraction",
     maxTokens: 1000,
     temperature: 0.3,

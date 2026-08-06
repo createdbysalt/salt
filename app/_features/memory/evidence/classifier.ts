@@ -175,7 +175,7 @@ export async function classifyEmailCapture(
 
   // Check for signature data
   if (email.signature) {
-    const signatureData = parseSignature(email.signature);
+    const signatureData = parseEmailSignature(email.signature);
     if (signatureData.company) {
       const domain = canonicalizeIdentifier("organization", signatureData.company);
       if (!knownDomains.has(domain)) {
@@ -658,31 +658,67 @@ function extractNameFromEmail(email: string): string | null {
   return null;
 }
 
-function parseSignature(signature: string): {
+export interface ParsedSignature {
   company?: string;
   title?: string;
   phone?: string;
-} {
-  const result: { company?: string; title?: string; phone?: string } = {};
+}
 
-  // Simple heuristics - in production you'd use more sophisticated parsing
+const TITLE_PATTERN =
+  /\b(CEO|CTO|CFO|COO|CMO|VP|President|Founder|Co-Founder|Owner|Principal|Partner|Director|Manager|Head of [A-Za-z ]+|Lead [A-Za-z ]+|Senior [A-Za-z ]+|Designer|Developer|Engineer|Consultant|Photographer|Producer|Editor|Writer|Coach|Attorney|Accountant|Bookkeeper|Realtor|Broker|Architect|Strategist)\b/i;
+
+/**
+ * Parse company, title, and phone from an email signature block.
+ * Simple line-based heuristics — values feed confidence-gated enrichment,
+ * so false positives accumulate as evidence instead of being applied.
+ */
+export function parseEmailSignature(signature: string): ParsedSignature {
+  const result: ParsedSignature = {};
+
   const lines = signature.split("\n").map((l) => l.trim()).filter(Boolean);
 
   for (const line of lines) {
+    // Skip lines that look like URLs or emails — they match nothing useful here
+    const isContactLine = line.includes("@") || /https?:\/\//i.test(line);
+
     // Look for company patterns
     if (
+      !isContactLine &&
       line.match(/\b(Inc|LLC|Corp|Ltd|Co|Studio|Agency|Media|Group)\b/i) &&
       !result.company
     ) {
       result.company = line;
     }
+    // Look for title patterns (short lines only — avoid sentence matches)
+    if (
+      !isContactLine &&
+      !result.title &&
+      line.length <= 60 &&
+      TITLE_PATTERN.test(line)
+    ) {
+      // Titles often appear as "Title, Company" or "Title | Company"
+      const segment = line.split(/[|,•·]/)[0].trim();
+      if (segment.length >= 2 && segment.length <= 60) {
+        result.title = segment;
+      }
+    }
     // Look for phone patterns
     if (line.match(/\+?[\d\s\-().]{10,}/) && !result.phone) {
-      result.phone = line.match(/\+?[\d\s\-().]{10,}/)?.[0];
+      result.phone = line.match(/\+?[\d\s\-().]{10,}/)?.[0]?.trim();
     }
   }
 
   return result;
+}
+
+/**
+ * Parse a signature from the tail of a full email body when no explicit
+ * signature block was captured. Looks at the last ~10 non-empty lines.
+ */
+export function parseSignatureFromBody(body: string): ParsedSignature {
+  const lines = body.split("\n").map((l) => l.trim()).filter(Boolean);
+  const tail = lines.slice(-10).join("\n");
+  return parseEmailSignature(tail);
 }
 
 function isProjectMeeting(title: string): boolean {

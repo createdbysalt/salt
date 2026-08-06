@@ -32,6 +32,7 @@ export interface PlaybookCardV2Props {
   steps: PlaybookStepSummary[];
   stepCount: number;
   enabled?: boolean;
+  runnable?: boolean;
   onClick?: () => void;
   index?: number;
 }
@@ -46,6 +47,7 @@ export function PlaybookCardV2({
   origin,
   stepCount,
   enabled = true,
+  runnable = true,
   onClick,
   index = 0,
 }: PlaybookCardV2Props) {
@@ -96,6 +98,7 @@ export function PlaybookCardV2({
           slug={slug}
           enabled={enabled}
           isLocked={isLocked}
+          runnable={runnable}
         />
       </div>
 

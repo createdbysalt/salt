@@ -16,7 +16,7 @@
 
 import "server-only";
 
-import { sendLlm } from "./gpt";
+import { sendLlm, type LlmSpendContext } from "./gpt";
 import {
   buildUntrustedContentSystemPrompt,
   wrapUntrustedUserContent,
@@ -39,8 +39,8 @@ export interface RecordNarrativeInput {
    * UNTRUSTED data and wrapped accordingly — never as instructions.
    */
   untrustedContext?: string | null;
-  /** Forwarded to the LLM provider for abuse attribution. */
-  userId: string;
+  /** Who the model spend is attributed to, for provider and ledger both. */
+  spend: LlmSpendContext;
 }
 
 export interface RecordNarrative {
@@ -146,7 +146,7 @@ export async function generateRecordNarrative(
       { role: "system", content: SYSTEM_PROMPT },
       { role: "user", content: sections.join("\n") },
     ],
-    input.userId,
+    input.spend,
     { routingKey: "recordSummary", temperature: 0.3, maxTokens: 280 },
   );
 

@@ -23,12 +23,33 @@ steps:
       hours: 24
       limit: 50
 
+  # New senders held by the Memory-first policy — the user-visible payoff
+  # for keeping unknown senders out of the stream.
+  - step: fetch
+    id: new_senders
+    from: capture.held_senders
+    where:
+      hours: 24
+      limit: 15
+    optional: true
+
   - step: draft
     id: digest_content
     prompt: |
-      Create a digest summary of these batched emails.
-      Group by category and list subject + sender.
-      Total count: {{pending_digests.length}}
+      Create a daily email digest with two sections.
+
+      Section 1 — Batched mail ({{pending_digests.length}} emails the
+      classifier marked low-priority). Group by category, list subject +
+      sender, keep each line short:
+      {{pending_digests}}
+
+      Section 2 — New senders (people not yet in Memory who emailed in the
+      last 24h). Mention count, highlight any that look like potential
+      clients, and note they can be promoted to a contact record:
+      {{new_senders}}
+
+      If a section is empty, say so in one short line. Plain text, no markdown
+      headers heavier than a bolded label.
     max_tokens: 500
 
 output:

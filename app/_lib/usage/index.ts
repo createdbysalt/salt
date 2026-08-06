@@ -18,6 +18,7 @@ export * from "./types";
 export * from "./tiers";
 export * from "./pricing-versions";
 export * from "./play-cost";
+export * from "./llm-cost";
 export {
   recordUsageEvent,
   reverseUsageEvent,
@@ -27,3 +28,27 @@ export {
 export { recordPlayExecution, creditPlayExecution } from "./record-play-usage";
 export type { RecordPlayUsageInput } from "./record-play-usage";
 export { getWorkspaceEntitlement } from "./entitlements";
+export { checkAskSaltAllowance, recordAskSaltUsage } from "./ask-salt-usage";
+export type {
+  AskSaltAllowance,
+  RecordAskSaltUsageInput,
+} from "./ask-salt-usage";
+export { recordLlmCall } from "./record-llm-usage";
+export type { RecordLlmCallInput } from "./record-llm-usage";
+export { resolveScanCaptureCap } from "./capture-scan-cap";
+export {
+  canSpend,
+  isBlocked,
+  resolveOutcome,
+  resolveRevenueMicros,
+  shouldDegrade,
+  SPEND_THRESHOLDS,
+} from "./can-spend";
+export type {
+  CanSpendInput,
+  SpendDecision,
+  SpendKind,
+  SpendOrigin,
+  SpendOutcome,
+} from "./can-spend";
+export { getWorkspaceCogs, noteLocalSpend, resetCogsCache } from "./cogs";

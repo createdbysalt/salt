@@ -18,6 +18,7 @@ import {
   List,
   FileText,
   User,
+  AlertTriangle,
 } from "lucide-react";
 import { Badge, Checkbox } from "@repo/ui";
 import type { ActivityEntryRow } from "@/app/_features/plays/types";
@@ -59,15 +60,21 @@ const CATEGORY_STYLES: Record<
     cls: "bg-sky/15 text-sky",
     icon: Eye,
   },
+  error: {
+    label: "Error",
+    cls: "bg-destructive/10 text-destructive",
+    icon: AlertTriangle,
+  },
 };
 
 type DateFilter = "Today" | "Yesterday" | "Earlier this week";
 
 const CATEGORY_OPTIONS: { id: ActivityCategory; label: string }[] = [
   { id: "salt-acted", label: "Salt Acted" },
+  { id: "watching", label: "Watching" },
   { id: "you-decided", label: "You Decided" },
   { id: "in-progress", label: "In Progress" },
-  { id: "watching", label: "Watching" },
+  { id: "error", label: "Error" },
 ];
 
 const DATE_OPTIONS: { id: DateFilter; label: string }[] = [
@@ -169,6 +176,7 @@ export function ActivityTab({
       youDecided: today.filter((e) => e.category === "you-decided").length,
       inProgress: today.filter((e) => e.category === "in-progress").length,
       watching: today.filter((e) => e.category === "watching").length,
+      error: today.filter((e) => e.category === "error").length,
       total: today.length,
     };
   }, [activitySource]);
@@ -206,11 +214,12 @@ export function ActivityTab({
             Click any row to see details about what happened.
           </p>
         </header>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-2.5">
           <CountTile label="Salt Acted" value={counts.saltActed} tone="emerald" />
+          <CountTile label="Watching" value={counts.watching} tone="sky" />
           <CountTile label="You Decided" value={counts.youDecided} tone="muted" />
           <CountTile label="In Progress" value={counts.inProgress} tone="flame" />
-          <CountTile label="Watching" value={counts.watching} tone="sky" />
+          <CountTile label="Error" value={counts.error} tone="destructive" />
         </div>
       </section>
 
@@ -814,7 +823,7 @@ function CountTile({
 }: {
   label: string;
   value: number;
-  tone: "emerald" | "flame" | "sky" | "muted" | "violet";
+  tone: "emerald" | "flame" | "sky" | "muted" | "violet" | "destructive";
 }) {
   const cls = {
     emerald: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
@@ -822,6 +831,7 @@ function CountTile({
     sky: "bg-sky/15 text-sky",
     muted: "bg-muted text-muted-foreground",
     violet: "bg-violet-500/12 text-violet-700 dark:text-violet-300",
+    destructive: "bg-destructive/10 text-destructive",
   }[tone];
   return (
     <div className={cn("rounded-2xl p-3.5 flex items-baseline justify-between gap-2", cls)}>

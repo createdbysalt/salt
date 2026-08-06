@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import { noteLocalSpend } from "./cogs";
 import type {
   LedgerWriteResult,
   RecordUsageEventInput,
@@ -33,6 +34,8 @@ export async function recordUsageEvent(
 ): Promise<LedgerWriteResult> {
   const supabase = createAdminClient();
 
+  const costMicros = Math.max(0, Math.round(input.costEstimateMicros ?? 0));
+
   const { data, error } = await supabase
     .from("usage_events")
     .insert({
@@ -41,10 +44,7 @@ export async function recordUsageEvent(
       event_type: input.eventType,
       billable: input.billable,
       idempotency_key: input.idempotencyKey,
-      cost_estimate_micros: Math.max(
-        0,
-        Math.round(input.costEstimateMicros ?? 0),
-      ),
+      cost_estimate_micros: costMicros,
       cost_breakdown: input.costBreakdown ?? {},
       play_run_id: input.playRunId ?? null,
       external_effect: input.externalEffect ?? null,
@@ -64,6 +64,12 @@ export async function recordUsageEvent(
     );
     return { ok: false, error: error.message };
   }
+
+  // Tighten the spend gate on this instance right away. Without it, every
+  // admission check inside the next cache TTL would price the workspace as it
+  // was before this call — worst precisely during a burst, which is when the
+  // gate is supposed to bite. A duplicate is skipped: it added no new spend.
+  noteLocalSpend(input.workspaceId, costMicros);
 
   return { ok: true, status: "recorded", eventId: data.id as string };
 }

@@ -42,6 +42,7 @@ async function PlaysPageWithData({
       connectors={data.connectors}
       initialFindings={data.initialFindings}
       autoHandledFindings={data.autoHandledFindings}
+      autoHandledRuns={data.autoHandledRuns}
       findingCounts={data.findingCounts}
       playsRanToday={data.playsRanToday}
       learningEvidence={data.learningEvidence}

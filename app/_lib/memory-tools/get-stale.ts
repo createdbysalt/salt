@@ -46,9 +46,10 @@ export async function memoryGetStaleRecords(
   if (!entityType || entityType === "person") {
     const { data: people } = await supabase
       .from("people")
-      .select("id, display_name, email, relationship_type, updated_at, created_at")
+      .select("id, name, email, relationship_type, updated_at, created_at")
       .eq("workspace_id", workspaceId)
       .is("deleted_at", null)
+      .is("archived_at", null)
       .or(`updated_at.lt.${cutoff},updated_at.is.null`)
       .order("updated_at", { ascending: true, nullsFirst: true })
       .limit(limit);
@@ -59,7 +60,9 @@ export async function memoryGetStaleRecords(
           .from("billing_records")
           .select("id", { count: "exact", head: true })
           .eq("workspace_id", workspaceId)
-          .eq("person_id", person.id);
+          .eq("person_id", person.id)
+          .is("deleted_at", null)
+          .is("archived_at", null);
 
         const lastActivity = person.updated_at || person.created_at;
         const daysSince = lastActivity
@@ -72,7 +75,7 @@ export async function memoryGetStaleRecords(
         records.push({
           id: person.id,
           entityType: "person",
-          name: person.display_name || person.email || "Unknown",
+          name: person.name || person.email || "Unknown",
           lastActivityAt: lastActivity,
           daysSinceActivity: daysSince,
           relationshipType: person.relationship_type || undefined,
@@ -91,6 +94,7 @@ export async function memoryGetStaleRecords(
       .select("id, name, relationship_status, updated_at, created_at")
       .eq("workspace_id", workspaceId)
       .is("deleted_at", null)
+      .is("archived_at", null)
       .or(`updated_at.lt.${cutoff},updated_at.is.null`)
       .order("updated_at", { ascending: true, nullsFirst: true })
       .limit(limit);
@@ -101,7 +105,9 @@ export async function memoryGetStaleRecords(
           .from("billing_records")
           .select("id", { count: "exact", head: true })
           .eq("workspace_id", workspaceId)
-          .eq("organization_id", org.id);
+          .eq("organization_id", org.id)
+          .is("deleted_at", null)
+          .is("archived_at", null);
 
         const lastActivity = org.updated_at || org.created_at;
         const daysSince = lastActivity
@@ -130,6 +136,7 @@ export async function memoryGetStaleRecords(
       .select("id, name, status, updated_at, created_at")
       .eq("workspace_id", workspaceId)
       .is("deleted_at", null)
+      .is("archived_at", null)
       .eq("status", "active")
       .or(`updated_at.lt.${cutoff},updated_at.is.null`)
       .order("updated_at", { ascending: true, nullsFirst: true })

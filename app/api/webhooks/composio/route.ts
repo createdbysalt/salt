@@ -15,7 +15,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { verifyComposioWebhookSignature } from "@/app/_lib/composio/webhook-signature";
-import { adapterForTriggerSlug } from "@/app/_features/capture/adapters/registry";
+import { resolveAdapterForTriggerSlug } from "@/app/_features/capture/adapters/trigger-routing";
 import { ingestEnvelope } from "@/app/_features/capture/services/ingest-envelope";
 import { isFeatureEnabled, FeatureFlag } from "@/app/_lib/feature-flags";
 import { enrichWebhookPayload } from "@/app/_lib/composio/webhook-enrichment";
@@ -257,7 +257,9 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const adapter = adapterForTriggerSlug(event.triggerSlug);
+  // DB-first routing (Phase 5): connector_trigger_types → catalog category →
+  // category adapter, with the code-built map as fallback.
+  const adapter = await resolveAdapterForTriggerSlug(event.triggerSlug);
   if (!adapter) {
     await recordWebhookOutcome(admin, "no_adapter", {
       triggerSlug: event.triggerSlug,

@@ -47,6 +47,12 @@ import { logAskSaltCapabilityGaps } from "@/app/_lib/composio/capability-telemet
 import { reportError } from "@/app/_lib/errors";
 import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
+import {
+  checkAskSaltAllowance,
+  recordAskSaltUsage,
+  type AskSaltAllowance,
+} from "@/app/_lib/usage/ask-salt-usage";
+import { canSpend, isBlocked, shouldDegrade } from "@/app/_lib/usage/can-spend";
 
 export const maxDuration = 60;
 
@@ -201,6 +207,72 @@ function handleAskSaltStreamError(error: unknown): string {
   );
 }
 
+/**
+ * Fair-use ceiling reached (pricing G2).
+ *
+ * 429 with `Retry-After` rather than a synthesized assistant message: this is a
+ * transport-level refusal, and dressing it up as a model reply would put words
+ * in Salt's mouth that no model produced. The copy states the limit and when it
+ * lifts, because a cap the user cannot see the shape of reads as a fault.
+ *
+ * The message must begin with "Ask Salt" — `isSaltUserFacingMessage` uses that
+ * prefix to pass copy through untouched. Without it the text falls to
+ * `sanitizeProviderErrorForUser`'s length heuristic, which replaces anything
+ * over 200 characters with a generic apology, and the user is told "something
+ * went wrong" when nothing did.
+ */
+function askSaltFairUseResponse(allowance: AskSaltAllowance): Response {
+  const retryAfterSeconds = Math.max(
+    1,
+    Math.ceil((new Date(allowance.resetAt).getTime() - Date.now()) / 1000),
+  );
+
+  return new Response(
+    `Ask Salt has reached this workspace's fair-use limit of ${allowance.limit} messages a day. ` +
+      "It frees up as earlier messages age out — the first slot opens in about " +
+      `${Math.max(1, Math.round(retryAfterSeconds / 60))} minutes. ` +
+      "Captures, Memory, and plays are unaffected.",
+    {
+      status: 429,
+      headers: {
+        "Retry-After": String(retryAfterSeconds),
+        "X-RateLimit-Limit": String(allowance.limit),
+        "X-RateLimit-Remaining": "0",
+        "X-RateLimit-Reset": allowance.resetAt,
+      },
+    },
+  );
+}
+
+/**
+ * Over budget for the billing period (pricing G7).
+ *
+ * Distinct from fair use above: waiting does not help, so there is no
+ * `Retry-After`. 402 says the resolution is commercial — upgrade or enable
+ * overage — which is exactly the situation.
+ */
+function askSaltOverBudgetResponse(): Response {
+  return new Response(
+    "Ask Salt is paused for this workspace: usage for this billing period has " +
+      "exceeded what the current plan covers. Upgrade your plan or turn on " +
+      "overage in Billing to resume. Captures, Memory, and approved plays " +
+      "keep running.",
+    { status: 402 },
+  );
+}
+
+/**
+ * Steps allowed in one turn when the workspace is over the degrade threshold.
+ *
+ * Ask Salt already runs the cheapest model Salt routes to, so swapping model
+ * class buys nothing here. Step count is the lever this surface actually owns:
+ * `stepCountIs(12)` means one message can be twelve model round-trips, each
+ * able to call tools, so the cap is what bounds a turn's cost. Five is enough
+ * for the common find → act → summarize shape while removing the long tail.
+ */
+const DEGRADED_MAX_STEPS = 5;
+const NORMAL_MAX_STEPS = 12;
+
 function missingAskSaltModelResponse(): Response | null {
   try {
     getAskSaltLanguageModel();
@@ -262,6 +334,28 @@ export async function POST(request: Request) {
   if (!userId) {
     return new Response("Unauthorized", { status: 401 });
   }
+
+  // Before any downstream work. A turn can run twelve model steps plus tool
+  // calls, and the context assembly below is itself several queries, so an
+  // over-limit workspace is cheapest to turn away here.
+  const allowance = await checkAskSaltAllowance(workspace.id);
+  if (!allowance.allowed) {
+    return askSaltFairUseResponse(allowance);
+  }
+
+  // Fair use counts turns; this weighs what they cost. A workspace can sit well
+  // inside its message allowance and still be unprofitable, because a turn with
+  // twelve tool-calling steps costs orders of magnitude more than a one-line
+  // answer. Both checks are needed and neither implies the other.
+  const budget = await canSpend({
+    workspaceId: workspace.id,
+    kind: "llm_tokens",
+    origin: "user",
+  });
+  if (isBlocked(budget)) {
+    return askSaltOverBudgetResponse();
+  }
+  const maxSteps = shouldDegrade(budget) ? DEGRADED_MAX_STEPS : NORMAL_MAX_STEPS;
 
   const conversationId = body.id;
   if (!conversationId) {
@@ -408,13 +502,30 @@ Start by acknowledging what the capture is and asking how you can help.`
         model: getAskSaltLanguageModel(),
         system,
         messages: modelMessages,
-        stopWhen: stepCountIs(12),
+        stopWhen: stepCountIs(maxSteps),
         tools,
         experimental_repairToolCall: async ({ toolCall, tools: activeTools, error }) => {
           if (!NoSuchToolError.isInstance(error)) return null;
           const canonical = resolveComposioToolName(toolCall.toolName, activeTools);
           if (!canonical) return null;
           return { ...toolCall, toolName: canonical };
+        },
+        // Must live on streamText, not on createUIMessageStream below: only
+        // this callback carries token usage, and `totalUsage` aggregates every
+        // step of the turn rather than just the last one.
+        //
+        // Awaited rather than fired and forgotten — a floating promise here
+        // can be cut off when the serverless instance freezes after the
+        // response, which would drop the spend record for the most expensive
+        // turns. `recordAskSaltUsage` swallows its own failures.
+        onFinish: async ({ response, totalUsage, steps }) => {
+          await recordAskSaltUsage({
+            workspaceId: workspace.id,
+            idempotencyKey: `ask_salt_${response.id}`,
+            model: response.modelId,
+            usage: totalUsage,
+            calls: steps.length,
+          });
         },
       });
 

@@ -3,6 +3,7 @@ import "server-only";
 import {
   listActivityEntries,
   listQueuedPlayRuns,
+  listAutoHandledPlayRuns,
   countPlaysRanToday,
 } from "@/app/_features/plays/queries";
 import { getPlaybooksV2ForWorkspace, type PlaybookV2QueryResult } from "@/app/_features/plays/playbooks/queries-v2";
@@ -36,6 +37,7 @@ export type PlaysPageData = {
   connectors: ConnectorsPageData | null;
   initialFindings: FindingWithContext[];
   autoHandledFindings: FindingWithContext[];
+  autoHandledRuns: PlayRunRow[];
   findingCounts: { needs_you: number; auto_handled: number };
   playsRanToday: number;
   learningEvidence: GroupedLearningEvidence[];
@@ -88,6 +90,7 @@ export function emptyPlaysPageData(): PlaysPageData {
     connectors: null,
     initialFindings: [],
     autoHandledFindings: [],
+    autoHandledRuns: [],
     findingCounts: EMPTY_FINDING_COUNTS,
     playsRanToday: 0,
     learningEvidence: [],
@@ -113,10 +116,11 @@ export async function loadPlaysPageData(options: {
 
   if (tab === "queue") {
     const autoHandledSince = recentAutoHandledSince();
-    const [queueViews, needsYouFindings, autoHandledFindings, findingCounts, learningEvidence, playsRanToday] = await Promise.all([
+    const [queueViews, needsYouFindings, autoHandledFindings, autoHandledRuns, findingCounts, learningEvidence, playsRanToday] = await Promise.all([
       listQueuedPlayRuns(),
       listQueueFindings("needs_you"),
       listQueueFindings("auto_handled"),
+      listAutoHandledPlayRuns(autoHandledSince),
       countFindingsByState(),
       workspaceId ? getLearningEvidence(workspaceId) : Promise.resolve([]),
       countPlaysRanToday(),
@@ -127,7 +131,11 @@ export async function loadPlaysPageData(options: {
       initialQueue: queueViews,
       initialFindings: needsYouFindings,
       autoHandledFindings,
-      findingCounts,
+      autoHandledRuns,
+      findingCounts: {
+        ...findingCounts,
+        auto_handled: findingCounts.auto_handled + autoHandledRuns.length,
+      },
       playsRanToday,
       learningEvidence,
       workspaceId: workspaceId ?? null,

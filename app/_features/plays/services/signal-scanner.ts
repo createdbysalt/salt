@@ -15,6 +15,7 @@ import {
   processMeetingSignalTriggers,
   processPersonSignalTriggers,
 } from "@/app/_features/capture/services/play-triggers";
+import { processEntitySignals } from "@/app/_features/plays/playbooks/trigger-dispatch";
 
 export interface SignalScanResult {
   workspaceId: string;
@@ -24,6 +25,8 @@ export interface SignalScanResult {
   meetingSignalsFired: number;
   peopleScanned: number;
   personSignalsFired: number;
+  orgsScanned: number;
+  orgSignalsFired: number;
   playsCreated: number;
   errors: string[];
 }
@@ -45,12 +48,13 @@ async function scanBillingSignals(
   const errors: string[] = [];
 
   const { data: overdueRecords, error } = await admin
-    .from("billing")
-    .select("id, invoice_number, total, amount_paid, due_date, organization_id, person_id")
+    .from("billing_records")
+    .select("id, number, amount_cents, amount_paid_cents, due_at, organization_id, person_id")
     .eq("workspace_id", workspaceId)
-    .lt("due_date", now)
+    .lt("due_at", now)
     .is("archived_at", null)
-    .order("due_date", { ascending: true })
+    .is("deleted_at", null)
+    .order("due_at", { ascending: true })
     .limit(100);
 
   if (error) {
@@ -62,8 +66,8 @@ async function scanBillingSignals(
   let playsCreated = 0;
 
   for (const record of records) {
-    const total = Number(record.total) || 0;
-    const paid = Number(record.amount_paid) || 0;
+    const total = Number(record.amount_cents) || 0;
+    const paid = Number(record.amount_paid_cents) || 0;
     const amountDue = total - paid;
 
     if (amountDue <= 0) continue;
@@ -76,7 +80,7 @@ async function scanBillingSignals(
       const result = await processBillingSignalTriggers({
         workspaceId,
         billingId: record.id,
-        billingLabel: record.invoice_number ?? `Invoice ${record.id.slice(0, 8)}`,
+        billingLabel: record.number ?? `Invoice ${record.id.slice(0, 8)}`,
         signals: {
           billing_due_date_passed: true,
           billing_amount_paid_covers_total: false,
@@ -147,8 +151,9 @@ async function scanMeetingSignals(
 }
 
 /**
- * Scan people for silence signals.
- * Fires `person_no_contact_30_days` when last_contacted_at > 30 days ago.
+ * Scan people for silence and staleness signals.
+ * Fires `person_no_contact_30_days` when last_contact_at > 30 days ago, and
+ * `person_no_activity_90d` (hygiene) when last_contact_at > 90 days ago.
  */
 async function scanPersonSignals(
   workspaceId: string,
@@ -156,15 +161,17 @@ async function scanPersonSignals(
 ): Promise<{ scanned: number; fired: number; playsCreated: number; errors: string[] }> {
   const admin = createAdminClient();
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
   const errors: string[] = [];
 
   const { data: silentPeople, error } = await admin
     .from("people")
-    .select("id, display_name, last_contacted_at")
+    .select("id, name, last_contact_at")
     .eq("workspace_id", workspaceId)
-    .lt("last_contacted_at", thirtyDaysAgo)
+    .lt("last_contact_at", thirtyDaysAgo)
     .is("archived_at", null)
-    .order("last_contacted_at", { ascending: true })
+    .is("deleted_at", null)
+    .order("last_contact_at", { ascending: true })
     .limit(50);
 
   if (error) {
@@ -180,13 +187,18 @@ async function scanPersonSignals(
 
     if (options.dryRun) continue;
 
+    const isStale90d = Boolean(
+      person.last_contact_at && person.last_contact_at < ninetyDaysAgo
+    );
+
     try {
       const result = await processPersonSignalTriggers({
         workspaceId,
         personId: person.id,
-        personLabel: person.display_name ?? "Contact",
+        personLabel: person.name ?? "Contact",
         signals: {
           person_no_contact_30_days: true,
+          person_no_activity_90d: isStale90d,
         },
       });
       playsCreated += result.playsCreated;
@@ -196,6 +208,60 @@ async function scanPersonSignals(
   }
 
   return { scanned: people.length, fired, playsCreated, errors };
+}
+
+/**
+ * Scan organizations for staleness signals (hygiene).
+ * Fires `org_no_activity_90d` when last_contact_at > 90 days ago.
+ */
+async function scanOrgSignals(
+  workspaceId: string,
+  options: SignalScanOptions
+): Promise<{ scanned: number; fired: number; playsCreated: number; errors: string[] }> {
+  const admin = createAdminClient();
+  const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+  const errors: string[] = [];
+
+  const { data: staleOrgs, error } = await admin
+    .from("organizations")
+    .select("id, name, last_contact_at")
+    .eq("workspace_id", workspaceId)
+    .lt("last_contact_at", ninetyDaysAgo)
+    .is("archived_at", null)
+    .is("deleted_at", null)
+    .order("last_contact_at", { ascending: true })
+    .limit(50);
+
+  if (error) {
+    return { scanned: 0, fired: 0, playsCreated: 0, errors: [error.message] };
+  }
+
+  const orgs = staleOrgs ?? [];
+  let fired = 0;
+  let playsCreated = 0;
+
+  for (const org of orgs) {
+    fired++;
+
+    if (options.dryRun) continue;
+
+    try {
+      const result = await processEntitySignals({
+        workspaceId,
+        entitySurface: "organization",
+        entityId: org.id,
+        entityLabel: org.name ?? "Organization",
+        signals: {
+          org_no_activity_90d: true,
+        },
+      });
+      playsCreated += result.results.filter((r) => r.success && r.playRunId).length;
+    } catch (err) {
+      errors.push(`org ${org.id}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  return { scanned: orgs.length, fired, playsCreated, errors };
 }
 
 /**
@@ -214,6 +280,8 @@ export async function runSignalScan(
     meetingSignalsFired: 0,
     peopleScanned: 0,
     personSignalsFired: 0,
+    orgsScanned: 0,
+    orgSignalsFired: 0,
     playsCreated: 0,
     errors: [],
   };
@@ -235,6 +303,12 @@ export async function runSignalScan(
   result.personSignalsFired = people.fired;
   result.playsCreated += people.playsCreated;
   result.errors.push(...people.errors);
+
+  const orgs = await scanOrgSignals(workspaceId, options);
+  result.orgsScanned = orgs.scanned;
+  result.orgSignalsFired = orgs.fired;
+  result.playsCreated += orgs.playsCreated;
+  result.errors.push(...orgs.errors);
 
   return result;
 }

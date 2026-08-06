@@ -1,6 +1,6 @@
 import "server-only";
 
-import { sendLlm, type LlmChatMessage } from "@/app/_lib/ai";
+import { sendLlm, type LlmChatMessage, type LlmSpendContext } from "@/app/_lib/ai";
 import { assignConfidence } from "./confidence-router";
 
 /**
@@ -121,7 +121,7 @@ target_fields: ${JSON.stringify(targetFields)}`,
 export async function extractFieldsWithLlm(
   text: string,
   config: LlmExtractionConfig,
-  userId: string
+  spend: LlmSpendContext
 ): Promise<LlmExtractionResult[]> {
   const mergedConfig = { ...DEFAULT_CONFIG, ...config };
 
@@ -131,7 +131,7 @@ export async function extractFieldsWithLlm(
 
   const messages = buildExtractionPrompt(text, config.targetFields);
 
-  const response = await sendLlm(messages, userId, {
+  const response = await sendLlm(messages, spend, {
     routingKey: "extraction",
     maxTokens: mergedConfig.maxTokens,
     temperature: mergedConfig.temperature,
@@ -177,7 +177,7 @@ export async function extractFieldsWithLlm(
 
 export async function extractSignatureFields(
   signatureText: string,
-  userId: string
+  spend: LlmSpendContext
 ): Promise<LlmExtractionResult[]> {
   const targetFields = [
     "name",
@@ -189,7 +189,7 @@ export async function extractSignatureFields(
     "website",
   ];
 
-  return extractFieldsWithLlm(signatureText, { targetFields }, userId);
+  return extractFieldsWithLlm(signatureText, { targetFields }, spend);
 }
 
 export interface UnstructuredExtractionContext {
@@ -201,12 +201,12 @@ export interface UnstructuredExtractionContext {
 export async function extractFromUnstructured(
   ctx: UnstructuredExtractionContext,
   targetFields: string[],
-  userId: string
+  spend: LlmSpendContext
 ): Promise<Map<string, LlmExtractionResult>> {
   const results = await extractFieldsWithLlm(
     ctx.text,
     { targetFields },
-    userId
+    spend
   );
 
   const fieldMap = new Map<string, LlmExtractionResult>();

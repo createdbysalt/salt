@@ -351,7 +351,23 @@ async function createPerson(
     return { success: false, error: error.message };
   }
 
-  await logActivity(admin, workspaceId, "created", "Person created", input.name, actorUserId);
+  await logActivity(admin, workspaceId, "created", "Person created", input.name, actorUserId, {
+    entity_type: "person",
+    entity_id: data.id,
+    playbook_slug: "memory-records",
+  });
+  await logAutoHandledMemoryRun(admin, {
+    workspaceId,
+    entityType: "person",
+    entityId: data.id,
+    targetType: "person",
+    label: input.name,
+    title: `Added ${input.name} to People`,
+    content: email
+      ? `Salt created a People record for ${input.name} using ${email}.`
+      : `Salt created a People record for ${input.name}.`,
+    confidence: 95,
+  });
 
   registerWatchExpressions({
     workspaceId,
@@ -525,7 +541,23 @@ async function createOrg(
     return { success: false, error: error.message };
   }
 
-  await logActivity(admin, workspaceId, "created", "Org created", input.name, actorUserId);
+  await logActivity(admin, workspaceId, "created", "Org created", input.name, actorUserId, {
+    entity_type: "organization",
+    entity_id: data.id,
+    playbook_slug: "memory-records",
+  });
+  await logAutoHandledMemoryRun(admin, {
+    workspaceId,
+    entityType: "organization",
+    entityId: data.id,
+    targetType: "org",
+    label: input.name,
+    title: `Added ${input.name} to Organizations`,
+    content: domain
+      ? `Salt created an Organization record for ${input.name} using ${domain}.`
+      : `Salt created an Organization record for ${input.name}.`,
+    confidence: 95,
+  });
 
   registerWatchExpressions({
     workspaceId,
@@ -709,7 +741,21 @@ async function createWork(
       );
     }
 
-    await logActivity(admin, workspaceId, "created", "Work created", input.name, actorUserId);
+    await logActivity(admin, workspaceId, "created", "Work created", input.name, actorUserId, {
+      entity_type: "work",
+      entity_id: data.id,
+      playbook_slug: "memory-records",
+    });
+    await logAutoHandledMemoryRun(admin, {
+      workspaceId,
+      entityType: "work",
+      entityId: data.id,
+      targetType: "work",
+      label: input.name,
+      title: `Added ${input.name} to Work`,
+      content: `Salt created a Work record for ${input.name}.`,
+      confidence: 95,
+    });
 
     scheduleWorkHealthRecompute(data.id);
 
@@ -1113,8 +1159,23 @@ async function createMeeting(
     "created",
     "Meeting created",
     input.title,
-    actorUserId
+    actorUserId,
+    {
+      entity_type: "meeting",
+      entity_id: data.id,
+      playbook_slug: "memory-records",
+    }
   );
+  await logAutoHandledMemoryRun(admin, {
+    workspaceId,
+    entityType: "meeting",
+    entityId: data.id,
+    targetType: "meeting",
+    label: input.title,
+    title: `Added ${input.title} to Meetings`,
+    content: `Salt created a Meeting record for ${input.title}.`,
+    confidence: 95,
+  });
 
   return {
     success: true,
@@ -1134,16 +1195,115 @@ async function logActivity(
   action: string,
   title: string,
   detail?: string,
-  actorUserId?: string
+  actorUserId?: string,
+  metadata?: Record<string, unknown>
 ): Promise<void> {
-  await admin.from("activity_entries").insert({
+  const { error } = await admin.from("activity_entries").insert({
     workspace_id: workspaceId,
     action,
     title,
     detail,
     actor_user_id: actorUserId,
-    metadata: { source: "system_play" },
+    metadata: {
+      source: "system_play",
+      player_slug: "keeper",
+      auto_executed: true,
+      reversible: false,
+      ...metadata,
+    },
   });
+
+  if (error) {
+    console.error("[system-plays] Activity logging failed:", error.message);
+  }
+}
+
+type AutoHandledMemoryEntityType =
+  | "person"
+  | "organization"
+  | "work"
+  | "billing"
+  | "file"
+  | "meeting"
+  | "me";
+
+function sectionForMemoryEntity(entityType: AutoHandledMemoryEntityType): string {
+  switch (entityType) {
+    case "person":
+    case "organization":
+      return "relationships";
+    case "billing":
+      return "billing";
+    case "file":
+      return "files";
+    case "meeting":
+      return "meetings";
+    case "me":
+      return "me";
+    case "work":
+    default:
+      return "work";
+  }
+}
+
+async function logAutoHandledMemoryRun(
+  admin: ReturnType<typeof createAdminClient>,
+  input: {
+    workspaceId: string;
+    entityType: AutoHandledMemoryEntityType;
+    entityId: string;
+    targetType: string;
+    label: string;
+    title: string;
+    content: string;
+    confidence: number;
+  }
+): Promise<void> {
+  const now = new Date().toISOString();
+  const section = sectionForMemoryEntity(input.entityType);
+  const { error } = await admin.from("play_runs").insert({
+    workspace_id: input.workspaceId,
+    target_type: input.targetType,
+    target_id: input.entityId,
+    target_label: input.label,
+    recipient_label: input.label,
+    state: "approved",
+    queue: "auto_handled",
+    stakes: "low",
+    title: input.title,
+    preview: input.content,
+    confidence: input.confidence,
+    source_context: {
+      source: "playbook",
+      playbook_slug: "memory-records",
+      trigger_signal: "system_play_record_created",
+    },
+    metadata: {
+      playbook_name: "Memory Records",
+      player_slug: "keeper",
+      keeper_profile: true,
+      play_card_kind: "profile",
+      output_type: "memory_update",
+      layer: "learn",
+      section,
+      profile_entity_type: input.entityType,
+      profile_entity_id: input.entityId,
+      profile_field: "record",
+      profile_value: input.label,
+      profile_status: "applied",
+      blueprint_slug: "memory-records",
+      blueprint_version: 1,
+      blueprint_name: "Memory Records",
+      memory_applied_at: now,
+      because: "System play created a Memory record with high confidence.",
+      primary_label: "Saved to Memory",
+    },
+    approved_at: now,
+  });
+
+  if (error) {
+    console.error("[system-plays] Auto-handled play-run logging failed:", error.message);
+  }
 }
 
 // ============================================================================
@@ -1236,8 +1396,23 @@ async function createClientMeeting(
     "created",
     "Meeting scheduled",
     `${input.title} with ${input.person_name ?? person.name}`,
-    actorUserId
+    actorUserId,
+    {
+      entity_type: "meeting",
+      entity_id: meeting.id,
+      playbook_slug: "memory-records",
+    }
   );
+  await logAutoHandledMemoryRun(admin, {
+    workspaceId,
+    entityType: "meeting",
+    entityId: meeting.id,
+    targetType: "meeting",
+    label: input.title,
+    title: `Added ${input.title} to Meetings`,
+    content: `Salt scheduled a Meeting record for ${input.title}.`,
+    confidence: 95,
+  });
 
   return {
     success: true,
@@ -1298,8 +1473,23 @@ async function createBilling(
     "created",
     `${input.direction === "receivable" ? "Invoice" : "Bill"} created`,
     input.vendor_label ?? `${input.amount_cents / 100} ${input.currency ?? "USD"}`,
-    actorUserId
+    actorUserId,
+    {
+      entity_type: "billing",
+      entity_id: data.id,
+      playbook_slug: "memory-records",
+    }
   );
+  await logAutoHandledMemoryRun(admin, {
+    workspaceId,
+    entityType: "billing",
+    entityId: data.id,
+    targetType: "billing",
+    label: input.vendor_label ?? `${input.amount_cents / 100} ${input.currency ?? "USD"}`,
+    title: `Added ${input.direction === "receivable" ? "invoice" : "bill"} to Billing`,
+    content: `Salt created a Billing record.`,
+    confidence: 95,
+  });
 
   return {
     success: true,
@@ -1397,8 +1587,23 @@ async function createFileRecord(
     "created",
     "File added",
     input.file_name,
-    actorUserId
+    actorUserId,
+    {
+      entity_type: "file",
+      entity_id: data.id,
+      playbook_slug: "memory-records",
+    }
   );
+  await logAutoHandledMemoryRun(admin, {
+    workspaceId,
+    entityType: "file",
+    entityId: data.id,
+    targetType: "file",
+    label: input.file_name,
+    title: `Added ${input.file_name} to Resources`,
+    content: `Salt created a Resource record for ${input.file_name}.`,
+    confidence: 95,
+  });
 
   return {
     success: true,
@@ -1493,8 +1698,23 @@ async function createMeFact(
     "created",
     "Fact about you added",
     input.label ?? input.value.slice(0, 50),
-    actorUserId
+    actorUserId,
+    {
+      entity_type: "me",
+      entity_id: data.id,
+      playbook_slug: "memory-records",
+    }
   );
+  await logAutoHandledMemoryRun(admin, {
+    workspaceId,
+    entityType: "me",
+    entityId: data.id,
+    targetType: "me",
+    label: input.label ?? input.value.slice(0, 50),
+    title: "Added fact to Me",
+    content: `Salt saved a fact about you: ${input.label ?? input.value.slice(0, 80)}.`,
+    confidence: input.confidence ?? 95,
+  });
 
   return {
     success: true,

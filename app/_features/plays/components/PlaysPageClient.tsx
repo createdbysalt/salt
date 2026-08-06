@@ -21,6 +21,7 @@ type Props = {
   connectors: ConnectorsPageData | null;
   initialFindings: FindingWithContext[];
   autoHandledFindings: FindingWithContext[];
+  autoHandledRuns: PlayRunRow[];
   findingCounts: { needs_you: number; auto_handled: number };
   playsRanToday?: number;
   learningEvidence: GroupedLearningEvidence[];
@@ -58,6 +59,7 @@ export function PlaysPageClient(props: Props) {
         connectors: props.connectors ?? EMPTY_CONNECTORS,
         initialFindings: props.initialFindings,
         autoHandledFindings: props.autoHandledFindings,
+        autoHandledRuns: props.autoHandledRuns,
         findingCounts: props.findingCounts,
         playsRanToday: props.playsRanToday ?? 0,
         learningEvidence: props.learningEvidence,

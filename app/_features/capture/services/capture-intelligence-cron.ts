@@ -16,11 +16,43 @@ import "server-only";
  */
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
-import { sendLlm } from "@/app/_lib/ai/gpt";
+import { backgroundSpend, sendLlm } from "@/app/_lib/ai/gpt";
 import { runDailyScan, type DailyScanResult } from "./intelligence";
+import { runRelationshipDiscovery } from "./relationship-discovery";
 
 const DEFAULT_LOOKBACK_HOURS = 48;
-const MAX_WORKSPACES_PER_RUN = 50;
+const DEFAULT_MAX_WORKSPACES_PER_RUN = 50;
+const DEFAULT_MAX_EMAILS_PER_WORKSPACE = 100;
+const DEFAULT_MAX_EMAILS_PER_RUN = 500;
+
+/**
+ * Hard budget caps for LLM vendor spend, read from env so staging can run
+ * this cron with tighter limits than production. Every email scanned is an
+ * LLM call — the run stops as soon as the run-level budget is exhausted.
+ */
+function envInt(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (!raw) return fallback;
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function readBudget() {
+  return {
+    maxWorkspaces: envInt(
+      "CAPTURE_INTELLIGENCE_MAX_WORKSPACES",
+      DEFAULT_MAX_WORKSPACES_PER_RUN
+    ),
+    maxEmailsPerWorkspace: envInt(
+      "CAPTURE_INTELLIGENCE_MAX_EMAILS_PER_WORKSPACE",
+      DEFAULT_MAX_EMAILS_PER_WORKSPACE
+    ),
+    maxEmailsPerRun: envInt(
+      "CAPTURE_INTELLIGENCE_MAX_EMAILS_PER_RUN",
+      DEFAULT_MAX_EMAILS_PER_RUN
+    ),
+  };
+}
 
 export interface CaptureIntelligenceRunResult {
   workspacesProcessed: number;
@@ -28,6 +60,12 @@ export interface CaptureIntelligenceRunResult {
   totalEmailsProcessed: number;
   totalFindingsCreated: number;
   totalPeopleResolved: number;
+  /** Relationship discovery (Memory-first): held senders promoted into Memory. */
+  totalSendersPromoted: number;
+  /** Held senders that need a human decision (surfaced in the digest). */
+  totalSendersNeedingConfirmation: number;
+  /** True when the run stopped early because the email budget ran out. */
+  budgetExhausted: boolean;
   failures: Array<{ workspaceId: string; error: string }>;
   durationMs: number;
 }
@@ -37,14 +75,21 @@ interface WorkspaceWithMember {
   userId: string;
 }
 
-function createLlmCall(userId: string) {
+function createLlmCall(workspaceId: string, userId: string) {
   return async (systemPrompt: string, userPrompt: string): Promise<string> => {
     const result = await sendLlm(
       [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
-      userId,
+      // One cron invocation loops over every eligible workspace, so the
+      // workspace has to travel with the call rather than sit in ambient
+      // request state — there is no single "current workspace" here.
+      //
+      // Background: nobody is waiting on a scheduled scan, so an over-budget
+      // workspace simply skips this cycle instead of surfacing an error for
+      // work it never asked for.
+      backgroundSpend(workspaceId, userId),
       {
         routingKey: "insights",
         maxTokens: 1000,
@@ -59,7 +104,9 @@ function createLlmCall(userId: string) {
  * Find workspaces that have capture-enabled integrations and need scanning.
  * Returns workspace + a user_id for LLM billing.
  */
-async function getWorkspacesWithCaptures(): Promise<WorkspaceWithMember[]> {
+async function getWorkspacesWithCaptures(
+  maxWorkspaces: number
+): Promise<WorkspaceWithMember[]> {
   const admin = createAdminClient();
 
   const { data: integrations, error: intError } = await admin
@@ -113,7 +160,7 @@ async function getWorkspacesWithCaptures(): Promise<WorkspaceWithMember[]> {
 
   return workspaceIds
     .filter((wsId) => memberMap.has(wsId))
-    .slice(0, MAX_WORKSPACES_PER_RUN)
+    .slice(0, maxWorkspaces)
     .map((wsId) => ({
       workspaceId: wsId,
       userId: memberMap.get(wsId)!,
@@ -126,11 +173,12 @@ async function getWorkspacesWithCaptures(): Promise<WorkspaceWithMember[]> {
 async function scanWorkspace(
   workspaceId: string,
   userId: string,
-  options: { lookbackHours: number }
+  options: { lookbackHours: number; maxEmails: number }
 ): Promise<DailyScanResult> {
   return runDailyScan(workspaceId, userId, {
-    llmCall: createLlmCall(userId),
+    llmCall: createLlmCall(workspaceId, userId),
     lookbackHours: options.lookbackHours,
+    maxEmails: options.maxEmails,
     scanAll: false,
     rescan: false,
   });
@@ -145,6 +193,7 @@ export async function runCaptureIntelligenceScan(options?: {
 }): Promise<CaptureIntelligenceRunResult> {
   const startTime = Date.now();
   const lookbackHours = options?.lookbackHours ?? DEFAULT_LOOKBACK_HOURS;
+  const budget = readBudget();
 
   const result: CaptureIntelligenceRunResult = {
     workspacesProcessed: 0,
@@ -152,13 +201,16 @@ export async function runCaptureIntelligenceScan(options?: {
     totalEmailsProcessed: 0,
     totalFindingsCreated: 0,
     totalPeopleResolved: 0,
+    totalSendersPromoted: 0,
+    totalSendersNeedingConfirmation: 0,
+    budgetExhausted: false,
     failures: [],
     durationMs: 0,
   };
 
   let workspaces: WorkspaceWithMember[];
   try {
-    workspaces = await getWorkspacesWithCaptures();
+    workspaces = await getWorkspacesWithCaptures(budget.maxWorkspaces);
   } catch (error) {
     result.failures.push({
       workspaceId: "global",
@@ -174,8 +226,40 @@ export async function runCaptureIntelligenceScan(options?: {
   }
 
   for (const { workspaceId, userId } of workspaces) {
+    // Relationship discovery runs regardless of the LLM email budget — it is
+    // pure DB scoring, and held senders can qualify (e.g. you replied) even
+    // when there is no new mail to scan.
     try {
-      const scanResult = await scanWorkspace(workspaceId, userId, { lookbackHours });
+      const discovery = await runRelationshipDiscovery(workspaceId);
+      result.totalSendersPromoted += discovery.promoted;
+      result.totalSendersNeedingConfirmation += discovery.needsConfirmation;
+      if (discovery.errors.length > 0) {
+        result.failures.push({
+          workspaceId,
+          error: `discovery: ${discovery.errors.slice(0, 3).join("; ")}`,
+        });
+      }
+    } catch (error) {
+      result.failures.push({
+        workspaceId,
+        error: `discovery: ${error instanceof Error ? error.message : "Unknown error"}`,
+      });
+    }
+
+    // Hard stop once the run-level email budget is spent — remaining
+    // workspaces are picked up by the next scheduled run (scan is idempotent).
+    if (result.totalEmailsProcessed >= budget.maxEmailsPerRun) {
+      result.budgetExhausted = true;
+      result.workspacesSkipped++;
+      continue;
+    }
+
+    try {
+      const remainingBudget = budget.maxEmailsPerRun - result.totalEmailsProcessed;
+      const scanResult = await scanWorkspace(workspaceId, userId, {
+        lookbackHours,
+        maxEmails: Math.min(budget.maxEmailsPerWorkspace, remainingBudget),
+      });
 
       if (scanResult.emailsProcessed === 0 && scanResult.errors.length === 0) {
         result.workspacesSkipped++;

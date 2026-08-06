@@ -7,8 +7,10 @@ name: Staging Crons
 # repair plan, Phase 3). This workflow curls the staging endpoints on the
 # same schedules as vercel.json.
 #
-# Deliberately excluded (LLM vendor spend — gate via Phase 6 cost controls
-# before enabling on staging): capture-intelligence, signal-scan.
+# capture-intelligence and signal-scan run on staging behind hard budget
+# caps (CAPTURE_INTELLIGENCE_MAX_* env vars in the Vercel Preview
+# environment cap workspaces + emails scanned per run — every scanned email
+# is an LLM call). Schedules are deliberately sparser than production.
 # Excluded as production-only: waitlist-nurture.
 #
 # Secret: STAGING_CRON_SECRET (same value as CRON_SECRET in the Vercel
@@ -28,6 +30,9 @@ on:
     - cron: '0 3 * * *' # trigger-reconciliation (daily trigger repair) + purge-trash
     - cron: '0 4 * * *' # connector-catalog-sync (keeps connector_trigger_types fresh)
     - cron: '0 5 * * *' # watch-cleanup
+    - cron: '15 * * * *' # capture-intelligence (hourly, budget-capped LLM scan)
+    - cron: '45 */4 * * *' # signal-scan (heuristic sweep + playbook dispatch)
+    - cron: '0 18 * * *' # email-digest (daily briefing; skips empty workspaces)
   workflow_dispatch:
     inputs:
       endpoint:
@@ -54,12 +59,15 @@ jobs:
             "0 3 * * *")    endpoints="trigger-reconciliation purge-trash" ;;
             "0 4 * * *")    endpoints="connector-catalog-sync" ;;
             "0 5 * * *")    endpoints="watch-cleanup" ;;
+            "15 * * * *")   endpoints="capture-intelligence" ;;
+            "45 */4 * * *") endpoints="signal-scan" ;;
+            "0 18 * * *")   endpoints="email-digest" ;;
             "")
               # workflow_dispatch
               if [ -n "$DISPATCH_ENDPOINT" ] && [ "$DISPATCH_ENDPOINT" != "all" ]; then
                 endpoints="$DISPATCH_ENDPOINT"
               else
-                endpoints="capture-reconciliation trigger-reconciliation connector-catalog-sync purge-trash watch-cleanup"
+                endpoints="capture-reconciliation trigger-reconciliation connector-catalog-sync purge-trash watch-cleanup capture-intelligence signal-scan email-digest"
               fi
               ;;
             *) echo "Unknown schedule: $SCHEDULE" && exit 1 ;;

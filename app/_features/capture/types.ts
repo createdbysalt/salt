@@ -377,6 +377,8 @@ export interface StreamCaptureSummary {
   enriched_metadata?: EnrichedMetadata | null;
   /** Whether this capture was from initial sync (true) or real-time webhook (false). */
   is_bootstrap?: boolean;
+  /** Gate pipeline outcome (noise rows render demoted in the stream). */
+  gate_action?: string | null;
 }
 
 // ============================================================================

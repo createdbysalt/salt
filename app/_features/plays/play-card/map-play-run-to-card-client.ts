@@ -45,9 +45,12 @@ function resolveV2PlaybookFromMetadata(row: PlayRunRow): V2Resolution | null {
 
   const meta = row.metadata as Record<string, unknown> | null;
 
-  // Try to get section from slug pattern
+  // Prefer persisted section metadata for generic system playbooks like
+  // memory-records, then fall back to the slug pattern.
   let section: PlaybookSection = "_meta";
-  if (playbookSlug.includes("person") || playbookSlug.includes("org") || playbookSlug.includes("relationship")) {
+  if (typeof meta?.section === "string" && isPlaybookSection(meta.section)) {
+    section = meta.section;
+  } else if (playbookSlug.includes("person") || playbookSlug.includes("org") || playbookSlug.includes("relationship")) {
     section = "relationships";
   } else if (playbookSlug.includes("work") || playbookSlug.includes("project")) {
     section = "work";
@@ -75,6 +78,10 @@ function resolveV2PlaybookFromMetadata(row: PlayRunRow): V2Resolution | null {
     confidenceExplanation: null,
     valueEstimate: null,
   };
+}
+
+function isPlaybookSection(value: string): value is PlaybookSection {
+  return value in SECTION_METADATA;
 }
 
 function formatSlugAsName(slug: string): string {

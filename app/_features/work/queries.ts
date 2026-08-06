@@ -1,6 +1,7 @@
 import "server-only";
 
 import { cache } from "react";
+import { workspaceSpend } from "@/app/_lib/ai/gpt";
 import { getWorkspaceContext } from "@/app/_lib/utils/user-dashboard";
 import type { MemoryListQueryOptions } from "@/app/_features/relationships/queries";
 import type { Connection } from "@/app/_lib/demo/people-demo-data";
@@ -599,7 +600,7 @@ export const getWorkDetailSummary = cache(async (workId: string): Promise<WorkDe
     table: "work",
     recordId: project.id as string,
     kind: "work",
-    userId,
+    spend: workspaceSpend(workspace.id, userId),
     signals: narrativeSignals,
     cache: {
       ai_summary: (project.ai_summary as string | null) ?? null,

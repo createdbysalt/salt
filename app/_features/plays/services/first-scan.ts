@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
-import { sendLlm } from "@/app/_lib/ai/gpt";
+import { backgroundSpend, sendLlm } from "@/app/_lib/ai/gpt";
 
 const FALLBACK_OPPORTUNITY = {
   claim: "Late follow-ups may be leaving revenue on the table",
@@ -57,7 +57,11 @@ async function tryLlmOpportunity(workspaceId: string): Promise<typeof FALLBACK_O
           "A solo service studio just connected Gmail. Estimate one credible revenue opportunity gap from late follow-ups or unpaid invoices.",
       },
     ],
-    workspaceId,
+    // Runs from the OAuth callback with no acting user, so the workspace is
+    // the only attribution available. Previously this passed `workspaceId`
+    // into the `userId` slot, which sent a workspace id to the provider as a
+    // user identifier and metered nothing.
+    backgroundSpend(workspaceId),
     { routingKey: "opportunityScan", maxTokens: 400, temperature: 0.2 },
   );
 

@@ -52,14 +52,23 @@ function mapActionToStatus(action: string): ActivityStatus {
  * - you-decided: Human reviewed and made a call
  * - in-progress: Work staged, waiting to execute
  * - watching: Gathering evidence, not ready yet
+ * - error: Something failed and needs attention
  */
 function mapActionToCategory(
   action: string,
   metadata: Record<string, unknown> | null,
 ): ActivityCategory {
   switch (action) {
+    // Error - failed automation or script execution
+    case "failed":
+    case "error":
+      return "error";
+
     // Salt Acted - autonomous execution
     case "ran":
+      if (metadata?.success === false || typeof metadata?.error === "string") {
+        return "error";
+      }
       // Check if auto-executed (no user approval) vs user-approved-then-ran
       return metadata?.auto_executed === true ? "salt-acted" : "you-decided";
     case "auto_applied":
@@ -80,6 +89,10 @@ function mapActionToCategory(
 
     // In Progress - staged work (default)
     case "created":
+      if (metadata?.source === "system_play" && metadata.auto_executed === true) {
+        return "salt-acted";
+      }
+      return "in-progress";
     case "edited":
     case "scheduled":
     default:

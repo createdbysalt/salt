@@ -33,6 +33,14 @@ export function getSectionFromFindingType(type: FindingType): QueueSectionFilter
 }
 
 export function getSectionFromPlayRun(play: PlayRunRow): QueueSectionFilter {
+  const metadataSection = play.metadata?.section;
+  if (
+    typeof metadataSection === "string" &&
+    QUEUE_SECTION_ORDER.includes(metadataSection as QueueSectionFilter)
+  ) {
+    return metadataSection as QueueSectionFilter;
+  }
+
   const slug = play.player_slug ?? play.source_context?.playbook_slug;
   if (!slug) return "work";
 

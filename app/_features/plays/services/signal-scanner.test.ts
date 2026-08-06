@@ -1,33 +1,24 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("@/app/_lib/supabase/admin", () => ({
-  createAdminClient: vi.fn(() => ({
-    from: vi.fn(() => ({
-      select: vi.fn(() => ({
-        eq: vi.fn(() => ({
-          lt: vi.fn(() => ({
-            is: vi.fn(() => ({
-              order: vi.fn(() => ({
-                limit: vi.fn(() =>
-                  Promise.resolve({ data: [], error: null })
-                ),
-              })),
-            })),
-            gt: vi.fn(() => ({
-              is: vi.fn(() => ({
-                order: vi.fn(() => ({
-                  limit: vi.fn(() =>
-                    Promise.resolve({ data: [], error: null })
-                  ),
-                })),
-              })),
-            })),
-          })),
-        })),
-      })),
+vi.mock("@/app/_lib/supabase/admin", () => {
+  // Fully chainable query mock: every filter method returns the chain, and
+  // terminal awaits resolve to empty data.
+  const makeChain = (): Record<string, unknown> => {
+    const chain: Record<string, unknown> = {};
+    for (const method of ["select", "eq", "neq", "lt", "gt", "gte", "lte", "is", "in", "not", "or", "order"]) {
+      chain[method] = vi.fn(() => chain);
+    }
+    chain.limit = vi.fn(() => Promise.resolve({ data: [], error: null }));
+    chain.maybeSingle = vi.fn(() => Promise.resolve({ data: null, error: null }));
+    return chain;
+  };
+
+  return {
+    createAdminClient: vi.fn(() => ({
+      from: vi.fn(() => makeChain()),
     })),
-  })),
-}));
+  };
+});
 
 vi.mock("@/app/_features/capture/services/play-triggers", () => ({
   processBillingSignalTriggers: vi.fn(() =>

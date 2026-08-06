@@ -197,6 +197,25 @@ export async function approvePlayRun(id: string): Promise<ActionResult<PlayRunRo
     revalidatePath("/hq");
     revalidatePath("/plays");
     if (resumeResult.ok) {
+      // Earned autonomy (GROW): count the executed approval toward this
+      // playbook+tool combination so the step eventually runs silently.
+      const evidence = run.trigger_evidence as { playbook_slug?: string } | null;
+      const approvalContext = run.approval_context as { tool_slug?: string } | null;
+      if (evidence?.playbook_slug && approvalContext?.tool_slug) {
+        const { recordActionApproval } = await import(
+          "./services/earned-autonomy"
+        );
+        await recordActionApproval(
+          workspace.id,
+          evidence.playbook_slug,
+          approvalContext.tool_slug
+        ).catch((err) => {
+          console.warn(
+            "[plays] failed to record earned-autonomy approval:",
+            err instanceof Error ? err.message : err
+          );
+        });
+      }
       const { data: updatedRun } = await supabase
         .from("play_runs")
         .select("*")

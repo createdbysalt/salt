@@ -199,6 +199,7 @@ export function PlaybookTabV2({ playbooks, counts }: PlaybookTabV2Props) {
               steps={pb.steps}
               stepCount={pb.stepCount}
               enabled={pb.enabled}
+              runnable={pb.runnable}
               onClick={() => handleCardClick(pb.slug)}
               index={i}
             />

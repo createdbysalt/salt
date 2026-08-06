@@ -42,6 +42,7 @@ export async function GET(req: NextRequest) {
       billingSignalsFired: results.reduce((sum, r) => sum + r.billingSignalsFired, 0),
       meetingSignalsFired: results.reduce((sum, r) => sum + r.meetingSignalsFired, 0),
       personSignalsFired: results.reduce((sum, r) => sum + r.personSignalsFired, 0),
+      orgSignalsFired: results.reduce((sum, r) => sum + r.orgSignalsFired, 0),
       playsCreated: totalPlaysCreated,
       errors: results.flatMap((r) => r.errors).length,
     };

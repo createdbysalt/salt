@@ -4,9 +4,12 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
+import { memoryUpdateField, type LearningEntityType } from "@/app/_lib/memory-tools";
 
 interface AcceptLearningEvidenceInput {
   workspaceId: string;
+  entityType?: LearningEntityType;
+  entityId?: string;
   fieldPath: string;
   proposedValue: string;
   evidenceIds: string[];
@@ -15,6 +18,16 @@ interface AcceptLearningEvidenceInput {
 interface DismissLearningEvidenceInput {
   workspaceId: string;
   evidenceIds: string[];
+}
+
+/**
+ * Meta candidate fields emitted by Memory Hygiene (_merge_candidate,
+ * _archive_candidate, _link_candidate). These describe suggested operations
+ * rather than field values, so accepting them resolves the evidence without
+ * a field write — the operation itself runs through its own review flow.
+ */
+function isMetaCandidateField(fieldPath: string): boolean {
+  return fieldPath.startsWith("_");
 }
 
 export async function acceptLearningEvidence(
@@ -32,6 +45,39 @@ export async function acceptLearningEvidence(
     return { success: false, error: "Sign in required" };
   }
 
+  // Apply the accepted value to Memory through the protected tool.
+  // User acceptance is full confidence, so this applies immediately and
+  // resolves all pending evidence for the field.
+  const shouldApply =
+    input.entityType &&
+    input.entityId &&
+    !isMetaCandidateField(input.fieldPath) &&
+    input.proposedValue.trim().length > 0;
+
+  if (shouldApply) {
+    try {
+      await memoryUpdateField({
+        workspaceId: workspace.id,
+        entityType: input.entityType!,
+        entityId: input.entityId!,
+        field: input.fieldPath,
+        value: input.proposedValue,
+        confidence: 100,
+        because: "Accepted from the Watching queue",
+        source: "manual",
+        sourceDetails: { externalId: userId },
+      });
+    } catch (error) {
+      console.error("Failed to apply accepted evidence:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to apply value",
+      };
+    }
+  }
+
+  // Ensure the specific evidence rows shown to the user are resolved even if
+  // the field write path didn't cover them (meta fields, missing entity).
   const supabase = await createClient();
   const now = new Date().toISOString();
 
@@ -42,7 +88,8 @@ export async function acceptLearningEvidence(
       resolution: "applied",
     })
     .in("id", input.evidenceIds)
-    .eq("workspace_id", workspace.id);
+    .eq("workspace_id", workspace.id)
+    .is("resolved_at", null);
 
   if (error) {
     console.error("Failed to accept learning evidence:", error);

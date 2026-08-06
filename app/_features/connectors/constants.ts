@@ -21,3 +21,16 @@ export function connectorsPageUrl(
   }
   return `${CONNECTORS_PAGE_PATH}?${params.toString()}`;
 }
+
+/**
+ * Reconnect CTA target: deep-link a single expired connector, otherwise the
+ * connectors list so the user can fix several.
+ */
+export function reconnectNeededHref(
+  items: Array<{ catalogId: string }>,
+): string {
+  if (items.length === 1) {
+    return connectorsPageUrl({ connector: items[0].catalogId });
+  }
+  return connectorsPageUrl();
+}

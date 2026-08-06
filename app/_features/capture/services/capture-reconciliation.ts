@@ -18,7 +18,11 @@ import { backfillGmailCaptures } from "./gmail-backfill";
 import {
   backfillCalBookings,
   backfillCalendarCaptures,
+  backfillCalendlyEvents,
   backfillDriveCaptures,
+  backfillDropboxCaptures,
+  backfillOutlookCaptures,
+  backfillQuickbooksCaptures,
   backfillStripeCaptures,
 } from "./connector-backfills";
 
@@ -29,6 +33,12 @@ const RECONCILE_WINDOWS = {
   calendarLookbackDays: 7,
   calendarLimit: 50,
   stripeLimit: 20,
+  calendlyLookbackDays: 7,
+  calendlyLimit: 50,
+  dropboxLookbackDays: 7,
+  dropboxLimit: 100,
+  outlookLookbackDays: 2,
+  outlookLimit: 50,
 } as const;
 
 type ReconcilableProvider =
@@ -36,7 +46,11 @@ type ReconcilableProvider =
   | "googlecalendar"
   | "googledrive"
   | "stripe"
-  | "cal";
+  | "cal"
+  | "calendly"
+  | "dropbox"
+  | "quickbooks"
+  | "outlook";
 
 const RECONCILERS: Record<
   ReconcilableProvider,
@@ -55,8 +69,27 @@ const RECONCILERS: Record<
   googledrive: (workspaceId) => backfillDriveCaptures(workspaceId),
   stripe: (workspaceId) =>
     backfillStripeCaptures(workspaceId, { limit: RECONCILE_WINDOWS.stripeLimit }),
-  // Cal.com has zero Composio trigger types — this cron IS its ingestion.
+  // Cal.com, Calendly, Dropbox, and QuickBooks have zero Composio trigger
+  // types — this cron IS their ingestion (capture-pipeline repair Phase 4).
   cal: (workspaceId) => backfillCalBookings(workspaceId),
+  calendly: (workspaceId) =>
+    backfillCalendlyEvents(workspaceId, {
+      lookbackDays: RECONCILE_WINDOWS.calendlyLookbackDays,
+      limit: RECONCILE_WINDOWS.calendlyLimit,
+    }),
+  dropbox: (workspaceId) =>
+    backfillDropboxCaptures(workspaceId, {
+      lookbackDays: RECONCILE_WINDOWS.dropboxLookbackDays,
+      limit: RECONCILE_WINDOWS.dropboxLimit,
+    }),
+  quickbooks: (workspaceId) => backfillQuickbooksCaptures(workspaceId),
+  // Outlook is webhook-first; this is the missed-delivery repair path (the
+  // same role the Gmail backfill plays for Gmail).
+  outlook: (workspaceId) =>
+    backfillOutlookCaptures(workspaceId, {
+      lookbackDays: RECONCILE_WINDOWS.outlookLookbackDays,
+      limit: RECONCILE_WINDOWS.outlookLimit,
+    }),
 };
 
 function isReconcilable(provider: string): provider is ReconcilableProvider {
@@ -98,6 +131,23 @@ export async function reprocessCaptureWindow(
       return backfillStripeCaptures(workspaceId, { limit: maxItems });
     case "cal":
       return backfillCalBookings(workspaceId);
+    case "calendly":
+      return backfillCalendlyEvents(workspaceId, {
+        lookbackDays,
+        limit: Math.min(maxItems, 100),
+      });
+    case "dropbox":
+      return backfillDropboxCaptures(workspaceId, {
+        lookbackDays,
+        limit: Math.min(maxItems, 200),
+      });
+    case "quickbooks":
+      return backfillQuickbooksCaptures(workspaceId);
+    case "outlook":
+      return backfillOutlookCaptures(workspaceId, {
+        lookbackDays,
+        limit: Math.min(maxItems, 100),
+      });
     default:
       return {
         success: false,

@@ -20,6 +20,7 @@ import type {
   PlaybookClassifyStep,
   PlaybookDraftStep,
   PlaybookActionStep,
+  PlaybookBranchStep,
   VoiceProfile,
 } from "./types";
 import {
@@ -28,6 +29,7 @@ import {
   getConnectedCategories,
   getCategoryCapabilities,
 } from "@/app/_lib/composio/category-fetcher";
+import { fetchCaptureSource, isCaptureFetchCategory } from "./capture-fetch";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 
 function getStepId(step: PlaybookStep, fallback: string): string {
@@ -35,6 +37,22 @@ function getStepId(step: PlaybookStep, fallback: string): string {
 }
 
 export type WorkspaceTrustLevel = "read_only" | "act_with_approval" | "trust";
+
+/**
+ * Capture-scoped execution context for playbooks triggered by a capture
+ * (e.g. email-triage). Fields are exposed to definitions as `$capture.<key>`
+ * — e.g. `$capture.id`, `$capture.gmail_message_id`.
+ */
+export interface CaptureExecutionContext {
+  /** capture_events.id */
+  id: string;
+  source_type: string;
+  /** Provider message id (Gmail message id for gmail captures). */
+  gmail_message_id: string | null;
+  thread_id: string | null;
+  sender_email: string | null;
+  subject: string | null;
+}
 
 export interface ExecutionContextV2 {
   workspaceId: string;
@@ -50,6 +68,8 @@ export interface ExecutionContextV2 {
   voice?: VoiceProfile;
   trustLevel?: WorkspaceTrustLevel;
   toolApprovalOverrides?: Map<string, boolean>;
+  /** Present when the playbook was triggered by a specific capture event. */
+  captureContext?: CaptureExecutionContext;
 }
 
 export interface StepResult {
@@ -85,7 +105,8 @@ export async function buildExecutionContextV2(
   workspaceId: string,
   userId: string,
   triggeredBy: ExecutionContextV2["triggeredBy"],
-  voiceSlug?: string
+  voiceSlug?: string,
+  captureContext?: CaptureExecutionContext
 ): Promise<ExecutionContextV2> {
   const connected = await getConnectedCategories(workspaceId);
   const connectedCategories = new Set(connected.map((c) => c.category));
@@ -108,6 +129,7 @@ export async function buildExecutionContextV2(
     connectedCategories,
     connectedCapabilities: capabilities,
     voice,
+    captureContext,
   };
 }
 
@@ -175,7 +197,7 @@ export async function executePlaybookV2(
   if (playbook.steps) {
     for (const [index, step] of playbook.steps.entries()) {
       const stepId = getStepId(step, `${playbook.slug}-step-${index}`);
-      const result = await executeStep(step, context, stepData, index);
+      const result = await executeStep(step, context, stepData, index, playbook.slug);
       stepResults.push(result);
 
       if (result.status === "paused" && result.pausedForApproval) {
@@ -240,17 +262,20 @@ async function executeStep(
   step: PlaybookStep,
   context: ExecutionContextV2,
   stepData: Map<string, unknown>,
-  stepIndex: number
+  stepIndex: number,
+  playbookSlug: string
 ): Promise<StepResult> {
   switch (step.step) {
     case "fetch":
-      return executeFetchStep(step, context);
+      return executeFetchStep(step, context, stepData);
     case "classify":
       return executeClassifyStep(step, stepData);
     case "draft":
       return executeDraftStep(step, context, stepData);
     case "action":
-      return executeActionStep(step, context, stepData, stepIndex);
+      return executeActionStep(step, context, stepData, stepIndex, playbookSlug);
+    case "branch":
+      return executeBranchStep(step, context, stepData, stepIndex, playbookSlug);
     default:
       return {
         stepId: getStepId(step, "unknown"),
@@ -262,10 +287,25 @@ async function executeStep(
 
 async function executeFetchStep(
   step: PlaybookFetchStep,
-  context: ExecutionContextV2
+  context: ExecutionContextV2,
+  stepData: Map<string, unknown>
 ): Promise<StepResult> {
   try {
     const [category, capability] = step.from.split(".");
+    const where = step.where
+      ? interpolateArgs(step.where, stepData, context)
+      : undefined;
+
+    // "capture" reads Salt's own capture_events table, not a connector —
+    // no connected-category requirement.
+    if (isCaptureFetchCategory(category)) {
+      const data = await fetchCaptureSource(
+        context.workspaceId,
+        capability,
+        where
+      );
+      return { stepId: step.id, status: "success", data };
+    }
 
     if (!context.connectedCategories.has(category)) {
       if (step.optional) {
@@ -283,7 +323,7 @@ async function executeFetchStep(
         id: step.id,
         category: category as Parameters<typeof fetchMultipleByCategory>[1][0]["category"],
         capability,
-        filter: step.where,
+        filter: where,
         optional: step.optional,
       },
     ]);
@@ -427,14 +467,16 @@ async function executeDraftStep(
   const systemPrompt = buildSystemPrompt(context.voice);
 
   try {
-    const { sendLlm } = await import("@/app/_lib/ai/gpt");
+    const { sendLlm, committedSpend } = await import("@/app/_lib/ai/gpt");
 
     const result = await sendLlm(
       [
         { role: "system", content: systemPrompt },
         { role: "user", content: prompt },
       ],
-      context.userId,
+      // A playbook step runs inside an approved playbook. Same reasoning as
+      // the compiled-play executor: degrade it, never abandon it.
+      committedSpend(context.workspaceId, context.userId),
       {
         routingKey: "playDraft",
         maxTokens: step.max_tokens ?? 500,
@@ -460,7 +502,8 @@ async function executeActionStep(
   step: PlaybookActionStep,
   context: ExecutionContextV2,
   stepData: Map<string, unknown>,
-  stepIndex: number
+  stepIndex: number,
+  playbookSlug: string
 ): Promise<StepResult> {
   const stepId = step.id ?? `action-${stepIndex}`;
   const args = step.args ?? {};
@@ -468,7 +511,8 @@ async function executeActionStep(
 
   const needsApproval = await checkStepNeedsApproval(
     step,
-    context
+    context,
+    playbookSlug
   );
 
   if (needsApproval) {
@@ -483,24 +527,121 @@ async function executeActionStep(
     };
   }
 
+  // Approval policy cleared this step (playbook declaration + trust level +
+  // tool policy + earned autonomy), so execute the declared tool directly.
+  // Consent scope is exactly the one tool the playbook step names.
+  try {
+    const { executeConnectorTool } = await import(
+      "@/app/_features/plays/services/execute-connector-tool"
+    );
+    const result = await executeConnectorTool(step.tool, interpolatedArgs, {
+      workspaceId: context.workspaceId,
+      actorUserId: context.userId,
+      approvedActions: [step.tool],
+    });
+
+    return {
+      stepId,
+      status: "success",
+      data: {
+        tool: step.tool,
+        args: interpolatedArgs,
+        executed: true,
+        result,
+      },
+    };
+  } catch (error) {
+    return {
+      stepId,
+      status: "error",
+      error: error instanceof Error ? error.message : `Tool ${step.tool} failed`,
+    };
+  }
+}
+
+/**
+ * Branch step: run nested steps only when `if` holds against prior step data.
+ * Supports the `if` + `steps` form (what email-triage uses); `switch`/`goto`
+ * parse but are not yet executable.
+ */
+async function executeBranchStep(
+  step: PlaybookBranchStep,
+  context: ExecutionContextV2,
+  stepData: Map<string, unknown>,
+  stepIndex: number,
+  playbookSlug: string
+): Promise<StepResult> {
+  const stepId = step.id ?? `branch-${stepIndex}`;
+
+  if (!step.if || !step.steps || step.steps.length === 0) {
+    return {
+      stepId,
+      status: "skipped",
+      data: { executed: false, reason: "Branch has no if/steps clause" },
+    };
+  }
+
+  // Conditions reference prior step ids as paths, e.g.
+  // "classification.triage_action == 'silent_archive'".
+  const dataView = Object.fromEntries(stepData) as Record<string, unknown>;
+  if (!evaluateCondition(step.if, dataView)) {
+    return { stepId, status: "success", data: { executed: false } };
+  }
+
+  const nestedResults: StepResult[] = [];
+  for (const [nestedIndex, nested] of step.steps.entries()) {
+    const nestedId = getStepId(nested, `${stepId}-step-${nestedIndex}`);
+    const result = await executeStep(
+      nested,
+      context,
+      stepData,
+      stepIndex,
+      playbookSlug
+    );
+    nestedResults.push(result);
+
+    // Pause and error propagate to the playbook loop unchanged so approval
+    // runs are created exactly as for top-level steps.
+    if (result.status === "paused" || result.status === "error") {
+      return result;
+    }
+
+    if (result.data !== undefined) {
+      stepData.set(nestedId, result.data);
+    }
+  }
+
   return {
     stepId,
     status: "success",
-    data: {
-      _stub: true,
-      message: "Action step execution pending - approval gate implemented, execution via Ask Salt path",
-      tool: step.tool,
-      args: interpolatedArgs,
-    },
+    data: { executed: true, steps: nestedResults.map((r) => r.stepId) },
   };
 }
 
 async function checkStepNeedsApproval(
   step: PlaybookActionStep,
-  context: ExecutionContextV2
+  context: ExecutionContextV2,
+  playbookSlug: string
 ): Promise<boolean> {
+  // Hard gate — never earned away (money sends, destructive actions).
   if (step.approval === "required") {
     return true;
+  }
+
+  // Soft gate (GROW): pause for approval until the workspace has approved
+  // this playbook+tool combination enough times, then act silently.
+  if (step.needsApproval) {
+    const { hasEarnedAutonomy } = await import(
+      "@/app/_features/plays/services/earned-autonomy"
+    );
+    const earned = await hasEarnedAutonomy(
+      context.workspaceId,
+      playbookSlug,
+      step.tool
+    );
+    if (!earned) {
+      return true;
+    }
   }
 
   if (context.trustLevel === "act_with_approval") {
@@ -527,17 +668,29 @@ function interpolateArgs(
   stepData: Map<string, unknown>,
   context: ExecutionContextV2
 ): Record<string, unknown> {
-  const result: Record<string, unknown> = {};
+  return interpolateValue(args, stepData, context) as Record<string, unknown>;
+}
 
-  for (const [key, value] of Object.entries(args)) {
-    if (typeof value === "string") {
-      result[key] = interpolatePrompt(value, stepData, context);
-    } else {
-      result[key] = value;
-    }
+/** Recursively interpolate template strings inside nested args/where values. */
+function interpolateValue(
+  value: unknown,
+  stepData: Map<string, unknown>,
+  context: ExecutionContextV2
+): unknown {
+  if (typeof value === "string") {
+    return interpolatePrompt(value, stepData, context);
   }
-
-  return result;
+  if (Array.isArray(value)) {
+    return value.map((item) => interpolateValue(item, stepData, context));
+  }
+  if (value !== null && typeof value === "object") {
+    const result: Record<string, unknown> = {};
+    for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+      result[key] = interpolateValue(entry, stepData, context);
+    }
+    return result;
+  }
+  return value;
 }
 
 async function createPausedPlayRun(
@@ -590,6 +743,20 @@ async function createPausedPlayRun(
   return run?.id as string | undefined;
 }
 
+function stringifyTemplateValue(value: unknown): string {
+  if (value == null) return "";
+  if (typeof value === "object") {
+    // Arrays/objects (e.g. a digest email list) render as JSON so the LLM
+    // sees the data, not "[object Object]".
+    try {
+      return JSON.stringify(value, null, 2);
+    } catch {
+      return String(value);
+    }
+  }
+  return String(value);
+}
+
 function interpolatePrompt(
   template: string,
   stepData: Map<string, unknown>,
@@ -597,15 +764,31 @@ function interpolatePrompt(
 ): string {
   let result = template;
 
+  // $capture.<field> — capture-scoped context (email-triage style definitions).
+  const capturePattern = /\$capture\.([a-zA-Z0-9_]+)/g;
+  result = result.replace(capturePattern, (token, field: string) => {
+    const capture = context.captureContext;
+    if (!capture) return token;
+    const value = (capture as unknown as Record<string, unknown>)[field];
+    return stringifyTemplateValue(value);
+  });
+
   const varPattern = /\{\{([^}]+)\}\}/g;
   let match;
 
-  while ((match = varPattern.exec(template)) !== null) {
+  while ((match = varPattern.exec(result)) !== null) {
     const varPath = match[1].trim();
     let value: unknown;
 
     if (varPath.startsWith("context.")) {
       value = getNestedValue(context as unknown as Record<string, unknown>, varPath.slice(8));
+    } else if (varPath === "capture" || varPath.startsWith("capture.")) {
+      value = varPath === "capture"
+        ? context.captureContext
+        : getNestedValue(
+            (context.captureContext ?? {}) as unknown as Record<string, unknown>,
+            varPath.slice(8)
+          );
     } else {
       const [stepId, ...rest] = varPath.split(".");
       const stepResult = stepData.get(stepId);
@@ -616,7 +799,13 @@ function interpolatePrompt(
       }
     }
 
-    result = result.replace(match[0], String(value ?? ""));
+    const replacement = stringifyTemplateValue(value);
+    result =
+      result.slice(0, match.index) +
+      replacement +
+      result.slice(match.index + match[0].length);
+    // Resume matching after the replacement to keep indices consistent.
+    varPattern.lastIndex = match.index + replacement.length;
   }
 
   return result;

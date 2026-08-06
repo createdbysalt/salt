@@ -25,8 +25,12 @@ export const COMPOSIO_TOOL_SLUGS = {
   GOOGLECALENDAR_UPDATE_EVENT: "GOOGLECALENDAR_UPDATE_EVENT",
   GOOGLECALENDAR_DELETE_EVENT: "GOOGLECALENDAR_DELETE_EVENT",
   // Cal.com (verified against Composio API 2026-07-13)
+  // ⚠️ CAL_GET_TEAM_BOOKINGS 404s as of 2026-08-06 (Composio reworked the
+  // toolkit) — CAL_FETCH_ALL_BOOKINGS below is the live replacement the
+  // capture backfill uses. Dead-slug sweep tracked for capture Phase 8.
   CAL_LIST_EVENT_TYPES: "CAL_LIST_EVENT_TYPES",
   CAL_GET_TEAM_BOOKINGS: "CAL_GET_TEAM_BOOKINGS",
+  CAL_FETCH_ALL_BOOKINGS: "CAL_FETCH_ALL_BOOKINGS",
   CAL_RETRIEVE_MY_INFORMATION: "CAL_RETRIEVE_MY_INFORMATION",
   CAL_RETRIEVE_CALENDAR_BUSY_TIMES: "CAL_RETRIEVE_CALENDAR_BUSY_TIMES",
   CAL_RETRIEVE_CALENDAR_LIST: "CAL_RETRIEVE_CALENDAR_LIST",
@@ -119,8 +123,15 @@ export const COMPOSIO_TOOL_SLUGS = {
   STRIPE_CREATE_REFUND: "STRIPE_CREATE_REFUND",
   STRIPE_DELETE_CUSTOMER: "STRIPE_DELETE_CUSTOMER",
   // Outlook (verified against Composio API 2026-07-13)
+  // ⚠️ Composio reworked the Outlook toolkit: message reads are now
+  // double-prefixed (OUTLOOK_OUTLOOK_*) and the 2026-07-13 OUTLOOK_GET_MESSAGE
+  // / OUTLOOK_LIST_MESSAGES slugs 404 as of 2026-08-06 — which silently broke
+  // Outlook webhook enrichment. The OUTLOOK_OUTLOOK_* entries below are
+  // verified live; full dead-slug sweep tracked for capture Phase 8.
   OUTLOOK_GET_MESSAGE: "OUTLOOK_GET_MESSAGE",
   OUTLOOK_LIST_MESSAGES: "OUTLOOK_LIST_MESSAGES",
+  OUTLOOK_OUTLOOK_GET_MESSAGE: "OUTLOOK_OUTLOOK_GET_MESSAGE",
+  OUTLOOK_OUTLOOK_LIST_MESSAGES: "OUTLOOK_OUTLOOK_LIST_MESSAGES",
   OUTLOOK_GET_MAIL_DELTA: "OUTLOOK_GET_MAIL_DELTA",
   OUTLOOK_GET_EVENT: "OUTLOOK_GET_EVENT",
   OUTLOOK_GET_CALENDAR_VIEW: "OUTLOOK_GET_CALENDAR_VIEW",
@@ -205,6 +216,11 @@ export const COMPOSIO_TOOL_SLUGS = {
   HUBSPOT_CREATE_TICKETS: "HUBSPOT_CREATE_TICKETS",
   HUBSPOT_CREATE_OBJECT_ASSOCIATION: "HUBSPOT_CREATE_OBJECT_ASSOCIATION",
   // QuickBooks (verified against Composio API 2026-07-13)
+  // ⚠️ Composio reworked the QuickBooks toolkit: the 2026-07-13 slugs below
+  // all 404 as of 2026-08-06, and the current toolkit exposes NO invoice or
+  // payment read tools (only customers/accounts/vendors + balance reports).
+  // QUICKBOOKS_CUSTOMER_BALANCE_DETAIL (added at the end of this block) is the
+  // only invoice-level read left; the capture backfill parses that report.
   QUICKBOOKS_GET_COMPANY_INFO: "QUICKBOOKS_GET_COMPANY_INFO",
   QUICKBOOKS_GET_BALANCE_SHEET_REPORT: "QUICKBOOKS_GET_BALANCE_SHEET_REPORT",
   QUICKBOOKS_GET_PROFIT_AND_LOSS_REPORT: "QUICKBOOKS_GET_PROFIT_AND_LOSS_REPORT",
@@ -237,7 +253,13 @@ export const COMPOSIO_TOOL_SLUGS = {
   QUICKBOOKS_SEND_INVOICE: "QUICKBOOKS_SEND_INVOICE",
   QUICKBOOKS_UPDATE_CUSTOMER: "QUICKBOOKS_UPDATE_CUSTOMER",
   QUICKBOOKS_UPDATE_INVOICE: "QUICKBOOKS_UPDATE_INVOICE",
+  // QuickBooks — current toolkit (verified live against GET /api/v3/tools 2026-08-06).
+  QUICKBOOKS_CUSTOMER_BALANCE_DETAIL: "QUICKBOOKS_CUSTOMER_BALANCE_DETAIL",
   // Calendly (verified against Composio API 2026-07-13)
+  // ⚠️ Composio reworked the Calendly toolkit: the 2026-07-13 slugs below all
+  // 404 as of 2026-08-06 (GET /api/v3/tools/<slug>). The "current toolkit"
+  // entries at the end of this block are the verified read tools used by the
+  // capture backfill. Full dead-slug sweep tracked for capture-pipeline Phase 8.
   CALENDLY_LIST_EVENT_TYPES: "CALENDLY_LIST_EVENT_TYPES",
   CALENDLY_LIST_SCHEDULED_EVENTS: "CALENDLY_LIST_SCHEDULED_EVENTS",
   CALENDLY_GET_USER: "CALENDLY_GET_USER",
@@ -252,7 +274,15 @@ export const COMPOSIO_TOOL_SLUGS = {
   CALENDLY_CREATE_WEBHOOKS: "CALENDLY_CREATE_WEBHOOKS",
   CALENDLY_ORGANIZATION_INVITATION: "CALENDLY_ORGANIZATION_INVITATION",
   CALENDLY_DELETE_ORGANIZATION_MEMBERSHIP: "CALENDLY_DELETE_ORGANIZATION_MEMBERSHIP",
+  // Calendly — current toolkit (verified live against GET /api/v3/tools 2026-08-06).
+  // Capture backfill path: current user URI → scheduled events → invitees.
+  CALENDLY_GET_CURRENT_USER: "CALENDLY_GET_CURRENT_USER",
+  CALENDLY_LIST_EVENTS: "CALENDLY_LIST_EVENTS",
+  CALENDLY_LIST_EVENT_INVITEES: "CALENDLY_LIST_EVENT_INVITEES",
   // Dropbox (verified against Composio API 2026-07-13)
+  // ⚠️ Composio reworked the Dropbox toolkit: the 2026-07-13 slugs below all
+  // 404 as of 2026-08-06. DROPBOX_LIST_FILES_IN_FOLDER (added at the end of
+  // this block) is the current read tool used by the capture backfill.
   DROPBOX_FILES_SEARCH: "DROPBOX_FILES_SEARCH",
   DROPBOX_GET_ACCOUNT: "DROPBOX_GET_ACCOUNT",
   DROPBOX_GET_SPACE_USAGE: "DROPBOX_GET_SPACE_USAGE",
@@ -273,6 +303,8 @@ export const COMPOSIO_TOOL_SLUGS = {
   DROPBOX_ADD_TEAM_GROUP_MEMBERS: "DROPBOX_ADD_TEAM_GROUP_MEMBERS",
   DROPBOX_ADD_TEAM_MEMBERS: "DROPBOX_ADD_TEAM_MEMBERS",
   DROPBOX_DELETE_FILE: "DROPBOX_DELETE_FILE",
+  // Dropbox — current toolkit (verified live against GET /api/v3/tools 2026-08-06).
+  DROPBOX_LIST_FILES_IN_FOLDER: "DROPBOX_LIST_FILES_IN_FOLDER",
   // Notion (verified against Composio API 2026-07-13)
   NOTION_FETCH_DATABASE: "NOTION_FETCH_DATABASE",
   NOTION_QUERY_DATABASE: "NOTION_QUERY_DATABASE",

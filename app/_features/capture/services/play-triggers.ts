@@ -152,31 +152,39 @@ const TRIGGER_PATTERNS: TriggerPattern[] = [
     targetSurfaces: ["orgs", "work"],
     playerSlug: "billing",
     checkCondition: (capture) => {
-      const extracted = capture.extracted_data as { status?: string; amount?: number };
+      const extracted = capture.extracted_data as {
+        status?: string;
+        amount?: number;
+        amount_due?: number;
+      };
       const isPending = extracted.status === "pending" || extracted.status === "open";
-      return isPending && (extracted.amount ?? 0) > 0;
+      // amount fields are decimal dollars (canonical `amount`, alias fallbacks)
+      const amount = extracted.amount ?? extracted.amount_due ?? 0;
+      return isPending && amount > 0;
     },
     buildPlayData: (capture) => {
       const extracted = capture.extracted_data as {
         customer_name?: string;
         amount?: number;
+        amount_due?: number;
         currency?: string;
         invoice_id?: string;
       };
+      const amount = extracted.amount ?? extracted.amount_due;
       const orgEntity = capture.linked_entities.find((e) => e.surface === "orgs");
       return {
         title: `Payment reminder for ${orgEntity?.entity_label ?? extracted.customer_name ?? "client"}`,
         preview: `Invoice is pending. Salt can send a gentle reminder.`,
         target_type: "invoice",
         target_id: extracted.invoice_id ?? null,
-        target_label: `Invoice ${extracted.amount ? `$${extracted.amount}` : ""}`,
+        target_label: `Invoice ${amount ? `$${amount}` : ""}`,
         recipient_label: orgEntity?.entity_label ?? extracted.customer_name ?? "Client",
         channel: "Gmail",
         confidence: 70,
         metadata: {
           trigger_pattern: "payment_reminder",
           capture_id: capture.id,
-          amount: extracted.amount,
+          amount,
           currency: extracted.currency ?? "USD",
         },
       };
@@ -220,6 +228,7 @@ export async function processCaptureTriggers(
       title,
       raw_payload,
       extracted_data,
+      enriched_metadata,
       created_at,
       capture_routing_decisions (
         target_surface,
@@ -233,6 +242,14 @@ export async function processCaptureTriggers(
 
   if (fetchError || !capture) {
     return { success: false, playsCreated: 0, error: "Capture not found or not routed" };
+  }
+
+  // Noise-classified captures never trigger plays.
+  const enriched = capture.enriched_metadata as {
+    signals_matched?: string[];
+  } | null;
+  if (enriched?.signals_matched?.includes("email_classified_noise")) {
+    return { success: true, playsCreated: 0 };
   }
 
   // Build capture for trigger evaluation

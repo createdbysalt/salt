@@ -124,7 +124,7 @@ function getTableName(entityType: LearningEntityType): string | null {
 function getRecordName(record: Record<string, unknown>, entityType: LearningEntityType): string {
   switch (entityType) {
     case "person":
-      return (record.display_name as string) || (record.email as string) || "Unknown";
+      return (record.name as string) || (record.email as string) || "Unknown";
     case "organization":
       return (record.name as string) || "Unknown";
     case "work":

@@ -3,13 +3,16 @@
 import { revalidatePath } from "next/cache";
 import { getTenantContext } from "@/app/_lib/tenancy";
 import { getWorkspaceMemberOrNull } from "@/app/_lib/tenancy/guards";
-import { sendLlm } from "@/app/_lib/ai/gpt";
+import { sendLlm, workspaceSpend } from "@/app/_lib/ai/gpt";
+import { getWorkspaceEntitlement } from "@/app/_lib/usage/entitlements";
+import { resolveScanCaptureCap } from "@/app/_lib/usage/capture-scan-cap";
 import { isComposioConfigured } from "@/app/_lib/composio/connections";
 import { reconcileWorkspaceCaptures } from "../services/capture-reconciliation";
 import {
   runDailyScan,
   type DailyScanResult,
 } from "../services/intelligence";
+import { executePlaybookScript } from "@/app/_features/plays/playbooks/script-registry";
 
 function isNextRedirectError(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
@@ -32,14 +35,14 @@ function sessionRecoveryMessage(): string {
   return "Not signed in. Open /dev-login or /signin and try again.";
 }
 
-function createLlmCall(userId: string) {
+function createLlmCall(workspaceId: string, userId: string) {
   return async (systemPrompt: string, userPrompt: string): Promise<string> => {
     const result = await sendLlm(
       [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
-      userId,
+      workspaceSpend(workspaceId, userId),
       {
         routingKey: "insights",
         maxTokens: 1000,
@@ -66,6 +69,8 @@ export interface SyncAndScanActionResult {
   success: boolean;
   sync?: CaptureSyncSummary | null;
   scan?: DailyScanResult;
+  /** On-demand system playbook runs (memory-hygiene, memory-records). */
+  playbookRuns?: Record<string, { success: boolean; summary?: string }>;
   error?: string;
 }
 
@@ -121,20 +126,55 @@ export async function syncAndScanCaptures(options?: {
       );
     }
 
+    // One model call per capture, so the ceiling comes from the workspace's
+    // tier rather than from the size of its inbox.
+    const entitlement = await getWorkspaceEntitlement(workspace.id);
+    const maxEmails = resolveScanCaptureCap(
+      entitlement.tier,
+      entitlement.pricingVersion,
+    );
+
     const scan = await runDailyScan(workspace.id, userId, {
-      llmCall: createLlmCall(userId),
+      llmCall: createLlmCall(workspace.id, userId),
       lookbackHours,
+      maxEmails,
       scanAll: true,
       rescan: options?.rescan ?? false,
     });
+
+    if (scan.emailsProcessed >= maxEmails) {
+      scanWarnings.push(
+        `Scanned the ${maxEmails} most recent captures, the limit for the ${entitlement.tier} plan. ` +
+          "Older captures in this window were not classified — run again later or shorten the lookback.",
+      );
+    }
 
     if (scanWarnings.length > 0) {
       scan.errors.unshift(...scanWarnings);
     }
 
+    // On-demand system playbook runs: hygiene findings and fill-rule sweeps
+    // feed the Watching queue immediately instead of waiting for the weekly
+    // schedule.
+    const playbookRuns: SyncAndScanActionResult["playbookRuns"] = {};
+    for (const slug of ["memory-hygiene", "memory-records"] as const) {
+      const result = await executePlaybookScript(slug, {
+        workspaceId: workspace.id,
+        trigger: "manual",
+        signal: "sync_and_scan",
+      });
+      playbookRuns[slug] = {
+        success: result.success,
+        summary: result.summary ?? result.error,
+      };
+      if (!result.success && result.error) {
+        scan.errors.push(`${slug}: ${result.error}`);
+      }
+    }
+
     revalidatePath("/plays");
 
-    return { success: true, sync, scan };
+    return { success: true, sync, scan, playbookRuns };
   } catch (error) {
     if (isNextRedirectError(error)) {
       throw error;
@@ -231,7 +271,7 @@ export async function runIntelligenceScan(options?: {
     const scanAll = options?.scanAll ?? true;
 
     const result = await runDailyScan(workspace.id, userId, {
-      llmCall: createLlmCall(userId),
+      llmCall: createLlmCall(workspace.id, userId),
       lookbackHours,
       maxEmails: options?.maxEmails ?? 100,
       scanAll,
@@ -269,7 +309,7 @@ export async function runWorkspaceScan(
   }
 ): Promise<DailyScanResult> {
   return runDailyScan(workspaceId, userId, {
-    llmCall: createLlmCall(userId),
+    llmCall: createLlmCall(workspaceId, userId),
     lookbackHours: options?.lookbackHours ?? 24,
     maxEmails: options?.maxEmails ?? 100,
     scanAll: options?.scanAll ?? false,

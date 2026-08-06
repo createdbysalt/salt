@@ -10,6 +10,7 @@ import { discoverV2Playbooks, getPlaybookBySlug } from "./schema/v2/discovery";
 import type { PlaybookSection, PlaybookLayer, PlaybookDefinitionV2, PlaybookCategory, PlaybookStep } from "./schema/v2/types";
 import { getPlaybookCategory, isPlaybookLocked, isPlaybookEditable } from "./schema/v2/types";
 import { getPlaybookEnabledStatesMap } from "../actions/playbook-settings";
+import { hasPlaybookScript } from "./script-registry";
 
 /**
  * Playbook origin types for badge display:
@@ -49,6 +50,12 @@ export interface PlaybookListItem {
   triggerType: "signal" | "schedule" | "manual";
   triggerValue?: string;
   enabled?: boolean;
+  /**
+   * Whether this playbook has a real execution path: a registered script
+   * (learn layer) or executable steps (act layer). Drives the "Always on"
+   * badge — never asserted for playbooks that cannot actually run.
+   */
+  runnable: boolean;
   /** Package info for directory-based playbooks */
   package?: {
     hasScript: boolean;
@@ -133,6 +140,13 @@ function mapPlaybookListItem(
   const locked = isPlaybookLocked(definition);
   const editable = isPlaybookEditable(definition);
 
+  // Execution capability: learn playbooks run through the static script
+  // registry; act playbooks run through the v2 step executor.
+  const runnable =
+    definition.layer === "learn"
+      ? hasPlaybookScript(definition.slug)
+      : (definition.steps?.length ?? 0) > 0;
+
   return {
     slug: definition.slug,
     name: definition.name,
@@ -151,6 +165,7 @@ function mapPlaybookListItem(
         step: step.step,
         ...("id" in step && typeof step.id === "string" ? { id: step.id } : {}),
       })) ?? [],
+    runnable,
     triggerType: (definition.trigger ?? definition.triggers?.[0])?.type ?? "manual",
     triggerValue: (() => {
       const trigger = definition.trigger ?? definition.triggers?.[0];

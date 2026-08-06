@@ -5,7 +5,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, Eye, Loader2 } from "lucide-react";
 import { LearningCard } from "./LearningCard";
 import { PlaysTabEmptyState } from "./PlaysTabEmptyState";
-import type { GroupedLearningEvidence } from "../queries/learning-evidence";
+import type {
+  GroupedLearningEvidence,
+  LearningField,
+} from "../queries/learning-evidence";
 import { acceptLearningEvidence, dismissLearningEvidence } from "../actions/learning-evidence";
 
 interface LearningTabProps {
@@ -23,8 +26,8 @@ export function LearningTab({
   evidence,
   workspaceId,
   onUpdate,
-  emptyTitle = "Nothing to watch yet",
-  emptyDescription = "Salt is observing your connected accounts. When it starts building confidence about people or organizations, they'll appear here.",
+  emptyTitle = "Salt is still getting to know your world",
+  emptyDescription = "As Salt reads your email and calendar, things it's not sure about yet will show up here for you to confirm.",
   pageSize = DEFAULT_PAGE_SIZE,
 }: LearningTabProps) {
   const [isPending, startTransition] = useTransition();
@@ -43,23 +46,55 @@ export function LearningTab({
     }, 150);
   };
 
-  const handleAccept = (fieldPath: string, proposedValue: string, evidenceIds: string[]) => {
+  const acceptField = (
+    item: GroupedLearningEvidence,
+    field: LearningField,
+    proposedValue: string,
+  ) =>
+    acceptLearningEvidence({
+      workspaceId,
+      entityType: item.entityType,
+      entityId: item.entityId,
+      fieldPath: field.fieldPath,
+      proposedValue,
+      evidenceIds: field.evidenceIds,
+    });
+
+  const handleAcceptField = (
+    item: GroupedLearningEvidence,
+    field: LearningField,
+    proposedValue: string,
+  ) => {
     startTransition(async () => {
-      await acceptLearningEvidence({
+      await acceptField(item, field, proposedValue);
+      onUpdate?.();
+    });
+  };
+
+  const handleDismissField = (item: GroupedLearningEvidence, field: LearningField) => {
+    startTransition(async () => {
+      await dismissLearningEvidence({
         workspaceId,
-        fieldPath,
-        proposedValue,
-        evidenceIds,
+        evidenceIds: field.evidenceIds,
       });
       onUpdate?.();
     });
   };
 
-  const handleDismiss = (fieldPath: string, evidenceIds: string[]) => {
+  const handleAcceptAll = (item: GroupedLearningEvidence) => {
+    startTransition(async () => {
+      for (const field of item.fields) {
+        await acceptField(item, field, field.proposedValue);
+      }
+      onUpdate?.();
+    });
+  };
+
+  const handleDismissAll = (item: GroupedLearningEvidence) => {
     startTransition(async () => {
       await dismissLearningEvidence({
         workspaceId,
-        evidenceIds,
+        evidenceIds: item.fields.flatMap((field) => field.evidenceIds),
       });
       onUpdate?.();
     });
@@ -95,12 +130,12 @@ export function LearningTab({
           >
             <LearningCard
               evidence={item}
-              onAccept={(fieldPath, proposedValue, evidenceIds) =>
-                handleAccept(fieldPath, proposedValue, evidenceIds)
+              onAcceptAll={() => handleAcceptAll(item)}
+              onDismissAll={() => handleDismissAll(item)}
+              onAcceptField={(field, proposedValue) =>
+                handleAcceptField(item, field, proposedValue)
               }
-              onDismiss={(fieldPath, evidenceIds) =>
-                handleDismiss(fieldPath, evidenceIds)
-              }
+              onDismissField={(field) => handleDismissField(item, field)}
             />
           </motion.div>
         ))}

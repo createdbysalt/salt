@@ -10,6 +10,7 @@ import {
   checkQualityGate,
   type QualityGateInput,
 } from "@/app/_features/memory/utils/note-quality-gate";
+import { processEntitySignals } from "@/app/_features/plays/playbooks/trigger-dispatch";
 import type { NoteExtractionResult, NoteExtractionInput } from "./note-extractor";
 import type { EntityType } from "@/app/_features/memory/queries/entity-notes";
 import type { EntityNoteKind } from "@/app/_features/memory/types/taxonomies";
@@ -31,6 +32,11 @@ interface PersistNotesInput {
   sourceRef: string;
   sourceType: "email" | "meeting" | "call" | "document";
   entityNames: Map<string, string>; // entityId -> entityName for provenance
+  /**
+   * Enables playbook signal emission (note_created, preference_detected,
+   * context_extracted, note_flagged) for created notes when provided.
+   */
+  workspaceId?: string;
 }
 
 interface PersistNotesResult {
@@ -56,6 +62,12 @@ export async function persistExtractedNotes(
     skipped: 0,
     errors: [],
   };
+
+  const persistedNotes: Array<{
+    entityType: SupportedNoteEntityType;
+    entityId: string;
+    noteKind: EntityNoteKind;
+  }> = [];
 
   for (const note of extractionResult.notes) {
     // Skip notes routed to unsupported entity types
@@ -99,6 +111,11 @@ export async function persistExtractedNotes(
       } else {
         result.proposed++;
       }
+      persistedNotes.push({
+        entityType: note.targetEntityType,
+        entityId: note.targetEntityId,
+        noteKind: toEntityNoteKind(note.noteKind),
+      });
     } else {
       result.errors.push(
         `Failed to create note for ${entityName}: ${createResult.error}`
@@ -106,7 +123,65 @@ export async function persistExtractedNotes(
     }
   }
 
+  // Emit the Notes playbook's trigger signals for created notes.
+  // Fire-and-forget: signal dispatch must never break note persistence.
+  if (input.workspaceId && persistedNotes.length > 0) {
+    emitNoteSignals(input.workspaceId, persistedNotes, sourceRef).catch(
+      (error) => {
+        console.error("[persist-extracted-notes] Signal emission failed:", error);
+      }
+    );
+  }
+
   return result;
+}
+
+/**
+ * Dispatch note lifecycle signals per target entity so playbooks that
+ * declare them as triggers (Notes) run.
+ */
+async function emitNoteSignals(
+  workspaceId: string,
+  persistedNotes: Array<{
+    entityType: SupportedNoteEntityType;
+    entityId: string;
+    noteKind: EntityNoteKind;
+  }>,
+  sourceRef: string
+): Promise<void> {
+  // Aggregate kinds per entity so each entity is dispatched once.
+  const byEntity = new Map<
+    string,
+    { entityType: SupportedNoteEntityType; entityId: string; kinds: Set<EntityNoteKind> }
+  >();
+  for (const note of persistedNotes) {
+    const key = `${note.entityType}:${note.entityId}`;
+    const entry = byEntity.get(key);
+    if (entry) {
+      entry.kinds.add(note.noteKind);
+    } else {
+      byEntity.set(key, {
+        entityType: note.entityType,
+        entityId: note.entityId,
+        kinds: new Set([note.noteKind]),
+      });
+    }
+  }
+
+  for (const entry of byEntity.values()) {
+    await processEntitySignals({
+      workspaceId,
+      entitySurface: entry.entityType,
+      entityId: entry.entityId,
+      signals: {
+        note_created: true,
+        preference_detected: entry.kinds.has("preference"),
+        context_extracted: entry.kinds.has("context"),
+        note_flagged: entry.kinds.has("flag"),
+      },
+      evidence: { source_ref: sourceRef },
+    });
+  }
 }
 
 /**
@@ -115,7 +190,8 @@ export async function persistExtractedNotes(
  */
 export async function extractAndPersistNotes(
   extractionInput: NoteExtractionInput,
-  entityNames: Map<string, string>
+  entityNames: Map<string, string>,
+  workspaceId?: string
 ): Promise<PersistNotesResult> {
   // Import here to avoid circular dependency
   const { extractNotes } = await import("./note-extractor");
@@ -132,6 +208,7 @@ export async function extractAndPersistNotes(
     sourceRef: extractionInput.sourceId,
     sourceType: extractionInput.sourceType,
     entityNames,
+    workspaceId,
   });
 }
 

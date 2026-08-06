@@ -108,6 +108,96 @@ function normalizeHubspot(payload: unknown): CaptureEnvelope | null {
   };
 }
 
+/**
+ * Deal value normalization: CRM values are already major units (dollars) —
+ * Pipedrive sends them as strings ("2500"), HubSpot as numbers. Same decimal-
+ * dollar semantics as billing (capture-detail-contract.md), no /100 anywhere.
+ */
+function parseDealValue(value: unknown): number | null {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+/**
+ * Pipedrive triggers — verified against the live Composio trigger schemas
+ * 2026-08-05: deals are flat { id, title, value (string), currency, status,
+ * stage_id }; organizations are flat { id, name, email, address, web }.
+ */
+function normalizePipedrive(payload: unknown): CaptureEnvelope | null {
+  if (!isRecord(payload)) return null;
+  const record = unwrapRecord(payload, ["deal", "organization", "data"]);
+
+  const externalId = pickString(record, ["id"]) ?? pickString(payload, ["id"]);
+  if (!externalId) return null;
+
+  // Deal shape has title+value/stage; organization shape has name.
+  const isDeal =
+    record.value !== undefined ||
+    record.stage_id !== undefined ||
+    (record.title !== undefined && record.name === undefined);
+
+  if (isDeal) {
+    const title = pickString(record, ["title"]);
+    return {
+      sourceType: "pipedrive" as CaptureSourceType,
+      captureType: "note",
+      // IDs overlap between Pipedrive object types — scope the dedupe key.
+      externalId: `deal:${externalId}`,
+      title,
+      occurredAt: pickString(record, ["add_time", "created_at"]) ?? null,
+      participants: [],
+      threadId: null,
+      extracted: {
+        entity_type: "deal",
+        entity_name: title,
+        name: title,
+        status: pickString(record, ["status"]),
+        stage: pickString(record, ["stage_id", "stage_name"]),
+        deal_value: parseDealValue(record.value),
+        currency: pickString(record, ["currency"]),
+        company: pickString(record, ["org_name"]),
+      },
+      raw: {
+        crmId: externalId,
+        source: "composio_trigger",
+      },
+      noise: null,
+    };
+  }
+
+  const name = pickString(record, ["name"]);
+  const email = pickString(record, ["email"]);
+
+  return {
+    sourceType: "pipedrive" as CaptureSourceType,
+    captureType: "contact",
+    externalId: `organization:${externalId}`,
+    title: name,
+    occurredAt: pickString(record, ["add_time", "created_at"]) ?? null,
+    participants: email
+      ? [{ email: email.toLowerCase(), name, role: "other" }]
+      : [],
+    threadId: null,
+    extracted: {
+      entity_type: "organization",
+      entity_name: name,
+      name,
+      email: email?.toLowerCase() ?? null,
+      website: pickString(record, ["web"]),
+      company: name,
+    },
+    raw: {
+      crmId: externalId,
+      source: "composio_trigger",
+    },
+    noise: null,
+  };
+}
+
 function normalizeGenericCrm(
   payload: unknown,
   sourceType: CaptureSourceType
@@ -124,6 +214,8 @@ function normalizeGenericCrm(
 
   const name = pickString(record, ["name", "Name", "title"]);
   const email = pickString(record, ["email", "Email"]);
+  const dealValue = parseDealValue(record.value ?? record.amount ?? record.Amount);
+  const isDealLike = dealValue !== null || record.stage_id !== undefined;
 
   const participants: EnvelopeParticipant[] = email
     ? [{ email: email.toLowerCase(), name, role: "other" }]
@@ -139,9 +231,15 @@ function normalizeGenericCrm(
     participants,
     threadId: null,
     extracted: {
+      entity_type: isDealLike ? "deal" : "contact",
+      entity_name: name,
       name,
       email: email?.toLowerCase() ?? null,
       company: pickString(record, ["company", "org_name"]),
+      status: pickString(record, ["status", "Status"]),
+      stage: pickString(record, ["stage", "stage_id", "StageName", "dealstage"]),
+      deal_value: dealValue,
+      currency: pickString(record, ["currency", "CurrencyIsoCode"]),
     },
     raw: {
       crmId: externalId,
@@ -170,6 +268,8 @@ export function createCrmCategoryAdapter(provider: string): CaptureAdapter {
       switch (provider) {
         case "hubspot":
           return normalizeHubspot(payload);
+        case "pipedrive":
+          return normalizePipedrive(payload);
         default:
           // Other CRM providers use generic extraction
           return normalizeGenericCrm(payload, provider as CaptureSourceType);

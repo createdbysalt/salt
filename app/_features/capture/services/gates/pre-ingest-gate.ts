@@ -25,19 +25,81 @@ const DISPOSABLE_EMAIL_DOMAINS = new Set([
   "dispostable.com",
 ]);
 
+// ESP sending-infrastructure domains. Humans never send from these — a hit
+// is always bulk mail, so dropping is safe (false positives are what we
+// must avoid at this gate).
 const MARKETING_DOMAINS = new Set([
   "mailchimp.com",
+  "mcsv.net",
+  "mcdlv.net",
+  "rsgsv.net",
   "sendgrid.net",
   "amazonses.com",
   "mailgun.org",
+  "mailgun.net",
   "constantcontact.com",
+  "rs6.net",
   "hubspot.com",
+  "hubspotemail.net",
   "klaviyo.com",
+  "klaviyomail.com",
   "intercom-mail.com",
   "postmarkapp.com",
+  "pm-bounces.net",
   "customer.io",
+  "customeriomail.com",
   "drip.com",
   "activecampaign.com",
+  "acemlnb.com",
+  "braze.com",
+  "brazemail.com",
+  "sailthru.com",
+  "sparkpostmail.com",
+  "createsend.com",
+  "cmail19.com",
+  "cmail20.com",
+  "exacttarget.com",
+  "e.salesforce.com",
+  "marketo.com",
+  "mktomail.com",
+  "campaignmonitor.com",
+  "convertkit-mail.com",
+  "convertkit-mail2.com",
+  "beehiiv.com",
+  "mail.beehiiv.com",
+]);
+
+// Local parts that indicate an automated/product-announcement sender.
+// Exact matches only — substrings would catch real people.
+const AUTOMATED_LOCAL_PARTS = new Set([
+  "noreply",
+  "no-reply",
+  "donotreply",
+  "do-not-reply",
+  "mailer-daemon",
+  "postmaster",
+  "notifications",
+  "notification",
+  "notify",
+  "alerts",
+  "alert",
+  "newsletter",
+  "newsletters",
+  "marketing",
+  "promotions",
+  "promo",
+  "offers",
+  "digest",
+  "updates",
+  "news",
+  "bounce",
+  "bounces",
+  "mailer",
+  "automated",
+  "auto-confirm",
+  "receipts",
+  "billing-noreply",
+  "account-security-noreply",
 ]);
 
 const PROMOTIONAL_LABELS = new Set([
@@ -114,14 +176,16 @@ export function runPreIngestGate(input: PreIngestGateInput): GateResultDrop | nu
 
   if (senderEmail) {
     const localPart = senderEmail.split("@")[0]?.toLowerCase() ?? "";
-    if (
-      localPart === "noreply" ||
-      localPart === "no-reply" ||
-      localPart === "donotreply" ||
-      localPart === "do-not-reply" ||
-      localPart === "mailer-daemon" ||
-      localPart === "postmaster"
-    ) {
+    if (AUTOMATED_LOCAL_PARTS.has(localPart)) {
+      return {
+        action: "drop",
+        gate: "pre-ingest",
+        reason: `Automated sender address: ${senderEmail}`,
+        category: "automated",
+      };
+    }
+    // noreply+tag@ / no-reply-something@ variants
+    if (/^(no-?reply|do-?not-?reply)[+.\-_]/.test(localPart)) {
       return {
         action: "drop",
         gate: "pre-ingest",

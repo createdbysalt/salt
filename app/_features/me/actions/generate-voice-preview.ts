@@ -1,6 +1,6 @@
 "use server";
 
-import { sendLlm, type LlmChatMessage } from "@/app/_lib/ai/gpt";
+import { sendLlm, workspaceSpend, type LlmChatMessage } from "@/app/_lib/ai/gpt";
 import { getWorkspaceContext } from "@/app/_lib/utils/user-dashboard";
 import { mergeVoice, voiceToPrompt } from "../utils/merge-voice";
 import type { OperatorVoiceProfile, WorkspaceVoice } from "../types";
@@ -38,7 +38,7 @@ type GeneratePreviewResult =
 export async function generateVoicePreview(
   input: GeneratePreviewInput
 ): Promise<GeneratePreviewResult> {
-  const { userId } = await getWorkspaceContext();
+  const { workspace, userId } = await getWorkspaceContext();
 
   const scenario = PREVIEW_SCENARIOS.find((s) => s.id === input.scenario);
   if (!scenario) {
@@ -68,13 +68,17 @@ Write naturally, as if you are the person with this voice.`,
     { role: "user", content: scenario.prompt },
   ];
 
+  // Two calls per preview: the voiced draft and the generic one shown beside it
+  // for comparison. Both meter, so the ledger reflects that a preview costs
+  // twice what its single visible output suggests.
+  const spend = workspaceSpend(workspace.id, userId);
   const [withVoice, generic] = await Promise.all([
-    sendLlm(withVoiceMessages, userId, {
+    sendLlm(withVoiceMessages, spend, {
       routingKey: "playPersonalize",
       maxTokens: 200,
       temperature: 0.7,
     }),
-    sendLlm(genericMessages, userId, {
+    sendLlm(genericMessages, spend, {
       routingKey: "playPersonalize",
       maxTokens: 200,
       temperature: 0.7,

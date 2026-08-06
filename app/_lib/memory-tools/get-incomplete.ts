@@ -44,8 +44,9 @@ const PERSON_REQUIREMENTS: FieldRequirement[] = [
 ];
 
 const ORG_REQUIREMENTS: FieldRequirement[] = [
-  { field: "domain", dbColumn: "website", signal: "org_missing_domain", severity: 85, suggestedAction: "Derive from people emails" },
-  { field: "primary_contact", dbColumn: "primary_contact_id", signal: "org_missing_primary_contact", severity: 78, suggestedAction: "Identify from activity" },
+  { field: "domain", dbColumn: "domain", signal: "org_missing_domain", severity: 85, suggestedAction: "Derive from people emails" },
+  // primary_contact is checked via the organization_people junction, not a column
+  { field: "primary_contact", dbColumn: "_junction_primary", signal: "org_missing_primary_contact", severity: 78, suggestedAction: "Identify from activity" },
   { field: "industry", dbColumn: "industry", signal: "org_missing_industry", severity: 55, suggestedAction: "Infer from domain or ask" },
 ];
 
@@ -79,9 +80,10 @@ export async function memoryGetIncompleteRecords(
   if (!entityType || entityType === "person") {
     const { data: people } = await supabase
       .from("people")
-      .select("id, display_name, email, relationship_type")
+      .select("id, name, email, relationship_type")
       .eq("workspace_id", workspaceId)
       .is("deleted_at", null)
+      .is("archived_at", null)
       .limit(500);
 
     if (people) {
@@ -97,7 +99,7 @@ export async function memoryGetIncompleteRecords(
           records.push({
             id: person.id,
             entityType: "person",
-            name: person.display_name || person.email || "Unknown",
+            name: person.name || person.email || "Unknown",
             missingFields: missing.map((m) => m.field),
             signal: topIssue.signal,
             severity: topIssue.severity,
@@ -111,15 +113,37 @@ export async function memoryGetIncompleteRecords(
   if (!entityType || entityType === "organization") {
     const { data: orgs } = await supabase
       .from("organizations")
-      .select("id, name, website, primary_contact_id, industry")
+      .select("id, name, domain, website, industry")
       .eq("workspace_id", workspaceId)
       .is("deleted_at", null)
+      .is("archived_at", null)
       .limit(500);
+
+    // Primary contact lives in the organization_people junction
+    const orgsWithPrimary = new Set<string>();
+    if (orgs && orgs.length > 0) {
+      const { data: primaryLinks } = await supabase
+        .from("organization_people")
+        .select("organization_id")
+        .in("organization_id", orgs.map((o) => o.id))
+        .eq("is_primary", true);
+      for (const link of primaryLinks ?? []) {
+        orgsWithPrimary.add(link.organization_id);
+      }
+    }
 
     if (orgs) {
       for (const org of orgs) {
         const missing: FieldRequirement[] = [];
         for (const req of ORG_REQUIREMENTS) {
+          if (req.dbColumn === "_junction_primary") {
+            if (!orgsWithPrimary.has(org.id)) missing.push(req);
+            continue;
+          }
+          if (req.field === "domain") {
+            if (!org.domain && !org.website) missing.push(req);
+            continue;
+          }
           if (!org[req.dbColumn as keyof typeof org]) {
             missing.push(req);
           }
@@ -146,6 +170,7 @@ export async function memoryGetIncompleteRecords(
       .select("id, name, organization_id, person_id, status, deadline, contract_value_cents")
       .eq("workspace_id", workspaceId)
       .is("deleted_at", null)
+      .is("archived_at", null)
       .limit(500);
 
     if (work) {
@@ -181,6 +206,7 @@ export async function memoryGetIncompleteRecords(
       .select("id, number, organization_id, person_id, due_at")
       .eq("workspace_id", workspaceId)
       .is("deleted_at", null)
+      .is("archived_at", null)
       .limit(500);
 
     if (billing) {
@@ -214,6 +240,7 @@ export async function memoryGetIncompleteRecords(
       .select("id, title, filename, category")
       .eq("workspace_id", workspaceId)
       .is("deleted_at", null)
+      .is("archived_at", null)
       .limit(500);
 
     if (files) {
@@ -244,6 +271,7 @@ export async function memoryGetIncompleteRecords(
       .select("id, title, attendees")
       .eq("workspace_id", workspaceId)
       .is("deleted_at", null)
+      .is("archived_at", null)
       .limit(500);
 
     if (meetings) {

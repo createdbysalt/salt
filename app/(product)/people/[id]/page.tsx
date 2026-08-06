@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { workspaceSpend } from "@/app/_lib/ai/gpt";
 import { PersonDetailPage } from "@/app/_features/people/components/PersonDetailPage";
 import {
   getPersonActivity,
@@ -76,7 +77,7 @@ export default async function PersonDetailRoute({
       table: "people",
       recordId: personSummary.id,
       kind: "person",
-      userId,
+      spend: workspaceSpend(workspace.id, userId),
       signals,
       cache: personSummary.narrativeCache,
     });

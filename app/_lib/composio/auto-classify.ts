@@ -2,7 +2,7 @@ import "server-only";
 
 import { z } from "zod";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
-import { sendLlm } from "@/app/_lib/ai/gpt";
+import { platformSpend, sendLlm } from "@/app/_lib/ai/gpt";
 import { invalidateClassificationCache } from "./classification-store";
 
 /**
@@ -202,7 +202,10 @@ export async function autoClassifyPendingTools(options: {
         { role: "system", content: CLASSIFICATION_SYSTEM_PROMPT },
         { role: "user", content: JSON.stringify(toolDescriptions) },
       ],
-      actorId,
+      platformSpend(
+        actorId,
+        "Tool risk classification is platform-global: one verdict per tool slug serves every workspace, so no single tenant should carry the cost.",
+      ),
       { maxTokens: 2000, temperature: 0, routingKey: "toolClassification" },
     );
 

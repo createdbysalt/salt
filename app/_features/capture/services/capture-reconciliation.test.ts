@@ -20,6 +20,11 @@ const gmailBackfill = vi.fn();
 const calendarBackfill = vi.fn();
 const driveBackfill = vi.fn();
 const stripeBackfill = vi.fn();
+const calBackfill = vi.fn();
+const calendlyBackfill = vi.fn();
+const dropboxBackfill = vi.fn();
+const quickbooksBackfill = vi.fn();
+const outlookBackfill = vi.fn();
 
 vi.mock("./gmail-backfill", () => ({
   backfillGmailCaptures: (...args: unknown[]) => gmailBackfill(...args),
@@ -29,6 +34,11 @@ vi.mock("./connector-backfills", () => ({
   backfillCalendarCaptures: (...args: unknown[]) => calendarBackfill(...args),
   backfillDriveCaptures: (...args: unknown[]) => driveBackfill(...args),
   backfillStripeCaptures: (...args: unknown[]) => stripeBackfill(...args),
+  backfillCalBookings: (...args: unknown[]) => calBackfill(...args),
+  backfillCalendlyEvents: (...args: unknown[]) => calendlyBackfill(...args),
+  backfillDropboxCaptures: (...args: unknown[]) => dropboxBackfill(...args),
+  backfillQuickbooksCaptures: (...args: unknown[]) => quickbooksBackfill(...args),
+  backfillOutlookCaptures: (...args: unknown[]) => outlookBackfill(...args),
 }));
 
 import { runCaptureReconciliation } from "./capture-reconciliation";
@@ -57,6 +67,39 @@ describe("runCaptureReconciliation", () => {
     expect(result.connectionsReconciled).toBe(3);
     expect(result.capturesCreated).toBe(6);
     expect(result.failures).toHaveLength(0);
+  });
+
+  it("dispatches backfill-only providers (their sole ingestion path)", async () => {
+    integrations.push(
+      { workspace_id: "ws-1", provider: "calendly" },
+      { workspace_id: "ws-1", provider: "dropbox" },
+      { workspace_id: "ws-1", provider: "quickbooks" },
+      { workspace_id: "ws-1", provider: "cal" },
+    );
+    calendlyBackfill.mockResolvedValue({ success: true, capturesCreated: 2 });
+    dropboxBackfill.mockResolvedValue({ success: true, capturesCreated: 1 });
+    quickbooksBackfill.mockResolvedValue({ success: true, capturesCreated: 3 });
+    calBackfill.mockResolvedValue({ success: true, capturesCreated: 1 });
+
+    const result = await runCaptureReconciliation();
+
+    expect(calendlyBackfill).toHaveBeenCalledWith("ws-1", expect.any(Object));
+    expect(dropboxBackfill).toHaveBeenCalledWith("ws-1", expect.any(Object));
+    expect(quickbooksBackfill).toHaveBeenCalledWith("ws-1");
+    expect(calBackfill).toHaveBeenCalledWith("ws-1");
+    expect(result.connectionsReconciled).toBe(4);
+    expect(result.capturesCreated).toBe(7);
+  });
+
+  it("dispatches outlook to the list-based repair backfill", async () => {
+    integrations.push({ workspace_id: "ws-1", provider: "outlook" });
+    outlookBackfill.mockResolvedValue({ success: true, capturesCreated: 2 });
+
+    const result = await runCaptureReconciliation();
+
+    expect(outlookBackfill).toHaveBeenCalledWith("ws-1", expect.any(Object));
+    expect(result.connectionsReconciled).toBe(1);
+    expect(result.capturesCreated).toBe(2);
   });
 
   it("skips providers without a reconciler", async () => {

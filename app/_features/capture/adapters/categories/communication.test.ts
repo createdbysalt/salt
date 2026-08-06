@@ -48,6 +48,14 @@ describe("messaging category adapter", () => {
       expect(envelope?.extracted.sender_id).toBe("U0AB12CD3");
       expect(envelope?.extracted.channel_type).toBe("channel");
       expect(envelope?.extracted.team_id).toBe("T0XY98ZW7");
+      // Detail contract: the name needs a member-cache fetch — say so.
+      expect(envelope?.extracted.needs_hydration).toBe(true);
+      expect(envelope?.extracted.is_dm).toBe(false);
+    });
+
+    it("marks direct messages as DMs", () => {
+      const envelope = adapter.normalize(SLACK_TRIGGER_DIRECT_MESSAGE);
+      expect(envelope?.extracted.is_dm).toBe(true);
     });
 
     it("derives occurredAt from the ts epoch", () => {

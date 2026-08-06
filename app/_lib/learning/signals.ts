@@ -115,6 +115,26 @@ const PERSON_SIGNAL_DESCRIPTIONS: Record<
     firesWhen: "Duplicate detection run",
     canTriggerActing: false,
   },
+  person_duplicate_phone: {
+    description: "Another person record has the same phone number",
+    firesWhen: "Duplicate detection run",
+    canTriggerActing: false,
+  },
+  person_no_activity_90d: {
+    description: "No activity on this person record in 90+ days",
+    firesWhen: "Hygiene staleness scan",
+    canTriggerActing: false,
+  },
+  person_missing_email: {
+    description: "Person record has no email address",
+    firesWhen: "Completeness check run",
+    canTriggerActing: false,
+  },
+  person_orphan: {
+    description: "Person has no organization, work, or billing connections",
+    firesWhen: "Orphan detection run",
+    canTriggerActing: false,
+  },
 };
 
 const ORG_SIGNAL_DESCRIPTIONS: Record<
@@ -201,6 +221,16 @@ const ORG_SIGNAL_DESCRIPTIONS: Record<
     firesWhen: "Duplicate detection run",
     canTriggerActing: false,
   },
+  org_no_activity_90d: {
+    description: "No activity on this organization record in 90+ days",
+    firesWhen: "Hygiene staleness scan",
+    canTriggerActing: false,
+  },
+  org_missing_domain: {
+    description: "Organization has no domain or website",
+    firesWhen: "Completeness check run",
+    canTriggerActing: false,
+  },
 };
 
 const WORK_SIGNAL_DESCRIPTIONS: Record<
@@ -255,6 +285,11 @@ const WORK_SIGNAL_DESCRIPTIONS: Record<
   inferred_start_date: {
     description: "Start date was inferred for this work",
     firesWhen: "AI start date inferred",
+    canTriggerActing: false,
+  },
+  work_stale_active: {
+    description: "Active work item with no recent activity",
+    firesWhen: "Hygiene staleness scan",
     canTriggerActing: false,
   },
 };
@@ -313,6 +348,11 @@ const BILLING_SIGNAL_DESCRIPTIONS: Record<
     firesWhen: "Work inference run",
     canTriggerActing: false,
   },
+  billing_duplicate_number: {
+    description: "Another billing record has the same number",
+    firesWhen: "Duplicate detection run",
+    canTriggerActing: false,
+  },
 };
 
 const MEETING_SIGNAL_DESCRIPTIONS: Record<
@@ -357,6 +397,11 @@ const MEETING_SIGNAL_DESCRIPTIONS: Record<
   inferred_meeting_type: {
     description: "Meeting type was inferred",
     firesWhen: "Meeting classification run",
+    canTriggerActing: false,
+  },
+  meeting_duplicate_time_attendees: {
+    description: "Another meeting has the same time and attendees",
+    firesWhen: "Duplicate detection run",
     canTriggerActing: false,
   },
 };
@@ -413,6 +458,11 @@ const FILE_SIGNAL_DESCRIPTIONS: Record<
   inferred_signed_date: {
     description: "Signed date was inferred for this file",
     firesWhen: "Date extraction run",
+    canTriggerActing: false,
+  },
+  file_duplicate_hash: {
+    description: "Another file has the same content hash",
+    firesWhen: "Duplicate detection run",
     canTriggerActing: false,
   },
 };
@@ -727,6 +777,11 @@ const CAPTURE_SIGNAL_DESCRIPTIONS: Record<
   billing_payment_matched: {
     description: "Payment matched to invoice or contact",
     firesWhen: "Stripe payment linked to billing record",
+    canTriggerActing: true,
+  },
+  file_shared: {
+    description: "File shared with or by the operator",
+    firesWhen: "Storage capture detects a shared file",
     canTriggerActing: true,
   },
 };

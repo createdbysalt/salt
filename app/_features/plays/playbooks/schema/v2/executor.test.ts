@@ -1,6 +1,19 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 
 vi.mock("server-only", () => ({}));
+
+vi.mock("./capture-fetch", () => ({
+  isCaptureFetchCategory: (category: string) => category === "capture",
+  fetchCaptureSource: vi.fn(),
+}));
+
+vi.mock("@/app/_features/plays/services/execute-connector-tool", () => ({
+  executeConnectorTool: vi.fn().mockResolvedValue({ ok: true }),
+}));
+
+vi.mock("@/app/_features/plays/services/earned-autonomy", () => ({
+  hasEarnedAutonomy: vi.fn().mockResolvedValue(false),
+}));
 
 vi.mock("@/app/_lib/composio/category-fetcher", () => ({
   checkCategoryRequirements: vi.fn().mockResolvedValue({ satisfied: true, missing: [] }),
@@ -44,6 +57,12 @@ vi.mock("../../execution-router", () => ({
     confidence: 90,
     reason: "High confidence",
   }),
+}));
+
+const sendLlmMock = vi.fn().mockResolvedValue("draft text");
+vi.mock("@/app/_lib/ai/gpt", () => ({
+  sendLlm: (...args: unknown[]) => sendLlmMock(...args),
+  committedSpend: vi.fn().mockReturnValue({ kind: "workspace", origin: "committed" }),
 }));
 
 describe("executor utility functions", () => {
@@ -162,6 +181,195 @@ describe("executor utility functions", () => {
       expect(classified[1].tag).toBe("high_value");
       expect(classified[2].tag).toBe("high_value");
     });
+  });
+});
+
+describe("email-triage revival (capture fetch, $capture, branch, action execution)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  function triagePlaybook() {
+    return {
+      name: "Email Triage",
+      slug: "email-triage",
+      version: "2.0.0",
+      description: "Triage",
+      section: "communication" as const,
+      layer: "act" as const,
+      voice: "brief",
+      trigger: { type: "signal" as const },
+      steps: [
+        {
+          step: "fetch" as const,
+          id: "classification",
+          from: "capture.get_classification",
+          where: { capture_id: "$capture.id" },
+        },
+        {
+          step: "action" as const,
+          id: "apply_label",
+          tool: "GMAIL_MODIFY_MESSAGE_LABELS",
+          args: {
+            message_id: "$capture.gmail_message_id",
+            add_labels: ["Salt/{{classification.category}}"],
+          },
+          needsApproval: false,
+        },
+        {
+          step: "branch" as const,
+          id: "handle_archive",
+          if: "classification.triage_action == 'silent_archive'",
+          steps: [
+            {
+              step: "action" as const,
+              id: "archive_noise",
+              tool: "GMAIL_MODIFY_MESSAGE_LABELS",
+              args: {
+                message_id: "$capture.gmail_message_id",
+                remove_labels: ["INBOX"],
+                add_labels: ["Salt/Archived"],
+              },
+              needsApproval: true,
+            },
+          ],
+        },
+      ],
+      output: { type: "finding" as const, approval: "none" as const },
+    };
+  }
+
+  async function triageContext() {
+    const { buildExecutionContextV2 } = await import("./executor");
+    return buildExecutionContextV2(
+      "test-workspace",
+      "test-user",
+      { type: "signal", signalKey: "email_classified_noise" },
+      undefined,
+      {
+        id: "capture-123",
+        source_type: "gmail",
+        gmail_message_id: "gm-msg-456",
+        thread_id: "thread-1",
+        sender_email: "anna@example.com",
+        subject: "Hello",
+      }
+    );
+  }
+
+  it("routes capture.* fetch to the capture source with interpolated where", async () => {
+    const { fetchCaptureSource } = await import("./capture-fetch");
+    vi.mocked(fetchCaptureSource).mockResolvedValue({
+      category: "updates",
+      triage_action: "batch_digest",
+    });
+
+    const { executePlaybookV2 } = await import("./executor");
+    const result = await executePlaybookV2(triagePlaybook(), await triageContext());
+
+    expect(fetchCaptureSource).toHaveBeenCalledWith(
+      "test-workspace",
+      "get_classification",
+      { capture_id: "capture-123" }
+    );
+    expect(result.status).toBe("success");
+  });
+
+  it("executes non-approval actions for real with $capture and {{step}} interpolation", async () => {
+    const { fetchCaptureSource } = await import("./capture-fetch");
+    vi.mocked(fetchCaptureSource).mockResolvedValue({
+      category: "updates",
+      triage_action: "batch_digest",
+    });
+    const { executeConnectorTool } = await import(
+      "@/app/_features/plays/services/execute-connector-tool"
+    );
+
+    const { executePlaybookV2 } = await import("./executor");
+    const result = await executePlaybookV2(triagePlaybook(), await triageContext());
+
+    expect(result.status).toBe("success");
+    expect(executeConnectorTool).toHaveBeenCalledTimes(1);
+    expect(executeConnectorTool).toHaveBeenCalledWith(
+      "GMAIL_MODIFY_MESSAGE_LABELS",
+      { message_id: "gm-msg-456", add_labels: ["Salt/updates"] },
+      {
+        workspaceId: "test-workspace",
+        actorUserId: "test-user",
+        approvedActions: ["GMAIL_MODIFY_MESSAGE_LABELS"],
+      }
+    );
+
+    const branchResult = result.stepResults.find((s) => s.stepId === "handle_archive");
+    expect(branchResult?.status).toBe("success");
+    expect((branchResult?.data as { executed: boolean }).executed).toBe(false);
+  });
+
+  it("branch executes nested steps when the condition matches and pauses for approval", async () => {
+    const { fetchCaptureSource } = await import("./capture-fetch");
+    vi.mocked(fetchCaptureSource).mockResolvedValue({
+      category: "noise",
+      triage_action: "silent_archive",
+    });
+
+    const { executePlaybookV2 } = await import("./executor");
+    const result = await executePlaybookV2(triagePlaybook(), await triageContext());
+
+    // apply_label executed, archive_noise paused (needsApproval, no earned autonomy)
+    expect(result.status).toBe("paused");
+    expect(result.pausedAt?.toolSlug).toBe("GMAIL_MODIFY_MESSAGE_LABELS");
+    expect(result.pausedAt?.args).toEqual({
+      message_id: "gm-msg-456",
+      remove_labels: ["INBOX"],
+      add_labels: ["Salt/Archived"],
+    });
+    expect(result.pausedAt?.playRunId).toBe("test-run-id");
+  });
+
+  it("stringifies arrays/objects as JSON in draft prompts", async () => {
+    const { fetchCaptureSource } = await import("./capture-fetch");
+    vi.mocked(fetchCaptureSource).mockResolvedValue([
+      { subject: "Invoice", sender_email: "billing@acme.com" },
+    ]);
+    sendLlmMock.mockResolvedValueOnce("digest text");
+
+    const playbook = {
+      name: "Email Digest",
+      slug: "email-digest",
+      version: "1.0.0",
+      description: "Digest",
+      section: "communication" as const,
+      layer: "act" as const,
+      voice: "brief",
+      trigger: { type: "schedule" as const, cron: "0 18 * * *" },
+      steps: [
+        {
+          step: "fetch" as const,
+          id: "pending_digests",
+          from: "capture.batch_digest_emails",
+          where: { hours: 24, limit: 50 },
+        },
+        {
+          step: "draft" as const,
+          id: "digest_content",
+          prompt: "Count: {{pending_digests.length}}\n{{pending_digests}}",
+          max_tokens: 500,
+        },
+      ],
+      output: { type: "briefing" as const, approval: "none" as const },
+    };
+
+    const { executePlaybookV2, buildExecutionContextV2 } = await import("./executor");
+    const context = await buildExecutionContextV2("test-workspace", "test-user", {
+      type: "schedule",
+    });
+
+    const result = await executePlaybookV2(playbook, context);
+
+    expect(result.status).toBe("success");
+    const prompt = sendLlmMock.mock.calls[0][0][1].content as string;
+    expect(prompt).toContain("Count: 1");
+    expect(prompt).toContain('"subject": "Invoice"');
   });
 });
 

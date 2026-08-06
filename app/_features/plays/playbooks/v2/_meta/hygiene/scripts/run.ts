@@ -117,8 +117,11 @@ export async function run(ctx: RunContext): Promise<RunResult> {
         workspaceId,
         entityType: record.entityType,
         entityId: record.id,
-        field: field,
-        value: null,
+        field: "_missing_field",
+        value: {
+          field,
+          reason: "missing_required_field",
+        },
         confidence: record.severity,
         evidenceType: "behavioral_signal",
         because: `Missing required field: ${field}`,

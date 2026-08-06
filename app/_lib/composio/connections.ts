@@ -16,8 +16,68 @@ import {
   getApiKeyFieldName,
   isRegisteredProvider,
 } from "./unified-connector-registry";
+import {
+  getConnectorRegistryEntry,
+  isRegisteredConnectorProvider,
+} from "./connector-registry";
 import { assertWorkspaceMembership } from "./workspace-auth";
 import { setCaptureState } from "./capture-state";
+
+interface ResolvedConnectorAuth {
+  authConfigId: string;
+  authMethod: "oauth" | "api_key" | "no_auth";
+  apiKeyFieldName: string | null;
+}
+
+/**
+ * DB-first auth config resolution (capture-pipeline repair Phase 5).
+ *
+ * connector_overrides is authoritative: it carries the explicit
+ * auth_config_env_var name (env override) and the pinned auth_config_id.
+ * If the provider has a DB row, that row decides connectability — an empty
+ * authConfigId means "not connectable" and we do NOT fall back, so removing
+ * an override actually disconnects the provider. The code-first
+ * unified-connector-registry is only consulted when the provider is missing
+ * from the catalog (pre-sync) or the DB is unreachable.
+ */
+async function resolveConnectorAuth(
+  provider: string,
+): Promise<ResolvedConnectorAuth | null> {
+  try {
+    const entry = await getConnectorRegistryEntry(provider);
+    if (entry) {
+      if (!entry.authConfigId) return null;
+      return {
+        authConfigId: entry.authConfigId,
+        authMethod: entry.authMethod,
+        apiKeyFieldName: entry.apiKeyFieldName,
+      };
+    }
+  } catch (error) {
+    console.error(
+      "[composio] connector registry unavailable, using code fallback:",
+      error instanceof Error ? error.message : error,
+    );
+  }
+
+  const connector = getConnector(provider);
+  const authConfigId = getAuthConfigId(provider);
+  if (!connector || !authConfigId) return null;
+  return {
+    authConfigId,
+    authMethod: connector.authMethod,
+    apiKeyFieldName: getApiKeyFieldName(provider),
+  };
+}
+
+async function isKnownProvider(provider: string): Promise<boolean> {
+  try {
+    if (await isRegisteredConnectorProvider(provider)) return true;
+  } catch {
+    // DB unavailable — fall through to the code registry.
+  }
+  return isRegisteredProvider(provider);
+}
 
 export type ComposioConnectionStatus = "connected" | "pending" | "expired" | "error";
 
@@ -94,14 +154,14 @@ export async function initiateConnection(
     };
   }
 
-  const connector = getConnector(provider);
-  const authConfigId = getAuthConfigId(provider);
-  if (!connector || !authConfigId) {
+  const auth = await resolveConnectorAuth(provider);
+  if (!auth) {
     return {
       success: false,
       error: "This connector isn't available yet.",
     };
   }
+  const authConfigId = auth.authConfigId;
 
   const membership = await assertWorkspaceMembership(userId, workspaceId);
   if (!membership.ok) {
@@ -194,14 +254,14 @@ export async function initiateApiKeyConnection(
     };
   }
 
-  const connector = getConnector(provider);
-  const authConfigId = getAuthConfigId(provider);
-  if (!connector || !authConfigId || connector.authMethod !== "api_key") {
+  const auth = await resolveConnectorAuth(provider);
+  if (!auth || auth.authMethod !== "api_key") {
     return {
       success: false,
       error: "This connector isn't available yet.",
     };
   }
+  const authConfigId = auth.authConfigId;
 
   const membership = await assertWorkspaceMembership(userId, workspaceId);
   if (!membership.ok) {
@@ -213,7 +273,7 @@ export async function initiateApiKeyConnection(
     // Composio requires the toolkit's exact wire field name
     // (generic_api_key / bearer_token) — AuthScheme.APIKey's `api_key` only
     // maps for toolkits with a legacy template alias.
-    const apiKeyFieldName = getApiKeyFieldName(provider) ?? "generic_api_key";
+    const apiKeyFieldName = auth.apiKeyFieldName ?? "generic_api_key";
     const connectionRequest = await composio.connectedAccounts.initiate(
       workspaceId,
       authConfigId,
@@ -311,7 +371,7 @@ export async function handleConnectionCallback(
   | { success: false; error: string }
 > {
   const stateData = decodeComposioOAuthState(state);
-  if (!stateData || !isRegisteredProvider(stateData.provider)) {
+  if (!stateData || !(await isKnownProvider(stateData.provider))) {
     return { success: false, error: "Invalid or expired state parameter" };
   }
 
@@ -412,39 +472,31 @@ export async function handleConnectionCallback(
         });
       }
 
-      if (stateData.provider === "googlecalendar") {
-        const { runCalendarBootstrap } = await import(
-          "@/app/_features/capture/services/connector-backfills"
-        );
-        void runCalendarBootstrap(stateData.workspaceId).catch((bootstrapError) => {
-          console.error("[composio] calendar capture bootstrap failed:", bootstrapError);
-        });
-      }
-
-      if (stateData.provider === "googledrive") {
-        const { runDriveBootstrap } = await import(
-          "@/app/_features/capture/services/connector-backfills"
-        );
-        void runDriveBootstrap(stateData.workspaceId).catch((bootstrapError) => {
-          console.error("[composio] drive capture bootstrap failed:", bootstrapError);
-        });
-      }
-
-      if (stateData.provider === "stripe") {
-        const { runStripeBootstrap } = await import(
-          "@/app/_features/capture/services/connector-backfills"
-        );
-        void runStripeBootstrap(stateData.workspaceId).catch((bootstrapError) => {
-          console.error("[composio] stripe capture bootstrap failed:", bootstrapError);
-        });
-      }
-
-      if (stateData.provider === "cal") {
-        const { runCalBootstrap } = await import(
-          "@/app/_features/capture/services/connector-backfills"
-        );
-        void runCalBootstrap(stateData.workspaceId).catch((bootstrapError) => {
-          console.error("[composio] cal capture bootstrap failed:", bootstrapError);
+      const backfills = await import(
+        "@/app/_features/capture/services/connector-backfills"
+      );
+      const bootstrapByProvider: Record<
+        string,
+        (workspaceId: string) => Promise<unknown>
+      > = {
+        googlecalendar: backfills.runCalendarBootstrap,
+        googledrive: backfills.runDriveBootstrap,
+        stripe: backfills.runStripeBootstrap,
+        cal: backfills.runCalBootstrap,
+        calendly: backfills.runCalendlyBootstrap,
+        dropbox: backfills.runDropboxBootstrap,
+        quickbooks: backfills.runQuickbooksBootstrap,
+        // Webhook-first, but the bootstrap seeds recent history the triggers
+        // never saw (mirrors the Gmail bootstrap above).
+        outlook: backfills.runOutlookBootstrap,
+      };
+      const bootstrap = bootstrapByProvider[stateData.provider];
+      if (bootstrap) {
+        void bootstrap(stateData.workspaceId).catch((bootstrapError) => {
+          console.error(
+            `[composio] ${stateData.provider} capture bootstrap failed:`,
+            bootstrapError,
+          );
         });
       }
     }

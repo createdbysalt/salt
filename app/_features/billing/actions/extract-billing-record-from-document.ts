@@ -1,5 +1,6 @@
 "use server";
 
+import { workspaceSpend } from "@/app/_lib/ai/gpt";
 import { createClient } from "@/app/_lib/supabase/server";
 import { getWorkspaceContext } from "@/app/_lib/utils/user-dashboard";
 import { BILLING_DOCUMENTS_BUCKET } from "../utils/billing-document-url";
@@ -78,7 +79,11 @@ export async function extractBillingRecordFromDocumentAction(
       return error("DOCUMENT_UPLOAD_FAILED", "Could not store this document for Billing Memory.");
     }
 
-    const extraction = await extractLineItemsFromDocument(buffer, mimeType, userId);
+    const extraction = await extractLineItemsFromDocument(
+      buffer,
+      mimeType,
+      workspaceSpend(workspace.id, userId),
+    );
 
     if (!extraction) {
       return success({

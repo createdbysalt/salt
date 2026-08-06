@@ -116,6 +116,22 @@ function playMatchesSearch(play: PlayRunRow, term: string): boolean {
     .some((value) => (value as string)?.toLowerCase().includes(term));
 }
 
+function mapAutoHandledRunToCard(play: PlayRunRow): PlayCardViewModel {
+  const card = mapPlayRunToCardClient(play);
+  return {
+    ...card,
+    mode: "handled",
+    primaryAction: null,
+    canFlag: false,
+    canSchedule: false,
+    handled: {
+      outcomeLabel: play.title,
+      changeLine: play.preview,
+      handledAt: play.approved_at ?? play.ran_at ?? play.created_at,
+    },
+  };
+}
+
 export function PlaysPage({
   initialTab,
   initialActivityView,
@@ -155,6 +171,7 @@ export function PlaysPage({
     connectors,
     initialFindings,
     autoHandledFindings,
+    autoHandledRuns,
     playsRanToday,
     learningEvidence,
     streamCaptures,
@@ -219,6 +236,10 @@ export function PlaysPage({
         const section = getSectionFromFindingType(finding.finding_type);
         counts.set(section, (counts.get(section) ?? 0) + 1);
       }
+      for (const play of autoHandledRuns) {
+        const section = getSectionFromPlayRun(play);
+        counts.set(section, (counts.get(section) ?? 0) + 1);
+      }
     } else {
       for (const item of learningEvidence ?? []) {
         const section = getSectionFromLearningEntity(item.entityType);
@@ -235,6 +256,7 @@ export function PlaysPage({
     );
   }, [
     autoHandledFindings,
+    autoHandledRuns,
     initialFindings,
     initialQueue,
     learningEvidence,
@@ -298,6 +320,22 @@ export function PlaysPage({
     [autoHandledFindings, normalizedQueueSearch, queueFilters]
   );
 
+  const filteredAutoHandledRuns = useMemo(
+    () =>
+      autoHandledRuns.filter((play) => {
+        if (
+          !matchesSectionFilter(
+            queueFilters.sections,
+            getSectionFromPlayRun(play),
+          )
+        ) {
+          return false;
+        }
+        return playMatchesSearch(play, normalizedQueueSearch);
+      }),
+    [autoHandledRuns, normalizedQueueSearch, queueFilters]
+  );
+
   const filteredQueue = useMemo(
     () =>
       initialQueue.filter((play) => {
@@ -346,6 +384,18 @@ export function PlaysPage({
       ...filteredQueue.map(mapPlayRunToCardClient),
     ],
     [filteredFindings, filteredQueue]
+  );
+
+  const autoHandledCards = useMemo<PlayCardViewModel[]>(
+    () => [
+      ...filteredAutoHandledFindings.map(mapHandledFindingToCard),
+      ...filteredAutoHandledRuns.map(mapAutoHandledRunToCard),
+    ].sort((a, b) => {
+      const aTime = a.handled?.handledAt ? new Date(a.handled.handledAt).getTime() : 0;
+      const bTime = b.handled?.handledAt ? new Date(b.handled.handledAt).getTime() : 0;
+      return bTime - aTime;
+    }),
+    [filteredAutoHandledFindings, filteredAutoHandledRuns],
   );
 
   const handleSyncAndScan = () => {
@@ -576,6 +626,7 @@ export function PlaysPage({
               ) : (
                 <AutoHandledTimeline
                   findings={filteredAutoHandledFindings}
+                  cards={autoHandledCards}
                   emptyMessage={hasActiveQueueFilter ? "No handled items match" : undefined}
                   emptyDescription={
                     hasActiveQueueFilter
@@ -618,9 +669,9 @@ export function PlaysPage({
                   eyebrow={
                     activityView === "captures"
                       ? "All captured context"
-                      : "Trust ledger"
+                      : "All actions taken"
                   }
-                  title={activityView === "captures" ? "Captures" : "Activity"}
+                  title="Activity"
                   description={
                     activityView === "captures"
                       ? "Everything Salt saw from connected apps — a complete record of context entering your system."

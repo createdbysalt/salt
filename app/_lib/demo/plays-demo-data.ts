@@ -523,7 +523,12 @@ export const PLAYBOOKS: Playbook[] = [
 export type ActivityStatus = "approved" | "pending" | "auto-applied" | "dismissed" | "scheduled";
 
 /** New activity categories aligned with Queue mental model */
-export type ActivityCategory = "salt-acted" | "you-decided" | "in-progress" | "watching";
+export type ActivityCategory =
+  | "salt-acted"
+  | "watching"
+  | "you-decided"
+  | "in-progress"
+  | "error";
 
 export type ActivityEntry = {
   id: string;
@@ -1117,7 +1122,9 @@ export const MOCK_QUEUE_FINDINGS: FindingWithContext[] = [
 
 import type {
   GroupedLearningEvidence,
+  LearningField,
   LearningFieldEvidenceItem,
+  LearningMetaCandidate,
 } from "@/app/_features/plays/queries/learning-evidence";
 
 function mockEvidenceItems(
@@ -1143,11 +1150,66 @@ function mockEvidenceItems(
   }));
 }
 
+type MockLearningField = Omit<LearningField, "topReason" | "metaCandidate"> & {
+  topReason?: string | null;
+  metaCandidate?: LearningMetaCandidate | null;
+};
+
+type MockLearningGroup = Omit<
+  GroupedLearningEvidence,
+  "entityHref" | "latestAt" | "fields"
+> & {
+  fields: MockLearningField[];
+};
+
+function mockEntityHref(entityType: string, entityId: string): string | null {
+  switch (entityType) {
+    case "person":
+      return `/people/${entityId}`;
+    case "organization":
+      return `/orgs/${entityId}`;
+    case "work":
+      return `/work/${entityId}`;
+    case "meeting":
+      return `/meetings/${entityId}`;
+    case "billing":
+      return `/billing/${entityId}`;
+    case "file":
+      return "/files";
+    case "me":
+      return "/me";
+    default:
+      return null;
+  }
+}
+
+function hydrateLearningEvidence(
+  groups: MockLearningGroup[],
+): GroupedLearningEvidence[] {
+  return groups.map((group) => ({
+    ...group,
+    entityHref: mockEntityHref(group.entityType, group.entityId),
+    latestAt: group.fields.reduce(
+      (max, field) => (field.latestAt > max ? field.latestAt : max),
+      group.fields[0]?.latestAt ?? new Date().toISOString(),
+    ),
+    fields: group.fields.map((field) => ({
+      ...field,
+      topReason:
+        field.topReason ??
+        field.items.find((item) => item.excerpt)?.excerpt ??
+        null,
+      metaCandidate: field.metaCandidate ?? null,
+    })),
+  }));
+}
+
 /**
  * Mock learning evidence for the "Watching" queue view.
  * These are signals Salt is gathering before acting.
  */
-export const MOCK_LEARNING_EVIDENCE: GroupedLearningEvidence[] = [
+export const MOCK_LEARNING_EVIDENCE: GroupedLearningEvidence[] =
+  hydrateLearningEvidence([
   {
     entityType: "person",
     entityId: "person-elena",
@@ -1486,7 +1548,54 @@ export const MOCK_LEARNING_EVIDENCE: GroupedLearningEvidence[] = [
     ],
     totalConfidence: 52,
   },
-];
+  {
+    entityType: "person",
+    entityId: "person-elena-dup",
+    entityLabel: "Elena M.",
+    fields: [
+      {
+        fieldPath: "_merge_candidate",
+        proposedValue: JSON.stringify({
+          targetId: "person-elena",
+          targetName: "Elena Marquez",
+          signal: "same_email",
+        }),
+        confidence: 91,
+        sourceCount: 2,
+        sources: ["email", "stripe"],
+        latestAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+        evidenceIds: ["ev-23", "ev-24"],
+        topReason: "Both records share elena@lumahealth.com",
+        metaCandidate: {
+          kind: "merge",
+          targetId: "person-elena",
+          targetName: "Elena Marquez",
+        },
+        items: mockEvidenceItems([
+          {
+            id: "ev-23",
+            sourceType: "email",
+            confidence: 91,
+            evidenceType: "email_match",
+            excerpt: "Both records share elena@lumahealth.com",
+            hoursAgo: 3,
+            playbookSlug: "hygiene",
+          },
+          {
+            id: "ev-24",
+            sourceType: "stripe",
+            confidence: 88,
+            evidenceType: "cross_reference",
+            excerpt: "Stripe customer email matches both records",
+            hoursAgo: 5,
+            playbookSlug: "hygiene",
+          },
+        ]),
+      },
+    ],
+    totalConfidence: 91,
+  },
+]);
 
 /**
  * Mock auto-handled findings for the "Auto-handled" queue view.

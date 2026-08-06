@@ -18,21 +18,23 @@ test.describe("Plays surface", () => {
     await expect(page.getByRole("button", { name: /needs you/i })).toBeVisible();
     await expect(page.getByRole("button", { name: /auto-handled/i })).toBeVisible();
 
-    // Create button
+    // Development queue action
     await expect(
-      page.getByRole("button", { name: /create a play/i })
+      page.getByRole("button", { name: /sync & scan/i })
     ).toBeVisible();
   });
 
   test("Plays tabs switch sections", async ({ page }) => {
-    await page.getByRole("button", { name: "Customize" }).click();
+    const sections = page.getByRole("navigation", { name: "Plays sections" });
+
+    await sections.getByRole("button", { name: "Customize" }).click();
     await expect(page.getByRole("heading", { name: /^playbooks$/i })).toBeVisible();
 
-    await page.getByRole("button", { name: "Activity" }).click();
+    await sections.getByRole("button", { name: "Activity" }).click();
     await expect(page.getByRole("heading", { name: /^activity$/i })).toBeVisible();
 
-    await page.getByRole("button", { name: "Queue" }).click();
-    await expect(page.getByRole("heading", { name: /plays queue/i })).toBeVisible();
+    await sections.getByRole("button", { name: "Queue" }).click();
+    await expect(page.getByRole("heading", { name: /needs you/i })).toBeVisible();
   });
 
   test("Apply to Memory control when findings include memory proposals", async ({

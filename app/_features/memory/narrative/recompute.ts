@@ -2,6 +2,7 @@ import "server-only";
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { resolveModel } from "@/app/_lib/ai/models";
+import type { LlmSpendContext } from "@/app/_lib/ai/gpt";
 import { generateRecordNarrative } from "@/app/_lib/ai/record-summary-ai";
 import type {
   AssembledNarrativeSignals,
@@ -18,8 +19,8 @@ export interface RecordNarrativeRecomputeInput {
   table: RecordNarrativeTable;
   recordId: string;
   kind: RecordKind;
-  /** Forwarded to the LLM provider for abuse attribution. */
-  userId: string;
+  /** Who the model spend is attributed to, for provider and ledger both. */
+  spend: LlmSpendContext;
   signals: AssembledNarrativeSignals;
 }
 
@@ -46,7 +47,7 @@ export async function recomputeRecordNarrative(
     name: input.signals.name,
     facts: input.signals.facts,
     untrustedContext: input.signals.untrustedContext,
-    userId: input.userId,
+    spend: input.spend,
   });
 
   if (!narrative) return;
@@ -101,7 +102,7 @@ export function resolveRecordNarrative(
       table: input.table,
       recordId: input.recordId,
       kind: input.kind,
-      userId: input.userId,
+      spend: input.spend,
       signals: input.signals,
     });
   }

@@ -2,10 +2,40 @@
 # These are references to shared tools in @/app/_lib/memory-tools
 
 tools:
-  - name: memoryGetFacts
+  - name: memoryGetSimilarRecords
     module: "@/app/_lib/memory-tools"
-    purpose: Get current facts and signals for an entity
+    purpose: Find duplicate candidates (same email, phone, or similar name/domain)
     protected: false
+    params:
+      - name: entity_type
+        type: string
+        required: false
+        description: Filter by entity type (omit for all)
+      - name: limit
+        type: number
+        default: 100
+
+  - name: memoryAccumulateEvidence
+    module: "@/app/_lib/memory-tools"
+    purpose: Emit hygiene findings as pending evidence for the Watching queue
+    protected: false
+    params:
+      - name: entity_type
+        type: string
+        required: true
+      - name: entity_id
+        type: string
+        required: true
+      - name: field
+        type: string
+        required: true
+        description: Finding kind (_merge_candidate, _archive_candidate, _link_candidate, or a missing field)
+      - name: confidence
+        type: number
+        required: true
+      - name: because
+        type: string
+        required: true
 
   - name: memoryGetStaleRecords
     module: "@/app/_lib/memory-tools"
@@ -52,6 +82,8 @@ tools:
         type: number
         default: 100
 
+  # The tools below run at accept-time, when the user approves a hygiene
+  # finding from the Watching queue (not during the scan itself).
   - name: memoryUpdateField
     module: "@/app/_lib/memory-tools"
     purpose: Update a Memory field with confidence-gated protection

@@ -20,6 +20,7 @@ function toPlaysTabData(data: PlaysPageData): PlaysTabData {
     connectors: data.connectors ?? EMPTY_CONNECTORS,
     initialFindings: data.initialFindings,
     autoHandledFindings: data.autoHandledFindings,
+    autoHandledRuns: data.autoHandledRuns,
     findingCounts: data.findingCounts,
     playsRanToday: data.playsRanToday ?? 0,
     learningEvidence: data.learningEvidence,

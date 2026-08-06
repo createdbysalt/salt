@@ -308,19 +308,21 @@ const STRIPE_CAPABILITIES: ConnectorCapability[] = [
 
 const OUTLOOK_CAPABILITIES: ConnectorCapability[] = [
   // Read tools
+  // Message reads use the OUTLOOK_OUTLOOK_* slugs — the un-prefixed ones 404
+  // as of 2026-08-06 (Composio toolkit rework).
   {
     id: "outlook-list-messages",
     label: "Search emails",
     description: "Search and read emails in Outlook.",
     risk: "read",
-    toolSlug: COMPOSIO_TOOL_SLUGS.OUTLOOK_LIST_MESSAGES,
+    toolSlug: COMPOSIO_TOOL_SLUGS.OUTLOOK_OUTLOOK_LIST_MESSAGES,
   },
   {
     id: "outlook-get-message",
     label: "Open email",
     description: "Read a specific email message.",
     risk: "read",
-    toolSlug: COMPOSIO_TOOL_SLUGS.OUTLOOK_GET_MESSAGE,
+    toolSlug: COMPOSIO_TOOL_SLUGS.OUTLOOK_OUTLOOK_GET_MESSAGE,
   },
   {
     id: "outlook-get-calendar-view",
@@ -807,7 +809,8 @@ const CAL_CAPABILITIES: ConnectorCapability[] = [
     label: "View bookings",
     description: "See team bookings and schedules.",
     risk: "read",
-    toolSlug: COMPOSIO_TOOL_SLUGS.CAL_GET_TEAM_BOOKINGS,
+    // CAL_FETCH_ALL_BOOKINGS replaces CAL_GET_TEAM_BOOKINGS (404s 2026-08-06).
+    toolSlug: COMPOSIO_TOOL_SLUGS.CAL_FETCH_ALL_BOOKINGS,
   },
   {
     id: "cal-busy-times",

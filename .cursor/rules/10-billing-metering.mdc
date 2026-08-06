@@ -17,15 +17,15 @@ Same rule the codebase already uses for safety in `app/_lib/memory-tools/CLAUDE.
 
 ## Where money leaves
 
-| Exit point | File |
-|-----------|------|
-| `executeComposioAction` | `app/_lib/composio/actions.ts` |
-| `composio.tools.execute` (ungated) | `app/_lib/composio/webhook-enrichment.ts` |
-| `sendLlm` | `app/_lib/ai/gpt.ts` |
-| `streamText` (Ask Salt) | `app/api/ask-salt/chat/route.ts` |
-| `streamText` (agent) | `app/_lib/composio/agent.ts` |
-| TTS | `app/api/briefing/audio/route.ts` |
-| Embeddings | `app/_lib/ai/embeddings.ts` |
+| Exit point | File | Gated |
+|-----------|------|-------|
+| `executeComposioAction` | `app/_lib/composio/actions.ts` | Yes |
+| `composio.tools.execute` | `app/_lib/composio/webhook-enrichment.ts` | **No** — bypasses the single gate |
+| `sendLlm` | `app/_lib/ai/gpt.ts` | Yes |
+| `streamText` (Ask Salt) | `app/api/ask-salt/chat/route.ts` | Yes |
+| `streamText` (agent) | `app/_lib/composio/agent.ts` | Step cap only |
+| TTS | `app/api/briefing/audio/route.ts` | Yes |
+| Embeddings | `app/_lib/ai/embeddings.ts` | **No** — deliberate; see the architecture doc |
 
 ## Two meters, one ledger
 
@@ -59,8 +59,49 @@ Full procedure: the "Changing pricing" section of the architecture doc.
 11. Never edit or delete a shipped pricing version — add one.
 12. Resolve capacity through the workspace's `pricing_version`.
 
-## Status: observes, does not enforce
+## Spend admission: `canSpend()`
 
-`getWorkspaceEntitlement()` has **no callers**. `askSaltDailyLimit`, `captureBudgetMicros`, `storageQuotaBytes`, and `MAX_TOOL_CALLS_PER_PLAY` exist in the catalog and are **enforced nowhere**. LLM token spend is **not recorded at all**. Legacy `ai_credits` is never deducted.
+Shipped 2026-08-06. Vendor cost is gated on **month-to-date COGS ÷ that workspace's revenue** — a ratio, not a dollar figure, because $30 of cost is healthy on Max and ruinous on Starter.
+
+```ts
+const decision = await canSpend({ workspaceId, kind, origin, estimateMicros });
+if (isBlocked(decision)) return refuse(decision.userMessage);
+const model = shouldDegrade(decision) ? CHEAP : NORMAL;
+```
+
+`origin` decides how far the ladder can go once a workspace is over 100%:
+
+| Origin | Helper | At/over 100% |
+|---|---|---|
+| `user` | default | deny |
+| `background` | `backgroundSpend()` | queue |
+| `committed` | `committedSpend()` | degrade — **never blocked** |
+
+`committed` is how "never deny work already promised" is enforced rather than merely written down. Use it for anything inside an approved play. Refusing mid-run leaves side effects applied and nothing to show for them.
+
+`degrade` does not name a lever — each exit point pulls its own. `sendLlm` swaps model class; Ask Salt cuts `stepCountIs` from 12 to 5; the capture scan shortens.
+
+**Everything fails open.** Ledger unreadable, entitlement error, outright throw — all allow. Same bargain as constraint 7: an unmetered call beats a broken customer action.
+
+**Do not turn the COGS cache into a counter.** `cogs.ts` caches in memory because it holds a copy of a value the database owns (bounded staleness). A *counter* in memory would multiply the allowance per instance — that is why `askSaltDailyLimit` reads the ledger instead. Different things; keep them different.
+
+## Still unenforced
+
+`playsIncluded`, `storageQuotaBytes`, and `MAX_TOOL_CALLS_PER_PLAY` are **enforced nowhere** — nothing checks `playsRemaining` before `executePlayRun`, so a Starter workspace can still run unlimited plays. That is a revenue leak, distinct from the margin leak `canSpend` closed. Legacy `ai_credits` is never deducted.
+
+`sendLlm` takes an `LlmSpendContext`, not a `userId`, and meters itself:
+
+```ts
+sendLlm(messages, workspaceSpend(workspace.id, userId), opts)   // metered
+sendLlm(messages, platformSpend(actor, "why no workspace"), opts) // not charged to a tenant
+```
+
+Never add an overload that makes attribution optional, and never reach for `AsyncLocalStorage` or a user→workspace lookup to avoid threading it. Both were investigated and rejected for reasons specific to this codebase, recorded in the architecture doc.
+
+## Grants on billing tables
+
+A migration that writes its own GRANT/REVOKE block **must name `service_role`**. Bypassing RLS is not the same as holding table privileges: `service_role` has BYPASSRLS, but a missing GRANT stops it before any policy is consulted. Omitting it left the ledger unwritable for a day with no visible failure, because metering is non-fatal by design and unit tests mock the database.
+
+After any migration touching grants on `usage_events` or `workspace_subscriptions`, run `scripts/verify-billing-ledger-writable.mjs`.
 
 Do not assume a limit works because it is defined. Check the status table in the architecture doc.

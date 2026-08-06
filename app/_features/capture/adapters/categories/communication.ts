@@ -114,9 +114,15 @@ function normalizeSlack(payload: unknown): CaptureEnvelope | null {
       text,
       channel,
       channel_type: channelType,
+      // im = direct message, mpim = multi-party DM — both render without a
+      // channel row in the card.
+      is_dm: channelType === "im" || channelType === "mpim",
       sender_id: senderId,
       sender_email: participants[0]?.email ?? null,
       sender_name: participants[0]?.name ?? null,
+      // Trigger payloads carry only the member ID; the display name needs a
+      // member-cache/enrichment fetch (capture-detail-contract.md).
+      needs_hydration: participants.length === 0 && senderId !== null,
       team_id: pickString(record, ["team_id"]),
     },
     raw: {

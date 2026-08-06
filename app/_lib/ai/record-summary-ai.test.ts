@@ -12,7 +12,11 @@ const baseInput = {
   kind: "person" as const,
   name: "Jane Doe",
   facts: ["Relationship: client", "Last contact 21 days ago"],
-  userId: "user-1",
+  spend: {
+    kind: "workspace" as const,
+    workspaceId: "ws-1",
+    userId: "user-1",
+  },
 };
 
 describe("generateRecordNarrative", () => {
@@ -64,8 +68,13 @@ describe("generateRecordNarrative", () => {
     await generateRecordNarrative(baseInput);
 
     expect(sendLlmMock).toHaveBeenCalledTimes(1);
-    const [, userId, options] = sendLlmMock.mock.calls[0];
-    expect(userId).toBe("user-1");
+    // The workspace has to reach sendLlm for the call to be metered at all.
+    const [, spend, options] = sendLlmMock.mock.calls[0];
+    expect(spend).toEqual({
+      kind: "workspace",
+      workspaceId: "ws-1",
+      userId: "user-1",
+    });
     expect(options).toMatchObject({ routingKey: "recordSummary", maxTokens: 280 });
   });
 

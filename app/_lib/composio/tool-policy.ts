@@ -168,6 +168,8 @@ export const composioToolInputSchemas: Record<string, z.ZodTypeAny> = {
   // Cal.com (verified against Composio API 2026-07-13)
   [COMPOSIO_TOOL_SLUGS.CAL_LIST_EVENT_TYPES]: z.object({}).passthrough(),
   [COMPOSIO_TOOL_SLUGS.CAL_GET_TEAM_BOOKINGS]: z.object({}).passthrough(),
+  // Current toolkit (verified live 2026-08-06) — CAL_GET_TEAM_BOOKINGS 404s.
+  [COMPOSIO_TOOL_SLUGS.CAL_FETCH_ALL_BOOKINGS]: z.object({}).passthrough(),
   [COMPOSIO_TOOL_SLUGS.CAL_RETRIEVE_MY_INFORMATION]: z.object({}).passthrough(),
   [COMPOSIO_TOOL_SLUGS.CAL_RETRIEVE_CALENDAR_BUSY_TIMES]: z.object({}).passthrough(),
   [COMPOSIO_TOOL_SLUGS.CAL_RETRIEVE_CALENDAR_LIST]: z.object({}).passthrough(),
@@ -364,6 +366,10 @@ export const composioToolInputSchemas: Record<string, z.ZodTypeAny> = {
   // --- Outlook
   [COMPOSIO_TOOL_SLUGS.OUTLOOK_GET_MESSAGE]: z.object({}).passthrough(),
   [COMPOSIO_TOOL_SLUGS.OUTLOOK_LIST_MESSAGES]: z.object({}).passthrough(),
+  // Current toolkit (verified live 2026-08-06) — the un-prefixed message
+  // reads above 404.
+  [COMPOSIO_TOOL_SLUGS.OUTLOOK_OUTLOOK_GET_MESSAGE]: z.object({}).passthrough(),
+  [COMPOSIO_TOOL_SLUGS.OUTLOOK_OUTLOOK_LIST_MESSAGES]: z.object({}).passthrough(),
   [COMPOSIO_TOOL_SLUGS.OUTLOOK_GET_EVENT]: z.object({}).passthrough(),
   [COMPOSIO_TOOL_SLUGS.OUTLOOK_GET_CALENDAR_VIEW]: z.object({}).passthrough(),
   [COMPOSIO_TOOL_SLUGS.OUTLOOK_SEND_EMAIL]: z.object({}).passthrough(),
@@ -430,6 +436,7 @@ export const composioToolInputSchemas: Record<string, z.ZodTypeAny> = {
   [COMPOSIO_TOOL_SLUGS.QUICKBOOKS_SEND_INVOICE]: z.object({}).passthrough(),
   [COMPOSIO_TOOL_SLUGS.QUICKBOOKS_UPDATE_CUSTOMER]: z.object({}).passthrough(),
   [COMPOSIO_TOOL_SLUGS.QUICKBOOKS_UPDATE_INVOICE]: z.object({}).passthrough(),
+  [COMPOSIO_TOOL_SLUGS.QUICKBOOKS_CUSTOMER_BALANCE_DETAIL]: z.object({}).passthrough(),
   // --- Calendly
   [COMPOSIO_TOOL_SLUGS.CALENDLY_LIST_EVENT_TYPES]: z.object({}).passthrough(),
   [COMPOSIO_TOOL_SLUGS.CALENDLY_LIST_SCHEDULED_EVENTS]: z.object({}).passthrough(),
@@ -444,6 +451,9 @@ export const composioToolInputSchemas: Record<string, z.ZodTypeAny> = {
   [COMPOSIO_TOOL_SLUGS.CALENDLY_POST_INVITEE]: z.object({}).passthrough(),
   [COMPOSIO_TOOL_SLUGS.CALENDLY_CREATE_WEBHOOKS]: z.object({}).passthrough(),
   [COMPOSIO_TOOL_SLUGS.CALENDLY_ORGANIZATION_INVITATION]: z.object({}).passthrough(),
+  [COMPOSIO_TOOL_SLUGS.CALENDLY_GET_CURRENT_USER]: z.object({}).passthrough(),
+  [COMPOSIO_TOOL_SLUGS.CALENDLY_LIST_EVENTS]: z.object({}).passthrough(),
+  [COMPOSIO_TOOL_SLUGS.CALENDLY_LIST_EVENT_INVITEES]: z.object({}).passthrough(),
   // --- Dropbox
   [COMPOSIO_TOOL_SLUGS.DROPBOX_FILES_SEARCH]: z.object({}).passthrough(),
   [COMPOSIO_TOOL_SLUGS.DROPBOX_GET_ACCOUNT]: z.object({}).passthrough(),
@@ -465,6 +475,7 @@ export const composioToolInputSchemas: Record<string, z.ZodTypeAny> = {
   [COMPOSIO_TOOL_SLUGS.DROPBOX_ADD_FOLDER_MEMBER_ACTION]: z.object({}).passthrough(),
   [COMPOSIO_TOOL_SLUGS.DROPBOX_ADD_TEAM_GROUP_MEMBERS]: z.object({}).passthrough(),
   [COMPOSIO_TOOL_SLUGS.DROPBOX_ADD_TEAM_MEMBERS]: z.object({}).passthrough(),
+  [COMPOSIO_TOOL_SLUGS.DROPBOX_LIST_FILES_IN_FOLDER]: z.object({}).passthrough(),
   // --- Notion
   [COMPOSIO_TOOL_SLUGS.NOTION_FETCH_DATABASE]: z.object({}).passthrough(),
   [COMPOSIO_TOOL_SLUGS.NOTION_QUERY_DATABASE]: z.object({}).passthrough(),

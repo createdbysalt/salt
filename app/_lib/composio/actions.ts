@@ -16,6 +16,8 @@ import {
 import { getSyncedToolSchema } from "./input-schema-store";
 import { validateArgsAgainstJsonSchema } from "./json-schema-validate";
 import { checkRateLimit, createRateLimitKey } from "@/app/_lib/rate-limit";
+import { canSpend, isBlocked } from "@/app/_lib/usage/can-spend";
+import { COMPOSIO_ACTION_MICROS } from "@/app/_lib/usage/play-cost";
 import { getApprovedToolClassification } from "./classification-store";
 import { requireMatchingComposioUserId } from "./require-composio-user";
 import { COMPOSIO_TOOL_SLUGS } from "./tool-slugs";
@@ -206,6 +208,30 @@ export async function executeComposioAction<T, R>(
     }
 
     assertWithinGateRateLimit(options?.workspaceId, policy.risk);
+
+    // Spend admission (pricing G7). Sits after the safety gates deliberately:
+    // a tool the workspace is not allowed to run at all should be refused for
+    // that reason, not for a budget reason that would send the user to Billing
+    // to fix a permissions problem.
+    //
+    // Skipped without workspace context, because there is no budget to check
+    // against. Those call sites are already the ones missing an audit log
+    // (`logOutcome` returns early for the same reason) and should be given
+    // workspace context rather than have a guess made on their behalf.
+    if (options?.workspaceId) {
+      const decision = await canSpend({
+        workspaceId: options.workspaceId,
+        kind: "composio_action",
+        // A pre-approved play is work the user already signed off on and is
+        // waiting for; an unattended scan is nobody's foreground request.
+        origin: options.play ? "committed" : options.unattended ? "background" : "user",
+        estimateMicros: COMPOSIO_ACTION_MICROS,
+      });
+
+      if (isBlocked(decision) && decision.userMessage) {
+        throw new Error(decision.userMessage);
+      }
+    }
 
     validatedInput = await validateComposioToolInput(toolSlug, input);
   } catch (error) {

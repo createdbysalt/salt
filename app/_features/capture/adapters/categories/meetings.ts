@@ -50,6 +50,125 @@ function deriveMeetingsSignals(
 
 // Meetings adapters already filter by category - no need for source type check
 
+/**
+ * Action items arrive in provider-specific shapes: an array of strings, an
+ * array of { text } objects, or one newline/bullet-joined string (Fireflies).
+ * Normalize all of them to a clean string array for the card's list.
+ */
+function normalizeActionItems(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) =>
+        typeof item === "string"
+          ? item
+          : item && typeof item === "object"
+            ? ((item as Record<string, unknown>).text as string) ??
+              ((item as Record<string, unknown>).title as string) ??
+              null
+            : null
+      )
+      .filter((item): item is string => Boolean(item?.trim()))
+      .map((item) => item.trim());
+  }
+  if (typeof value === "string" && value.trim()) {
+    return value
+      .split("\n")
+      .map((line) => line.replace(/^[-*•]\s*/, "").trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+
+/**
+ * Fireflies transcript (GraphQL Transcript object): { id, title, date,
+ * duration (minutes, float), participants: [emails] or meeting_attendees:
+ * [{ displayName, email }], summary: { overview, action_items, keywords },
+ * transcript_url }.
+ */
+function normalizeFireflies(payload: unknown): CaptureEnvelope | null {
+  if (!payload || typeof payload !== "object") return null;
+  const record = payload as Record<string, unknown>;
+
+  const externalId = (record.id as string) ?? (record.transcriptId as string);
+  if (!externalId) return null;
+
+  const title = (record.title as string) ?? null;
+
+  const attendeeRecords =
+    (record.meeting_attendees as Array<Record<string, unknown>>) ?? [];
+  const participantEmails = Array.isArray(record.participants)
+    ? (record.participants as unknown[]).filter(
+        (p): p is string => typeof p === "string" && p.includes("@")
+      )
+    : [];
+
+  const participants: EnvelopeParticipant[] = [];
+  const participantNames: string[] = [];
+  const seen = new Set<string>();
+
+  for (const attendee of attendeeRecords) {
+    const email = (attendee.email as string)?.toLowerCase();
+    const name = (attendee.displayName as string) ?? (attendee.name as string) ?? null;
+    if (name) participantNames.push(name);
+    if (email && !seen.has(email)) {
+      seen.add(email);
+      participants.push({ email, name, role: "attendee" });
+    }
+  }
+  for (const email of participantEmails) {
+    const lower = email.toLowerCase();
+    if (!seen.has(lower)) {
+      seen.add(lower);
+      participants.push({ email: lower, name: null, role: "attendee" });
+    }
+  }
+
+  const summaryRecord = record.summary as Record<string, unknown> | string | undefined;
+  const summary =
+    typeof summaryRecord === "string"
+      ? summaryRecord
+      : ((summaryRecord?.overview as string) ?? null);
+  const actionItems = normalizeActionItems(
+    typeof summaryRecord === "object" ? summaryRecord?.action_items : record.action_items
+  );
+
+  // Fireflies date is epoch milliseconds; duration is minutes (float).
+  const rawDate = record.date;
+  const occurredAt =
+    typeof rawDate === "number"
+      ? new Date(rawDate).toISOString()
+      : ((rawDate as string) ?? null);
+  const duration = record.duration;
+  const durationMinutes =
+    typeof duration === "number" ? Math.round(duration) : null;
+
+  return {
+    sourceType: "fireflies" as CaptureSourceType,
+    captureType: "meeting",
+    externalId,
+    title,
+    occurredAt,
+    participants,
+    threadId: null,
+    extracted: {
+      title,
+      duration_minutes: durationMinutes,
+      participants:
+        participantNames.length > 0
+          ? participantNames
+          : participants.map((p) => p.email).filter((e): e is string => e !== null),
+      summary,
+      action_items: actionItems,
+      deep_link: (record.transcript_url as string) ?? null,
+    },
+    raw: {
+      meetingId: externalId,
+      source: "composio_trigger",
+    },
+    noise: null,
+  };
+}
+
 function normalizeGenericMeetings(
   payload: unknown,
   sourceType: CaptureSourceType
@@ -70,17 +189,24 @@ function normalizeGenericMeetings(
 
   const attendees = (record.attendees as Array<Record<string, unknown>>) ?? [];
   const participants: EnvelopeParticipant[] = [];
+  const participantNames: string[] = [];
 
   for (const attendee of attendees) {
     const email = (attendee.email as string)?.toLowerCase();
+    const name = (attendee.name as string) ?? null;
+    if (name) participantNames.push(name);
     if (email) {
       participants.push({
         email,
-        name: (attendee.name as string) ?? null,
+        name,
         role: "attendee",
       });
     }
   }
+
+  const duration = record.duration;
+  const durationMinutes =
+    typeof duration === "number" ? Math.round(duration) : null;
 
   return {
     sourceType,
@@ -92,8 +218,13 @@ function normalizeGenericMeetings(
     threadId: null,
     extracted: {
       title,
-      duration: (record.duration as number) ?? null,
+      duration_minutes: durationMinutes,
+      participants:
+        participantNames.length > 0
+          ? participantNames
+          : participants.map((p) => p.email).filter((e): e is string => e !== null),
       summary: (record.summary as string) ?? null,
+      action_items: normalizeActionItems(record.action_items),
     },
     raw: {
       meetingId: externalId,
@@ -119,8 +250,12 @@ export function createMeetingsCategoryAdapter(provider: string): CaptureAdapter 
     deriveSignals: deriveMeetingsSignals,
 
     normalize(payload: unknown): CaptureEnvelope | null {
-      // All meetings providers currently use generic extraction
-      return normalizeGenericMeetings(payload, provider as CaptureSourceType);
+      switch (provider) {
+        case "fireflies":
+          return normalizeFireflies(payload);
+        default:
+          return normalizeGenericMeetings(payload, provider as CaptureSourceType);
+      }
     },
   };
 }

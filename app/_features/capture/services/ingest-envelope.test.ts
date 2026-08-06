@@ -104,6 +104,53 @@ describe("ingestEnvelope noise handling", () => {
   });
 });
 
+describe("ingestEnvelope held handling (Memory-first)", () => {
+  it("stores a thin row for held mail and skips evidence/enrichment", async () => {
+    runGatePipelineMock.mockResolvedValue({
+      finalAction: "held",
+      shouldIngest: true,
+      passedGates: ["pre-ingest", "blocklist", "known-entity", "admission"],
+      gateResults: { admission: { action: "candidate", confidence: 45, signals: [] } },
+    });
+
+    const envelope = makeEnvelope();
+    envelope.extracted = {
+      subject: "Quick question",
+      sender_email: "new@person.com",
+      sender_name: "New Person",
+      thread_id: "conv-1",
+      is_reply: false,
+      snippet: "Full body preview that must not be stored",
+      to: ["me@myco.com"],
+      attachments: [{ name: "big.pdf" }],
+      deep_link: "https://outlook.example/msg-1",
+    };
+
+    const result = await ingestEnvelope("ws-1", "int-1", envelope, {
+      useGatePipeline: true,
+    });
+
+    expect(result.outcome).toBe("held");
+    expect(result.captureId).toBe("cap-1");
+    expect(inserted).toHaveLength(1);
+    expect(inserted[0].gate_action).toBe("held");
+
+    const extracted = inserted[0].extracted_data as Record<string, unknown>;
+    expect(extracted).toEqual({
+      subject: "Quick question",
+      sender_email: "new@person.com",
+      sender_name: "New Person",
+      thread_id: "conv-1",
+      is_reply: false,
+      deep_link: "https://outlook.example/msg-1",
+    });
+
+    // Held rows never enrich or accumulate evidence — no LLM spend.
+    expect(enrichAndPersistMock).not.toHaveBeenCalled();
+    expect(evidenceMock).not.toHaveBeenCalled();
+  });
+});
+
 describe("ingestEnvelope awaitEnrichment", () => {
   it("resolves enrichment before returning when awaitEnrichment is set", async () => {
     runGatePipelineMock.mockResolvedValue({

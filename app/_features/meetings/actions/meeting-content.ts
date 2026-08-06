@@ -345,7 +345,7 @@ export async function attachMeetingTranscript(
             if (orgId && org?.name) entityNames.set(orgId, org.name);
             entityNames.set(validated.meetingId, meeting.title ?? "Meeting");
 
-            await extractAndPersistNotes(extractionInput, entityNames);
+            await extractAndPersistNotes(extractionInput, entityNames, workspace.id);
           }
         }
       } catch (noteError) {
