@@ -318,7 +318,7 @@ function deriveSignals(
     signals.push("sender_high_engagement");
   }
 
-  const categorySignal = `email_classified_${classification.category.replace(/_/g, "_")}`;
+  const categorySignal = `email_classified_${classification.category}`;
   signals.push(categorySignal);
 
   return signals;

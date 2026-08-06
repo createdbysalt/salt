@@ -57,7 +57,9 @@ export async function recordUsageEvent(
       return { ok: true, status: "duplicate" };
     }
     console.error(
-      `[usage-ledger] failed to record ${input.eventType} for workspace ${input.workspaceId}:`,
+      "[usage-ledger] failed to record %s for workspace %s:",
+      input.eventType,
+      input.workspaceId,
       error.message,
     );
     return { ok: false, error: error.message };

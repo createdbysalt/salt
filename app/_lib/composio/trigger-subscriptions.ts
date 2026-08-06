@@ -64,7 +64,8 @@ export async function getCaptureTriggerSlugs(
 
     if (error) {
       console.error(
-        `[trigger-subscriptions] DB lookup failed for ${toolkitSlug}:`,
+        "[trigger-subscriptions] DB lookup failed for %s:",
+        toolkitSlug,
         error.message,
       );
       // Fall back to adapter
@@ -82,7 +83,8 @@ export async function getCaptureTriggerSlugs(
     return adapter?.triggerSlugs ?? [];
   } catch (error) {
     console.error(
-      `[trigger-subscriptions] getCaptureTriggerSlugs threw for ${toolkitSlug}:`,
+      "[trigger-subscriptions] getCaptureTriggerSlugs threw for %s:",
+      toolkitSlug,
       error,
     );
     // Fall back to adapter

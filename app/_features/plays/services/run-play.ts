@@ -668,7 +668,8 @@ export async function executePlayRun(
         // revenue problem for the reconciliation job to catch, not a reason
         // to tell the caller a delivered play failed.
         console.error(
-          `[run-play] usage metering failed for run ${runId}:`,
+          "[run-play] usage metering failed for run %s:",
+          runId,
           meteringError,
         );
       }

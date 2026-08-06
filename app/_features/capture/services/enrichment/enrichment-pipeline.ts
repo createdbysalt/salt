@@ -479,7 +479,8 @@ export async function enrichAndPersist(
         senderDomain: input.senderDomain,
       }).catch((err) => {
         console.warn(
-          `[enrichment-pipeline] Failed to process CREATE decision for ${captureEventId}:`,
+          "[enrichment-pipeline] Failed to process CREATE decision for %s:",
+          captureEventId,
           err instanceof Error ? err.message : err
         );
       });
