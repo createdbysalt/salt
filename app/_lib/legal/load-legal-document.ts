@@ -9,7 +9,8 @@ export type LegalDocumentSlug =
   | "privacy-policy"
   | "cookie-policy"
   | "subprocessors"
-  | "disclaimer";
+  | "disclaimer"
+  | "dpa";
 
 export function loadLegalDocument(slug: LegalDocumentSlug): string {
   return readFileSync(join(LEGAL_DIR, `${slug}.md`), "utf8");

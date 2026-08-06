@@ -40,7 +40,7 @@ type LegalRouteConfig = {
  */
 const TERMAGEDDON_POLICY_IDS = {
   "privacy-policy": "Y0RadVYzZERVRlZsWm1GdGFYYzlQUT09",
-  "terms-of-use": "YUdKS1NYSklkbGRrYnpWUFExRTlQUT09",
+  "terms-of-service": "YUdKS1NYSklkbGRrYnpWUFExRTlQUT09",
   disclaimer: "ZDJsTU0zTXpUbGQ0YjJwWlluYzlQUT09",
 } as const;
 
@@ -52,12 +52,12 @@ export const LEGAL_ROUTE_CONFIG: Record<string, LegalRouteConfig> = {
     fallbackManagementType: "termageddon",
     fallbackTermageddonPolicyId: TERMAGEDDON_POLICY_IDS["privacy-policy"],
   },
-  "terms-of-use": {
-    sanitySlug: "terms-of-use",
+  "terms-of-service": {
+    sanitySlug: "terms-of-service",
     markdownSlug: "website-terms-of-use",
-    fallbackTitle: "Website Terms of Use",
+    fallbackTitle: "Terms of Service",
     fallbackManagementType: "termageddon",
-    fallbackTermageddonPolicyId: TERMAGEDDON_POLICY_IDS["terms-of-use"],
+    fallbackTermageddonPolicyId: TERMAGEDDON_POLICY_IDS["terms-of-service"],
   },
   disclaimer: {
     sanitySlug: "disclaimer",
@@ -78,12 +78,20 @@ export const LEGAL_ROUTE_CONFIG: Record<string, LegalRouteConfig> = {
     fallbackTitle: "Early Access Terms",
     fallbackManagementType: "self-managed",
   },
-  // Note: /tos redirects to /terms-of-use (see app/(public)/tos/page.tsx)
-  // The Termageddon Terms of Service covers both website and application usage.
+  // Note: /tos redirects to /terms-of-service (see app/(public)/tos/page.tsx)
+  // The Termageddon Terms of Service is a full SaaS subscription agreement,
+  // covering subscriptions, billing, cancellation, usage/overages, integrations,
+  // AI features, customer data ownership, and liability caps.
   subprocessors: {
     sanitySlug: "subprocessors",
     markdownSlug: "subprocessors",
     fallbackTitle: "Subprocessors",
+    fallbackManagementType: "self-managed",
+  },
+  dpa: {
+    sanitySlug: "dpa",
+    markdownSlug: "dpa",
+    fallbackTitle: "Data Processing Agreement",
     fallbackManagementType: "self-managed",
   },
 };

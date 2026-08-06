@@ -78,6 +78,24 @@ When reviewing Salt's own policies, read these files for product context:
 | Data handling & security | `docs/architecture/security-model.md` |
 | Pricing & billing | `docs/reference/pricing-tiered-plays-v2.md` |
 | Entity information | `config.ts` (look for company name, legal entity) |
+| Legal docs system | `brand-identity/legal/CLAUDE.md` |
+
+**⚠️ CRITICAL: Termageddon pages must be read live**
+
+DO NOT assume Termageddon content from markdown files. The markdown files in
+`brand-identity/legal/` (e.g., `website-terms-of-use.md`, `privacy-policy.md`)
+are **outdated reference copies** that do NOT reflect what Termageddon actually
+serves. Salt's Termageddon ToS is a **full SaaS subscription agreement**, not
+just website terms — it includes subscriptions, billing, overages, third-party
+integrations, AI features, customer data ownership, liability caps, and more.
+
+To review Termageddon-managed pages (`/privacy-policy`, `/terms-of-service`,
+`/disclaimer`):
+1. Load the actual page in a browser (use Playwright: `browser_navigate` to
+   `localhost:3000/terms-of-service`, then `browser_snapshot`)
+2. Wait for Termageddon's JavaScript to load (content shows "Loading policy..."
+   until ready — take a second snapshot if needed)
+3. Read what is actually served to users, not the markdown files
 
 ## Step 2: Read the relevant checklist
 
