@@ -114,9 +114,6 @@ export function AskSaltMessages({
         .join(" ")
         .slice(0, 60),
     }));
-    // #region agent log
-    fetch('http://127.0.0.1:7443/ingest/a7cd7781-629e-483f-bcc8-d958046d0b66',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9523cd'},body:JSON.stringify({sessionId:'9523cd',location:'AskSaltMessages.tsx:render',message:'messages state',data:{count:messages.length,summary,chatStatus,processing,showThinking},timestamp:Date.now(),hypothesisId:'H1,H3,H4'})}).catch(()=>{});
-    // #endregion
   }, [messages, chatStatus, processing, showThinking]);
 
   return (

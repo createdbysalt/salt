@@ -296,27 +296,6 @@ export function buildAskSaltCapabilityBlock(capabilities: AskSaltCapabilities): 
         const who = provider.email ? ` (connected as ${provider.email})` : " (connected)";
         const tools = provider.loadedSlugs.map(annotateSlug).join(", ");
         lines.push(`- ${provider.label}${who}: ${tools}`);
-        // #region agent log
-        if (provider.toolkit === "googledocs") {
-          fetch("http://127.0.0.1:7443/ingest/a7cd7781-629e-483f-bcc8-d958046d0b66", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "0970b2" },
-            body: JSON.stringify({
-              sessionId: "0970b2",
-              runId: "pre-fix",
-              hypothesisId: "H1-H4",
-              location: "app/_lib/composio/ask-salt-capabilities.ts:buildAskSaltCapabilityBlock",
-              message: "Google Docs capability prompt vs registered slugs",
-              data: {
-                loadedSlugs: provider.loadedSlugs,
-                humanizedTools: provider.loadedSlugs.map(annotateSlug),
-                capabilityLine: `- ${provider.label}${who}: ${tools}`,
-              },
-              timestamp: Date.now(),
-            }),
-          }).catch(() => {});
-        }
-        // #endregion
         break;
       }
       case "connected_no_tools":

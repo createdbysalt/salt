@@ -90,9 +90,6 @@ export function AskSaltMessage({
       .trim();
     const fileParts = message.parts.filter((part) => part.type === "file");
     if (!text && fileParts.length === 0 && !entityContext) {
-      // #region agent log
-      fetch('http://127.0.0.1:7443/ingest/a7cd7781-629e-483f-bcc8-d958046d0b66',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9523cd'},body:JSON.stringify({sessionId:'9523cd',location:'AskSaltMessage.tsx:userHidden',message:'user message hidden (empty)',data:{messageId:message.id,partsCount:message.parts.length},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
-      // #endregion
       return null;
     }
 

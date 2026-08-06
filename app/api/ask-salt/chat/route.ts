@@ -191,35 +191,6 @@ function isApprovalContinuation(messages: UIMessage[]): boolean {
 }
 
 function handleAskSaltStreamError(error: unknown): string {
-  // #region agent log
-  const errorMessage = error instanceof Error ? error.message : String(error);
-  const errorData =
-    error && typeof error === "object" && "data" in error
-      ? (error as { data?: unknown }).data
-      : undefined;
-  fetch("http://127.0.0.1:7443/ingest/a7cd7781-629e-483f-bcc8-d958046d0b66", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "366bd6" },
-    body: JSON.stringify({
-      sessionId: "366bd6",
-      runId: "pre-fix",
-      hypothesisId: "H1-H5",
-      location: "app/api/ask-salt/chat/route.ts:handleAskSaltStreamError",
-      message: "Ask Salt stream error",
-      data: {
-        errorMessage,
-        errorName: error instanceof Error ? error.name : typeof error,
-        statusCode:
-          error && typeof error === "object" && "statusCode" in error
-            ? (error as { statusCode?: number }).statusCode
-            : undefined,
-        hasProviderMetadata: Boolean(errorData),
-        isContentFilterSizeError: errorMessage.includes("content filter"),
-      },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
 
   return resolveAskSaltServerStreamError(error, (streamError) =>
     reportError({
@@ -377,32 +348,6 @@ export async function POST(request: Request) {
     ...capabilities.composioTools,
   };
 
-  // #region agent log
-  const allToolKeys = Object.keys(tools);
-  const googledocsToolKeys = allToolKeys.filter((k) => k.toUpperCase().includes("GOOGLEDOCS"));
-  const googledocsProvider = capabilities.providers.find((p) => p.toolkit === "googledocs");
-  fetch("http://127.0.0.1:7443/ingest/a7cd7781-629e-483f-bcc8-d958046d0b66", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "0970b2" },
-    body: JSON.stringify({
-      sessionId: "0970b2",
-      runId: "pre-fix",
-      hypothesisId: "H1-H3-H5",
-      location: "app/api/ask-salt/chat/route.ts:tools-merge",
-      message: "Final Ask Salt tool registry for googledocs",
-      data: {
-        totalToolCount: allToolKeys.length,
-        googledocsToolKeys,
-        googledocsDiagnostic: googledocsProvider?.diagnostic ?? null,
-        googledocsLoadedSlugs: googledocsProvider?.loadedSlugs ?? [],
-        hasLowercaseGoogledocsAlias: allToolKeys.some(
-          (k) => k === "googledocs_get_document_by_id",
-        ),
-      },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
 
   const captureReviewSection = captureContext
     ? `## Capture Review Mode
@@ -455,64 +400,6 @@ Start by acknowledging what the capture is and asking how you can help.`
     tools,
   });
 
-  // #region agent log
-  const capabilityBlock = buildAskSaltCapabilityBlock(capabilities);
-  const playbookBlock = buildAskSaltPlaybookIndexBlock(playbooks, blueprints);
-  const toolsJson = JSON.stringify(tools);
-  const modelMessagesJson = JSON.stringify(modelMessages);
-  const uiMessagesJson = JSON.stringify(messagesForModel);
-  const messageSizes = messagesForModel.map((m, i) => ({
-    index: i,
-    role: m.role,
-    chars: JSON.stringify(m).length,
-    toolParts: m.parts.filter(
-      (p) =>
-        typeof p === "object" &&
-        p !== null &&
-        "type" in p &&
-        typeof (p as { type?: string }).type === "string" &&
-        ((p as { type: string }).type.startsWith("tool-") ||
-          (p as { type: string }).type === "dynamic-tool"),
-    ).length,
-  }));
-  const largestMessage = messageSizes.reduce(
-    (max, m) => (m.chars > max.chars ? m : max),
-    { index: -1, role: "none", chars: 0, toolParts: 0 },
-  );
-  fetch("http://127.0.0.1:7443/ingest/a7cd7781-629e-483f-bcc8-d958046d0b66", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "366bd6" },
-    body: JSON.stringify({
-      sessionId: "366bd6",
-      runId: "post-fix",
-      hypothesisId: "H1-H5",
-      location: "app/api/ask-salt/chat/route.ts:pre-streamText",
-      message: "Ask Salt request payload sizes",
-      data: {
-        model: process.env.AI_MODEL_ASK_SALT ?? "google/gemini-3.5-flash",
-        toolCount: Object.keys(tools).length,
-        toolsChars: toolsJson.length,
-        systemChars: system.length,
-        operatorContextChars: operatorContext.length,
-        capabilityBlockChars: capabilityBlock.length,
-        playbookBlockChars: playbookBlock.length,
-        modelMessagesChars: modelMessagesJson.length,
-        uiMessagesChars: uiMessagesJson.length,
-        uiMessageCount: messagesForModel.length,
-        estimatedTotalChars:
-          system.length + modelMessagesJson.length + toolsJson.length,
-        contextCompacted: contextCompaction.compacted,
-        omittedOlderToolParts: contextCompaction.omittedOlderToolParts,
-        rolledOlderMessages: contextCompaction.rolledOlderMessages,
-        hasEarlierRecap: Boolean(contextCompaction.earlierRecap),
-        compactedMessagesChars: contextCompaction.messagesChars,
-        largestMessage,
-        topMessageSizes: [...messageSizes].sort((a, b) => b.chars - a.chars).slice(0, 5),
-      },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
 
   const stream = createUIMessageStream({
     originalMessages: isApprovalFlow ? uiMessages : undefined,
@@ -527,21 +414,6 @@ Start by acknowledging what the capture is and asking how you can help.`
           if (!NoSuchToolError.isInstance(error)) return null;
           const canonical = resolveComposioToolName(toolCall.toolName, activeTools);
           if (!canonical) return null;
-          // #region agent log
-          fetch("http://127.0.0.1:7443/ingest/a7cd7781-629e-483f-bcc8-d958046d0b66", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "0970b2" },
-            body: JSON.stringify({
-              sessionId: "0970b2",
-              runId: "post-fix",
-              hypothesisId: "H1-H5",
-              location: "app/api/ask-salt/chat/route.ts:repairToolCall",
-              message: "Repaired mismatched Composio tool name",
-              data: { from: toolCall.toolName, to: canonical },
-              timestamp: Date.now(),
-            }),
-          }).catch(() => {});
-          // #endregion
           return { ...toolCall, toolName: canonical };
         },
       });
@@ -561,42 +433,6 @@ Start by acknowledging what the capture is and asking how you can help.`
             typeof part.type === "string" &&
             (part.type.startsWith("tool-") || part.type === "dynamic-tool"),
         );
-        // #region agent log
-        const failedToolParts = message.parts
-          .filter(
-            (part) =>
-              typeof part === "object" &&
-              part !== null &&
-              "state" in part &&
-              (part as { state?: string }).state === "output-error",
-          )
-          .map((part) => {
-            const p = part as {
-              toolName?: string;
-              type?: string;
-              errorText?: string;
-            };
-            return {
-              toolName: p.toolName ?? (p.type?.startsWith("tool-") ? p.type.slice(5) : p.type),
-              errorText: p.errorText?.slice(0, 300),
-            };
-          });
-        if (failedToolParts.length > 0) {
-          fetch("http://127.0.0.1:7443/ingest/a7cd7781-629e-483f-bcc8-d958046d0b66", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "0970b2" },
-            body: JSON.stringify({
-              sessionId: "0970b2",
-              runId: "pre-fix",
-              hypothesisId: "H1-H4-H5",
-              location: "app/api/ask-salt/chat/route.ts:onFinish",
-              message: "Ask Salt tool call failures",
-              data: { failedToolParts },
-              timestamp: Date.now(),
-            }),
-          }).catch(() => {});
-        }
-        // #endregion
 
         const toolLikeParts = message.parts.filter(
           (part) =>

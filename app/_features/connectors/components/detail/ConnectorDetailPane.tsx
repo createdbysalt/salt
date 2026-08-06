@@ -511,25 +511,6 @@ export function ConnectorDetailPane({
 
     if (result.success) {
       toast.success(`${definition.name} disconnected`);
-      // #region agent log
-      fetch("http://127.0.0.1:7443/ingest/a7cd7781-629e-483f-bcc8-d958046d0b66", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "a1002e" },
-        body: JSON.stringify({
-          sessionId: "a1002e",
-          runId: "disconnect-fix",
-          hypothesisId: "H1-cache",
-          location: "ConnectorDetailPane:handleDisconnect",
-          message: "Disconnect succeeded — refreshing connectors UI",
-          data: {
-            connectorId,
-            embedded,
-            usesCacheInvalidation: Boolean(onConnectorsChanged),
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion
       onConnectionChange?.({ connectorId, connected: false });
       refreshConnectorsUi();
     } else {

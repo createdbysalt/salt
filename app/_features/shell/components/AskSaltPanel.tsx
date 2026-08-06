@@ -396,9 +396,6 @@ export function AskSaltPanel({
       metadata?: Record<string, unknown>,
     ): UIMessage => {
       const message = createTextUIMessage(role, content, metadata);
-      // #region agent log
-      fetch('http://127.0.0.1:7443/ingest/a7cd7781-629e-483f-bcc8-d958046d0b66',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9523cd'},body:JSON.stringify({sessionId:'9523cd',location:'AskSaltPanel.tsx:appendLocalMessage',message:'appendLocalMessage',data:{role,contentLen:content.length,contentPreview:content.slice(0,80),messageId:message.id,hasMetadata:Boolean(metadata)},timestamp:Date.now(),hypothesisId:'H3'})}).catch(()=>{});
-      // #endregion
       setChatMessages((current) => [...current, message]);
       return message;
     },
@@ -681,9 +678,6 @@ export function AskSaltPanel({
   const handleSubmit = async (overrideText?: string, overrideContext?: AskSaltContext | null) => {
     const prompt = (overrideText ?? text).trim();
     const filesToSend = pendingFiles;
-    // #region agent log
-    fetch('http://127.0.0.1:7443/ingest/a7cd7781-629e-483f-bcc8-d958046d0b66',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9523cd'},body:JSON.stringify({sessionId:'9523cd',location:'AskSaltPanel.tsx:handleSubmit:entry',message:'handleSubmit called',data:{prompt,promptLen:prompt.length,overrideText:overrideText??null,textStateLen:text.length,status,isChatBusy,chatStatus,messageCount:chatMessages.length,blocked:(!prompt&&filesToSend.length===0)||status==='processing'||isChatBusy},timestamp:Date.now(),hypothesisId:'H1,H4'})}).catch(()=>{});
-    // #endregion
     if ((!prompt && filesToSend.length === 0) || status === "processing" || isChatBusy) return;
 
     const activeConversationId = await ensureConversationId();
@@ -714,22 +708,13 @@ export function AskSaltPanel({
     }
 
     const intent = classifyAskSaltIntent(contextualPrompt || prompt);
-    // #region agent log
-    fetch('http://127.0.0.1:7443/ingest/a7cd7781-629e-483f-bcc8-d958046d0b66',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9523cd'},body:JSON.stringify({sessionId:'9523cd',location:'AskSaltPanel.tsx:handleSubmit:intent',message:'intent classified',data:{intent,isConnector:isConnectorIntent(intent),contextualPromptLen:(contextualPrompt||prompt).length},timestamp:Date.now(),hypothesisId:'H3,H5'})}).catch(()=>{});
-    // #endregion
     if (isConnectorIntent(intent)) {
       const outcome = await runConnectorIntent(activeConversationId, contextualPrompt || prompt);
-      // #region agent log
-      fetch('http://127.0.0.1:7443/ingest/a7cd7781-629e-483f-bcc8-d958046d0b66',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9523cd'},body:JSON.stringify({sessionId:'9523cd',location:'AskSaltPanel.tsx:handleSubmit:connectorOutcome',message:'connector intent finished',data:{outcome,messageCountAfter:chatMessages.length},timestamp:Date.now(),hypothesisId:'H3,H5'})}).catch(()=>{});
-      // #endregion
       if (outcome !== "not_connector") return;
     }
 
     setStatus("processing");
     try {
-      // #region agent log
-      fetch('http://127.0.0.1:7443/ingest/a7cd7781-629e-483f-bcc8-d958046d0b66',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9523cd'},body:JSON.stringify({sessionId:'9523cd',location:'AskSaltPanel.tsx:handleSubmit:sendMessage',message:'calling sendMessage',data:{textLen:(contextualPrompt||prompt).length,textPreview:(contextualPrompt||prompt).slice(0,80)},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
-      // #endregion
       if (filesToSend.length > 0) {
         await sendMessage({
           text: contextualPrompt || prompt || "Review the attached file(s).",
@@ -782,9 +767,6 @@ export function AskSaltPanel({
 
   const handleSuggestionSelect = React.useCallback(
     (suggestion: string) => {
-      // #region agent log
-      fetch('http://127.0.0.1:7443/ingest/a7cd7781-629e-483f-bcc8-d958046d0b66',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'9523cd'},body:JSON.stringify({sessionId:'9523cd',location:'AskSaltPanel.tsx:handleSuggestionSelect',message:'chip selected',data:{suggestion,textInComposer:text.slice(0,80),textLen:text.length},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
-      // #endregion
       if (
         CONNECTORS_NAV_SUGGESTIONS.some((label) =>
           suggestion.toLowerCase().includes(label),
