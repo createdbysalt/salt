@@ -3,8 +3,6 @@
 import * as React from "react";
 import { motion } from "framer-motion";
 import {
-  Briefcase,
-  Building2,
   CheckCircle2,
   ClipboardList,
   Command,
@@ -47,9 +45,11 @@ import {
   listAskSaltConversations,
 } from "@/app/_features/ask-salt/actions";
 import { AskSaltMessages } from "@/app/_features/ask-salt/components/chat/AskSaltMessages";
+import { MessageOptionList } from "@/app/_features/ask-salt/components/chat/AskSaltMessage";
 import { AskSaltPromptInput } from "@/app/_features/ask-salt/components/chat/AskSaltPromptInput";
 import { extractSavedArtifacts } from "@/app/_features/ask-salt/components/chat/artifact-card";
 import {
+  createContextUIMessage,
   createTextUIMessage,
   rowsToUIMessages,
   uiMessageMetadata,
@@ -60,6 +60,7 @@ import {
   disconnectConnectorFromAskSalt,
 } from "@/app/_features/ask-salt/connect-actions";
 import { useAskSaltChat } from "@/app/_features/ask-salt/hooks/useAskSaltChat";
+import { resolveLastMessageOptions } from "@/app/_features/ask-salt/resolve-last-message-options";
 import {
   classifyAskSaltIntent,
   isConnectorIntent,
@@ -74,6 +75,11 @@ import { useIsMobile } from "@/app/_lib/hooks/use-mobile";
 import { useBodyScrollLock } from "@/app/_lib/hooks/use-body-scroll-lock";
 import { ASK_SALT_PANEL_WIDTH_PX } from "@/app/_features/shell/constants";
 import { useDashboardUser } from "@/app/_features/shell/contexts/DashboardUserContext";
+import { EntityContextCard } from "@/app/_features/ask-salt/components/EntityContextCard";
+import { SuggestedActionChips } from "@/app/_features/ask-salt/components/SuggestedActionChips";
+import { toEntityContext } from "@/app/_features/ask-salt/utils/entity-adapters";
+import { getTopSuggestedActions } from "@/app/_features/ask-salt/utils/suggested-actions";
+import type { EntityContext, SuggestedAction } from "@/app/_features/ask-salt/types/entity-context";
 
 export type AskSaltMode = "ask" | "capture";
 
@@ -252,6 +258,11 @@ const CONNECTORS_NAV_SUGGESTIONS = [
 const ASK_SALT_HISTORY_HEADER_CLASS = "h-[101px]";
 const SPRING = { type: "spring" as const, stiffness: 340, damping: 36, mass: 0.9 };
 
+/** Staged entity-context greeting — context card → thinking → ack → chips. */
+const CONTEXT_GREETING_INITIAL_MS = 0;
+const CONTEXT_GREETING_THINK_MS = 900;
+const CONTEXT_GREETING_CHIPS_MS = 450;
+
 export function AskSaltPanel({
   open,
   mode = "ask",
@@ -284,7 +295,11 @@ export function AskSaltPanel({
     title: string;
   } | null>(null);
   const [isDeleting, setIsDeleting] = React.useState(false);
+  const [stagedContextThinking, setStagedContextThinking] = React.useState(false);
+  const [showComposerOptions, setShowComposerOptions] = React.useState(true);
   const autoSubmitKeyRef = React.useRef("");
+  const contextSubmittedRef = React.useRef<string | null>(null);
+  const contextGreetingTimersRef = React.useRef<number[]>([]);
   const conversationIdRef = React.useRef<string | null>(conversationId);
   conversationIdRef.current = conversationId;
 
@@ -296,9 +311,22 @@ export function AskSaltPanel({
     stop,
     addToolApprovalResponse,
     setMessages: setChatMessages,
-  } = useAskSaltChat(() => conversationIdRef.current);
+  } = useAskSaltChat(() => conversationIdRef.current, {
+    captureId: context?.type === "capture" ? context.captureId : null,
+  });
 
   const isChatBusy = chatStatus === "streaming" || chatStatus === "submitted";
+
+  const clearContextGreetingTimers = React.useCallback(() => {
+    contextGreetingTimersRef.current.forEach((id) => window.clearTimeout(id));
+    contextGreetingTimersRef.current = [];
+  }, []);
+
+  const scheduleContextGreetingTimeout = React.useCallback((fn: () => void, ms: number) => {
+    const id = window.setTimeout(fn, ms);
+    contextGreetingTimersRef.current.push(id);
+    return id;
+  }, []);
 
   const setFullscreen = React.useCallback(
     (value: boolean) => {
@@ -336,6 +364,10 @@ export function AskSaltPanel({
 
   const startNewChat = React.useCallback(
     (prompt = "") => {
+      clearContextGreetingTimers();
+      contextSubmittedRef.current = null;
+      setStagedContextThinking(false);
+      setShowComposerOptions(true);
       conversationIdRef.current = null;
       setConversationId(null);
       setText(prompt);
@@ -345,7 +377,7 @@ export function AskSaltPanel({
       setStatus("idle");
       setShowMobileHistory(false);
     },
-    [setChatMessages],
+    [clearContextGreetingTimers, setChatMessages],
   );
 
   const panelOpenedRef = React.useRef(false);
@@ -386,6 +418,11 @@ export function AskSaltPanel({
 
   const loadConversation = React.useCallback(
     async (id: string) => {
+      clearContextGreetingTimers();
+      setStagedContextThinking(false);
+      setShowComposerOptions(true);
+      contextSubmittedRef.current = `loaded:${id}`;
+
       const result = await getAskSaltConversation(id);
       if (!result.ok) return;
 
@@ -406,7 +443,7 @@ export function AskSaltPanel({
       setText("");
       setShowMobileHistory(false);
     },
-    [setChatMessages],
+    [clearContextGreetingTimers, setChatMessages],
   );
 
   const ensureConversationId = React.useCallback(async () => {
@@ -432,6 +469,10 @@ export function AskSaltPanel({
   React.useEffect(() => {
     if (!open) {
       panelOpenedRef.current = false;
+      contextSubmittedRef.current = null;
+      clearContextGreetingTimers();
+      setStagedContextThinking(false);
+      setShowComposerOptions(true);
       return;
     }
     if (panelOpenedRef.current) return;
@@ -441,7 +482,7 @@ export function AskSaltPanel({
       return;
     }
     startNewChat("");
-  }, [autoSubmit, context, initialPrompt, open, startNewChat]);
+  }, [autoSubmit, clearContextGreetingTimers, context, initialPrompt, open, startNewChat]);
 
   React.useEffect(() => {
     if (!open || !autoSubmit || !initialPrompt.trim()) return;
@@ -461,6 +502,70 @@ export function AskSaltPanel({
     // handleSubmit intentionally omitted so this effect only follows incoming events.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoSubmit, context, initialPrompt, mode, open]);
+
+  // Auto-submit context as a message when context is provided (without initialPrompt)
+  React.useEffect(() => {
+    if (!open || !context || initialPrompt) return;
+    const contextKey = `${context.type}:${"id" in context ? context.id : "captureId" in context ? context.captureId : "files"}`;
+    if (contextSubmittedRef.current === contextKey) return;
+
+    const persistWhenReady = (message: UIMessage) => {
+      void ensureConversationId().then((activeConversationId) => {
+        if (!activeConversationId) return;
+        void persistUIMessage(activeConversationId, message);
+      });
+    };
+
+    const timeout = window.setTimeout(() => {
+      contextSubmittedRef.current = contextKey;
+
+      const entityCtx = toEntityContext(context);
+      const contextPrompt = `[${entityCtx.actionLabel}: ${entityCtx.title}${entityCtx.subtitle ? `, ${entityCtx.subtitle}` : ""}]`;
+      const contextMessage = createContextUIMessage(contextPrompt, entityCtx);
+      const suggestedActions = getTopSuggestedActions(entityCtx);
+      const suggestions = suggestedActions.map((a) => a.prompt);
+      const ackText = `I'm looking at ${entityCtx.title}. What would you like to do?`;
+
+      // Show the context card immediately — don't wait on conversation creation.
+      setShowComposerOptions(false);
+      setChatMessages([contextMessage]);
+      setStagedContextThinking(true);
+      persistWhenReady(contextMessage);
+
+      scheduleContextGreetingTimeout(() => {
+        setStagedContextThinking(false);
+        const ackMessage = createTextUIMessage("assistant", ackText);
+        const ackMessageId = ackMessage.id;
+        setChatMessages((current) => [...current, ackMessage]);
+
+        scheduleContextGreetingTimeout(() => {
+          setChatMessages((current) => {
+            const index = current.findIndex((message) => message.id === ackMessageId);
+            if (index === -1) return current;
+            const existing = current[index];
+            const patched: UIMessage = {
+              ...existing,
+              metadata: {
+                ...(uiMessageMetadata(existing) ?? {}),
+                suggestions,
+              },
+            };
+            persistWhenReady(patched);
+            return [...current.slice(0, index), patched, ...current.slice(index + 1)];
+          });
+          setShowComposerOptions(true);
+        }, CONTEXT_GREETING_CHIPS_MS);
+      }, CONTEXT_GREETING_THINK_MS);
+
+      setStatus("idle");
+    }, CONTEXT_GREETING_INITIAL_MS);
+
+    return () => {
+      window.clearTimeout(timeout);
+      clearContextGreetingTimers();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, context, initialPrompt]);
 
   const runConnectorIntent = React.useCallback(
     async (
@@ -585,7 +690,9 @@ export function AskSaltPanel({
     setPendingFiles([]);
     setActiveStarter(null);
 
-    const contextualPrompt = buildContextualPrompt(prompt, overrideContext ?? context);
+    // Skip context prefix if context was already sent as the first message
+    const effectiveContext = contextSubmittedRef.current !== null ? null : (overrideContext ?? context);
+    const contextualPrompt = buildContextualPrompt(prompt, effectiveContext);
 
     if (overrideContext?.type === "play") {
       setStatus("processing");
@@ -673,6 +780,18 @@ export function AskSaltPanel({
     // handleSubmit intentionally omitted — stable enough for chip taps
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [context],
+  );
+
+  const messageOptions = React.useMemo(
+    () =>
+      showComposerOptions
+        ? resolveLastMessageOptions({
+            messages: chatMessages,
+            onSelect: handleSuggestionSelect,
+            disabled: status === "processing" || isChatBusy,
+          })
+        : null,
+    [chatMessages, handleSuggestionSelect, isChatBusy, showComposerOptions, status],
   );
 
   const handleApproval = React.useCallback(
@@ -832,6 +951,7 @@ export function AskSaltPanel({
         chatStatus={chatStatus}
         chatError={chatError}
         processing={status === "processing" && !isChatBusy}
+        stagedThinking={stagedContextThinking}
         approvalsBusy={isChatBusy}
         onApproval={handleApproval}
         connector={{
@@ -840,29 +960,16 @@ export function AskSaltPanel({
           onConnect: (id) => void handleConnectorConnect(id),
           onDisconnect: (id) => void handleConnectorDisconnect(id),
         }}
-        onOptionSelect={handleSuggestionSelect}
-        optionsDisabled={status === "processing" || isChatBusy}
         centered={isFullscreen}
         resetKey={conversationId}
         before={
-          <>
-            {context?.type === "play" && <AskSaltContextCard context={context} />}
-            {(context?.type === "file" || context?.type === "files") && (
-              <AskSaltFileContextCard context={context} />
-            )}
-            {context?.type === "work" && <AskSaltWorkContextCard context={context} />}
-            {context?.type === "person" && <AskSaltPersonContextCard context={context} />}
-            {context?.type === "org" && <AskSaltOrgContextCard context={context} />}
-            {context?.type === "billing" && <AskSaltBillingContextCard context={context} />}
-            {context?.type === "meeting" && <AskSaltMeetingContextCard context={context} />}
-            {isIdleEmpty && (
-              <IdleStarterActions
-                firstName={firstName}
-                compact={!isFullscreen}
-                onSelect={(action) => handleStarterAction(action)}
-              />
-            )}
-          </>
+          isIdleEmpty && !context ? (
+            <IdleStarterActions
+              firstName={firstName}
+              compact={!isFullscreen}
+              onSelect={(action) => handleStarterAction(action)}
+            />
+          ) : null
         }
         after={
           status === "created" ? (
@@ -893,6 +1000,10 @@ export function AskSaltPanel({
             onBack={() => setActiveStarter(null)}
             onSelectSuggestion={(suggestion) => void handleSubmit(suggestion, context)}
           />
+        ) : messageOptions ? (
+          <div className="mb-3">
+            <MessageOptionList options={messageOptions} />
+          </div>
         ) : null}
         <AskSaltPromptInput
           value={text}
@@ -1073,277 +1184,6 @@ function AskSaltHistoryRail({
               </div>
             </div>
           ))}
-      </div>
-    </div>
-  );
-}
-
-function AskSaltContextCard({ context }: { context: AskSaltContext }) {
-  if (context.type !== "play") return null;
-
-  return (
-    <div className="rounded-2xl border border-border/60 bg-card/60 p-4">
-      <div className="flex items-start gap-3">
-        <span className="surface-aurora grid size-8 shrink-0 place-items-center rounded-xl">
-          <Sparkles className="relative z-10 size-3.5 text-white" strokeWidth={2.5} />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-medium text-muted-foreground">
-            Editing Play · to {context.recipientLabel}
-          </p>
-          <p className="mt-0.5 truncate text-[13.5px] font-semibold leading-snug tracking-tight">
-            {context.title}
-          </p>
-          {context.sourceLabel && (
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              Source: {context.sourceLabel}
-            </p>
-          )}
-        </div>
-        {context.href && (
-          <a
-            href={context.href}
-            className="shrink-0 rounded-md border border-border bg-background px-2 py-1 text-[11px] font-medium text-muted-foreground transition hover:text-foreground"
-          >
-            View Play
-          </a>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function AskSaltFileContextCard({ context }: { context: AskSaltContext }) {
-  if (context.type !== "file" && context.type !== "files") return null;
-
-  const title =
-    context.type === "file"
-      ? context.title
-      : `${context.files.length} files selected`;
-
-  const subtitle =
-    context.type === "file"
-      ? `Connected to ${context.connectedLabel}`
-      : context.files.map((file) => file.title).join(", ");
-
-  return (
-    <div className="rounded-2xl border border-border/60 bg-card/60 p-4">
-      <div className="flex items-start gap-3">
-        <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-muted">
-          <FileText className="size-3.5 text-foreground/70" strokeWidth={2.25} />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-medium text-muted-foreground">
-            {context.type === "file" ? "Reviewing file" : "Reviewing files"}
-          </p>
-          <p className="mt-0.5 truncate text-[13.5px] font-semibold leading-snug tracking-tight">
-            {title}
-          </p>
-          <p className="mt-1 line-clamp-2 text-[11px] text-muted-foreground">{subtitle}</p>
-        </div>
-        {context.href && (
-          <a
-            href={context.href}
-            className="shrink-0 rounded-md border border-border bg-background px-2 py-1 text-[11px] font-medium text-muted-foreground transition hover:text-foreground"
-          >
-            View
-          </a>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function AskSaltWorkContextCard({ context }: { context: AskSaltContext }) {
-  if (context.type !== "work") return null;
-
-  const details = [
-    context.orgName && `for ${context.orgName}`,
-    context.stage && `${context.stage} stage`,
-    context.healthBand && `${context.healthBand} health`,
-  ].filter(Boolean).join(" · ");
-
-  return (
-    <div className="rounded-2xl border border-border/60 bg-card/60 p-4">
-      <div className="flex items-start gap-3">
-        <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-muted">
-          <Briefcase className="size-3.5 text-foreground/70" strokeWidth={2.25} />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-medium text-muted-foreground">
-            Discussing work
-          </p>
-          <p className="mt-0.5 truncate text-[13.5px] font-semibold leading-snug tracking-tight">
-            {context.title}
-          </p>
-          {details && (
-            <p className="mt-1 text-[11px] text-muted-foreground">{details}</p>
-          )}
-        </div>
-        {context.href && (
-          <a
-            href={context.href}
-            className="shrink-0 rounded-md border border-border bg-background px-2 py-1 text-[11px] font-medium text-muted-foreground transition hover:text-foreground"
-          >
-            View
-          </a>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function AskSaltPersonContextCard({ context }: { context: AskSaltContext }) {
-  if (context.type !== "person") return null;
-
-  const details = [
-    context.relationship,
-    context.orgName && `at ${context.orgName}`,
-    context.lifecycle,
-  ].filter(Boolean).join(" · ");
-
-  return (
-    <div className="rounded-2xl border border-border/60 bg-card/60 p-4">
-      <div className="flex items-start gap-3">
-        <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-muted">
-          <User className="size-3.5 text-foreground/70" strokeWidth={2.25} />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-medium text-muted-foreground">
-            Discussing person
-          </p>
-          <p className="mt-0.5 truncate text-[13.5px] font-semibold leading-snug tracking-tight">
-            {context.name}
-          </p>
-          {details && (
-            <p className="mt-1 text-[11px] text-muted-foreground">{details}</p>
-          )}
-        </div>
-        {context.href && (
-          <a
-            href={context.href}
-            className="shrink-0 rounded-md border border-border bg-background px-2 py-1 text-[11px] font-medium text-muted-foreground transition hover:text-foreground"
-          >
-            View
-          </a>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function AskSaltOrgContextCard({ context }: { context: AskSaltContext }) {
-  if (context.type !== "org") return null;
-
-  const details = [
-    context.relationship,
-    context.industry,
-    context.lifecycle,
-  ].filter(Boolean).join(" · ");
-
-  return (
-    <div className="rounded-2xl border border-border/60 bg-card/60 p-4">
-      <div className="flex items-start gap-3">
-        <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-muted">
-          <Building2 className="size-3.5 text-foreground/70" strokeWidth={2.25} />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-medium text-muted-foreground">
-            Discussing organization
-          </p>
-          <p className="mt-0.5 truncate text-[13.5px] font-semibold leading-snug tracking-tight">
-            {context.name}
-          </p>
-          {details && (
-            <p className="mt-1 text-[11px] text-muted-foreground">{details}</p>
-          )}
-        </div>
-        {context.href && (
-          <a
-            href={context.href}
-            className="shrink-0 rounded-md border border-border bg-background px-2 py-1 text-[11px] font-medium text-muted-foreground transition hover:text-foreground"
-          >
-            View
-          </a>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function AskSaltBillingContextCard({ context }: { context: AskSaltContext }) {
-  if (context.type !== "billing") return null;
-
-  const directionLabel = context.direction === "receivable" ? "Invoice" : "Bill";
-  const details = [
-    context.status,
-    context.partyName,
-  ].filter(Boolean).join(" · ");
-
-  return (
-    <div className="rounded-2xl border border-border/60 bg-card/60 p-4">
-      <div className="flex items-start gap-3">
-        <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-muted">
-          <WalletCards className="size-3.5 text-foreground/70" strokeWidth={2.25} />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-medium text-muted-foreground">
-            Discussing {directionLabel.toLowerCase()}
-          </p>
-          <p className="mt-0.5 truncate text-[13.5px] font-semibold leading-snug tracking-tight">
-            {context.amount}
-          </p>
-          {details && (
-            <p className="mt-1 text-[11px] text-muted-foreground">{details}</p>
-          )}
-        </div>
-        {context.href && (
-          <a
-            href={context.href}
-            className="shrink-0 rounded-md border border-border bg-background px-2 py-1 text-[11px] font-medium text-muted-foreground transition hover:text-foreground"
-          >
-            View
-          </a>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function AskSaltMeetingContextCard({ context }: { context: AskSaltContext }) {
-  if (context.type !== "meeting") return null;
-
-  const details = [
-    context.date,
-    context.clientName,
-    context.projectName,
-  ].filter(Boolean).join(" · ");
-
-  return (
-    <div className="rounded-2xl border border-border/60 bg-card/60 p-4">
-      <div className="flex items-start gap-3">
-        <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-muted">
-          <MessageSquare className="size-3.5 text-foreground/70" strokeWidth={2.25} />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-medium text-muted-foreground">
-            Discussing meeting
-          </p>
-          <p className="mt-0.5 truncate text-[13.5px] font-semibold leading-snug tracking-tight">
-            {context.title}
-          </p>
-          {details && (
-            <p className="mt-1 text-[11px] text-muted-foreground">{details}</p>
-          )}
-        </div>
-        {context.href && (
-          <a
-            href={context.href}
-            className="shrink-0 rounded-md border border-border bg-background px-2 py-1 text-[11px] font-medium text-muted-foreground transition hover:text-foreground"
-          >
-            View
-          </a>
-        )}
       </div>
     </div>
   );

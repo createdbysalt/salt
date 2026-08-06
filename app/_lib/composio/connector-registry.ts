@@ -4,19 +4,26 @@ import { createAdminClient } from "@/app/_lib/supabase/admin";
 import type { Json } from "@/app/_lib/supabase/database.types";
 
 /**
- * DB-backed connector registry (connector-platform Phase 2.5).
+ * DB-backed connector registry (scalable-connectors Phase 3).
  *
- * Replaces the hand-maintained maps in providers.ts / connector-catalog.ts /
- * connector-manifest.ts: `connector_catalog` (synced from Composio) joined
- * with `connector_overrides` (Salt's judgment: tier, pinned auth config,
- * Ask Salt exposure). Server-only; client components receive rows via
- * ConnectorsPageData, never by importing this module.
+ * Source of truth for connector catalog display. All 250+ Composio apps
+ * sync to `connector_catalog` via the nightly cron; this module reads
+ * and caches the catalog for UI display.
  *
- * Auth config resolution order: per-environment env var (named in
- * `auth_config_env_var`) → pinned DB value. Empty = not connectable.
+ * Key fields:
+ * - `featured` — Salt-curated connectors for prominent display
+ * - `showInCatalog` — whether to show in the browse UI
+ * - `tier` — catalog_only | action | capture
+ *
+ * See `docs/architecture/connector-system.md` for the full architecture.
  */
 
 export type ConnectorTier = "catalog_only" | "action" | "capture";
+
+export interface ConnectorLink {
+  label: string;
+  href: string;
+}
 
 export interface ConnectorRegistryEntry {
   providerKey: string;
@@ -37,12 +44,18 @@ export interface ConnectorRegistryEntry {
   /** Legacy catalog id (kebab-case UI id) carried in meta for UI keying. */
   catalogId: string | null;
   showInCatalog: boolean;
+  /** Salt-curated connector for prominent display in catalog. */
+  featured: boolean;
   /** Display copy carried in meta (seeded from the legacy catalog). */
   connectHelp: string | null;
   nativeBadge: string | null;
   phase: string | null;
   /** OAuth scopes the pinned auth config requests (synced); null = unknown. */
   grantScopes: string[] | null;
+  /** UI metadata from meta column */
+  tagline: string | null;
+  developedBy: string | null;
+  links: ConnectorLink[];
 }
 
 interface RegistryCache {
@@ -77,7 +90,7 @@ async function loadRegistry(): Promise<Map<string, ConnectorRegistryEntry>> {
       `provider_key, toolkit_slug, name, description, category, auth_method,
        coming_soon, logo_url, meta, sync_status,
        connector_overrides ( tier, auth_config_id, auth_config_env_var,
-         api_key_field_name, api_key_form, ask_salt_slug_prefix, ask_salt_label )`,
+         api_key_field_name, api_key_form, ask_salt_slug_prefix, ask_salt_label, featured )`,
     );
 
   if (error) {
@@ -120,6 +133,7 @@ async function loadRegistry(): Promise<Map<string, ConnectorRegistryEntry>> {
       askSaltLabel: override?.ask_salt_label ?? null,
       catalogId: typeof meta.catalogId === "string" ? meta.catalogId : null,
       showInCatalog: meta.showInCatalog === true,
+      featured: override?.featured === true,
       connectHelp: typeof meta.connectHelp === "string" ? meta.connectHelp : null,
       nativeBadge: typeof meta.nativeBadge === "string" ? meta.nativeBadge : null,
       phase: typeof meta.phase === "string" ? meta.phase : null,
@@ -128,6 +142,19 @@ async function loadRegistry(): Promise<Map<string, ConnectorRegistryEntry>> {
             (scope): scope is string => typeof scope === "string",
           )
         : null,
+      tagline: typeof meta.tagline === "string" ? meta.tagline : null,
+      developedBy: typeof meta.developedBy === "string" ? meta.developedBy : null,
+      links: Array.isArray(meta.links)
+        ? (meta.links as unknown[])
+            .filter(
+              (link): link is { label: string; href: string } =>
+                typeof link === "object" &&
+                link !== null &&
+                typeof (link as Record<string, unknown>).label === "string" &&
+                typeof (link as Record<string, unknown>).href === "string",
+            )
+            .map((link) => ({ label: link.label, href: link.href }))
+        : [],
     });
   }
 
@@ -196,4 +223,24 @@ export async function listAskSaltEntries(): Promise<ConnectorRegistryEntry[]> {
   return [...registry.values()].filter(
     (entry) => entry.askSaltSlugPrefix !== null && entry.tier !== "catalog_only",
   );
+}
+
+/** Featured connectors — Salt-curated for prominent display. */
+export async function listFeaturedEntries(): Promise<ConnectorRegistryEntry[]> {
+  const registry = await loadRegistry();
+  return [...registry.values()].filter(
+    (entry) => entry.featured && entry.showInCatalog,
+  );
+}
+
+/** All connectors visible in the catalog (featured + non-featured). */
+export async function listCatalogEntries(): Promise<ConnectorRegistryEntry[]> {
+  const registry = await loadRegistry();
+  return [...registry.values()].filter((entry) => entry.showInCatalog);
+}
+
+/** All connectors in the registry (including hidden ones). */
+export async function listAllEntries(): Promise<ConnectorRegistryEntry[]> {
+  const registry = await loadRegistry();
+  return [...registry.values()];
 }

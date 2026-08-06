@@ -3,7 +3,8 @@
 import dynamic from "next/dynamic";
 import { useCallback, useState, useTransition } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import type { HqBriefingData, HqQueuePlayView } from "@/app/_features/plays/types";
+import type { HqBriefingData } from "@/app/_features/plays/types";
+import type { PlayCardViewModel } from "@/app/_features/plays/play-card/types";
 import type { HqSideRailData, HqStatsData, HqUpcomingData } from "@/app/_features/hq/types";
 import {
   fetchHqStatsData,
@@ -26,11 +27,11 @@ const UpcomingTab = dynamic(() => import("./UpcomingTab").then((mod) => mod.Upco
 
 type Props = {
   briefing: HqBriefingData;
-  queuePlays: HqQueuePlayView[];
+  queueCards: PlayCardViewModel[];
   sideRail: HqSideRailData;
 };
 
-export function HqDashboardView({ briefing, queuePlays, sideRail }: Props) {
+export function HqDashboardView({ briefing, queueCards, sideRail }: Props) {
   const [tab, setTab] = useState<HQTab>("today");
   const [stats, setStats] = useState<HqStatsData | null>(null);
   const [upcoming, setUpcoming] = useState<HqUpcomingData | null>(null);
@@ -73,7 +74,14 @@ export function HqDashboardView({ briefing, queuePlays, sideRail }: Props) {
               >
                 <div className="min-w-0 space-y-6">
                   <BriefingHero briefing={briefing} sideRail={sideRail} />
-                  <PlayQueue initialPlays={queuePlays} />
+                  <PlayQueue
+                    initialCards={queueCards}
+                    timeSavedLabel={
+                      sideRail.timeSaved.minutesThisWeek > 0
+                        ? sideRail.timeSaved.valueLabel
+                        : null
+                    }
+                  />
                 </div>
                 <div id="hq-side-rail-anchor" className="min-w-0">
                   <SideRail data={sideRail} />

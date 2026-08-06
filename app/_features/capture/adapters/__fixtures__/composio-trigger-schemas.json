@@ -1,0 +1,2855 @@
+{
+  "pulledAt": "2026-08-06T03:03:59.183Z",
+  "schemas": {
+    "GMAIL_NEW_GMAIL_MESSAGE": {
+      "slug": "GMAIL_NEW_GMAIL_MESSAGE",
+      "name": "New Gmail Message Received Trigger",
+      "description": "Triggers when a new message is received in Gmail.",
+      "instructions": "\n    **Instructions for Setting Up the Trigger:**\n\n    - Ensure that the Gmail API is enabled for your Google account.\n    - Provide the user ID (usually 'me' for the authenticated user).\n    - Optionally, provide label IDs to filter messages.\n    ",
+      "toolkit": {
+        "logo": "https://logos.composio.dev/api/gmail",
+        "slug": "gmail",
+        "name": "gmail"
+      },
+      "payload": {
+        "properties": {
+          "attachment_list": {
+            "description": "The list of attachments in the message",
+            "items": {},
+            "title": "Attachment List",
+            "type": "array"
+          },
+          "id": {
+            "description": "The raw Gmail message ID",
+            "title": "Id",
+            "type": "string"
+          },
+          "label_ids": {
+            "description": "The Gmail label IDs applied to the message",
+            "items": {
+              "type": "string"
+            },
+            "title": "Label Ids",
+            "type": "array"
+          },
+          "message_id": {
+            "description": "The message ID of the message",
+            "title": "Message Id",
+            "type": "string"
+          },
+          "message_text": {
+            "description": "The text of the message",
+            "title": "Message Text",
+            "type": "string"
+          },
+          "message_timestamp": {
+            "description": "The timestamp of the message",
+            "title": "Message Timestamp",
+            "type": "string"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "description": "The payload of the message",
+            "title": "Payload",
+            "type": "object"
+          },
+          "preview": {
+            "additionalProperties": true,
+            "description": "The preview payload of the message",
+            "title": "Preview",
+            "type": "object"
+          },
+          "sender": {
+            "description": "The sender of the message",
+            "title": "Sender",
+            "type": "string"
+          },
+          "subject": {
+            "description": "The subject of the message",
+            "title": "Subject",
+            "type": "string"
+          },
+          "thread_id": {
+            "description": "The thread ID of the message",
+            "title": "Thread Id",
+            "type": "string"
+          },
+          "to": {
+            "description": "The recipient of the message",
+            "title": "To",
+            "type": "string"
+          }
+        },
+        "title": "NewMessagePayload",
+        "type": "object"
+      },
+      "config": {
+        "properties": {
+          "interval": {
+            "default": 2,
+            "description": "Periodic Interval to Check for Updates & Send a Trigger in Minutes",
+            "title": "Interval",
+            "type": "number"
+          },
+          "labelIds": {
+            "default": "INBOX",
+            "description": "Filter messages by a single label ID. Labels identify the status or category of messages. Supported labels include 'INBOX', 'SPAM', 'TRASH', 'UNREAD', 'STARRED', 'IMPORTANT', 'CATEGORY_PERSONAL', 'CATEGORY_SOCIAL', 'CATEGORY_PROMOTIONS', 'CATEGORY_UPDATES', and 'CATEGORY_FORUMS'. For complex label filtering, use the 'query' parameter instead.",
+            "examples": [
+              "INBOX",
+              "UNREAD",
+              "STARRED"
+            ],
+            "title": "Label Ids",
+            "type": "string"
+          },
+          "query": {
+            "default": "",
+            "description": "Advanced Gmail search using the same syntax as Gmail's search box. Use 'AND' for messages that match all conditions, 'OR' for any condition. Search by sender (from:email@domain.com), labels (label:inbox), status (is:unread), attachments (has:attachment), dates (after:2023/1/1), and more. If specified, this takes precedence over labelIds.",
+            "examples": [
+              "label:inbox OR label:sent",
+              "from:example@gmail.com is:unread",
+              "has:attachment after:2023/1/1",
+              "is:important is:unread"
+            ],
+            "title": "Query",
+            "type": "string"
+          },
+          "userId": {
+            "default": "me",
+            "description": "The user's email address or 'me' for the authenticated user.",
+            "examples": [
+              "me"
+            ],
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "title": "NewMessageConfig",
+        "type": "object"
+      },
+      "version": "20260721_00"
+    },
+    "OUTLOOK_MESSAGE_TRIGGER": {
+      "slug": "OUTLOOK_MESSAGE_TRIGGER",
+      "name": "New Outlook Message",
+      "description": "Triggered when a new message is received in the Outlook mailbox.",
+      "instructions": "",
+      "toolkit": {
+        "logo": "https://logos.composio.dev/api/outlook",
+        "slug": "outlook",
+        "name": "outlook"
+      },
+      "payload": {
+        "description": "Base class for Outlook payloads",
+        "properties": {
+          "event_type": {
+            "description": "Type of event",
+            "title": "Event Type",
+            "type": "string"
+          },
+          "id": {
+            "description": "The unique identifier for the message",
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "event_type"
+        ],
+        "title": "OutlookBasePayload",
+        "type": "object"
+      },
+      "config": {
+        "description": "No config needed for this webhook",
+        "properties": {},
+        "title": "OutlookTriggerConfig",
+        "type": "object"
+      },
+      "version": "20260804_00"
+    },
+    "OUTLOOK_SENT_MESSAGE_TRIGGER": {
+      "slug": "OUTLOOK_SENT_MESSAGE_TRIGGER",
+      "name": "New Sent Message",
+      "description": "Triggered when a new message is sent from the Outlook mailbox.",
+      "instructions": "",
+      "toolkit": {
+        "logo": "https://logos.composio.dev/api/outlook",
+        "slug": "outlook",
+        "name": "outlook"
+      },
+      "payload": {
+        "description": "Base class for Outlook payloads",
+        "properties": {
+          "event_type": {
+            "description": "Type of event",
+            "title": "Event Type",
+            "type": "string"
+          },
+          "id": {
+            "description": "The unique identifier for the message",
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "event_type"
+        ],
+        "title": "OutlookBasePayload",
+        "type": "object"
+      },
+      "config": {
+        "description": "No config needed for this webhook",
+        "properties": {},
+        "title": "OutlookTriggerConfig",
+        "type": "object"
+      },
+      "version": "20260804_00"
+    },
+    "GOOGLECALENDAR_GOOGLE_CALENDAR_EVENT_CREATED_TRIGGER": {
+      "slug": "GOOGLECALENDAR_GOOGLE_CALENDAR_EVENT_CREATED_TRIGGER",
+      "name": "Event Created",
+      "description": "Polling trigger that fires when a new calendar event is created.\n    Returns event ID, summary, start/end times, and organizer info.",
+      "instructions": "Fires when a new event is created on a Google Calendar. Use 'primary' for the main calendar or provide a specific calendar ID. Returns the event ID, title, start/end times, and organizer details.",
+      "toolkit": {
+        "logo": "https://logos.composio.dev/api/googlecalendar",
+        "slug": "googlecalendar",
+        "name": "googlecalendar"
+      },
+      "payload": {
+        "description": "Payload structure for newly created Google Calendar event",
+        "properties": {
+          "calendar_id": {
+            "description": "The calendar identifier",
+            "title": "Calendar Id",
+            "type": "string"
+          },
+          "end_time": {
+            "description": "Event end time in ISO format",
+            "title": "End Time",
+            "type": "string"
+          },
+          "event_id": {
+            "description": "The unique identifier of the event",
+            "title": "Event Id",
+            "type": "string"
+          },
+          "organizer_email": {
+            "description": "Email of the event organizer",
+            "title": "Organizer Email",
+            "type": "string"
+          },
+          "organizer_name": {
+            "description": "Name of the event organizer",
+            "title": "Organizer Name",
+            "type": "string"
+          },
+          "start_time": {
+            "description": "Event start time in ISO format",
+            "title": "Start Time",
+            "type": "string"
+          },
+          "summary": {
+            "description": "Event title/summary",
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "event_id",
+          "calendar_id"
+        ],
+        "title": "GoogleCalendarEventCreatedPayload",
+        "type": "object"
+      },
+      "config": {
+        "description": "Configuration for Google Calendar 'Event Created' polling trigger",
+        "properties": {
+          "calendarId": {
+            "default": "primary",
+            "description": "The unique identifier for the calendar",
+            "examples": [
+              "primary",
+              "example@gmail.com"
+            ],
+            "title": "Calendar Id",
+            "type": "string"
+          },
+          "interval": {
+            "default": 2,
+            "description": "Periodic Interval to Check for Updates & Send a Trigger in Minutes",
+            "title": "Interval",
+            "type": "number"
+          },
+          "showDeleted": {
+            "default": false,
+            "description": "Whether to include deleted events in the results",
+            "examples": [
+              false
+            ],
+            "title": "Show Deleted",
+            "type": "boolean"
+          }
+        },
+        "title": "GoogleCalendarEventCreatedConfig",
+        "type": "object"
+      },
+      "version": "20260721_00"
+    },
+    "OUTLOOK_EVENT_TRIGGER": {
+      "slug": "OUTLOOK_EVENT_TRIGGER",
+      "name": "New Calendar Event",
+      "description": "Triggered when a new calendar event is created in the Outlook calendar.",
+      "instructions": "",
+      "toolkit": {
+        "logo": "https://logos.composio.dev/api/outlook",
+        "slug": "outlook",
+        "name": "outlook"
+      },
+      "payload": {
+        "description": "Base class for Outlook payloads",
+        "properties": {
+          "event_type": {
+            "description": "Type of event",
+            "title": "Event Type",
+            "type": "string"
+          },
+          "id": {
+            "description": "The unique identifier for the message",
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "event_type"
+        ],
+        "title": "OutlookBasePayload",
+        "type": "object"
+      },
+      "config": {
+        "description": "No config needed for this webhook",
+        "properties": {},
+        "title": "OutlookTriggerConfig",
+        "type": "object"
+      },
+      "version": "20260804_00"
+    },
+    "OUTLOOK_EVENT_CHANGE_TRIGGER": {
+      "slug": "OUTLOOK_EVENT_CHANGE_TRIGGER",
+      "name": "Calendar Event Changes",
+      "description": "Triggered when a new calendar event occurs (created, updated, or deleted) in the Outlook calendar.",
+      "instructions": "",
+      "toolkit": {
+        "logo": "https://logos.composio.dev/api/outlook",
+        "slug": "outlook",
+        "name": "outlook"
+      },
+      "payload": {
+        "description": "Base class for Outlook payloads",
+        "properties": {
+          "event_type": {
+            "description": "Type of event",
+            "title": "Event Type",
+            "type": "string"
+          },
+          "id": {
+            "description": "The unique identifier for the message",
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "event_type"
+        ],
+        "title": "OutlookBasePayload",
+        "type": "object"
+      },
+      "config": {
+        "description": "No config needed for this webhook",
+        "properties": {},
+        "title": "OutlookTriggerConfig",
+        "type": "object"
+      },
+      "version": "20260804_00"
+    },
+    "GOOGLEDRIVE_FILE_CREATED_TRIGGER": {
+      "slug": "GOOGLEDRIVE_FILE_CREATED_TRIGGER",
+      "name": "File Created",
+      "description": "Triggers when a new file is created in Google Drive.",
+      "instructions": "\n    Instructions for setting up the trigger:\n\n    - This trigger monitors Google Drive for newly created files.\n    - You can optionally provide a search query to filter which files to monitor.\n    - You can optionally limit monitoring to a specific parent folder by ID.\n    - On the first run the trigger baselines to the current time and emits no\n      past events.\n    - Subsequent polls return files created since the previous poll.\n    - The cursor is provider-derived from `file.createdTime`, not local wall\n      clock — clock skew between the poller and Google does not affect it.\n    ",
+      "toolkit": {
+        "logo": "https://logos.composio.dev/api/googledrive",
+        "slug": "googledrive",
+        "name": "googledrive"
+      },
+      "payload": {
+        "$defs": {
+          "DriveFileSchema": {
+            "description": "Schema for a Google Drive file.",
+            "properties": {
+              "createdTime": {
+                "description": "Creation time in ISO format",
+                "title": "Created Time",
+                "type": "string"
+              },
+              "id": {
+                "description": "Unique identifier of the file",
+                "title": "Id",
+                "type": "string"
+              },
+              "lastModifyingUser": {
+                "additionalProperties": true,
+                "description": "Information about the last user who modified the file",
+                "title": "Last Modifying User",
+                "type": "object"
+              },
+              "mimeType": {
+                "description": "MIME type of the file",
+                "title": "Mime Type",
+                "type": "string"
+              },
+              "modifiedTime": {
+                "description": "Last modification time in ISO format",
+                "title": "Modified Time",
+                "type": "string"
+              },
+              "name": {
+                "description": "Name of the file",
+                "title": "Name",
+                "type": "string"
+              },
+              "owners": {
+                "description": "List of file owners",
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "title": "Owners",
+                "type": "array"
+              },
+              "parents": {
+                "description": "List of parent folder IDs",
+                "items": {
+                  "type": "string"
+                },
+                "title": "Parents",
+                "type": "array"
+              },
+              "shared": {
+                "description": "Whether the file is shared",
+                "title": "Shared",
+                "type": "boolean"
+              },
+              "size": {
+                "description": "Size of the file in bytes",
+                "title": "Size",
+                "type": "string"
+              },
+              "starred": {
+                "description": "Whether the file is starred",
+                "title": "Starred",
+                "type": "boolean"
+              },
+              "trashed": {
+                "description": "Whether the file is in trash",
+                "title": "Trashed",
+                "type": "boolean"
+              },
+              "webViewLink": {
+                "description": "Link to view the file in browser",
+                "title": "Web View Link",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "mimeType",
+              "createdTime",
+              "modifiedTime"
+            ],
+            "title": "DriveFileSchema",
+            "type": "object"
+          }
+        },
+        "description": "Payload for a Google Drive file-created event.",
+        "properties": {
+          "creator": {
+            "additionalProperties": true,
+            "description": "Information about the file's creator (derived as first owner if available)",
+            "title": "Creator",
+            "type": "object"
+          },
+          "event_type": {
+            "default": "file_created",
+            "description": "Type of event that occurred",
+            "title": "Event Type",
+            "type": "string"
+          },
+          "file": {
+            "additionalProperties": false,
+            "description": "The newly created Google Drive file",
+            "properties": {
+              "createdTime": {
+                "description": "Creation time in ISO format",
+                "title": "Created Time",
+                "type": "string"
+              },
+              "id": {
+                "description": "Unique identifier of the file",
+                "title": "Id",
+                "type": "string"
+              },
+              "lastModifyingUser": {
+                "additionalProperties": true,
+                "description": "Information about the last user who modified the file",
+                "title": "Last Modifying User",
+                "type": "object"
+              },
+              "mimeType": {
+                "description": "MIME type of the file",
+                "title": "Mime Type",
+                "type": "string"
+              },
+              "modifiedTime": {
+                "description": "Last modification time in ISO format",
+                "title": "Modified Time",
+                "type": "string"
+              },
+              "name": {
+                "description": "Name of the file",
+                "title": "Name",
+                "type": "string"
+              },
+              "owners": {
+                "description": "List of file owners",
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "title": "Owners",
+                "type": "array"
+              },
+              "parents": {
+                "description": "List of parent folder IDs",
+                "items": {
+                  "type": "string"
+                },
+                "title": "Parents",
+                "type": "array"
+              },
+              "shared": {
+                "description": "Whether the file is shared",
+                "title": "Shared",
+                "type": "boolean"
+              },
+              "size": {
+                "description": "Size of the file in bytes",
+                "title": "Size",
+                "type": "string"
+              },
+              "starred": {
+                "description": "Whether the file is starred",
+                "title": "Starred",
+                "type": "boolean"
+              },
+              "trashed": {
+                "description": "Whether the file is in trash",
+                "title": "Trashed",
+                "type": "boolean"
+              },
+              "webViewLink": {
+                "description": "Link to view the file in browser",
+                "title": "Web View Link",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "mimeType",
+              "createdTime",
+              "modifiedTime"
+            ],
+            "title": "File",
+            "type": "object"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "FileCreatedPayload",
+        "type": "object"
+      },
+      "config": {
+        "description": "Configuration for the Google Drive `File Created` trigger.",
+        "properties": {
+          "folder_id": {
+            "description": "If provided, monitor only files within this folder (by folder ID). Adds the filter `'folder_id' in parents` to the query.",
+            "examples": [
+              "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
+            ],
+            "title": "Folder Id",
+            "type": "string"
+          },
+          "interval": {
+            "default": 2,
+            "description": "Periodic Interval to Check for Updates & Send a Trigger in Minutes",
+            "title": "Interval",
+            "type": "number"
+          },
+          "max_results": {
+            "default": 10,
+            "description": "Maximum number of newly-created files to emit in a single poll. Acts as an event cap, not an API page size — the trigger paginates Drive responses internally.",
+            "maximum": 1000,
+            "minimum": 1,
+            "title": "Max Results",
+            "type": "integer"
+          },
+          "query": {
+            "description": "Optional Drive search query to filter files. Examples: name contains 'report', mimeType = 'application/pdf', or complex queries like name contains 'project' and mimeType != 'application/vnd.google-apps.folder'. Leave empty to monitor all files.",
+            "examples": [
+              "name contains 'report'",
+              "mimeType = 'application/pdf'",
+              "name contains 'project' and mimeType != 'application/vnd.google-apps.folder'"
+            ],
+            "title": "Query",
+            "type": "string"
+          }
+        },
+        "title": "FileCreatedConfig",
+        "type": "object"
+      },
+      "version": "20260721_00"
+    },
+    "NOTION_PAGE_CREATED": {
+      "slug": "NOTION_PAGE_CREATED",
+      "name": "Page Created",
+      "description": "Triggers when a new Notion page is created.\n\n    Customer optionally scopes with at most one of:\n      - data_source_id: new row in this data source\n      - parent_page_id: new sub-page under this page (immediate parent only)\n\n    With neither set, fires for any new page in the workspace the\n    integration has access to. Notion sends ~60s aggregation latency on\n    most events.",
+      "instructions": "\n    **Setting Up the Trigger**\n\n    1. Create a webhook subscription on your Notion public integration.\n    2. Use `https://backend.composio.dev/api/v3/trigger_instances/notion/pr_gfaBXClV3lSG/handle` as the webhook URL.\n    3. Notion sends a one-time verification request containing a\n       `verification_token`. Composio captures it automatically.\n    4. Retrieve the captured verification token from Composio and paste it\n       into Notion's \"Verify Subscription\" UI to activate the subscription.\n    5. Subscribe the integration to the event categories the trigger needs\n       (Page, Data source, View, Comment, etc.).\n",
+      "toolkit": {
+        "logo": "https://logos.composio.dev/api/notion",
+        "slug": "notion",
+        "name": "notion"
+      },
+      "payload": {
+        "$defs": {
+          "NotionParent": {
+            "description": "The page-tree parent reference present on every Notion event payload.\n\n`type` is one of: `database`, `page`, `team`, `workspace`, or\noccasionally `data_source` for the post-2025-09-03 API. Different\nparent shapes apply to different event types — see each trigger's\ndescription for what to expect.",
+            "properties": {
+              "data_source_id": {
+                "description": "When `type == 'database'`, the underlying data source ID. Present on row events (page.* under a database) so consumers can route by data source identity.",
+                "title": "Data Source Id",
+                "type": "string"
+              },
+              "id": {
+                "description": "ID of the parent entity. Absent for workspace-root parents.",
+                "title": "Id",
+                "type": "string"
+              },
+              "type": {
+                "description": "Parent type: `database`, `page`, `team`, `workspace`, or `data_source`.",
+                "title": "Type",
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "title": "NotionParent",
+            "type": "object"
+          },
+          "NotionPrincipal": {
+            "description": "An actor (user or bot) referenced by a Notion event.",
+            "properties": {
+              "id": {
+                "description": "Notion principal ID.",
+                "title": "Id",
+                "type": "string"
+              },
+              "type": {
+                "description": "Principal type, usually `person` or `bot`.",
+                "title": "Type",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "type"
+            ],
+            "title": "NotionPrincipal",
+            "type": "object"
+          },
+          "PageCreatedData": {
+            "properties": {
+              "parent": {
+                "additionalProperties": false,
+                "description": "The new page's parent — a database (for rows), page (for sub-pages), team, or workspace.",
+                "properties": {
+                  "data_source_id": {
+                    "description": "When `type == 'database'`, the underlying data source ID. Present on row events (page.* under a database) so consumers can route by data source identity.",
+                    "title": "Data Source Id",
+                    "type": "string"
+                  },
+                  "id": {
+                    "description": "ID of the parent entity. Absent for workspace-root parents.",
+                    "title": "Id",
+                    "type": "string"
+                  },
+                  "type": {
+                    "description": "Parent type: `database`, `page`, `team`, `workspace`, or `data_source`.",
+                    "title": "Type",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "title": "Parent",
+                "type": "object"
+              }
+            },
+            "required": [
+              "parent"
+            ],
+            "title": "PageCreatedData",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "authors": {
+            "description": "Actors who performed the action.",
+            "items": {
+              "description": "An actor (user or bot) referenced by a Notion event.",
+              "properties": {
+                "id": {
+                  "description": "Notion principal ID.",
+                  "title": "Id",
+                  "type": "string"
+                },
+                "type": {
+                  "description": "Principal type, usually `person` or `bot`.",
+                  "title": "Type",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "type"
+              ],
+              "title": "NotionPrincipal",
+              "type": "object"
+            },
+            "title": "Authors",
+            "type": "array"
+          },
+          "data": {
+            "additionalProperties": false,
+            "description": "Where the new page was created.",
+            "properties": {
+              "parent": {
+                "additionalProperties": false,
+                "description": "The new page's parent — a database (for rows), page (for sub-pages), team, or workspace.",
+                "properties": {
+                  "data_source_id": {
+                    "description": "When `type == 'database'`, the underlying data source ID. Present on row events (page.* under a database) so consumers can route by data source identity.",
+                    "title": "Data Source Id",
+                    "type": "string"
+                  },
+                  "id": {
+                    "description": "ID of the parent entity. Absent for workspace-root parents.",
+                    "title": "Id",
+                    "type": "string"
+                  },
+                  "type": {
+                    "description": "Parent type: `database`, `page`, `team`, `workspace`, or `data_source`.",
+                    "title": "Type",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "title": "Parent",
+                "type": "object"
+              }
+            },
+            "required": [
+              "parent"
+            ],
+            "title": "Data",
+            "type": "object"
+          },
+          "event_id": {
+            "description": "Unique ID of the webhook event.",
+            "title": "Event Id",
+            "type": "string"
+          },
+          "event_type": {
+            "description": "Notion webhook event type.",
+            "title": "Event Type",
+            "type": "string"
+          },
+          "page_id": {
+            "description": "ID of the newly created page.",
+            "title": "Page Id",
+            "type": "string"
+          },
+          "timestamp": {
+            "description": "ISO 8601 event timestamp.",
+            "title": "Timestamp",
+            "type": "string"
+          },
+          "workspace_id": {
+            "description": "Workspace where the event occurred.",
+            "title": "Workspace Id",
+            "type": "string"
+          },
+          "workspace_name": {
+            "description": "Workspace name from the event.",
+            "title": "Workspace Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "event_id",
+          "event_type",
+          "workspace_id",
+          "timestamp",
+          "page_id",
+          "data"
+        ],
+        "title": "PageCreatedPayload",
+        "type": "object"
+      },
+      "config": {
+        "properties": {
+          "data_source_id": {
+            "description": "Optional data source ID to scope to new rows in this Notion data source. Mutually exclusive with parent_page_id. Find the data source ID via Notion's API (GET /v1/databases/{id}.data_sources[].id) or the data source URL.",
+            "title": "Data Source Id",
+            "type": "string"
+          },
+          "parent_page_id": {
+            "description": "Optional parent page ID to scope to new sub-pages whose immediate parent is this Notion page (does not match grandchildren). Mutually exclusive with data_source_id.",
+            "title": "Parent Page Id",
+            "type": "string"
+          }
+        },
+        "title": "PageCreatedConfig",
+        "type": "object"
+      },
+      "version": "20260730_00"
+    },
+    "NOTION_PAGE_CONTENT_UPDATED": {
+      "slug": "NOTION_PAGE_CONTENT_UPDATED",
+      "name": "Page Content Updated",
+      "description": "Triggers when the body content of a Notion page is updated.\n\n    Customer optionally scopes with at most one of:\n      - data_source_id: any row in this data source\n      - page_id: this specific page\n      - parent_page_id: any page whose immediate parent is this page\n\n    With none set, fires for any page content edit in the workspace the\n    integration has access to. Notion aggregates content edits within a\n    short window (~60s typical).",
+      "instructions": "\n    **Setting Up the Trigger**\n\n    1. Create a webhook subscription on your Notion public integration.\n    2. Use `https://backend.composio.dev/api/v3/trigger_instances/notion/pr_gfaBXClV3lSG/handle` as the webhook URL.\n    3. Notion sends a one-time verification request containing a\n       `verification_token`. Composio captures it automatically.\n    4. Retrieve the captured verification token from Composio and paste it\n       into Notion's \"Verify Subscription\" UI to activate the subscription.\n    5. Subscribe the integration to the event categories the trigger needs\n       (Page, Data source, View, Comment, etc.).\n",
+      "toolkit": {
+        "logo": "https://logos.composio.dev/api/notion",
+        "slug": "notion",
+        "name": "notion"
+      },
+      "payload": {
+        "$defs": {
+          "NotionParent": {
+            "description": "The page-tree parent reference present on every Notion event payload.\n\n`type` is one of: `database`, `page`, `team`, `workspace`, or\noccasionally `data_source` for the post-2025-09-03 API. Different\nparent shapes apply to different event types — see each trigger's\ndescription for what to expect.",
+            "properties": {
+              "data_source_id": {
+                "description": "When `type == 'database'`, the underlying data source ID. Present on row events (page.* under a database) so consumers can route by data source identity.",
+                "title": "Data Source Id",
+                "type": "string"
+              },
+              "id": {
+                "description": "ID of the parent entity. Absent for workspace-root parents.",
+                "title": "Id",
+                "type": "string"
+              },
+              "type": {
+                "description": "Parent type: `database`, `page`, `team`, `workspace`, or `data_source`.",
+                "title": "Type",
+                "type": "string"
+              }
+            },
+            "required": [
+              "type"
+            ],
+            "title": "NotionParent",
+            "type": "object"
+          },
+          "NotionPrincipal": {
+            "description": "An actor (user or bot) referenced by a Notion event.",
+            "properties": {
+              "id": {
+                "description": "Notion principal ID.",
+                "title": "Id",
+                "type": "string"
+              },
+              "type": {
+                "description": "Principal type, usually `person` or `bot`.",
+                "title": "Type",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "type"
+            ],
+            "title": "NotionPrincipal",
+            "type": "object"
+          },
+          "NotionUpdatedBlock": {
+            "properties": {
+              "id": {
+                "description": "ID of the block that was updated.",
+                "title": "Id",
+                "type": "string"
+              },
+              "type": {
+                "description": "Notion block-type identifier (e.g. `paragraph`, `heading_1`, `code`, `image`, or `page` when a sub-page was added).",
+                "title": "Type",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "type"
+            ],
+            "title": "NotionUpdatedBlock",
+            "type": "object"
+          },
+          "PageContentUpdatedData": {
+            "properties": {
+              "parent": {
+                "additionalProperties": false,
+                "description": "The page's parent — database (rows), page, team, or workspace.",
+                "properties": {
+                  "data_source_id": {
+                    "description": "When `type == 'database'`, the underlying data source ID. Present on row events (page.* under a database) so consumers can route by data source identity.",
+                    "title": "Data Source Id",
+                    "type": "string"
+                  },
+                  "id": {
+                    "description": "ID of the parent entity. Absent for workspace-root parents.",
+                    "title": "Id",
+                    "type": "string"
+                  },
+                  "type": {
+                    "description": "Parent type: `database`, `page`, `team`, `workspace`, or `data_source`.",
+                    "title": "Type",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "title": "Parent",
+                "type": "object"
+              },
+              "updated_blocks": {
+                "description": "Blocks that were edited in the aggregation window (~60s). Multiple block edits on the same page collapse into one event with all block IDs listed here.",
+                "items": {
+                  "properties": {
+                    "id": {
+                      "description": "ID of the block that was updated.",
+                      "title": "Id",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Notion block-type identifier (e.g. `paragraph`, `heading_1`, `code`, `image`, or `page` when a sub-page was added).",
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "type"
+                  ],
+                  "title": "NotionUpdatedBlock",
+                  "type": "object"
+                },
+                "title": "Updated Blocks",
+                "type": "array"
+              }
+            },
+            "required": [
+              "parent"
+            ],
+            "title": "PageContentUpdatedData",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "authors": {
+            "description": "Actors who performed the action.",
+            "items": {
+              "description": "An actor (user or bot) referenced by a Notion event.",
+              "properties": {
+                "id": {
+                  "description": "Notion principal ID.",
+                  "title": "Id",
+                  "type": "string"
+                },
+                "type": {
+                  "description": "Principal type, usually `person` or `bot`.",
+                  "title": "Type",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "type"
+              ],
+              "title": "NotionPrincipal",
+              "type": "object"
+            },
+            "title": "Authors",
+            "type": "array"
+          },
+          "data": {
+            "additionalProperties": false,
+            "description": "Parent reference plus the list of updated blocks.",
+            "properties": {
+              "parent": {
+                "additionalProperties": false,
+                "description": "The page's parent — database (rows), page, team, or workspace.",
+                "properties": {
+                  "data_source_id": {
+                    "description": "When `type == 'database'`, the underlying data source ID. Present on row events (page.* under a database) so consumers can route by data source identity.",
+                    "title": "Data Source Id",
+                    "type": "string"
+                  },
+                  "id": {
+                    "description": "ID of the parent entity. Absent for workspace-root parents.",
+                    "title": "Id",
+                    "type": "string"
+                  },
+                  "type": {
+                    "description": "Parent type: `database`, `page`, `team`, `workspace`, or `data_source`.",
+                    "title": "Type",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "type"
+                ],
+                "title": "Parent",
+                "type": "object"
+              },
+              "updated_blocks": {
+                "description": "Blocks that were edited in the aggregation window (~60s). Multiple block edits on the same page collapse into one event with all block IDs listed here.",
+                "items": {
+                  "properties": {
+                    "id": {
+                      "description": "ID of the block that was updated.",
+                      "title": "Id",
+                      "type": "string"
+                    },
+                    "type": {
+                      "description": "Notion block-type identifier (e.g. `paragraph`, `heading_1`, `code`, `image`, or `page` when a sub-page was added).",
+                      "title": "Type",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "type"
+                  ],
+                  "title": "NotionUpdatedBlock",
+                  "type": "object"
+                },
+                "title": "Updated Blocks",
+                "type": "array"
+              }
+            },
+            "required": [
+              "parent"
+            ],
+            "title": "Data",
+            "type": "object"
+          },
+          "event_id": {
+            "description": "Unique ID of the webhook event.",
+            "title": "Event Id",
+            "type": "string"
+          },
+          "event_type": {
+            "description": "Notion webhook event type.",
+            "title": "Event Type",
+            "type": "string"
+          },
+          "page_id": {
+            "description": "ID of the page whose content changed. For child-block additions (e.g. a new sub-page), this is the parent's ID.",
+            "title": "Page Id",
+            "type": "string"
+          },
+          "timestamp": {
+            "description": "ISO 8601 event timestamp.",
+            "title": "Timestamp",
+            "type": "string"
+          },
+          "workspace_id": {
+            "description": "Workspace where the event occurred.",
+            "title": "Workspace Id",
+            "type": "string"
+          },
+          "workspace_name": {
+            "description": "Workspace name from the event.",
+            "title": "Workspace Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "event_id",
+          "event_type",
+          "workspace_id",
+          "timestamp",
+          "page_id",
+          "data"
+        ],
+        "title": "PageContentUpdatedPayload",
+        "type": "object"
+      },
+      "config": {
+        "properties": {
+          "data_source_id": {
+            "description": "Optional data source ID to scope to body-content edits on any row in this Notion data source. Mutually exclusive with page_id and parent_page_id.",
+            "title": "Data Source Id",
+            "type": "string"
+          },
+          "page_id": {
+            "description": "Optional page ID to scope to body-content edits on this specific Notion page. Mutually exclusive with data_source_id and parent_page_id.",
+            "title": "Page Id",
+            "type": "string"
+          },
+          "parent_page_id": {
+            "description": "Optional parent page ID to scope to body-content edits on any page whose immediate parent is this Notion page (does not match grandchildren). Mutually exclusive with data_source_id and page_id.",
+            "title": "Parent Page Id",
+            "type": "string"
+          }
+        },
+        "title": "PageContentUpdatedConfig",
+        "type": "object"
+      },
+      "version": "20260730_00"
+    },
+    "GOOGLEDOCS_DOCUMENT_CREATED_TRIGGER": {
+      "slug": "GOOGLEDOCS_DOCUMENT_CREATED_TRIGGER",
+      "name": "New Document Created",
+      "description": "Triggers when a new Google Doc is created.\n    This trigger monitors Google Docs and fires when new documents are detected.\n    Uses timestamp filtering to efficiently poll for new documents.",
+      "instructions": "\n    **Instructions for Setting Up the Trigger:**\n\n    - This trigger monitors Google Docs for newly created documents.\n    - You can optionally provide a search query to filter which documents to monitor.\n    - The trigger will detect documents created after the trigger is set up.\n    - Use max_results to control how many documents to check in each poll (default: 100).\n    - Examples of search queries:\n      - name contains 'report' - Monitor documents with 'report' in the name\n      - fullText contains 'important' - Monitor documents containing the word 'important'\n      - Leave query empty to monitor all new documents\n    ",
+      "toolkit": {
+        "logo": "https://logos.composio.dev/api/googledocs",
+        "slug": "googledocs",
+        "name": "googledocs"
+      },
+      "payload": {
+        "$defs": {
+          "GoogleDocSchema": {
+            "description": "Schema for a Google Doc.",
+            "properties": {
+              "createdTime": {
+                "description": "Creation time in ISO format",
+                "title": "Created Time",
+                "type": "string"
+              },
+              "id": {
+                "description": "Unique identifier of the document",
+                "title": "Id",
+                "type": "string"
+              },
+              "lastModifyingUser": {
+                "additionalProperties": true,
+                "description": "Information about the last user who modified the document",
+                "title": "Last Modifying User",
+                "type": "object"
+              },
+              "mimeType": {
+                "description": "MIME type of the document",
+                "title": "Mime Type",
+                "type": "string"
+              },
+              "modifiedTime": {
+                "description": "Last modification time in ISO format",
+                "title": "Modified Time",
+                "type": "string"
+              },
+              "name": {
+                "description": "Name of the document",
+                "title": "Name",
+                "type": "string"
+              },
+              "owners": {
+                "description": "List of document owners",
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "title": "Owners",
+                "type": "array"
+              },
+              "shared": {
+                "description": "Whether the document is shared",
+                "title": "Shared",
+                "type": "boolean"
+              },
+              "size": {
+                "description": "Size of the document in bytes",
+                "title": "Size",
+                "type": "string"
+              },
+              "starred": {
+                "description": "Whether the document is starred",
+                "title": "Starred",
+                "type": "boolean"
+              },
+              "trashed": {
+                "description": "Whether the document is in trash",
+                "title": "Trashed",
+                "type": "boolean"
+              },
+              "webViewLink": {
+                "description": "Link to view the document in browser",
+                "title": "Web View Link",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "mimeType",
+              "createdTime",
+              "modifiedTime",
+              "webViewLink"
+            ],
+            "title": "GoogleDocSchema",
+            "type": "object"
+          }
+        },
+        "description": "Payload for Google Docs document created event.",
+        "properties": {
+          "document": {
+            "additionalProperties": false,
+            "description": "The newly created Google document",
+            "properties": {
+              "createdTime": {
+                "description": "Creation time in ISO format",
+                "title": "Created Time",
+                "type": "string"
+              },
+              "id": {
+                "description": "Unique identifier of the document",
+                "title": "Id",
+                "type": "string"
+              },
+              "lastModifyingUser": {
+                "additionalProperties": true,
+                "description": "Information about the last user who modified the document",
+                "title": "Last Modifying User",
+                "type": "object"
+              },
+              "mimeType": {
+                "description": "MIME type of the document",
+                "title": "Mime Type",
+                "type": "string"
+              },
+              "modifiedTime": {
+                "description": "Last modification time in ISO format",
+                "title": "Modified Time",
+                "type": "string"
+              },
+              "name": {
+                "description": "Name of the document",
+                "title": "Name",
+                "type": "string"
+              },
+              "owners": {
+                "description": "List of document owners",
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "title": "Owners",
+                "type": "array"
+              },
+              "shared": {
+                "description": "Whether the document is shared",
+                "title": "Shared",
+                "type": "boolean"
+              },
+              "size": {
+                "description": "Size of the document in bytes",
+                "title": "Size",
+                "type": "string"
+              },
+              "starred": {
+                "description": "Whether the document is starred",
+                "title": "Starred",
+                "type": "boolean"
+              },
+              "trashed": {
+                "description": "Whether the document is in trash",
+                "title": "Trashed",
+                "type": "boolean"
+              },
+              "webViewLink": {
+                "description": "Link to view the document in browser",
+                "title": "Web View Link",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "mimeType",
+              "createdTime",
+              "modifiedTime",
+              "webViewLink"
+            ],
+            "title": "Document",
+            "type": "object"
+          },
+          "event_type": {
+            "default": "document_created",
+            "description": "Type of event that occurred",
+            "title": "Event Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "document"
+        ],
+        "title": "DocumentCreatedPayload",
+        "type": "object"
+      },
+      "config": {
+        "description": "Configuration for Google Docs document created trigger.",
+        "properties": {
+          "interval": {
+            "default": 2,
+            "description": "Periodic Interval to Check for Updates & Send a Trigger in Minutes",
+            "title": "Interval",
+            "type": "number"
+          },
+          "max_results": {
+            "default": 100,
+            "description": "Maximum number of documents to check in each poll (1-1000)",
+            "maximum": 1000,
+            "minimum": 1,
+            "title": "Max Results",
+            "type": "integer"
+          },
+          "query": {
+            "description": "Optional search query to filter documents. Can search by name (name contains 'report'), full text content (fullText contains 'important'), or use complex queries with operators like 'and', 'or', 'not'. Leave empty to monitor all documents.",
+            "examples": [
+              "name contains 'report'",
+              "fullText contains 'important'",
+              "name contains 'project' and fullText contains 'status'"
+            ],
+            "title": "Query",
+            "type": "string"
+          }
+        },
+        "title": "DocumentCreatedConfig",
+        "type": "object"
+      },
+      "version": "20260721_00"
+    },
+    "GOOGLEDOCS_DOCUMENT_UPDATED_TRIGGER": {
+      "slug": "GOOGLEDOCS_DOCUMENT_UPDATED_TRIGGER",
+      "name": "Document Updated",
+      "description": "Triggers when an existing Google Doc is updated or modified.\n    This trigger monitors Google Docs and fires when documents are updated.",
+      "instructions": "\n    **Instructions for Setting Up the Trigger:**\n\n    - This trigger monitors Google Docs for updates to existing documents.\n    - You can optionally provide a search query to filter which documents to monitor.\n    - The trigger will detect modifications based on the document's modifiedTime.\n    - Use max_results to control how many documents to check in each poll (default: 10).\n    ",
+      "toolkit": {
+        "logo": "https://logos.composio.dev/api/googledocs",
+        "slug": "googledocs",
+        "name": "googledocs"
+      },
+      "payload": {
+        "$defs": {
+          "GoogleDocSchema": {
+            "description": "Schema for a Google Doc.",
+            "properties": {
+              "createdTime": {
+                "description": "Creation time in ISO format",
+                "title": "Created Time",
+                "type": "string"
+              },
+              "id": {
+                "description": "Unique identifier of the document",
+                "title": "Id",
+                "type": "string"
+              },
+              "lastModifyingUser": {
+                "additionalProperties": true,
+                "description": "Information about the last user who modified the document",
+                "title": "Last Modifying User",
+                "type": "object"
+              },
+              "mimeType": {
+                "description": "MIME type of the document",
+                "title": "Mime Type",
+                "type": "string"
+              },
+              "modifiedTime": {
+                "description": "Last modification time in ISO format",
+                "title": "Modified Time",
+                "type": "string"
+              },
+              "name": {
+                "description": "Name of the document",
+                "title": "Name",
+                "type": "string"
+              },
+              "owners": {
+                "description": "List of document owners",
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "title": "Owners",
+                "type": "array"
+              },
+              "shared": {
+                "description": "Whether the document is shared",
+                "title": "Shared",
+                "type": "boolean"
+              },
+              "size": {
+                "description": "Size of the document in bytes",
+                "title": "Size",
+                "type": "string"
+              },
+              "starred": {
+                "description": "Whether the document is starred",
+                "title": "Starred",
+                "type": "boolean"
+              },
+              "trashed": {
+                "description": "Whether the document is in trash",
+                "title": "Trashed",
+                "type": "boolean"
+              },
+              "webViewLink": {
+                "description": "Link to view the document in browser",
+                "title": "Web View Link",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "mimeType",
+              "createdTime",
+              "modifiedTime",
+              "webViewLink"
+            ],
+            "title": "GoogleDocSchema",
+            "type": "object"
+          }
+        },
+        "description": "Payload for Google Docs document updated event.",
+        "properties": {
+          "document": {
+            "additionalProperties": false,
+            "description": "The updated Google document",
+            "properties": {
+              "createdTime": {
+                "description": "Creation time in ISO format",
+                "title": "Created Time",
+                "type": "string"
+              },
+              "id": {
+                "description": "Unique identifier of the document",
+                "title": "Id",
+                "type": "string"
+              },
+              "lastModifyingUser": {
+                "additionalProperties": true,
+                "description": "Information about the last user who modified the document",
+                "title": "Last Modifying User",
+                "type": "object"
+              },
+              "mimeType": {
+                "description": "MIME type of the document",
+                "title": "Mime Type",
+                "type": "string"
+              },
+              "modifiedTime": {
+                "description": "Last modification time in ISO format",
+                "title": "Modified Time",
+                "type": "string"
+              },
+              "name": {
+                "description": "Name of the document",
+                "title": "Name",
+                "type": "string"
+              },
+              "owners": {
+                "description": "List of document owners",
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "title": "Owners",
+                "type": "array"
+              },
+              "shared": {
+                "description": "Whether the document is shared",
+                "title": "Shared",
+                "type": "boolean"
+              },
+              "size": {
+                "description": "Size of the document in bytes",
+                "title": "Size",
+                "type": "string"
+              },
+              "starred": {
+                "description": "Whether the document is starred",
+                "title": "Starred",
+                "type": "boolean"
+              },
+              "trashed": {
+                "description": "Whether the document is in trash",
+                "title": "Trashed",
+                "type": "boolean"
+              },
+              "webViewLink": {
+                "description": "Link to view the document in browser",
+                "title": "Web View Link",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "mimeType",
+              "createdTime",
+              "modifiedTime",
+              "webViewLink"
+            ],
+            "title": "Document",
+            "type": "object"
+          },
+          "event_type": {
+            "default": "document_updated",
+            "description": "Type of event that occurred",
+            "title": "Event Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "document"
+        ],
+        "title": "DocumentUpdatedPayload",
+        "type": "object"
+      },
+      "config": {
+        "description": "Configuration for Google Docs document updated trigger.",
+        "properties": {
+          "interval": {
+            "default": 2,
+            "description": "Periodic Interval to Check for Updates & Send a Trigger in Minutes",
+            "title": "Interval",
+            "type": "number"
+          },
+          "max_results": {
+            "default": 10,
+            "description": "Maximum number of documents to check in each poll (1-1000)",
+            "maximum": 1000,
+            "minimum": 1,
+            "title": "Max Results",
+            "type": "integer"
+          },
+          "query": {
+            "description": "Optional search query to filter documents. Leave empty to monitor all documents.",
+            "examples": [
+              "name contains 'report'",
+              "fullText contains 'status'"
+            ],
+            "title": "Query",
+            "type": "string"
+          }
+        },
+        "title": "DocumentUpdatedConfig",
+        "type": "object"
+      },
+      "version": "20260721_00"
+    },
+    "GOOGLESHEETS_NEW_SPREADSHEET_CREATED_TRIGGER": {
+      "slug": "GOOGLESHEETS_NEW_SPREADSHEET_CREATED_TRIGGER",
+      "name": "New Spreadsheet Created",
+      "description": "Triggers when a new Google Spreadsheet is created.\n    This trigger monitors Google Spreadsheets and fires when new spreadsheets are detected.\n    Uses timestamp filtering to efficiently detect newly created spreadsheets.",
+      "instructions": "\n    **Instructions for Setting Up the Trigger:**\n\n    - This trigger monitors Google Drive for newly created spreadsheets.\n    - You can optionally provide a search query to filter which spreadsheets to monitor.\n    - The trigger will detect spreadsheets created after the trigger is set up.\n    - Use max_results to control how many spreadsheets to check in each poll (default: 10).\n    - Set include_shared_drives to include or exclude spreadsheets from shared/team drives.\n    - Examples of search queries:\n      - name contains 'Budget' - Monitor spreadsheets with 'Budget' in the name\n      - fullText contains 'quarterly' - Monitor spreadsheets containing 'quarterly'\n      - Leave query empty to monitor all new spreadsheets\n    ",
+      "toolkit": {
+        "logo": "https://logos.composio.dev/api/googlesheets",
+        "slug": "googlesheets",
+        "name": "googlesheets"
+      },
+      "payload": {
+        "$defs": {
+          "SpreadsheetSchema": {
+            "description": "Schema for a Google Spreadsheet.",
+            "properties": {
+              "createdTime": {
+                "description": "Creation time in ISO format",
+                "title": "Created Time",
+                "type": "string"
+              },
+              "id": {
+                "description": "Unique identifier of the spreadsheet",
+                "title": "Id",
+                "type": "string"
+              },
+              "lastModifyingUser": {
+                "additionalProperties": true,
+                "description": "Information about the last user who modified the spreadsheet",
+                "title": "Last Modifying User",
+                "type": "object"
+              },
+              "mimeType": {
+                "description": "MIME type of the spreadsheet",
+                "title": "Mime Type",
+                "type": "string"
+              },
+              "modifiedTime": {
+                "description": "Last modification time in ISO format",
+                "title": "Modified Time",
+                "type": "string"
+              },
+              "name": {
+                "description": "Name of the spreadsheet",
+                "title": "Name",
+                "type": "string"
+              },
+              "owners": {
+                "description": "List of spreadsheet owners",
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "title": "Owners",
+                "type": "array"
+              },
+              "shared": {
+                "description": "Whether the spreadsheet is shared",
+                "title": "Shared",
+                "type": "boolean"
+              },
+              "size": {
+                "description": "Size of the spreadsheet in bytes",
+                "title": "Size",
+                "type": "string"
+              },
+              "starred": {
+                "description": "Whether the spreadsheet is starred",
+                "title": "Starred",
+                "type": "boolean"
+              },
+              "trashed": {
+                "description": "Whether the spreadsheet is in trash",
+                "title": "Trashed",
+                "type": "boolean"
+              },
+              "webViewLink": {
+                "description": "Link to view the spreadsheet in browser",
+                "title": "Web View Link",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "mimeType",
+              "createdTime",
+              "modifiedTime",
+              "webViewLink"
+            ],
+            "title": "SpreadsheetSchema",
+            "type": "object"
+          }
+        },
+        "description": "Payload for new spreadsheet created event.",
+        "properties": {
+          "event_type": {
+            "default": "spreadsheet_created",
+            "description": "Type of event that occurred",
+            "title": "Event Type",
+            "type": "string"
+          },
+          "spreadsheet": {
+            "additionalProperties": false,
+            "description": "The newly created Google Spreadsheet",
+            "properties": {
+              "createdTime": {
+                "description": "Creation time in ISO format",
+                "title": "Created Time",
+                "type": "string"
+              },
+              "id": {
+                "description": "Unique identifier of the spreadsheet",
+                "title": "Id",
+                "type": "string"
+              },
+              "lastModifyingUser": {
+                "additionalProperties": true,
+                "description": "Information about the last user who modified the spreadsheet",
+                "title": "Last Modifying User",
+                "type": "object"
+              },
+              "mimeType": {
+                "description": "MIME type of the spreadsheet",
+                "title": "Mime Type",
+                "type": "string"
+              },
+              "modifiedTime": {
+                "description": "Last modification time in ISO format",
+                "title": "Modified Time",
+                "type": "string"
+              },
+              "name": {
+                "description": "Name of the spreadsheet",
+                "title": "Name",
+                "type": "string"
+              },
+              "owners": {
+                "description": "List of spreadsheet owners",
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "title": "Owners",
+                "type": "array"
+              },
+              "shared": {
+                "description": "Whether the spreadsheet is shared",
+                "title": "Shared",
+                "type": "boolean"
+              },
+              "size": {
+                "description": "Size of the spreadsheet in bytes",
+                "title": "Size",
+                "type": "string"
+              },
+              "starred": {
+                "description": "Whether the spreadsheet is starred",
+                "title": "Starred",
+                "type": "boolean"
+              },
+              "trashed": {
+                "description": "Whether the spreadsheet is in trash",
+                "title": "Trashed",
+                "type": "boolean"
+              },
+              "webViewLink": {
+                "description": "Link to view the spreadsheet in browser",
+                "title": "Web View Link",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "mimeType",
+              "createdTime",
+              "modifiedTime",
+              "webViewLink"
+            ],
+            "title": "Spreadsheet",
+            "type": "object"
+          }
+        },
+        "required": [
+          "spreadsheet"
+        ],
+        "title": "NewSpreadsheetPayload",
+        "type": "object"
+      },
+      "config": {
+        "description": "Configuration for Google Sheets new spreadsheet created trigger.",
+        "properties": {
+          "include_shared_drives": {
+            "default": true,
+            "description": "Whether to include spreadsheets from shared drives you have access to. Defaults to True.",
+            "title": "Include Shared Drives",
+            "type": "boolean"
+          },
+          "interval": {
+            "default": 2,
+            "description": "Periodic Interval to Check for Updates & Send a Trigger in Minutes",
+            "title": "Interval",
+            "type": "number"
+          },
+          "max_results": {
+            "default": 10,
+            "description": "Maximum number of spreadsheets to check in each poll (1-1000)",
+            "maximum": 1000,
+            "minimum": 1,
+            "title": "Max Results",
+            "type": "integer"
+          },
+          "query": {
+            "description": "Optional search query to filter spreadsheets. Can search by name (name contains 'Budget'), full text content (fullText contains 'sales'), or use complex queries with operators. Leave empty to monitor all spreadsheets.",
+            "examples": [
+              "name contains 'Budget'",
+              "fullText contains 'quarterly report'",
+              "name contains 'project' and fullText contains 'status'"
+            ],
+            "title": "Query",
+            "type": "string"
+          }
+        },
+        "title": "NewSpreadsheetCreatedConfig",
+        "type": "object"
+      },
+      "version": "20260721_00"
+    },
+    "GOOGLESLIDES_SLIDE_ADDED_TRIGGER": {
+      "slug": "GOOGLESLIDES_SLIDE_ADDED_TRIGGER",
+      "name": "New Slide Added",
+      "description": "Fires when a new slide is added to a Google Slides presentation.",
+      "instructions": "\n**Instructions for Setting Up the Trigger:**\n\n- Provide the presentation ID you want to monitor.\n- This trigger will poll the presentation for new slides and fire when a new slide is added.\n- You can get the presentation ID from the Google Slides URL or via the Get Presentation action.\n    ",
+      "toolkit": {
+        "logo": "https://logos.composio.dev/api/googleslides",
+        "slug": "googleslides",
+        "name": "googleslides"
+      },
+      "payload": {
+        "description": "Payload model for new slide events.",
+        "properties": {
+          "event_type": {
+            "default": "slide_added",
+            "description": "Type of slide event",
+            "title": "Event Type",
+            "type": "string"
+          },
+          "slide": {
+            "additionalProperties": true,
+            "description": "The slide object that was added",
+            "title": "Slide",
+            "type": "object"
+          }
+        },
+        "required": [
+          "slide"
+        ],
+        "title": "SlidePayload",
+        "type": "object"
+      },
+      "config": {
+        "properties": {
+          "interval": {
+            "default": 2,
+            "description": "Periodic Interval to Check for Updates & Send a Trigger in Minutes",
+            "title": "Interval",
+            "type": "number"
+          },
+          "presentation_id": {
+            "description": "The ID of the presentation to monitor for new slides",
+            "title": "Presentation Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "presentation_id"
+        ],
+        "title": "SlideAddedConfig",
+        "type": "object"
+      },
+      "version": "20260721_00"
+    },
+    "STRIPE_INVOICE_PAYMENT_SUCCEEDED_TRIGGER": {
+      "slug": "STRIPE_INVOICE_PAYMENT_SUCCEEDED_TRIGGER",
+      "name": "Invoice Payment Succeeded Trigger",
+      "description": "Triggered when an invoice payment is successful in Stripe",
+      "instructions": "",
+      "toolkit": {
+        "logo": "https://logos.composio.dev/api/stripe",
+        "slug": "stripe",
+        "name": "stripe"
+      },
+      "payload": {
+        "description": "Base class for Stripe payloads",
+        "properties": {
+          "body": {
+            "description": "The entire event payload",
+            "title": "Body"
+          },
+          "event_type": {
+            "description": "The type of event",
+            "title": "Event Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "body",
+          "event_type"
+        ],
+        "title": "StripeBasePayload",
+        "type": "object"
+      },
+      "config": {
+        "description": "No config needed for this webhook",
+        "properties": {},
+        "title": "StripeWebhookConfig",
+        "type": "object"
+      },
+      "version": "20260721_00"
+    },
+    "STRIPE_CHECKOUT_SESSION_COMPLETED_TRIGGER": {
+      "slug": "STRIPE_CHECKOUT_SESSION_COMPLETED_TRIGGER",
+      "name": "Checkout Session Completed Trigger",
+      "description": "Triggered when a checkout session is completed in Stripe",
+      "instructions": "",
+      "toolkit": {
+        "logo": "https://logos.composio.dev/api/stripe",
+        "slug": "stripe",
+        "name": "stripe"
+      },
+      "payload": {
+        "description": "Base class for Stripe payloads",
+        "properties": {
+          "body": {
+            "description": "The entire event payload",
+            "title": "Body"
+          },
+          "event_type": {
+            "description": "The type of event",
+            "title": "Event Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "body",
+          "event_type"
+        ],
+        "title": "StripeBasePayload",
+        "type": "object"
+      },
+      "config": {
+        "description": "No config needed for this webhook",
+        "properties": {},
+        "title": "StripeWebhookConfig",
+        "type": "object"
+      },
+      "version": "20260721_00"
+    },
+    "STRIPE_SUBSCRIPTION_ADDED_TRIGGER": {
+      "slug": "STRIPE_SUBSCRIPTION_ADDED_TRIGGER",
+      "name": "Subscription Added Trigger",
+      "description": "Triggered when a subscription is added in Stripe",
+      "instructions": "",
+      "toolkit": {
+        "logo": "https://logos.composio.dev/api/stripe",
+        "slug": "stripe",
+        "name": "stripe"
+      },
+      "payload": {
+        "description": "Base class for Stripe payloads",
+        "properties": {
+          "body": {
+            "description": "The entire event payload",
+            "title": "Body"
+          },
+          "event_type": {
+            "description": "The type of event",
+            "title": "Event Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "body",
+          "event_type"
+        ],
+        "title": "StripeBasePayload",
+        "type": "object"
+      },
+      "config": {
+        "description": "No config needed for this webhook",
+        "properties": {},
+        "title": "StripeWebhookConfig",
+        "type": "object"
+      },
+      "version": "20260721_00"
+    },
+    "STRIPE_SUBSCRIPTION_DELETED_TRIGGER": {
+      "slug": "STRIPE_SUBSCRIPTION_DELETED_TRIGGER",
+      "name": "Subscription Deleted Trigger",
+      "description": "Triggered when a subscription is deleted in Stripe",
+      "instructions": "",
+      "toolkit": {
+        "logo": "https://logos.composio.dev/api/stripe",
+        "slug": "stripe",
+        "name": "stripe"
+      },
+      "payload": {
+        "description": "Base class for Stripe payloads",
+        "properties": {
+          "body": {
+            "description": "The entire event payload",
+            "title": "Body"
+          },
+          "event_type": {
+            "description": "The type of event",
+            "title": "Event Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "body",
+          "event_type"
+        ],
+        "title": "StripeBasePayload",
+        "type": "object"
+      },
+      "config": {
+        "description": "No config needed for this webhook",
+        "properties": {},
+        "title": "StripeWebhookConfig",
+        "type": "object"
+      },
+      "version": "20260721_00"
+    },
+    "STRIPE_CHARGE_FAILED_TRIGGER": {
+      "slug": "STRIPE_CHARGE_FAILED_TRIGGER",
+      "name": "Charge Failed Trigger",
+      "description": "Triggered when a direct charge fails in Stripe's legacy Charges API",
+      "instructions": "",
+      "toolkit": {
+        "logo": "https://logos.composio.dev/api/stripe",
+        "slug": "stripe",
+        "name": "stripe"
+      },
+      "payload": {
+        "description": "Base class for Stripe payloads",
+        "properties": {
+          "body": {
+            "description": "The entire event payload",
+            "title": "Body"
+          },
+          "event_type": {
+            "description": "The type of event",
+            "title": "Event Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "body",
+          "event_type"
+        ],
+        "title": "StripeBasePayload",
+        "type": "object"
+      },
+      "config": {
+        "description": "No config needed for this webhook",
+        "properties": {},
+        "title": "StripeWebhookConfig",
+        "type": "object"
+      },
+      "version": "20260721_00"
+    },
+    "HUBSPOT_CONTACT_CREATED_TRIGGER": {
+      "slug": "HUBSPOT_CONTACT_CREATED_TRIGGER",
+      "name": "Contact Created Trigger",
+      "description": "Contact Created Trigger",
+      "instructions": "",
+      "toolkit": {
+        "logo": "https://logos.composio.dev/api/hubspot",
+        "slug": "hubspot",
+        "name": "hubspot"
+      },
+      "payload": {
+        "properties": {
+          "objectId": {
+            "description": "The ID of the object.",
+            "title": "Object Id",
+            "type": "string"
+          },
+          "subscriptionType": {
+            "description": "The type of the event subscription.",
+            "title": "Subscription Type",
+            "type": "string"
+          },
+          "subscription_id": {
+            "description": "The ID of the subscription.",
+            "title": "Subscription Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "objectId",
+          "subscription_id",
+          "subscriptionType"
+        ],
+        "title": "HubspotBaseTriggerPayload",
+        "type": "object"
+      },
+      "config": {
+        "properties": {
+          "app_id": {
+            "description": "The ID of the app.",
+            "title": "App Id",
+            "type": "string"
+          },
+          "developer_api_key": {
+            "description": "HubSpot Developer API Key (hapikey) for webhook management. Get this from developers.hubspot.com",
+            "title": "Developer Api Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "app_id",
+          "developer_api_key"
+        ],
+        "title": "HubspotBaseWebhookSchema",
+        "type": "object"
+      },
+      "version": "20260721_00"
+    },
+    "HUBSPOT_DEAL_STAGE_UPDATED_TRIGGER": {
+      "slug": "HUBSPOT_DEAL_STAGE_UPDATED_TRIGGER",
+      "name": "Deal Stage UpdatedTrigger",
+      "description": "Deal Stage UpdatedTrigger",
+      "instructions": "",
+      "toolkit": {
+        "logo": "https://logos.composio.dev/api/hubspot",
+        "slug": "hubspot",
+        "name": "hubspot"
+      },
+      "payload": {
+        "properties": {
+          "objectId": {
+            "description": "The ID of the object.",
+            "title": "Object Id",
+            "type": "string"
+          },
+          "subscriptionType": {
+            "description": "The type of the event subscription.",
+            "title": "Subscription Type",
+            "type": "string"
+          },
+          "subscription_id": {
+            "description": "The ID of the subscription.",
+            "title": "Subscription Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "objectId",
+          "subscription_id",
+          "subscriptionType"
+        ],
+        "title": "HubspotBaseTriggerPayload",
+        "type": "object"
+      },
+      "config": {
+        "properties": {
+          "app_id": {
+            "description": "The ID of the app.",
+            "title": "App Id",
+            "type": "string"
+          },
+          "developer_api_key": {
+            "description": "HubSpot Developer API Key (hapikey) for webhook management. Get this from developers.hubspot.com",
+            "title": "Developer Api Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "app_id",
+          "developer_api_key"
+        ],
+        "title": "HubspotBaseWebhookSchema",
+        "type": "object"
+      },
+      "version": "20260721_00"
+    },
+    "SALESFORCE_ACCOUNT_CREATED_OR_UPDATED_TRIGGER": {
+      "slug": "SALESFORCE_ACCOUNT_CREATED_OR_UPDATED_TRIGGER",
+      "name": "Account Created or Updated",
+      "description": "Triggers when an Account is created or updated in Salesforce.\n    Uses LastModifiedDate high-watermark to capture both creations and updates.",
+      "instructions": "This trigger monitors Salesforce Accounts and fires when an Account is created or updated. You can optionally supply an additional SOQL filter (e.g., Industry = 'Technology'). On the very first run, the trigger initializes without emitting historical records.",
+      "toolkit": {
+        "logo": "https://logos.composio.dev/api/salesforce",
+        "slug": "salesforce",
+        "name": "salesforce"
+      },
+      "payload": {
+        "$defs": {
+          "AccountSchema": {
+            "description": "Schema for a Salesforce Account.",
+            "properties": {
+              "account_number": {
+                "description": "Account Number",
+                "title": "Account Number",
+                "type": "string"
+              },
+              "billing_city": {
+                "description": "Billing city",
+                "title": "Billing City",
+                "type": "string"
+              },
+              "billing_country": {
+                "description": "Billing country",
+                "title": "Billing Country",
+                "type": "string"
+              },
+              "created_date": {
+                "description": "When the Account was created (ISO8601)",
+                "title": "Created Date",
+                "type": "string"
+              },
+              "id": {
+                "description": "The ID of the Account",
+                "title": "Id",
+                "type": "string"
+              },
+              "industry": {
+                "description": "Industry of the Account",
+                "title": "Industry",
+                "type": "string"
+              },
+              "last_modified_date": {
+                "description": "When the Account was last modified (ISO8601)",
+                "title": "Last Modified Date",
+                "type": "string"
+              },
+              "name": {
+                "description": "The name of the Account",
+                "title": "Name",
+                "type": "string"
+              },
+              "owner_id": {
+                "description": "Owner ID",
+                "title": "Owner Id",
+                "type": "string"
+              },
+              "phone": {
+                "description": "Main phone number",
+                "title": "Phone",
+                "type": "string"
+              },
+              "raw_fields": {
+                "additionalProperties": true,
+                "description": "Raw Salesforce fields as returned by SOQL for extensibility",
+                "title": "Raw Fields",
+                "type": "object"
+              },
+              "shipping_city": {
+                "description": "Shipping city",
+                "title": "Shipping City",
+                "type": "string"
+              },
+              "shipping_country": {
+                "description": "Shipping country",
+                "title": "Shipping Country",
+                "type": "string"
+              },
+              "type": {
+                "description": "Type of the Account",
+                "title": "Type",
+                "type": "string"
+              },
+              "website": {
+                "description": "Website URL",
+                "title": "Website",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "title": "AccountSchema",
+            "type": "object"
+          }
+        },
+        "description": "Payload for Account created or updated event.",
+        "properties": {
+          "account": {
+            "additionalProperties": false,
+            "description": "The Account record",
+            "properties": {
+              "account_number": {
+                "description": "Account Number",
+                "title": "Account Number",
+                "type": "string"
+              },
+              "billing_city": {
+                "description": "Billing city",
+                "title": "Billing City",
+                "type": "string"
+              },
+              "billing_country": {
+                "description": "Billing country",
+                "title": "Billing Country",
+                "type": "string"
+              },
+              "created_date": {
+                "description": "When the Account was created (ISO8601)",
+                "title": "Created Date",
+                "type": "string"
+              },
+              "id": {
+                "description": "The ID of the Account",
+                "title": "Id",
+                "type": "string"
+              },
+              "industry": {
+                "description": "Industry of the Account",
+                "title": "Industry",
+                "type": "string"
+              },
+              "last_modified_date": {
+                "description": "When the Account was last modified (ISO8601)",
+                "title": "Last Modified Date",
+                "type": "string"
+              },
+              "name": {
+                "description": "The name of the Account",
+                "title": "Name",
+                "type": "string"
+              },
+              "owner_id": {
+                "description": "Owner ID",
+                "title": "Owner Id",
+                "type": "string"
+              },
+              "phone": {
+                "description": "Main phone number",
+                "title": "Phone",
+                "type": "string"
+              },
+              "raw_fields": {
+                "additionalProperties": true,
+                "description": "Raw Salesforce fields as returned by SOQL for extensibility",
+                "title": "Raw Fields",
+                "type": "object"
+              },
+              "shipping_city": {
+                "description": "Shipping city",
+                "title": "Shipping City",
+                "type": "string"
+              },
+              "shipping_country": {
+                "description": "Shipping country",
+                "title": "Shipping Country",
+                "type": "string"
+              },
+              "type": {
+                "description": "Type of the Account",
+                "title": "Type",
+                "type": "string"
+              },
+              "website": {
+                "description": "Website URL",
+                "title": "Website",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "title": "Account",
+            "type": "object"
+          },
+          "event_type": {
+            "default": "account_created_or_updated",
+            "description": "Type of Salesforce Account event",
+            "title": "Event Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "account"
+        ],
+        "title": "AccountChangePayload",
+        "type": "object"
+      },
+      "config": {
+        "description": "Configuration for Salesforce Account created or updated trigger.",
+        "properties": {
+          "additional_filter": {
+            "description": "Optional additional SOQL filter to AND with LastModifiedDate condition. Example: Industry = 'Technology'",
+            "title": "Additional Filter",
+            "type": "string"
+          },
+          "fields": {
+            "description": "Optional list of Account fields to include in the payload. If not provided, a set of common key fields is returned.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "interval": {
+            "default": 2,
+            "description": "Periodic Interval to Check for Updates & Send a Trigger in Minutes",
+            "title": "Interval",
+            "type": "number"
+          },
+          "max_records": {
+            "default": 100,
+            "description": "Maximum number of accounts to check in each poll (1-1000)",
+            "maximum": 1000,
+            "minimum": 1,
+            "title": "Max Records",
+            "type": "integer"
+          }
+        },
+        "title": "AccountCreatedOrUpdatedConfig",
+        "type": "object"
+      },
+      "version": "20260804_00"
+    },
+    "SALESFORCE_CONTACT_UPDATED_TRIGGER": {
+      "slug": "SALESFORCE_CONTACT_UPDATED_TRIGGER",
+      "name": "Contact Updated",
+      "description": "Triggers when an existing Salesforce Contact record is modified.\n    Emits changed fields alongside relevant timestamps.",
+      "instructions": "Monitors Salesforce Contacts and fires when an existing record is modified. Configure optional fields_to_watch to control which fields are diffed. On the first run (when last_synced_at == 0), the trigger initializes state without emitting any events.",
+      "toolkit": {
+        "logo": "https://logos.composio.dev/api/salesforce",
+        "slug": "salesforce",
+        "name": "salesforce"
+      },
+      "payload": {
+        "description": "Payload emitted when a Salesforce Contact is updated.",
+        "properties": {
+          "changed_fields": {
+            "additionalProperties": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "description": "Mapping of field name to {old, new} values",
+            "title": "Changed Fields",
+            "type": "object"
+          },
+          "contact_id": {
+            "description": "The ID of the updated contact",
+            "title": "Contact Id",
+            "type": "string"
+          },
+          "event_type": {
+            "default": "contact_updated",
+            "description": "Type of event",
+            "title": "Event Type",
+            "type": "string"
+          },
+          "last_modified_date": {
+            "description": "LastModifiedDate timestamp of the record",
+            "title": "Last Modified Date",
+            "type": "string"
+          },
+          "system_modstamp": {
+            "description": "SystemModstamp timestamp of the record",
+            "title": "System Modstamp",
+            "type": "string"
+          }
+        },
+        "required": [
+          "contact_id",
+          "changed_fields"
+        ],
+        "title": "ContactUpdatedPayload",
+        "type": "object"
+      },
+      "config": {
+        "description": "Configuration for Salesforce Contact Updated trigger.",
+        "properties": {
+          "fields_to_watch": {
+            "default": [
+              "FirstName",
+              "LastName",
+              "Name",
+              "Email",
+              "Phone",
+              "Title",
+              "Department",
+              "AccountId",
+              "MailingStreet",
+              "MailingCity",
+              "MailingState",
+              "MailingPostalCode",
+              "MailingCountry"
+            ],
+            "description": "List of Contact fields to monitor for changes. Only changes in these fields will be emitted in the payload.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Fields To Watch",
+            "type": "array"
+          },
+          "interval": {
+            "default": 2,
+            "description": "Periodic Interval to Check for Updates & Send a Trigger in Minutes",
+            "title": "Interval",
+            "type": "number"
+          },
+          "max_batch_size": {
+            "default": 100,
+            "description": "Maximum number of updated contacts to fetch per poll (LIMIT).",
+            "maximum": 2000,
+            "minimum": 1,
+            "title": "Max Batch Size",
+            "type": "integer"
+          }
+        },
+        "title": "ContactUpdatedConfig",
+        "type": "object"
+      },
+      "version": "20260804_00"
+    },
+    "PIPEDRIVE_NEW_DEAL_TRIGGER": {
+      "slug": "PIPEDRIVE_NEW_DEAL_TRIGGER",
+      "name": "New Deal Received Trigger",
+      "description": "Triggered when a new deal is created in Pipedrive",
+      "instructions": "",
+      "toolkit": {
+        "logo": "https://logos.composio.dev/api/pipedrive",
+        "slug": "pipedrive",
+        "name": "pipedrive"
+      },
+      "payload": {
+        "description": "Data structure for deal events",
+        "properties": {
+          "currency": {
+            "description": "Currency of the deal",
+            "title": "Currency",
+            "type": "string"
+          },
+          "id": {
+            "description": "ID of the deal",
+            "title": "Id",
+            "type": "string"
+          },
+          "stage_id": {
+            "description": "ID of the pipeline stage",
+            "title": "Stage Id",
+            "type": "string"
+          },
+          "status": {
+            "description": "Status of the deal",
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "description": "Title of the deal",
+            "title": "Title",
+            "type": "string"
+          },
+          "user_id": {
+            "description": "ID of the user who created the deal",
+            "title": "User Id",
+            "type": "string"
+          },
+          "value": {
+            "description": "Value of the deal",
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "title": "PipedriveDealPayload",
+        "type": "object"
+      },
+      "config": {
+        "description": "Configuration for new deal webhook",
+        "properties": {},
+        "title": "PipedriveNewDealConfig",
+        "type": "object"
+      },
+      "version": "20260724_00"
+    },
+    "PIPEDRIVE_NEW_ORGANIZATION_TRIGGER": {
+      "slug": "PIPEDRIVE_NEW_ORGANIZATION_TRIGGER",
+      "name": "New Organization Received Trigger",
+      "description": "Triggered when a new organization is created in Pipedrive",
+      "instructions": "",
+      "toolkit": {
+        "logo": "https://logos.composio.dev/api/pipedrive",
+        "slug": "pipedrive",
+        "name": "pipedrive"
+      },
+      "payload": {
+        "description": "Data structure for organization events",
+        "properties": {
+          "address": {
+            "description": "Address of the organization",
+            "title": "Address",
+            "type": "string"
+          },
+          "email": {
+            "description": "Email of the organization",
+            "title": "Email",
+            "type": "string"
+          },
+          "id": {
+            "description": "ID of the organization",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "description": "Name of the organization",
+            "title": "Name",
+            "type": "string"
+          },
+          "owner_id": {
+            "description": "ID of the organization owner",
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "phone": {
+            "description": "Phone number of the organization",
+            "title": "Phone",
+            "type": "string"
+          },
+          "web": {
+            "description": "Website of the organization",
+            "title": "Web",
+            "type": "string"
+          }
+        },
+        "title": "PipedriveOrganizationPayload",
+        "type": "object"
+      },
+      "config": {
+        "description": "Configuration for new organization webhook",
+        "properties": {},
+        "title": "PipedriveNewOrganizationConfig",
+        "type": "object"
+      },
+      "version": "20260724_00"
+    },
+    "SLACK_CHANNEL_MESSAGE_RECEIVED": {
+      "slug": "SLACK_CHANNEL_MESSAGE_RECEIVED",
+      "name": "Channel Message Received",
+      "description": "Triggered when a message is posted in a Slack channel\n    (public, private, or multi-party IM). Does NOT match direct messages.",
+      "instructions": "To use this trigger, ensure your Slack app has the `channels:history`, `groups:history`, and `mpim:history` OAuth scopes.",
+      "toolkit": {
+        "logo": "https://logos.composio.dev/api/slack",
+        "slug": "slack",
+        "name": "slack"
+      },
+      "payload": {
+        "properties": {
+          "attachments": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Attachments",
+            "type": "array"
+          },
+          "blocks": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Blocks",
+            "type": "array"
+          },
+          "bot_id": {
+            "title": "Bot Id",
+            "type": "string"
+          },
+          "channel": {
+            "title": "Channel",
+            "type": "string"
+          },
+          "channel_type": {
+            "title": "Channel Type",
+            "type": "string"
+          },
+          "files": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "subtype": {
+            "title": "Subtype",
+            "type": "string"
+          },
+          "team_id": {
+            "title": "Team Id",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "thread_ts": {
+            "title": "Thread Ts",
+            "type": "string"
+          },
+          "ts": {
+            "title": "Ts",
+            "type": "string"
+          },
+          "user": {
+            "title": "User",
+            "type": "string"
+          }
+        },
+        "required": [
+          "channel",
+          "ts"
+        ],
+        "title": "ChannelMessageReceivedPayloadSchema",
+        "type": "object"
+      },
+      "config": {
+        "properties": {
+          "channel_id": {
+            "description": "Specific channel to watch. Null = all channels.",
+            "title": "Channel Id",
+            "type": "string"
+          },
+          "channel_type": {
+            "description": "Filter by channel type. channel = public, group = private, mpim = multi-party IM. Null = all types.",
+            "enum": [
+              "channel",
+              "group",
+              "mpim"
+            ],
+            "title": "Channel Type",
+            "type": "string"
+          },
+          "is_bot_message": {
+            "description": "Filter by message source. true = only bot messages, false = only human messages, null = all.",
+            "title": "Is Bot Message",
+            "type": "boolean"
+          },
+          "is_thread_reply": {
+            "description": "Filter by thread status. true = only thread replies, false = only top-level, null = all.",
+            "title": "Is Thread Reply",
+            "type": "boolean"
+          }
+        },
+        "title": "ChannelMessageReceivedConfig",
+        "type": "object"
+      },
+      "version": "20260721_00"
+    },
+    "SLACK_DIRECT_MESSAGE_RECEIVED": {
+      "slug": "SLACK_DIRECT_MESSAGE_RECEIVED",
+      "name": "Direct Message Received",
+      "description": "Triggered when a new direct message (DM) is sent to a user in Slack.\n    Catches all DMs across all DM channels.",
+      "instructions": "To use this trigger, ensure your Slack app has the `im:history` OAuth scope.",
+      "toolkit": {
+        "logo": "https://logos.composio.dev/api/slack",
+        "slug": "slack",
+        "name": "slack"
+      },
+      "payload": {
+        "properties": {
+          "attachments": {
+            "description": "Attachments included with the direct message, if any. Some Slack apps (like Datadog) send content via attachments rather than the top-level text field.",
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Attachments",
+            "type": "array"
+          },
+          "bot_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The ID of the bot that sent the direct message",
+            "title": "Bot Id"
+          },
+          "channel": {
+            "description": "The ID of the direct message channel",
+            "title": "Channel",
+            "type": "string"
+          },
+          "channel_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The type of the channel (should be 'im' for direct messages)",
+            "title": "Channel Type"
+          },
+          "files": {
+            "description": "Files uploaded with the direct message, if any. Present when subtype is 'file_share'. Contains file metadata including name, mimetype, and URLs.",
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "team_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The ID of the team where the direct message was sent",
+            "title": "Team Id"
+          },
+          "text": {
+            "description": "The text content of the direct message",
+            "title": "Text",
+            "type": "string"
+          },
+          "ts": {
+            "description": "The timestamp of the direct message",
+            "title": "Ts",
+            "type": "string"
+          },
+          "user": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The ID of the user who sent the direct message",
+            "title": "User"
+          }
+        },
+        "required": [
+          "channel",
+          "user",
+          "text",
+          "ts",
+          "team_id",
+          "bot_id",
+          "channel_type"
+        ],
+        "title": "DirectMessageReceivedPayloadSchema",
+        "type": "object"
+      },
+      "config": {
+        "properties": {},
+        "title": "SlackWebhookConfig",
+        "type": "object"
+      },
+      "version": "20260721_00"
+    }
+  },
+  "errors": {
+    "SALESFORCE_LEAD_CREATED_OR_UPDATED_TRIGGER": "404 {\"error\":{\"message\":\"Trigger SALESFORCE_LEAD_CREATED_OR_UPDATED_TRIGGER not found\",\"code\":2601,\"slug\":\"Trigger_ResourceNotFound\",\"status\":404,\"request_id\":\"47c12d8a-547f-4557-92b6-31f5b31fe7dc\",\"suggested_fix\":\"Check your input.\"}}",
+    "SALESFORCE_OPPORTUNITY_UPDATED_TRIGGER": "404 {\"error\":{\"message\":\"Trigger SALESFORCE_OPPORTUNITY_UPDATED_TRIGGER not found\",\"code\":2601,\"slug\":\"Trigger_ResourceNotFound\",\"status\":404,\"request_id\":\"46cbd3c3-bd44-4e9b-81b2-3d3a49b1eb90\",\"suggested_fix\":\"Check your input.\"}}"
+  }
+}

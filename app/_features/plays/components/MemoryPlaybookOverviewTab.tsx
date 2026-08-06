@@ -58,9 +58,9 @@ const RECORD_TYPE_META: Record<string, RecordTypeMeta> = {
     iconClass: "text-flame",
     bgClass: "bg-flame/10",
   },
-  Files: {
+  Resources: {
     icon: File,
-    href: "/files",
+    href: "/resources",
     iconClass: "text-amber-600 dark:text-amber-400",
     bgClass: "bg-amber-500/10",
   },

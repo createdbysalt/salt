@@ -20,6 +20,7 @@ import {
   NOTE_PROFILE_SIGNAL_KEYS,
   OPERATOR_FACT_SIGNAL_KEYS,
   CAPTURE_SIGNAL_KEYS,
+  EMAIL_INTELLIGENCE_SIGNAL_KEYS,
   type ProfileSignalKey,
 } from "@/app/_features/plays/playbooks/records-engine/types";
 
@@ -730,6 +731,147 @@ const CAPTURE_SIGNAL_DESCRIPTIONS: Record<
   },
 };
 
+const EMAIL_INTELLIGENCE_SIGNAL_DESCRIPTIONS: Record<
+  string,
+  { description: string; firesWhen: string; canTriggerActing: boolean }
+> = {
+  // Content classification signals
+  email_urgency_high: {
+    description: "Email contains urgency markers (ASAP, urgent, deadline)",
+    firesWhen: "Email classification detects urgency keywords",
+    canTriggerActing: true,
+  },
+  email_deadline_mentioned: {
+    description: "Email mentions a specific date or deadline",
+    firesWhen: "Email classification detects date patterns",
+    canTriggerActing: true,
+  },
+  email_money_amount_detected: {
+    description: "Email contains dollar amounts or currency",
+    firesWhen: "Email classification detects money patterns",
+    canTriggerActing: true,
+  },
+  email_invoice_attached: {
+    description: "Email has invoice or receipt attachment",
+    firesWhen: "Email classification detects invoice attachment",
+    canTriggerActing: true,
+  },
+  email_payment_link_detected: {
+    description: "Email contains Stripe, PayPal, or payment URL",
+    firesWhen: "Email classification detects payment links",
+    canTriggerActing: true,
+  },
+  email_question_asked: {
+    description: "Email contains direct questions requiring response",
+    firesWhen: "Email classification detects question patterns",
+    canTriggerActing: true,
+  },
+  email_action_requested: {
+    description: "Email requests action (please review, sign, approve)",
+    firesWhen: "Email classification detects action request",
+    canTriggerActing: true,
+  },
+  // Sender relationship signals
+  sender_first_contact: {
+    description: "First email ever received from this sender",
+    firesWhen: "Email from unknown sender",
+    canTriggerActing: true,
+  },
+  sender_reply_expected: {
+    description: "Part of thread where your reply is expected",
+    firesWhen: "Thread analysis detects pending response",
+    canTriggerActing: true,
+  },
+  sender_high_engagement: {
+    description: "Sender has >70% response rate from you historically",
+    firesWhen: "Sender reputation calculation",
+    canTriggerActing: false,
+  },
+  sender_vip: {
+    description: "Sender is marked as VIP contact",
+    firesWhen: "Sender lookup matches VIP list",
+    canTriggerActing: true,
+  },
+  // Thread signals
+  thread_stale_48h: {
+    description: "Thread has no response for 48+ hours",
+    firesWhen: "Thread age check exceeds threshold",
+    canTriggerActing: true,
+  },
+  thread_awaiting_reply: {
+    description: "You sent the last message in this thread",
+    firesWhen: "Thread direction analysis",
+    canTriggerActing: false,
+  },
+  // Category classification signals
+  email_classified_action_required: {
+    description: "Email classified as requiring action",
+    firesWhen: "Email classification complete",
+    canTriggerActing: true,
+  },
+  email_classified_money_moves: {
+    description: "Email classified as invoice, payment, or financial",
+    firesWhen: "Email classification complete",
+    canTriggerActing: true,
+  },
+  email_classified_opportunities: {
+    description: "Email classified as new lead or opportunity",
+    firesWhen: "Email classification complete",
+    canTriggerActing: true,
+  },
+  email_classified_updates: {
+    description: "Email classified as project update or status report",
+    firesWhen: "Email classification complete",
+    canTriggerActing: false,
+  },
+  email_classified_subscribed: {
+    description: "Email classified as newsletter or SaaS notification",
+    firesWhen: "Email classification complete",
+    canTriggerActing: false,
+  },
+  email_classified_noise: {
+    description: "Email classified as marketing or bulk mail",
+    firesWhen: "Email classification complete",
+    canTriggerActing: false,
+  },
+  // Behavioral feedback signals
+  email_archived_fast: {
+    description: "Email archived within 30 seconds of opening",
+    firesWhen: "User archives email quickly",
+    canTriggerActing: false,
+  },
+  email_archived_unread: {
+    description: "Email archived without being read",
+    firesWhen: "User archives unread email",
+    canTriggerActing: false,
+  },
+  email_replied_fast: {
+    description: "Reply sent within 5 minutes of receiving",
+    firesWhen: "User sends quick reply",
+    canTriggerActing: false,
+  },
+  email_snoozed: {
+    description: "Email was snoozed for later",
+    firesWhen: "User snoozes email",
+    canTriggerActing: false,
+  },
+  email_marked_important: {
+    description: "User explicitly marked email as important",
+    firesWhen: "User marks email important",
+    canTriggerActing: false,
+  },
+  email_training_more_like_this: {
+    description: "User requested more emails like this surfaced",
+    firesWhen: "User clicks 'more like this'",
+    canTriggerActing: false,
+  },
+  email_training_less_like_this: {
+    description: "User requested fewer emails like this surfaced",
+    firesWhen: "User clicks 'less like this'",
+    canTriggerActing: false,
+  },
+};
+
 function buildSignalDefinitions(
   keys: readonly string[],
   surface: SignalSurface,
@@ -792,6 +934,11 @@ export const SIGNAL_REGISTRY: SignalDefinition[] = [
     CAPTURE_SIGNAL_KEYS,
     "person",
     CAPTURE_SIGNAL_DESCRIPTIONS
+  ),
+  ...buildSignalDefinitions(
+    EMAIL_INTELLIGENCE_SIGNAL_KEYS,
+    "capture",
+    EMAIL_INTELLIGENCE_SIGNAL_DESCRIPTIONS
   ),
 ];
 

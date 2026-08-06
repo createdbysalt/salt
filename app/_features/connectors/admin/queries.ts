@@ -50,6 +50,9 @@ export async function getReviewQueueData(): Promise<ReviewQueueData | null> {
       supabase
         .from("connector_sync_events")
         .select("id, kind, subject_slug, created_at")
+        // webhook_outcome rows are high-volume ingress telemetry (queried
+        // by SQL for capture health), not drift alerts to acknowledge.
+        .neq("kind", "webhook_outcome")
         .is("acknowledged_at", null)
         .order("created_at", { ascending: false })
         .limit(30),

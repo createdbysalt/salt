@@ -1,11 +1,11 @@
 import {
-  generateLegalRouteMetadata,
-  LegalRoutePage,
+  generateUnifiedLegalMetadata,
+  UnifiedLegalPage,
   legalDefaultTitle,
-} from "@/app/_features/marketing/components/LegalRoutePage";
+} from "@/app/_features/marketing/components/UnifiedLegalPage";
 
 export async function generateMetadata() {
-  return generateLegalRouteMetadata({
+  return generateUnifiedLegalMetadata({
     routeSlug: "early-access",
     canonicalUrlRelative: "/early-access",
     defaultTitle: legalDefaultTitle("Early Access Terms"),
@@ -15,12 +15,5 @@ export async function generateMetadata() {
 }
 
 export default function EarlyAccessPage() {
-  return (
-    <LegalRoutePage
-      routeSlug="early-access"
-      canonicalUrlRelative="/early-access"
-      defaultTitle={legalDefaultTitle("Early Access Terms")}
-      defaultDescription=""
-    />
-  );
+  return <UnifiedLegalPage routeSlug="early-access" />;
 }

@@ -299,11 +299,12 @@ describe("getSectionMetadata", () => {
 });
 
 describe("getAllSections", () => {
-  it("returns all 9 sections", () => {
+  it("returns all 10 sections", () => {
     const sections = getAllSections();
-    expect(sections).toHaveLength(9);
+    expect(sections).toHaveLength(10);
     expect(sections.map((s) => s.slug)).toContain("relationships");
     expect(sections.map((s) => s.slug)).toContain("notes");
+    expect(sections.map((s) => s.slug)).toContain("communication");
     expect(sections.map((s) => s.slug)).not.toContain("convos");
     expect(sections.map((s) => s.slug)).toContain("_meta");
   });

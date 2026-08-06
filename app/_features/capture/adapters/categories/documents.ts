@@ -11,14 +11,15 @@ import type {
   EnvelopeParticipant,
   SignalDerivationContext,
 } from "../types";
+import { isRecord, pickString, unwrapRecord } from "../normalize-utils";
 import type { PersonSignals } from "@/app/_features/capture/services/system-plays/person-signals";
 import type { CaptureSourceType } from "@/app/_features/capture/types";
 
-type DocumentsProvider = "notion" | "googledocs" | "googlesheets" | "googleslides";
+type KnownDocumentsProvider = "notion" | "googledocs" | "googlesheets" | "googleslides";
 
-const DOCUMENTS_PROVIDERS: DocumentsProvider[] = ["notion", "googledocs", "googlesheets", "googleslides"];
+const KNOWN_DOCUMENTS_PROVIDERS: KnownDocumentsProvider[] = ["notion", "googledocs", "googlesheets", "googleslides"];
 
-const DOCUMENTS_TRIGGER_SLUGS: Record<DocumentsProvider, string[]> = {
+const DOCUMENTS_TRIGGER_SLUGS: Record<KnownDocumentsProvider, string[]> = {
   notion: ["NOTION_PAGE_CREATED", "NOTION_PAGE_CONTENT_UPDATED"],
   googledocs: ["GOOGLEDOCS_DOCUMENT_CREATED_TRIGGER", "GOOGLEDOCS_DOCUMENT_UPDATED_TRIGGER"],
   // NEW_SPREADSHEET_CREATED watches all new spreadsheets (no ID required).
@@ -27,6 +28,10 @@ const DOCUMENTS_TRIGGER_SLUGS: Record<DocumentsProvider, string[]> = {
   googleslides: ["GOOGLESLIDES_SLIDE_ADDED_TRIGGER"],
 };
 
+function isKnownDocumentsProvider(provider: string): provider is KnownDocumentsProvider {
+  return KNOWN_DOCUMENTS_PROVIDERS.includes(provider as KnownDocumentsProvider);
+}
+
 function deriveDocumentsSignals(
   envelopes: readonly CaptureEnvelope[],
   _context: SignalDerivationContext
@@ -34,8 +39,7 @@ function deriveDocumentsSignals(
   const contacts = new Map<string, PersonSignals>();
 
   for (const envelope of envelopes) {
-    if (!isDocumentsSource(envelope.sourceType)) continue;
-
+    // Documents adapters already filter by category - process all envelopes
     for (const participant of envelope.participants) {
       if (!participant.email) continue;
 
@@ -48,38 +52,94 @@ function deriveDocumentsSignals(
   return contacts;
 }
 
-function isDocumentsSource(sourceType: CaptureSourceType): boolean {
-  return DOCUMENTS_PROVIDERS.includes(sourceType as DocumentsProvider);
+// Documents adapters already filter by category - no need for source type check
+
+/**
+ * Wrapper keys Composio document triggers nest the resource under —
+ * verified against the live trigger schemas 2026-08-05
+ * (__fixtures__/composio-trigger-schemas.json):
+ *   Google Docs   → { document: {...}, event_type }
+ *   Google Sheets → { spreadsheet: {...}, event_type }
+ *   Google Slides → { slide: {...}, event_type }
+ *   Notion        → flat snake_case ({ page_id, timestamp, ... })
+ */
+const DOCUMENT_WRAPPER_KEYS = ["document", "spreadsheet", "slide", "page", "file"] as const;
+
+const DOCUMENT_ID_KEYS = [
+  "id",
+  "documentId",
+  "document_id",
+  "pageId",
+  "page_id",
+  "objectId",
+  "object_id",
+  "spreadsheetId",
+  "spreadsheet_id",
+  "presentationId",
+  "presentation_id",
+] as const;
+
+/** Google Drive-style user object ({ emailAddress, displayName }) or legacy ({ email, name }). */
+function participantFromUser(
+  user: unknown,
+  role: EnvelopeParticipant["role"],
+): EnvelopeParticipant | null {
+  if (!isRecord(user)) return null;
+  const email = pickString(user, ["emailAddress", "email_address", "email"]);
+  if (!email || !email.includes("@")) return null;
+  return {
+    email: email.toLowerCase(),
+    name: pickString(user, ["displayName", "display_name", "name"]),
+    role,
+  };
 }
 
 function normalizeGenericDocuments(
   payload: unknown,
   sourceType: CaptureSourceType
 ): CaptureEnvelope | null {
-  if (!payload || typeof payload !== "object") return null;
-  const record = payload as Record<string, unknown>;
+  if (!isRecord(payload)) return null;
+
+  // Unwrap one level of trigger nesting; the outer record keeps event_type.
+  const record = unwrapRecord(payload, DOCUMENT_WRAPPER_KEYS);
 
   const externalId =
-    (record.id as string) ??
-    (record.documentId as string) ??
-    (record.pageId as string);
+    pickString(record, DOCUMENT_ID_KEYS) ?? pickString(payload, DOCUMENT_ID_KEYS);
   if (!externalId) return null;
 
-  const title =
-    (record.title as string) ??
-    (record.name as string) ??
-    null;
+  const title = pickString(record, ["title", "name"]);
+  const eventType =
+    pickString(payload, ["event_type", "eventType"]) ??
+    pickString(record, ["event_type", "eventType"]);
 
-  const lastEditor = record.lastEditedBy as Record<string, unknown> | undefined;
   const participants: EnvelopeParticipant[] = [];
 
-  if (lastEditor?.email) {
-    participants.push({
-      email: (lastEditor.email as string).toLowerCase(),
-      name: (lastEditor.name as string) ?? null,
-      role: "other",
-    });
+  const lastEditor =
+    participantFromUser(record.lastModifyingUser, "other") ??
+    participantFromUser(record.lastEditedBy, "other");
+  if (lastEditor) participants.push(lastEditor);
+
+  if (Array.isArray(record.owners)) {
+    for (const owner of record.owners) {
+      const participant = participantFromUser(owner, "other");
+      if (
+        participant &&
+        !participants.some((p) => p.email === participant.email)
+      ) {
+        participants.push(participant);
+      }
+    }
   }
+
+  const url = pickString(record, ["webViewLink", "web_view_link", "url"]);
+
+  // Notion parent (data.parent.id) or legacy parentId — the grouping pointer.
+  const notionData = isRecord(payload.data) ? payload.data : null;
+  const notionParent =
+    notionData && isRecord(notionData.parent) ? notionData.parent : null;
+  const threadId =
+    pickString(record, ["parentId", "parent_id"]) ??
+    (notionParent ? pickString(notionParent, ["id"]) : null);
 
   return {
     sourceType,
@@ -87,15 +147,20 @@ function normalizeGenericDocuments(
     externalId,
     title,
     occurredAt:
-      (record.lastEditedTime as string) ??
-      (record.modifiedTime as string) ??
-      (record.createdTime as string) ??
-      null,
+      pickString(record, [
+        "modifiedTime",
+        "modified_time",
+        "lastEditedTime",
+        "last_edited_time",
+        "createdTime",
+        "created_time",
+      ]) ?? pickString(payload, ["timestamp"]),
     participants,
-    threadId: (record.parentId as string) ?? null,
+    threadId,
     extracted: {
       title,
-      url: (record.url as string) ?? null,
+      url,
+      ...(eventType ? { event_type: eventType } : {}),
     },
     raw: {
       documentId: externalId,
@@ -105,10 +170,14 @@ function normalizeGenericDocuments(
   };
 }
 
-export function createDocumentsCategoryAdapter(
-  provider: DocumentsProvider
-): CaptureAdapter {
-  const triggerSlugs = DOCUMENTS_TRIGGER_SLUGS[provider] ?? [];
+/**
+ * Create a documents adapter for ANY provider.
+ * Known providers get specific parsing; unknown get generic extraction.
+ */
+export function createDocumentsCategoryAdapter(provider: string): CaptureAdapter {
+  const triggerSlugs = isKnownDocumentsProvider(provider)
+    ? DOCUMENTS_TRIGGER_SLUGS[provider]
+    : []; // Unknown providers: triggers come from DB
 
   return {
     sourceType: provider as CaptureSourceType,
@@ -117,18 +186,21 @@ export function createDocumentsCategoryAdapter(
     deriveSignals: deriveDocumentsSignals,
 
     normalize(payload: unknown): CaptureEnvelope | null {
+      // All documents providers currently use generic extraction
       return normalizeGenericDocuments(payload, provider as CaptureSourceType);
     },
   };
 }
 
-export const documentsCategoryAdapters = DOCUMENTS_PROVIDERS.map(
+/** Known provider adapters (for backward compatibility). */
+export const documentsCategoryAdapters = KNOWN_DOCUMENTS_PROVIDERS.map(
   createDocumentsCategoryAdapter
 );
 
-export function getDocumentsAdapter(provider: string): CaptureAdapter | null {
-  if (!DOCUMENTS_PROVIDERS.includes(provider as DocumentsProvider)) {
-    return null;
-  }
-  return createDocumentsCategoryAdapter(provider as DocumentsProvider);
+/**
+ * Get documents adapter for ANY provider in the documents category.
+ * Always returns an adapter — unknown providers get generic extraction.
+ */
+export function getDocumentsAdapter(provider: string): CaptureAdapter {
+  return createDocumentsCategoryAdapter(provider);
 }

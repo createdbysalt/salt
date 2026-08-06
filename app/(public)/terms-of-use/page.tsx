@@ -1,26 +1,12 @@
-import {
-  generateLegalRouteMetadata,
-  LegalRoutePage,
-  legalDefaultTitle,
-} from "@/app/_features/marketing/components/LegalRoutePage";
+import { redirect } from "next/navigation";
 
-export async function generateMetadata() {
-  return generateLegalRouteMetadata({
-    routeSlug: "terms-of-use",
-    canonicalUrlRelative: "/terms-of-use",
-    defaultTitle: legalDefaultTitle("Website Terms of Use"),
-    defaultDescription:
-      "Terms governing your use of usesalt.io, including the marketing site and waitlist.",
-  });
-}
-
-export default function TermsOfUsePage() {
-  return (
-    <LegalRoutePage
-      routeSlug="terms-of-use"
-      canonicalUrlRelative="/terms-of-use"
-      defaultTitle={legalDefaultTitle("Website Terms of Use")}
-      defaultDescription=""
-    />
-  );
+/**
+ * /terms-of-use redirects to /terms-of-service
+ *
+ * The Termageddon-managed Terms of Service at /terms-of-service covers both
+ * website and application usage. This route existed pre-rename and may be
+ * linked from old emails and external sites.
+ */
+export default function TermsOfUseRedirect() {
+  redirect("/terms-of-service");
 }

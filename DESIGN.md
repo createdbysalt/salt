@@ -53,6 +53,8 @@ Warm near-white paper on a cream canvas — never pure `#fff` for page chrome.
 | `--blush` | `oklch(0.78 0.14 18)` | Coral accent |
 | `--sky` | `oklch(0.74 0.10 250)` | Dusty blue |
 | `--violet` | `oklch(0.66 0.18 320)` | Pink-violet |
+| `--teal` | `oklch(0.74 0.10 175)` | Growth, work |
+| `--amber` | `oklch(0.78 0.14 85)` | Communication, email |
 
 **Dark mode:** warm near-black — `#1c1c1c` bg, `#272725` cards, `#40403f` borders, `#c5c1b9` muted text. Not cool gray.
 

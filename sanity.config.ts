@@ -159,8 +159,8 @@ export default defineConfig({
             filter: '_type == "legalPage" && slug.current == "privacy-policy"',
           },
           {
-            route: '/terms-of-use',
-            filter: '_type == "legalPage" && slug.current == "terms-of-use"',
+            route: '/terms-of-service',
+            filter: '_type == "legalPage" && slug.current == "terms-of-service"',
           },
           {
             route: '/cookie-policy',

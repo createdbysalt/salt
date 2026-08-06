@@ -26,18 +26,18 @@ describe("memory-monopoly", () => {
   });
 
   describe("validateMemoryMonopoly", () => {
-    it("allows keeper player to use any memory slug", () => {
+    it("allows _meta section to use any memory slug", () => {
       const result = validateMemoryMonopoly(
         ["memory_create_person", "memory_update_org"],
-        "keeper",
+        "_meta",
       );
       expect(result.ok).toBe(true);
     });
 
-    it("rejects non-keeper player using memory-mutating slugs", () => {
+    it("rejects non-_meta section using memory-mutating slugs", () => {
       const result = validateMemoryMonopoly(
         ["memory_create_person"],
-        "follow-up",
+        "relationships",
       );
       expect(result.ok).toBe(false);
       if (!result.ok) {
@@ -45,10 +45,10 @@ describe("memory-monopoly", () => {
       }
     });
 
-    it("allows non-keeper player to use non-memory slugs", () => {
+    it("allows non-_meta section to use non-memory slugs", () => {
       const result = validateMemoryMonopoly(
         ["GMAIL_CREATE_EMAIL_DRAFT", "STRIPE_CREATE_INVOICE"],
-        "follow-up",
+        "relationships",
       );
       expect(result.ok).toBe(true);
     });

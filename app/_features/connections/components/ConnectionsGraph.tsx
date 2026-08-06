@@ -78,6 +78,7 @@ export function ConnectionsGraph({ initialData }: ConnectionsGraphProps) {
         note: 0,
         conversation: 0,
         meeting: 0,
+        resource: 0,
       };
       return {
         allNodes: [] as FGNode[],
@@ -103,7 +104,7 @@ export function ConnectionsGraph({ initialData }: ConnectionsGraphProps) {
       adjacency.get(e.source)!.add(e.target);
       adjacency.get(e.target)!.add(e.source);
     }
-    const counts: Record<NodeType, number> = { person: 0, org: 0, work: 0, billing: 0, file: 0, note: 0, conversation: 0, meeting: 0 };
+    const counts: Record<NodeType, number> = { person: 0, org: 0, work: 0, billing: 0, file: 0, note: 0, conversation: 0, meeting: 0, resource: 0 };
     for (const n of allNodes) counts[n.type]++;
     return { allNodes, allLinks, adjacency, counts, nodesById };
   }, [mockContent, initialData]);

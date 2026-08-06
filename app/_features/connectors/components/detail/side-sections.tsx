@@ -95,7 +95,7 @@ export function ConnectorCaptureSection({
 }
 
 export function ConnectorPermissionsSection({
-  isGmail,
+  isEmailProvider,
   connected,
   settings,
   saving,
@@ -103,7 +103,8 @@ export function ConnectorPermissionsSection({
   settingsLink,
   onEmailModeChange,
 }: {
-  isGmail: boolean;
+  /** True for email providers (Gmail, Outlook) that support draft/send mode. */
+  isEmailProvider: boolean;
   connected: boolean;
   settings: ConnectorTrustSettings | undefined;
   saving: boolean;
@@ -113,7 +114,7 @@ export function ConnectorPermissionsSection({
   onEmailModeChange: (emailMode: ConnectorEmailMode) => void;
 }) {
   // Trust is workspace-global (one switch in Settings); this section only
-  // reflects it and manages the Gmail email mode.
+  // reflects it and manages the email mode for email providers.
   const trustLevel = settings?.trustLevel ?? "read_only";
   const emailMode = settings?.emailMode ?? "draft";
 
@@ -134,7 +135,7 @@ export function ConnectorPermissionsSection({
 
       {settingsLink}
 
-      {isGmail ? (
+      {isEmailProvider ? (
         <div className="space-y-1.5">
           <div
             className="flex flex-wrap gap-1.5"
@@ -156,7 +157,7 @@ export function ConnectorPermissionsSection({
           </div>
           <p className="text-xs leading-snug text-muted-foreground">
             {emailMode === "draft"
-              ? "Salt prepares drafts in your Gmail — nothing sends until you do."
+              ? "Salt prepares drafts — nothing sends until you do."
               : "Salt can send email after you approve each message."}
           </p>
         </div>

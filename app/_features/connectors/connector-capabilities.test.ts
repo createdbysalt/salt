@@ -113,9 +113,9 @@ describe("connector integration config", () => {
   it("parses config with passthrough fields", () => {
     const parsed = parseConnectorIntegrationConfig({
       botEmail: "fred@fireflies.ai",
-      disabledTools: ["CAL_CREATE_BOOKING"],
+      disabledTools: ["CAL_ADD_ATTENDEE"],
     });
-    expect(parsed.disabledTools).toEqual(["CAL_CREATE_BOOKING"]);
+    expect(parsed.disabledTools).toEqual(["CAL_ADD_ATTENDEE"]);
     expect(parsed.botEmail).toBe("fred@fireflies.ai");
   });
 });

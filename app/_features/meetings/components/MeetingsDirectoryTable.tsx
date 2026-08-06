@@ -122,21 +122,6 @@ export function MeetingsDirectoryTable({ meetings }: MeetingsDirectoryTableProps
       toast.error(result.error);
       return;
     }
-    // #region agent log
-    fetch("http://127.0.0.1:7443/ingest/a7cd7781-629e-483f-bcc8-d958046d0b66", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "a1002e" },
-      body: JSON.stringify({
-        sessionId: "a1002e",
-        runId: "meetings-delete-fix",
-        hypothesisId: "H1-stub",
-        location: "MeetingsDirectoryTable:handleBulkDelete",
-        message: "Meeting bulk trash succeeded",
-        data: { count: selected.length, ids: selected.map((m) => m.id) },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
     toast.success(
       `Moved ${selected.length} ${selected.length === 1 ? "meeting" : "meetings"} to Trash`,
     );

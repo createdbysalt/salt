@@ -14,15 +14,19 @@ import type {
 import type { PersonSignals } from "@/app/_features/capture/services/system-plays/person-signals";
 import type { CaptureSourceType } from "@/app/_features/capture/types";
 
-type StorageProvider = "googledrive" | "dropbox" | "onedrive";
+type KnownStorageProvider = "googledrive" | "dropbox" | "onedrive";
 
-const STORAGE_PROVIDERS: StorageProvider[] = ["googledrive", "dropbox", "onedrive"];
+const KNOWN_STORAGE_PROVIDERS: KnownStorageProvider[] = ["googledrive", "dropbox", "onedrive"];
 
-const STORAGE_TRIGGER_SLUGS: Record<StorageProvider, string[]> = {
+const STORAGE_TRIGGER_SLUGS: Record<KnownStorageProvider, string[]> = {
   googledrive: ["GOOGLEDRIVE_FILE_CREATED_TRIGGER"],
   dropbox: [], // No triggers available yet - backfill only
   onedrive: [], // No triggers available yet - backfill only
 };
+
+function isKnownStorageProvider(provider: string): provider is KnownStorageProvider {
+  return KNOWN_STORAGE_PROVIDERS.includes(provider as KnownStorageProvider);
+}
 
 function deriveStorageSignals(
   envelopes: readonly CaptureEnvelope[],
@@ -31,8 +35,7 @@ function deriveStorageSignals(
   const contacts = new Map<string, PersonSignals>();
 
   for (const envelope of envelopes) {
-    if (!isStorageSource(envelope.sourceType)) continue;
-
+    // Storage adapters already filter by category - process all envelopes
     for (const participant of envelope.participants) {
       if (!participant.email) continue;
       if (isSelf(participant.email, context.userEmail)) continue;
@@ -52,13 +55,19 @@ function isSelf(email: string | null, userEmail: string | null): boolean {
   return email.toLowerCase() === userEmail.toLowerCase();
 }
 
-function isStorageSource(sourceType: CaptureSourceType): boolean {
-  return STORAGE_PROVIDERS.includes(sourceType as StorageProvider);
-}
+// Storage adapters already filter by category - no need for source type check
 
 function normalizeGoogleDrive(payload: unknown): CaptureEnvelope | null {
   if (!payload || typeof payload !== "object") return null;
-  const record = payload as Record<string, unknown>;
+  const outer = payload as Record<string, unknown>;
+
+  // GOOGLEDRIVE_FILE_CREATED_TRIGGER wraps the resource in a `file`
+  // envelope ({ creator, event_type, file }) — verified against the live
+  // trigger schema 2026-08-05. Flat payloads (backfill rows) still parse.
+  const record =
+    typeof outer.file === "object" && outer.file !== null && !Array.isArray(outer.file)
+      ? (outer.file as Record<string, unknown>)
+      : outer;
 
   const externalId = (record.id as string) ?? (record.fileId as string);
   if (!externalId) return null;
@@ -66,13 +75,18 @@ function normalizeGoogleDrive(payload: unknown): CaptureEnvelope | null {
   const name = (record.name as string) ?? null;
   const mimeType = (record.mimeType as string) ?? null;
   const owners = (record.owners as Array<Record<string, unknown>>) ?? [];
+  const creator =
+    record !== outer ? (outer.creator as Record<string, unknown> | undefined) : undefined;
   const sharingUser = record.sharingUser as Record<string, unknown> | undefined;
 
   const participants: EnvelopeParticipant[] = [];
 
-  for (const owner of owners) {
+  const ownerLike = creator ? [creator, ...owners] : owners;
+  const seen = new Set<string>();
+  for (const owner of ownerLike) {
     const email = (owner.emailAddress as string)?.toLowerCase();
-    if (email) {
+    if (email && !seen.has(email)) {
+      seen.add(email);
       participants.push({
         email,
         name: (owner.displayName as string) ?? null,
@@ -197,10 +211,14 @@ function normalizeGenericStorage(
   };
 }
 
-export function createStorageCategoryAdapter(
-  provider: StorageProvider
-): CaptureAdapter {
-  const triggerSlugs = STORAGE_TRIGGER_SLUGS[provider] ?? [];
+/**
+ * Create a storage adapter for ANY provider.
+ * Known providers get specific parsing; unknown get generic extraction.
+ */
+export function createStorageCategoryAdapter(provider: string): CaptureAdapter {
+  const triggerSlugs = isKnownStorageProvider(provider)
+    ? STORAGE_TRIGGER_SLUGS[provider]
+    : []; // Unknown providers: triggers come from DB
 
   return {
     sourceType: provider as CaptureSourceType,
@@ -209,25 +227,29 @@ export function createStorageCategoryAdapter(
     deriveSignals: deriveStorageSignals,
 
     normalize(payload: unknown): CaptureEnvelope | null {
+      // Route known providers to specific parsing
       switch (provider) {
         case "googledrive":
           return normalizeGoogleDrive(payload);
         case "dropbox":
           return normalizeDropbox(payload);
         default:
+          // Any unknown storage provider gets generic extraction
           return normalizeGenericStorage(payload, provider as CaptureSourceType);
       }
     },
   };
 }
 
-export const storageCategoryAdapters = STORAGE_PROVIDERS.map(
+/** Known provider adapters (for backward compatibility). */
+export const storageCategoryAdapters = KNOWN_STORAGE_PROVIDERS.map(
   createStorageCategoryAdapter
 );
 
-export function getStorageAdapter(provider: string): CaptureAdapter | null {
-  if (!STORAGE_PROVIDERS.includes(provider as StorageProvider)) {
-    return null;
-  }
-  return createStorageCategoryAdapter(provider as StorageProvider);
+/**
+ * Get storage adapter for ANY provider in the storage category.
+ * Always returns an adapter — unknown providers get generic extraction.
+ */
+export function getStorageAdapter(provider: string): CaptureAdapter {
+  return createStorageCategoryAdapter(provider);
 }

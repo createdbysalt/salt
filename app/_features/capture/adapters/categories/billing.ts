@@ -11,14 +11,15 @@ import type {
   EnvelopeParticipant,
   SignalDerivationContext,
 } from "../types";
+import { isRecord, pickString, unwrapRecord } from "../normalize-utils";
 import type { PersonSignals } from "@/app/_features/capture/services/system-plays/person-signals";
 import type { CaptureSourceType } from "@/app/_features/capture/types";
 
-type BillingProvider = "stripe" | "quickbooks" | "xero";
+type KnownBillingProvider = "stripe" | "quickbooks" | "xero";
 
-const BILLING_PROVIDERS: BillingProvider[] = ["stripe", "quickbooks", "xero"];
+const KNOWN_BILLING_PROVIDERS: KnownBillingProvider[] = ["stripe", "quickbooks", "xero"];
 
-const BILLING_TRIGGER_SLUGS: Record<BillingProvider, string[]> = {
+const BILLING_TRIGGER_SLUGS: Record<KnownBillingProvider, string[]> = {
   stripe: [
     "STRIPE_INVOICE_PAYMENT_SUCCEEDED_TRIGGER",
     "STRIPE_CHECKOUT_SESSION_COMPLETED_TRIGGER",
@@ -30,6 +31,10 @@ const BILLING_TRIGGER_SLUGS: Record<BillingProvider, string[]> = {
   xero: [], // Backfill only — Composio has no Xero triggers
 };
 
+function isKnownBillingProvider(provider: string): provider is KnownBillingProvider {
+  return KNOWN_BILLING_PROVIDERS.includes(provider as KnownBillingProvider);
+}
+
 function deriveBillingSignals(
   envelopes: readonly CaptureEnvelope[],
   _context: SignalDerivationContext
@@ -37,32 +42,61 @@ function deriveBillingSignals(
   const contacts = new Map<string, PersonSignals>();
 
   for (const envelope of envelopes) {
-    if (!isBillingSource(envelope.sourceType)) continue;
-
+    // Billing adapters already filter by category - process all envelopes
     const customerEmail = envelope.extracted.customer_email as string | null;
     if (!customerEmail) continue;
 
     const existing = contacts.get(customerEmail) ?? {};
     const isStripe = envelope.sourceType === "stripe";
+    const raw = envelope.raw as Record<string, unknown>;
+    const objectType = raw.object_type as string | undefined;
+    const status = envelope.extracted.status as string | undefined;
+    const amountPaid = envelope.extracted.amount_paid as number | undefined;
 
-    contacts.set(customerEmail, {
-      ...existing,
-      has_payment_received: true,
-      has_stripe_payment: isStripe || existing.has_stripe_payment,
-      has_invoice_sent: true,
-    });
+    const isCharge = objectType === "charge";
+    const isInvoice = objectType === "invoice";
+    const isPaid = status === "paid" || status === "succeeded" || (amountPaid ?? 0) > 0;
+
+    const signals: PersonSignals = { ...existing };
+
+    if (isInvoice) {
+      signals.has_invoice_sent = true;
+      if (isPaid) {
+        signals.has_payment_received = true;
+        if (isStripe) signals.has_stripe_payment = true;
+      }
+    } else if (isCharge) {
+      if (isPaid) {
+        signals.has_payment_received = true;
+        if (isStripe) signals.has_stripe_payment = true;
+      }
+    } else {
+      signals.has_invoice_sent = true;
+      signals.has_payment_received = true;
+      if (isStripe) signals.has_stripe_payment = true;
+    }
+
+    contacts.set(customerEmail, signals);
   }
 
   return contacts;
 }
 
-function isBillingSource(sourceType: CaptureSourceType): boolean {
-  return BILLING_PROVIDERS.includes(sourceType as BillingProvider);
-}
+// Billing adapters already filter by category - no need for source type check
 
 function normalizeStripe(payload: unknown): CaptureEnvelope | null {
   if (!payload || typeof payload !== "object") return null;
-  const record = payload as Record<string, unknown>;
+  const outer = payload as Record<string, unknown>;
+
+  // Composio STRIPE_*_TRIGGER payloads wrap the full Stripe webhook event in
+  // a `body` envelope: { body: { id, type, data: { object } }, event_type }
+  // — verified against the live trigger schemas 2026-08-05
+  // (__fixtures__/composio-trigger-schemas.json). Raw Stripe events and bare
+  // objects (backfill rows) must keep parsing too.
+  const record =
+    typeof outer.body === "object" && outer.body !== null && !Array.isArray(outer.body)
+      ? (outer.body as Record<string, unknown>)
+      : outer;
 
   const dataObject = (record.data as Record<string, unknown>)?.object as
     | Record<string, unknown>
@@ -72,11 +106,24 @@ function normalizeStripe(payload: unknown): CaptureEnvelope | null {
   const externalId = (obj.id as string) ?? (record.id as string);
   if (!externalId) return null;
 
-  const eventType = (record.type as string) ?? null;
-  const customerEmail = (obj.customer_email as string) ?? (obj.email as string);
-  const customerName = (obj.customer_name as string) ?? (obj.name as string);
+  const eventType =
+    (record.type as string) ?? (outer.event_type as string) ?? null;
+  const objectType = (obj.object as string) ?? null;
+  const billingDetails = obj.billing_details as Record<string, unknown> | undefined;
+  // checkout.session carries the customer under customer_details
+  const customerDetails = obj.customer_details as Record<string, unknown> | undefined;
+  const customerEmail = (obj.customer_email as string) ??
+    (obj.email as string) ??
+    (billingDetails?.email as string) ??
+    (customerDetails?.email as string);
+  const customerName = (obj.customer_name as string) ??
+    (obj.name as string) ??
+    (billingDetails?.name as string) ??
+    (customerDetails?.name as string);
   const amountPaid =
-    typeof obj.amount_paid === "number" ? obj.amount_paid / 100 : null;
+    typeof obj.amount_paid === "number" ? obj.amount_paid / 100 :
+    typeof obj.amount === "number" ? obj.amount / 100 :
+    typeof obj.amount_total === "number" ? obj.amount_total / 100 : null;
   const amountDue =
     typeof obj.amount_due === "number" ? obj.amount_due / 100 : null;
 
@@ -109,6 +156,7 @@ function normalizeStripe(payload: unknown): CaptureEnvelope | null {
     },
     raw: {
       stripeEventId: externalId,
+      object_type: objectType,
       source: "composio_trigger",
     },
     noise: null,
@@ -159,35 +207,41 @@ function normalizeGenericBilling(
   payload: unknown,
   sourceType: CaptureSourceType
 ): CaptureEnvelope | null {
-  if (!payload || typeof payload !== "object") return null;
-  const record = payload as Record<string, unknown>;
+  if (!isRecord(payload)) return null;
+
+  // Try one level of trigger nesting before giving up — providers wrap the
+  // billing object in envelopes like body/data/invoice/payment.
+  const record = unwrapRecord(payload, ["body", "data", "invoice", "payment", "object"]);
 
   const externalId =
-    (record.id as string) ??
-    (record.Id as string) ??
-    (record.invoice_id as string);
+    pickString(record, ["id", "Id", "invoice_id", "invoiceId", "payment_id", "paymentId"]) ??
+    pickString(payload, ["id", "Id", "invoice_id", "invoiceId"]);
   if (!externalId) return null;
 
-  const customerEmail =
-    (record.customer_email as string) ??
-    (record.email as string) ??
-    null;
+  const customerEmail = pickString(record, [
+    "customer_email",
+    "customerEmail",
+    "email",
+  ]);
 
   const participants: EnvelopeParticipant[] = customerEmail
     ? [{ email: customerEmail.toLowerCase(), name: null, role: "payer" }]
     : [];
+
+  const amountRaw = record.amount ?? record.total ?? record.amount_paid;
 
   return {
     sourceType,
     captureType: "payment",
     externalId,
     title: `Payment ${externalId}`,
-    occurredAt: (record.created_at as string) ?? (record.date as string) ?? null,
+    occurredAt:
+      pickString(record, ["created_at", "createdAt", "date", "timestamp"]) ?? null,
     participants,
     threadId: null,
     extracted: {
       customer_email: customerEmail?.toLowerCase() ?? null,
-      amount_paid: (record.amount as number) ?? (record.total as number) ?? null,
+      amount_paid: typeof amountRaw === "number" ? amountRaw : null,
     },
     raw: {
       paymentId: externalId,
@@ -197,10 +251,14 @@ function normalizeGenericBilling(
   };
 }
 
-export function createBillingCategoryAdapter(
-  provider: BillingProvider
-): CaptureAdapter {
-  const triggerSlugs = BILLING_TRIGGER_SLUGS[provider] ?? [];
+/**
+ * Create a billing adapter for ANY provider.
+ * Known providers get specific parsing; unknown get generic extraction.
+ */
+export function createBillingCategoryAdapter(provider: string): CaptureAdapter {
+  const triggerSlugs = isKnownBillingProvider(provider)
+    ? BILLING_TRIGGER_SLUGS[provider]
+    : []; // Unknown providers: triggers come from DB
 
   return {
     sourceType: provider as CaptureSourceType,
@@ -209,25 +267,29 @@ export function createBillingCategoryAdapter(
     deriveSignals: deriveBillingSignals,
 
     normalize(payload: unknown): CaptureEnvelope | null {
+      // Route known providers to specific parsing
       switch (provider) {
         case "stripe":
           return normalizeStripe(payload);
         case "quickbooks":
           return normalizeQuickbooks(payload);
         default:
+          // Any unknown billing provider gets generic extraction
           return normalizeGenericBilling(payload, provider as CaptureSourceType);
       }
     },
   };
 }
 
-export const billingCategoryAdapters = BILLING_PROVIDERS.map(
+/** Known provider adapters (for backward compatibility). */
+export const billingCategoryAdapters = KNOWN_BILLING_PROVIDERS.map(
   createBillingCategoryAdapter
 );
 
-export function getBillingAdapter(provider: string): CaptureAdapter | null {
-  if (!BILLING_PROVIDERS.includes(provider as BillingProvider)) {
-    return null;
-  }
-  return createBillingCategoryAdapter(provider as BillingProvider);
+/**
+ * Get billing adapter for ANY provider in the billing category.
+ * Always returns an adapter — unknown providers get generic extraction.
+ */
+export function getBillingAdapter(provider: string): CaptureAdapter {
+  return createBillingCategoryAdapter(provider);
 }

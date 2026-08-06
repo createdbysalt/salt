@@ -46,7 +46,7 @@ export function LegalDocumentPage({
           </header>
 
           <article className="legal-prose max-w-3xl">
-            {page.source === "sanity" && page.portableTextBody ? (
+            {page.contentSource === "sanity" && page.portableTextBody ? (
               <PortableTextProse value={page.portableTextBody} />
             ) : page.markdownBody ? (
               <ReactMarkdown

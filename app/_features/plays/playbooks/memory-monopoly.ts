@@ -1,20 +1,20 @@
 /**
  * Memory-write monopoly enforcement.
  *
- * Invariant: Only players with canWriteMemory=true (currently only Keeper)
- * may mutate Memory records. Non-keeper playbooks may READ memory (fetch
- * steps), but any act step with a memory-mutating slug is rejected at parse
- * and at runtime.
+ * Invariant: Only _meta section playbooks may mutate Memory records.
+ * Non-_meta playbooks may READ memory (fetch steps), but any act step
+ * with a memory-mutating slug is rejected at parse and at runtime.
  *
  * Rationale: keeps the records pipeline single-sourced — provenance,
  * admission rules, and consistency live in one place. Also the structural
- * guardrail making user-created (General player) playbooks safe by construction.
+ * guardrail making user-created playbooks safe by construction.
  *
  * Exception: Ask SALT's chat memory_* system plays are the human-in-chat
  * path, NOT plays — unaffected by this constraint.
  */
 
-import { playerCanWriteMemory } from "../players/capabilities";
+import { sectionCanWriteMemory } from "../section-capabilities";
+import type { PlaybookSection } from "../types";
 
 export const MEMORY_MUTATING_SLUGS = [
   "memory_create_person",
@@ -53,9 +53,9 @@ export function isMemoryMutatingSlug(slug: string): boolean {
 
 export function validateMemoryMonopoly(
   actSlugs: string[],
-  playerSlug: string,
+  section: PlaybookSection,
 ): { ok: true } | { ok: false; violations: string[] } {
-  if (playerCanWriteMemory(playerSlug)) {
+  if (sectionCanWriteMemory(section)) {
     return { ok: true };
   }
 

@@ -4,6 +4,8 @@ import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { classifyCaptureNoise } from "./intelligence/capture-noise";
 import { processCaptureForEvidence } from "@/app/_features/memory/evidence";
 import { runGatePipeline, type GatePipelineInput } from "./gates";
+import { enrichAndPersist } from "./enrichment";
+import { mergeIntelligenceMeta } from "./intelligence/capture-intelligence-outcome";
 import type { CaptureEnvelope } from "../adapters/types";
 import type { CaptureOrigin, CaptureState } from "../types";
 import type { GatePipelineResult } from "../types/gate-result";
@@ -36,6 +38,13 @@ export interface IngestEnvelopeOptions {
   userEmail?: string | null;
   /** Enable new gate pipeline (Captures V2). Default: false for backward compat. */
   useGatePipeline?: boolean;
+  /**
+   * Await evidence + enrichment before returning. Serverless callers (the
+   * Composio webhook route) must set this — fire-and-forget work is killed
+   * when the function instance freezes after the response, leaving captures
+   * without enriched_metadata ("Processing" forever).
+   */
+  awaitEnrichment?: boolean;
 }
 
 export interface IngestEnvelopeResult {
@@ -82,6 +91,17 @@ export async function ingestEnvelope(
   const captureState: CaptureState = gateResult?.finalAction === "signal" ? "routed" : "pending";
   const overallConfidence = gateResult?.targetEntity?.confidence ?? null;
 
+  // Noise rows skip enrichment and scanning by design; without a terminal
+  // intelligence outcome they render as "Processing" forever in the stream.
+  // Stamp no_signal at insert — the scan still re-analyzes no_signal rows,
+  // so a later pass can upgrade them if they turn out to matter.
+  const extractedData = isNoise
+    ? mergeIntelligenceMeta(envelope.extracted, {
+        outcome: "no_signal",
+        scanned_at: new Date().toISOString(),
+      })
+    : envelope.extracted;
+
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("capture_events")
@@ -94,7 +114,7 @@ export async function ingestEnvelope(
       origin: options.origin ?? ("found" as CaptureOrigin),
       title: envelope.title,
       raw_payload: envelope.raw as never,
-      extracted_data: envelope.extracted as never,
+      extracted_data: extractedData as never,
       state: captureState,
       overall_confidence: overallConfidence,
       is_bootstrap: options.isBootstrap ?? false,
@@ -106,12 +126,37 @@ export async function ingestEnvelope(
 
   if (!error && data) {
     if (!options.skipEvidence && !options.isBootstrap && !isNoise) {
-      processCaptureForEvidence(data.id).catch((err) => {
+      const evidencePromise = processCaptureForEvidence(data.id).catch((err) => {
         console.warn(
           `[ingest-envelope] Evidence processing failed for ${data.id}:`,
           err instanceof Error ? err.message : err
         );
       });
+
+      // Extract admission signals from gate result for criteria engine
+      const admissionResult = gateResult?.gateResults.admission;
+      const admissionSignals = admissionResult && "signals" in admissionResult
+        ? admissionResult.signals
+        : undefined;
+      const admissionScore = admissionResult && "confidence" in admissionResult
+        ? admissionResult.confidence
+        : undefined;
+
+      const enrichmentPromise = enrichAndPersist(data.id, envelope, {
+        workspaceId,
+        userEmail: options.userEmail ?? null,
+        admissionSignals,
+        admissionScore,
+      }).catch((err) => {
+        console.warn(
+          `[ingest-envelope] Enrichment failed for ${data.id}:`,
+          err instanceof Error ? err.message : err
+        );
+      });
+
+      if (options.awaitEnrichment) {
+        await Promise.all([evidencePromise, enrichmentPromise]);
+      }
     }
 
     if (isNoise) {

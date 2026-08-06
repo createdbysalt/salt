@@ -93,16 +93,16 @@ async function main() {
       {
         _type: 'link',
         _key: 'privacy',
-        text: 'Privacy',
+        text: 'Privacy Policy',
         linkType: 'internal',
         href: '/privacy-policy',
       },
       {
         _type: 'link',
         _key: 'terms',
-        text: 'Terms',
+        text: 'Terms of Service',
         linkType: 'internal',
-        href: '/terms-of-use',
+        href: '/terms-of-service',
       },
       {
         _type: 'link',

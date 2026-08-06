@@ -499,6 +499,70 @@ export const CAPTURE_SIGNAL_KEYS = [
 
 export type CaptureSignalKey = (typeof CAPTURE_SIGNAL_KEYS)[number];
 
+/**
+ * Email Intelligence signals — fired when email classification detects patterns.
+ * These signals enable inbox triage, priority sorting, and behavioral learning.
+ */
+export const EMAIL_INTELLIGENCE_SIGNAL_KEYS = [
+  // Content classification signals
+  "email_urgency_high",
+  "email_deadline_mentioned",
+  "email_money_amount_detected",
+  "email_invoice_attached",
+  "email_payment_link_detected",
+  "email_question_asked",
+  "email_action_requested",
+  // Sender relationship signals
+  "sender_first_contact",
+  "sender_reply_expected",
+  "sender_high_engagement",
+  "sender_vip",
+  // Thread signals
+  "thread_stale_48h",
+  "thread_awaiting_reply",
+  // Category classification signals
+  "email_classified_action_required",
+  "email_classified_money_moves",
+  "email_classified_opportunities",
+  "email_classified_updates",
+  "email_classified_subscribed",
+  "email_classified_noise",
+  // Behavioral feedback signals (fired on user action)
+  "email_archived_fast",
+  "email_archived_unread",
+  "email_replied_fast",
+  "email_snoozed",
+  "email_marked_important",
+  "email_training_more_like_this",
+  "email_training_less_like_this",
+] as const;
+
+export type EmailIntelligenceSignalKey =
+  (typeof EMAIL_INTELLIGENCE_SIGNAL_KEYS)[number];
+
+/** Email category values for classification. */
+export const EMAIL_CATEGORY_VALUES = [
+  "action_required",
+  "money_moves",
+  "opportunities",
+  "updates",
+  "subscribed",
+  "noise",
+] as const;
+
+export type EmailCategoryValue = (typeof EMAIL_CATEGORY_VALUES)[number];
+
+/** Email priority tier values. */
+export const EMAIL_PRIORITY_TIER_VALUES = [
+  "urgent",
+  "important",
+  "normal",
+  "low",
+  "noise",
+] as const;
+
+export type EmailPriorityTierValue = (typeof EMAIL_PRIORITY_TIER_VALUES)[number];
+
 /** Note — fields managed by keeper-entity-notes. */
 export type NoteProfileFieldKey = "note_kind";
 
@@ -603,6 +667,7 @@ export const PROFILE_SIGNAL_KEYS = [
   ...NOTE_PROFILE_SIGNAL_KEYS,
   ...OPERATOR_FACT_SIGNAL_KEYS,
   ...CAPTURE_SIGNAL_KEYS,
+  ...EMAIL_INTELLIGENCE_SIGNAL_KEYS,
 ] as const;
 
 export type ProfileSignalKey = (typeof PROFILE_SIGNAL_KEYS)[number];

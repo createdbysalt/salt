@@ -129,6 +129,19 @@ export function PricingTiers() {
         )}
       </div>
 
+      {/* Auto-renewal disclosure */}
+      <p className="mb-8 text-center text-sm text-muted-foreground">
+        Subscriptions renew automatically. Cancel anytime in{" "}
+        <a href="/settings/billing" className="underline hover:text-foreground">
+          Settings
+        </a>
+        . By subscribing, you agree to the{" "}
+        <a href="/terms-of-service" className="underline hover:text-foreground">
+          Terms of Service
+        </a>
+        .
+      </p>
+
       {/* Pricing Cards */}
       <div className="grid gap-8 lg:grid-cols-3">
         {tiers.map((tier) => (

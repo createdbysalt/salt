@@ -27,7 +27,7 @@ export function GraphDetailPanel({
       (acc[n.type] ||= []).push(n);
       return acc;
     },
-    { person: [], org: [], work: [], billing: [], file: [], note: [], conversation: [], meeting: [] }
+    { person: [], org: [], work: [], billing: [], file: [], note: [], conversation: [], meeting: [], resource: [] }
   );
 
   return (

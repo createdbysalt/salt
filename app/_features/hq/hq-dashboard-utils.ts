@@ -1,13 +1,14 @@
 const DAY_MS = 86_400_000;
 
-export type PlayRunMomentumRow = {
+export type PlayRunTimeSavedRow = {
   state: string;
   ran_at: string | null;
   approved_at: string | null;
+  stakes?: string | null;
 };
 
-/** Activity day for momentum — uses execution/approval timestamps only (never updated_at). */
-export function playRunActivityTimestamp(row: PlayRunMomentumRow): Date | null {
+/** Activity day for time saved — uses execution/approval timestamps only (never updated_at). */
+export function playRunActivityTimestamp(row: PlayRunTimeSavedRow): Date | null {
   if (row.state === "ran") {
     const raw = row.ran_at ?? row.approved_at;
     if (!raw) return null;
@@ -32,29 +33,31 @@ export function toDateKey(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
-export function computeActivityStreak(activityDates: Date[], now = new Date()): number {
-  if (activityDates.length === 0) return 0;
+/**
+ * Conservative manual-minutes estimate for a completed play, keyed off its
+ * stakes level (high = external sends like invoices/emails, medium = drafts
+ * and Memory updates, low = internal enrichment). Deliberately undersells so
+ * the number always reads as fair.
+ */
+const MINUTES_SAVED_BY_STAKES: Record<string, number> = {
+  high: 25,
+  medium: 15,
+  low: 8,
+};
+const DEFAULT_MINUTES_SAVED = 12;
 
-  const activeDays = new Set(activityDates.map((date) => toDateKey(startOfDay(date))));
-  let streak = 0;
-  const cursor = startOfDay(now);
+export function estimateMinutesSaved(stakes: string | null | undefined): number {
+  if (!stakes) return DEFAULT_MINUTES_SAVED;
+  return MINUTES_SAVED_BY_STAKES[stakes] ?? DEFAULT_MINUTES_SAVED;
+}
 
-  // Start from today; if no activity today, check if yesterday had activity
-  // This allows the streak to persist if user hasn't done work today yet
-  if (!activeDays.has(toDateKey(cursor))) {
-    cursor.setDate(cursor.getDate() - 1);
-    // If yesterday also had no activity, streak is 0
-    if (!activeDays.has(toDateKey(cursor))) {
-      return 0;
-    }
-  }
-
-  while (activeDays.has(toDateKey(cursor))) {
-    streak += 1;
-    cursor.setDate(cursor.getDate() - 1);
-  }
-
-  return streak;
+/** "45m" under an hour, then "2h" / "2h 40m". */
+export function formatMinutesSaved(totalMinutes: number): string {
+  const minutes = Math.max(0, Math.round(totalMinutes));
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  return remainder > 0 ? `${hours}h ${remainder}m` : `${hours}h`;
 }
 
 export function computeWeekOverWeekPct(thisWeek: number, lastWeek: number): number | null {

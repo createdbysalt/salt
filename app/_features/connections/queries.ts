@@ -424,16 +424,14 @@ export async function getEntityConnections(
               .is("deleted_at", null)
               .is("archived_at", null),
 
-      // Files (only for work entities currently; linkage lives in entity_links)
-      entityType === "work"
-        ? supabase
-            .from("entity_links")
-            .select("source_id")
-            .eq("workspace_id", workspaceId)
-            .eq("source_type", "file")
-            .eq("target_type", "work")
-            .eq("target_id", entityId)
-        : Promise.resolve({ data: [], error: null }),
+      // Files and Resources (linkage lives in entity_links; applies to all entity types)
+      supabase
+        .from("entity_links")
+        .select("source_id")
+        .eq("workspace_id", workspaceId)
+        .eq("source_type", "file")
+        .eq("target_type", entityType)
+        .eq("target_id", entityId),
 
       // Meetings linked via structured FKs (work_id / person_id / organization_id)
       entityType === "work"
@@ -665,32 +663,52 @@ export async function getEntityConnections(
     });
   }
 
-  // Process files (resolve linked file ids from entity_links, then hydrate rows)
+  // Process files and resources (resolve linked file ids from entity_links, then hydrate rows)
   const linkedFileIds = [
     ...new Set((filesResult.data ?? []).map((link) => link.source_id)),
   ];
   if (linkedFileIds.length > 0) {
     const { data: fileRows } = await supabase
       .from("files")
-      .select("id, file_name, mime_type, size_bytes")
+      .select("id, file_name, file_type, mime_type, size_bytes, external_url, mode, resource_type, last_activity_at, last_activity_summary")
       .in("id", linkedFileIds)
       .is("deleted_at", null)
       .is("archived_at", null);
 
     for (const f of fileRows ?? []) {
-      addConnection({
-        id: nid("file", f.id),
-        nodeType: "file",
-        label: f.file_name,
-        sublabel: f.mime_type ?? "File",
-        href: `/files?preview=${f.id}`,
-        metadata: {
-          type: "file",
-          fileName: f.file_name,
-          mimeType: f.mime_type ?? undefined,
-          sizeBytes: f.size_bytes ?? undefined,
-        },
-      });
+      const isResource = f.file_type === "link" && f.resource_type && f.resource_type !== "file";
+
+      if (isResource) {
+        addConnection({
+          id: nid("resource", f.id),
+          nodeType: "resource",
+          label: f.file_name,
+          sublabel: f.external_url ? new URL(f.external_url).hostname.replace(/^www\./, "") : "Resource",
+          href: f.external_url ?? undefined,
+          metadata: {
+            type: "resource",
+            resourceType: f.resource_type,
+            resourceUrl: f.external_url ?? undefined,
+            mode: (f.mode ?? "static") as "static" | "live",
+            lastActivityAt: f.last_activity_at ?? undefined,
+            lastActivitySummary: f.last_activity_summary ?? undefined,
+          },
+        });
+      } else {
+        addConnection({
+          id: nid("file", f.id),
+          nodeType: "file",
+          label: f.file_name,
+          sublabel: f.mime_type ?? "File",
+          href: `/files?preview=${f.id}`,
+          metadata: {
+            type: "file",
+            fileName: f.file_name,
+            mimeType: f.mime_type ?? undefined,
+            sizeBytes: f.size_bytes ?? undefined,
+          },
+        });
+      }
     }
   }
 

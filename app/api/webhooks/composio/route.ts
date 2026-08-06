@@ -18,6 +18,8 @@ import { verifyComposioWebhookSignature } from "@/app/_lib/composio/webhook-sign
 import { adapterForTriggerSlug } from "@/app/_features/capture/adapters/registry";
 import { ingestEnvelope } from "@/app/_features/capture/services/ingest-envelope";
 import { isFeatureEnabled, FeatureFlag } from "@/app/_lib/feature-flags";
+import { enrichWebhookPayload } from "@/app/_lib/composio/webhook-enrichment";
+import { routeResourceWebhook } from "@/app/_lib/resources/live/signal-router";
 
 export const maxDuration = 60;
 
@@ -36,7 +38,58 @@ interface NormalizedTriggerEvent {
   payload: unknown;
 }
 
-/** Normalize V1/V2/V3 webhook envelopes to one shape (spellings vary). */
+/**
+ * Non-success ingress outcomes (capture pipeline repair, Phase 0).
+ * Persisted to connector_sync_events so "what happened to webhooks for
+ * provider X in the last 24h" is a SQL query, not archaeology.
+ */
+type WebhookFailureOutcome =
+  | "ignored"
+  | "no_adapter"
+  | "no_account"
+  | "no_integration"
+  | "inactive_integration"
+  | "capture_disabled"
+  | "malformed_payload"
+  | "declined"
+  | "dropped"
+  | "ingest_error";
+
+async function recordWebhookOutcome(
+  admin: ReturnType<typeof createAdminClient>,
+  outcome: WebhookFailureOutcome,
+  context: {
+    triggerSlug: string | null;
+    connectedAccountId: string | null;
+    payload?: unknown;
+    detail?: Record<string, unknown>;
+  },
+): Promise<void> {
+  // Privacy: persist a key sample only — never payload values.
+  const payloadKeys = isRecord(context.payload)
+    ? Object.keys(context.payload).slice(0, 25)
+    : null;
+  try {
+    await admin.from("connector_sync_events").insert({
+      kind: "webhook_outcome",
+      subject_slug: context.triggerSlug ?? "unknown_trigger",
+      detail: {
+        outcome,
+        connectedAccountId: context.connectedAccountId,
+        ...(payloadKeys ? { payloadKeys } : {}),
+        ...context.detail,
+      } as never,
+    });
+  } catch (error) {
+    // Observability must never break the ingress ack path.
+    console.error("[composio-webhook] failed to record outcome", {
+      outcome,
+      error,
+    });
+  }
+}
+
+/** Normalize V1/V2/V3/V4 webhook envelopes to one shape (spellings vary). */
 function normalizeWebhookEvent(body: unknown): NormalizedTriggerEvent {
   if (!isRecord(body)) {
     return { kind: "unknown", triggerSlug: null, connectedAccountId: null, payload: null };
@@ -44,11 +97,21 @@ function normalizeWebhookEvent(body: unknown): NormalizedTriggerEvent {
 
   const type = str(body.type) ?? str(body.event) ?? "";
   const data = isRecord(body.data) ? body.data : body;
+  const metadata = isRecord(body.metadata) ? body.metadata : (isRecord(data.metadata) ? data.metadata : null);
 
+  // V3 webhook format: metadata.connected_account_id (snake_case, direct field)
+  // V4 SDK format: metadata.connectedAccount.id (nested object, camelCase)
+  // Legacy formats: data.connectedAccountId or data.connected_account_id
   const connectedAccountId =
+    // V3 webhook: body.metadata.connected_account_id (snake_case)
+    (metadata ? str(metadata.connected_account_id) : null) ??
+    // V4 SDK: body.metadata.connectedAccount.id (nested object)
+    (metadata && isRecord(metadata.connectedAccount) ? str(metadata.connectedAccount.id) : null) ??
+    // Legacy: data.connectedAccountId or data.connected_account_id
     str(data.connected_account_id) ??
     str(data.connectedAccountId) ??
     (isRecord(data.connectedAccount) ? str(data.connectedAccount.id) : null) ??
+    // V2 fallback: data.metadata.connectedAccount.id
     (isRecord(data.metadata) && isRecord(data.metadata.connectedAccount)
       ? str(data.metadata.connectedAccount.id)
       : null);
@@ -68,12 +131,22 @@ function normalizeWebhookEvent(body: unknown): NormalizedTriggerEvent {
     };
   }
 
+  // V4 format: triggerSlug at root level
+  // V3 format: data.triggerSlug
+  // V2 format: data.trigger_slug or data.metadata.triggerSlug
   const triggerSlug =
+    // V4: body.triggerSlug at root
+    str(body.triggerSlug) ??
+    // V3: data.triggerSlug
     str(data.trigger_slug) ??
     str(data.triggerSlug) ??
+    // V2 fallback: metadata.triggerSlug
+    (metadata ? str(metadata.trigger_slug) ?? str(metadata.triggerSlug) : null) ??
     (isRecord(data.metadata) ? str(data.metadata.trigger_slug) ?? str(data.metadata.triggerSlug) : null);
 
-  const payload = isRecord(data.payload) ? data.payload : data;
+  // V4 format: payload is body.payload or body.originalPayload
+  // V3/V2: data.payload
+  const payload = isRecord(body.payload) ? body.payload : (isRecord(data.payload) ? data.payload : data);
 
   if (triggerSlug) {
     return { kind: "trigger", triggerSlug, connectedAccountId, payload };
@@ -152,17 +225,56 @@ export async function POST(req: NextRequest) {
   if (event.kind !== "trigger" || !event.triggerSlug) {
     // Unknown event kinds ack with 200 — retries won't make them known.
     console.warn("[composio-webhook] unrecognized event shape — acked");
+    await recordWebhookOutcome(admin, "ignored", {
+      triggerSlug: event.triggerSlug,
+      connectedAccountId: event.connectedAccountId,
+      payload: event.payload,
+    });
     return NextResponse.json({ ok: true, handled: "ignored" });
+  }
+
+  // Check if this is a resource-bound trigger (Live mode)
+  const eventData = isRecord(parsed) ? parsed : {};
+  const metadata = isRecord(eventData.metadata) ? eventData.metadata : {};
+  const triggerConfig = isRecord(metadata.triggerConfig) ? metadata.triggerConfig : {};
+
+  if (triggerConfig.resourceId) {
+    const resourceResult = await routeResourceWebhook({
+      triggerName: event.triggerSlug,
+      triggerId: str(metadata.triggerId) ?? "",
+      payload: event.payload as Record<string, unknown>,
+      metadata: {
+        resourceId: str(triggerConfig.resourceId) ?? undefined,
+        resourceType: str(triggerConfig.resourceType) ?? undefined,
+      },
+    });
+
+    return NextResponse.json({
+      ok: true,
+      handled: "resource_signal",
+      success: resourceResult.success,
+      signalKey: resourceResult.signal?.key,
+    });
   }
 
   const adapter = adapterForTriggerSlug(event.triggerSlug);
   if (!adapter) {
+    await recordWebhookOutcome(admin, "no_adapter", {
+      triggerSlug: event.triggerSlug,
+      connectedAccountId: event.connectedAccountId,
+      payload: event.payload,
+    });
     return NextResponse.json({ ok: true, handled: "no_adapter" });
   }
 
   if (!event.connectedAccountId) {
     console.warn("[composio-webhook] trigger without a connected account id — acked", {
       triggerSlug: event.triggerSlug,
+    });
+    await recordWebhookOutcome(admin, "no_account", {
+      triggerSlug: event.triggerSlug,
+      connectedAccountId: null,
+      payload: event.payload,
     });
     return NextResponse.json({ ok: true, handled: "no_account" });
   }
@@ -174,25 +286,66 @@ export async function POST(req: NextRequest) {
     .maybeSingle();
 
   if (!integration?.is_active) {
+    // Distinguish "no row" (orphaned trigger firing at a stale connection)
+    // from "row exists but deactivated" — different repairs.
+    await recordWebhookOutcome(
+      admin,
+      integration ? "inactive_integration" : "no_integration",
+      {
+        triggerSlug: event.triggerSlug,
+        connectedAccountId: event.connectedAccountId,
+      },
+    );
     return NextResponse.json({ ok: true, handled: "inactive_integration" });
   }
   if (!integration.capture_enabled) {
+    await recordWebhookOutcome(admin, "capture_disabled", {
+      triggerSlug: event.triggerSlug,
+      connectedAccountId: event.connectedAccountId,
+    });
     return NextResponse.json({ ok: true, handled: "capture_disabled" });
   }
 
+  // Enrich minimal payloads (e.g., Outlook sends only message ID)
+  const enrichment = await enrichWebhookPayload(
+    event.triggerSlug,
+    event.payload,
+    event.connectedAccountId,
+    integration.workspace_id,
+  );
+  const payloadToNormalize = enrichment.payload;
+
   let envelope;
   try {
-    envelope = adapter.normalize(event.payload);
+    envelope = adapter.normalize(payloadToNormalize);
   } catch (error) {
     console.error("[composio-webhook] adapter threw on payload", {
       sourceType: adapter.sourceType,
       triggerSlug: event.triggerSlug,
       error,
     });
+    await recordWebhookOutcome(admin, "malformed_payload", {
+      triggerSlug: event.triggerSlug,
+      connectedAccountId: event.connectedAccountId,
+      payload: payloadToNormalize,
+      detail: {
+        sourceType: adapter.sourceType,
+        error: error instanceof Error ? error.message : String(error),
+      },
+    });
     return NextResponse.json({ ok: true, handled: "malformed_payload" });
   }
 
   if (!envelope) {
+    // The adapter recognized the slug but couldn't build an envelope —
+    // historically the silent killer (payload shape drift). The key sample
+    // shows what the payload actually looked like.
+    await recordWebhookOutcome(admin, "declined", {
+      triggerSlug: event.triggerSlug,
+      connectedAccountId: event.connectedAccountId,
+      payload: payloadToNormalize,
+      detail: { sourceType: adapter.sourceType, enriched: enrichment.enriched },
+    });
     return NextResponse.json({ ok: true, handled: "declined" });
   }
 
@@ -206,8 +359,33 @@ export async function POST(req: NextRequest) {
     {
       useGatePipeline: isFeatureEnabled(FeatureFlag.CAPTURE_GATE_PIPELINE),
       userEmail,
+      // Serverless: unawaited enrichment dies when the instance freezes
+      // after the response. Composio retries on slow acks are harmless —
+      // the envelope dedupe key makes replays idempotent.
+      awaitEnrichment: true,
     },
   );
 
-  return NextResponse.json({ ok: true, handled: "trigger", outcome: result.outcome });
+  if (result.outcome === "dropped" || result.outcome === "error") {
+    await recordWebhookOutcome(
+      admin,
+      result.outcome === "dropped" ? "dropped" : "ingest_error",
+      {
+        triggerSlug: event.triggerSlug,
+        connectedAccountId: event.connectedAccountId,
+        detail: {
+          sourceType: adapter.sourceType,
+          ...(result.noiseReason ? { reason: result.noiseReason } : {}),
+          ...(result.error ? { error: result.error } : {}),
+        },
+      },
+    );
+  }
+
+  return NextResponse.json({
+    ok: true,
+    handled: "trigger",
+    outcome: result.outcome,
+    enriched: enrichment.enriched,
+  });
 }

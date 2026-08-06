@@ -124,6 +124,57 @@ function ToolAllowToggle({ label, enabled, disabled, onChange }: ToolAllowToggle
   );
 }
 
+interface ToolApprovalToggleProps {
+  label: string;
+  requiresApproval: boolean;
+  disabled?: boolean;
+  isDestructive?: boolean;
+  onChange: (requiresApproval: boolean) => void;
+}
+
+/**
+ * Approval toggle for Trust mode. Destructive tools are always required
+ * (locked state, cannot be changed).
+ */
+function ToolApprovalToggle({
+  label,
+  requiresApproval,
+  disabled,
+  isDestructive,
+  onChange,
+}: ToolApprovalToggleProps) {
+  if (isDestructive) {
+    return (
+      <span
+        className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-xs font-medium text-amber-600"
+        title="Destructive actions always require approval"
+      >
+        Always asks
+      </span>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={requiresApproval}
+      aria-label={`Require approval for ${label}`}
+      disabled={disabled}
+      onClick={() => onChange(!requiresApproval)}
+      className={cn(
+        "rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors",
+        requiresApproval
+          ? "bg-primary/10 text-primary ring-1 ring-primary/30"
+          : "bg-muted/40 text-muted-foreground hover:bg-muted/60",
+        disabled && "opacity-50 cursor-not-allowed",
+      )}
+    >
+      {requiresApproval ? "Asks" : "Auto"}
+    </button>
+  );
+}
+
 interface ToolCategorySectionProps {
   category: ToolCategoryKind;
   capabilities: ConnectorCapability[];
@@ -134,6 +185,12 @@ interface ToolCategorySectionProps {
   readOnly?: boolean;
   onBulkChange: (slugs: string[], enabled: boolean) => void;
   onToolChange: (toolSlug: string, enabled: boolean) => void;
+  /** Trust mode: show per-tool approval toggles */
+  trustMode?: boolean;
+  /** Per-tool approval overrides (only shown in Trust mode) */
+  toolApprovalOverrides?: Record<string, boolean>;
+  /** Callback when user changes a tool's approval requirement */
+  onToolApprovalChange?: (toolSlug: string, requiresApproval: boolean) => void;
 }
 
 export function ToolCategorySection({
@@ -145,6 +202,9 @@ export function ToolCategorySection({
   readOnly = false,
   onBulkChange,
   onToolChange,
+  trustMode = false,
+  toolApprovalOverrides = {},
+  onToolApprovalChange,
 }: ToolCategorySectionProps) {
   if (capabilities.length === 0) {
     return null;
@@ -214,15 +274,21 @@ export function ToolCategorySection({
           const rowControlsDisabled =
             controlsDisabled || !toolSlug || !canManageTools;
 
+          const isDestructive = category === "write";
+          const requiresApproval = toolSlug
+            ? (isDestructive || toolApprovalOverrides[toolSlug] === true)
+            : false;
+
+          const gridCols = readOnly
+            ? "grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]"
+            : trustMode
+              ? "grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto]"
+              : "grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_auto]";
+
           return (
             <li
               key={capability.id}
-              className={cn(
-                "items-center gap-4 py-2.5",
-                readOnly
-                  ? "grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]"
-                  : "grid grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_auto]",
-              )}
+              className={cn("items-center gap-4 py-2.5 grid", gridCols)}
             >
               <p className="text-sm text-foreground">{capability.label}</p>
               <p className="text-sm text-muted-foreground">
@@ -240,6 +306,15 @@ export function ToolCategorySection({
                   Included
                 </span>
               )}
+              {trustMode && !readOnly && toolSlug ? (
+                <ToolApprovalToggle
+                  label={capability.label}
+                  requiresApproval={requiresApproval}
+                  disabled={rowControlsDisabled || isDestructive}
+                  isDestructive={isDestructive}
+                  onChange={(required) => onToolApprovalChange?.(toolSlug, required)}
+                />
+              ) : null}
             </li>
           );
         })}

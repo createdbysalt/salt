@@ -19,6 +19,7 @@ This project uses **nested context rules** (like Claude Code's CLAUDE.md files).
 | `packages/**` | `07-packages.mdc` | Shared libraries |
 | `brand-identity/**` | `08-brand-identity.mdc` | Brand & voice |
 | `docs/**` | `09-docs.mdc` | Documentation |
+| `app/_lib/usage/**`, `app/_lib/ai/**`, Stripe, play metering | `10-billing-metering.mdc` | Vendor spend & billing |
 
 **These rules are in `.cursor/rules/` and apply automatically.**
 
@@ -89,6 +90,7 @@ brand-identity/      # Brand voice, positioning, product docs
 | Testing | Co-locate unit tests (`*.test.ts`). E2E in `e2e/` (`*.spec.ts`) |
 | Locators | E2E uses `getByRole`, `getByLabel`, `getByText`. No CSS selectors. |
 | Types | No `any`. No `@ts-ignore`. No placeholder comments. |
+| Vendor Spend | Any call to a paid vendor API (LLM, Composio, embeddings, TTS) meters at the **primitive**, never at the feature. Read `docs/architecture/billing-metering.md`. |
 
 ## UI Components
 
@@ -201,6 +203,7 @@ Before making changes, read relevant docs:
 | UI Patterns | `docs/guides/ui-patterns.md` |
 | Component Guide | `docs/guides/agent-component-guide.md` |
 | Coding Conventions | `docs/guides/coding-conventions.md` |
+| Billing & Metering | `docs/architecture/billing-metering.md` |
 
 ## Feature Module Pattern
 

@@ -1,9 +1,11 @@
 import "server-only";
 
 import {
-  countPlayRunsByState,
+  countHqAutoHandledQueue,
+  countHqNeedsYouQueue,
   countPlaysRanToday,
   getPrimaryOpportunityGap,
+  listHqNeedsYouCards,
   listHqQueuePlays,
 } from "@/app/_features/plays/queries";
 import type { HqBriefingData } from "@/app/_features/plays/types";
@@ -25,10 +27,11 @@ function formatAmountRange(
 }
 
 export async function getHqBriefingData(): Promise<HqBriefingData> {
-  const [primary, awaiting, ranToday] = await Promise.all([
+  const [primary, awaiting, ranToday, autoHandled] = await Promise.all([
     getPrimaryOpportunityGap(),
-    countPlayRunsByState(["queued", "draft"]),
+    countHqNeedsYouQueue(),
     countPlaysRanToday(),
+    countHqAutoHandledQueue(),
   ]);
 
   return {
@@ -49,8 +52,8 @@ export async function getHqBriefingData(): Promise<HqBriefingData> {
     clearedAmountLabel: primary
       ? formatAmountRange(primary.amount_min, primary.amount_max, primary.currency)
       : null,
-    autoSentCount: ranToday,
+    autoSentCount: autoHandled,
   };
 }
 
-export { listHqQueuePlays };
+export { listHqNeedsYouCards, listHqQueuePlays };

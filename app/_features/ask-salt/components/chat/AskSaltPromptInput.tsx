@@ -17,6 +17,12 @@ import {
   MAX_FILE_SIZE_DISPLAY,
   validateFile,
 } from "@/app/_features/relationships/lib/file-validation";
+import {
+  MentionPopover,
+  useMentionState,
+  formatMentionForInput,
+} from "./MentionPopover";
+import type { MentionResult } from "../../actions/search-mentions";
 
 const MAX_ATTACHMENTS = 5;
 
@@ -48,9 +54,72 @@ export function AskSaltPromptInput({
   onAttachmentsChange,
 }: AskSaltPromptInputProps) {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+  const containerRef = React.useRef<HTMLDivElement>(null);
   const isGenerating = chatStatus === "submitted" || chatStatus === "streaming";
   const isBusy = isGenerating || processing;
   const canStop = isGenerating && Boolean(onStop);
+
+  const mention = useMentionState();
+
+  const handleMentionSelect = (result: MentionResult) => {
+    const before = value.slice(0, mention.triggerIndex);
+    const after = value.slice(
+      mention.triggerIndex + 1 + mention.query.length,
+    );
+    const mentionText = formatMentionForInput(result);
+    const newValue = `${before}${mentionText} ${after}`;
+    onChange(newValue);
+    mention.close();
+
+    // Focus back on textarea
+    setTimeout(() => {
+      const textarea = textareaRef.current;
+      if (textarea) {
+        textarea.focus();
+        const cursorPos = before.length + mentionText.length + 1;
+        textarea.setSelectionRange(cursorPos, cursorPos);
+      }
+    }, 0);
+  };
+
+  const handleInputChange = (newValue: string) => {
+    onChange(newValue);
+
+    // Check for @ trigger
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const cursorPos = textarea.selectionStart ?? 0;
+    const textBeforeCursor = newValue.slice(0, cursorPos);
+    const lastAtIndex = textBeforeCursor.lastIndexOf("@");
+
+    if (lastAtIndex >= 0) {
+      const textAfterAt = textBeforeCursor.slice(lastAtIndex + 1);
+      // Support quoted names: @"John Smith" for names with spaces
+      const isQuoted = textAfterAt.startsWith('"');
+      const hasEnded = isQuoted
+        ? textAfterAt.slice(1).includes('"')
+        : textAfterAt.includes(" ") || textAfterAt.includes("\n");
+
+      // Only trigger if @ is at start or after whitespace
+      const charBeforeAt = lastAtIndex > 0 ? newValue[lastAtIndex - 1] : " ";
+      const isValidTrigger = /\s/.test(charBeforeAt) || lastAtIndex === 0;
+
+      if (isValidTrigger && !hasEnded && !textAfterAt.includes("\n")) {
+        const query = isQuoted ? textAfterAt.slice(1) : textAfterAt;
+        if (!mention.isOpen) {
+          mention.open({ top: -8, left: 0 }, lastAtIndex);
+        }
+        mention.updateQuery(query);
+        return;
+      }
+    }
+
+    if (mention.isOpen) {
+      mention.close();
+    }
+  };
 
   const handlePrimaryAction = () => {
     if (canStop) {
@@ -138,39 +207,81 @@ export function AskSaltPromptInput({
         </div>
       )}
 
-      <InputGroup className="rounded-2xl border-border/60 bg-card shadow-[var(--shadow-lift)] transition focus-within:border-border has-[[data-slot=input-group-control]:focus-visible]:ring-4 has-[[data-slot=input-group-control]:focus-visible]:ring-foreground/5">
-        <input
-          ref={fileInputRef}
-          type="file"
-          className="hidden"
-          multiple
-          accept={ALLOWED_EXTENSIONS.join(",")}
-          onChange={(event) => {
-            addFiles(event.target.files);
-            event.target.value = "";
-          }}
-        />
-        <InputGroupTextarea
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          disabled={processing}
-          placeholder={placeholder}
-          rows={3}
-          className="min-h-16 resize-none px-4 pb-1 pt-3 text-sm"
-          onKeyDown={(event) => {
-            if (
-              event.key !== "Enter" ||
-              event.shiftKey ||
-              event.nativeEvent.isComposing
-            ) {
-              return;
-            }
-            event.preventDefault();
-            if ((!value.trim() && attachments.length === 0) || isBusy) return;
-            onSubmit();
-          }}
-        />
-        <InputGroupAddon align="block-end" className="justify-between px-2 pb-2">
+      <div ref={containerRef} className="relative">
+        {mention.isOpen && (
+          <MentionPopover
+            query={mention.query}
+            position={mention.position}
+            onSelect={handleMentionSelect}
+            onClose={mention.close}
+            selectedIndex={mention.selectedIndex}
+            onSelectedIndexChange={mention.setSelectedIndex}
+            onResultsChange={mention.setResults}
+          />
+        )}
+
+        <InputGroup className="rounded-2xl border-border/60 bg-card shadow-[var(--shadow-lift)] transition focus-within:border-border has-[[data-slot=input-group-control]:focus-visible]:ring-4 has-[[data-slot=input-group-control]:focus-visible]:ring-foreground/5">
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            multiple
+            accept={ALLOWED_EXTENSIONS.join(",")}
+            onChange={(event) => {
+              addFiles(event.target.files);
+              event.target.value = "";
+            }}
+          />
+          <InputGroupTextarea
+            ref={textareaRef}
+            value={value}
+            onChange={(event) => handleInputChange(event.target.value)}
+            disabled={processing}
+            placeholder={placeholder}
+            rows={3}
+            className="min-h-16 resize-none px-4 pb-1 pt-3 text-sm"
+            onKeyDown={(event) => {
+              // Handle mention navigation
+              if (mention.isOpen) {
+                if (event.key === "ArrowDown") {
+                  event.preventDefault();
+                  mention.setSelectedIndex(mention.selectedIndex + 1);
+                  return;
+                }
+                if (event.key === "ArrowUp") {
+                  event.preventDefault();
+                  mention.setSelectedIndex(Math.max(0, mention.selectedIndex - 1));
+                  return;
+                }
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  mention.close();
+                  return;
+                }
+                if (event.key === "Enter" || event.key === "Tab") {
+                  event.preventDefault();
+                  const selected = mention.getSelectedResult();
+                  if (selected) {
+                    handleMentionSelect(selected);
+                  }
+                  return;
+                }
+              }
+
+              // Normal submit handling
+              if (
+                event.key !== "Enter" ||
+                event.shiftKey ||
+                event.nativeEvent.isComposing
+              ) {
+                return;
+              }
+              event.preventDefault();
+              if ((!value.trim() && attachments.length === 0) || isBusy) return;
+              onSubmit();
+            }}
+          />
+          <InputGroupAddon align="block-end" className="justify-between px-2 pb-2">
           <div className="flex items-center gap-0.5">
             <InputGroupButton
               type="button"
@@ -205,8 +316,9 @@ export function AskSaltPromptInput({
           >
             {primaryIcon}
           </InputGroupButton>
-        </InputGroupAddon>
-      </InputGroup>
+          </InputGroupAddon>
+        </InputGroup>
+      </div>
     </div>
   );
 }

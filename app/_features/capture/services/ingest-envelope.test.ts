@@ -1,0 +1,151 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { CaptureEnvelope } from "../adapters/types";
+
+const inserted: Array<Record<string, unknown>> = [];
+
+vi.mock("@/app/_lib/supabase/admin", () => ({
+  createAdminClient: () => ({
+    from: () => ({
+      insert: (row: Record<string, unknown>) => {
+        inserted.push(row);
+        return {
+          select: () => ({
+            single: async () => ({ data: { id: "cap-1" }, error: null }),
+          }),
+        };
+      },
+    }),
+  }),
+}));
+
+const enrichAndPersistMock = vi.fn(async (..._args: unknown[]) => ({}));
+vi.mock("./enrichment", () => ({
+  enrichAndPersist: (...args: unknown[]) => enrichAndPersistMock(...args),
+}));
+
+const evidenceMock = vi.fn(async (..._args: unknown[]) => undefined);
+vi.mock("@/app/_features/memory/evidence", () => ({
+  processCaptureForEvidence: (...args: unknown[]) => evidenceMock(...args),
+}));
+
+const runGatePipelineMock = vi.fn();
+vi.mock("./gates", () => ({
+  runGatePipeline: (...args: unknown[]) => runGatePipelineMock(...args),
+}));
+
+vi.mock("./intelligence/capture-noise", () => ({
+  classifyCaptureNoise: () => ({ isNoise: false, reason: null }),
+}));
+
+import { ingestEnvelope } from "./ingest-envelope";
+
+function makeEnvelope(): CaptureEnvelope {
+  return {
+    sourceType: "outlook",
+    captureType: "message",
+    externalId: "msg-1",
+    title: "20% off everything",
+    occurredAt: null,
+    participants: [{ email: "promo@brand.com", name: null, role: "from" }],
+    threadId: "conv-1",
+    extracted: { subject: "20% off everything", sender_email: "promo@brand.com" },
+    raw: { messageId: "msg-1" },
+    noise: null,
+  } as CaptureEnvelope;
+}
+
+beforeEach(() => {
+  inserted.length = 0;
+  enrichAndPersistMock.mockClear();
+  evidenceMock.mockClear();
+  runGatePipelineMock.mockReset();
+});
+
+describe("ingestEnvelope noise handling", () => {
+  it("stamps noise inserts with a terminal no_signal outcome", async () => {
+    runGatePipelineMock.mockResolvedValue({
+      finalAction: "noise",
+      shouldIngest: true,
+      passedGates: ["pre-ingest", "blocklist", "known-entity", "admission"],
+      gateResults: { admission: { action: "noise", reason: "Low signal score" } },
+    });
+
+    const result = await ingestEnvelope("ws-1", "int-1", makeEnvelope(), {
+      useGatePipeline: true,
+    });
+
+    expect(result.outcome).toBe("noise");
+    expect(inserted).toHaveLength(1);
+    const extracted = inserted[0].extracted_data as {
+      intelligence?: { outcome?: string; scanned_at?: string };
+    };
+    expect(extracted.intelligence?.outcome).toBe("no_signal");
+    expect(typeof extracted.intelligence?.scanned_at).toBe("string");
+    // Noise rows skip enrichment/evidence by design.
+    expect(enrichAndPersistMock).not.toHaveBeenCalled();
+    expect(evidenceMock).not.toHaveBeenCalled();
+  });
+
+  it("does not stamp candidate inserts — the scan owns their outcome", async () => {
+    runGatePipelineMock.mockResolvedValue({
+      finalAction: "candidate",
+      shouldIngest: true,
+      passedGates: ["pre-ingest", "blocklist", "known-entity", "admission"],
+      gateResults: { admission: { action: "candidate", confidence: 45, signals: [] } },
+    });
+
+    const result = await ingestEnvelope("ws-1", "int-1", makeEnvelope(), {
+      useGatePipeline: true,
+    });
+
+    expect(result.outcome).toBe("created");
+    const extracted = inserted[0].extracted_data as { intelligence?: unknown };
+    expect(extracted.intelligence).toBeUndefined();
+  });
+});
+
+describe("ingestEnvelope awaitEnrichment", () => {
+  it("resolves enrichment before returning when awaitEnrichment is set", async () => {
+    runGatePipelineMock.mockResolvedValue({
+      finalAction: "candidate",
+      shouldIngest: true,
+      passedGates: [],
+      gateResults: { admission: { action: "candidate", confidence: 45, signals: [] } },
+    });
+
+    let enrichmentFinished = false;
+    enrichAndPersistMock.mockImplementation(
+      () =>
+        new Promise((resolve) =>
+          setTimeout(() => {
+            enrichmentFinished = true;
+            resolve({});
+          }, 20)
+        )
+    );
+
+    await ingestEnvelope("ws-1", "int-1", makeEnvelope(), {
+      useGatePipeline: true,
+      awaitEnrichment: true,
+    });
+
+    expect(enrichmentFinished).toBe(true);
+  });
+
+  it("swallows enrichment failures even when awaited", async () => {
+    runGatePipelineMock.mockResolvedValue({
+      finalAction: "candidate",
+      shouldIngest: true,
+      passedGates: [],
+      gateResults: { admission: { action: "candidate", confidence: 45, signals: [] } },
+    });
+    enrichAndPersistMock.mockRejectedValue(new Error("boom"));
+
+    const result = await ingestEnvelope("ws-1", "int-1", makeEnvelope(), {
+      useGatePipeline: true,
+      awaitEnrichment: true,
+    });
+
+    expect(result.outcome).toBe("created");
+  });
+});

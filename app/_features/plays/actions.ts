@@ -8,8 +8,10 @@ import { nextStateForAction } from "./utils/play-state-machine";
 import { executePlayRun } from "./services/run-play";
 import { createRunPlayDeps } from "./services/run-play-deps";
 import { applyIntakePlayRun } from "./services/create-intake-play-run";
+import { meterInternalPlay } from "./services/meter-play";
+import { resumePausedPlaybook as resumePausedPlaybookService } from "./services/resume-paused-playbook";
+import { createResumePausedPlaybookDeps } from "./services/resume-paused-playbook-deps";
 import { dismissEvidence } from "@/app/_features/memory/evidence/actions";
-import { adoptPlaybookBlueprint } from "./playbooks/adopt-blueprint";
 import {
   approvePlaybookImprovementProposal,
   synthesizePlaybookImprovementProposal,
@@ -19,7 +21,7 @@ import {
   loadTemplateBlueprintMeta,
 } from "./playbooks/learning/capture-signals";
 import { captureVoiceCorrection } from "@/app/_features/me/actions/capture-voice-correction";
-import type { PlayRunRow, PlayRunState, PlayTemplateRow } from "./types";
+import type { PlayRunRow, PlayRunState } from "./types";
 import type { ProfileFillRulesDocument, ProfilePlaybookSettings } from "./playbooks/records-engine/types";
 import { getProfileBlueprintDetail, getProfilePlaybookSettings } from "./queries";
 
@@ -189,6 +191,26 @@ export async function approvePlayRun(id: string): Promise<ActionResult<PlayRunRo
     title: run.title,
   });
 
+  // Paused playbook path: resume execution from the approval gate
+  if (run.paused_for_approval && run.approval_context) {
+    const resumeResult = await resumePausedPlaybook(id, workspace.id, userId);
+    revalidatePath("/hq");
+    revalidatePath("/plays");
+    if (resumeResult.ok) {
+      const { data: updatedRun } = await supabase
+        .from("play_runs")
+        .select("*")
+        .eq("id", id)
+        .single();
+      return { ok: true, data: updatedRun as PlayRunRow };
+    }
+    return {
+      ok: false,
+      errorCode: "RESUME_FAILED",
+      message: resumeResult.error ?? "Failed to resume playbook",
+    };
+  }
+
   // Acting path: a template with a compiled definition and recorded consent
   // executes for real; everything else stays the log-only draft-acceptance
   // path until Phase 2 consent UX ships.
@@ -236,6 +258,8 @@ export async function approvePlayRun(id: string): Promise<ActionResult<PlayRunRo
       detail: `Created record: ${intakeResult.recordId}`,
     });
 
+    await meterInternalPlay(workspace.id, id);
+
     revalidatePath("/hq");
     revalidatePath("/plays");
     revalidatePath("/people");
@@ -278,10 +302,33 @@ export async function approvePlayRun(id: string): Promise<ActionResult<PlayRunRo
     detail: "Approved (logged — this play has no pre-approved actions to execute)",
   });
 
+  await meterInternalPlay(workspace.id, id);
+
   revalidatePath("/hq");
   revalidatePath("/plays");
 
   return { ok: true, data: data as PlayRunRow };
+}
+
+/**
+ * Resume a playbook that paused at an approval gate.
+ *
+ * Thin wrapper: the logic lives in `services/resume-paused-playbook.ts` so the
+ * execution path can be tested without Supabase or a live connector.
+ *
+ * Fixed 2026-08-05. This previously flipped the run to `ran` and logged
+ * "Approved and executed: <slug>" without ever calling the tool, so approving
+ * a paused send reported success for an email that was never sent.
+ */
+async function resumePausedPlaybook(
+  playRunId: string,
+  workspaceId: string,
+  userId: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  return resumePausedPlaybookService(
+    { playRunId, workspaceId, userId },
+    createResumePausedPlaybookDeps(),
+  );
 }
 
 export async function dismissPlayRun(
@@ -418,30 +465,6 @@ async function recordPlaybookSignalForRun(input: {
     signalType: input.signalType,
     delta: input.delta,
   });
-}
-
-export async function adoptBlueprint(
-  blueprintSlug: string,
-): Promise<ActionResult<PlayTemplateRow>> {
-  const { context } = await getTenantContext();
-  const workspace = requireWorkspaceMember(context);
-
-  try {
-    const { template } = await adoptPlaybookBlueprint({
-      workspaceId: workspace.id,
-      blueprintSlug,
-    });
-
-    revalidatePath("/plays");
-
-    return { ok: true, data: template };
-  } catch (error) {
-    return {
-      ok: false,
-      errorCode: "ADOPT_FAILED",
-      message: error instanceof Error ? error.message : "Could not adopt playbook",
-    };
-  }
 }
 
 export async function proposePlaybookImprovement(
@@ -614,6 +637,8 @@ export async function applyKeeperPlayRun(
     detail: `Applied ${field} = ${meta.profile_value}`,
   });
 
+  await meterInternalPlay(workspace.id, playRunId);
+
   revalidatePath("/plays");
   revalidatePath("/hq");
   revalidatePath(`/people/${personId}`);
@@ -704,6 +729,8 @@ export async function answerKeeperQuestionPlayRun(
     detail: `Answered ${field} = ${answer}`,
   });
 
+  await meterInternalPlay(workspace.id, playRunId);
+
   revalidatePath("/plays");
   revalidatePath("/hq");
   revalidatePath(`/people/${personId}`);
@@ -767,6 +794,8 @@ export async function acknowledgeRiskPlayRun(
     title: run.title as string,
     detail: "Risk acknowledged — no immediate action taken",
   });
+
+  await meterInternalPlay(workspace.id, playRunId);
 
   revalidatePath("/plays");
   revalidatePath("/hq");
@@ -876,6 +905,8 @@ export async function routePlayRunToProfile(
     title: run.title as string,
     detail: `Routed to ${target.type}: ${target.createName ?? targetId}`,
   });
+
+  await meterInternalPlay(workspace.id, playRunId);
 
   revalidatePath("/plays");
   revalidatePath("/hq");

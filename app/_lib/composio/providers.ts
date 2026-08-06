@@ -1,9 +1,16 @@
 // ============================================================================
-// SEED SOURCE ONLY (connector-platform Phase 2.5) — the runtime reads the DB
-// registry (connector_catalog + connector_overrides via connector-registry.ts).
-// This file exists solely as the frozen input to
-// scripts/generate-connector-seed.ts and its consistency tests.
-// DO NOT import from app runtime code. New connectors = DB rows, not entries here.
+// DEPRECATED — SEED SCRIPT ONLY
+//
+// The unified-connector-registry.ts is now the single source of truth for all
+// connector metadata, Ask Salt enablement, and toolkit configuration.
+//
+// This file exists ONLY as frozen input to scripts/generate-connector-seed.ts.
+// It contains historical auth config IDs and API-key field mappings that the
+// seed script references when generating migrations.
+//
+// DO NOT import from app runtime code. For connector data, use:
+//   - unified-connector-registry.ts (Ask Salt, metadata, categories)
+//   - connector-registry.ts (DB-backed runtime lookups)
 // ============================================================================
 
 /** Composio app keys mapped to workspace integration provider values */

@@ -1,4 +1,4 @@
-import { Calendar, Lightbulb, ArrowUpRight, Flame, TrendingUp } from "lucide-react";
+import { Calendar, Lightbulb, ArrowUpRight, Timer, TrendingUp } from "lucide-react";
 
 const schedule = [
   { time: "10:00", title: "Luma Health: launch readiness", who: "Elena Marquez", dur: "30m", hot: true },
@@ -15,15 +15,15 @@ const headsUp = [
 export function SideRail() {
   return (
     <aside className="space-y-3">
-      {/* Streak / momentum card */}
+      {/* Time saved card */}
       <div className="relative overflow-hidden rounded-3xl glass-card p-5 animate-rise" style={{ animationDelay: "200ms" }}>
         <div className="flex items-center justify-between">
-          <span className="chip"><Flame className="size-3 text-flame" /> Momentum</span>
+          <span className="chip"><Timer className="size-3 text-flame" /> Time saved</span>
           <span className="text-[11px] text-muted-foreground tabular-nums">Week 7</span>
         </div>
         <div className="mt-4 flex items-baseline gap-2">
-          <span className="font-display text-5xl tracking-tight">23</span>
-          <span className="text-sm text-muted-foreground">day streak</span>
+          <span className="font-display text-5xl tracking-tight">4h 20m</span>
+          <span className="text-sm text-muted-foreground">back this week</span>
         </div>
         <div className="mt-4 flex gap-1 h-8">
           {[0.4, 0.7, 0.5, 0.9, 0.6, 1, 0.8].map((h, i) => (

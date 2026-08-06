@@ -20,10 +20,6 @@ vi.mock("@/app/_lib/supabase/admin", () => ({
   })),
 }));
 
-vi.mock("./load-authored-playbook-blueprints", () => ({
-  loadAuthoredPlaybookBlueprintRows: vi.fn(() => []),
-}));
-
 vi.mock("./schema/v2/discovery", () => ({
   discoverV2Playbooks: vi.fn(() => ({ sections: new Map(), allPlaybooks: [], errors: [] })),
   getPlaybookBySlug: vi.fn(() => null),
@@ -35,36 +31,31 @@ import {
   getActiveSignalTriggers,
   hasPlaybookForSignal,
 } from "./trigger-dispatch";
-import { loadAuthoredPlaybookBlueprintRows } from "./load-authored-playbook-blueprints";
-import type { PlaybookBlueprintRow } from "./types";
+import { discoverV2Playbooks } from "./schema/v2/discovery";
+import type { PlaybookDefinitionV2 } from "./schema/v2/types";
 
-const mockLoadBlueprints = loadAuthoredPlaybookBlueprintRows as ReturnType<typeof vi.fn>;
+const mockDiscoverV2Playbooks = discoverV2Playbooks as ReturnType<typeof vi.fn>;
 
-function makeBlueprint(
+function makeV2Playbook(
   slug: string,
   signalKey: string,
-  kind: "acting" | "profile" = "acting",
-): PlaybookBlueprintRow {
+  layer: "learn" | "act" = "act",
+): { definition: PlaybookDefinitionV2; hasScript: boolean; hasPlaybookMd: boolean; packagePath: string } {
   return {
-    slug,
-    name: `Test ${slug}`,
-    kind,
-    player_slug: "follow-up",
-    description: "Test playbook",
-    when_to_use: "When testing",
-    trigger: { type: "signal", signal: signalKey },
-    procedure_md: "# Test",
-    definition: { version: 1 as const, steps: [] },
-    fill_rules: null,
-    required_actions: [],
-    required_toolkits: [],
-    value_model: null,
-    version: 1,
-    status: "active",
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    workspace_id: null,
-    origin: "salt",
+    definition: {
+      name: `Test ${slug}`,
+      slug,
+      version: "1.0.0",
+      description: "Test playbook",
+      section: "relationships",
+      layer,
+      trigger: { type: "signal", signal: signalKey },
+      steps: [],
+      output: { type: "notification" },
+    },
+    hasScript: false,
+    hasPlaybookMd: true,
+    packagePath: `/test/playbooks/${slug}`,
   };
 }
 
@@ -74,11 +65,15 @@ describe("Trigger Dispatch", () => {
   });
 
   describe("buildSignalTriggerIndex", () => {
-    it("builds index from blueprints with signal triggers", () => {
-      mockLoadBlueprints.mockReturnValue([
-        makeBlueprint("follow-up-after-payment", "has_payment_received"),
-        makeBlueprint("meeting-prep", "has_calendar_meeting"),
-      ]);
+    it("builds index from v2 playbooks with signal triggers", () => {
+      mockDiscoverV2Playbooks.mockReturnValue({
+        sections: new Map(),
+        allPlaybooks: [
+          makeV2Playbook("follow-up-after-payment", "has_payment_received"),
+          makeV2Playbook("meeting-prep", "has_calendar_meeting"),
+        ],
+        errors: [],
+      });
 
       const index = buildSignalTriggerIndex();
 
@@ -88,10 +83,14 @@ describe("Trigger Dispatch", () => {
     });
 
     it("groups multiple playbooks for the same signal", () => {
-      mockLoadBlueprints.mockReturnValue([
-        makeBlueprint("follow-up-1", "has_payment_received"),
-        makeBlueprint("follow-up-2", "has_payment_received"),
-      ]);
+      mockDiscoverV2Playbooks.mockReturnValue({
+        sections: new Map(),
+        allPlaybooks: [
+          makeV2Playbook("follow-up-1", "has_payment_received"),
+          makeV2Playbook("follow-up-2", "has_payment_received"),
+        ],
+        errors: [],
+      });
 
       const index = buildSignalTriggerIndex();
 
@@ -99,10 +98,14 @@ describe("Trigger Dispatch", () => {
     });
 
     it("ignores playbooks with invalid signal keys", () => {
-      mockLoadBlueprints.mockReturnValue([
-        makeBlueprint("valid", "has_payment_received"),
-        makeBlueprint("invalid", "not_a_real_signal"),
-      ]);
+      mockDiscoverV2Playbooks.mockReturnValue({
+        sections: new Map(),
+        allPlaybooks: [
+          makeV2Playbook("valid", "has_payment_received"),
+          makeV2Playbook("invalid", "not_a_real_signal"),
+        ],
+        errors: [],
+      });
 
       const index = buildSignalTriggerIndex();
 
@@ -111,16 +114,26 @@ describe("Trigger Dispatch", () => {
     });
 
     it("ignores playbooks with non-signal triggers", () => {
-      mockLoadBlueprints.mockReturnValue([
-        {
-          ...makeBlueprint("chat-only", "has_payment_received"),
-          trigger: { type: "chat" },
-        },
-        {
-          ...makeBlueprint("manual-only", "has_payment_received"),
-          trigger: { type: "manual" },
-        },
-      ]);
+      mockDiscoverV2Playbooks.mockReturnValue({
+        sections: new Map(),
+        allPlaybooks: [
+          {
+            ...makeV2Playbook("chat-only", "has_payment_received"),
+            definition: {
+              ...makeV2Playbook("chat-only", "has_payment_received").definition,
+              trigger: { type: "chat" as const },
+            },
+          },
+          {
+            ...makeV2Playbook("manual-only", "has_payment_received"),
+            definition: {
+              ...makeV2Playbook("manual-only", "has_payment_received").definition,
+              trigger: { type: "manual" as const },
+            },
+          },
+        ],
+        errors: [],
+      });
 
       const index = buildSignalTriggerIndex();
 
@@ -130,9 +143,11 @@ describe("Trigger Dispatch", () => {
 
   describe("findPlaybooksForSignal", () => {
     it("returns matching playbooks", () => {
-      mockLoadBlueprints.mockReturnValue([
-        makeBlueprint("payment-followup", "has_payment_received"),
-      ]);
+      mockDiscoverV2Playbooks.mockReturnValue({
+        sections: new Map(),
+        allPlaybooks: [makeV2Playbook("payment-followup", "has_payment_received")],
+        errors: [],
+      });
 
       const playbooks = findPlaybooksForSignal("has_payment_received");
 
@@ -141,9 +156,11 @@ describe("Trigger Dispatch", () => {
     });
 
     it("returns empty array for unknown signals", () => {
-      mockLoadBlueprints.mockReturnValue([
-        makeBlueprint("payment-followup", "has_payment_received"),
-      ]);
+      mockDiscoverV2Playbooks.mockReturnValue({
+        sections: new Map(),
+        allPlaybooks: [makeV2Playbook("payment-followup", "has_payment_received")],
+        errors: [],
+      });
 
       const playbooks = findPlaybooksForSignal("unknown_signal");
 
@@ -153,11 +170,15 @@ describe("Trigger Dispatch", () => {
 
   describe("getActiveSignalTriggers", () => {
     it("returns all signal keys with playbook triggers", () => {
-      mockLoadBlueprints.mockReturnValue([
-        makeBlueprint("a", "has_payment_received"),
-        makeBlueprint("b", "has_calendar_meeting"),
-        makeBlueprint("c", "has_payment_received"),
-      ]);
+      mockDiscoverV2Playbooks.mockReturnValue({
+        sections: new Map(),
+        allPlaybooks: [
+          makeV2Playbook("a", "has_payment_received"),
+          makeV2Playbook("b", "has_calendar_meeting"),
+          makeV2Playbook("c", "has_payment_received"),
+        ],
+        errors: [],
+      });
 
       const signals = getActiveSignalTriggers();
 
@@ -169,47 +190,59 @@ describe("Trigger Dispatch", () => {
 
   describe("hasPlaybookForSignal", () => {
     it("returns true when playbook exists for signal", () => {
-      mockLoadBlueprints.mockReturnValue([
-        makeBlueprint("payment-followup", "has_payment_received"),
-      ]);
+      mockDiscoverV2Playbooks.mockReturnValue({
+        sections: new Map(),
+        allPlaybooks: [makeV2Playbook("payment-followup", "has_payment_received")],
+        errors: [],
+      });
 
       expect(hasPlaybookForSignal("has_payment_received")).toBe(true);
     });
 
     it("returns false when no playbook exists for signal", () => {
-      mockLoadBlueprints.mockReturnValue([
-        makeBlueprint("payment-followup", "has_payment_received"),
-      ]);
+      mockDiscoverV2Playbooks.mockReturnValue({
+        sections: new Map(),
+        allPlaybooks: [makeV2Playbook("payment-followup", "has_payment_received")],
+        errors: [],
+      });
 
       expect(hasPlaybookForSignal("has_calendar_meeting")).toBe(false);
     });
   });
 
-  describe("keeper playbook integration", () => {
-    it("indexes profile/keeper playbooks with signal triggers", () => {
-      mockLoadBlueprints.mockReturnValue([
-        makeBlueprint("keeper-entity-notes", "entity_learning_extracted", "profile"),
-        makeBlueprint("meeting-follow-up", "meeting_end_passed", "acting"),
-      ]);
+  describe("layer handling", () => {
+    it("indexes learn-layer playbooks with signal triggers", () => {
+      mockDiscoverV2Playbooks.mockReturnValue({
+        sections: new Map(),
+        allPlaybooks: [
+          makeV2Playbook("keeper-entity-notes", "capture_email_received", "learn"),
+          makeV2Playbook("meeting-follow-up", "meeting_end_passed", "act"),
+        ],
+        errors: [],
+      });
 
       const index = buildSignalTriggerIndex();
 
-      expect(index.get("entity_learning_extracted")).toHaveLength(1);
-      expect(index.get("entity_learning_extracted")?.[0].kind).toBe("profile");
+      expect(index.get("capture_email_received")).toHaveLength(1);
+      expect(index.get("capture_email_received")?.[0].layer).toBe("learn");
       expect(index.get("meeting_end_passed")).toHaveLength(1);
-      expect(index.get("meeting_end_passed")?.[0].kind).toBe("acting");
+      expect(index.get("meeting_end_passed")?.[0].layer).toBe("act");
     });
 
-    it("finds both keeper and acting playbooks for signals", () => {
-      mockLoadBlueprints.mockReturnValue([
-        makeBlueprint("keeper-notes", "has_payment_received", "profile"),
-        makeBlueprint("payment-followup", "has_payment_received", "acting"),
-      ]);
+    it("finds both learn and act playbooks for signals", () => {
+      mockDiscoverV2Playbooks.mockReturnValue({
+        sections: new Map(),
+        allPlaybooks: [
+          makeV2Playbook("keeper-notes", "has_payment_received", "learn"),
+          makeV2Playbook("payment-followup", "has_payment_received", "act"),
+        ],
+        errors: [],
+      });
 
       const playbooks = findPlaybooksForSignal("has_payment_received");
 
       expect(playbooks).toHaveLength(2);
-      expect(playbooks.map((p) => p.kind).sort()).toEqual(["acting", "profile"]);
+      expect(playbooks.map((p) => p.layer).sort()).toEqual(["act", "learn"]);
     });
   });
 });

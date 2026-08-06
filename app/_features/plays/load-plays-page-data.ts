@@ -3,8 +3,7 @@ import "server-only";
 import {
   listActivityEntries,
   listQueuedPlayRuns,
-  listPlaybookBlueprints,
-  listPlayTemplates,
+  countPlaysRanToday,
 } from "@/app/_features/plays/queries";
 import { getPlaybooksV2ForWorkspace, type PlaybookV2QueryResult } from "@/app/_features/plays/playbooks/queries-v2";
 import { getConnectorsPageData } from "@/app/_features/connectors/queries";
@@ -13,30 +12,32 @@ import {
   getTodayCaptureStats,
   hasCaptures,
 } from "@/app/_features/capture/queries";
+import { CAPTURE_STREAM_INITIAL_LIMIT } from "@/app/_features/capture/stream-constants";
 import {
   listQueueFindings,
   countFindingsByState,
 } from "@/app/_features/capture/queries/intelligence-findings";
 import { getLearningEvidence } from "@/app/_features/plays/queries/learning-evidence";
 import { getUnseenLearningsCount } from "@/app/_features/me/actions/salt-learnings";
-import type { ActivityEntryRow, PlaybookBlueprintView, PlayTemplateView, PlayerSlug } from "@/app/_features/plays/types";
+import type { ActivityEntryRow } from "@/app/_features/plays/types";
 import type { ConnectorsPageData } from "@/app/_features/connectors";
 import type { FindingWithContext } from "@/app/_features/capture/types/intelligence-findings";
 import type { StreamCaptureSummary } from "@/app/_features/capture/types";
-import type { QueuePlayView } from "@/app/_features/plays/types";
+import type { PlayRunRow } from "@/app/_features/plays/types";
 import type { GroupedLearningEvidence } from "@/app/_features/plays/queries/learning-evidence";
 
 export type PlaysTab = "queue" | "customize" | "activity";
 export type PlaysActivityView = "actions" | "captures";
 
 export type PlaysPageData = {
-  initialQueue: QueuePlayView[];
+  initialQueue: PlayRunRow[];
   initialActivity: ActivityEntryRow[];
   activityTotalCount: number;
   connectors: ConnectorsPageData | null;
   initialFindings: FindingWithContext[];
   autoHandledFindings: FindingWithContext[];
   findingCounts: { needs_you: number; auto_handled: number };
+  playsRanToday: number;
   learningEvidence: GroupedLearningEvidence[];
   streamCaptures: StreamCaptureSummary[];
   captureStats: {
@@ -51,8 +52,6 @@ export type PlaysPageData = {
     scanError?: number;
   } | null;
   hasCaptureData: boolean;
-  blueprints: PlaybookBlueprintView[];
-  adoptedTemplates: PlayTemplateView[];
   playbooksV2: PlaybookV2QueryResult | null;
   workspaceId: string | null;
   keeperUnseenCount: number;
@@ -90,12 +89,11 @@ export function emptyPlaysPageData(): PlaysPageData {
     initialFindings: [],
     autoHandledFindings: [],
     findingCounts: EMPTY_FINDING_COUNTS,
+    playsRanToday: 0,
     learningEvidence: [],
     streamCaptures: [],
     captureStats: null,
     hasCaptureData: false,
-    blueprints: [],
-    adoptedTemplates: [],
     playbooksV2: null,
     workspaceId: null,
     keeperUnseenCount: 0,
@@ -115,12 +113,13 @@ export async function loadPlaysPageData(options: {
 
   if (tab === "queue") {
     const autoHandledSince = recentAutoHandledSince();
-    const [queueViews, needsYouFindings, autoHandledFindings, findingCounts, learningEvidence] = await Promise.all([
+    const [queueViews, needsYouFindings, autoHandledFindings, findingCounts, learningEvidence, playsRanToday] = await Promise.all([
       listQueuedPlayRuns(),
       listQueueFindings("needs_you"),
       listQueueFindings("auto_handled"),
       countFindingsByState(),
       workspaceId ? getLearningEvidence(workspaceId) : Promise.resolve([]),
+      countPlaysRanToday(),
     ]);
 
     return {
@@ -129,16 +128,15 @@ export async function loadPlaysPageData(options: {
       initialFindings: needsYouFindings,
       autoHandledFindings,
       findingCounts,
+      playsRanToday,
       learningEvidence,
       workspaceId: workspaceId ?? null,
     };
   }
 
   if (tab === "customize") {
-    const [connectors, blueprints, adoptedTemplates, playbooksV2, keeperUnseenCount] = await Promise.all([
+    const [connectors, playbooksV2, keeperUnseenCount] = await Promise.all([
       getConnectorsPageData(),
-      listPlaybookBlueprints(),
-      listPlayTemplates(),
       getPlaybooksV2ForWorkspace(),
       workspaceId ? getUnseenLearningsCount(workspaceId) : Promise.resolve(0),
     ]);
@@ -146,8 +144,6 @@ export async function loadPlaysPageData(options: {
     return {
       ...base,
       connectors,
-      blueprints,
-      adoptedTemplates,
       playbooksV2,
       workspaceId: workspaceId ?? null,
       keeperUnseenCount,
@@ -156,7 +152,7 @@ export async function loadPlaysPageData(options: {
 
   if (activityView === "captures" && workspaceId) {
     const [streamCaptures, captureStats, hasCaptureData] = await Promise.all([
-      getCaptureStream(workspaceId, { limit: 100 }),
+      getCaptureStream(workspaceId, { limit: CAPTURE_STREAM_INITIAL_LIMIT }),
       getTodayCaptureStats(workspaceId),
       hasCaptures(workspaceId),
     ]);

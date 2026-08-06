@@ -5,7 +5,7 @@
  * The graph is how you see your knowledge.
  */
 
-export type NodeType = "person" | "org" | "work" | "billing" | "file" | "note" | "conversation" | "meeting";
+export type NodeType = "person" | "org" | "work" | "billing" | "file" | "note" | "conversation" | "meeting" | "resource";
 
 /**
  * Base node that every connected entity resolves to.
@@ -44,7 +44,15 @@ export type ConnectionMetadata =
   | { type: "file"; fileName: string; mimeType?: string; sizeBytes?: number }
   | { type: "note"; excerpt: string }
   | { type: "meeting"; startTime: string; status: string }
-  | { type: "conversation"; preview?: string };
+  | { type: "conversation"; preview?: string }
+  | {
+      type: "resource";
+      resourceType: string;
+      resourceUrl?: string;
+      mode: "static" | "live";
+      lastActivityAt?: string;
+      lastActivitySummary?: string;
+    };
 
 /**
  * Edge between two nodes.
@@ -136,6 +144,7 @@ export const NODE_TYPE_META: Record<
   note: { label: "Notes", shape: "rect" },
   conversation: { label: "Conversations", shape: "rect" },
   meeting: { label: "Meetings", shape: "rect" },
+  resource: { label: "Resources", shape: "rect" },
 };
 
 /**
@@ -151,4 +160,5 @@ export const TYPE_META: Record<NodeType, { label: string; color: string }> = {
   note: { label: "Notes", color: "#9CA3AF" },
   conversation: { label: "Conversations", color: "#818CF8" },
   meeting: { label: "Meetings", color: "#F59E0B" },
+  resource: { label: "Resources", color: "#10B981" },
 };

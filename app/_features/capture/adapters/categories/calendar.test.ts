@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { createCalendarCategoryAdapter, getCalendarAdapter } from "./calendar";
+import { CALENDAR_TRIGGER_EVENT_CREATED } from "../__fixtures__/googlecalendar-payloads";
 
 describe("calendar category adapter", () => {
   describe("getCalendarAdapter", () => {
@@ -15,17 +16,38 @@ describe("calendar category adapter", () => {
       expect(adapter?.sourceType).toBe("cal");
     });
 
-    it("returns null for unknown provider", () => {
-      expect(getCalendarAdapter("unknown")).toBeNull();
+    it("returns adapter with generic extraction for unknown provider", () => {
+      const adapter = getCalendarAdapter("unknown");
+      expect(adapter).not.toBeNull();
+      expect(adapter.sourceType).toBe("unknown");
     });
 
-    it("returns null for non-calendar provider", () => {
-      expect(getCalendarAdapter("gmail")).toBeNull();
+    it("returns adapter with generic extraction for non-calendar provider", () => {
+      const adapter = getCalendarAdapter("gmail");
+      expect(adapter).not.toBeNull();
+      expect(adapter.sourceType).toBe("gmail");
     });
   });
 
   describe("googlecalendar normalization", () => {
     const adapter = createCalendarCategoryAdapter("googlecalendar");
+
+    it("normalizes the flat snake_case trigger payload", () => {
+      // Verified against the live trigger schema (re-pulled 2026-08-05):
+      // the webhook sends event_id/start_time/organizer_email, NOT the
+      // Calendar API event resource.
+      const envelope = adapter.normalize(CALENDAR_TRIGGER_EVENT_CREATED);
+
+      expect(envelope).not.toBeNull();
+      expect(envelope?.externalId).toBe("1pz3r7u9a4i6h8j0");
+      expect(envelope?.title).toBe("Intro call — Acme Creative");
+      expect(envelope?.occurredAt).toBe("2026-07-16T13:00:00Z");
+      expect(envelope?.extracted.end).toBe("2026-07-16T13:30:00Z");
+      expect(envelope?.participants).toHaveLength(1);
+      expect(envelope?.participants[0].email).toBe("grace@acmecreative.co");
+      expect(envelope?.participants[0].role).toBe("organizer");
+      expect(envelope?.threadId).toBe("primary");
+    });
 
     it("normalizes google calendar event payload", () => {
       const payload = {

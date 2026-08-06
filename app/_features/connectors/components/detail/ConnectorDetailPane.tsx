@@ -50,6 +50,7 @@ import type {
 } from "@/app/_features/connectors";
 import { catalogById } from "@/app/_features/connectors/catalog-view";
 import { connectorsPageUrl } from "@/app/_features/connectors/constants";
+import { daysSince } from "@/app/_features/connectors/staleness";
 import {
   fetchConnectorActivity,
   updateConnectorEmailMode,
@@ -76,7 +77,6 @@ import { ConnectorIcon } from "../connector-icons";
 import { ApiKeyConnectDialog } from "../ApiKeyConnectDialog";
 import { ConnectorApiKeyConnectSection } from "../ConnectorApiKeyConnectSection";
 import { usesInlineApiKeyConnect } from "../../utils/inline-api-key-connect";
-import { getConnectorMeta } from "./connector-meta";
 import { ToolCategorySection, filterCapabilities } from "./ToolCategorySection";
 import { ToolPermissionsToolbar } from "./ToolPermissionsToolbar";
 import {
@@ -153,8 +153,10 @@ export function ConnectorDetailPane({
   const definition = definitionsById[connectorId] ?? null;
   const status = data.connectors[connectorId];
   const connected = Boolean(status?.connected);
-  // Expired connection: not "connected", but was — show reconnect, not connect.
+  // Expired or failed live verification: not "connected", but was — show
+  // reconnect, not connect. Quiet connections are auto-verified server-side.
   const needsReconnect = Boolean(status?.needsReconnect);
+  const lastActivityDays = daysSince(status?.lastActivityAt ?? null);
   const inlineApiKeyConnect = definition
     ? usesInlineApiKeyConnect(definition)
     : false;
@@ -197,6 +199,30 @@ export function ConnectorDetailPane({
     captureState?.enabled ?? false,
   );
   const [savingCapture, setSavingCapture] = React.useState(false);
+
+  // Trust mode approval preferences (Phase 7)
+  const trustMode = data.workspaceTrustLevel === "trust";
+  const [toolApprovalOverrides, setToolApprovalOverrides] = React.useState<Record<string, boolean>>({});
+
+  const handleToolApprovalChange = React.useCallback(
+    async (toolSlug: string, requiresApproval: boolean) => {
+      setToolApprovalOverrides((prev) => ({
+        ...prev,
+        [toolSlug]: requiresApproval,
+      }));
+
+      const { updateToolApprovalPreference } = await import("../../actions");
+      const result = await updateToolApprovalPreference(toolSlug, requiresApproval);
+      if (!result.success) {
+        setToolApprovalOverrides((prev) => {
+          const next = { ...prev };
+          delete next[toolSlug];
+          return next;
+        });
+      }
+    },
+    [],
+  );
 
   const [connecting, setConnecting] = React.useState(false);
   const [disconnecting, setDisconnecting] = React.useState(false);
@@ -322,7 +348,12 @@ export function ConnectorDetailPane({
     return null;
   }
 
-  const meta = getConnectorMeta(connectorId, definition.name, definition.description);
+  const meta = {
+    displayName: definition.name,
+    tagline: definition.tagline ?? definition.description,
+    developedBy: definition.developedBy ?? null,
+    links: definition.links ?? [],
+  };
   const recentActivity = activity ? activity.slice(0, OVERVIEW_ACTIVITY_PREVIEW) : null;
   const hasMoreActivity = (activity?.length ?? 0) > OVERVIEW_ACTIVITY_PREVIEW;
 
@@ -480,25 +511,6 @@ export function ConnectorDetailPane({
 
     if (result.success) {
       toast.success(`${definition.name} disconnected`);
-      // #region agent log
-      fetch("http://127.0.0.1:7443/ingest/a7cd7781-629e-483f-bcc8-d958046d0b66", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "a1002e" },
-        body: JSON.stringify({
-          sessionId: "a1002e",
-          runId: "disconnect-fix",
-          hypothesisId: "H1-cache",
-          location: "ConnectorDetailPane:handleDisconnect",
-          message: "Disconnect succeeded — refreshing connectors UI",
-          data: {
-            connectorId,
-            embedded,
-            usesCacheInvalidation: Boolean(onConnectorsChanged),
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion
       onConnectionChange?.({ connectorId, connected: false });
       refreshConnectorsUi();
     } else {
@@ -590,11 +602,21 @@ export function ConnectorDetailPane({
                   {status.label}
                 </span>
               ) : null}
+              {connected && status?.lastActivityAt !== undefined ? (
+                <span className="truncate text-xs text-muted-foreground">
+                  {lastActivityDays === null
+                    ? "No activity yet"
+                    : lastActivityDays === 0
+                      ? "Active today"
+                      : `Last activity ${lastActivityDays}d ago`}
+                </span>
+              ) : null}
             </div>
             {needsReconnect ? (
               <p className="max-w-xl pt-1 text-xs leading-relaxed text-muted-foreground">
-                This connection expired. Reconnect so Salt keeps learning from
-                it — your tool preferences are kept.
+                This connection stopped working — Salt verified it can no
+                longer reach the account. Reconnect to restore access; your
+                tool preferences are kept.
               </p>
             ) : !connected && definition.connectHelp && !inlineApiKeyConnect ? (
               <p className="max-w-xl pt-1 text-xs leading-relaxed text-muted-foreground">
@@ -871,6 +893,9 @@ export function ConnectorDetailPane({
                     controlsDisabled={false}
                     onBulkChange={handleBulkChange}
                     onToolChange={handleToolChange}
+                    trustMode={trustMode}
+                    toolApprovalOverrides={toolApprovalOverrides}
+                    onToolApprovalChange={handleToolApprovalChange}
                   />
                 ) : null}
                 {showFilteredWrite ? (
@@ -882,6 +907,9 @@ export function ConnectorDetailPane({
                     controlsDisabled={false}
                     onBulkChange={handleBulkChange}
                     onToolChange={handleToolChange}
+                    trustMode={trustMode}
+                    toolApprovalOverrides={toolApprovalOverrides}
+                    onToolApprovalChange={handleToolApprovalChange}
                   />
                 ) : null}
               </div>
@@ -961,7 +989,7 @@ export function ConnectorDetailPane({
         <aside className="space-y-6 lg:sticky lg:top-6">
           <section className="scroll-mt-6">
             <ConnectorPermissionsSection
-              isGmail={connectorId === "google"}
+              isEmailProvider={connectorId === "google" || connectorId === "outlook"}
               connected={connected}
               settings={localTrustSettings}
               saving={savingTrust}
@@ -1010,11 +1038,14 @@ export function ConnectorDetailPane({
   );
 }
 
-function AboutSections({
-  meta,
-}: {
-  meta: ReturnType<typeof getConnectorMeta>;
-}) {
+interface ConnectorMeta {
+  displayName: string;
+  tagline: string;
+  developedBy: string | null;
+  links: Array<{ label: string; href: string }>;
+}
+
+function AboutSections({ meta }: { meta: ConnectorMeta }) {
   return (
     <>
       {meta.links.length > 0 ? (

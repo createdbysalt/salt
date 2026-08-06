@@ -675,7 +675,7 @@ export function ConnectorDetailModal({
 
             {hasToggleableTools ? (
               <ConnectorPermissionsSection
-                isGmail={connectorId === "google"}
+                isEmailProvider={connectorId === "google" || connectorId === "outlook"}
                 connected={Boolean(status?.connected)}
                 settings={localTrustSettings}
                 saving={savingTrust}
@@ -931,14 +931,15 @@ function PermissionPill({
 }
 
 function ConnectorPermissionsSection({
-  isGmail,
+  isEmailProvider,
   connected,
   settings,
   saving,
   disabled,
   onEmailModeChange,
 }: {
-  isGmail: boolean;
+  /** True for email providers (Gmail, Outlook) that support draft/send mode. */
+  isEmailProvider: boolean;
   connected: boolean;
   settings: ConnectorTrustSettings | undefined;
   saving: boolean;
@@ -946,7 +947,7 @@ function ConnectorPermissionsSection({
   onEmailModeChange: (emailMode: ConnectorEmailMode) => void;
 }) {
   // Trust is workspace-global (one switch in Settings); the modal only
-  // reflects it and manages the Gmail email mode.
+  // reflects it and manages the email mode for email providers.
   const trustLevel = settings?.trustLevel ?? "read_only";
   const emailMode = settings?.emailMode ?? "draft";
 
@@ -965,7 +966,7 @@ function ConnectorPermissionsSection({
           : "Salt can act — every action waits for your approval first. Change this for all connectors in Settings → Connectors."}
       </p>
 
-      {isGmail ? (
+      {isEmailProvider ? (
         <div className="space-y-1.5">
           <div
             className="flex flex-wrap gap-1.5"
@@ -987,7 +988,7 @@ function ConnectorPermissionsSection({
           </div>
           <p className="text-xs leading-snug text-muted-foreground">
             {emailMode === "draft"
-              ? "Salt prepares drafts in your Gmail — nothing sends until you do."
+              ? "Salt prepares drafts — nothing sends until you do."
               : "Salt can send email after you approve each message."}
           </p>
         </div>

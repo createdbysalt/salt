@@ -19,6 +19,7 @@ _lib/
 ├── stripe/             # Stripe utilities (Salt SaaS billing)
 ├── email/              # Email sending (Resend)
 ├── ai/                 # AI/GPT utilities
+├── usage/              # Play metering, tiers, entitlements (see usage/CLAUDE.md)
 ├── rate-limit/         # Rate limiting
 ├── security/           # Tokens, safe URLs, encryption
 ├── tenancy/            # Multi-tenant context and guards
@@ -36,7 +37,8 @@ _lib/
 | `supabase` | Database client (server, client, admin, middleware) |
 | `stripe` | Stripe client utilities (Salt SaaS billing only) |
 | `email` | Email sending via Resend |
-| `ai` | OpenAI/GPT integration |
+| `ai` | OpenAI/GPT integration — **a vendor spend primitive**, meter it (`docs/architecture/billing-metering.md`) |
+| `usage` | Play metering, usage ledger, tier catalog, entitlements |
 | `rate-limit` | API rate limiting |
 | `security` | Tokens, safe URLs, encryption |
 | `tenancy` | Multi-tenant context and guards |

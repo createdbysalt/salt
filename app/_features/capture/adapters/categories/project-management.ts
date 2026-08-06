@@ -14,9 +14,9 @@ import type {
 import type { PersonSignals } from "@/app/_features/capture/services/system-plays/person-signals";
 import type { CaptureSourceType } from "@/app/_features/capture/types";
 
-type ProjectManagementProvider = "asana" | "linear" | "jira" | "trello" | "monday";
+type KnownPmProvider = "asana" | "linear" | "jira" | "trello" | "monday";
 
-const PM_PROVIDERS: ProjectManagementProvider[] = [
+const KNOWN_PM_PROVIDERS: KnownPmProvider[] = [
   "asana",
   "linear",
   "jira",
@@ -24,13 +24,17 @@ const PM_PROVIDERS: ProjectManagementProvider[] = [
   "monday",
 ];
 
-const PM_TRIGGER_SLUGS: Record<ProjectManagementProvider, string[]> = {
+const PM_TRIGGER_SLUGS: Record<KnownPmProvider, string[]> = {
   asana: [], // No triggers available yet - backfill only
   linear: [], // No triggers available yet - backfill only
   jira: [], // No triggers available yet - backfill only
   trello: [], // No triggers available yet - backfill only
   monday: [], // No triggers available yet - backfill only
 };
+
+function isKnownPmProvider(provider: string): provider is KnownPmProvider {
+  return KNOWN_PM_PROVIDERS.includes(provider as KnownPmProvider);
+}
 
 function derivePmSignals(
   envelopes: readonly CaptureEnvelope[],
@@ -39,8 +43,7 @@ function derivePmSignals(
   const contacts = new Map<string, PersonSignals>();
 
   for (const envelope of envelopes) {
-    if (!isPmSource(envelope.sourceType)) continue;
-
+    // PM adapters already filter by category - process all envelopes
     for (const participant of envelope.participants) {
       if (!participant.email) continue;
 
@@ -53,9 +56,7 @@ function derivePmSignals(
   return contacts;
 }
 
-function isPmSource(sourceType: CaptureSourceType): boolean {
-  return PM_PROVIDERS.includes(sourceType as ProjectManagementProvider);
-}
+// PM adapters already filter by category - no need for source type check
 
 function normalizeGenericPm(
   payload: unknown,
@@ -114,10 +115,14 @@ function normalizeGenericPm(
   };
 }
 
-export function createProjectManagementCategoryAdapter(
-  provider: ProjectManagementProvider
-): CaptureAdapter {
-  const triggerSlugs = PM_TRIGGER_SLUGS[provider] ?? [];
+/**
+ * Create a project management adapter for ANY provider.
+ * Known providers get specific parsing; unknown get generic extraction.
+ */
+export function createProjectManagementCategoryAdapter(provider: string): CaptureAdapter {
+  const triggerSlugs = isKnownPmProvider(provider)
+    ? PM_TRIGGER_SLUGS[provider]
+    : []; // Unknown providers: triggers come from DB
 
   return {
     sourceType: provider as CaptureSourceType,
@@ -126,22 +131,21 @@ export function createProjectManagementCategoryAdapter(
     deriveSignals: derivePmSignals,
 
     normalize(payload: unknown): CaptureEnvelope | null {
+      // All PM providers currently use generic extraction
       return normalizeGenericPm(payload, provider as CaptureSourceType);
     },
   };
 }
 
-export const projectManagementCategoryAdapters = PM_PROVIDERS.map(
+/** Known provider adapters (for backward compatibility). */
+export const projectManagementCategoryAdapters = KNOWN_PM_PROVIDERS.map(
   createProjectManagementCategoryAdapter
 );
 
-export function getProjectManagementAdapter(
-  provider: string
-): CaptureAdapter | null {
-  if (!PM_PROVIDERS.includes(provider as ProjectManagementProvider)) {
-    return null;
-  }
-  return createProjectManagementCategoryAdapter(
-    provider as ProjectManagementProvider
-  );
+/**
+ * Get project management adapter for ANY provider in the PM category.
+ * Always returns an adapter — unknown providers get generic extraction.
+ */
+export function getProjectManagementAdapter(provider: string): CaptureAdapter {
+  return createProjectManagementCategoryAdapter(provider);
 }

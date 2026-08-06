@@ -1,56 +1,57 @@
 /**
- * User playbook draft types for the draft_playbook Ask Salt tool.
+ * User Playbook Draft Types
  *
- * A draft is the intermediate representation between the LLM's authored
- * playbook and a saved user playbook. The draft is validated but not yet
- * stored — the user reviews and confirms via PlaybookDraftCard.
+ * Types for user-created playbooks via Ask Salt.
+ * User playbooks are always "general" player with safety constraints.
  */
 
 import type { PlayDefinition, PlayValueModel } from "../utils/play-definition";
-import type { PlaybookTrigger } from "./types";
 
-export type PlaybookOrigin = "salt" | "user";
+/**
+ * Trigger configuration for user playbooks.
+ */
+export type UserPlaybookTrigger =
+  | { type: "signal"; signal?: string }
+  | { type: "schedule"; cron?: string }
+  | { type: "manual" }
+  | { type: "chat" };
 
+/**
+ * Draft playbook created by a user via Ask Salt.
+ */
 export interface UserPlaybookDraft {
-  /** Unique slug derived from name (kebab-case, workspace-scoped). */
+  /** URL-safe slug (auto-generated from name) */
   slug: string;
-  /** Human-readable name. */
+  /** Human-readable name */
   name: string;
-  /** Brief description of what this playbook does. */
+  /** Brief description */
   description: string;
-  /** When to use this playbook (routing hint for Ask Salt). */
-  whenToUse: string;
-  /** Trigger type — user playbooks default to chat trigger. */
-  trigger: PlaybookTrigger;
-  /** Human-readable procedure in markdown. */
-  procedureMd: string;
-  /** Compiled step definition. */
+  /** When to use this playbook */
+  whenToUse?: string;
+  /** Trigger configuration */
+  trigger?: UserPlaybookTrigger;
+  /** Human-readable procedure */
+  procedureMd?: string;
+  /** Machine-executable definition */
   definition: PlayDefinition;
-  /** Required action slugs derived from definition. */
-  requiredActions: string[];
-  /** Optional value model (revenue/time saved). */
-  valueModel: PlayValueModel | null;
-  /** Validation errors (empty = valid). */
-  validationErrors: string[];
-  /** Whether this draft is valid and can be saved. */
-  isValid: boolean;
-}
-
-export interface UserPlaybookDraftInput {
-  name: string;
-  description: string;
-  whenToUse: string;
-  procedureMd: string;
-  definition: unknown;
+  /** Value model for ROI tracking */
   valueModel?: PlayValueModel | null;
+  /** Required action slugs */
+  requiredActions?: string[];
+  /** Validation errors (empty if valid) */
+  validationErrors?: string[];
+  /** Whether the draft is valid */
+  isValid?: boolean;
 }
 
+/**
+ * Convert a name to a URL-safe slug.
+ */
 export function slugify(name: string): string {
   return name
     .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 64);
+    .trim()
+    .replace(/[^\w\s-]/g, "")
+    .replace(/[\s_-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }

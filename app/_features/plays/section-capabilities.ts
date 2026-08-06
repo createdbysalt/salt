@@ -18,6 +18,7 @@
  * - me: blush (personal)
  * - connections: sky (links)
  * - notes: muted (text)
+ * - communication: cyan (email, messaging)
  * - _meta: ink (system)
  */
 
@@ -31,11 +32,12 @@ import {
   Link,
   FileText,
   Settings,
+  MessageSquare,
   type LucideIcon,
 } from "lucide-react";
 import type { PlaybookSection } from "./types";
 
-export type SectionColor = "flame" | "sky" | "violet" | "blush" | "teal" | "muted" | "ink";
+export type SectionColor = "flame" | "sky" | "violet" | "blush" | "teal" | "muted" | "ink" | "amber" | "cyan";
 
 export interface SectionCapabilities {
   /** Section slug */
@@ -150,6 +152,17 @@ export const SECTION_CAPABILITIES: Record<PlaybookSection, SectionCapabilities> 
     canWriteMemory: false,
     domainToolkits: [],
   },
+  communication: {
+    slug: "communication",
+    name: "Communication",
+    description: "Email intelligence and inbox organization",
+    icon: "message-square",
+    Icon: MessageSquare,
+    color: "cyan",
+    monogram: "CM",
+    canWriteMemory: false,
+    domainToolkits: ["gmail", "outlook"],
+  },
   _meta: {
     slug: "_meta",
     name: "System",
@@ -209,6 +222,8 @@ export const SECTION_COLOR_DOT: Record<SectionColor, string> = {
   teal: "bg-teal",
   muted: "bg-muted-foreground/40",
   ink: "bg-foreground",
+  amber: "bg-amber",
+  cyan: "bg-cyan-500",
 };
 
 export const SECTION_COLOR_SOFT: Record<SectionColor, string> = {
@@ -219,6 +234,8 @@ export const SECTION_COLOR_SOFT: Record<SectionColor, string> = {
   teal: "bg-teal/12 text-teal",
   muted: "bg-muted text-muted-foreground",
   ink: "bg-foreground/8 text-foreground",
+  amber: "bg-amber/12 text-amber",
+  cyan: "bg-cyan-500/12 text-cyan-500",
 };
 
 export const SECTION_COLOR_GRADIENT: Record<SectionColor, string> = {
@@ -236,6 +253,10 @@ export const SECTION_COLOR_GRADIENT: Record<SectionColor, string> = {
     "bg-[radial-gradient(120%_80%_at_100%_0%,color-mix(in_oklab,var(--foreground)_10%,transparent)_0%,transparent_60%),linear-gradient(180deg,var(--card)_0%,var(--card)_100%)]",
   muted:
     "bg-[radial-gradient(120%_80%_at_100%_0%,color-mix(in_oklab,var(--muted-foreground)_12%,transparent)_0%,transparent_60%),linear-gradient(180deg,var(--card)_0%,var(--card)_100%)]",
+  amber:
+    "bg-[radial-gradient(120%_80%_at_100%_0%,color-mix(in_oklab,var(--amber)_18%,transparent)_0%,transparent_60%),linear-gradient(180deg,var(--card)_0%,var(--card)_100%)]",
+  cyan:
+    "bg-[radial-gradient(120%_80%_at_100%_0%,rgb(6_182_212/0.18)_0%,transparent_60%),linear-gradient(180deg,var(--card)_0%,var(--card)_100%)]",
 };
 
 export const SECTION_COLOR_RING: Record<SectionColor, string> = {
@@ -246,6 +267,8 @@ export const SECTION_COLOR_RING: Record<SectionColor, string> = {
   teal: "ring-teal/25 hover:ring-teal/50",
   ink: "ring-foreground/15 hover:ring-foreground/30",
   muted: "ring-border hover:ring-muted-foreground/40",
+  amber: "ring-amber/25 hover:ring-amber/50",
+  cyan: "ring-cyan-500/25 hover:ring-cyan-500/50",
 };
 
 export const SECTION_COLOR_TEXT: Record<SectionColor, string> = {
@@ -256,6 +279,8 @@ export const SECTION_COLOR_TEXT: Record<SectionColor, string> = {
   teal: "text-teal",
   ink: "text-foreground",
   muted: "text-muted-foreground",
+  amber: "text-amber",
+  cyan: "text-cyan-500",
 };
 
 /**

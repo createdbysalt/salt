@@ -1,6 +1,22 @@
 /**
  * Unified Connector Registry — Single Source of Truth
  *
+ * @deprecated This code-first registry is being replaced by the database-driven
+ * connector catalog. Use `connector-registry.ts` instead, which reads from
+ * `connector_catalog` and `connector_overrides` tables with a 5-minute cache.
+ *
+ * Migration status (2026-07-13):
+ * - UI catalog: Reads from DB (`connector-registry.ts`)
+ * - Tool classification: DB + heuristics (`tool-classification-heuristics.ts`)
+ * - Trigger subscriptions: DB with code fallback (`trigger-subscriptions.ts`)
+ *
+ * This file is kept for backward compatibility during the transition period.
+ * It will be removed after the next release cycle.
+ *
+ * ─────────────────────────────────────────────────────────────────────────────
+ * LEGACY DOCUMENTATION (for reference during transition)
+ * ─────────────────────────────────────────────────────────────────────────────
+ *
  * Every connector is defined ONCE here. All other systems derive from this:
  * - Capture adapters (trigger slugs)
  * - Enrichment registry (category mapping)
@@ -43,6 +59,18 @@ export interface AskSaltConfig {
   slugPrefix: string;
 }
 
+/** API key form configuration for connectors that need custom input fields */
+export interface ConnectorApiKeyForm {
+  keyLabel: string;
+  keyPlaceholder: string;
+  extraFields?: Array<{
+    name: string;
+    label: string;
+    placeholder: string;
+    required?: boolean;
+  }>;
+}
+
 export interface ConnectorDefinition {
   /** Provider key used in workspace_integrations (e.g., "gmail", "hubspot") */
   providerKey: string;
@@ -67,6 +95,18 @@ export interface ConnectorDefinition {
 
   /** Whether connector is ready for production */
   phase: "released" | "beta" | "coming_soon";
+
+  /**
+   * For API key connectors: the field name Composio expects.
+   * E.g., "api_key", "generic_api_key", "bearer_token"
+   */
+  apiKeyFieldName?: string;
+
+  /** API key form configuration (for api_key auth connectors) */
+  apiKeyForm?: ConnectorApiKeyForm;
+
+  /** Connect dialog help text (markdown) */
+  connectHelp?: string;
 }
 
 /**
@@ -102,7 +142,7 @@ export const CONNECTOR_REGISTRY: Record<string, ConnectorDefinition> = {
     category: "email",
     authMethod: "oauth",
     triggerSlugs: ["OUTLOOK_MESSAGE_TRIGGER", "OUTLOOK_SENT_MESSAGE_TRIGGER"],
-    askSalt: { enabled: false, slugPrefix: "OUTLOOK_" },
+    askSalt: { enabled: true, slugPrefix: "OUTLOOK_" },
     meta: {
       displayName: "Outlook",
       tagline: "Email and calendar from Microsoft 365.",
@@ -145,7 +185,7 @@ export const CONNECTOR_REGISTRY: Record<string, ConnectorDefinition> = {
     category: "calendar",
     authMethod: "oauth",
     triggerSlugs: [], // Backfill only — Composio has no Cal.com triggers
-    askSalt: { enabled: false, slugPrefix: "CAL_" },
+    askSalt: { enabled: true, slugPrefix: "CAL_" }, // Re-enabled with verified slugs 2026-07-13
     meta: {
       displayName: "Cal.com",
       tagline: "Booking links and scheduled meetings.",
@@ -165,7 +205,7 @@ export const CONNECTOR_REGISTRY: Record<string, ConnectorDefinition> = {
     category: "calendar",
     authMethod: "oauth",
     triggerSlugs: [], // Backfill only — Composio has no Calendly triggers
-    askSalt: { enabled: false, slugPrefix: "CALENDLY_" },
+    askSalt: { enabled: true, slugPrefix: "CALENDLY_" },
     meta: {
       displayName: "Calendly",
       tagline: "Scheduling and meeting bookings.",
@@ -208,7 +248,7 @@ export const CONNECTOR_REGISTRY: Record<string, ConnectorDefinition> = {
     category: "storage",
     authMethod: "oauth",
     triggerSlugs: [], // Backfill only — Composio has no Dropbox triggers
-    askSalt: { enabled: false, slugPrefix: "DROPBOX_" },
+    askSalt: { enabled: true, slugPrefix: "DROPBOX_" },
     meta: {
       displayName: "Dropbox",
       tagline: "Files and shared folders for client work.",
@@ -293,7 +333,7 @@ export const CONNECTOR_REGISTRY: Record<string, ConnectorDefinition> = {
     category: "documents",
     authMethod: "oauth",
     triggerSlugs: ["NOTION_PAGE_CREATED", "NOTION_PAGE_CONTENT_UPDATED"],
-    askSalt: { enabled: false, slugPrefix: "NOTION_" },
+    askSalt: { enabled: true, slugPrefix: "NOTION_" },
     meta: {
       displayName: "Notion",
       tagline: "Pages and databases for client knowledge.",
@@ -334,6 +374,12 @@ export const CONNECTOR_REGISTRY: Record<string, ConnectorDefinition> = {
       ],
     },
     phase: "released",
+    apiKeyFieldName: "api_key",
+    apiKeyForm: {
+      keyLabel: "Restricted API key",
+      keyPlaceholder: "rk_live_…",
+    },
+    connectHelp: "Create a **restricted key** in [Stripe Dashboard → Developers → API keys](https://dashboard.stripe.com/apikeys). Grant read access to Customers, Invoices, Subscriptions, and Charges.",
   },
 
   quickbooks: {
@@ -342,7 +388,7 @@ export const CONNECTOR_REGISTRY: Record<string, ConnectorDefinition> = {
     category: "billing",
     authMethod: "oauth",
     triggerSlugs: [], // Backfill only — Composio has no QuickBooks triggers
-    askSalt: { enabled: false, slugPrefix: "QUICKBOOKS_" },
+    askSalt: { enabled: true, slugPrefix: "QUICKBOOKS_" },
     meta: {
       displayName: "QuickBooks",
       tagline: "Invoices and accounting data.",
@@ -365,7 +411,7 @@ export const CONNECTOR_REGISTRY: Record<string, ConnectorDefinition> = {
     category: "crm",
     authMethod: "oauth",
     triggerSlugs: ["HUBSPOT_CONTACT_CREATED_TRIGGER", "HUBSPOT_DEAL_STAGE_UPDATED_TRIGGER"],
-    askSalt: { enabled: false, slugPrefix: "HUBSPOT_" },
+    askSalt: { enabled: true, slugPrefix: "HUBSPOT_" },
     meta: {
       displayName: "HubSpot",
       tagline: "Contacts and deals — update with your approval.",
@@ -433,7 +479,7 @@ export const CONNECTOR_REGISTRY: Record<string, ConnectorDefinition> = {
     category: "communication",
     authMethod: "oauth",
     triggerSlugs: ["SLACK_CHANNEL_MESSAGE_RECEIVED", "SLACK_DIRECT_MESSAGE_RECEIVED"],
-    askSalt: { enabled: false, slugPrefix: "SLACK_" },
+    askSalt: { enabled: true, slugPrefix: "SLACK_" },
     meta: {
       displayName: "Slack",
       tagline: "Channels and messages — send with your approval.",
@@ -467,7 +513,7 @@ export const CONNECTOR_REGISTRY: Record<string, ConnectorDefinition> = {
         { label: "Support", href: "https://linear.app/docs" },
       ],
     },
-    phase: "beta",
+    phase: "coming_soon", // No auth config yet
   },
 
   asana: {
@@ -507,7 +553,7 @@ export const CONNECTOR_REGISTRY: Record<string, ConnectorDefinition> = {
         { label: "Support", href: "https://help.clickup.com" },
       ],
     },
-    phase: "beta",
+    phase: "coming_soon", // No auth config yet
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -530,7 +576,7 @@ export const CONNECTOR_REGISTRY: Record<string, ConnectorDefinition> = {
         { label: "Support", href: "https://support.github.com" },
       ],
     },
-    phase: "beta",
+    phase: "coming_soon", // No auth config yet
   },
 
   mercury: {
@@ -550,9 +596,124 @@ export const CONNECTOR_REGISTRY: Record<string, ConnectorDefinition> = {
         { label: "Support", href: "https://mercury.com/contact" },
       ],
     },
-    phase: "beta",
+    phase: "coming_soon", // No auth config yet
   },
 };
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// AUTH CONFIG — Composio auth config IDs for OAuth/API key connections
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Auth config IDs for each connector. These are Composio identifiers for
+ * OAuth app configurations (not secrets - the actual OAuth secrets are in Composio).
+ *
+ * Resolution order:
+ * 1. Environment variable: COMPOSIO_AUTH_CONFIG_<PROVIDER> (uppercase)
+ * 2. Default value from this map
+ *
+ * Empty string = not connectable yet.
+ */
+const AUTH_CONFIG_IDS: Record<string, string> = {
+  // Email
+  gmail: "ac_BM8t2R6b86xm",
+  outlook: "ac_3rmVF0kue3SI",
+
+  // Calendar
+  googlecalendar: "ac_Zn0sRv8T9V3H",
+  cal: "ac_h_SxNGiJ_r2p",
+  calendly: "ac_EptFqOE-HcbH",
+
+  // Storage
+  googledrive: "ac_bd8mWmrsTWY2",
+  dropbox: "ac_h-HWBjd1lOLZ",
+
+  // Documents
+  googledocs: "ac_YdygiF5pRz0p",
+  googlesheets: "ac_jbENGOvG4Xgr",
+  googleslides: "ac_K1y1IqCGKMFA",
+  notion: "ac_3_qGIgO2Qqjz",
+
+  // Billing (Stripe uses API key auth config)
+  stripe: "ac_X574CtxR9zWw",
+  quickbooks: "ac_XDGLSE9KQU8y",
+
+  // CRM
+  hubspot: "ac_xnt7oRMMSIa2",
+
+  // Communication
+  slack: "ac_oelk6kw9n_nD",
+
+  // Meetings
+  zoom: "ac_FC0R3qiHh966",
+  fireflies: "ac_wKbPxBuKJD40",
+
+  // Project Management
+  asana: "ac_gVjkZlDD4hsB",
+
+  // Social (not enabled yet but have auth configs)
+  linkedin: "ac_Gzn9BwBOsk2U",
+};
+
+/**
+ * API key field names for API-key connectors.
+ * Must match what Composio's toolkit expects.
+ */
+const API_KEY_FIELD_NAMES: Record<string, string> = {
+  stripe: "api_key",
+};
+
+/**
+ * Resolve auth config ID for a provider.
+ * Checks env var first, falls back to default.
+ */
+export function getAuthConfigId(providerKey: string): string {
+  const envVar = `COMPOSIO_AUTH_CONFIG_${providerKey.toUpperCase()}`;
+  const fromEnv = process.env[envVar];
+  if (fromEnv) return fromEnv;
+  return AUTH_CONFIG_IDS[providerKey] ?? "";
+}
+
+/**
+ * Get API key field name for API-key connectors.
+ */
+export function getApiKeyFieldName(providerKey: string): string | null {
+  return API_KEY_FIELD_NAMES[providerKey] ?? null;
+}
+
+/**
+ * Check if a connector is connectable (has auth config and not coming_soon).
+ */
+export function isConnectorConnectable(providerKey: string): boolean {
+  const connector = CONNECTOR_REGISTRY[providerKey];
+  if (!connector) return false;
+  if (connector.phase === "coming_soon") return false;
+  return getAuthConfigId(providerKey) !== "";
+}
+
+/**
+ * List all connectable connectors (have auth config and not coming_soon).
+ * Replaces listConnectableEntries() from the DB registry.
+ */
+export function listConnectableConnectors(): ConnectorDefinition[] {
+  return Object.values(CONNECTOR_REGISTRY).filter(
+    (c) => c.phase !== "coming_soon" && getAuthConfigId(c.providerKey) !== ""
+  );
+}
+
+/**
+ * Check if a provider key is registered in the registry.
+ */
+export function isRegisteredProvider(providerKey: string): boolean {
+  return providerKey in CONNECTOR_REGISTRY;
+}
+
+/**
+ * Check if a provider uses API key authentication.
+ */
+export function isApiKeyProvider(providerKey: string): boolean {
+  return CONNECTOR_REGISTRY[providerKey]?.authMethod === "api_key";
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // DERIVED EXPORTS — Other systems import these instead of maintaining their own
@@ -735,4 +896,68 @@ export function validateRegistry(): { valid: boolean; errors: string[] } {
   }
 
   return { valid: errors.length === 0, errors };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FOR CONNECTOR UI (catalog, browse, detail panels)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** UI connector definition shape (used by connector catalog/detail UI) */
+export interface UIConnectorDefinition {
+  id: string;
+  providerKey: string;
+  name: string;
+  description: string;
+  category: ConnectorCategory;
+  ownership: "composio";
+  authMethod: ConnectorAuthMethod;
+  phase: string;
+  showInCatalog: boolean;
+  composioProviders: string[];
+  comingSoon: boolean;
+  apiKeyForm?: ConnectorApiKeyForm;
+  connectHelp?: string;
+}
+
+/** Convert registry entry to UI shape */
+export function toUIConnectorDefinition(def: ConnectorDefinition): UIConnectorDefinition {
+  return {
+    id: def.catalogId,
+    providerKey: def.providerKey,
+    name: def.meta.displayName,
+    description: def.meta.tagline,
+    category: def.category,
+    ownership: "composio",
+    authMethod: def.authMethod,
+    phase: def.phase === "released" ? "1a" : def.phase === "beta" ? "1b" : "2",
+    showInCatalog: def.phase !== "coming_soon",
+    composioProviders: [def.providerKey],
+    comingSoon: def.phase === "coming_soon",
+    apiKeyForm: def.apiKeyForm,
+    connectHelp: def.connectHelp,
+  };
+}
+
+/** List all connectors for UI catalog (excludes coming_soon) */
+export function listCatalogConnectors(): UIConnectorDefinition[] {
+  return Object.values(CONNECTOR_REGISTRY)
+    .filter((def) => def.phase !== "coming_soon")
+    .map(toUIConnectorDefinition);
+}
+
+/** List all connectors including coming_soon */
+export function listAllConnectors(): UIConnectorDefinition[] {
+  return Object.values(CONNECTOR_REGISTRY).map(toUIConnectorDefinition);
+}
+
+/** Get UI connector by catalog ID */
+export function getUIConnectorByCatalogId(catalogId: string): UIConnectorDefinition | null {
+  const def = getConnectorByCatalogId(catalogId);
+  return def ? toUIConnectorDefinition(def) : null;
+}
+
+/** Get UI connector by provider key */
+export function getUIConnector(providerKey: string): UIConnectorDefinition | null {
+  const def = getConnector(providerKey);
+  return def ? toUIConnectorDefinition(def) : null;
 }

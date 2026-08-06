@@ -15,6 +15,7 @@ import "server-only";
 
 import { getConnectedCategories, type ConnectedCategory } from "../category-fetcher";
 import { getCategoriesForEntity, CONNECTOR_TO_CATEGORY } from "./registry";
+import { getAskSaltToolkits } from "../unified-connector-registry";
 import type { ConnectorCategory, EnrichableEntityType } from "./types";
 
 export interface EnrichmentProvider {
@@ -70,25 +71,14 @@ export async function getConnectedProvidersForEnrichment(
 }
 
 /**
- * Check if a provider has an enrichment manifest.
+ * Check if a provider has an enrichment manifest (i.e., Ask Salt enabled with tools).
  *
+ * Derives from the unified connector registry — no hardcoded list.
  * Used to decide between manifest-based extraction and capability fallback.
  */
 export function hasConnectorManifest(provider: string): boolean {
-  const MANIFESTED_PROVIDERS = new Set([
-    "gmail",
-    "googlecalendar",
-    "googledrive",
-    "stripe",
-    "hubspot",
-    "quickbooks",
-    "notion",
-    "asana",
-    "linear",
-    "fireflies",
-  ]);
-
-  return MANIFESTED_PROVIDERS.has(provider.toLowerCase());
+  const askSaltToolkits = new Set(getAskSaltToolkits().map(t => t.toLowerCase()));
+  return askSaltToolkits.has(provider.toLowerCase());
 }
 
 /**

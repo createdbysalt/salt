@@ -86,41 +86,9 @@ export interface CalendarEvent {
   status?: string;
 }
 
-// ── Cal.com / Cal types (Phase 2) ──
-export interface CalBookingInput {
-  eventTypeId: number;
-  startTime: string;
-  endTime: string;
-  attendee: {
-    email: string;
-    name: string;
-    timeZone: string;
-  };
-  metadata?: Record<string, string>;
-}
-
-export interface CalBooking {
-  id: number;
-  uid: string;
-  title: string;
-  startTime: string;
-  endTime: string;
-  status: 'accepted' | 'pending' | 'cancelled' | 'rejected';
-  attendee?: { email: string; name: string; timeZone: string };
-  eventTypeId?: number;
-  location?: string;
-}
-
-export interface CalEventType {
-  id: number;
-  slug: string;
-  title: string;
-  length: number; // minutes
-  description?: string;
-  hidden: boolean;
-  requiresConfirmation: boolean;
-  locations?: string[];
-}
+// ── Cal.com types retired ──
+// Cal.com processing handled by cal-booking-processor.ts with inline ParsedBooking type.
+// Backfills use executeComposioAction directly without typed wrappers.
 
 // ── Fireflies types (Phase 2) ──
 export interface FirefliesTranscriptInput {

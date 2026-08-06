@@ -20,7 +20,7 @@ vi.mock("../connections");
 vi.mock("../actions");
 vi.mock("../category-fetcher");
 
-const mockGetConnectionStatus = vi.mocked(connections.getConnectionStatus);
+const mockGetConnectionStatus = vi.mocked(connections.getConnectionStatusAdmin);
 const mockFetchGmailMessagesPage = vi.mocked(actions.fetchGmailMessagesPage);
 const mockGetGmailMessage = vi.mocked(actions.getGmailMessage);
 const mockGetConnectedCategories = vi.mocked(categoryFetcher.getConnectedCategories);

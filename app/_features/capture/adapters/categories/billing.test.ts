@@ -1,5 +1,13 @@
 import { describe, it, expect } from "vitest";
 import { createBillingCategoryAdapter, getBillingAdapter } from "./billing";
+import { runAdapterConformance } from "../adapter-conformance";
+import {
+  STRIPE_TRIGGER_INVOICE_PAYMENT_SUCCEEDED,
+  STRIPE_TRIGGER_CHECKOUT_SESSION_COMPLETED,
+  STRIPE_TRIGGER_SUBSCRIPTION_ADDED,
+  STRIPE_TRIGGER_SUBSCRIPTION_DELETED,
+  STRIPE_TRIGGER_CHARGE_FAILED,
+} from "../__fixtures__/stripe-payloads";
 
 describe("billing category adapter", () => {
   describe("getBillingAdapter", () => {
@@ -15,12 +23,16 @@ describe("billing category adapter", () => {
       expect(adapter?.sourceType).toBe("quickbooks");
     });
 
-    it("returns null for unknown provider", () => {
-      expect(getBillingAdapter("unknown")).toBeNull();
+    it("returns adapter with generic extraction for unknown provider", () => {
+      const adapter = getBillingAdapter("unknown");
+      expect(adapter).not.toBeNull();
+      expect(adapter.sourceType).toBe("unknown");
     });
 
-    it("returns null for non-billing provider", () => {
-      expect(getBillingAdapter("gmail")).toBeNull();
+    it("returns adapter with generic extraction for non-billing provider", () => {
+      const adapter = getBillingAdapter("gmail");
+      expect(adapter).not.toBeNull();
+      expect(adapter.sourceType).toBe("gmail");
     });
   });
 
@@ -84,6 +96,71 @@ describe("billing category adapter", () => {
     it("returns null for invalid payload", () => {
       expect(adapter.normalize(null)).toBeNull();
       expect(adapter.normalize({})).toBeNull();
+    });
+  });
+
+  describe("stripe trigger payloads (Composio body envelope)", () => {
+    // Every STRIPE_*_TRIGGER wraps the full Stripe webhook event in
+    // { body, event_type } — verified against the live trigger schemas
+    // 2026-08-05 (__fixtures__/composio-trigger-schemas.json).
+    const adapter = createBillingCategoryAdapter("stripe");
+
+    it("passes conformance against all five trigger fixtures", () => {
+      runAdapterConformance(adapter, [
+        {
+          name: "invoice.payment_succeeded",
+          payload: STRIPE_TRIGGER_INVOICE_PAYMENT_SUCCEEDED,
+          expectExternalId: "in_1PZq8cLkdIwHu7ix5CuNy5tI",
+        },
+        {
+          name: "checkout.session.completed",
+          payload: STRIPE_TRIGGER_CHECKOUT_SESSION_COMPLETED,
+          expectExternalId: "cs_test_a1B2c3D4e5F6g7H8i9J0",
+        },
+        {
+          name: "customer.subscription.created",
+          payload: STRIPE_TRIGGER_SUBSCRIPTION_ADDED,
+          expectExternalId: "sub_1Qs0eMkdIwHu7ix8FxQb8wL",
+        },
+        {
+          name: "customer.subscription.deleted",
+          payload: STRIPE_TRIGGER_SUBSCRIPTION_DELETED,
+          expectExternalId: "sub_1Qs0eMkdIwHu7ix8FxQb8wL",
+        },
+        {
+          name: "charge.failed",
+          payload: STRIPE_TRIGGER_CHARGE_FAILED,
+          expectExternalId: "ch_3Qu2gOkdIwHu7ixB0AtEbBzO",
+        },
+      ]);
+    });
+
+    it("unwraps the body envelope for invoice payments", () => {
+      const envelope = adapter.normalize(STRIPE_TRIGGER_INVOICE_PAYMENT_SUCCEEDED);
+      expect(envelope?.extracted.event_type).toBe("invoice.payment_succeeded");
+      expect(envelope?.extracted.customer_email).toBe("billing@northwind.com");
+      expect(envelope?.extracted.amount_paid).toBe(1750);
+      expect(envelope?.participants[0]?.role).toBe("payer");
+    });
+
+    it("reads checkout sessions from customer_details and amount_total", () => {
+      const envelope = adapter.normalize(STRIPE_TRIGGER_CHECKOUT_SESSION_COMPLETED);
+      expect(envelope?.extracted.customer_email).toBe("billing@northwind.com");
+      expect(envelope?.extracted.customer_name).toBe("Northwind Studio");
+      expect(envelope?.extracted.amount_paid).toBe(950);
+    });
+
+    it("reads failed charges from billing_details", () => {
+      const envelope = adapter.normalize(STRIPE_TRIGGER_CHARGE_FAILED);
+      expect(envelope?.extracted.customer_email).toBe("billing@northwind.com");
+      expect(envelope?.extracted.status).toBe("failed");
+    });
+
+    it("normalizes subscription events without an email", () => {
+      const envelope = adapter.normalize(STRIPE_TRIGGER_SUBSCRIPTION_ADDED);
+      expect(envelope?.externalId).toBe("sub_1Qs0eMkdIwHu7ix8FxQb8wL");
+      expect(envelope?.participants).toHaveLength(0);
+      expect(envelope?.extracted.event_type).toBe("customer.subscription.created");
     });
   });
 

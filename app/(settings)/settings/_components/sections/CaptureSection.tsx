@@ -51,6 +51,7 @@ import {
   fixConnectorCapture,
 } from "@/app/_features/capture/actions/connector-health";
 import type { WorkspaceHealthReport, ConnectorHealthStatus } from "@/app/_features/capture/services/connector-health";
+import { CaptureCalibrationCard } from "@/app/_features/capture/components/CaptureCalibrationCard";
 
 interface CaptureSectionProps {
   workspaceId: string;
@@ -546,6 +547,13 @@ export function CaptureSection({ workspaceId }: CaptureSectionProps) {
             </div>
           )}
         </SettingsCard>
+      </SettingsSection>
+
+      <SettingsSection
+        title="Calibration"
+        description="Track proposal accuracy and unlock auto-apply when confidence is earned."
+      >
+        <CaptureCalibrationCard workspaceId={workspaceId} />
       </SettingsSection>
 
       <SettingsSection

@@ -74,7 +74,7 @@ export function MePage({ data, notes, activity, contextFacts, icpSegments, works
                 <TabsTrigger value="overview" className={memoryTabTriggerClass}>Overview</TabsTrigger>
                 <TabsTrigger value="voice" className={memoryTabTriggerClass}>Voice</TabsTrigger>
                 <TabsTrigger value="notes" className={memoryTabTriggerClass}>Notes</TabsTrigger>
-                <TabsTrigger value="files" className={memoryTabTriggerClass}>Files</TabsTrigger>
+                <TabsTrigger value="files" className={memoryTabTriggerClass}>Resources</TabsTrigger>
                 <TabsTrigger value="activity" className={memoryTabTriggerClass}>Activity</TabsTrigger>
               </TabsList>
 

@@ -211,7 +211,7 @@ const MEMORY_TOOL_STEPS: Record<string, string> = {
   memory_create_note: "Add note to Memory",
   memory_add_blocker: "Add blocker to work",
   memory_create_meeting: "Schedule meeting",
-  memory_save_file: "Save to Files Memory",
+  memory_save_file: "Save to Resources",
   memory_link_person_org: "Link person to organization",
   memory_unlink_person_org: "Unlink person from organization",
   memory_link_person_work: "Link person to work",
@@ -334,7 +334,8 @@ export function formatToolStepLabel(
   const lower = toolName.toLowerCase();
 
   if (lower.includes("gmail")) {
-    if (lower.includes("send")) return "Draft or send email";
+    if (lower.includes("send_email") || lower === "gmail_send_email") return "Send email";
+    if (lower.includes("create") && lower.includes("draft")) return "Create email draft";
     if (lower.includes("fetch") || lower.includes("list")) return "Check Gmail";
     return "Work with Gmail";
   }

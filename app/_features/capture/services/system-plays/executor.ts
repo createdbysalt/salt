@@ -17,6 +17,7 @@ import "server-only";
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { registerWatchExpressions } from "../watch-expressions";
+import { dispatchSignalTrigger } from "@/app/_features/plays/playbooks/trigger-dispatch";
 import { reportError } from "@/app/_lib/errors";
 import { evaluateWorkProfileFields, WORK_PROFILE_SLUG } from "@/app/_features/plays/playbooks/records-engine/apply-work-profile";
 import { loadProfilePlaybook } from "@/app/_features/plays/playbooks/records-engine/load-profile-playbook";
@@ -362,6 +363,23 @@ async function createPerson(
     console.warn("[system-plays] Watch expression registration failed:", err);
   });
 
+  // Emit entity_learning_extracted to trigger Memory Records playbook field-fill
+  dispatchSignalTrigger({
+    workspaceId,
+    signalKey: "entity_learning_extracted",
+    entityId: data.id,
+    entitySurface: "person",
+    entityLabel: input.name,
+    evidence: {
+      source: "system_play",
+      created_via: input.created_via ?? "system_play",
+      has_email: Boolean(email),
+      has_phone: Boolean(input.phone),
+    },
+  }).catch((err) => {
+    console.warn("[system-plays] Learning signal dispatch failed:", err);
+  });
+
   return {
     success: true,
     entity_id: data.id,
@@ -516,6 +534,23 @@ async function createOrg(
     domains: domain ? [domain] : undefined,
   }).catch((err) => {
     console.warn("[system-plays] Watch expression registration failed:", err);
+  });
+
+  // Emit entity_learning_extracted to trigger Memory Records playbook field-fill
+  dispatchSignalTrigger({
+    workspaceId,
+    signalKey: "entity_learning_extracted",
+    entityId: data.id,
+    entitySurface: "organization",
+    entityLabel: input.name,
+    evidence: {
+      source: "system_play",
+      created_via: "system_play",
+      has_domain: Boolean(domain),
+      has_website: Boolean(input.website),
+    },
+  }).catch((err) => {
+    console.warn("[system-plays] Learning signal dispatch failed:", err);
   });
 
   return {

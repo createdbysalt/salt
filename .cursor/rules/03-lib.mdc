@@ -15,6 +15,7 @@ _lib/
 ├── stripe/         # Stripe utilities
 ├── email/          # Resend integration
 ├── ai/             # OpenAI/GPT
+├── usage/          # Play metering, tiers, entitlements
 ├── rate-limit/     # Rate limiting
 ├── security/       # Tokens, safe URLs
 ├── tenancy/        # Multi-tenant context
@@ -30,7 +31,8 @@ _lib/
 | `supabase` | Database client (server, client, admin) |
 | `stripe` | Stripe client utilities |
 | `email` | Email via Resend |
-| `ai` | OpenAI/GPT |
+| `ai` | OpenAI/GPT — **a vendor spend primitive**, see `10-billing-metering.mdc` |
+| `usage` | Play metering, usage ledger, tier catalog, entitlements |
 | `rate-limit` | API rate limiting |
 | `security` | Tokens, safe URLs |
 | `tenancy` | Multi-tenant context and guards |

@@ -7190,6 +7190,7 @@ export type Database = {
           classified_by: string | null
           created_at: string
           disabled_reason: string | null
+          external_effect: boolean | null
           model_proposal: Json | null
           notes: string | null
           proposed_at: string | null
@@ -7205,6 +7206,7 @@ export type Database = {
           classified_by?: string | null
           created_at?: string
           disabled_reason?: string | null
+          external_effect?: boolean | null
           model_proposal?: Json | null
           notes?: string | null
           proposed_at?: string | null
@@ -7220,6 +7222,7 @@ export type Database = {
           classified_by?: string | null
           created_at?: string
           disabled_reason?: string | null
+          external_effect?: boolean | null
           model_proposal?: Json | null
           notes?: string | null
           proposed_at?: string | null
@@ -7231,6 +7234,97 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      usage_events: {
+        Row: {
+          billable: boolean
+          cost_breakdown: Json
+          cost_estimate_micros: number
+          created_at: string
+          event_type: string
+          external_effect: boolean | null
+          id: string
+          idempotency_key: string
+          play_run_id: string | null
+          reversal_reason: string | null
+          reverses_event_id: string | null
+          seat_id: string | null
+          workspace_id: string
+        }
+        Insert: {
+          billable?: boolean
+          cost_breakdown?: Json
+          cost_estimate_micros?: number
+          created_at?: string
+          event_type: string
+          external_effect?: boolean | null
+          id?: string
+          idempotency_key: string
+          play_run_id?: string | null
+          reversal_reason?: string | null
+          reverses_event_id?: string | null
+          seat_id?: string | null
+          workspace_id: string
+        }
+        Update: {
+          billable?: boolean
+          cost_breakdown?: Json
+          cost_estimate_micros?: number
+          created_at?: string
+          event_type?: string
+          external_effect?: boolean | null
+          id?: string
+          idempotency_key?: string
+          play_run_id?: string | null
+          reversal_reason?: string | null
+          reverses_event_id?: string | null
+          seat_id?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "usage_events_play_run_id_fkey"
+            columns: ["play_run_id"]
+            isOneToOne: false
+            referencedRelation: "play_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "usage_events_reverses_event_id_fkey"
+            columns: ["reverses_event_id"]
+            isOneToOne: false
+            referencedRelation: "usage_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "usage_events_seat_id_fkey"
+            columns: ["seat_id"]
+            isOneToOne: false
+            referencedRelation: "studio_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "usage_events_seat_id_fkey"
+            columns: ["seat_id"]
+            isOneToOne: false
+            referencedRelation: "workspace_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "usage_events_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "studios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "usage_events_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_voices: {
         Row: {
@@ -8537,6 +8631,78 @@ export type Database = {
             foreignKeyName: "studio_services_studio_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspace_subscriptions: {
+        Row: {
+          billing_interval: string
+          cancel_at_period_end: boolean
+          created_at: string
+          current_period_end: string | null
+          current_period_start: string | null
+          overage_enabled: boolean
+          plays_included_override: number | null
+          pricing_version: string
+          status: string
+          stripe_customer_id: string | null
+          stripe_price_id: string | null
+          stripe_subscription_id: string | null
+          tier: string
+          trial_ends_at: string | null
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          billing_interval?: string
+          cancel_at_period_end?: boolean
+          created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          overage_enabled?: boolean
+          plays_included_override?: number | null
+          pricing_version?: string
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_price_id?: string | null
+          stripe_subscription_id?: string | null
+          tier?: string
+          trial_ends_at?: string | null
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          billing_interval?: string
+          cancel_at_period_end?: boolean
+          created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          overage_enabled?: boolean
+          plays_included_override?: number | null
+          pricing_version?: string
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_price_id?: string | null
+          stripe_subscription_id?: string | null
+          tier?: string
+          trial_ends_at?: string | null
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_subscriptions_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: true
+            referencedRelation: "studios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_subscriptions_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: true
             referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },

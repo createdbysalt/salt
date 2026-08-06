@@ -6,7 +6,7 @@ import type { ConnectorCategory, ExtractorResult } from "../types";
 import { getConnectorManifest, hasConnectorManifest } from "../connectors";
 import { extractWithManifest, getQueryFromManifest } from "../config-driven-extractor";
 import { executeComposioAction } from "../../actions";
-import { getConnectionStatus } from "../../connections";
+import { getConnectionStatusAdmin } from "../../connections";
 
 /**
  * Config-based extractor that uses YAML manifests instead of hardcoded logic.
@@ -32,7 +32,7 @@ export function createConfigBasedExtractor(
         return emptyResult(`${toolkit}:no-config`);
       }
 
-      const connection = await getConnectionStatus(toolkit, workspaceId);
+      const connection = await getConnectionStatusAdmin(toolkit, workspaceId);
       if (!connection.connected || !connection.composioConnectionId) {
         return emptyResult(`${toolkit}:not-connected`);
       }

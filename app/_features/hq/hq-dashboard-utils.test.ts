@@ -1,35 +1,38 @@
 import { describe, expect, it } from "vitest";
 import {
   buildWeeklyActivityBars,
-  computeActivityStreak,
   computeWeekOverWeekPct,
+  estimateMinutesSaved,
+  formatMinutesSaved,
   normalizeShare,
   playRunActivityTimestamp,
   toDateKey,
   weekStartForDay,
 } from "./hq-dashboard-utils";
 
-describe("computeActivityStreak", () => {
-  it("counts consecutive days including today", () => {
-    const today = new Date("2026-06-25T12:00:00");
-    const dates = [
-      new Date("2026-06-25T09:00:00"),
-      new Date("2026-06-24T09:00:00"),
-      new Date("2026-06-23T09:00:00"),
-    ];
-    expect(computeActivityStreak(dates, today)).toBe(3);
+describe("estimateMinutesSaved", () => {
+  it("scales estimates by stakes level", () => {
+    expect(estimateMinutesSaved("high")).toBe(25);
+    expect(estimateMinutesSaved("medium")).toBe(15);
+    expect(estimateMinutesSaved("low")).toBe(8);
   });
 
-  it("keeps streak alive through today when yesterday had activity", () => {
-    const today = new Date("2026-06-25T12:00:00");
-    const dates = [new Date("2026-06-24T09:00:00")];
-    expect(computeActivityStreak(dates, today)).toBe(1);
+  it("falls back to the default for unknown or missing stakes", () => {
+    expect(estimateMinutesSaved(null)).toBe(12);
+    expect(estimateMinutesSaved(undefined)).toBe(12);
+    expect(estimateMinutesSaved("weird")).toBe(12);
+  });
+});
+
+describe("formatMinutesSaved", () => {
+  it("formats minutes under an hour", () => {
+    expect(formatMinutesSaved(0)).toBe("0m");
+    expect(formatMinutesSaved(45)).toBe("45m");
   });
 
-  it("returns zero when today and yesterday have no activity", () => {
-    const today = new Date("2026-06-25T12:00:00");
-    const dates = [new Date("2026-06-22T09:00:00")];
-    expect(computeActivityStreak(dates, today)).toBe(0);
+  it("formats hours with and without a remainder", () => {
+    expect(formatMinutesSaved(60)).toBe("1h");
+    expect(formatMinutesSaved(160)).toBe("2h 40m");
   });
 });
 

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { expireOldWatches, expireOverTriggeredWatches } from "@/app/_lib/learning";
+import { expireStaleWatches } from "@/app/_features/capture/services/intelligence/record-capture-outcome";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -15,13 +16,18 @@ export async function GET(request: Request) {
   const startTime = Date.now();
 
   try {
+    // Entity watches (signal-based)
     const expiredCount = await expireOldWatches();
     const overTriggeredCount = await expireOverTriggeredWatches();
+
+    // Watch expressions (capture-based pending contacts)
+    const staleWatchExpressions = await expireStaleWatches();
 
     return NextResponse.json({
       success: true,
       expiredWatches: expiredCount,
       overTriggeredWatches: overTriggeredCount,
+      staleWatchExpressions,
       durationMs: Date.now() - startTime,
     });
   } catch (error) {

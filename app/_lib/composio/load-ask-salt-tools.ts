@@ -3,12 +3,13 @@ import "server-only";
 import type { ToolSet } from "ai";
 import { getWorkspaceConnectorPolicy } from "@/app/_features/connectors/queries";
 import { getComposioAgentClient } from "./client";
-import { getConnectionStatus } from "./connections";
-import { getConnectorRegistry } from "./connector-registry";
+import { getConnectionStatus, checkConnectionHealth } from "./connections";
+import {
+  isRegisteredProvider,
+  getAuthConfigId,
+} from "./unified-connector-registry";
 import {
   wrapComposioToolsForAskSalt,
-  askSaltPreloadSlugsForToolkits,
-  isAskSaltSlugAllowed,
   ASK_SALT_COMPOSIO_TOOLKITS,
 } from "./ask-salt-tools";
 
@@ -42,9 +43,8 @@ interface ConnectedToolkitStatus {
 async function getConnectedToolkitStatuses(
   workspaceId: string,
 ): Promise<ConnectedToolkitStatus> {
-  const registry = await getConnectorRegistry();
   const statuses = await Promise.all(
-    ASK_SALT_COMPOSIO_TOOLKITS.filter((toolkit) => registry.has(toolkit)).map(
+    ASK_SALT_COMPOSIO_TOOLKITS.filter((toolkit) => isRegisteredProvider(toolkit)).map(
       async (toolkit) => ({
         toolkit,
         status: await getConnectionStatus(toolkit, workspaceId),
@@ -52,6 +52,39 @@ async function getConnectedToolkitStatuses(
     ),
   );
   const connected = statuses.filter(({ status }) => status.connected);
+
+  // Run health checks on connected toolkits (logs diagnostics, syncs expired status)
+  if (connected.length > 0) {
+    const healthChecks = await Promise.all(
+      connected.map(async ({ toolkit }) => {
+        const health = await checkConnectionHealth(toolkit, workspaceId, { syncStatus: true });
+        return { toolkit, health };
+      }),
+    );
+
+    // Filter out unhealthy connections
+    const healthy = healthChecks.filter(({ health }) => health.healthy);
+    const unhealthy = healthChecks.filter(({ health }) => !health.healthy);
+
+    if (unhealthy.length > 0) {
+      console.warn("[ask-salt] Unhealthy connections detected:", unhealthy.map(({ toolkit, health }) => ({
+        toolkit,
+        localStatus: health.localStatus,
+        remoteStatus: health.remoteStatus,
+        diagnostics: health.diagnostics,
+      })));
+    }
+
+    return {
+      connectedToolkits: healthy.map(({ toolkit }) => toolkit),
+      connectionIdByToolkit: Object.fromEntries(
+        healthy
+          .filter(({ health }) => health.composioConnectionId)
+          .map(({ toolkit, health }) => [toolkit, health.composioConnectionId as string]),
+      ),
+    };
+  }
+
   return {
     connectedToolkits: connected.map(({ toolkit }) => toolkit),
     connectionIdByToolkit: Object.fromEntries(
@@ -99,59 +132,64 @@ export async function loadAskSaltComposioToolsDetailed(
   const policyOptions = {
     disabledTools: connectorPolicy.disabledTools,
     trustByProvider: connectorPolicy.trustByProvider,
-    emailMode: connectorPolicy.emailMode,
+    emailModeByProvider: connectorPolicy.emailModeByProvider,
   };
 
-  // Apply the registration policy to the preload list too, so excluded tools
-  // never even have their schemas loaded into the session.
-  const preloadSlugs = askSaltPreloadSlugsForToolkits(connectedToolkits).filter(
-    (slug) => isAskSaltSlugAllowed(slug, policyOptions),
-  );
-  if (preloadSlugs.length === 0) {
-    return {
-      tools: {},
-      connectedToolkits,
-      connectionIdByToolkit,
-      loadedSlugs: [],
-      loadError: null,
-    };
-  }
+  // No preload whitelist - load ALL tools from connected toolkits.
+  // Filtering happens at wrap time via isAskSaltSlugAllowed() which checks:
+  // - Tool classification (read/mutating/destructive)
+  // - User-disabled tools
+  // - Trust level per provider
+  // - Email mode restrictions
 
   try {
-    const registry = await getConnectorRegistry();
     const composio = getComposioAgentClient();
-    const session = await composio.create(workspaceId, {
-      toolkits: connectedToolkits,
-      authConfigs: Object.fromEntries(
-        connectedToolkits
-          .map((toolkit) => [toolkit, registry.get(toolkit)?.authConfigId ?? ""] as const)
-          .filter(([, authConfigId]) => authConfigId !== ""),
-      ),
-      preload: { tools: preloadSlugs },
+    const authConfigs = Object.fromEntries(
+      connectedToolkits
+        .map((toolkit) => [toolkit, getAuthConfigId(toolkit)] as const)
+        .filter(([, authConfigId]) => authConfigId !== ""),
+    );
+
+    // Only load tools for PRIORITY toolkits to stay under context limits.
+    // Discovery tools (search_connector_tools + execute_connector_action)
+    // handle everything else via on-demand schema lookup.
+    const PRIORITY_TOOLKITS = [
+      "gmail",
+      "googlecalendar",
+      "googledrive",
+      "stripe",
+      "quickbooks",
+      "slack",
+    ];
+    const priorityToolkits = connectedToolkits.filter((t) =>
+      PRIORITY_TOOLKITS.includes(t),
+    );
+
+    console.log("[ask-salt] loading priority toolkit tools", {
+      workspaceId,
+      connectedToolkits: connectedToolkits.length,
+      priorityToolkits,
     });
-    const tools = await session.tools();
-    // #region agent log
-    const rawKeys = Object.keys(tools);
-    const googledocsRaw = rawKeys.filter((k) => k.toUpperCase().includes("GOOGLEDOCS"));
-    fetch("http://127.0.0.1:7443/ingest/a7cd7781-629e-483f-bcc8-d958046d0b66", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "0970b2" },
-      body: JSON.stringify({
-        sessionId: "0970b2",
-        runId: "pre-fix",
-        hypothesisId: "H2-H5",
-        location: "app/_lib/composio/load-ask-salt-tools.ts:session.tools",
-        message: "Composio raw tool keys before wrap",
-        data: {
-          rawKeyCount: rawKeys.length,
-          googledocsRaw,
-          googledocsRawLower: googledocsRaw.map((k) => k.toLowerCase()),
-          sampleRawKeys: rawKeys.slice(0, 8),
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
+
+    let tools: ToolSet = {};
+    if (priorityToolkits.length > 0) {
+      const priorityAuthConfigs = Object.fromEntries(
+        priorityToolkits
+          .map((toolkit) => [toolkit, authConfigs[toolkit]] as const)
+          .filter(([, id]) => id),
+      );
+
+      const session = await composio.create(workspaceId, {
+        toolkits: priorityToolkits,
+        authConfigs: priorityAuthConfigs,
+        preload: { tools: "all" },
+      });
+
+      tools = await session.tools();
+      console.log("[ask-salt] priority tools loaded", {
+        toolCount: Object.keys(tools).length,
+      });
+    }
     const wrapped = wrapComposioToolsForAskSalt(tools, {
       ...policyOptions,
       workspaceId,
@@ -159,26 +197,13 @@ export async function loadAskSaltComposioToolsDetailed(
       connectionIdByToolkit,
     });
     const wrappedKeys = Object.keys(wrapped);
-    // #region agent log
-    const googledocsWrapped = wrappedKeys.filter((k) => k.toUpperCase().includes("GOOGLEDOCS"));
-    fetch("http://127.0.0.1:7443/ingest/a7cd7781-629e-483f-bcc8-d958046d0b66", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "0970b2" },
-      body: JSON.stringify({
-        sessionId: "0970b2",
-        runId: "pre-fix",
-        hypothesisId: "H2-H3-H5",
-        location: "app/_lib/composio/load-ask-salt-tools.ts:wrap",
-        message: "Wrapped Composio tool keys after policy",
-        data: {
-          wrappedKeyCount: wrappedKeys.length,
-          googledocsWrapped,
-          preloadSlugsGoogledocs: preloadSlugs.filter((s) => s.includes("GOOGLEDOCS")),
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
+    const gmailTools = wrappedKeys.filter((k) => k.toUpperCase().includes("GMAIL"));
+    console.log("[ask-salt] tools wrapped", {
+      rawCount: Object.keys(tools).length,
+      wrappedCount: wrappedKeys.length,
+      gmailTools,
+      policyOptions,
+    });
     return {
       tools: wrapped,
       connectedToolkits,
@@ -189,7 +214,14 @@ export async function loadAskSaltComposioToolsDetailed(
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Composio tool load failed";
-    console.error("[ask-salt] composio tool load failed", error);
+    const errorDetails = {
+      message,
+      name: error instanceof Error ? error.name : typeof error,
+      stack: error instanceof Error ? error.stack?.split("\n").slice(0, 5) : undefined,
+      response: (error as { response?: { status?: number; data?: unknown } })?.response,
+      cause: (error as { cause?: unknown })?.cause,
+    };
+    console.error("[ask-salt] composio tool load failed", errorDetails);
     return {
       tools: {},
       connectedToolkits,

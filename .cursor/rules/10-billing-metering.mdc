@@ -1,0 +1,66 @@
+---
+description: Billing and metering - vendor spend, usage ledger, tiers, entitlements, external_effect
+globs: "{app/_lib/usage/**/*,app/_lib/stripe/**/*,app/_lib/ai/**/*,app/_lib/composio/external-effect.ts,app/_lib/composio/actions.ts,app/_features/plays/services/meter-play.ts,app/_features/plays/services/run-play*.ts,app/_features/plays/lib/play-record.ts,app/api/webhook/stripe/**/*,app/api/ask-salt/**/*,supabase/migrations/*usage*,supabase/migrations/*subscription*}"
+---
+
+# Billing & Metering
+
+**Read [`docs/architecture/billing-metering.md`](../../docs/architecture/billing-metering.md) before changing anything here.** This file is a summary; that one is the source of truth.
+
+## The principle
+
+**Meter at the primitive, not at the feature.**
+
+Salt spends vendor money in exactly seven places. Instrument those and every feature — including playbooks, which are only ~10–30% built — is covered automatically. Meter at the feature layer instead and you will keep finding holes. That already happened once: play metering hooked the executor, missed nine other paths to `ran`, and let Ask Salt's real external sends bill as free.
+
+Same rule the codebase already uses for safety in `app/_lib/memory-tools/CLAUDE.md`: *"Protection lives in the tools, not the callers."*
+
+## Where money leaves
+
+| Exit point | File |
+|-----------|------|
+| `executeComposioAction` | `app/_lib/composio/actions.ts` |
+| `composio.tools.execute` (ungated) | `app/_lib/composio/webhook-enrichment.ts` |
+| `sendLlm` | `app/_lib/ai/gpt.ts` |
+| `streamText` (Ask Salt) | `app/api/ask-salt/chat/route.ts` |
+| `streamText` (agent) | `app/_lib/composio/agent.ts` |
+| TTS | `app/api/briefing/audio/route.ts` |
+| Embeddings | `app/_lib/ai/embeddings.ts` |
+
+## Two meters, one ledger
+
+- **Billing meter** — plays with `external_effect`. Drives invoices.
+- **Cost meter** — every micro-USD of vendor spend. Drives margin alerts and degradation.
+
+Both write `usage_events`, separated by `event_type`. A workspace can be at 5% of its play bundle and still be the most expensive account we have; only the cost meter sees that.
+
+## Changing pricing
+
+The catalog is **versioned** (`app/_lib/usage/pricing-versions.ts`) and each workspace stores the version it bought (`workspace_subscriptions.pricing_version`).
+
+**To change pricing: add a version. Never edit one.** Editing a bundle or price in place re-prices every existing customer on that tier — raising it gives away capacity you never sold, lowering it takes capacity from someone paying for it, and neither is recoverable. Adding a version grandfathers existing customers by construction; migrating a cohort is then one explicit `UPDATE`.
+
+When resolving a real workspace, pass its version: `getTierCapacity(tier, pricing_version)`. The no-version default means "today's catalog" and is only correct for signup and marketing surfaces.
+
+Full procedure: the "Changing pricing" section of the architecture doc.
+
+## Hard constraints
+
+1. Never spend without `canSpend` before and `recordSpend` after.
+2. Never meter at the feature layer — no `meterPlaybookStep`, no `meterAskSaltMessage`.
+3. Never put tier, bundle size, or usage counters on `workspaces` — owners can `PATCH` it via PostgREST.
+4. Never grant `authenticated` write on `usage_events` or `workspace_subscriptions`.
+5. Never `UPDATE`/`DELETE` a usage event — write a reversal row.
+6. Always pass an idempotency key.
+7. Metering must never break execution — wrap it, log, let the work succeed.
+8. Costs in micro-USD, prices in cents. Never floats.
+9. Service-role writes must filter `workspace_id` explicitly — RLS is bypassed.
+10. Billability derives from `external_effect`. Never hand-set `billable`.
+11. Never edit or delete a shipped pricing version — add one.
+12. Resolve capacity through the workspace's `pricing_version`.
+
+## Status: observes, does not enforce
+
+`getWorkspaceEntitlement()` has **no callers**. `askSaltDailyLimit`, `captureBudgetMicros`, `storageQuotaBytes`, and `MAX_TOOL_CALLS_PER_PLAY` exist in the catalog and are **enforced nowhere**. LLM token spend is **not recorded at all**. Legacy `ai_credits` is never deducted.
+
+Do not assume a limit works because it is defined. Check the status table in the architecture doc.

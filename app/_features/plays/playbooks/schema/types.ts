@@ -73,6 +73,8 @@ export type PlaybookApprovalMode =
   | "batch_review"
   | "batch_confirm";
 
+export type PlaybookStepApproval = "required";
+
 export interface PlaybookOutputSpec {
   type: PlaybookOutputType;
   approvalMode?: PlaybookApprovalMode;

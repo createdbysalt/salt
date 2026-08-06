@@ -311,18 +311,6 @@ async function createPlaysFromMatches(
 ): Promise<number> {
   const admin = createAdminClient();
 
-  // Get player ID
-  const { data: player } = await admin
-    .from("players")
-    .select("id")
-    .eq("workspace_id", workspaceId)
-    .eq("slug", pattern.playerSlug)
-    .single();
-
-  if (!player) {
-    return 0;
-  }
-
   // Check for existing plays to avoid duplicates
   const entityIds = matches.map((m) => m.entityId);
   const { data: existingPlays } = await admin
@@ -340,11 +328,9 @@ async function createPlaysFromMatches(
     return 0;
   }
 
-  // Create plays
+  // Create plays (player_id deprecated 2026-07-13)
   const playRuns = newMatches.map((match) => ({
     workspace_id: workspaceId,
-    player_id: player.id,
-    prepared_by_player_id: player.id,
     state: "queued" as const,
     title: match.suggestedAction,
     preview: `Detected: ${pattern.name}`,

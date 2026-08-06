@@ -59,7 +59,7 @@ describe("capture adapter registry", () => {
   });
 
   describe("listCaptureAdapters", () => {
-    it("returns all app-specific adapters", () => {
+    it("returns all category adapters", () => {
       const adapters = listCaptureAdapters();
 
       expect(adapters.length).toBeGreaterThan(0);

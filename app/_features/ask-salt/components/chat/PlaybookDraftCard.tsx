@@ -29,6 +29,9 @@ export function PlaybookDraftCard({
     setShowDetails(false);
   }, [initialDraft]);
 
+  const validationErrors = initialDraft.validationErrors ?? [];
+  const requiredActions = initialDraft.requiredActions ?? [];
+
   const stepCount = initialDraft.definition.steps.length;
   const actStepCount = initialDraft.definition.steps.filter(
     (s) => s.kind === "act",
@@ -88,7 +91,7 @@ export function PlaybookDraftCard({
             {initialDraft.name || "Untitled Playbook"}
           </p>
           <ul className="mt-3 space-y-1.5 text-sm text-amber-700 dark:text-amber-300">
-            {initialDraft.validationErrors.map((error, i) => (
+            {validationErrors.map((error, i) => (
               <li key={i} className="flex items-start gap-2">
                 <span className="mt-1 block size-1.5 shrink-0 rounded-full bg-amber-500" />
                 {error}
@@ -146,13 +149,13 @@ export function PlaybookDraftCard({
               </pre>
             </div>
 
-            {initialDraft.requiredActions.length > 0 && (
+            {requiredActions.length > 0 && (
               <div className="rounded-xl border border-border/60 bg-muted/30 px-3 py-2.5">
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                   Required actions
                 </p>
                 <p className="mt-1.5 text-sm text-foreground/85">
-                  {initialDraft.requiredActions.join(", ")}
+                  {requiredActions.join(", ")}
                 </p>
               </div>
             )}

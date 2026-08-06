@@ -5,9 +5,11 @@ import { getConnectionStatus } from "@/app/_lib/composio/connections";
 import { isToolProvablyUnavailable } from "@/app/_lib/composio/scope-availability";
 import { adapterForToolkit } from "@/app/_features/capture/adapters/registry";
 import {
-  getConnectorRegistry,
-  getConnectorRegistryEntryByCatalogId,
+  listCatalogEntries,
   listConnectableEntries,
+  listFeaturedEntries,
+  getConnectorRegistryEntryByCatalogId,
+  getConnectorRegistryEntry,
   type ConnectorRegistryEntry,
 } from "@/app/_lib/composio/connector-registry";
 import {
@@ -18,6 +20,8 @@ import {
   type ConnectorCapabilityGroups,
 } from "./connector-capabilities";
 import { deriveConnectorOverview } from "./content-contract";
+import { isConnectionStale } from "./staleness";
+import { verifySuspectConnection } from "./connection-verify";
 import {
   getDisabledToolsFromConfig,
   getEmailModeFromConfig,
@@ -33,42 +37,39 @@ import type {
 } from "./types";
 import type { ConnectorCatalogId } from "./types";
 
-/**
- * Connectable entries come from the DB registry (connector_catalog +
- * connector_overrides): Composio-owned, not coming soon, with a resolved
- * auth config. Enabling a connector means flipping its DB row — never
- * editing a file. UI keying stays on the legacy kebab-case catalog id.
- */
-function catalogKeyFor(entry: ConnectorRegistryEntry): ConnectorCatalogId {
-  return (entry.catalogId ?? entry.providerKey) as ConnectorCatalogId;
-}
-
-/** Registry row → the client-facing ConnectorDefinition shape. */
+/** Convert DB registry entry to local ConnectorDefinition */
 function toConnectorDefinition(entry: ConnectorRegistryEntry): ConnectorDefinition {
   return {
-    id: catalogKeyFor(entry),
+    id: (entry.catalogId ?? entry.providerKey) as ConnectorCatalogId,
     providerKey: entry.providerKey,
     name: entry.name,
     description: entry.description,
     category: entry.category as ConnectorDefinition["category"],
     ownership: "composio",
     authMethod: entry.authMethod === "api_key" ? "api_key" : "oauth",
-    phase: (entry.phase ?? "2") as ConnectorDefinition["phase"],
+    phase: (entry.phase ?? (entry.comingSoon ? "coming_soon" : "released")) as ConnectorDefinition["phase"],
     showInCatalog: entry.showInCatalog,
-    composioProviders: [entry.providerKey],
-    comingSoon: entry.comingSoon,
-    apiKeyForm: (entry.apiKeyForm ?? undefined) as ConnectorDefinition["apiKeyForm"],
-    connectHelp: entry.connectHelp ?? undefined,
     nativeBadge: entry.nativeBadge ?? undefined,
+    composioProviders: [entry.toolkitSlug],
+    comingSoon: entry.comingSoon,
+    apiKeyForm: entry.apiKeyForm as ConnectorDefinition["apiKeyForm"],
+    connectHelp: entry.connectHelp ?? undefined,
+    tagline: entry.tagline ?? undefined,
+    developedBy: entry.developedBy ?? undefined,
+    links: entry.links.length > 0 ? entry.links : undefined,
   };
 }
 
-/** DB-driven catalog rows for the client, canonical id keying. */
+/** Catalog connectors from the DB registry. */
 export async function listCatalogDefinitions(): Promise<ConnectorDefinition[]> {
-  const registry = await getConnectorRegistry();
-  return [...registry.values()]
-    .filter((entry) => entry.showInCatalog)
-    .map(toConnectorDefinition);
+  const entries = await listCatalogEntries();
+  return entries.map(toConnectorDefinition);
+}
+
+/** Featured connectors — Salt-curated for prominent display. */
+export async function listFeaturedDefinitions(): Promise<ConnectorDefinition[]> {
+  const entries = await listFeaturedEntries();
+  return entries.map(toConnectorDefinition);
 }
 
 interface ProviderSettings {
@@ -76,6 +77,10 @@ interface ProviderSettings {
   trustLevel: ConnectorTrustLevel;
   emailMode: EmailMode;
   captureEnabled: boolean;
+  /** When the integration row was created — bounds never-captured staleness. */
+  connectedAt: string | null;
+  /** Raw config for verification cache read + merge-back. */
+  rawConfig: Record<string, unknown> | null;
 }
 
 async function loadProviderSettings(
@@ -85,7 +90,7 @@ async function loadProviderSettings(
   const supabase = await createClient();
   const { data: rows } = await supabase
     .from("workspace_integrations")
-    .select("provider, config, trust_level, capture_enabled")
+    .select("provider, config, trust_level, capture_enabled, created_at")
     .eq("workspace_id", workspaceId)
     .in("provider", [...providers]);
 
@@ -95,9 +100,15 @@ async function loadProviderSettings(
     byProvider[row.provider as string] = {
       disabledTools: getDisabledToolsFromConfig(config),
       trustLevel:
-        row.trust_level === "act_with_approval" ? "act_with_approval" : "read_only",
+        row.trust_level === "act_with_approval"
+          ? "act_with_approval"
+          : row.trust_level === "trust"
+            ? "trust"
+            : "read_only",
       emailMode: getEmailModeFromConfig(config),
       captureEnabled: row.capture_enabled === true,
+      connectedAt: (row.created_at as string | null) ?? null,
+      rawConfig: config,
     };
   }
   return byProvider;
@@ -119,7 +130,9 @@ export async function getWorkspaceTrustLevel(
 
   return data?.trust_level === "act_with_approval"
     ? "act_with_approval"
-    : "read_only";
+    : data?.trust_level === "trust"
+      ? "trust"
+      : "read_only";
 }
 
 /**
@@ -146,8 +159,8 @@ export interface WorkspaceConnectorPolicy {
    * registration and execution checks stay provider-keyed.
    */
   trustByProvider: Record<string, ConnectorTrustLevel>;
-  /** Gmail email mode; absent config = draft, the safe default. */
-  emailMode: EmailMode;
+  /** Email mode per provider (gmail, outlook). Absent = draft, the safe default. */
+  emailModeByProvider: Record<string, EmailMode>;
 }
 
 /**
@@ -170,10 +183,17 @@ export async function getWorkspaceConnectorPolicy(
     trustByProvider[provider] = workspaceTrust;
   }
 
+  // Email mode per provider - uses centralized capability config
+  const { getEmailProviders } = await import("@/app/_lib/composio/capability-config");
+  const emailModeByProvider: Record<string, EmailMode> = {};
+  for (const provider of getEmailProviders()) {
+    emailModeByProvider[provider] = byProvider[provider]?.emailMode ?? "draft";
+  }
+
   return {
     disabledTools: [...disabled],
     trustByProvider,
-    emailMode: byProvider.gmail?.emailMode ?? "draft",
+    emailModeByProvider,
   };
 }
 
@@ -256,7 +276,7 @@ export async function getConnectorsPageData(): Promise<ConnectorsPageData> {
   // connected); the catalog is far larger than the connectable set.
   const emptyStatus: Partial<Record<ConnectorCatalogId, ConnectorRuntimeStatus>> =
     Object.fromEntries(
-      connectableEntries.map((entry) => [catalogKeyFor(entry), { connected: false }]),
+      connectableEntries.map((entry) => [(entry.catalogId ?? entry.providerKey) as ConnectorCatalogId, { connected: false }]),
     );
 
   if (!user) {
@@ -307,6 +327,64 @@ export async function getConnectorsPageData(): Promise<ConnectorsPageData> {
     emailMode: "draft",
   };
 
+  // Last capture per connected, capture-enabled, trigger-based provider. A
+  // silently dead token keeps composio_status "connected" while captures
+  // stop, and the expiry webhook is not guaranteed — so silence decides
+  // WHICH connections get a live verification below.
+  const staleCandidates = connectableEntries
+    .map((entry, index) => ({ entry, status: statuses[index] }))
+    .filter(({ entry, status }) => {
+      if (!status.connected) return false;
+      if (!settingsByProvider[entry.providerKey]?.captureEnabled) return false;
+      const adapter = adapterForToolkit(entry.providerKey);
+      return adapter !== null && adapter.triggerSlugs.length > 0;
+    });
+  const lastCaptureByProvider = new Map(
+    await Promise.all(
+      staleCandidates.map(async ({ entry }) => {
+        const adapter = adapterForToolkit(entry.providerKey);
+        const { data: row } = await supabase
+          .from("capture_events")
+          .select("created_at")
+          .eq("workspace_id", workspaceId)
+          .eq("source_type", adapter?.sourceType ?? entry.providerKey)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        return [entry.providerKey, (row?.created_at as string | null) ?? null] as const;
+      }),
+    ),
+  );
+
+  // Quiet connections get an automatic live check (Composio status + token
+  // refresh, cached for an hour) so the surface stays binary: Connected, or
+  // Reconnect needed. A broken verdict persists composio_status = "expired",
+  // flipping every consumer to the existing reconnect state.
+  const brokenProviders = new Set<string>();
+  await Promise.all(
+    staleCandidates.map(async ({ entry, status }) => {
+      const providerSettings = settingsByProvider[entry.providerKey];
+      const quiet = isConnectionStale({
+        connected: status.connected,
+        captureEnabled: providerSettings?.captureEnabled ?? false,
+        hasRealtimeTriggers: true,
+        lastCaptureAt: lastCaptureByProvider.get(entry.providerKey) ?? null,
+        connectedAt: providerSettings?.connectedAt ?? null,
+      });
+      if (!quiet || !status.integrationId || !status.composioConnectionId) {
+        return;
+      }
+      const verdict = await verifySuspectConnection({
+        integrationId: status.integrationId,
+        connectionId: status.composioConnectionId,
+        config: providerSettings?.rawConfig ?? null,
+      });
+      if (verdict === "broken") {
+        brokenProviders.add(entry.providerKey);
+      }
+    }),
+  );
+
   const connectors: ConnectorsPageData["connectors"] = {};
   const disabledToolsByConnector: ConnectorsPageData["disabledToolsByConnector"] =
     {};
@@ -318,15 +396,20 @@ export async function getConnectorsPageData(): Promise<ConnectorsPageData> {
   // email, so a plain "Connected".
   connectableEntries.forEach((entry, index) => {
     const status = statuses[index];
-    const key = catalogKeyFor(entry);
+    const key = entry.catalogId as ConnectorCatalogId;
+    const lastActivityAt = lastCaptureByProvider.has(entry.providerKey)
+      ? (lastCaptureByProvider.get(entry.providerKey) ?? null)
+      : undefined;
+    const verifiedBroken = brokenProviders.has(entry.providerKey);
     connectors[key] = {
-      connected: status.connected,
+      connected: status.connected && !verifiedBroken,
       label:
         status.email ??
         (status.connected && entry.authMethod === "api_key"
           ? "Connected"
           : undefined),
-      needsReconnect: status.composioStatus === "expired",
+      needsReconnect: verifiedBroken || status.composioStatus === "expired",
+      lastActivityAt,
     };
 
     const settings = settingsByProvider[entry.providerKey];
@@ -381,11 +464,6 @@ export async function listReconnectNeeded(
     return [];
   }
 
-  const registry = await getConnectorRegistry();
-  const byProvider = new Map(
-    [...registry.values()].map((entry) => [entry.providerKey, entry] as const),
-  );
-
   const seen = new Set<string>();
   const result: ReconnectNeeded[] = [];
   for (const row of rows) {
@@ -393,7 +471,7 @@ export async function listReconnectNeeded(
     const provider = (row.provider as string).replace(/^composio:/, "");
     if (seen.has(provider)) continue;
     seen.add(provider);
-    const entry = byProvider.get(provider);
+    const entry = await getConnectorRegistryEntry(provider);
     if (!entry) continue;
     result.push({
       catalogId: (entry.catalogId ?? entry.providerKey) as ConnectorCatalogId,
@@ -419,11 +497,14 @@ export async function getConnectorToolGroups(
   const entry = await getConnectorRegistryEntryByCatalogId(catalogId);
   if (!entry) return null;
 
+  // In DB registry, toolkit slug is explicit
+  const toolkitSlug = entry.toolkitSlug;
+
   const supabase = await createClient();
   const { data: tools, error } = await supabase
     .from("connector_tools")
     .select("tool_slug, name, description, required_scopes")
-    .eq("toolkit_slug", entry.toolkitSlug)
+    .eq("toolkit_slug", toolkitSlug)
     .neq("sync_status", "removed")
     .order("name");
   if (error || !tools || tools.length === 0) return null;
@@ -449,12 +530,13 @@ export async function getConnectorToolGroups(
     if (!risk || risk === "destructive") continue;
     // Scope wall: hide tools the connection's OAuth grant provably cannot
     // execute (certainty rules in scope-availability.ts — uncertain = show).
+    // Note: grantScopes would come from Composio connection at runtime, not static config.
     if (
       isToolProvablyUnavailable({
         toolScopes: Array.isArray(tool.required_scopes)
           ? (tool.required_scopes as string[])
           : null,
-        grantScopes: entry.grantScopes,
+        grantScopes: null, // Runtime scope check not implemented yet
         risk,
       })
     ) {
@@ -491,7 +573,7 @@ export async function getConnectorToolGroups(
       : deriveConnectorOverview({
           name: entry.name,
           groups: { read, write, overviewBullets: [] },
-          captureCapable: adapterForToolkit(entry.toolkitSlug) !== null,
+          captureCapable: adapterForToolkit(entry.providerKey) !== null,
         });
 
   return {

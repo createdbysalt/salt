@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { gmailCaptureAdapter } from "./gmail";
-import { googleCalendarCaptureAdapter } from "./googlecalendar";
-import { stripeCaptureAdapter } from "./stripe";
-import { calCaptureAdapter } from "./cal";
+import { getCategoryAdapter } from "./categories";
+import type { CaptureAdapter } from "./types";
 import {
   GMAIL_TRIGGER_CAMEL,
   GMAIL_TRIGGER_SENT,
@@ -16,20 +14,24 @@ import { CAL_BOOKING_UPCOMING } from "./__fixtures__/cal-payloads";
 
 const CTX = { userEmail: "you@usesalt.io" };
 
-function normalizeAll(adapter: typeof gmailCaptureAdapter, payloads: unknown[]) {
+function normalizeAll(adapter: CaptureAdapter, payloads: unknown[]) {
   return payloads
     .map((p) => adapter.normalize(p))
     .filter((e): e is NonNullable<typeof e> => e !== null);
 }
 
 describe("adapter signal derivation (Phase 5.1)", () => {
+  const gmailAdapter = getCategoryAdapter("gmail")!;
+  const calendarAdapter = getCategoryAdapter("googlecalendar")!;
+  const stripeAdapter = getCategoryAdapter("stripe")!;
+  const calAdapter = getCategoryAdapter("cal")!;
+
   it("gmail: bidirectional when mail flows both ways, you_initiated on outbound", () => {
-    // CAMEL = inbound from ada; SENT = outbound to ada.
-    const envelopes = normalizeAll(gmailCaptureAdapter, [
+    const envelopes = normalizeAll(gmailAdapter, [
       GMAIL_TRIGGER_CAMEL,
       GMAIL_TRIGGER_SENT,
     ]);
-    const signals = gmailCaptureAdapter.deriveSignals!(envelopes, CTX);
+    const signals = gmailAdapter.deriveSignals!(envelopes, CTX);
 
     const ada = signals.get("ada@northwind.com");
     expect(ada).toMatchObject({
@@ -38,13 +40,12 @@ describe("adapter signal derivation (Phase 5.1)", () => {
       email_count: 2,
     });
     expect(ada?.last_email_date).toBe("2026-07-03T09:02:44.000Z");
-    // The user themselves never becomes a contact.
     expect(signals.has("you@usesalt.io")).toBe(false);
   });
 
   it("gmail: inbound-only stays one-way", () => {
-    const envelopes = normalizeAll(gmailCaptureAdapter, [GMAIL_TRIGGER_CAMEL]);
-    const signals = gmailCaptureAdapter.deriveSignals!(envelopes, CTX);
+    const envelopes = normalizeAll(gmailAdapter, [GMAIL_TRIGGER_CAMEL]);
+    const signals = gmailAdapter.deriveSignals!(envelopes, CTX);
     expect(signals.get("ada@northwind.com")).toMatchObject({
       is_bidirectional_thread: false,
       you_initiated: false,
@@ -53,28 +54,26 @@ describe("adapter signal derivation (Phase 5.1)", () => {
   });
 
   it("calendar: attendees and organizer carry has_calendar_meeting, self excluded", () => {
-    const envelopes = normalizeAll(googleCalendarCaptureAdapter, [
-      CALENDAR_EVENT_TIMED,
-    ]);
-    const signals = googleCalendarCaptureAdapter.deriveSignals!(envelopes, CTX);
+    const envelopes = normalizeAll(calendarAdapter, [CALENDAR_EVENT_TIMED]);
+    const signals = calendarAdapter.deriveSignals!(envelopes, CTX);
     expect(signals.get("ada@northwind.com")).toEqual({ has_calendar_meeting: true });
     expect(signals.has("you@usesalt.io")).toBe(false);
   });
 
   it("stripe: paid money sets payment signals; open invoices only has_invoice_sent", () => {
-    const envelopes = normalizeAll(stripeCaptureAdapter, [
+    const envelopes = normalizeAll(stripeAdapter, [
       STRIPE_INVOICE_OPEN,
       STRIPE_CHARGE_SUCCEEDED,
     ]);
-    const signals = stripeCaptureAdapter.deriveSignals!(envelopes, CTX);
+    const signals = stripeAdapter.deriveSignals!(envelopes, CTX);
     expect(signals.get("billing@northwind.com")).toEqual({
       has_invoice_sent: true,
       has_stripe_payment: true,
       has_payment_received: true,
     });
 
-    const invoiceOnly = stripeCaptureAdapter.deriveSignals!(
-      normalizeAll(stripeCaptureAdapter, [STRIPE_INVOICE_OPEN]),
+    const invoiceOnly = stripeAdapter.deriveSignals!(
+      normalizeAll(stripeAdapter, [STRIPE_INVOICE_OPEN]),
       CTX,
     );
     expect(invoiceOnly.get("billing@northwind.com")).toEqual({
@@ -83,8 +82,8 @@ describe("adapter signal derivation (Phase 5.1)", () => {
   });
 
   it("cal: bookers carry has_calendar_meeting, hosts do not", () => {
-    const envelopes = normalizeAll(calCaptureAdapter, [CAL_BOOKING_UPCOMING]);
-    const signals = calCaptureAdapter.deriveSignals!(envelopes, CTX);
+    const envelopes = normalizeAll(calAdapter, [CAL_BOOKING_UPCOMING]);
+    const signals = calAdapter.deriveSignals!(envelopes, CTX);
     expect(signals.get("ada@northwind.com")).toEqual({ has_calendar_meeting: true });
     expect(signals.has("you@usesalt.io")).toBe(false);
   });

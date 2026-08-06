@@ -130,7 +130,6 @@ export async function createIntakePlayRun(
       },
       evidence_ids: [input.evidenceId],
       metadata: {
-        player_slug: "keeper",
         playbook_name: "Memory Records",
         intake_record: true,
         entity_type: input.entityType,

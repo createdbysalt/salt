@@ -9,25 +9,23 @@ import {
   type PlaysPageData,
   type PlaysTab,
 } from "../load-plays-page-data";
-import { mapQueuePlayForUi } from "../utils/map-queue-play";
 import type { PlaysTabData } from "../plays-tab-data";
 import { EMPTY_CONNECTORS } from "../plays-tab-data";
 
 function toPlaysTabData(data: PlaysPageData): PlaysTabData {
   return {
-    initialQueue: data.initialQueue.map(mapQueuePlayForUi),
+    initialQueue: data.initialQueue,
     initialActivity: data.initialActivity,
     activityTotalCount: data.activityTotalCount ?? 0,
     connectors: data.connectors ?? EMPTY_CONNECTORS,
     initialFindings: data.initialFindings,
     autoHandledFindings: data.autoHandledFindings,
     findingCounts: data.findingCounts,
+    playsRanToday: data.playsRanToday ?? 0,
     learningEvidence: data.learningEvidence,
     streamCaptures: data.streamCaptures,
     captureStats: data.captureStats,
     hasCaptureData: data.hasCaptureData,
-    blueprints: data.blueprints,
-    adoptedTemplates: data.adoptedTemplates,
     playbooksV2: data.playbooksV2 ?? null,
     workspaceId: data.workspaceId ?? null,
     keeperUnseenCount: data.keeperUnseenCount ?? 0,

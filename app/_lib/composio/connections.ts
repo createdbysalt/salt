@@ -11,21 +11,15 @@ import {
   type ComposioOAuthDisplay,
 } from "./oauth-state";
 import {
-  getConnectorRegistryEntry,
-  isRegisteredConnectorProvider,
-} from "./connector-registry";
+  getConnector,
+  getAuthConfigId,
+  getApiKeyFieldName,
+  isRegisteredProvider,
+} from "./unified-connector-registry";
 import { assertWorkspaceMembership } from "./workspace-auth";
-import { enableCaptureTriggers } from "./trigger-subscriptions";
+import { setCaptureState } from "./capture-state";
 
 export type ComposioConnectionStatus = "connected" | "pending" | "expired" | "error";
-
-/** @deprecated Use ComposioOAuthStatePayload from oauth-state.ts */
-export interface ComposioOAuthState {
-  userId: string;
-  workspaceId: string;
-  provider: string;
-  returnUrl: string;
-}
 
 export function isComposioConfigured(): boolean {
   return Boolean(process.env.COMPOSIO_API_KEY);
@@ -41,31 +35,6 @@ function getAppBaseUrl(): string {
 export function buildComposioCallbackUrl(state: string): string {
   const base = getAppBaseUrl();
   return `${base}/api/integrations/composio/callback?state=${encodeURIComponent(state)}`;
-}
-
-/** @deprecated Use encodeComposioOAuthState */
-export function encodeComposioState(state: ComposioOAuthState): string {
-  return encodeComposioOAuthState({
-    userId: state.userId,
-    workspaceId: state.workspaceId ?? state.workspaceId ?? "",
-    provider: state.provider,
-    returnUrl: state.returnUrl,
-  });
-}
-
-/** @deprecated Use decodeComposioOAuthState */
-export function decodeComposioState(state: string): ComposioOAuthState | null {
-  const decoded = decodeComposioOAuthState(state);
-  if (!decoded) {
-    return null;
-  }
-
-  return {
-    userId: decoded.userId,
-    workspaceId: decoded.workspaceId,
-    provider: decoded.provider,
-    returnUrl: decoded.returnUrl,
-  };
 }
 
 function mapComposioStatus(
@@ -125,8 +94,9 @@ export async function initiateConnection(
     };
   }
 
-  const registryEntry = await getConnectorRegistryEntry(provider);
-  if (!registryEntry?.authConfigId) {
+  const connector = getConnector(provider);
+  const authConfigId = getAuthConfigId(provider);
+  if (!connector || !authConfigId) {
     return {
       success: false,
       error: "This connector isn't available yet.",
@@ -147,12 +117,12 @@ export async function initiateConnection(
       display: options?.display,
     });
     const callbackUrl = buildComposioCallbackUrl(state);
-    const toolkit = registryEntry.toolkitSlug;
+    const toolkit = provider; // toolkit slug = provider key
 
     const composio = getComposioClient();
     const session = await composio.create(workspaceId, {
       toolkits: [toolkit],
-      authConfigs: { [toolkit]: registryEntry.authConfigId },
+      authConfigs: { [toolkit]: authConfigId },
       manageConnections: {
         enable: true,
         callbackUrl,
@@ -224,9 +194,9 @@ export async function initiateApiKeyConnection(
     };
   }
 
-  const registryEntry = await getConnectorRegistryEntry(provider);
-  const authConfigId = registryEntry?.authConfigId ?? "";
-  if (!registryEntry || !authConfigId || registryEntry.authMethod !== "api_key") {
+  const connector = getConnector(provider);
+  const authConfigId = getAuthConfigId(provider);
+  if (!connector || !authConfigId || connector.authMethod !== "api_key") {
     return {
       success: false,
       error: "This connector isn't available yet.",
@@ -243,6 +213,7 @@ export async function initiateApiKeyConnection(
     // Composio requires the toolkit's exact wire field name
     // (generic_api_key / bearer_token) — AuthScheme.APIKey's `api_key` only
     // maps for toolkits with a legacy template alias.
+    const apiKeyFieldName = getApiKeyFieldName(provider) ?? "generic_api_key";
     const connectionRequest = await composio.connectedAccounts.initiate(
       workspaceId,
       authConfigId,
@@ -252,7 +223,7 @@ export async function initiateApiKeyConnection(
           val: {
             status: "ACTIVE",
             ...extraFields,
-            [registryEntry.apiKeyFieldName ?? "generic_api_key"]: apiKey,
+            [apiKeyFieldName]: apiKey,
           },
         },
         allowMultiple: true,
@@ -294,6 +265,23 @@ export async function initiateApiKeyConnection(
       };
     }
 
+    // Auto-enable capture, mirroring the OAuth callback path (the API-key
+    // flow previously skipped this, leaving capture_enabled connections
+    // with no trigger subscriptions). Non-fatal: the connection succeeded.
+    const { adapterForToolkit } = await import(
+      "@/app/_features/capture/adapters/registry"
+    );
+    if (adapterForToolkit(provider)) {
+      const captureResult = await setCaptureState(workspaceId, provider, true);
+      if (!captureResult.ok) {
+        console.warn(
+          "[composio] Failed to enable capture for API-key provider:",
+          provider,
+          captureResult.error,
+        );
+      }
+    }
+
     return { success: true, status: composioStatus };
   } catch (error) {
     // Log only the message — Composio validation errors can echo request
@@ -323,7 +311,7 @@ export async function handleConnectionCallback(
   | { success: false; error: string }
 > {
   const stateData = decodeComposioOAuthState(state);
-  if (!stateData || !(await isRegisteredConnectorProvider(stateData.provider))) {
+  if (!stateData || !isRegisteredProvider(stateData.provider)) {
     return { success: false, error: "Invalid or expired state parameter" };
   }
 
@@ -386,30 +374,26 @@ export async function handleConnectionCallback(
       });
     }
 
-    // Auto-enable capture for connectors that support it
+    // Auto-enable capture for connectors that support it (single write
+    // path: setCaptureState couples the flag with trigger subscriptions).
     if (composioStatus === "connected") {
       const { adapterForToolkit } = await import(
         "@/app/_features/capture/adapters/registry"
       );
-      const adapter = adapterForToolkit(stateData.provider);
-      if (adapter) {
+      if (adapterForToolkit(stateData.provider)) {
         console.log(`[composio] Auto-enabling capture for ${stateData.provider}`);
-        const triggerResult = await enableCaptureTriggers(
+        const captureResult = await setCaptureState(
           stateData.workspaceId,
-          stateData.provider
+          stateData.provider,
+          true,
         );
-        if (triggerResult.ok) {
-          await admin
-            .from("workspace_integrations")
-            .update({ capture_enabled: true })
-            .eq("workspace_id", stateData.workspaceId)
-            .eq("provider", stateData.provider);
+        if (captureResult.ok) {
           console.log(`[composio] Capture enabled for ${stateData.provider}`);
         } else {
           console.warn(
-            "[composio] Failed to enable capture triggers for provider:",
+            "[composio] Failed to enable capture for provider:",
             stateData.provider,
-            triggerResult.error,
+            captureResult.error,
           );
         }
       }
@@ -482,25 +466,25 @@ export async function handleConnectionCallback(
   }
 }
 
-export async function getConnectionStatus(
-  provider: string,
-  workspaceId: string,
-): Promise<{
+export interface ConnectionStatusResult {
   connected: boolean;
   email: string | null;
   integrationId: string | null;
   composioConnectionId: string | null;
   composioStatus: ComposioConnectionStatus | null;
-}> {
-  const supabase = await createClient();
+}
 
-  const { data: integration } = await supabase
-    .from("workspace_integrations")
-    .select("id, composio_connection_id, composio_status, config, is_active")
-    .eq("workspace_id", workspaceId)
-    .eq("provider", provider)
-    .maybeSingle();
+interface ConnectionStatusRow {
+  id: string;
+  composio_connection_id: string | null;
+  composio_status: string | null;
+  config: unknown;
+  is_active: boolean | null;
+}
 
+function toConnectionStatus(
+  integration: ConnectionStatusRow | null,
+): ConnectionStatusResult {
   if (!integration?.is_active || !integration.composio_connection_id) {
     return {
       connected: false,
@@ -520,6 +504,183 @@ export async function getConnectionStatus(
     composioConnectionId: integration.composio_connection_id,
     composioStatus: (integration.composio_status as ComposioConnectionStatus) ?? null,
   };
+}
+
+export async function getConnectionStatus(
+  provider: string,
+  workspaceId: string,
+): Promise<ConnectionStatusResult> {
+  const supabase = await createClient();
+
+  const { data: integration } = await supabase
+    .from("workspace_integrations")
+    .select("id, composio_connection_id, composio_status, config, is_active")
+    .eq("workspace_id", workspaceId)
+    .eq("provider", provider)
+    .maybeSingle();
+
+  return toConnectionStatus(integration);
+}
+
+/**
+ * Connection status for system contexts (crons, webhooks, background jobs)
+ * where there is no user session. getConnectionStatus uses the
+ * session-scoped client, so under RLS it returns "not connected" for every
+ * workspace when called from a cron — which silently broke the
+ * capture-reconciliation sweep (capture-pipeline repair, Phase 3).
+ *
+ * Callers must already be workspace-scoped (workspaceId comes from a
+ * trusted system iteration, never user input).
+ */
+export async function getConnectionStatusAdmin(
+  provider: string,
+  workspaceId: string,
+): Promise<ConnectionStatusResult> {
+  const admin = createAdminClient();
+
+  const { data: integration } = await admin
+    .from("workspace_integrations")
+    .select("id, composio_connection_id, composio_status, config, is_active")
+    .eq("workspace_id", workspaceId)
+    .eq("provider", provider)
+    .maybeSingle();
+
+  return toConnectionStatus(integration as ConnectionStatusRow | null);
+}
+
+/**
+ * Deep health check: queries Composio for live connection status and compares
+ * against our stored state. Logs diagnostics and optionally syncs status back.
+ */
+export async function checkConnectionHealth(
+  provider: string,
+  workspaceId: string,
+  options?: { syncStatus?: boolean },
+): Promise<{
+  healthy: boolean;
+  localStatus: ComposioConnectionStatus | null;
+  remoteStatus: ComposioConnectionStatus | null;
+  composioConnectionId: string | null;
+  diagnostics: {
+    createdAt?: string;
+    updatedAt?: string;
+    lastUsedAt?: string;
+    errorMessage?: string;
+    rawStatus?: string;
+    tokenExpiresAt?: string;
+  };
+}> {
+  const supabase = await createClient();
+
+  const { data: integration } = await supabase
+    .from("workspace_integrations")
+    .select("id, composio_connection_id, composio_status, config, is_active, connected_at, last_error")
+    .eq("workspace_id", workspaceId)
+    .eq("provider", provider)
+    .maybeSingle();
+
+  if (!integration?.composio_connection_id) {
+    console.log(`[composio-health] ${provider}: no connection found in DB`);
+    return {
+      healthy: false,
+      localStatus: null,
+      remoteStatus: null,
+      composioConnectionId: null,
+      diagnostics: {},
+    };
+  }
+
+  const localStatus = integration.composio_status as ComposioConnectionStatus | null;
+  let remoteStatus: ComposioConnectionStatus | null = null;
+  const diagnostics: {
+    createdAt?: string;
+    updatedAt?: string;
+    lastUsedAt?: string;
+    errorMessage?: string;
+    rawStatus?: string;
+    tokenExpiresAt?: string;
+  } = {};
+
+  try {
+    const connection = await getComposioClient().connectedAccounts.get(
+      integration.composio_connection_id,
+    );
+
+    diagnostics.rawStatus = connection.status;
+    diagnostics.createdAt = connection.createdAt;
+    diagnostics.updatedAt = connection.updatedAt;
+
+    // Extract token expiry if available
+    const connectionData = connection as unknown as Record<string, unknown>;
+    if (connectionData.tokenData && typeof connectionData.tokenData === "object") {
+      const tokenData = connectionData.tokenData as Record<string, unknown>;
+      if (tokenData.expiresAt) {
+        diagnostics.tokenExpiresAt = String(tokenData.expiresAt);
+      }
+    }
+
+    remoteStatus = mapComposioStatus(connection.status);
+
+    console.log(`[composio-health] ${provider}:`, {
+      connectionId: integration.composio_connection_id,
+      localStatus,
+      remoteStatus,
+      rawStatus: connection.status,
+      createdAt: connection.createdAt,
+      updatedAt: connection.updatedAt,
+      tokenExpiresAt: diagnostics.tokenExpiresAt,
+      connectedAt: integration.connected_at,
+      isActive: integration.is_active,
+    });
+
+    // Detect status drift
+    if (localStatus !== remoteStatus) {
+      console.warn(`[composio-health] ${provider}: STATUS DRIFT detected`, {
+        local: localStatus,
+        remote: remoteStatus,
+        connectionId: integration.composio_connection_id,
+      });
+
+      // Optionally sync the status back to our DB
+      if (options?.syncStatus) {
+        const admin = createAdminClient();
+        await admin
+          .from("workspace_integrations")
+          .update({
+            composio_status: remoteStatus,
+            is_active: remoteStatus === "connected",
+            last_error: remoteStatus === "expired" ? "Connection expired - re-authenticate" : null,
+          })
+          .eq("id", integration.id);
+        console.log(`[composio-health] ${provider}: synced status to ${remoteStatus}`);
+      }
+    }
+
+    return {
+      healthy: remoteStatus === "connected",
+      localStatus,
+      remoteStatus,
+      composioConnectionId: integration.composio_connection_id,
+      diagnostics,
+    };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    diagnostics.errorMessage = errorMessage;
+
+    console.error(`[composio-health] ${provider}: failed to fetch remote status`, {
+      connectionId: integration.composio_connection_id,
+      error: errorMessage,
+      localStatus,
+    });
+
+    return {
+      healthy: false,
+      localStatus,
+      remoteStatus: null,
+      composioConnectionId: integration.composio_connection_id,
+      diagnostics,
+    };
+  }
 }
 
 export async function disconnectConnection(

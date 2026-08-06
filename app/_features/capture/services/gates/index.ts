@@ -31,6 +31,7 @@ import {
   checkFileSharing,
 } from "./admission-gate";
 import { isBlocked } from "../blocklist-manager";
+import { extractAdmissionSignals } from "./admission-signals";
 
 export interface GatePipelineInput {
   workspaceId: string;
@@ -108,10 +109,9 @@ export async function runGatePipeline(input: GatePipelineInput): Promise<GatePip
   }
   result.passedGates.push("known-entity");
 
-  const extracted = envelope.extracted as Record<string, unknown>;
-  const threadId = (extracted?.thread_id as string) ?? null;
-  const youInitiated = (extracted?.you_initiated as boolean) ?? false;
-  const isReply = !!(extracted?.in_reply_to as string);
+  const { threadId, youInitiated, isReply } = extractAdmissionSignals(
+    envelope.extracted as Record<string, unknown>
+  );
 
   let hasCalendarMeeting = false;
   let hasPayment = false;

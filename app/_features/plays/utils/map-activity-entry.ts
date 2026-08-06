@@ -75,6 +75,7 @@ function mapActionToCategory(
     // Watching - evidence gathering
     case "accumulated":
     case "hold_for_threshold":
+    case "resource_activity":
       return "watching";
 
     // In Progress - staged work (default)

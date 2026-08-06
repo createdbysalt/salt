@@ -14,14 +14,18 @@ import type {
 import type { PersonSignals } from "@/app/_features/capture/services/system-plays/person-signals";
 import type { CaptureSourceType } from "@/app/_features/capture/types";
 
-type MeetingsProvider = "fireflies" | "otter";
+type KnownMeetingsProvider = "fireflies" | "otter";
 
-const MEETINGS_PROVIDERS: MeetingsProvider[] = ["fireflies", "otter"];
+const KNOWN_MEETINGS_PROVIDERS: KnownMeetingsProvider[] = ["fireflies", "otter"];
 
-const MEETINGS_TRIGGER_SLUGS: Record<MeetingsProvider, string[]> = {
+const MEETINGS_TRIGGER_SLUGS: Record<KnownMeetingsProvider, string[]> = {
   fireflies: [], // No triggers available yet - backfill only
   otter: [], // No triggers available yet - backfill only
 };
+
+function isKnownMeetingsProvider(provider: string): provider is KnownMeetingsProvider {
+  return KNOWN_MEETINGS_PROVIDERS.includes(provider as KnownMeetingsProvider);
+}
 
 function deriveMeetingsSignals(
   envelopes: readonly CaptureEnvelope[],
@@ -30,8 +34,7 @@ function deriveMeetingsSignals(
   const contacts = new Map<string, PersonSignals>();
 
   for (const envelope of envelopes) {
-    if (!isMeetingsSource(envelope.sourceType)) continue;
-
+    // Meetings adapters already filter by category - process all envelopes
     for (const participant of envelope.participants) {
       if (!participant.email) continue;
 
@@ -45,9 +48,7 @@ function deriveMeetingsSignals(
   return contacts;
 }
 
-function isMeetingsSource(sourceType: CaptureSourceType): boolean {
-  return MEETINGS_PROVIDERS.includes(sourceType as MeetingsProvider);
-}
+// Meetings adapters already filter by category - no need for source type check
 
 function normalizeGenericMeetings(
   payload: unknown,
@@ -102,10 +103,14 @@ function normalizeGenericMeetings(
   };
 }
 
-export function createMeetingsCategoryAdapter(
-  provider: MeetingsProvider
-): CaptureAdapter {
-  const triggerSlugs = MEETINGS_TRIGGER_SLUGS[provider] ?? [];
+/**
+ * Create a meetings adapter for ANY provider.
+ * Known providers get specific parsing; unknown get generic extraction.
+ */
+export function createMeetingsCategoryAdapter(provider: string): CaptureAdapter {
+  const triggerSlugs = isKnownMeetingsProvider(provider)
+    ? MEETINGS_TRIGGER_SLUGS[provider]
+    : []; // Unknown providers: triggers come from DB
 
   return {
     sourceType: provider as CaptureSourceType,
@@ -114,18 +119,21 @@ export function createMeetingsCategoryAdapter(
     deriveSignals: deriveMeetingsSignals,
 
     normalize(payload: unknown): CaptureEnvelope | null {
+      // All meetings providers currently use generic extraction
       return normalizeGenericMeetings(payload, provider as CaptureSourceType);
     },
   };
 }
 
-export const meetingsCategoryAdapters = MEETINGS_PROVIDERS.map(
+/** Known provider adapters (for backward compatibility). */
+export const meetingsCategoryAdapters = KNOWN_MEETINGS_PROVIDERS.map(
   createMeetingsCategoryAdapter
 );
 
-export function getMeetingsAdapter(provider: string): CaptureAdapter | null {
-  if (!MEETINGS_PROVIDERS.includes(provider as MeetingsProvider)) {
-    return null;
-  }
-  return createMeetingsCategoryAdapter(provider as MeetingsProvider);
+/**
+ * Get meetings adapter for ANY provider in the meetings category.
+ * Always returns an adapter — unknown providers get generic extraction.
+ */
+export function getMeetingsAdapter(provider: string): CaptureAdapter {
+  return createMeetingsCategoryAdapter(provider);
 }

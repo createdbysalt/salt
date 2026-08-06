@@ -1,7 +1,7 @@
 import type { ConnectorCategory, EnrichmentSeed, ExtractorResult } from "../types";
 import type { Extractor, ExtractorContext } from "./base";
 import { emptyResult } from "./base";
-import { getConnectionStatus } from "../../connections";
+import { getConnectionStatusAdmin } from "../../connections";
 import { fetchGmailMessagesPage, getGmailMessage } from "../../actions";
 import type { GmailMessage } from "../../types";
 import {
@@ -65,7 +65,7 @@ export const gmailExtractor: Extractor = {
       return emptyResult(source);
     }
 
-    const connection = await getConnectionStatus("gmail", ctx.workspaceId);
+    const connection = await getConnectionStatusAdmin("gmail", ctx.workspaceId);
     if (!connection.connected || !connection.composioConnectionId) {
       console.log("[enrichment:gmail] Gmail not connected for workspace", ctx.workspaceId);
       return emptyResult(source);

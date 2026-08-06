@@ -1,7 +1,7 @@
 import type { ConnectorCategory, ExtractorResult } from "../types";
 import type { Extractor, ExtractorContext } from "./base";
 import { emptyResult } from "./base";
-import { getConnectionStatus } from "../../connections";
+import { getConnectionStatusAdmin } from "../../connections";
 
 export const stripeExtractor: Extractor = {
   category: "billing" as ConnectorCategory,
@@ -14,7 +14,7 @@ export const stripeExtractor: Extractor = {
       return emptyResult(source);
     }
 
-    const connection = await getConnectionStatus("stripe", ctx.workspaceId);
+    const connection = await getConnectionStatusAdmin("stripe", ctx.workspaceId);
     if (!connection.connected || !connection.composioConnectionId) {
       return emptyResult(source);
     }

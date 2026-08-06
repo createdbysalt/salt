@@ -32,10 +32,11 @@ export const FOOTER_EXPLORE_LINKS_FALLBACK: SanityLink[] = [
 export const FOOTER_HIDDEN_EXPLORE_HREFS = new Set(["/learn"]);
 
 export const FOOTER_LEGAL_LINKS_FALLBACK: SanityLink[] = [
-  { text: "Privacy", linkType: "internal", href: "/privacy-policy" },
-  { text: "Terms", linkType: "internal", href: "/terms-of-use" },
+  { text: "Privacy Policy", linkType: "internal", href: "/privacy-policy" },
+  { text: "Terms of Service", linkType: "internal", href: "/terms-of-service" },
   { text: "Early Access Terms", linkType: "internal", href: "/early-access" },
   { text: "Cookies", linkType: "internal", href: "/cookie-policy" },
+  { text: "Disclaimer", linkType: "internal", href: "/disclaimer" },
 ];
 
 export const SUPPORT_EMAIL_FALLBACK = "support@usesalt.io";

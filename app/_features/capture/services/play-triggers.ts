@@ -13,7 +13,7 @@
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import type { CaptureSourceType, CaptureEventType, MemorySurface } from "../types";
-import { processEntitySignals } from "@/app/_features/plays/playbooks/trigger-dispatch";
+import { processEntitySignals, updateCaptureWithDispatchResults } from "@/app/_features/plays/playbooks/trigger-dispatch";
 
 // ============================================================================
 // Trigger Pattern Types
@@ -269,23 +269,11 @@ export async function processCaptureTriggers(
     return { success: true, playsCreated: 0 };
   }
 
-  // Get player IDs for the matching patterns
-  const playerSlugs = [...new Set(matchingPatterns.map((p) => p.playerSlug))];
-  const { data: players } = await admin
-    .from("players")
-    .select("id, slug")
-    .in("slug", playerSlugs)
-    .eq("workspace_id", capture.workspace_id);
-
-  const playerMap = new Map(players?.map((p) => [p.slug, p.id]) ?? []);
-
-  // Create Play runs for each matching pattern
+  // Create Play runs for each matching pattern (player_id deprecated 2026-07-13)
   const playRuns = matchingPatterns.map((pattern) => {
     const playData = pattern.buildPlayData(captureForTrigger);
     return {
       workspace_id: capture.workspace_id,
-      player_id: playerMap.get(pattern.playerSlug) ?? null,
-      prepared_by_player_id: playerMap.get(pattern.playerSlug) ?? null,
       state: "queued" as const,
       title: playData.title,
       preview: playData.preview,
@@ -382,6 +370,11 @@ export async function processPersonSignalTriggers(input: {
     },
   });
 
+  // Update capture with dispatch results so UI shows which plays were triggered
+  if (input.captureId && result.results.length > 0) {
+    await updateCaptureWithDispatchResults(input.captureId, result.results);
+  }
+
   const playsCreated = result.results.filter((r) => r.success && r.playRunId).length;
 
   return {
@@ -412,6 +405,11 @@ export async function processBillingSignalTriggers(input: {
     },
   });
 
+  // Update capture with dispatch results so UI shows which plays were triggered
+  if (input.captureId && result.results.length > 0) {
+    await updateCaptureWithDispatchResults(input.captureId, result.results);
+  }
+
   const playsCreated = result.results.filter((r) => r.success && r.playRunId).length;
 
   return {
@@ -441,6 +439,11 @@ export async function processMeetingSignalTriggers(input: {
       capture_id: input.captureId,
     },
   });
+
+  // Update capture with dispatch results so UI shows which plays were triggered
+  if (input.captureId && result.results.length > 0) {
+    await updateCaptureWithDispatchResults(input.captureId, result.results);
+  }
 
   const playsCreated = result.results.filter((r) => r.success && r.playRunId).length;
 

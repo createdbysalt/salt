@@ -9,6 +9,7 @@ import { analyticsConfig } from "@/app/_lib/analytics/config";
 import { shouldLoadProductAnalytics } from "@/app/_lib/analytics/surface";
 import { createClient } from "@/app/_lib/supabase/client";
 import { getAttributionProperties } from "@/app/_lib/analytics/attribution";
+import { useCookieConsent } from "@/app/_features/marketing/components/CookieConsentProvider";
 
 let posthogInitialized = false;
 
@@ -86,10 +87,12 @@ function PostHogAuthSync(): null {
 
 export function PostHogAnalytics({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const { analytics: analyticsConsent } = useCookieConsent();
   const [active, setActive] = useState(false);
 
   useEffect(() => {
-    if (!analyticsConfig.enabled) {
+    // Require both: analytics enabled in config AND user consent
+    if (!analyticsConfig.enabled || !analyticsConsent) {
       setActive(false);
       return;
     }
@@ -97,7 +100,7 @@ export function PostHogAnalytics({ children }: { children: ReactNode }) {
     const shouldLoad = shouldLoadProductAnalytics(host, pathname);
     setActive(shouldLoad);
     if (shouldLoad) initPostHog();
-  }, [pathname]);
+  }, [pathname, analyticsConsent]);
 
   if (!active) return <>{children}</>;
 

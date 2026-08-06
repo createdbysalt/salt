@@ -1,0 +1,96 @@
+# Email Triage
+# Applies labels and archives based on email classification.
+# ACT layer — organizes inbox after classifier runs.
+
+name: Email Triage
+slug: email-triage
+version: 2.0.0
+description: Apply labels and organize inbox based on email classification
+
+section: communication
+layer: act
+voice: brief
+
+trigger:
+  type: signal
+  signals:
+    - email_classified_action_required
+    - email_classified_money_moves
+    - email_classified_opportunities
+    - email_classified_updates
+    - email_classified_subscribed
+    - email_classified_noise
+
+requirements:
+  categories:
+    required:
+      - email
+
+steps:
+  # Step 1: Get the classification result from the capture
+  - step: fetch
+    id: classification
+    from: capture.get_classification
+    where:
+      capture_id: $capture.id
+
+  # Step 2: Apply Gmail label based on category
+  - step: action
+    id: apply_label
+    tool: GMAIL_MODIFY_MESSAGE_LABELS
+    args:
+      message_id: $capture.gmail_message_id
+      add_labels:
+        - "Salt/{{classification.category}}"
+    needsApproval: false
+
+  # Step 3: Archive if triage action is silent_archive
+  - step: branch
+    id: handle_archive
+    if: "classification.triage_action == 'silent_archive'"
+    steps:
+      - step: action
+        id: archive_noise
+        tool: GMAIL_MODIFY_MESSAGE_LABELS
+        args:
+          message_id: $capture.gmail_message_id
+          remove_labels:
+            - INBOX
+          add_labels:
+            - "Salt/Archived"
+        needsApproval: true
+
+output:
+  type: finding
+  approval: none
+
+value:
+  kind: time_saved
+  estimate: 2
+
+instructions:
+  system: |
+    You organize the inbox based on the email classifier's decisions.
+    The classifier has already determined category and triage action.
+
+    Category → Gmail label mapping:
+    - action_required → Salt/Action Required
+    - money_moves → Salt/Money Moves
+    - opportunities → Salt/Opportunities
+    - updates → Salt/Updates
+    - subscribed → Salt/Subscribed
+    - noise → Salt/Archived (also removed from inbox)
+
+    Triage actions:
+    - surface_now: Label only, keep in inbox
+    - batch_digest: Label, will be included in daily digest
+    - silent_archive: Label + remove from inbox
+
+  guidelines:
+    - "Apply labels immediately (no approval needed)"
+    - "Archive requires approval until user approves 10 examples"
+    - "Never archive action_required or money_moves"
+
+  avoid:
+    - "Re-classifying emails (classifier already did this)"
+    - "Auto-archiving without sufficient approval history"

@@ -15,15 +15,12 @@ import "server-only";
  * decisions.
  */
 
-import { getConnectionStatus } from "@/app/_lib/composio/connections";
+import { getConnectionStatusAdmin } from "@/app/_lib/composio/connections";
 import { executeComposioAction } from "@/app/_lib/composio/actions";
 import { COMPOSIO_TOOL_SLUGS } from "@/app/_lib/composio/tool-slugs";
 import type { CaptureAdapter, CaptureEnvelope } from "../adapters/types";
 import { resolvePerson } from "./system-plays";
-import { calCaptureAdapter } from "../adapters/cal";
-import { googleCalendarCaptureAdapter } from "../adapters/googlecalendar";
-import { googleDriveCaptureAdapter } from "../adapters/googledrive";
-import { stripeCaptureAdapter } from "../adapters/stripe";
+import { getCategoryAdapter } from "../adapters/categories";
 import { ingestEnvelope } from "./ingest-envelope";
 import { processCalBookings } from "./cal-booking-processor";
 
@@ -172,7 +169,6 @@ async function absorbDerivedSignals(
 
 interface BackfillFetch {
   provider: "googlecalendar" | "googledrive" | "stripe" | "cal";
-  adapter: CaptureAdapter;
   /** Gated Composio calls returning raw list responses to unwrap. */
   fetches: (connectionId: string, workspaceId: string) => Promise<unknown>[];
 }
@@ -182,12 +178,21 @@ async function runConnectorBackfill(
   spec: BackfillFetch,
   options: { isBootstrap?: boolean } = {},
 ): Promise<ConnectorBackfillResult> {
-  const connection = await getConnectionStatus(spec.provider, workspaceId);
+  const connection = await getConnectionStatusAdmin(spec.provider, workspaceId);
   if (!connection.connected || !connection.composioConnectionId) {
     return {
       success: false,
       capturesCreated: 0,
       error: `${spec.provider} not connected`,
+    };
+  }
+
+  const adapter = getCategoryAdapter(spec.provider);
+  if (!adapter) {
+    return {
+      success: false,
+      capturesCreated: 0,
+      error: `No adapter for ${spec.provider}`,
     };
   }
 
@@ -211,7 +216,7 @@ async function runConnectorBackfill(
   const stats = await ingestRows(
     workspaceId,
     connection.integrationId,
-    spec.adapter,
+    adapter,
     rows,
     {
       isBootstrap: options.isBootstrap ?? false,
@@ -222,7 +227,7 @@ async function runConnectorBackfill(
 
   await absorbDerivedSignals(
     workspaceId,
-    spec.adapter,
+    adapter,
     stats.envelopes,
     connection.email ?? null,
   );
@@ -257,7 +262,6 @@ export async function backfillCalendarCaptures(
     workspaceId,
     {
       provider: "googlecalendar",
-      adapter: googleCalendarCaptureAdapter,
       fetches: (connectionId, wsId) => [
         executeComposioAction<Record<string, unknown>, unknown>(
           COMPOSIO_TOOL_SLUGS.GOOGLECALENDAR_LIST_EVENTS,
@@ -309,7 +313,6 @@ export async function backfillDriveCaptures(
     workspaceId,
     {
       provider: "googledrive",
-      adapter: googleDriveCaptureAdapter,
       fetches: (connectionId, wsId) => [
         executeComposioAction<Record<string, unknown>, unknown>(
           COMPOSIO_TOOL_SLUGS.GOOGLEDRIVE_LIST_FILES,
@@ -353,7 +356,6 @@ export async function backfillStripeCaptures(
     workspaceId,
     {
       provider: "stripe",
-      adapter: stripeCaptureAdapter,
       fetches: (connectionId, wsId) => [
         executeComposioAction<Record<string, unknown>, unknown>(
           COMPOSIO_TOOL_SLUGS.STRIPE_LIST_INVOICES,
@@ -390,17 +392,20 @@ export async function backfillCalBookings(
   workspaceId: string,
   options: { isBootstrap?: boolean } = {},
 ): Promise<ConnectorBackfillResult> {
-  const connection = await getConnectionStatus("cal", workspaceId);
+  const connection = await getConnectionStatusAdmin("cal", workspaceId);
   if (!connection.connected || !connection.composioConnectionId) {
     return { success: false, capturesCreated: 0, error: "cal not connected" };
   }
 
+  const calAdapter = getCategoryAdapter("cal");
+  if (!calAdapter) {
+    return { success: false, capturesCreated: 0, error: "No adapter for cal" };
+  }
+
   let rows: unknown[];
   try {
-    // CAL_LIST_BOOKINGS publishes an empty input schema — tool defaults
-    // return the account's bookings; state-based upserts make repeats cheap.
     const response = await executeComposioAction<Record<string, unknown>, unknown>(
-      COMPOSIO_TOOL_SLUGS.CAL_LIST_BOOKINGS,
+      COMPOSIO_TOOL_SLUGS.CAL_GET_TEAM_BOOKINGS,
       {},
       connection.composioConnectionId,
       workspaceId,
@@ -419,7 +424,7 @@ export async function backfillCalBookings(
   const stats = await ingestRows(
     workspaceId,
     connection.integrationId,
-    calCaptureAdapter,
+    calAdapter,
     rows,
     {
       isBootstrap: options.isBootstrap ?? false,
@@ -430,7 +435,7 @@ export async function backfillCalBookings(
 
   await absorbDerivedSignals(
     workspaceId,
-    calCaptureAdapter,
+    calAdapter,
     stats.envelopes,
     connection.email ?? null,
   );

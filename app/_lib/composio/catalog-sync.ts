@@ -5,6 +5,7 @@ import type { Json } from "@/app/_lib/supabase/database.types";
 import { getComposioClient } from "./client";
 import { invalidateClassificationCache } from "./classification-store";
 import { schemaHash } from "./catalog-sync-hash";
+import { classifyToolByHeuristic } from "./tool-classification-heuristics";
 
 /**
  * Composio catalog sync + drift detection (connector-platform Phase 2.2).
@@ -295,12 +296,19 @@ export async function runCatalogSync(): Promise<CatalogSyncResult> {
 
         if (!existing) {
           events.push({ kind: "tool_added", subjectSlug: slug });
-          // New tools start unclassified — visible in the review queue,
-          // unusable at the gate until approved.
+          // Auto-classify new tools using heuristics — immediately usable.
+          // Manual overrides in the DB take precedence (ignoreDuplicates).
+          const heuristic = classifyToolByHeuristic(slug);
           await supabase
             .from("tool_classifications")
             .upsert(
-              { tool_slug: slug, status: "unclassified", source: "manual" },
+              {
+                tool_slug: slug,
+                status: "approved",
+                source: "heuristic",
+                risk: heuristic.risk,
+                requires_human_confirmation: heuristic.requiresHumanConfirmation,
+              },
               { onConflict: "tool_slug", ignoreDuplicates: true },
             );
         } else if (changed) {

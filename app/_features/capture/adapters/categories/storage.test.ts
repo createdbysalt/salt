@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { createStorageCategoryAdapter, getStorageAdapter } from "./storage";
+import { DRIVE_TRIGGER_FILE_CREATED } from "../__fixtures__/googledrive-payloads";
 
 describe("storage category adapter", () => {
   describe("getStorageAdapter", () => {
@@ -15,12 +16,16 @@ describe("storage category adapter", () => {
       expect(adapter?.sourceType).toBe("dropbox");
     });
 
-    it("returns null for unknown provider", () => {
-      expect(getStorageAdapter("unknown")).toBeNull();
+    it("returns adapter with generic extraction for unknown provider", () => {
+      const adapter = getStorageAdapter("unknown");
+      expect(adapter).not.toBeNull();
+      expect(adapter.sourceType).toBe("unknown");
     });
 
-    it("returns null for non-storage provider", () => {
-      expect(getStorageAdapter("gmail")).toBeNull();
+    it("returns adapter with generic extraction for non-storage provider", () => {
+      const adapter = getStorageAdapter("gmail");
+      expect(adapter).not.toBeNull();
+      expect(adapter.sourceType).toBe("gmail");
     });
   });
 
@@ -78,6 +83,19 @@ describe("storage category adapter", () => {
     it("returns null for invalid payload", () => {
       expect(adapter.normalize(null)).toBeNull();
       expect(adapter.normalize({})).toBeNull();
+    });
+
+    it("unwraps the trigger file envelope ({ creator, event_type, file })", () => {
+      // Verified against the live GOOGLEDRIVE_FILE_CREATED_TRIGGER schema.
+      const envelope = adapter.normalize(DRIVE_TRIGGER_FILE_CREATED);
+
+      expect(envelope).not.toBeNull();
+      expect(envelope?.externalId).toBe("5EfGhIjKlMnOpQrStUvWxYz123456789");
+      expect(envelope?.title).toBe("Moodboard July");
+      expect(envelope?.occurredAt).toBe("2026-07-03T18:05:11.000Z");
+      // creator and owners share the same email — deduped.
+      expect(envelope?.participants).toHaveLength(1);
+      expect(envelope?.participants[0].email).toBe("you@usesalt.io");
     });
   });
 

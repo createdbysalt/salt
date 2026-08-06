@@ -1,5 +1,4 @@
 import { ReactNode } from "react";
-import { headers } from "next/headers";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import { Inter, Onest, JetBrains_Mono } from "next/font/google";
@@ -8,10 +7,7 @@ import { draftMode } from "next/headers";
 import { getSEOTags } from "@/app/_lib/seo";
 import { SanityVisualEditing } from "@/app/_components/SanityVisualEditing";
 import ClientLayout from "@/app/_components/LayoutClient";
-import { MarketingTagManager } from "@/app/_components/analytics/MarketingTagManager";
 import { ThemeProvider } from "@/app/_components/theme-provider";
-import { analyticsConfig } from "@/app/_lib/analytics/config";
-import { shouldLoadMarketingAnalytics } from "@/app/_lib/analytics/surface";
 import config from "@/config";
 import "./globals.css";
 
@@ -94,11 +90,6 @@ export default async function RootLayout({
 	modal: ReactNode;
 }) {
 	const { isEnabled: isDraftMode } = await draftMode();
-	const headersList = await headers();
-	const host = headersList.get("host") ?? "";
-	const pathname = headersList.get("x-pathname") ?? "";
-	const showMarketingAnalytics =
-		analyticsConfig.enabled && shouldLoadMarketingAnalytics(host, pathname);
 
 	return (
 		<html
@@ -115,9 +106,6 @@ export default async function RootLayout({
 				<script dangerouslySetInnerHTML={{ __html: themeScript }} />
 			</head>
 			<body>
-				{showMarketingAnalytics ? (
-					<MarketingTagManager gtmId={analyticsConfig.gtmId} />
-				) : null}
 				<ThemeProvider
 					defaultTheme="light"
 					storageKey="salt-ui-theme-v2"

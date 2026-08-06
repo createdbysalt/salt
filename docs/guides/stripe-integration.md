@@ -2,6 +2,8 @@
 
 **Context:** Salt uses Stripe for SaaS subscriptions and Stripe Connect for client billing.
 
+> **Scope:** this guide covers Stripe *mechanics* — checkout, webhooks, price IDs. For what Salt actually charges for (tiers, the play meter, entitlements) and how vendor spend is tracked, read [Billing & Metering](../architecture/billing-metering.md) first. Where the two disagree on plan names or subscription storage, that document wins: subscriptions are now workspace-scoped in `workspace_subscriptions`, not user-scoped on `profiles`/`studios`.
+
 ## Architecture Overview
 
 ```mermaid

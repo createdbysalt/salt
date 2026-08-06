@@ -406,6 +406,8 @@ export interface BlogPost {
   relatedComparisons?: BlogPost[]
 }
 
+export type LegalPageManagementType = 'termageddon' | 'self-managed'
+
 export interface LegalPage {
   _type: 'legalPage'
   _id: string
@@ -413,7 +415,12 @@ export interface LegalPage {
   slug: {
     current: string
   }
-  body: PortableTextBlock[]
+  /** How this legal page is managed */
+  managementType: LegalPageManagementType
+  /** Termageddon policy ID (only for termageddon-managed pages) */
+  termageddonPolicyId?: string
+  /** Body content (only for self-managed pages) */
+  body?: PortableTextBlock[]
   lastUpdated: string
   seo?: SEO
 }

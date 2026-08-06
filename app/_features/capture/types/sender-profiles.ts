@@ -1,4 +1,11 @@
-export type CaptureSenderKind = "client" | "vendor_saas" | "payment_rail";
+export type CaptureSenderKind =
+  | "client"
+  | "vendor_saas"
+  | "payment_rail"
+  | "newsletter"
+  | "transactional"
+  | "personal"
+  | "unknown";
 
 export type CaptureSenderProfileSource =
   | "user_dismiss"
@@ -20,6 +27,14 @@ export interface CaptureSenderProfileRow {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  email_type: "personal" | "transactional" | "promotional" | "automated" | null;
+  response_rate: number | null;
+  avg_response_time_hours: number | null;
+  capture_count: number;
+  user_archived_count: number;
+  user_replied_count: number;
+  reputation_score: number;
+  last_calculated_at: string | null;
 }
 
 export interface SenderProfileRegistryEntry {

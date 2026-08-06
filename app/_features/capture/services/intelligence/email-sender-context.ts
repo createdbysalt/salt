@@ -17,6 +17,9 @@ export type EmailSenderKind =
   | "client"
   | "vendor_saas"
   | "payment_rail"
+  | "newsletter"
+  | "transactional"
+  | "personal"
   | "unknown";
 
 export interface EmailSenderContext {

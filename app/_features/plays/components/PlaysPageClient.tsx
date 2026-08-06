@@ -1,13 +1,13 @@
 "use client";
 
-import type { ActivityEntryRow, PlaybookBlueprintView, PlayTemplateView } from "@/app/_features/plays/types";
-import type { QueuePlay } from "@/app/_lib/demo/plays-demo-data";
+import type { ActivityEntryRow, HqBriefingData, PlayRunRow } from "@/app/_features/plays/types";
 import type { ConnectorsPageData } from "@/app/_features/connectors";
 import type { FindingWithContext } from "@/app/_features/capture/types/intelligence-findings";
 import type { StreamCaptureSummary } from "@/app/_features/capture/types";
 import type { PlaysActivityView, PlaysTab } from "@/app/_features/plays/load-plays-page-data";
 import type { GroupedLearningEvidence } from "@/app/_features/plays/queries/learning-evidence";
 import type { PlaybookV2QueryResult } from "@/app/_features/plays/playbooks/queries-v2";
+import type { HqSideRailData } from "@/app/_features/hq/types";
 import { PlaysPage } from "./PlaysPage";
 import { PlaysPageSkeleton } from "./PlaysPageSkeleton";
 import { EMPTY_CONNECTORS } from "../hooks/usePlaysTabCache";
@@ -15,13 +15,14 @@ import { EMPTY_CONNECTORS } from "../hooks/usePlaysTabCache";
 type Props = {
   initialTab: PlaysTab;
   initialActivityView: PlaysActivityView;
-  initialQueue: QueuePlay[];
+  initialQueue: PlayRunRow[];
   initialActivity: ActivityEntryRow[];
   activityTotalCount?: number;
   connectors: ConnectorsPageData | null;
   initialFindings: FindingWithContext[];
   autoHandledFindings: FindingWithContext[];
   findingCounts: { needs_you: number; auto_handled: number };
+  playsRanToday?: number;
   learningEvidence: GroupedLearningEvidence[];
   streamCaptures: StreamCaptureSummary[];
   captureStats: {
@@ -36,12 +37,12 @@ type Props = {
     scanError?: number;
   } | null;
   hasCaptureData: boolean;
-  blueprints: PlaybookBlueprintView[];
-  adoptedTemplates: PlayTemplateView[];
   playbooksV2: PlaybookV2QueryResult | null;
   initialQueueFilter: "needs_you" | "auto_handled" | "learning";
   workspaceId: string | null;
   keeperUnseenCount?: number;
+  sideRail?: HqSideRailData;
+  briefing?: HqBriefingData;
 };
 
 export function PlaysPageClient(props: Props) {
@@ -58,16 +59,17 @@ export function PlaysPageClient(props: Props) {
         initialFindings: props.initialFindings,
         autoHandledFindings: props.autoHandledFindings,
         findingCounts: props.findingCounts,
+        playsRanToday: props.playsRanToday ?? 0,
         learningEvidence: props.learningEvidence,
         streamCaptures: props.streamCaptures,
         captureStats: props.captureStats,
         hasCaptureData: props.hasCaptureData,
-        blueprints: props.blueprints,
-        adoptedTemplates: props.adoptedTemplates,
         playbooksV2: props.playbooksV2,
         workspaceId: props.workspaceId ?? null,
         keeperUnseenCount: props.keeperUnseenCount ?? 0,
       }}
+      sideRail={props.sideRail}
+      briefing={props.briefing}
     />
   );
 }

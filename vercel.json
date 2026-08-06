@@ -37,6 +37,10 @@
     {
       "path": "/api/cron/watch-cleanup",
       "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/cron/trigger-reconciliation",
+      "schedule": "0 3 * * *"
     }
   ]
 }

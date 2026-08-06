@@ -1,12 +1,13 @@
 export type HqEventTone = "flame" | "sky" | "violet" | "muted";
 
 export type HqScheduleItem = {
+  id: string;
   time: string;
   title: string;
   who: string;
   dur: string;
   hot?: boolean;
-  href?: string;
+  href: string;
 };
 
 export type HqHeadsUpItem = {
@@ -15,8 +16,10 @@ export type HqHeadsUpItem = {
   href?: string;
 };
 
-export type HqMomentumData = {
-  streakDays: number;
+export type HqTimeSavedData = {
+  minutesThisWeek: number;
+  /** Preformatted display value, e.g. "2h 40m". */
+  valueLabel: string;
   weekOverWeekPct: number | null;
   weeklyActivity: number[];
   weekLabel: string;
@@ -24,9 +27,12 @@ export type HqMomentumData = {
 };
 
 export type HqSideRailData = {
-  momentum: HqMomentumData;
+  timeSaved: HqTimeSavedData;
   schedule: HqScheduleItem[];
   headsUp: HqHeadsUpItem[];
+  scheduleContext: {
+    hasCalendarConnected: boolean;
+  };
 };
 
 export type HqRevenueStats = {

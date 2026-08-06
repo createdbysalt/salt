@@ -1,6 +1,8 @@
 # Plays Feature Module
 
-> **See also:** [Playbooks Reference](../../../docs/architecture/playbooks.md) | [Primitives Overview](../../../docs/architecture/primitives.md)
+> **See also:** [Playbooks Reference](../../../docs/architecture/playbooks.md) | [Primitives Overview](../../../docs/architecture/primitives.md) | [Billing & Metering](../../../docs/architecture/billing-metering.md)
+
+> **Billing:** a play is billable when a tool it executed carries `external_effect`. Do not add billing logic here or to playbook definitions — metering belongs at the spend primitive. Every write of `state: 'ran'` must have a matching ledger row; there are ten such sites and `services/meter-play.ts` covers the non-executor ones.
 
 The Plays surface is where Salt shows proactive intelligence: queued proposals, activity stream, playbook management, and the Trust dashboard.
 
@@ -29,9 +31,20 @@ plays/
 │   ├── routing-evals/      # Playbook routing tests
 │   └── v2/                 # Playbook package directories
 ├── play-card/              # Play card components and types
-├── players/                # Player definitions (deprecated → sections)
 └── analytics/              # Trust dashboard analytics
 ```
+
+## Terminology Note
+
+**Players are retired.** The old "player" concept (Keeper, Scout, etc.) has been replaced by **sections**. If you see `player_slug` in database queries or old code, that's legacy. New code uses sections.
+
+| Current Term | Purpose |
+|--------------|---------|
+| **Section** | Domain grouping (relationships, work, billing, etc.) |
+| **Layer** | learn (enrich Memory) vs act (create outputs) |
+| **System Play** | Atomic operation (`system:create-person`, etc.) |
+
+See `brand-identity/product-internal/terminology-engineering.md` and `section-capabilities.ts`.
 
 ## Playbook Engine
 

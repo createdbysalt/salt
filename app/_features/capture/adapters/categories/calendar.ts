@@ -14,16 +14,20 @@ import type {
 import type { PersonSignals } from "@/app/_features/capture/services/system-plays/person-signals";
 import type { CaptureSourceType } from "@/app/_features/capture/types";
 
-type CalendarProvider = "googlecalendar" | "outlook_calendar" | "cal" | "calendly";
+type KnownCalendarProvider = "googlecalendar" | "outlook_calendar" | "cal" | "calendly";
 
-const CALENDAR_PROVIDERS: CalendarProvider[] = ["googlecalendar", "outlook_calendar", "cal", "calendly"];
+const KNOWN_CALENDAR_PROVIDERS: KnownCalendarProvider[] = ["googlecalendar", "outlook_calendar", "cal", "calendly"];
 
-const CALENDAR_TRIGGER_SLUGS: Record<CalendarProvider, string[]> = {
+const CALENDAR_TRIGGER_SLUGS: Record<KnownCalendarProvider, string[]> = {
   googlecalendar: ["GOOGLECALENDAR_GOOGLE_CALENDAR_EVENT_CREATED_TRIGGER"],
   outlook_calendar: ["OUTLOOK_EVENT_TRIGGER", "OUTLOOK_EVENT_CHANGE_TRIGGER"],
   cal: [], // Backfill only - no real-time triggers
   calendly: [], // Backfill only - no real-time triggers
 };
+
+function isKnownCalendarProvider(provider: string): provider is KnownCalendarProvider {
+  return KNOWN_CALENDAR_PROVIDERS.includes(provider as KnownCalendarProvider);
+}
 
 function deriveCalendarSignals(
   envelopes: readonly CaptureEnvelope[],
@@ -32,8 +36,7 @@ function deriveCalendarSignals(
   const contacts = new Map<string, PersonSignals>();
 
   for (const envelope of envelopes) {
-    if (!isCalendarSource(envelope.sourceType)) continue;
-
+    // Calendar adapters already filter by category - process all envelopes
     for (const participant of envelope.participants) {
       if (!participant.email) continue;
       if (isSelf(participant.email, context.userEmail)) continue;
@@ -53,16 +56,21 @@ function isSelf(email: string | null, userEmail: string | null): boolean {
   return email.toLowerCase() === userEmail.toLowerCase();
 }
 
-function isCalendarSource(sourceType: CaptureSourceType): boolean {
-  return CALENDAR_PROVIDERS.includes(sourceType as CalendarProvider);
-}
+// Calendar adapters already filter by category - no need to re-check source type
 
 function normalizeGoogleCalendar(payload: unknown): CaptureEnvelope | null {
   if (!payload || typeof payload !== "object") return null;
   const record = payload as Record<string, unknown>;
 
+  // Two shapes reach this normalizer — verified against the live Composio
+  // trigger schema 2026-08-05 (__fixtures__/composio-trigger-schemas.json):
+  //   Trigger:  { event_id, calendar_id, summary, organizer_email,
+  //               organizer_name, start_time, end_time } (flat snake_case)
+  //   API/backfill: Google Calendar event resource (id, start.dateTime,
+  //               organizer.email, attendees[])
   const externalId =
     (record.id as string) ??
+    (record.event_id as string) ??
     (record.eventId as string) ??
     (record.iCalUID as string);
   if (!externalId) return null;
@@ -74,14 +82,28 @@ function normalizeGoogleCalendar(payload: unknown): CaptureEnvelope | null {
   const organizer = record.organizer as Record<string, unknown> | undefined;
 
   const occurredAt =
-    (start?.dateTime as string) ?? (start?.date as string) ?? null;
+    (start?.dateTime as string) ??
+    (start?.date as string) ??
+    (record.start_time as string) ??
+    null;
+  const endsAt =
+    (end?.dateTime as string) ??
+    (end?.date as string) ??
+    (record.end_time as string) ??
+    null;
+
+  const organizerEmail =
+    ((organizer?.email as string) ?? (record.organizer_email as string))?.toLowerCase() ??
+    null;
+  const organizerName =
+    (organizer?.displayName as string) ?? (record.organizer_name as string) ?? null;
 
   const participants: EnvelopeParticipant[] = [];
 
-  if (organizer?.email) {
+  if (organizerEmail) {
     participants.push({
-      email: (organizer.email as string).toLowerCase(),
-      name: (organizer.displayName as string) ?? null,
+      email: organizerEmail,
+      name: organizerName,
       role: "organizer",
     });
   }
@@ -103,12 +125,12 @@ function normalizeGoogleCalendar(payload: unknown): CaptureEnvelope | null {
     title: summary,
     occurredAt,
     participants,
-    threadId: null,
+    threadId: (record.calendar_id as string) ?? null,
     extracted: {
       summary,
       start: occurredAt,
-      end: (end?.dateTime as string) ?? (end?.date as string) ?? null,
-      organizer_email: (organizer?.email as string)?.toLowerCase() ?? null,
+      end: endsAt,
+      organizer_email: organizerEmail,
       attendee_count: attendees.length,
       location: (record.location as string) ?? null,
       status: (record.status as string) ?? null,
@@ -219,10 +241,14 @@ function normalizeGenericCalendar(
   };
 }
 
-export function createCalendarCategoryAdapter(
-  provider: CalendarProvider
-): CaptureAdapter {
-  const triggerSlugs = CALENDAR_TRIGGER_SLUGS[provider] ?? [];
+/**
+ * Create a calendar adapter for ANY provider.
+ * Known providers get specific parsing; unknown get generic extraction.
+ */
+export function createCalendarCategoryAdapter(provider: string): CaptureAdapter {
+  const triggerSlugs = isKnownCalendarProvider(provider)
+    ? CALENDAR_TRIGGER_SLUGS[provider]
+    : []; // Unknown providers: triggers come from DB
 
   return {
     sourceType: provider as CaptureSourceType,
@@ -231,25 +257,29 @@ export function createCalendarCategoryAdapter(
     deriveSignals: deriveCalendarSignals,
 
     normalize(payload: unknown): CaptureEnvelope | null {
+      // Route known providers to specific parsing
       switch (provider) {
         case "googlecalendar":
           return normalizeGoogleCalendar(payload);
         case "cal":
           return normalizeCal(payload);
         default:
+          // Any unknown calendar provider gets generic extraction
           return normalizeGenericCalendar(payload, provider as CaptureSourceType);
       }
     },
   };
 }
 
-export const calendarCategoryAdapters = CALENDAR_PROVIDERS.map(
+/** Known provider adapters (for backward compatibility). */
+export const calendarCategoryAdapters = KNOWN_CALENDAR_PROVIDERS.map(
   createCalendarCategoryAdapter
 );
 
-export function getCalendarAdapter(provider: string): CaptureAdapter | null {
-  if (!CALENDAR_PROVIDERS.includes(provider as CalendarProvider)) {
-    return null;
-  }
-  return createCalendarCategoryAdapter(provider as CalendarProvider);
+/**
+ * Get calendar adapter for ANY provider in the calendar category.
+ * Always returns an adapter — unknown providers get generic extraction.
+ */
+export function getCalendarAdapter(provider: string): CaptureAdapter {
+  return createCalendarCategoryAdapter(provider);
 }

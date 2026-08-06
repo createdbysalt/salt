@@ -3,7 +3,7 @@
  *
  * PROVENANCE: synthesized 2026-07-04 from the Cal.com API v2 booking object
  * (the shape the retired native integration consumed via GET /v2/bookings and
- * the shape CAL_LIST_BOOKINGS proxies — Composio publishes an empty schema
+ * the shape CAL_GET_TEAM_BOOKINGS proxies — Composio publishes an empty schema
  * for this tool). Replace with a live row from the first Composio cal
  * backfill.
  */

@@ -1,0 +1,347 @@
+/* Termageddon embed styling to match Salt's design system */
+
+.termageddon-content {
+  /* Base typography */
+  font-family: var(--font-sans);
+  color: hsl(var(--foreground));
+  line-height: 1.7;
+}
+
+/* Override Termageddon's default styles */
+.termageddon-content .policy_embed_div,
+.termageddon-content [class*="policy"] {
+  font-family: inherit !important;
+  color: inherit !important;
+  background: transparent !important;
+}
+
+/* Termageddon section headings */
+.termageddon-content h2.tpt-section-heading {
+  margin-top: 2.5rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid hsl(var(--border));
+  font-family: var(--font-display), var(--font-sans);
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: hsl(var(--foreground));
+}
+
+/* Termageddon accordions — borderless list rows */
+.termageddon-content .accordions {
+  margin-top: 0.5rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.termageddon-content details.accordion {
+  margin: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.termageddon-content summary.accordion-summary {
+  position: relative;
+  display: flex;
+  cursor: pointer;
+  list-style: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 2.75rem;
+  padding: 0.75rem 2.75rem 0.75rem 0.75rem;
+  border-bottom: 1px solid hsl(var(--border));
+  font-weight: 400;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.termageddon-content summary.accordion-summary::-webkit-details-marker {
+  display: none;
+}
+
+.termageddon-content summary.accordion-summary h3.accordion-heading {
+  margin: 0 !important;
+  flex: 1 1 auto;
+  font-family: var(--font-sans) !important;
+  font-size: 0.9375rem !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.005em;
+  line-height: 1.3 !important;
+  color: hsl(var(--foreground));
+  transition: color 0.15s ease;
+}
+
+.termageddon-content summary.accordion-summary .accordion-arrow {
+  position: absolute;
+  top: 50%;
+  right: 0.75rem;
+  display: inline-flex;
+  width: 1.5rem;
+  height: 1.5rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid hsl(var(--border));
+  border-radius: 999px;
+  color: hsl(var(--muted-foreground));
+  pointer-events: none;
+  transform: translateY(-50%);
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.termageddon-content summary.accordion-summary .accordion-arrow::before {
+  width: 0.375rem;
+  height: 0.375rem;
+  content: "";
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateY(-1px) rotate(45deg);
+  transition:
+    transform 0.15s ease;
+}
+
+.termageddon-content summary.accordion-summary:hover h3.accordion-heading {
+  color: hsl(var(--primary));
+}
+
+.termageddon-content summary.accordion-summary:hover .accordion-arrow {
+  border-color: hsl(var(--primary));
+  color: hsl(var(--primary));
+  background: hsl(var(--primary) / 0.04);
+}
+
+.termageddon-content summary.accordion-summary:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+  border-radius: 0.25rem;
+}
+
+.termageddon-content details.accordion[open] summary.accordion-summary {
+  background: hsl(var(--muted) / 0.35);
+  border-bottom-color: hsl(var(--border));
+}
+
+.termageddon-content details.accordion[open] summary.accordion-summary h3.accordion-heading {
+  font-weight: 650 !important;
+  color: hsl(var(--foreground));
+}
+
+.termageddon-content
+  details.accordion[open]
+  summary.accordion-summary
+  .accordion-arrow::before {
+  transform: translateY(1px) rotate(225deg);
+}
+
+.termageddon-content details.accordion > *:not(summary) {
+  padding: 1rem 0.75rem 1.5rem;
+}
+
+.termageddon-content .accordion-content {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.8125rem;
+  line-height: 1.65;
+}
+
+.termageddon-content .accordion-content p,
+.termageddon-content .accordion-content li {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.8125rem;
+}
+
+.termageddon-content .accordion-content h3,
+.termageddon-content .accordion-content h4,
+.termageddon-content .accordion-content h5,
+.termageddon-content .accordion-content h6 {
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.45;
+  margin-top: 1rem;
+  margin-bottom: 0.375rem;
+}
+
+.termageddon-content .accordion-content .accordion-section-heading {
+  font-family: var(--font-sans) !important;
+  font-size: 0.8125rem !important;
+  font-weight: 600 !important;
+  line-height: 1.4 !important;
+  margin-top: 0.875rem !important;
+  margin-bottom: 0.25rem !important;
+}
+
+.termageddon-content .accordion-content .accordion-section-content,
+.termageddon-content .accordion-content .accordion-section-content li {
+  font-size: 0.8125rem !important;
+  line-height: 1.45 !important;
+}
+
+.termageddon-content .accordion-content strong,
+.termageddon-content .accordion-content b {
+  color: hsl(var(--foreground));
+  font-weight: 600;
+}
+
+/* Headings */
+.termageddon-content h1,
+.termageddon-content h2,
+.termageddon-content h3,
+.termageddon-content h4,
+.termageddon-content h5,
+.termageddon-content h6 {
+  font-family: var(--font-display), var(--font-sans);
+  font-weight: 600;
+  color: hsl(var(--foreground));
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+  line-height: 1.3;
+}
+
+.termageddon-content h1 {
+  font-size: 1.875rem;
+}
+
+.termageddon-content h2 {
+  font-size: 1.5rem;
+  margin-top: 2.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.termageddon-content h3 {
+  font-size: 1.25rem;
+}
+
+.termageddon-content h4 {
+  font-size: 1.125rem;
+}
+
+/* Paragraphs */
+.termageddon-content p {
+  margin-bottom: 1rem;
+  color: hsl(var(--muted-foreground));
+}
+
+/* Links */
+.termageddon-content a {
+  color: hsl(var(--primary));
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 0.15s ease;
+}
+
+.termageddon-content a:hover {
+  color: hsl(var(--primary) / 0.8);
+}
+
+/* Lists */
+.termageddon-content ul,
+.termageddon-content ol {
+  margin-bottom: 1rem;
+  padding-left: 1.5rem;
+  color: hsl(var(--muted-foreground));
+}
+
+.termageddon-content li {
+  margin-bottom: 0.5rem;
+}
+
+.termageddon-content ul {
+  list-style-type: disc;
+}
+
+.termageddon-content ol {
+  list-style-type: decimal;
+}
+
+.termageddon-content li ul,
+.termageddon-content li ol {
+  margin-top: 0.5rem;
+  margin-bottom: 0;
+}
+
+/* Tables */
+.termageddon-content table {
+  width: 100%;
+  margin: 1.5rem 0;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.termageddon-content th,
+.termageddon-content td {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border: 1px solid hsl(var(--border));
+}
+
+.termageddon-content th {
+  background: hsl(var(--muted));
+  font-weight: 600;
+  color: hsl(var(--foreground));
+}
+
+.termageddon-content td {
+  color: hsl(var(--muted-foreground));
+}
+
+.termageddon-content tr:nth-child(even) td {
+  background: hsl(var(--muted) / 0.5);
+}
+
+/* Strong/Bold */
+.termageddon-content strong,
+.termageddon-content b {
+  font-weight: 600;
+  color: hsl(var(--foreground));
+}
+
+/* Emphasis/Italic */
+.termageddon-content em,
+.termageddon-content i {
+  font-style: italic;
+}
+
+/* Blockquotes */
+.termageddon-content blockquote {
+  margin: 1.5rem 0;
+  padding: 1rem 1.5rem;
+  border-left: 4px solid hsl(var(--primary));
+  background: hsl(var(--muted) / 0.5);
+  color: hsl(var(--muted-foreground));
+}
+
+/* Horizontal rules */
+.termageddon-content hr {
+  margin: 2rem 0;
+  border: none;
+  border-top: 1px solid hsl(var(--border));
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .termageddon-content h2 {
+    font-size: 1.25rem;
+  }
+
+  .termageddon-content h3 {
+    font-size: 1.125rem;
+  }
+
+  .termageddon-content table {
+    font-size: 0.75rem;
+  }
+
+  .termageddon-content th,
+  .termageddon-content td {
+    padding: 0.5rem;
+  }
+}

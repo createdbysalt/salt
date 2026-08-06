@@ -7,8 +7,9 @@ import {
 } from "@/app/_features/plays/load-plays-page-data";
 import { PlaysPageClient } from "@/app/_features/plays/components/PlaysPageClient";
 import { PlaysPageSkeleton } from "@/app/_features/plays/components/PlaysPageSkeleton";
-import { mapQueuePlayForUi } from "@/app/_features/plays/utils/map-queue-play";
 import { parsePlaysQueueFilter } from "@/app/_features/plays/plays-tab-routing";
+import { loadHqSideRailData } from "@/app/_features/hq/load-hq-dashboard-data";
+import { getHqBriefingData } from "@/app/_features/hq/queries";
 
 type SearchParams = Promise<{ tab?: string; filter?: string; view?: string }>;
 
@@ -24,28 +25,33 @@ async function PlaysPageWithData({
   const { context } = await getTenantContext();
   const workspaceId = context.workspace?.id;
 
-  const data = await loadPlaysPageData({ tab, activityView, workspaceId });
+  const [data, sideRail, briefing] = await Promise.all([
+    loadPlaysPageData({ tab, activityView, workspaceId }),
+    loadHqSideRailData(),
+    getHqBriefingData(),
+  ]);
 
   return (
     <PlaysPageClient
       initialTab={tab}
       initialActivityView={activityView}
       initialQueueFilter={queueFilter}
-      initialQueue={data.initialQueue.map(mapQueuePlayForUi)}
+      initialQueue={data.initialQueue}
       initialActivity={data.initialActivity}
       activityTotalCount={data.activityTotalCount}
       connectors={data.connectors}
       initialFindings={data.initialFindings}
       autoHandledFindings={data.autoHandledFindings}
       findingCounts={data.findingCounts}
+      playsRanToday={data.playsRanToday}
       learningEvidence={data.learningEvidence}
       streamCaptures={data.streamCaptures}
       captureStats={data.captureStats}
       hasCaptureData={data.hasCaptureData}
-      blueprints={data.blueprints}
-      adoptedTemplates={data.adoptedTemplates}
       playbooksV2={data.playbooksV2}
       workspaceId={data.workspaceId}
+      sideRail={sideRail}
+      briefing={briefing}
     />
   );
 }
