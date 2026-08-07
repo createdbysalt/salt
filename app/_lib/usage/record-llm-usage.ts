@@ -60,13 +60,17 @@ export async function recordLlmCall(input: RecordLlmCallInput): Promise<void> {
 
     if (!result.ok) {
       console.error(
-        `[usage] failed to record LLM spend for workspace ${input.workspaceId}:`,
+        "[usage] failed to record LLM spend for workspace",
+        input.workspaceId,
+        ":",
         result.error,
       );
     }
   } catch (error) {
     console.error(
-      `[usage] LLM metering threw for workspace ${input.workspaceId}:`,
+      "[usage] LLM metering threw for workspace",
+      input.workspaceId,
+      ":",
       error,
     );
   }

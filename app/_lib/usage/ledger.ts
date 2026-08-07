@@ -171,7 +171,9 @@ export async function countBillablePlays(
 
   if (error) {
     console.error(
-      `[usage-ledger] failed to count plays for workspace ${workspaceId}:`,
+      "[usage-ledger] failed to count plays for workspace",
+      workspaceId,
+      ":",
       error.message,
     );
     return 0;

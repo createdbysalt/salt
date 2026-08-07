@@ -460,10 +460,18 @@ export async function handleConnectionCallback(
     }
 
     // Run capture bootstrap when connectors are connected
-    console.log(`[composio] Callback complete. Status: ${composioStatus}, Provider: ${stateData.provider}`);
+    console.log(
+      "[composio] Callback complete. Status:",
+      composioStatus,
+      "Provider:",
+      stateData.provider,
+    );
     if (composioStatus === "connected") {
       if (stateData.provider === "gmail") {
-        console.log(`[composio] Triggering Gmail bootstrap for workspace ${stateData.workspaceId}`);
+        console.log(
+          "[composio] Triggering Gmail bootstrap for workspace",
+          stateData.workspaceId,
+        );
         const { runGmailBootstrap } = await import(
           "@/app/_features/capture/services/gmail-backfill"
         );
@@ -494,7 +502,9 @@ export async function handleConnectionCallback(
       if (bootstrap) {
         void bootstrap(stateData.workspaceId).catch((bootstrapError) => {
           console.error(
-            `[composio] ${stateData.provider} capture bootstrap failed:`,
+            "[composio]",
+            stateData.provider,
+            "capture bootstrap failed:",
             bootstrapError,
           );
         });

@@ -81,7 +81,9 @@ export async function getWorkspaceEntitlement(
 
   if (error) {
     console.error(
-      `[usage] entitlement lookup failed for workspace ${workspaceId}:`,
+      "[usage] entitlement lookup failed for workspace",
+      workspaceId,
+      ":",
       error.message,
     );
   }

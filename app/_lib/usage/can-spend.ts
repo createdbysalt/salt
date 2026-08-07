@@ -210,7 +210,14 @@ export async function canSpend(input: CanSpendInput): Promise<SpendDecision> {
     if (outcome === "deny" || outcome === "queue") {
       // Loud on purpose. Blocking a paying customer is the most consequential
       // thing this module does and must never happen without a trace.
-      console.warn(`[usage] spend ${outcome} for workspace ${input.workspaceId} — ${reason}`);
+      console.warn(
+        "[usage] spend",
+        outcome,
+        "for workspace",
+        input.workspaceId,
+        "—",
+        reason,
+      );
     }
 
     return {
@@ -223,7 +230,12 @@ export async function canSpend(input: CanSpendInput): Promise<SpendDecision> {
       revenueMicros,
     };
   } catch (error) {
-    console.error(`[usage] canSpend threw for workspace ${input.workspaceId} — allowing:`, error);
+    console.error(
+      "[usage] canSpend threw for workspace",
+      input.workspaceId,
+      "— allowing:",
+      error,
+    );
     return allow("canSpend threw — failing open");
   }
 }

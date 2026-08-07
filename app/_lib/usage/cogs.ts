@@ -97,7 +97,12 @@ async function fetchCogsMicros(
   });
 
   if (error) {
-    console.error(`[usage] COGS aggregate failed for workspace ${workspaceId}:`, error.message);
+    console.error(
+      "[usage] COGS aggregate failed for workspace",
+      workspaceId,
+      ":",
+      error.message,
+    );
     return null;
   }
 
