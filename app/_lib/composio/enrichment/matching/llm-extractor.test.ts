@@ -13,6 +13,12 @@ import {
 
 const mockSendLlm = vi.mocked(sendLlm);
 
+const TEST_SPEND = {
+  kind: "workspace",
+  workspaceId: "ws-1",
+  userId: "test-user",
+} as const;
+
 describe("extractFieldsWithLlm", () => {
   beforeEach(() => {
     mockSendLlm.mockClear();
@@ -29,7 +35,7 @@ describe("extractFieldsWithLlm", () => {
     const results = await extractFieldsWithLlm(
       "John Smith\njohn@example.com",
       { targetFields: ["name", "email", "phone"] },
-      "test-user"
+      TEST_SPEND
     );
 
     expect(results).toHaveLength(2);
@@ -50,7 +56,7 @@ describe("extractFieldsWithLlm", () => {
     const results = await extractFieldsWithLlm(
       "John",
       { targetFields: ["name"] },
-      "test-user"
+      TEST_SPEND
     );
 
     expect(results).toHaveLength(1);
@@ -68,7 +74,7 @@ describe("extractFieldsWithLlm", () => {
     const results = await extractFieldsWithLlm(
       "John maybe",
       { targetFields: ["name", "phone"] },
-      "test-user"
+      TEST_SPEND
     );
 
     expect(results).toHaveLength(1);
@@ -79,7 +85,7 @@ describe("extractFieldsWithLlm", () => {
     const results = await extractFieldsWithLlm(
       "",
       { targetFields: ["name"] },
-      "test-user"
+      TEST_SPEND
     );
 
     expect(results).toHaveLength(0);
@@ -92,7 +98,7 @@ describe("extractFieldsWithLlm", () => {
     const results = await extractFieldsWithLlm(
       "some text",
       { targetFields: ["name"] },
-      "test-user"
+      TEST_SPEND
     );
 
     expect(results).toHaveLength(0);
@@ -104,7 +110,7 @@ describe("extractFieldsWithLlm", () => {
     const results = await extractFieldsWithLlm(
       "some text",
       { targetFields: ["name"] },
-      "test-user"
+      TEST_SPEND
     );
 
     expect(results).toHaveLength(0);
@@ -120,7 +126,7 @@ That's all I found.`
     const results = await extractFieldsWithLlm(
       "Jane",
       { targetFields: ["name"] },
-      "test-user"
+      TEST_SPEND
     );
 
     expect(results).toHaveLength(1);
@@ -144,7 +150,7 @@ describe("extractSignatureFields", () => {
 
     const results = await extractSignatureFields(
       "Alice Brown\nCEO | Company",
-      "test-user"
+      TEST_SPEND
     );
 
     expect(results).toHaveLength(3);
@@ -170,7 +176,7 @@ describe("extractFromUnstructured", () => {
     const results = await extractFromUnstructured(
       { text: "Bob bob@test.com", source: "email", entityType: "person" },
       ["name", "email"],
-      "test-user"
+      TEST_SPEND
     );
 
     expect(results.size).toBe(2);
@@ -189,7 +195,7 @@ describe("extractFromUnstructured", () => {
     const results = await extractFromUnstructured(
       { text: "Bob Robert", source: "email", entityType: "person" },
       ["name"],
-      "test-user"
+      TEST_SPEND
     );
 
     expect(results.size).toBe(1);

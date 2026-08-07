@@ -37,6 +37,12 @@ export interface ConnectorRegistryEntry {
   tier: ConnectorTier;
   /** Resolved: env override → pinned DB value. Empty string = not connectable. */
   authConfigId: string;
+  /**
+   * Salt capture taxonomy (email/calendar/billing/...) that selects the
+   * webhook normalizer adapter. NULL = no capture normalizer. Distinct from
+   * `category`, which is Composio's marketplace category.
+   */
+  captureCategory: string | null;
   apiKeyFieldName: string | null;
   apiKeyForm: Json | null;
   askSaltSlugPrefix: string | null;
@@ -90,7 +96,8 @@ async function loadRegistry(): Promise<Map<string, ConnectorRegistryEntry>> {
       `provider_key, toolkit_slug, name, description, category, auth_method,
        coming_soon, logo_url, meta, sync_status,
        connector_overrides ( tier, auth_config_id, auth_config_env_var,
-         api_key_field_name, api_key_form, ask_salt_slug_prefix, ask_salt_label, featured )`,
+         api_key_field_name, api_key_form, ask_salt_slug_prefix, ask_salt_label,
+         featured, capture_category )`,
     );
 
   if (error) {
@@ -127,6 +134,7 @@ async function loadRegistry(): Promise<Map<string, ConnectorRegistryEntry>> {
         override?.auth_config_env_var ?? null,
         override?.auth_config_id ?? "",
       ),
+      captureCategory: override?.capture_category ?? null,
       apiKeyFieldName: override?.api_key_field_name ?? null,
       apiKeyForm: override?.api_key_form ?? null,
       askSaltSlugPrefix: override?.ask_salt_slug_prefix ?? null,

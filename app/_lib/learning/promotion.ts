@@ -110,10 +110,10 @@ export async function promoteEvidenceToPlay(
   if (candidate.entityType === "person") {
     const { data: person } = await admin
       .from("people")
-      .select("display_name, email")
+      .select("name, email")
       .eq("id", candidate.entityId)
       .single();
-    entityLabel = person?.display_name ?? person?.email ?? "Unknown Person";
+    entityLabel = person?.name ?? person?.email ?? "Unknown Person";
   } else if (candidate.entityType === "organization") {
     const { data: org } = await admin
       .from("organizations")

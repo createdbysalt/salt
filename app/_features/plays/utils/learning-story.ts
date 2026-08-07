@@ -1,0 +1,267 @@
+import type {
+  GroupedLearningEvidence,
+  LearningField,
+} from "../queries/learning-evidence";
+import type { LearningEntityType } from "@/app/_lib/learning";
+
+export type LearningStoryKind = "fields" | "merge" | "archive" | "link";
+
+export interface LearningStory {
+  kind: LearningStoryKind;
+  /** Salt-voiced headline, e.g. "I think Lisa is a client." */
+  primarySentence: string;
+  /** Up to two additional observations shown under the headline. */
+  secondarySentences: string[];
+  /** Fields not represented by primary + secondary sentences. */
+  hiddenCount: number;
+  /** Best human reason across fields ("3 paid invoices this month"), if any. */
+  reason: string | null;
+  /** Plain-language provenance, e.g. "Based on 5 things I saw across Email and Stripe." */
+  sourceSummary: string | null;
+  /** Name of the duplicate record for merge stories. */
+  mergeTargetName: string | null;
+  acceptLabel: string;
+  dismissLabel: string;
+}
+
+const FIELD_LABELS: Record<string, string> = {
+  relationship_type: "Relationship",
+  company: "Company",
+  role: "Role",
+  title: "Title",
+  location: "Location",
+  industry: "Industry",
+  size: "Size",
+  revenue_at_risk: "Revenue at Risk",
+  department: "Department",
+  linkedin: "LinkedIn",
+};
+
+const SOURCE_LABELS: Record<string, string> = {
+  email: "Email",
+  calendar: "Calendar",
+  stripe: "Stripe",
+  slack: "Slack",
+  manual: "Manual",
+  llm_inference: "AI",
+  linkedin: "LinkedIn",
+};
+
+export function formatFieldLabel(fieldPath: string): string {
+  return (
+    FIELD_LABELS[fieldPath] ??
+    fieldPath.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+  );
+}
+
+export function formatSourceLabel(source: string): string {
+  return SOURCE_LABELS[source] ?? source.replace(/_/g, " ");
+}
+
+interface NameForms {
+  subject: string;
+  possessive: string;
+  secondPerson: boolean;
+}
+
+function nameForms(entityType: LearningEntityType, label: string): NameForms {
+  if (entityType === "me") {
+    return { subject: "you", possessive: "your", secondPerson: true };
+  }
+  if (label.startsWith("Unknown")) {
+    const noun = entityNoun(entityType);
+    return {
+      subject: `this ${noun}`,
+      possessive: `this ${noun}'s`,
+      secondPerson: false,
+    };
+  }
+  if (entityType === "person") {
+    const first = label.split(" ")[0] ?? label;
+    return { subject: first, possessive: `${first}'s`, secondPerson: false };
+  }
+  return { subject: label, possessive: `${label}'s`, secondPerson: false };
+}
+
+function entityNoun(entityType: LearningEntityType): string {
+  switch (entityType) {
+    case "person":
+      return "person";
+    case "organization":
+      return "organization";
+    default:
+      return "record";
+  }
+}
+
+function toBe(name: NameForms): string {
+  return name.secondPerson ? "are" : "is";
+}
+
+function toWork(name: NameForms): string {
+  return name.secondPerson ? "work" : "works";
+}
+
+function withArticle(value: string): string {
+  if (/^(a|an|the)\s/i.test(value)) return value;
+  return `${/^[aeiou]/i.test(value) ? "an" : "a"} ${value}`;
+}
+
+function looksLikeJson(value: string): boolean {
+  const trimmed = value.trim();
+  return trimmed.startsWith("{") || trimmed.startsWith("[");
+}
+
+function sentenceForField(
+  field: LearningField,
+  name: NameForms,
+): string {
+  const value = field.proposedValue;
+
+  if (looksLikeJson(value)) {
+    return `I have a suggestion about ${name.possessive} ${formatFieldLabel(field.fieldPath).toLowerCase()}.`;
+  }
+
+  switch (field.fieldPath) {
+    case "relationship_type":
+      return `I think ${name.subject} ${toBe(name)} ${withArticle(value)}.`;
+    case "company":
+      return `I think ${name.subject} ${toWork(name)} at ${value}.`;
+    case "role":
+    case "title":
+      return `I think ${name.subject} ${toBe(name)} ${withArticle(value)}.`;
+    case "location":
+      return `I think ${name.subject} ${toBe(name)} based in ${value}.`;
+    case "industry":
+      return `I think ${name.subject} ${toWork(name)} in ${value}.`;
+    case "linkedin":
+      return `I found ${name.possessive} LinkedIn.`;
+    default:
+      return `I think ${name.possessive} ${formatFieldLabel(field.fieldPath).toLowerCase()} is ${value}.`;
+  }
+}
+
+function metaSentence(
+  kind: "merge" | "archive" | "link",
+  entityType: LearningEntityType,
+  entityLabel: string,
+  targetName?: string,
+): string {
+  switch (kind) {
+    case "merge":
+      return `I think ${entityLabel} and ${targetName ?? "another record"} might be the same ${entityNoun(entityType)}.`;
+    case "archive":
+      return `I haven't seen any activity around ${entityLabel} in a while.`;
+    case "link":
+      return `I couldn't connect ${entityLabel} to an organization yet.`;
+  }
+}
+
+function orderFields(fields: LearningField[]): LearningField[] {
+  return [...fields].sort((a, b) => {
+    const aMeta = a.metaCandidate ? 0 : 1;
+    const bMeta = b.metaCandidate ? 0 : 1;
+    if (aMeta !== bMeta) return aMeta - bMeta;
+    return b.confidence - a.confidence;
+  });
+}
+
+export function joinEnglish(items: string[]): string {
+  if (items.length === 1) return items[0] ?? "";
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
+}
+
+function buildSourceSummary(fields: LearningField[]): string | null {
+  const total = fields.reduce((sum, f) => sum + f.sourceCount, 0);
+  if (total === 0) return null;
+
+  const sources: string[] = [];
+  for (const field of fields) {
+    for (const source of field.sources) {
+      const label = formatSourceLabel(source);
+      if (!sources.includes(label)) sources.push(label);
+    }
+  }
+
+  if (total === 1) {
+    return sources.length > 0
+      ? `Based on something I saw in ${sources[0]}.`
+      : "Based on something I saw.";
+  }
+
+  return sources.length > 0
+    ? `Based on ${total} things I saw across ${joinEnglish(sources)}.`
+    : `Based on ${total} things I saw.`;
+}
+
+const ACTION_LABELS: Record<
+  LearningStoryKind,
+  { accept: string; dismiss: string }
+> = {
+  fields: { accept: "Looks right", dismiss: "Not now" },
+  merge: { accept: "Merge them", dismiss: "Keep both" },
+  archive: { accept: "Archive", dismiss: "Keep" },
+  link: { accept: "Link it", dismiss: "Not now" },
+};
+
+const MAX_SECONDARY_SENTENCES = 2;
+
+export function buildLearningStory(
+  evidence: GroupedLearningEvidence,
+): LearningStory {
+  const ordered = orderFields(evidence.fields);
+  const primary = ordered[0];
+  const name = nameForms(evidence.entityType, evidence.entityLabel);
+
+  const primaryMeta = primary?.metaCandidate ?? null;
+  const kind: LearningStoryKind = primaryMeta ? primaryMeta.kind : "fields";
+
+  const primarySentence = primary
+    ? primaryMeta
+      ? metaSentence(
+          primaryMeta.kind,
+          evidence.entityType,
+          evidence.entityLabel,
+          primaryMeta.targetName,
+        )
+      : sentenceForField(primary, name)
+    : `I'm still learning about ${evidence.entityLabel}.`;
+
+  const sentenceFields = ordered.slice(1);
+  const secondarySentences = sentenceFields
+    .slice(0, MAX_SECONDARY_SENTENCES)
+    .map((field) =>
+      field.metaCandidate
+        ? metaSentence(
+            field.metaCandidate.kind,
+            evidence.entityType,
+            evidence.entityLabel,
+            field.metaCandidate.targetName,
+          )
+        : sentenceForField(field, name),
+    );
+
+  const hiddenCount = Math.max(
+    0,
+    sentenceFields.length - secondarySentences.length,
+  );
+
+  const reason =
+    ordered.find((field) => field.topReason)?.topReason ?? null;
+
+  const labels = ACTION_LABELS[kind];
+
+  return {
+    kind,
+    primarySentence,
+    secondarySentences,
+    hiddenCount,
+    reason,
+    sourceSummary: buildSourceSummary(ordered),
+    mergeTargetName:
+      primaryMeta?.kind === "merge" ? (primaryMeta.targetName ?? null) : null,
+    acceptLabel: labels.accept,
+    dismissLabel: labels.dismiss,
+  };
+}

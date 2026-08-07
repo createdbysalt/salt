@@ -94,8 +94,10 @@ async function findPersonDuplicates(
   if (criteria?.checkEmail) {
     const { data: emailDupes } = await supabase
       .from("people")
-      .select("id, display_name, email")
+      .select("id, name, email")
       .eq("workspace_id", workspaceId)
+      .is("deleted_at", null)
+      .is("archived_at", null)
       .not("email", "is", null)
       .order("email");
 
@@ -121,12 +123,12 @@ async function findPersonDuplicates(
               because: `Same email address: ${email}`,
               recordA: {
                 id: people[i].id,
-                name: people[i].display_name || "",
+                name: people[i].name || "",
                 email: people[i].email || undefined,
               },
               recordB: {
                 id: people[i + 1].id,
-                name: people[i + 1].display_name || "",
+                name: people[i + 1].name || "",
                 email: people[i + 1].email || undefined,
               },
             });
@@ -139,8 +141,10 @@ async function findPersonDuplicates(
   if (criteria?.checkPhone) {
     const { data: phoneDupes } = await supabase
       .from("people")
-      .select("id, display_name, phone")
+      .select("id, name, phone")
       .eq("workspace_id", workspaceId)
+      .is("deleted_at", null)
+      .is("archived_at", null)
       .not("phone", "is", null);
 
     if (phoneDupes) {
@@ -165,11 +169,11 @@ async function findPersonDuplicates(
               because: `Same phone number: ${phone}`,
               recordA: {
                 id: people[i].id,
-                name: people[i].display_name || "",
+                name: people[i].name || "",
               },
               recordB: {
                 id: people[i + 1].id,
-                name: people[i + 1].display_name || "",
+                name: people[i + 1].name || "",
               },
             });
           }
@@ -194,6 +198,8 @@ async function findOrgDuplicates(
       .from("organizations")
       .select("id, name, website")
       .eq("workspace_id", workspaceId)
+      .is("deleted_at", null)
+      .is("archived_at", null)
       .not("website", "is", null);
 
     if (domainDupes) {
@@ -247,6 +253,8 @@ async function findBillingDuplicates(
     .from("billing_records")
     .select("id, number, amount_cents, due_at")
     .eq("workspace_id", workspaceId)
+    .is("deleted_at", null)
+    .is("archived_at", null)
     .not("number", "is", null);
 
   if (numberDupes) {

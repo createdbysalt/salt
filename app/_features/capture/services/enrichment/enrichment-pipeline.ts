@@ -37,10 +37,15 @@ import {
 } from "./record-capture-criteria";
 import type { AdmissionSignal } from "../../types/gate-result";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import { loadSenderReputation } from "../sender-reputation";
 
 import type { CaptureSenderKind } from "../../types/sender-profiles";
 import { logRecordCaptureDecision } from "../intelligence/record-capture-outcome";
 import { processCreateDecision } from "./create-decision-processor";
+import {
+  dispatchCaptureSignals,
+  shouldDispatchCaptureSignals,
+} from "./dispatch-capture-signals";
 
 interface EnrichmentContext {
   workspaceId: string;
@@ -157,6 +162,18 @@ function generateSuggestedActions(
   playFitScores: Record<string, { score: number; reason: string }>
 ): SuggestedAction[] {
   const actions: SuggestedAction[] = [];
+
+  // Noise-classified email gets exactly one suggestion: dismiss it. Never
+  // route noise to plays or prompt a reply.
+  if (signals.includes("email_classified_noise")) {
+    return [
+      {
+        action: "dismiss_noise",
+        confidence: 85,
+        reason: "Classified as noise",
+      },
+    ];
+  }
 
   // Add route_to_play actions for high-scoring plays
   const sortedPlays = Object.entries(playFitScores)
@@ -291,7 +308,8 @@ function buildEmailClassificationInput(
  */
 function buildClassificationContext(
   context: EnrichmentContext,
-  linkedRecords: Array<{ surface: string; entity_id: string }>
+  linkedRecords: Array<{ surface: string; entity_id: string }>,
+  senderProfiles: Map<string, SenderReputation>
 ): ClassificationContext {
   const clientEmails = new Set<string>();
   const clientDomains = new Set<string>();
@@ -310,24 +328,47 @@ function buildClassificationContext(
     clientEmails,
     clientDomains,
     vipEmails: new Set(),
-    senderProfiles: new Map(),
+    senderProfiles,
   };
 }
 
 /**
  * Run email classification and return metadata + signals.
  */
-function runEmailClassification(
+async function runEmailClassification(
   envelope: CaptureEnvelope,
   context: EnrichmentContext,
   linkedRecords: Array<{ surface: string; entity_id: string }>
-): { meta: EmailClassificationMeta; signals: string[] } | null {
+): Promise<{ meta: EmailClassificationMeta; signals: string[] } | null> {
   if (!isEmailCapture(envelope.sourceType)) return null;
 
   const input = buildEmailClassificationInput(envelope);
   if (!input) return null;
 
-  const classificationContext = buildClassificationContext(context, linkedRecords);
+  // Learned sender reputation (Phase C2): the classifier keys first-contact
+  // and high-engagement signals off this map — an empty map made every
+  // sender look like first contact forever.
+  const senderProfiles = new Map<string, SenderReputation>();
+  try {
+    const reputation = await loadSenderReputation(
+      context.workspaceId,
+      input.fromEmail
+    );
+    if (reputation) {
+      senderProfiles.set(input.fromEmail.toLowerCase(), reputation);
+    }
+  } catch (error) {
+    console.warn(
+      "[enrichment-pipeline] sender reputation lookup failed:",
+      error instanceof Error ? error.message : error
+    );
+  }
+
+  const classificationContext = buildClassificationContext(
+    context,
+    linkedRecords,
+    senderProfiles
+  );
   const classification = classifyEmail(input, classificationContext);
 
   const meta: EmailClassificationMeta = {
@@ -361,7 +402,7 @@ export async function enrichCapture(
   });
 
   // Run email classification for email captures
-  const emailClassificationResult = runEmailClassification(envelope, context, linkedRecords);
+  const emailClassificationResult = await runEmailClassification(envelope, context, linkedRecords);
 
   // Merge email classification signals with extracted signals
   const allSignals = emailClassificationResult
@@ -428,6 +469,49 @@ export async function enrichAndPersist(
     .from("capture_events")
     .update({ enriched_metadata: metadata })
     .eq("id", captureEventId);
+
+  // Email triage runs off the stored classification (post-enrichment hook —
+  // classification is capture-scoped, so entity-signal dispatch doesn't fit).
+  // Idempotent per capture; never blocks or fails enrichment.
+  if (metadata.email_classification) {
+    import("../email-triage-hook")
+      .then(({ runEmailTriageHook }) =>
+        runEmailTriageHook({
+          captureId: captureEventId,
+          workspaceId: context.workspaceId,
+          envelope,
+          metadata,
+        })
+      )
+      .catch((err) => {
+        console.warn(
+          "[enrichment-pipeline] Email triage hook failed for %s:",
+          captureEventId,
+          err instanceof Error ? err.message : err
+        );
+      });
+  }
+
+  // Dispatch capture signals to playbook triggers (Connections, Notes, ...)
+  // for each linked record. Fire-and-forget: dispatch must never block or
+  // fail ingest.
+  if (
+    metadata.linked_records.length > 0 &&
+    shouldDispatchCaptureSignals(metadata.signals_matched)
+  ) {
+    dispatchCaptureSignals({
+      workspaceId: context.workspaceId,
+      captureId: captureEventId,
+      signals: metadata.signals_matched,
+      linkedRecords: metadata.linked_records,
+    }).catch((err) => {
+      console.warn(
+        "[enrichment-pipeline] Capture signal dispatch failed for %s:",
+        captureEventId,
+        err instanceof Error ? err.message : err
+      );
+    });
+  }
 
   // Log decision for calibration (async, non-blocking)
   if (metadata.record_capture_decision && context.admissionSignals) {

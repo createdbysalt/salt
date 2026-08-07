@@ -14,6 +14,12 @@ import {
 
 const mockSendLlm = vi.mocked(sendLlm);
 
+const TEST_SPEND = {
+  kind: "workspace",
+  workspaceId: "ws-1",
+  userId: "test-user",
+} as const;
+
 describe("matchFieldFourTier", () => {
   const mockEmbedFn = vi.fn(async (text: string) => {
     const embeddings: Record<string, number[]> = {
@@ -74,7 +80,7 @@ describe("matchFieldFourTier", () => {
       ["email", "phone"],
       {
         embedFn: mockEmbedFn,
-        userId: "test-user",
+        spend: TEST_SPEND,
         unstructuredText: "Contact: test@example.com",
       },
       { enableLlm: true, fuzzyThreshold: 0.99, semanticThreshold: 0.99 }
@@ -92,7 +98,7 @@ describe("matchFieldFourTier", () => {
     const result = await matchFieldFourTier(
       "zzzzzzz",
       ["email", "phone"],
-      { embedFn: mockEmbedFn, userId: "test-user", unstructuredText: "nothing" },
+      { embedFn: mockEmbedFn, spend: TEST_SPEND, unstructuredText: "nothing" },
       { enableLlm: true, semanticThreshold: 0.99 }
     );
 
@@ -106,7 +112,7 @@ describe("matchFieldFourTier", () => {
     const result = await matchFieldFourTier(
       "unknown_field",
       ["email", "phone"],
-      { userId: "test-user", unstructuredText: "some text" },
+      { spend: TEST_SPEND, unstructuredText: "some text" },
       { enableLlm: false, fuzzyThreshold: 0.99 }
     );
 
@@ -114,7 +120,7 @@ describe("matchFieldFourTier", () => {
     expect(mockSendLlm).not.toHaveBeenCalled();
   });
 
-  it("skips LLM tier when no userId", async () => {
+  it("skips LLM tier when spend is unattributable", async () => {
     const result = await matchFieldFourTier(
       "unknown_field",
       ["email", "phone"],

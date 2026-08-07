@@ -127,6 +127,8 @@ export interface PlayRunRow {
     args: Record<string, unknown>;
     step_index: number;
   } | null;
+  /** Set by the playbook executor on paused runs (carries playbook_slug). */
+  trigger_evidence?: Record<string, unknown> | null;
 }
 
 export interface PlayTemplateRow {

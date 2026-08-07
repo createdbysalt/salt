@@ -3,7 +3,7 @@ import "server-only";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { resolveCapabilityTool } from "@/app/_lib/composio/capability-resolver";
 import { executeConnectorTool } from "./execute-connector-tool";
-import { sendLlm } from "@/app/_lib/ai/gpt";
+import { committedSpend, sendLlm } from "@/app/_lib/ai/gpt";
 import { recordPlayExecution } from "@/app/_lib/usage/record-play-usage";
 import { assembleOperatorContext, type ContentSurface } from "@/app/_lib/ai/assembleOperatorContext";
 import { capturePlaybookLearningSignal } from "../playbooks/learning/capture-signals";
@@ -161,7 +161,15 @@ export function createRunPlayDeps(): RunPlayDeps {
             content: `<reference-data>\n${fencedInputs}\n</reference-data>`,
           },
         ],
-        "play-executor",
+        // Was the literal "play-executor", which sent a constant to the
+        // provider as the user identifier for every workspace on the platform
+        // and left draft-step spend unattributed.
+        //
+        // Committed: the play is already running and the user is waiting on
+        // it. Budget pressure may make this step cheaper, never absent —
+        // refusing here would abandon the run partway with side effects
+        // already applied.
+        committedSpend(context.workspaceId, context.actorUserId ?? undefined),
         {
           routingKey: step.modelSlot,
           maxTokens: step.maxTokens,

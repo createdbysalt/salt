@@ -212,23 +212,31 @@ async function updatePersonField(
     phone: "phone",
     billing_email: "billing_email",
     timezone: "timezone",
-    address_line1: "address_line1",
-    address_line2: "address_line2",
+    // Address aliases → actual DB columns (address_line_1/_2)
+    address_line1: "address_line_1",
+    address_line_1: "address_line_1",
+    addressLine1: "address_line_1",
+    address_line2: "address_line_2",
+    address_line_2: "address_line_2",
+    addressLine2: "address_line_2",
     city: "city",
     state: "state",
     postal_code: "postal_code",
     country: "country",
+    first_contact_at: "first_contact_at",
+    last_contact_at: "last_contact_at",
   };
 
   const dbField = fieldMap[input.field];
   if (!dbField) {
-    // Handle org_link specially
+    // org_link: people has no organization_id column — the relationship
+    // lives in the organization_people junction.
     if (input.field === "org_link" && typeof input.value === "string") {
-      await admin
-        .from("people")
-        .update({ organization_id: input.value })
-        .eq("id", input.entityId)
-        .eq("workspace_id", input.workspaceId);
+      await linkPersonToOrganization(admin, {
+        workspaceId: input.workspaceId,
+        personId: input.entityId,
+        organizationId: input.value,
+      });
       return;
     }
     throw new Error(`Unknown person field: ${input.field}`);
@@ -241,6 +249,56 @@ async function updatePersonField(
     .eq("workspace_id", input.workspaceId);
 }
 
+/**
+ * Link a person to an organization via the organization_people junction.
+ * Verifies both records belong to the workspace before writing.
+ */
+async function linkPersonToOrganization(
+  admin: ReturnType<typeof createAdminClient>,
+  params: {
+    workspaceId: string;
+    personId: string;
+    organizationId: string;
+    role?: string;
+    isPrimary?: boolean;
+  }
+): Promise<void> {
+  const [{ data: org }, { data: person }] = await Promise.all([
+    admin
+      .from("organizations")
+      .select("id")
+      .eq("id", params.organizationId)
+      .eq("workspace_id", params.workspaceId)
+      .maybeSingle(),
+    admin
+      .from("people")
+      .select("id")
+      .eq("id", params.personId)
+      .eq("workspace_id", params.workspaceId)
+      .maybeSingle(),
+  ]);
+
+  if (!org || !person) {
+    throw new Error(
+      `Cannot link person ${params.personId} to organization ${params.organizationId}: not found in workspace`
+    );
+  }
+
+  const { error } = await admin.from("organization_people").upsert(
+    {
+      organization_id: params.organizationId,
+      person_id: params.personId,
+      ...(params.role !== undefined ? { role: params.role } : {}),
+      ...(params.isPrimary !== undefined ? { is_primary: params.isPrimary } : {}),
+    },
+    { onConflict: "organization_id,person_id" }
+  );
+
+  if (error) {
+    throw new Error(`Failed to link person to organization: ${error.message}`);
+  }
+}
+
 async function updateOrgField(
   admin: ReturnType<typeof createAdminClient>,
   input: UpdateFieldInput
@@ -251,9 +309,15 @@ async function updateOrgField(
     industry_parent: "industry_parent",
     industry_child: "industry_child",
     website: "website",
+    domain: "domain",
     billing_email: "billing_email",
-    address_line1: "address_line1",
-    address_line2: "address_line2",
+    // Address aliases → actual DB columns (address_line_1/_2)
+    address_line1: "address_line_1",
+    address_line_1: "address_line_1",
+    addressLine1: "address_line_1",
+    address_line2: "address_line_2",
+    address_line_2: "address_line_2",
+    addressLine2: "address_line_2",
     city: "city",
     state: "state",
     postal_code: "postal_code",
@@ -263,13 +327,23 @@ async function updateOrgField(
 
   const dbField = fieldMap[input.field];
   if (!dbField) {
-    // Handle key_contact specially
+    // key_contact: organizations has no primary_contact_id column — mark the
+    // person as primary in the organization_people junction instead.
     if (input.field === "key_contact" && typeof input.value === "string") {
+      await linkPersonToOrganization(admin, {
+        workspaceId: input.workspaceId,
+        personId: input.value,
+        organizationId: input.entityId,
+        role: "Primary Contact",
+        isPrimary: true,
+      });
+      // Demote any other primary contacts for this organization
       await admin
-        .from("organizations")
-        .update({ primary_contact_id: input.value })
-        .eq("id", input.entityId)
-        .eq("workspace_id", input.workspaceId);
+        .from("organization_people")
+        .update({ is_primary: false })
+        .eq("organization_id", input.entityId)
+        .neq("person_id", input.value)
+        .eq("is_primary", true);
       return;
     }
     throw new Error(`Unknown organization field: ${input.field}`);
@@ -443,6 +517,7 @@ async function recordProvenance(
     field: input.field,
     value: String(input.value),
     source: input.source === "playbook" ? "rule" : input.source,
+    blueprint_slug: input.sourceDetails?.playbookSlug ?? null,
     rule_id: input.sourceDetails?.ruleId ?? null,
     confidence: input.confidence,
     because: input.because,

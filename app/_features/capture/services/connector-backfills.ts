@@ -21,6 +21,7 @@ import { COMPOSIO_TOOL_SLUGS } from "@/app/_lib/composio/tool-slugs";
 import type { CaptureAdapter, CaptureEnvelope } from "../adapters/types";
 import { resolvePerson } from "./system-plays";
 import { getCategoryAdapter } from "../adapters/categories";
+import { parseQuickbooksBalanceDetailReport } from "../adapters/categories/billing";
 import { ingestEnvelope } from "./ingest-envelope";
 import { processCalBookings } from "./cal-booking-processor";
 
@@ -39,8 +40,12 @@ export interface ConnectorBackfillResult {
   };
 }
 
-/** Unwrap the list-item array from a Composio tool response, shape-agnostic. */
-function unwrapItems(raw: unknown): unknown[] {
+/**
+ * Unwrap the list-item array from a Composio tool response, shape-agnostic.
+ * Exported for tests — the recognized shapes are golden contracts verified
+ * against live tool executions (2026-08-06).
+ */
+export function unwrapItems(raw: unknown): unknown[] {
   if (Array.isArray(raw)) return raw;
   if (raw && typeof raw === "object") {
     const record = raw as Record<string, unknown>;
@@ -50,13 +55,26 @@ function unwrapItems(raw: unknown): unknown[] {
       record.data,
       record.events,
       record.results,
+      // Calendly wraps lists as { collection, pagination }; Dropbox
+      // list_folder as { entries, cursor, has_more }; Cal.com v2 as
+      // { bookings, nextCursor }; Microsoft Graph passthroughs (Outlook) as
+      // { value } (all verified against live tool executions 2026-08-06).
+      record.collection,
+      record.entries,
+      record.bookings,
+      record.value,
+      record.messages,
     ].find(Array.isArray);
     if (candidate) return candidate as unknown[];
-    // Stripe list responses nest as { data: [...] } — already covered — but
-    // v3 wrappers sometimes double-nest { data: { data: [...] } }.
-    if (record.data && typeof record.data === "object") {
-      const inner = (record.data as Record<string, unknown>).data;
-      if (Array.isArray(inner)) return inner;
+    // Some tools nest the list one wrapper down: Stripe-style
+    // { data: { data: [...] } }, Cal.com { data: { bookings: [...] } },
+    // Outlook { response_data: { value: [...] } }. Recurse one level.
+    for (const key of ["data", "response_data"] as const) {
+      const inner = record[key];
+      if (inner && typeof inner === "object" && !Array.isArray(inner)) {
+        const nested = unwrapItems(inner);
+        if (nested.length > 0) return nested;
+      }
     }
   }
   return [];
@@ -118,6 +136,13 @@ async function ingestRows(
         stats.skippedNoise++;
         stats.envelopes.push(envelope);
         break;
+      case "held":
+        // Memory-first pool: stored but hidden. Counted with noise for
+        // backfill reporting; envelope still feeds signal absorption so
+        // strong contacts can be promoted.
+        stats.skippedNoise++;
+        stats.envelopes.push(envelope);
+        break;
       case "dropped":
         stats.dropped++;
         break;
@@ -168,7 +193,15 @@ async function absorbDerivedSignals(
 }
 
 interface BackfillFetch {
-  provider: "googlecalendar" | "googledrive" | "stripe" | "cal";
+  provider:
+    | "googlecalendar"
+    | "googledrive"
+    | "stripe"
+    | "cal"
+    | "calendly"
+    | "dropbox"
+    | "quickbooks"
+    | "outlook";
   /** Gated Composio calls returning raw list responses to unwrap. */
   fetches: (connectionId: string, workspaceId: string) => Promise<unknown>[];
 }
@@ -404,9 +437,13 @@ export async function backfillCalBookings(
 
   let rows: unknown[];
   try {
+    // CAL_FETCH_ALL_BOOKINGS (GET /v2/bookings) replaces CAL_GET_TEAM_BOOKINGS,
+    // which 404s on both metadata and execute endpoints as of 2026-08-06 —
+    // this backfill (cal's only ingestion path) was silently broken until the
+    // slug swap. Response shape: { data: { bookings: [...] }, status }.
     const response = await executeComposioAction<Record<string, unknown>, unknown>(
-      COMPOSIO_TOOL_SLUGS.CAL_GET_TEAM_BOOKINGS,
-      {},
+      COMPOSIO_TOOL_SLUGS.CAL_FETCH_ALL_BOOKINGS,
+      { take: 100 },
       connection.composioConnectionId,
       workspaceId,
       UNATTENDED(workspaceId),
@@ -463,4 +500,308 @@ export async function runCalBootstrap(
 ): Promise<ConnectorBackfillResult> {
   console.log(`[connector-backfill] Cal bootstrap for workspace ${workspaceId}`);
   return backfillCalBookings(workspaceId, { isBootstrap: true });
+}
+
+// ============================================================================
+// Calendly (backfill only — Composio has no Calendly triggers)
+//
+// Tool contracts verified live against GET /api/v3/tools 2026-08-06:
+// CALENDLY_LIST_EVENTS requires exactly one of user/organization/group (a
+// Calendly URI), so the backfill first resolves the connected user via
+// CALENDLY_GET_CURRENT_USER. Events come back as { collection, pagination };
+// invitee emails live behind CALENDLY_LIST_EVENT_INVITEES per event, merged
+// onto each row (bounded) so the calendar adapter sees participants.
+// ============================================================================
+
+/** Per-run cap on invitee-detail fetches (one Composio read per event). */
+const CALENDLY_INVITEE_FETCH_CAP = 20;
+
+export async function backfillCalendlyEvents(
+  workspaceId: string,
+  options: { lookbackDays?: number; limit?: number; isBootstrap?: boolean } = {},
+): Promise<ConnectorBackfillResult> {
+  const { lookbackDays = 30, limit = 50, isBootstrap = false } = options;
+  const minStartTime = new Date(
+    Date.now() - lookbackDays * 24 * 60 * 60 * 1000,
+  ).toISOString();
+
+  return runConnectorBackfill(
+    workspaceId,
+    {
+      provider: "calendly",
+      fetches: (connectionId, wsId) => [
+        (async () => {
+          const me = await executeComposioAction<Record<string, unknown>, unknown>(
+            COMPOSIO_TOOL_SLUGS.CALENDLY_GET_CURRENT_USER,
+            {},
+            connectionId,
+            wsId,
+            UNATTENDED(wsId),
+          );
+          const meRecord = (me ?? {}) as Record<string, unknown>;
+          const resource = (meRecord.resource ?? meRecord) as Record<string, unknown>;
+          const userUri = resource.uri;
+          if (typeof userUri !== "string" || userUri.length === 0) {
+            throw new Error("Calendly current-user lookup returned no user URI");
+          }
+
+          const events = await executeComposioAction<Record<string, unknown>, unknown>(
+            COMPOSIO_TOOL_SLUGS.CALENDLY_LIST_EVENTS,
+            {
+              user: userUri,
+              min_start_time: minStartTime,
+              count: Math.min(limit, 100),
+              sort: "start_time:desc",
+            },
+            connectionId,
+            wsId,
+            UNATTENDED(wsId),
+          );
+
+          const rows = unwrapItems(events);
+
+          // Merge invitees (the people who booked) onto each event row so the
+          // adapter can emit participants. Bounded per run; failures degrade
+          // to an event without invitees, never a failed backfill.
+          const enriched: unknown[] = [];
+          let fetched = 0;
+          for (const row of rows) {
+            if (!row || typeof row !== "object") continue;
+            const event = { ...(row as Record<string, unknown>) };
+            const uri = event.uri;
+            const uuid =
+              typeof uri === "string" ? uri.split("/").filter(Boolean).pop() : null;
+            if (uuid && fetched < CALENDLY_INVITEE_FETCH_CAP) {
+              fetched++;
+              try {
+                const invitees = await executeComposioAction<
+                  Record<string, unknown>,
+                  unknown
+                >(
+                  COMPOSIO_TOOL_SLUGS.CALENDLY_LIST_EVENT_INVITEES,
+                  { uuid },
+                  connectionId,
+                  wsId,
+                  UNATTENDED(wsId),
+                );
+                event.invitees = unwrapItems(invitees);
+              } catch (error) {
+                console.warn(
+                  `[connector-backfill] calendly invitee fetch failed for ${uuid}:`,
+                  error instanceof Error ? error.message : error,
+                );
+              }
+            }
+            enriched.push(event);
+          }
+          return enriched;
+        })(),
+      ],
+    },
+    { isBootstrap },
+  );
+}
+
+export async function runCalendlyBootstrap(
+  workspaceId: string,
+): Promise<ConnectorBackfillResult> {
+  console.log(`[connector-backfill] Calendly bootstrap for workspace ${workspaceId}`);
+  return backfillCalendlyEvents(workspaceId, {
+    isBootstrap: true,
+    lookbackDays: 30,
+    limit: 50,
+  });
+}
+
+// ============================================================================
+// Dropbox (backfill only — Composio has no Dropbox triggers)
+//
+// DROPBOX_LIST_FILES_IN_FOLDER (verified live 2026-08-06) lists entries under
+// a path with no server-side date filter and no recency ordering, so the
+// backfill lists from the root and filters client-side to files modified
+// within the lookback window.
+// ============================================================================
+
+/** How many root entries to page through when hunting for recent files. */
+const DROPBOX_LIST_SCAN_LIMIT = 500;
+
+export async function backfillDropboxCaptures(
+  workspaceId: string,
+  options: { lookbackDays?: number; limit?: number; isBootstrap?: boolean } = {},
+): Promise<ConnectorBackfillResult> {
+  const { lookbackDays = 7, limit = 100, isBootstrap = false } = options;
+  const modifiedAfter = Date.now() - lookbackDays * 24 * 60 * 60 * 1000;
+
+  return runConnectorBackfill(
+    workspaceId,
+    {
+      provider: "dropbox",
+      fetches: (connectionId, wsId) => [
+        (async () => {
+          const response = await executeComposioAction<
+            Record<string, unknown>,
+            unknown
+          >(
+            COMPOSIO_TOOL_SLUGS.DROPBOX_LIST_FILES_IN_FOLDER,
+            { path: "", recursive: true, limit: DROPBOX_LIST_SCAN_LIMIT },
+            connectionId,
+            wsId,
+            UNATTENDED(wsId),
+          );
+
+          const entries = unwrapItems(response);
+          const recentFiles = entries.filter((entry) => {
+            if (!entry || typeof entry !== "object") return false;
+            const record = entry as Record<string, unknown>;
+            if (record[".tag"] !== "file") return false;
+            const modified =
+              (record.server_modified as string) ??
+              (record.client_modified as string);
+            if (!modified) return false;
+            const timestamp = Date.parse(modified);
+            return Number.isFinite(timestamp) && timestamp >= modifiedAfter;
+          });
+
+          return recentFiles.slice(0, limit);
+        })(),
+      ],
+    },
+    { isBootstrap },
+  );
+}
+
+export async function runDropboxBootstrap(
+  workspaceId: string,
+): Promise<ConnectorBackfillResult> {
+  console.log(`[connector-backfill] Dropbox bootstrap for workspace ${workspaceId}`);
+  return backfillDropboxCaptures(workspaceId, {
+    isBootstrap: true,
+    lookbackDays: 30,
+    limit: 100,
+  });
+}
+
+// ============================================================================
+// QuickBooks (backfill only — Composio has no QuickBooks triggers)
+//
+// The reworked Composio QuickBooks toolkit (2026-08-06) exposes NO invoice or
+// payment read tools — QUICKBOOKS_CUSTOMER_BALANCE_DETAIL is the only
+// invoice-level read left. It returns Intuit's report shape, which
+// parseQuickbooksBalanceDetailReport flattens into one row per open
+// transaction (invoices with balances, keyed for dedupe by txn id/doc num).
+// Scope limitation, recorded for Phase 8 docs: paid invoices and standalone
+// payments are not retrievable through the current toolkit.
+// ============================================================================
+
+export async function backfillQuickbooksCaptures(
+  workspaceId: string,
+  options: { isBootstrap?: boolean } = {},
+): Promise<ConnectorBackfillResult> {
+  const { isBootstrap = false } = options;
+
+  return runConnectorBackfill(
+    workspaceId,
+    {
+      provider: "quickbooks",
+      fetches: (connectionId, wsId) => [
+        (async () => {
+          const report = await executeComposioAction<
+            Record<string, unknown>,
+            unknown
+          >(
+            COMPOSIO_TOOL_SLUGS.QUICKBOOKS_CUSTOMER_BALANCE_DETAIL,
+            {
+              // subt_amount is the only amount column the report accepts
+              // (verified live 2026-08-06; open-balance columns are silently
+              // dropped by the QBO report API).
+              columns:
+                "tx_date,txn_type,doc_num,due_date,cust_name,cust_bill_email,memo,subt_amount",
+            },
+            connectionId,
+            wsId,
+            UNATTENDED(wsId),
+          );
+          return parseQuickbooksBalanceDetailReport(report);
+        })(),
+      ],
+    },
+    { isBootstrap },
+  );
+}
+
+export async function runQuickbooksBootstrap(
+  workspaceId: string,
+): Promise<ConnectorBackfillResult> {
+  console.log(
+    `[connector-backfill] QuickBooks bootstrap for workspace ${workspaceId}`,
+  );
+  return backfillQuickbooksCaptures(workspaceId, { isBootstrap: true });
+}
+
+// ============================================================================
+// Outlook (webhook-first; this backfill is the reconciliation safety net)
+//
+// Outlook captures normally arrive via OUTLOOK_MESSAGE_TRIGGER /
+// OUTLOOK_SENT_MESSAGE_TRIGGER + webhook enrichment. Enrichment was silently
+// broken while OUTLOOK_GET_MESSAGE was dead (Composio toolkit rework), so the
+// reconciliation cron also needs a list-based repair path — the same role the
+// Gmail backfill plays. OUTLOOK_OUTLOOK_LIST_MESSAGES (verified live
+// 2026-08-06) returns full Graph message resources under
+// { response_data: { value: [...] } }, the exact shape normalizeOutlook
+// already consumes from the enrichment path.
+// ============================================================================
+
+export async function backfillOutlookCaptures(
+  workspaceId: string,
+  options: { lookbackDays?: number; limit?: number; isBootstrap?: boolean } = {},
+): Promise<ConnectorBackfillResult> {
+  const { lookbackDays = 2, limit = 50, isBootstrap = false } = options;
+  const receivedAfter = new Date(
+    Date.now() - lookbackDays * 24 * 60 * 60 * 1000,
+  ).toISOString();
+
+  return runConnectorBackfill(
+    workspaceId,
+    {
+      provider: "outlook",
+      fetches: (connectionId, wsId) => [
+        executeComposioAction<Record<string, unknown>, unknown>(
+          COMPOSIO_TOOL_SLUGS.OUTLOOK_OUTLOOK_LIST_MESSAGES,
+          {
+            folder: "Inbox",
+            received_date_time_ge: receivedAfter,
+            top: Math.min(limit, 100),
+            orderby: ["receivedDateTime desc"],
+          },
+          connectionId,
+          wsId,
+          UNATTENDED(wsId),
+        ),
+        executeComposioAction<Record<string, unknown>, unknown>(
+          COMPOSIO_TOOL_SLUGS.OUTLOOK_OUTLOOK_LIST_MESSAGES,
+          {
+            folder: "SentItems",
+            sent_date_time_gt: receivedAfter,
+            top: Math.min(limit, 100),
+            orderby: ["sentDateTime desc"],
+          },
+          connectionId,
+          wsId,
+          UNATTENDED(wsId),
+        ),
+      ],
+    },
+    { isBootstrap },
+  );
+}
+
+export async function runOutlookBootstrap(
+  workspaceId: string,
+): Promise<ConnectorBackfillResult> {
+  console.log(`[connector-backfill] Outlook bootstrap for workspace ${workspaceId}`);
+  return backfillOutlookCaptures(workspaceId, {
+    isBootstrap: true,
+    lookbackDays: 30,
+    limit: 50,
+  });
 }

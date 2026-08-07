@@ -181,7 +181,10 @@ export const getCaptureStream = cache(async (
     query = query.eq("origin", origin);
   }
   if (!includeDropped) {
-    query = query.or("gate_action.is.null,gate_action.neq.drop");
+    // Memory-first: held rows (unknown-sender email awaiting discovery) are
+    // hidden from the stream along with drops — the stream shows
+    // Memory-matched and admitted captures only.
+    query = query.or("gate_action.is.null,gate_action.not.in.(drop,held)");
   }
 
   const { data, error } = await query;
@@ -244,6 +247,7 @@ export const getCaptureStream = cache(async (
       extracted_data: row.extracted_data as Record<string, unknown> | null,
       enriched_metadata: row.enriched_metadata as StreamCaptureSummary["enriched_metadata"] ?? null,
       is_bootstrap: row.is_bootstrap ?? false,
+      gate_action: row.gate_action ?? null,
     };
   });
 });
@@ -401,7 +405,7 @@ export const getTodayCaptureStats = cache(async (
     .select("id, origin, state, extracted_data, enriched_metadata")
     .eq("workspace_id", workspaceId)
     .gte("created_at", today.toISOString())
-    .or("gate_action.is.null,gate_action.neq.drop");
+    .or("gate_action.is.null,gate_action.not.in.(drop,held)");
 
   if (captureError) {
     console.error("[capture-queries] getTodayCaptureStats error:", captureError);

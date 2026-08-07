@@ -1,6 +1,10 @@
 "use server";
 
-import { sendLlm, type LlmContentPart } from "@/app/_lib/ai/gpt";
+import {
+  sendLlm,
+  type LlmContentPart,
+  type LlmSpendContext,
+} from "@/app/_lib/ai/gpt";
 import { z } from "zod";
 
 const ExtractedLineItemSchema = z.object({
@@ -51,7 +55,7 @@ function fileToBase64DataUrl(buffer: Buffer, mimeType: string): string {
 export async function extractLineItemsFromDocument(
   fileBuffer: Buffer,
   mimeType: string,
-  userId: string,
+  spend: LlmSpendContext,
 ): Promise<ExtractionResult | null> {
   const dataUrl = fileToBase64DataUrl(fileBuffer, mimeType);
 
@@ -62,7 +66,7 @@ export async function extractLineItemsFromDocument(
 
   const response = await sendLlm(
     [{ role: "user", content }],
-    userId,
+    spend,
     {
       routingKey: "extraction",
       maxTokens: 2000,

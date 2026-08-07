@@ -50,6 +50,8 @@ import {
 import { extractAndPersistNotes } from "./persist-extracted-notes";
 import type { NoteExtractionInput } from "./note-extractor";
 import { processCaptureAgainstWatches } from "@/app/_lib/learning";
+import { parseSignatureFromBody } from "@/app/_features/memory/evidence/classifier";
+import { applyFieldExtractions } from "./apply-field-extractions";
 
 /**
  * Daily Intelligence Scan
@@ -73,6 +75,10 @@ export interface DailyScanResult {
   emailsProcessed: number;
   findingsCreated: number;
   peopleResolved: number;
+  /** LLM field extractions auto-applied to Memory (confidence >= threshold). */
+  fieldsApplied: number;
+  /** LLM field extractions accumulated as pending evidence (Watching). */
+  fieldsAccumulated: number;
   /** Vendor/subscription findings cleaned up without re-running LLM. */
   findingsDismissedAsVendor?: number;
   findingsMemoryRepaired?: number;
@@ -178,6 +184,9 @@ async function fetchCapturesInLookback(
       .select("id, source_type, source_external_id, raw_payload, extracted_data")
       .eq("workspace_id", workspaceId)
       .in("source_type", [...EMAIL_SCAN_SOURCE_TYPES])
+      // Held rows (Memory-first pool) are thin and unenriched by design —
+      // scanning them would spend LLM budget on mail the user can't see.
+      .or("gate_action.is.null,gate_action.not.in.(drop,held)")
       .gte("created_at", cutoff)
       .order("created_at", { ascending: false });
 
@@ -189,21 +198,48 @@ async function fetchCapturesInLookback(
     return { rows: (data ?? []) as CaptureEventRow[] };
   }
 
+  return collectCapturePages(async (from, to) => {
+    const { data, error } = await baseQuery().range(from, to);
+    return { data: (data ?? null) as CaptureEventRow[] | null, error: error?.message };
+  }, options.maxEmails);
+}
+
+/**
+ * Page through captures up to a hard row ceiling.
+ *
+ * Exported for test: every row this returns costs one model call in the scan
+ * loop, and this was once a `while (true)` that ignored `maxEmails` entirely —
+ * so a single click classified every capture in the lookback window, priced by
+ * the size of the user's inbox rather than by anything Salt chose. The ceiling
+ * is the point of the function, and it needs a test that fails if the loop
+ * ever becomes unbounded again.
+ */
+export async function collectCapturePages(
+  fetchPage: (
+    from: number,
+    to: number,
+  ) => Promise<{ data: CaptureEventRow[] | null; error?: string }>,
+  maxRows: number,
+  batchSize: number = SCAN_ALL_BATCH_SIZE,
+): Promise<{ rows: CaptureEventRow[]; error?: string }> {
   const rows: CaptureEventRow[] = [];
   let offset = 0;
-  while (true) {
-    const { data, error } = await baseQuery().range(
-      offset,
-      offset + SCAN_ALL_BATCH_SIZE - 1
-    );
-    if (error) {
-      return { rows: [], error: error.message };
-    }
+
+  while (offset < maxRows) {
+    // Narrow the final page so the ceiling is exact rather than rounded up to
+    // the next batch.
+    const pageSize = Math.min(batchSize, maxRows - offset);
+    const { data, error } = await fetchPage(offset, offset + pageSize - 1);
+
+    if (error) return { rows: [], error };
     if (!data?.length) break;
-    rows.push(...(data as CaptureEventRow[]));
-    if (data.length < SCAN_ALL_BATCH_SIZE) break;
-    offset += SCAN_ALL_BATCH_SIZE;
+
+    rows.push(...data);
+    // A short page means the source is exhausted.
+    if (data.length < pageSize) break;
+    offset += pageSize;
   }
+
   return { rows };
 }
 
@@ -454,6 +490,8 @@ export async function runDailyScan(
     emailsProcessed: 0,
     findingsCreated: 0,
     peopleResolved: 0,
+    fieldsApplied: 0,
+    fieldsAccumulated: 0,
     errors: [],
   };
 
@@ -587,12 +625,27 @@ export async function runDailyScan(
         );
         knownPerson = Boolean(personId);
       } else {
+        // Signature heuristics: free enrichment (phone/company/title) parsed
+        // from the email body tail — routed through confidence-gated tools.
+        const signatureHints =
+          !email.is_sent_by_user && email.body_text
+            ? parseSignatureFromBody(email.body_text)
+            : {};
+
         const personResult = await resolvePerson(workspaceId, {
           email: email.from_email,
           name: email.from_name ?? undefined,
           signals: {
             is_bidirectional_thread: email.has_prior_thread,
             you_initiated: email.is_sent_by_user,
+          },
+          sourceType: "email",
+          sourceCaptureId: rawEmail.id,
+          enrichment: {
+            phone: signatureHints.phone,
+            company: signatureHints.company,
+            title: signatureHints.title,
+            contactAt: email.sent_at || undefined,
           },
         });
 
@@ -632,6 +685,34 @@ export async function runDailyScan(
       }
 
       const analysis = classification.analysis;
+
+      // LLM field extractions → confidence-gated Memory writes. Sender
+      // fields only (received mail), never payment rails or vendor senders.
+      if (
+        !dryRun &&
+        !email.is_sent_by_user &&
+        !fromPaymentRail &&
+        (personId || orgId) &&
+        analysis.field_extractions?.length
+      ) {
+        try {
+          const extractionResult = await applyFieldExtractions({
+            workspaceId,
+            captureId: rawEmail.id,
+            personId,
+            orgId,
+            extractions: analysis.field_extractions,
+          });
+          result.fieldsApplied += extractionResult.applied;
+          result.fieldsAccumulated += extractionResult.accumulated;
+        } catch (extractionError) {
+          console.error(
+            "[daily-scan] Field extraction apply failed:",
+            extractionError
+          );
+        }
+      }
+
       const rawMemoryProposals = filterActionableMemoryProposals(
         analysis.memory_proposals ?? []
       );
@@ -804,7 +885,7 @@ export async function runDailyScan(
           if (personId) entityNames.set(personId, email.from_name ?? email.from_email);
           if (orgId) entityNames.set(orgId, email.from_name ?? "Organization");
 
-          await extractAndPersistNotes(extractionInput, entityNames);
+          await extractAndPersistNotes(extractionInput, entityNames, workspaceId);
         } catch (noteError) {
           // Don't fail the scan if note extraction fails
           result.errors.push(

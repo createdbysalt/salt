@@ -20,12 +20,29 @@ export function PlaybookStatusControl({
   slug,
   enabled = true,
   isLocked,
+  runnable = true,
 }: {
   slug: string;
   enabled?: boolean;
   isLocked: boolean;
+  /** Whether the playbook has a wired execution path (script or steps). */
+  runnable?: boolean;
 }) {
   if (isLocked) {
+    // "Always on" is earned, not asserted: system playbooks without a wired
+    // execution path show an honest "Not active yet" state instead.
+    if (!runnable) {
+      return (
+        <span
+          className="inline-flex items-center gap-1 rounded-full border border-border/50 bg-background/80 px-2 py-0.5 text-[10px] font-medium text-muted-foreground backdrop-blur-sm"
+          title="System playbook — execution not wired yet"
+        >
+          <span className="size-1.5 rounded-full bg-muted-foreground/40" />
+          Not active yet
+        </span>
+      );
+    }
+
     return (
       <span
         className="inline-flex items-center gap-1 rounded-full border border-border/50 bg-background/80 px-2 py-0.5 text-[10px] font-medium text-muted-foreground backdrop-blur-sm"

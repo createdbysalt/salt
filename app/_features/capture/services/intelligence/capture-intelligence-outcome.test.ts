@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  categoryFromEnrichment,
   mergeIntelligenceMeta,
   readIntelligenceMeta,
   resolveCaptureIntelligenceOutcome,
@@ -110,5 +111,52 @@ describe("capture-intelligence-outcome", () => {
         routingState: "pending",
       })
     ).toBe("awaiting_scan");
+  });
+
+  describe("categoryFromEnrichment", () => {
+    const enrichedAt = "2026-08-06T12:00:00.000Z";
+
+    it("falls back to intelligence outcome when not enriched", () => {
+      expect(categoryFromEnrichment(null, "awaiting_scan")).toBe("processing");
+      expect(categoryFromEnrichment({}, "scan_error")).toBe("error");
+    });
+
+    it("only reports Triggered Play when a play was actually dispatched", () => {
+      expect(
+        categoryFromEnrichment(
+          {
+            enriched_at: enrichedAt,
+            signals_matched: ["capture_email_received", "is_reply"],
+            linked_records: [{ surface: "people", entity_id: "p1" }],
+            plays_dispatched: [],
+          },
+          "awaiting_scan"
+        )
+      ).toBe("no-signal");
+
+      expect(
+        categoryFromEnrichment(
+          {
+            enriched_at: enrichedAt,
+            signals_matched: ["capture_email_received"],
+            plays_dispatched: [{ play_slug: "follow-up", play_run_id: "r1" }],
+          },
+          "awaiting_scan"
+        )
+      ).toBe("queued");
+    });
+
+    it("maps noise-classified emails to no-signal even with dispatches recorded", () => {
+      expect(
+        categoryFromEnrichment(
+          {
+            enriched_at: enrichedAt,
+            signals_matched: ["capture_email_received", "email_classified_noise"],
+            plays_dispatched: [{ play_slug: "follow-up", play_run_id: "r1" }],
+          },
+          "awaiting_scan"
+        )
+      ).toBe("no-signal");
+    });
   });
 });

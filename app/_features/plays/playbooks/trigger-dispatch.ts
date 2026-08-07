@@ -3,6 +3,7 @@ import "server-only";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { isValidSignalKey, getSignalDefinition } from "./signal-registry";
 import { discoverV2Playbooks, getPlaybookBySlug } from "./schema/v2/discovery";
+import { hasPlaybookScript, executePlaybookScript } from "./script-registry";
 import type { LearningEntityType } from "@/app/_lib/memory-tools";
 
 /**
@@ -109,7 +110,7 @@ export function findPlaybooksForSignal(signalKey: string): PlaybookTriggerInfo[]
  * Playbooks are enabled by default. Users can disable them via the toggle
  * which writes to profile_playbook_settings.
  */
-async function isPlaybookEnabled(
+export async function isPlaybookEnabled(
   workspaceId: string,
   playbookSlug: string,
 ): Promise<boolean> {
@@ -127,46 +128,6 @@ async function isPlaybookEnabled(
   return setting?.enabled ?? true;
 }
 
-interface PlaybookScriptInput {
-  packagePath: string;
-  workspaceId: string;
-  signal: string;
-  entityType: LearningEntityType;
-  entityId: string;
-  entityLabel?: string;
-}
-
-interface PlaybookScriptResult {
-  scriptExecutionId: string;
-  rulesEvaluated: number;
-  rulesMatched: number;
-  updates: Array<{
-    field: string;
-    value: string;
-    action: string;
-    confidence: number;
-  }>;
-}
-
-/**
- * Run a playbook package script.
- *
- * NOTE: Dynamic imports don't work with Turbopack. Script execution is
- * temporarily disabled until we implement a Turbopack-compatible approach
- * (e.g., a static registry or API-based execution).
- */
-async function runPlaybookPackageScript(
-  _input: PlaybookScriptInput
-): Promise<PlaybookScriptResult | null> {
-  // TODO: Implement Turbopack-compatible script execution
-  // Dynamic imports like `import(scriptPath)` fail with Turbopack.
-  // Options: static registry, API route execution, or build-time bundling.
-  console.warn(
-    `[trigger-dispatch] Script execution disabled (Turbopack incompatible). ` +
-    `Playbook: ${_input.packagePath}`
-  );
-  return null;
-}
 
 /**
  * Dispatch a signal to matching playbooks.
@@ -202,31 +163,23 @@ export async function dispatchSignalTrigger(
     }
 
     if (playbook.layer === "learn") {
-      const v2Playbook = getPlaybookBySlug(playbook.slug);
-      if (v2Playbook?.hasScript && v2Playbook.packagePath) {
-        const scriptResult = await runPlaybookPackageScript({
-          packagePath: v2Playbook.packagePath,
+      if (hasPlaybookScript(playbook.slug)) {
+        const scriptResult = await executePlaybookScript(playbook.slug, {
           workspaceId: context.workspaceId,
+          trigger: "signal",
           signal: context.signalKey,
           entityType: context.entitySurface as LearningEntityType,
           entityId: context.entityId,
           entityLabel: context.entityLabel,
+          triggerData: context.evidence,
         });
 
-        if (scriptResult) {
-          results.push({
-            success: true,
-            playbookSlug: playbook.slug,
-            playRunId: scriptResult.scriptExecutionId,
-          });
-        } else {
-          // Script execution disabled (Turbopack incompatible)
-          results.push({
-            success: true,
-            playbookSlug: playbook.slug,
-            skipped: "script_disabled",
-          });
-        }
+        results.push({
+          success: scriptResult.success,
+          playbookSlug: playbook.slug,
+          error: scriptResult.error,
+          skipped: scriptResult.skipped,
+        });
         continue;
       }
 

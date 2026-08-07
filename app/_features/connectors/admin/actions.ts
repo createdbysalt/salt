@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
-import { sendLlm } from "@/app/_lib/ai/gpt";
+import { platformSpend, sendLlm } from "@/app/_lib/ai/gpt";
 import { invalidateClassificationCache } from "@/app/_lib/composio/classification-store";
 import { getPlatformAdmin } from "./platform-admin";
 
@@ -184,7 +184,10 @@ export async function proposeClassifications(): Promise<
       { role: "system", content: PROPOSAL_SYSTEM_PROMPT },
       { role: "user", content: JSON.stringify(toolDescriptions) },
     ],
-    admin.userId,
+    platformSpend(
+      admin.userId,
+      "Platform-admin classification proposals apply to the shared tool catalog, not to the admin's own workspace.",
+    ),
     { maxTokens: 2000, temperature: 0, routingKey: "toolClassification" },
   );
 

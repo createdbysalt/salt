@@ -73,6 +73,54 @@ describe("email category adapter", () => {
       const envelope = adapter.normalize(payload);
       expect(envelope?.extracted.isSentByUser).toBe(true);
     });
+
+    it("passes gate-relevant headers from the Gmail API payload into raw", () => {
+      const payload = {
+        message_id: "msg-headers",
+        sender: "Newsletter <news@example.com>",
+        subject: "Weekly digest",
+        label_ids: ["INBOX"],
+        payload: {
+          headers: [
+            { name: "List-Unsubscribe", value: "<mailto:unsub@example.com>" },
+            { name: "Precedence", value: "bulk" },
+            { name: "Auto-Submitted", value: "auto-generated" },
+            { name: "X-Received", value: "should be filtered out" },
+          ],
+        },
+      };
+
+      const envelope = adapter.normalize(payload);
+      const headers = envelope?.raw.headers as Record<string, string>;
+
+      expect(headers["List-Unsubscribe"]).toBe("<mailto:unsub@example.com>");
+      expect(headers["Precedence"]).toBe("bulk");
+      expect(headers["Auto-Submitted"]).toBe("auto-generated");
+      expect(headers["X-Received"]).toBeUndefined();
+    });
+
+    it("forwards label_ids so promotional-category drops fire downstream", () => {
+      const payload = {
+        message_id: "msg-promo",
+        sender: "deals@store.com",
+        subject: "50% off",
+        label_ids: ["CATEGORY_PROMOTIONS", "INBOX"],
+      };
+
+      const envelope = adapter.normalize(payload);
+      expect(envelope?.extracted.labels).toContain("CATEGORY_PROMOTIONS");
+    });
+
+    it("stores empty headers when the payload carries none", () => {
+      const payload = {
+        messageId: "msg-plain",
+        sender: "alice@acme.com",
+        subject: "Hi",
+      };
+
+      const envelope = adapter.normalize(payload);
+      expect(envelope?.raw.headers).toEqual({});
+    });
   });
 
   describe("outlook normalization", () => {

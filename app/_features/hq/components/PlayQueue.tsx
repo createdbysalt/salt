@@ -363,10 +363,12 @@ export function PlayQueue({ initialCards, timeSavedLabel = null }: PlayQueueProp
       <header className="flex items-end justify-between px-1">
         <div>
           <div className="mb-1 flex items-center gap-2">
-            <span id="play-queue-heading" className="chip flex items-center gap-1.5">
-              <Sparkles className="size-3.5 text-flame" strokeWidth={2.5} />
-              Needs you
-            </span>
+            <div className="flex items-center gap-2">
+              <Sparkles className="size-[18px]" strokeWidth={1.75} />
+              <h3 id="play-queue-heading" className="font-semibold tracking-tight">
+                Needs you
+              </h3>
+            </div>
             <AnimatePresence>
               {combo > 0 && (
                 <motion.span

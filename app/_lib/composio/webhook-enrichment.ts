@@ -36,9 +36,13 @@ function str(value: unknown): string | null {
  * Only triggers whose webhooks don't include full content need entries here.
  */
 const ENRICHMENT_REGISTRY: Record<string, EnrichmentSpec> = {
-  // Outlook email triggers only send message ID
+  // Outlook email triggers only send message ID.
+  // OUTLOOK_OUTLOOK_GET_MESSAGE replaces OUTLOOK_GET_MESSAGE, which 404s on
+  // both metadata and execute endpoints as of 2026-08-06 (Composio toolkit
+  // rework) — enrichment was silently failing and captures fell back to
+  // minimal payloads.
   OUTLOOK_MESSAGE_TRIGGER: {
-    toolSlug: COMPOSIO_TOOL_SLUGS.OUTLOOK_GET_MESSAGE,
+    toolSlug: COMPOSIO_TOOL_SLUGS.OUTLOOK_OUTLOOK_GET_MESSAGE,
     extractId: (payload) => {
       if (!isRecord(payload)) return null;
       return (
@@ -63,7 +67,7 @@ const ENRICHMENT_REGISTRY: Record<string, EnrichmentSpec> = {
     },
   },
   OUTLOOK_SENT_MESSAGE_TRIGGER: {
-    toolSlug: COMPOSIO_TOOL_SLUGS.OUTLOOK_GET_MESSAGE,
+    toolSlug: COMPOSIO_TOOL_SLUGS.OUTLOOK_OUTLOOK_GET_MESSAGE,
     extractId: (payload) => {
       if (!isRecord(payload)) return null;
       return (

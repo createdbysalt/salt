@@ -41,13 +41,15 @@ This is the complete inventory. Salt incurs variable vendor cost in exactly **se
 
 | # | Exit point | Cost driver | Gated today? |
 |---|-----------|-------------|--------------|
-| 1 | `executeComposioAction` — `app/_lib/composio/actions.ts` | Composio action (~$0.002) | **Yes** — classification, trust ladder, approval, in-memory rate cap |
+| 1 | `executeComposioAction` — `app/_lib/composio/actions.ts` | Composio action (~$0.002) | **Yes** — classification, trust ladder, approval, rate cap, `canSpend` |
 | 2 | `composio.tools.execute` — `app/_lib/composio/webhook-enrichment.ts` | Composio action | **No** — bypasses the single gate |
-| 3 | `sendLlm` — `app/_lib/ai/gpt.ts` | LLM tokens (15 callers) | **No** — API-key check only |
-| 4 | `streamText` — `app/api/ask-salt/chat/route.ts` | LLM tokens, up to 12 agent steps | **Partial** — step cap only, no budget |
+| 3 | `sendLlm` — `app/_lib/ai/gpt.ts` | LLM tokens (14 call sites) | **Yes** — `canSpend`, degrades to the cheap model class |
+| 4 | `streamText` — `app/api/ask-salt/chat/route.ts` | LLM tokens, up to 12 agent steps | **Yes** — fair use + `canSpend`, degrades to 5 steps |
 | 5 | `streamText` — `app/_lib/composio/agent.ts` | LLM tokens | Step cap only |
-| 6 | `openai.audio.speech.create` — `app/api/briefing/audio/route.ts` | TTS characters | Length cap only |
-| 7 | `fetch(/embeddings)` — `app/_lib/ai/embeddings.ts` | Embedding tokens | **No** |
+| 6 | `openai.audio.speech.create` — `app/api/briefing/audio/route.ts` | TTS characters | **Yes** — length cap + `canSpend` |
+| 7 | `fetch(/embeddings)` — `app/_lib/ai/embeddings.ts` | Embedding tokens | **No** — see below |
+
+Exit 7 is deliberately left ungated. `EmbeddingFn` is `(text: string) => Promise<number[]>`, threaded through the semantic matcher with no workspace anywhere in the chain, and its dominant use is the canonical field index — schema field names, identical for every tenant, computed once per process, which is platform spend rather than a workspace's. At `text-embedding-3-small` rates ($0.02 per million tokens) it is also the cheapest exit by two orders of magnitude. Threading a workspace through the matcher to gate it would be the largest refactor on this list for the smallest saving. Revisit if per-record embedding volume grows; the per-record path already degrades without a `spend` context via `FourTierMatchContext`.
 
 **Seven is the number that matters.** Instrument these and every current and future feature is covered automatically. Chase features instead and you will keep discovering holes, because features multiply and primitives do not.
 
@@ -180,6 +182,53 @@ Neither is recoverable afterwards, because nothing recorded the original promise
 
 `plays_included_override` still exists, but it is now the exception (enterprise and one-off deals), not the grandfathering mechanism. Overrides cover one number; a version covers price, bundle, and every limit together.
 
+### Stripe setup
+
+Products and prices are created by `scripts/stripe-bootstrap-prices.py`, which is idempotent — it looks prices up by `lookup_key` before creating, so re-running returns existing ids.
+
+```bash
+# test mode (uses the test-mode key from 1Password)
+op run --env-file=.env.1password -- python3 scripts/stripe-bootstrap-prices.py
+
+# live mode — required before the first real customer
+op run --env-file=.env.1password -- python3 scripts/stripe-bootstrap-prices.py --live
+```
+
+Lookup keys carry the pricing version (`pro_monthly_2026-08`), so a future version's prices sit alongside the old ones rather than replacing them. Stripe prices are immutable — changing an amount always creates a new price object — which is the same constraint the versioned catalog has, and the reason the two stay in step.
+
+The ids then need to land in three places:
+
+| Where | Values | Notes |
+|---|---|---|
+| 1Password, `stripe` item | `pricing` section = test ids, `pricing-live` = live ids | Vault `salt-software-development`. Local dev reads the `pricing` section via `.env.1password`. |
+| Vercel Preview (`staging` branch) | **test-mode** ids | Pairs with the test-mode `STRIPE_SECRET_KEY` already scoped to that branch. |
+| Vercel Production | **live-mode** ids | Pairs with the live key. |
+
+Test and live ids must be **separate Vercel records**. A single record targeting both environments cannot hold both values, and a test price id is rejected outright by a live key. The original six were one record spanning Preview and Production, so they could never have been correct.
+
+Verify with:
+
+```bash
+op run --env-file=.env.1password -- pnpm exec vitest run saas-price-wiring
+```
+
+That test checks both directions — checkout resolution *and* the reverse `price id -> tier` lookup the upgrade webhook depends on. It skips silently when `STRIPE_PRICE_*` is absent, so plain `pnpm test` stays green.
+
+#### Two Vercel CLI traps
+
+Create these through the REST API with `"type": "encrypted"`, not `vercel env add`:
+
+1. **The CLI creates variables as `type: sensitive`**, which is write-only. Neither `vercel env pull` nor even `GET /v10/projects/{id}/env?decrypt=true` will return the value, so a typo is undetectable — you cannot audit what you deployed. `encrypted` is the right type here: price ids are not secrets (they are visible client-side at checkout), and being able to read them back is what makes the wiring verifiable.
+2. **`vercel env add NAME preview --value X --yes` loops on its own hint**, re-printing `git_branch_required` forever. The branch must be positional: `vercel env add NAME preview staging --yes`.
+
+Reading back with `decrypt=true` after writing is the only reliable confirmation:
+
+```bash
+vercel env pull /tmp/p.env --environment=production --yes && rg '^STRIPE_PRICE' /tmp/p.env; rm -f /tmp/p.env
+```
+
+Delete that file immediately — it contains every production secret, including the live Stripe key.
+
 ### The procedure
 
 1. **Add a version** in `pricing-versions.ts`. Give it a dated id and a `note` explaining why it exists — someone will read it while debugging a customer's bill.
@@ -234,7 +283,7 @@ The invariant: **every write of `state: 'ran'` has a matching ledger row.** Idem
 
 ## Current state — read this before you assume anything works
 
-Honest status as of 2026-08-05. Most of the pricing system **observes**; almost none of it **enforces**.
+Honest status as of 2026-08-06. Vendor spend is now gated on a per-workspace budget; the **play bundle** is still not.
 
 | Capability | Built | Enforced |
 |------------|:-----:|:--------:|
@@ -243,22 +292,138 @@ Honest status as of 2026-08-05. Most of the pricing system **observes**; almost 
 | `external_effect` billability | Yes | n/a |
 | Per-play itemized COGS | Yes | n/a |
 | Tier catalog and Stripe subscription sync | Yes | n/a |
-| `getWorkspaceEntitlement()` / `playsRemaining` | Yes | **No caller anywhere** |
+| `getWorkspaceEntitlement()` / `playsRemaining` | Yes | Read by `canSpend`; **no play-path caller** |
+| `canSpend()` COGS-to-revenue circuit breaker | Yes | **Yes** — exits 1, 3, 4, 6 |
 | `playsIncluded` bundle limit | Catalog only | **No** |
-| `askSaltDailyLimit` | Catalog only | **No** |
-| `captureBudgetMicros` | Catalog only | **No** |
+| `askSaltDailyLimit` | Yes | **Yes** — ledger-backed |
+| `captureBudgetMicros` | Yes | **Yes** — via the manual scan cap |
 | `storageQuotaBytes` | Catalog only | **No** |
 | `MAX_TOOL_CALLS_PER_PLAY` | Constant only | **No** |
-| LLM token spend per workspace | **Not recorded at all** | **No** |
+| LLM token spend — Ask Salt | Yes | Fair use + budget |
+| LLM token spend — `sendLlm` (14 call sites) | Yes | **Yes** |
+| Embedding spend | No | **No** — deliberate, see exit 7 |
 | Legacy `ai_credits` | Table + UI | **No** — `deduct_ai_credits` is never called |
 | Composio per-workspace rate cap | Yes | **Partial** — in-memory per instance, so serverless multiplies it |
 
-**Consequence, stated plainly:** today a single workspace on the $29 Starter tier can run unlimited plays, hold unlimited Ask Salt conversations, and trigger unbounded capture scans. Nothing refuses, nothing degrades, and no overage is charged. The ledger will describe it accurately after the fact.
+**Consequence, stated plainly:** a workspace on the $29 Starter tier can no longer burn unbounded vendor money — cost is capped at roughly what it pays. It can still run unlimited *plays*, because nothing checks `playsRemaining` before `executePlayRun`. Those are different failures: the first was a margin problem, the second is a revenue problem. Only the first is fixed.
+
+### The ledger was unwritable for a day (fixed 2026-08-06)
+
+Worth reading before writing another billing migration, because everything looked healthy while it was broken.
+
+`usage_events` and `workspace_subscriptions` granted `service_role` nothing — not even SELECT — from the moment they shipped on 2026-08-05. `service_role` is the only writer of both, so every `recordUsageEvent` returned `permission denied for table usage_events` (SQLSTATE 42501). Play metering, Ask Salt fair use, and LLM cost tracking all wrote into a void.
+
+Three things conspired to hide it:
+
+1. **The ledger is deliberately non-fatal.** Metering must never break the feature it observes, so each failure logged and the request carried on. That is still the right design; it just means silence is not evidence.
+2. **Unit tests mock the database.** 2242 of them passed against a ledger that could not accept a row. No amount of unit testing could have caught this.
+3. **The creating migration said so in a comment.** It read "service_role bypasses RLS entirely and is the only writer" — true, and irrelevant. `service_role` has BYPASSRLS, so no *policy* can stop it, but a missing GRANT stops it before any policy is consulted. Bypassing RLS is not the same as holding table privileges.
+
+The trigger was writing an explicit grant block naming only `authenticated` and `anon`. Taking manual control of privileges on a table opts it out of inherited defaults, and the block omitted the one role that mattered. **When a migration writes its own GRANT/REVOKE block, it must name every role that touches the table, `service_role` included.**
+
+Fixed by `20260806130000_billing_service_role_grants.sql`. `usage_events` gets SELECT + INSERT only — UPDATE and DELETE stay withheld even from the sole writer, so an application bug cannot attempt to rewrite billing history that the immutability trigger would reject anyway.
+
+Verify with `scripts/verify-billing-ledger-writable.mjs`, which probes with a deliberately invalid workspace id so the foreign key rejects every row: a permission error means grants are wrong, a foreign-key error means the write path is healthy. Run it after any migration touching grants on billing tables.
+
+### Ask Salt admission (shipped 2026-08-06)
+
+The first real enforcement in the system, and the template for the rest.
+
+| Piece | Where |
+|-------|-------|
+| Token → micro-USD pricing | [`app/_lib/usage/llm-cost.ts`](../../app/_lib/usage/llm-cost.ts) |
+| Admission + recording | [`app/_lib/usage/ask-salt-usage.ts`](../../app/_lib/usage/ask-salt-usage.ts) |
+| Wiring | [`app/api/ask-salt/chat/route.ts`](../../app/api/ask-salt/chat/route.ts) |
+
+Four decisions worth not relitigating:
+
+1. **The limit reads from the ledger, not from `app/_lib/rate-limit`.** That module keeps buckets in module memory, which on serverless is one bucket per warm instance and a fresh allowance on every cold start — fine for burst protection, useless as a spend ceiling. The ledger is shared and durable.
+2. **The window is rolling 24h, not a calendar day**, so a midnight reset cannot be used to burst. `resetAt` is the oldest counted query plus 24h, so the 429 can state when the *first* slot opens rather than implying a full day's wait.
+3. **The ceiling is `askSaltDailyLimit × connectedSeatsIncluded`**, pooled at the workspace exactly as plays are. Seat identity is not tracked until G6, and pooling is the reading that cannot wrongly block a solo operator.
+4. **Events are recorded `billable: false`.** Ask Salt is included at every tier and must never consume a play bundle. It carries COGS into the margin report and counts against fair use, and neither of those is the invoice.
+
+The metering callback lives on `streamText`, **not** on `createUIMessageStream`. Only the former carries token usage, and its `totalUsage` aggregates every step of the turn — which matters because `stopWhen: stepCountIs(12)` means one user message can be twelve model round-trips. It is awaited rather than fired and forgotten, because a floating promise can be cut off when the serverless instance freezes after the response, dropping the record for precisely the most expensive turns.
+
+Unknown models price at the **most expensive** known rate, not an average. Under-pricing an unrecognised model hides real spend, which is the failure this subsystem exists to prevent; over-pricing is visible and self-corrects. There is a test pinning this direction.
+
+### `sendLlm` metering (shipped 2026-08-06)
+
+`sendLlm` now takes an `LlmSpendContext` in place of the old `userId` and records token spend itself, so every one of its 14 call sites is metered and any new one is metered on the day it is written. Recording lives *inside* the primitive for the same reason play metering does: hooking the feature layer is what produced nine missed paths and a year of Ask Salt sends billing as free.
+
+```ts
+sendLlm(messages, workspaceSpend(workspace.id, userId), { routingKey: "insights" })
+sendLlm(messages, platformSpend("catalog-sync-cron", "shared tool catalog"), { … })
+```
+
+Events are `llm_call`, always `billable: false` — token spend is the cost *underneath* an outcome, never the outcome itself. Customers are billed per play. This is the highest-cardinality type in the ledger (one row per model call), which is why the `billable = true` partial index deliberately excludes it and why `idx_usage_events_type_period` exists for the complementary read.
+
+Two guarantees worth keeping:
+
+- **Metering has its own `try`/`catch` inside `sendLlm`.** Without it, a throw would be caught by the function's outer handler and turn a perfectly good answer into `null`. The ledger observes the call; it does not get a vote in whether the call succeeded. There is a test pinning this.
+- **The fallback retry meters separately, and the failed attempt does not meter at all.** The retry is a second real request that costs real money; the failure carries no `usage` block, so any figure for it would be invented.
+
+**Why the workspace is threaded explicitly.** The two cheaper-looking options are both wrong here, and the reasons are specific enough to be worth recording so they are not revisited:
+
+| Option | Why it fails |
+|--------|--------------|
+| Look the workspace up from `userId` | `workspace_members` is one-to-many. Every resolver today takes the earliest membership (`.order("created_at").limit(1)`), with a comment in `app/_lib/tenancy/context.ts` conceding this holds only "until workspace switching is fully wired." Spend would bill to whichever workspace the user joined first, and get *more* wrong once switching ships. Several call sites also pass synthetic actors — `"play-executor"`, `"catalog-sync-cron"` — where no user row exists at all. |
+| `AsyncLocalStorage` request context | Six of the 14 sites run with no request: two crons, a post-OAuth background job, the play executor, a platform-admin action, and a background narrative recompute. Several are fire-and-forget (`void captureVoiceCorrection(...)`, `void runFirstScanForWorkspace(...)`), the exact context-loss case Next.js warns about. Decisively, `capture-intelligence-cron.ts` loops over **multiple workspaces in one invocation** — a request-scoped store holds one value and cannot express that. |
+
+So `LlmSpendContext` is a union, and "this spend has no workspace" is a stated case (`platformSpend(actor, reason)`) rather than an omission. There is no default: forgetting is a build error, not a plausible wrong bill. Platform spend — tool classification, admin catalog work — is not charged to any tenant, because billing one workspace for shared infrastructure would be worse than billing nobody.
+
+Changing the signature turned the migration into a compiler worklist, which is the argument for doing it this way: `tsc` named all 14 sites, and propagating the type through three helpers that took `userId` (`extractFieldsWithLlm`, `extractLineItemsFromDocument`, `generateRecordNarrative`) surfaced their callers too. Nothing had to be found by grep.
+
+Two live bugs were fixed along the way, both previously invisible: `first-scan.ts` passed a `workspaceId` into the `userId` argument (sending a workspace id to the provider as a user identifier), and `run-play-deps.ts` passed the literal `"play-executor"` for every workspace on the platform.
+
+`FourTierMatchContext.spend` is optional, and its absence is what disables the LLM tier — an unattributable caller degrades to the cheaper tiers rather than spending anonymously.
+
+### `canSpend()` (shipped 2026-08-06)
+
+The circuit breaker described above, now real. [`app/_lib/usage/can-spend.ts`](../../app/_lib/usage/can-spend.ts) decides; [`app/_lib/usage/cogs.ts`](../../app/_lib/usage/cogs.ts) supplies the number it decides on.
+
+**The ladder is origin-aware, and that is the part worth understanding.** `resolveOutcome(ratio, origin)` is a pure function over three origins:
+
+| Origin | Below 30% | 30–100% | At or above 100% |
+|---|---|---|---|
+| `user` | allow | degrade | **deny** |
+| `background` | allow | degrade | **queue** |
+| `committed` | allow | degrade | **degrade** |
+
+`committed` is how the guardrail "never deny work already promised" is encoded rather than merely documented. An approved play that has started must finish: refusing halfway leaves side effects applied, no output, and nothing to explain. Admission is the place to say no. `backgroundSpend()` and `committedSpend()` exist so a call site declares which it is at the point of call.
+
+**Each exit point owns its own lever.** `canSpend` returns `degrade` and deliberately does not say what to give up, because the caller knows and this module does not:
+
+| Exit | Lever under `degrade` |
+|---|---|
+| `sendLlm` | Swap to `LLM_FALLBACK_MODEL` (gpt-4o-mini) |
+| Ask Salt | Drop `stepCountIs(12)` to 5 |
+| Manual capture scan | Fewer captures per run (already tier-derived) |
+
+Ask Salt degrades on *steps* rather than model class because it already routes to the cheapest model Salt uses. Steps are the real cost driver there: twelve round-trips each able to call tools is what makes one message expensive, so capping them is also the first half of bounding tool fan-out within a turn.
+
+**The revenue basis is not just the subscription price.** `resolveRevenueMicros` divides annual plans down to a monthly equivalent, and adds opted-in overage — a customer who accepted overage billing is paying for the excess, so measuring them against the base subscription would throttle the one cohort fully covering its costs. The G5 cap applies, or the denominator would grow without limit. Enterprise returns `null` (no catalog price, negotiated per deal); null means "no basis" and resolves to allow, because treating its $0 as revenue would make every ratio infinite and deny the account on its first request.
+
+**Everything fails open, loudly.** A ledger read failure, an entitlement error, or an outright throw all return `allow`. Hard constraint 7 already says metering must never break execution, and admission is the same bargain: an unmetered call beats a broken customer action. The spend still lands in the ledger on the way out, so the gap is visible afterwards.
+
+#### The cost read, and why in-memory is right here and wrong elsewhere
+
+`getWorkspaceCogs` sits in front of every paid call, so it caches. That looks like a direct contradiction of the Ask Salt argument that in-memory state is useless on serverless — it is not, and the distinction is worth keeping straight:
+
+- **A counter in memory *is* the limit.** Duplicating it across instances multiplies the allowance, and a cold start hands out a fresh one. Useless as a ceiling.
+- **A cache holds a copy of a number the database owns.** Duplicating it changes nothing; it only means an instance may read a value up to `CACHE_TTL_MS` old. Bounded staleness, not an unbounded allowance.
+
+A plain TTL cache would still fail where it matters most, because one Ask Salt turn is twelve model calls and a burst fits inside 60 seconds. So the snapshot is treated as a floor: `recordUsageEvent` calls `noteLocalSpend`, and the effective figure is snapshot plus everything this instance has recorded since. The gate tightens in real time locally and converges globally on the next refetch. It can only ever *over*-count briefly, which errs toward degrading early — the safe direction for a cost control.
+
+The aggregate itself is a `STABLE` SQL function (`workspace_cogs_micros`) rather than a PostgREST select-and-sum, because `llm_call` is the highest-cardinality row type in the ledger and summing in Node would ship thousands of rows to produce one integer. It is `SECURITY INVOKER` with EXECUTE granted to `service_role` alone: the only caller already bypasses RLS, so `SECURITY DEFINER` would add privilege escalation for no benefit.
+
+#### One thing the type system cannot check
+
+`createAdminClient()` is constructed without a `Database` generic, so `supabase.rpc("anything", { whatever })` compiles regardless of whether the function exists or the parameter names match. This is the same blind spot that let `usage_events` ship without a `service_role` grant. `scripts/verify-cogs-aggregate.mjs` probes the real database; run it after any change to the function signature.
 
 ### Highest-risk unbounded paths
 
-1. **Ask Salt chat** — no rate limit, no message cap, no token budget. Each message can fan out to 12 agent steps, each able to call Composio.
-2. **Sync & Scan** — `run-intelligence-scan.ts` hardcodes `scanAll: true`, so one click classifies *every* capture in the lookback window with one LLM call each.
+1. ~~**Ask Salt chat**~~ — bounded as of 2026-08-06 by fair use, budget admission, and a step cap that tightens to 5 under pressure. Tool fan-out within a healthy turn is still 12 steps × N tools; each Composio call now passes `canSpend`, so the cost is bounded by the workspace budget even though the step count is not bounded per turn.
+2. ~~**Sync & Scan**~~ — bounded as of 2026-08-06. `scanAll: true` used to mean *unbounded*: the paginating branch of `fetchCapturesInLookback` was a `while (true)` that ignored `maxEmails` entirely, so `maxEmails` applied only to the branch that flag skipped. One click classified every capture in the lookback window — a seven-day default — at one model call each, making the cost of a click a function of the user's inbox size rather than of anything Salt chose. Both branches now honour the ceiling, and `syncAndScanCaptures` derives it from the tier via `resolveScanCaptureCap` (`app/_lib/usage/capture-scan-cap.ts`). The loop is extracted as `collectCapturePages` specifically so a test fails if it ever becomes unbounded again. This is a per-scan ceiling, not a budget check; `canSpend()` supersedes it and this becomes the backstop underneath.
 3. **Play approval** — no entitlement check before `executePlayRun`.
 4. **Capture crons** — bounded per run (50 workspaces × 100 emails) but repeat every 30 minutes and scale with tenant count.
 5. **Webhook enrichment** — bypasses the Composio gate entirely; volume is driven by the user's inbox.
@@ -317,10 +482,14 @@ Checklist for any change that calls a paid vendor API:
 
 | Path | Role |
 |------|------|
+| `app/_lib/usage/can-spend.ts` | `canSpend` — the circuit breaker. Ladder, revenue basis, origins. |
+| `app/_lib/usage/cogs.ts` | MTD COGS read, cached with local-delta accounting |
 | `app/_lib/usage/ledger.ts` | `recordUsageEvent`, `reverseUsageEvent`, `countBillablePlays` |
 | `app/_lib/usage/tiers.ts` | `TIER_CATALOG` — capacities and prices. Server-side truth. |
-| `app/_lib/usage/entitlements.ts` | `getWorkspaceEntitlement` — currently has no callers |
+| `app/_lib/usage/entitlements.ts` | `getWorkspaceEntitlement` — called by Ask Salt admission |
 | `app/_lib/usage/play-cost.ts` | COGS estimation in micro-USD, floor-breach thresholds |
+| `app/_lib/usage/llm-cost.ts` | Token → micro-USD by model. Unknown models price expensive. |
+| `app/_lib/usage/ask-salt-usage.ts` | `checkAskSaltAllowance`, `recordAskSaltUsage` |
 | `app/_lib/usage/record-play-usage.ts` | Play metering entry; derives billability |
 | `app/_features/plays/services/meter-play.ts` | `meterInternalPlay` for non-executor completions |
 | `app/_lib/composio/external-effect.ts` | Resolves `external_effect` for a tool slug |

@@ -14,6 +14,7 @@ import { PlaysTabEmptyState } from "./PlaysTabEmptyState";
 
 interface AutoHandledTimelineProps {
   findings: FindingWithContext[];
+  cards?: PlayCardViewModel[];
   emptyMessage?: string;
   emptyDescription?: string;
   pageSize?: number;
@@ -25,6 +26,7 @@ const DEFAULT_PAGE_SIZE = 50;
 
 export function AutoHandledTimeline({
   findings,
+  cards,
   emptyMessage = "Nothing auto-handled recently",
   emptyDescription = "Confident Memory updates will appear here for quick review. Activity keeps the full all-time ledger.",
   pageSize = DEFAULT_PAGE_SIZE,
@@ -49,10 +51,10 @@ export function AutoHandledTimeline({
   }, [findings.length]);
 
   const allCards = useMemo(() => {
-    return findings
-      .map(mapHandledFindingToCard)
+    const sourceCards = cards ?? findings.map(mapHandledFindingToCard);
+    return sourceCards
       .filter((vm) => validatePlayCard(vm).ok && !removed[vm.id]);
-  }, [findings, removed]);
+  }, [cards, findings, removed]);
 
   const totalCount = allCards.length;
   const hasMore = visibleCount < totalCount;

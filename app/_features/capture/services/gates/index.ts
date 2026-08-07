@@ -32,6 +32,22 @@ import {
 } from "./admission-gate";
 import { isBlocked } from "../blocklist-manager";
 import { extractAdmissionSignals } from "./admission-signals";
+import { EMAIL_SCAN_SOURCE_TYPES } from "../../adapters/categories/email";
+
+/**
+ * Memory-first email policy: inbound email that passes admission but has no
+ * Memory match is held (thin row, hidden from the stream) instead of ingested
+ * at full prominence. Only email is held — other capture sources (billing,
+ * calendar, storage…) are account-scoped, not sender-scoped, so an unknown
+ * "sender" there is meaningless. Mail the user sent is never held: outbound
+ * mail powers the reply-driven promotion loop.
+ */
+function isHoldableEmail(envelope: CaptureEnvelope): boolean {
+  if (envelope.captureType !== "message") return false;
+  if (!EMAIL_SCAN_SOURCE_TYPES.includes(envelope.sourceType)) return false;
+  const extracted = envelope.extracted as Record<string, unknown>;
+  return extracted?.isSentByUser !== true;
+}
 
 export interface GatePipelineInput {
   workspaceId: string;
@@ -143,6 +159,16 @@ export async function runGatePipeline(input: GatePipelineInput): Promise<GatePip
   const admissionResult = await runAdmissionGate(admissionInput);
   result.gateResults.admission = admissionResult;
   result.passedGates.push("admission");
+
+  // Memory-first: unknown-sender inbound email never reaches the stream —
+  // candidate and noise alike go to the held pool. The admission result is
+  // kept on the row so discovery can score held senders without re-running
+  // the relationship checks. Hard drops already returned above.
+  if (isHoldableEmail(envelope)) {
+    result.finalAction = "held";
+    result.shouldIngest = true;
+    return result;
+  }
 
   if (admissionResult.action === "noise") {
     result.finalAction = "noise";

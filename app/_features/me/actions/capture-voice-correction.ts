@@ -1,7 +1,7 @@
 "use server";
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
-import { sendLlm } from "@/app/_lib/ai/gpt";
+import { sendLlm, workspaceSpend } from "@/app/_lib/ai/gpt";
 
 /**
  * Voice Correction Capture
@@ -84,7 +84,7 @@ export async function captureVoiceCorrection(
         content: `ORIGINAL DRAFT:\n${originalDraft.slice(0, 1500)}\n\nEDITED VERSION:\n${editedDraft.slice(0, 1500)}`,
       },
     ],
-    userId,
+    workspaceSpend(workspaceId, userId),
     { routingKey: "extraction", maxTokens: 100 },
   );
 

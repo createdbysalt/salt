@@ -21,6 +21,7 @@ export type PlaysTabData = {
   connectors: ConnectorsPageData;
   initialFindings: FindingWithContext[];
   autoHandledFindings: FindingWithContext[];
+  autoHandledRuns: PlayRunRow[];
   findingCounts: { needs_you: number; auto_handled: number };
   playsRanToday: number;
   learningEvidence: GroupedLearningEvidence[];

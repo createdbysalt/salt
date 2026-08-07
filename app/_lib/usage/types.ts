@@ -13,7 +13,13 @@ export type UsageEventType =
   | "ask_salt_query"
   | "capture_ingested"
   | "capture_processed"
-  | "storage_delta";
+  | "storage_delta"
+  /**
+   * Raw language-model spend recorded at `sendLlm`. Always non-billable: it is
+   * the cost underneath other outcomes, not an outcome itself. Highest
+   * cardinality type in the ledger — one row per model call.
+   */
+  | "llm_call";
 
 export type UsageReversalReason =
   | "play_failed"

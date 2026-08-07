@@ -198,6 +198,61 @@ function buildGmailDeepLink(messageId: string, threadId: string | null): string 
   return `https://mail.google.com/mail/u/0/#inbox/${id}`;
 }
 
+/**
+ * Headers the pre-ingest gate needs for marketing/bulk detection.
+ * GMAIL_NEW_GMAIL_MESSAGE carries the raw Gmail API message payload under
+ * `payload`, whose `headers` is an array of { name, value } pairs.
+ */
+const GATE_RELEVANT_HEADERS = new Set([
+  "list-unsubscribe",
+  "list-id",
+  "precedence",
+  "auto-submitted",
+  "x-mailer",
+  "in-reply-to",
+  "references",
+]);
+
+function extractGmailHeaders(payload: unknown): Record<string, string> {
+  if (!payload || typeof payload !== "object") return {};
+  const record = payload as Record<string, unknown>;
+  const nested = typeof record.message === "object" && record.message !== null
+    ? (record.message as Record<string, unknown>)
+    : null;
+
+  // Gmail API shape: { payload: { headers: [{ name, value }] } }
+  const apiPayload = (record.payload ?? nested?.payload) as
+    | Record<string, unknown>
+    | undefined;
+  const headerList = apiPayload?.headers ?? record.headers ?? nested?.headers;
+
+  const result: Record<string, string> = {};
+
+  if (Array.isArray(headerList)) {
+    for (const entry of headerList) {
+      if (!entry || typeof entry !== "object") continue;
+      const h = entry as Record<string, unknown>;
+      const name = typeof h.name === "string" ? h.name : null;
+      const value = typeof h.value === "string" ? h.value : null;
+      if (name && value && GATE_RELEVANT_HEADERS.has(name.toLowerCase())) {
+        result[name] = value;
+      }
+    }
+    return result;
+  }
+
+  // Already a flat record of header name -> value
+  if (headerList && typeof headerList === "object") {
+    for (const [name, value] of Object.entries(headerList as Record<string, unknown>)) {
+      if (typeof value === "string" && GATE_RELEVANT_HEADERS.has(name.toLowerCase())) {
+        result[name] = value;
+      }
+    }
+  }
+
+  return result;
+}
+
 function normalizeGmail(payload: unknown): CaptureEnvelope | null {
   const externalId = extractMessageIdFromRow(payload);
   if (!externalId) return null;
@@ -211,6 +266,7 @@ function normalizeGmail(payload: unknown): CaptureEnvelope | null {
   const toList = extractRecipientsFromRow(payload);
   const ccList = extractGmailCc(payload);
   const { hasAttachments, attachments } = extractGmailAttachments(payload);
+  const headers = extractGmailHeaders(payload);
 
   const participants: EnvelopeParticipant[] = [
     ...(fromRaw ? [parseAddress(fromRaw, "from")] : []),
@@ -253,6 +309,9 @@ function normalizeGmail(payload: unknown): CaptureEnvelope | null {
       messageId: externalId,
       threadId,
       hasAttachments,
+      // Pre-ingest gate reads raw.headers for List-Unsubscribe / Precedence /
+      // Auto-Submitted checks (extractHeadersFromEnvelope).
+      headers,
       source: "composio_trigger",
     },
     noise: {

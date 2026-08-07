@@ -37,9 +37,10 @@ export async function memoryGetOrphanRecords(
   if (!entityType || entityType === "person") {
     const { data: people } = await supabase
       .from("people")
-      .select("id, display_name, email")
+      .select("id, name, email")
       .eq("workspace_id", workspaceId)
       .is("deleted_at", null)
+      .is("archived_at", null)
       .limit(500);
 
     if (people) {
@@ -53,19 +54,23 @@ export async function memoryGetOrphanRecords(
           .from("work")
           .select("id", { count: "exact", head: true })
           .eq("workspace_id", workspaceId)
-          .eq("person_id", person.id);
+          .eq("person_id", person.id)
+          .is("deleted_at", null)
+          .is("archived_at", null);
 
         const { count: billingCount } = await supabase
           .from("billing_records")
           .select("id", { count: "exact", head: true })
           .eq("workspace_id", workspaceId)
-          .eq("person_id", person.id);
+          .eq("person_id", person.id)
+          .is("deleted_at", null)
+          .is("archived_at", null);
 
         if ((orgCount || 0) === 0 && (workCount || 0) === 0 && (billingCount || 0) === 0) {
           records.push({
             id: person.id,
             entityType: "person",
-            name: person.display_name || person.email || "Unknown",
+            name: person.name || person.email || "Unknown",
             signal: "person_orphan",
             severity: 65,
             suggestedAction: "Link to organization or mark as independent",
@@ -81,6 +86,7 @@ export async function memoryGetOrphanRecords(
       .select("id, name, organization_id, person_id")
       .eq("workspace_id", workspaceId)
       .is("deleted_at", null)
+      .is("archived_at", null)
       .is("organization_id", null)
       .is("person_id", null)
       .limit(limit);
@@ -105,6 +111,7 @@ export async function memoryGetOrphanRecords(
       .select("id, title, filename")
       .eq("workspace_id", workspaceId)
       .is("deleted_at", null)
+      .is("archived_at", null)
       .limit(500);
 
     if (files) {
@@ -134,6 +141,7 @@ export async function memoryGetOrphanRecords(
       .select("id, number, organization_id, person_id, project_id")
       .eq("workspace_id", workspaceId)
       .is("deleted_at", null)
+      .is("archived_at", null)
       .is("organization_id", null)
       .is("person_id", null)
       .is("project_id", null)

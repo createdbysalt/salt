@@ -119,8 +119,9 @@ const CURATED_ACTIONS: Record<string, string> = {
   STRIPE_LIST_PAYMENT_INTENTS: "Checked your payments",
   STRIPE_CREATE_INVOICE: "Drafted an invoice",
   STRIPE_CREATE_CUSTOMER: "Added a Stripe customer",
-  // Cal.com
+  // Cal.com (old slug kept for historical execution-log rows)
   CAL_GET_TEAM_BOOKINGS: "Checked your bookings",
+  CAL_FETCH_ALL_BOOKINGS: "Checked your bookings",
 };
 
 /**

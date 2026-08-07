@@ -12,6 +12,7 @@ import {
   type LearningEntityType,
   type EvidenceChainItem,
 } from "@/app/_lib/memory-tools";
+import { createAdminClient } from "@/app/_lib/supabase/admin";
 
 export interface RunInput {
   workspaceId: string;
@@ -139,6 +140,89 @@ export async function run(input: RunInput): Promise<RunResult> {
     rulesMatched,
     updates,
   };
+}
+
+export interface WorkspaceRunResult {
+  entitiesEvaluated: number;
+  rulesMatched: number;
+  updates: RunResult["updates"];
+}
+
+/**
+ * Run fill rules across recently active people and organizations in a
+ * workspace. Used by scheduled and on-demand (Sync & Scan) runs where no
+ * single triggering entity exists.
+ */
+export async function runForWorkspace(input: {
+  workspaceId: string;
+  signal?: string;
+  entityLimit?: number;
+}): Promise<WorkspaceRunResult> {
+  const admin = createAdminClient();
+  const limit = input.entityLimit ?? 50;
+  const signal = input.signal ?? "scheduled_scan";
+
+  const [peopleResult, orgsResult] = await Promise.all([
+    admin
+      .from("people")
+      .select("id, name")
+      .eq("workspace_id", input.workspaceId)
+      .is("deleted_at", null)
+      .order("updated_at", { ascending: false })
+      .limit(limit),
+    admin
+      .from("organizations")
+      .select("id, name")
+      .eq("workspace_id", input.workspaceId)
+      .is("deleted_at", null)
+      .order("updated_at", { ascending: false })
+      .limit(limit),
+  ]);
+
+  const targets: Array<{
+    entityType: LearningEntityType;
+    entityId: string;
+    entityLabel: string;
+  }> = [
+    ...(peopleResult.data ?? []).map((p) => ({
+      entityType: "person" as const,
+      entityId: p.id,
+      entityLabel: p.name ?? p.id,
+    })),
+    ...(orgsResult.data ?? []).map((o) => ({
+      entityType: "organization" as const,
+      entityId: o.id,
+      entityLabel: o.name ?? o.id,
+    })),
+  ];
+
+  const result: WorkspaceRunResult = {
+    entitiesEvaluated: 0,
+    rulesMatched: 0,
+    updates: [],
+  };
+
+  for (const target of targets) {
+    try {
+      const runResult = await run({
+        workspaceId: input.workspaceId,
+        signal,
+        entityType: target.entityType,
+        entityId: target.entityId,
+        entityLabel: target.entityLabel,
+      });
+      result.entitiesEvaluated++;
+      result.rulesMatched += runResult.rulesMatched;
+      result.updates.push(...runResult.updates);
+    } catch (error) {
+      console.error(
+        `[memory-records] Workspace run failed for ${target.entityType} ${target.entityId}:`,
+        error,
+      );
+    }
+  }
+
+  return result;
 }
 
 /**

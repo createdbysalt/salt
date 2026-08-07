@@ -1199,6 +1199,7 @@ export type Database = {
           ask_salt_slug_prefix: string | null
           auth_config_env_var: string | null
           auth_config_id: string
+          capture_category: string | null
           created_at: string
           notes: string | null
           provider_key: string
@@ -1212,6 +1213,7 @@ export type Database = {
           ask_salt_slug_prefix?: string | null
           auth_config_env_var?: string | null
           auth_config_id?: string
+          capture_category?: string | null
           created_at?: string
           notes?: string | null
           provider_key: string
@@ -1225,6 +1227,7 @@ export type Database = {
           ask_salt_slug_prefix?: string | null
           auth_config_env_var?: string | null
           auth_config_id?: string
+          capture_category?: string | null
           created_at?: string
           notes?: string | null
           provider_key?: string

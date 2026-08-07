@@ -47,10 +47,18 @@ export { backfillGmailCaptures, runGmailBootstrap } from "./gmail-backfill";
 export type { GmailBackfillOptions, GmailBackfillResult } from "./gmail-backfill";
 export {
   backfillCalendarCaptures,
+  backfillCalendlyEvents,
   backfillDriveCaptures,
+  backfillDropboxCaptures,
+  backfillOutlookCaptures,
+  backfillQuickbooksCaptures,
   backfillStripeCaptures,
   runCalendarBootstrap,
+  runCalendlyBootstrap,
   runDriveBootstrap,
+  runDropboxBootstrap,
+  runOutlookBootstrap,
+  runQuickbooksBootstrap,
   runStripeBootstrap,
 } from "./connector-backfills";
 export type { ConnectorBackfillResult } from "./connector-backfills";

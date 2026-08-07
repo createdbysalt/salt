@@ -183,9 +183,18 @@ export function mapOutcomeToCategory(outcome: CaptureIntelligenceOutcome): Captu
 /**
  * Derive capture category from enriched metadata.
  * The new enrichment system is the source of truth when available.
+ *
+ * "Triggered Play" (queued) is only truthful when a play was actually
+ * dispatched (aligned with isTriggeredCapture in capture-priority.ts).
+ * Merely receiving an email or matching generic signals is not a trigger.
  */
 export function categoryFromEnrichment(
-  enrichedMetadata: { enriched_at?: string | null; signals_matched?: string[]; linked_records?: unknown[] } | null | undefined,
+  enrichedMetadata: {
+    enriched_at?: string | null;
+    signals_matched?: string[];
+    linked_records?: unknown[];
+    plays_dispatched?: unknown[];
+  } | null | undefined,
   fallbackOutcome: CaptureIntelligenceOutcome
 ): CaptureCategory {
   // If no enrichment data, fall back to old intelligence outcome
@@ -193,23 +202,19 @@ export function categoryFromEnrichment(
     return mapOutcomeToCategory(fallbackOutcome);
   }
 
-  // Enrichment completed - determine category from results
   const signals = enrichedMetadata.signals_matched ?? [];
-  const linkedRecords = enrichedMetadata.linked_records ?? [];
 
-  // If we have meaningful signals or linked records, it's queued for review
-  const hasActionableSignals = signals.some((s) =>
-    s.startsWith("capture_email_received") ||
-    s.startsWith("capture_calendar_") ||
-    s.includes("is_reply") ||
-    s.includes("invoice") ||
-    s.includes("payment")
-  );
+  // Noise-classified email never counts as a trigger, regardless of what
+  // other signals matched.
+  if (signals.includes("email_classified_noise")) {
+    return "no-signal";
+  }
 
-  if (hasActionableSignals || linkedRecords.length > 0) {
+  const dispatched = enrichedMetadata.plays_dispatched ?? [];
+  if (dispatched.length > 0) {
     return "queued";
   }
 
-  // Enriched but no actionable signals
+  // Enriched but nothing dispatched — Salt reviewed, no action taken.
   return "no-signal";
 }

@@ -131,6 +131,30 @@ export async function listQueuedPlayRuns(): Promise<PlayRunRow[]> {
   return data as PlayRunRow[];
 }
 
+export async function listAutoHandledPlayRuns(since?: Date): Promise<PlayRunRow[]> {
+  const workspaceId = await getWorkspaceId();
+  const supabase = await createClient();
+
+  let query = supabase
+    .from("play_runs")
+    .select("*")
+    .eq("workspace_id", workspaceId)
+    .eq("queue", "auto_handled")
+    .in("state", ["approved", "ran"])
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  if (since) {
+    query = query.gte("created_at", since.toISOString());
+  }
+
+  const { data, error } = await query;
+
+  if (error || !data) return [];
+
+  return data as PlayRunRow[];
+}
+
 /** @deprecated Use listHqNeedsYouCards — same source as Plays → Needs You. */
 export async function listHqQueuePlays(): Promise<HqQueuePlayView[]> {
   const cards = await listHqNeedsYouCards();

@@ -26,6 +26,19 @@ export type HqTimeSavedData = {
   hasActivity: boolean;
 };
 
+/** Expired connectors that need re-auth. Empty `items` hides the side-rail card. */
+export type HqConnectorHealthItem = {
+  /** Logo / deep-link id (e.g. "google" for Gmail). */
+  catalogId: string;
+  /** Composio provider key used to re-initiate OAuth (e.g. "gmail"). */
+  provider: string;
+  name: string;
+};
+
+export type HqConnectorHealthData = {
+  items: HqConnectorHealthItem[];
+};
+
 export type HqSideRailData = {
   timeSaved: HqTimeSavedData;
   schedule: HqScheduleItem[];
@@ -33,6 +46,7 @@ export type HqSideRailData = {
   scheduleContext: {
     hasCalendarConnected: boolean;
   };
+  connectorHealth: HqConnectorHealthData;
 };
 
 export type HqRevenueStats = {

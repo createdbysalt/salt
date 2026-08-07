@@ -6,6 +6,7 @@ import {
   listTodayMeetings,
   meetingDisplayLabel,
 } from "@/app/_features/meetings/queries";
+import { listReconnectNeeded } from "@/app/_features/connectors/queries";
 import { getConnectionStatus } from "@/app/_lib/composio/connections";
 import { getWorkspaceContext } from "@/app/_lib/utils/user-dashboard";
 import {
@@ -145,12 +146,14 @@ async function loadHeadsUp(): Promise<HqHeadsUpItem[]> {
 
 export const loadHqSideRailData = cache(async (): Promise<HqSideRailData> => {
   const { studio } = await getWorkspaceContext();
-  const [timeSaved, schedule, headsUp, calendarStatus] = await Promise.all([
-    loadTimeSaved(studio.id),
-    loadTodaySchedule(),
-    loadHeadsUp(),
-    getConnectionStatus("googlecalendar", studio.id),
-  ]);
+  const [timeSaved, schedule, headsUp, calendarStatus, reconnectNeeded] =
+    await Promise.all([
+      loadTimeSaved(studio.id),
+      loadTodaySchedule(),
+      loadHeadsUp(),
+      getConnectionStatus("googlecalendar", studio.id),
+      listReconnectNeeded(studio.id),
+    ]);
 
   return {
     timeSaved,
@@ -158,6 +161,13 @@ export const loadHqSideRailData = cache(async (): Promise<HqSideRailData> => {
     headsUp,
     scheduleContext: {
       hasCalendarConnected: calendarStatus.connected,
+    },
+    connectorHealth: {
+      items: reconnectNeeded.map((item) => ({
+        catalogId: item.catalogId,
+        provider: item.provider,
+        name: item.name,
+      })),
     },
   };
 });

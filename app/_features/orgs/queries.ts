@@ -1,6 +1,7 @@
 import "server-only";
 
 import { cache } from "react";
+import { workspaceSpend } from "@/app/_lib/ai/gpt";
 import { getWorkspaceContext } from "@/app/_lib/utils/user-dashboard";
 import { HEALTH_FRESHNESS_MS } from "@/app/_lib/health/core";
 import { ORG_ARCHETYPE_DISPLAY_LABEL } from "@/app/_features/orgs/health/archetypes";
@@ -193,7 +194,7 @@ export const getOrgDetailSummary = cache(async (orgId: string): Promise<OrgDetai
     table: "organizations",
     recordId: org.id as string,
     kind: "org",
-    userId,
+    spend: workspaceSpend(workspace.id, userId),
     signals: narrativeSignals,
     cache: {
       ai_summary: (org.ai_summary as string | null) ?? null,

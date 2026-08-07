@@ -88,6 +88,13 @@ describe("seed ↔ registry parity (Phase 2.4 acceptance)", () => {
         "supabase/migrations/20260714000000_seed_remaining_connector_tools.sql",
       ),
       "utf8",
+    ) +
+    readFileSync(
+      join(
+        process.cwd(),
+        "supabase/migrations/20260806100000_seed_backfill_tool_classifications.sql",
+      ),
+      "utf8",
     );
 
   const registrySlugs = [...new Set(Object.values(COMPOSIO_TOOL_SLUGS))].filter(

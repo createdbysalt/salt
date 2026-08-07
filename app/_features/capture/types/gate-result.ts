@@ -5,9 +5,15 @@
  * - Gate 1 (pre-ingest): Block obvious noise before creating captures
  * - Gate 2 (known-entity): Fast-track to known People/Orgs
  * - Gate 3 (admission): Score unknown senders for admission
+ *
+ * Memory-first email policy (Capture Quality Repair, Phase C): inbound email
+ * from senders with no Memory match is "held" — stored as a thin row (sender,
+ * subject, thread metadata), hidden from the stream, never enriched. The
+ * relationship-discovery pass promotes held senders into Memory, after which
+ * their mail flows as "signal" like any known entity.
  */
 
-export type GateAction = "drop" | "signal" | "candidate" | "noise";
+export type GateAction = "drop" | "signal" | "candidate" | "noise" | "held";
 
 export interface EntityRef {
   surface: "people" | "organizations";

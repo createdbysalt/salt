@@ -5,6 +5,8 @@ import { classifyCaptureNoise } from "./intelligence/capture-noise";
 import { processCaptureForEvidence } from "@/app/_features/memory/evidence";
 import { runGatePipeline, type GatePipelineInput } from "./gates";
 import { enrichAndPersist } from "./enrichment";
+import { promoteRepliedRecipients } from "./relationship-discovery";
+import { recordOutboundReplies } from "./sender-reputation";
 import { mergeIntelligenceMeta } from "./intelligence/capture-intelligence-outcome";
 import type { CaptureEnvelope } from "../adapters/types";
 import type { CaptureOrigin, CaptureState } from "../types";
@@ -26,7 +28,31 @@ import type { GatePipelineResult } from "../types/gate-result";
  * classifiers, and play triggers are untouched by how items arrive.
  */
 
-export type IngestOutcome = "created" | "duplicate" | "noise" | "dropped" | "error";
+export type IngestOutcome = "created" | "duplicate" | "noise" | "held" | "dropped" | "error";
+
+/**
+ * Held rows (Memory-first email policy) store only what the discovery pass
+ * and the digest need — sender, subject, thread metadata. No body content,
+ * no recipients, no attachments; held mail is never enriched or scanned, so
+ * nothing downstream reads more than this.
+ */
+const HELD_EXTRACTED_KEYS = [
+  "subject",
+  "sender_email",
+  "sender_name",
+  "thread_id",
+  "is_reply",
+  "labels",
+  "deep_link",
+] as const;
+
+function thinHeldExtracted(extracted: Record<string, unknown>): Record<string, unknown> {
+  const thin: Record<string, unknown> = {};
+  for (const key of HELD_EXTRACTED_KEYS) {
+    if (extracted[key] !== undefined) thin[key] = extracted[key];
+  }
+  return thin;
+}
 
 export interface IngestEnvelopeOptions {
   isBootstrap?: boolean;
@@ -88,6 +114,7 @@ export async function ingestEnvelope(
   }
 
   const isNoise = gateResult?.finalAction === "noise";
+  const isHeld = gateResult?.finalAction === "held";
   const captureState: CaptureState = gateResult?.finalAction === "signal" ? "routed" : "pending";
   const overallConfidence = gateResult?.targetEntity?.confidence ?? null;
 
@@ -95,12 +122,15 @@ export async function ingestEnvelope(
   // intelligence outcome they render as "Processing" forever in the stream.
   // Stamp no_signal at insert — the scan still re-analyzes no_signal rows,
   // so a later pass can upgrade them if they turn out to matter.
-  const extractedData = isNoise
-    ? mergeIntelligenceMeta(envelope.extracted, {
-        outcome: "no_signal",
-        scanned_at: new Date().toISOString(),
-      })
-    : envelope.extracted;
+  // Held rows (Memory-first) store a thin extract only — sender/subject/thread.
+  const extractedData = isHeld
+    ? thinHeldExtracted(envelope.extracted as Record<string, unknown>)
+    : isNoise
+      ? mergeIntelligenceMeta(envelope.extracted, {
+          outcome: "no_signal",
+          scanned_at: new Date().toISOString(),
+        })
+      : envelope.extracted;
 
   const admin = createAdminClient();
   const { data, error } = await admin
@@ -125,6 +155,12 @@ export async function ingestEnvelope(
     .single();
 
   if (!error && data) {
+    if (isHeld) {
+      // Held mail is invisible until the sender is promoted into Memory:
+      // no evidence, no enrichment, no LLM spend.
+      return { outcome: "held", captureId: data.id, gateResult };
+    }
+
     if (!options.skipEvidence && !options.isBootstrap && !isNoise) {
       const evidencePromise = processCaptureForEvidence(data.id).catch((err) => {
         console.warn(
@@ -154,8 +190,38 @@ export async function ingestEnvelope(
         );
       });
 
+      // Reply loops (Memory-first + Phase C2): outbound mail is the strongest
+      // engagement signal. Promote held recipients into Memory right away and
+      // bump each recipient's sender reputation so it self-builds without UI.
+      const extracted = envelope.extracted as Record<string, unknown>;
+      const sideEffects = [evidencePromise, enrichmentPromise];
+      if (
+        envelope.captureType === "message" &&
+        extracted?.isSentByUser === true &&
+        Array.isArray(extracted.to) &&
+        extracted.to.length > 0
+      ) {
+        const recipients = extracted.to as string[];
+        sideEffects.push(
+          promoteRepliedRecipients(workspaceId, recipients)
+            .then(() => undefined)
+            .catch((err) => {
+              console.warn(
+                `[ingest-envelope] Reply fast-path failed for ${data.id}:`,
+                err instanceof Error ? err.message : err
+              );
+            }),
+          recordOutboundReplies(workspaceId, recipients).catch((err) => {
+            console.warn(
+              `[ingest-envelope] Sender reputation update failed for ${data.id}:`,
+              err instanceof Error ? err.message : err
+            );
+          })
+        );
+      }
+
       if (options.awaitEnrichment) {
-        await Promise.all([evidencePromise, enrichmentPromise]);
+        await Promise.all(sideEffects);
       }
     }
 

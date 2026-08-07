@@ -13,6 +13,7 @@ import {
   accumulateEvidence as coreAccumulate,
   getAggregatedConfidence,
 } from "@/app/_lib/learning";
+import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { getWorkspaceThreshold } from "./get-threshold";
 import type { AccumulateInput, AccumulateResult } from "./types";
 
@@ -46,6 +47,8 @@ export async function memoryAccumulateEvidence(
     playbookSlug: input.sourceDetails?.playbookSlug,
   });
 
+  await recordEvidenceActivity(input, evidenceId, aggregatedConfidence);
+
   // Get full aggregation stats
   const aggregated = await getAggregatedConfidence(
     input.workspaceId,
@@ -69,4 +72,52 @@ export async function memoryAccumulateEvidence(
     meetsThreshold: aggregatedConfidence >= threshold,
     threshold,
   };
+}
+
+async function recordEvidenceActivity(
+  input: AccumulateInput,
+  evidenceId: string,
+  aggregatedConfidence: number
+): Promise<void> {
+  try {
+    const admin = createAdminClient();
+    const playbookSlug = input.sourceDetails?.playbookSlug ?? null;
+
+    const { error } = await admin.from("activity_entries").insert({
+      workspace_id: input.workspaceId,
+      action: "accumulated",
+      title: playbookSlug
+        ? `${formatPlaybookName(playbookSlug)} is watching`
+        : "Salt is watching evidence",
+      detail: input.because,
+      metadata: {
+        player_slug: "keeper",
+        auto_executed: true,
+        evidence_id: evidenceId,
+        entity_type: input.entityType,
+        entity_id: input.entityId,
+        field_path: input.field,
+        confidence: input.confidence,
+        aggregated_confidence: aggregatedConfidence,
+        evidence_type: input.evidenceType,
+        source: input.source,
+        playbook_slug: playbookSlug,
+        ...input.sourceDetails,
+      },
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+  } catch (error) {
+    // Activity is a visibility layer; evidence accumulation is the source of truth.
+    console.error("[memoryAccumulateEvidence] Failed to record activity:", error);
+  }
+}
+
+function formatPlaybookName(slug: string): string {
+  return slug
+    .split("-")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }

@@ -21,6 +21,7 @@ import "server-only";
  */
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import { memoryUpdateField } from "@/app/_lib/memory-tools";
 import {
   classifyEntity,
   completePersonFields,
@@ -46,6 +47,17 @@ export interface PersonResolutionResult {
   needs_confirmation: boolean;
 }
 
+export interface PersonEnrichmentHints {
+  /** Phone parsed from an email signature. */
+  phone?: string;
+  /** Company name parsed from an email signature. */
+  company?: string;
+  /** Job title parsed from an email signature. */
+  title?: string;
+  /** ISO timestamp of the capture, for first/last contact tracking. */
+  contactAt?: string;
+}
+
 export interface PersonResolutionInput {
   email: string;
   name?: string;
@@ -55,10 +67,11 @@ export interface PersonResolutionInput {
   /** Source tracking for confidence-gated keeper execution. */
   sourceType?: string;
   sourceCaptureId?: string;
+  /** Heuristic enrichment from the capture (signature phone/company/title). */
+  enrichment?: PersonEnrichmentHints;
 }
 
 import {
-  extractDomain,
   extractNameFromEmail,
   isPersonalDomain,
   type PersonSignals,
@@ -94,7 +107,7 @@ export async function resolvePerson(
 
   const { data: existingPeople } = await admin
     .from("people")
-    .select("id, name, email, title")
+    .select("id, name, email, title, phone")
     .eq("workspace_id", workspaceId)
     .eq("email", email)
     .is("deleted_at", null)
@@ -118,6 +131,19 @@ export async function resolvePerson(
 
   if (decision.action === "update_existing") {
     const existingPerson = decision.duplicates[0];
+
+    if (existingPerson?.id) {
+      const existingRow = (existingPeople ?? []).find(
+        (p) => p.id === existingPerson.id
+      );
+      await applyPersonEnrichment(workspaceId, existingPerson.id, email, input, {
+        // Only propose fields the record doesn't already have — avoids
+        // re-accumulating evidence for values that are already set.
+        skipPhone: Boolean(existingRow?.phone),
+        skipTitle: Boolean(existingRow?.title),
+      });
+    }
+
     return {
       resolved: true,
       person_id: existingPerson?.id,
@@ -189,6 +215,8 @@ export async function resolvePerson(
       sourceType: input.sourceType,
       sourceCaptureId: input.sourceCaptureId,
     });
+
+    await applyPersonEnrichment(workspaceId, result.entity_id, email, input);
   }
 
   return {
@@ -200,6 +228,138 @@ export async function resolvePerson(
     confidence_reason: decision.reasons.join("; "),
     needs_confirmation: false,
   };
+}
+
+// ============================================================================
+// Heuristic Enrichment (Phase 3a — free, no LLM)
+// ============================================================================
+
+/**
+ * Apply capture-derived enrichment to a person through the protected
+ * memoryUpdateField tool (confidence-gated: applies at threshold,
+ * accumulates as Watching evidence below it).
+ *
+ * - Signature phone/title → moderate-confidence field proposals
+ * - Signature company on a personal-domain sender → org_link proposal
+ *   (corporate domains are linked directly by resolveOrg/linkPersonToOrg)
+ * - Capture timestamp → first_contact_at / last_contact_at (direct write,
+ *   low-stakes timestamps bypass the gate)
+ */
+async function applyPersonEnrichment(
+  workspaceId: string,
+  personId: string,
+  email: string,
+  input: PersonResolutionInput,
+  options?: { skipPhone?: boolean; skipTitle?: boolean }
+): Promise<void> {
+  const enrichment = input.enrichment;
+  const sourceDetails = {
+    playbookSlug: "memory-records",
+    captureId: input.sourceCaptureId,
+  };
+
+  try {
+    if (enrichment?.phone && !options?.skipPhone) {
+      await memoryUpdateField({
+        workspaceId,
+        entityType: "person",
+        entityId: personId,
+        field: "phone",
+        value: enrichment.phone,
+        confidence: 75,
+        because: "Phone number parsed from email signature",
+        source: "enrichment",
+        sourceDetails: { ...sourceDetails, ruleId: "heuristic-signature-phone" },
+      });
+    }
+
+    if (enrichment?.title && !options?.skipTitle) {
+      await memoryUpdateField({
+        workspaceId,
+        entityType: "person",
+        entityId: personId,
+        field: "title",
+        value: enrichment.title,
+        confidence: 65,
+        because: "Job title parsed from email signature",
+        source: "enrichment",
+        sourceDetails: { ...sourceDetails, ruleId: "heuristic-signature-title" },
+      });
+    }
+
+    // Signature-company org link. Corporate domains are already linked
+    // directly by resolveOrg + linkPersonToOrg; this covers the gap where
+    // the sender uses a personal domain (gmail etc.) but their signature
+    // names a company we already know.
+    if (enrichment?.company && isPersonalDomain(email)) {
+      const admin = createAdminClient();
+      const { data: org } = await admin
+        .from("organizations")
+        .select("id, name")
+        .eq("workspace_id", workspaceId)
+        .ilike("name", enrichment.company.trim())
+        .is("deleted_at", null)
+        .is("archived_at", null)
+        .maybeSingle();
+
+      if (org) {
+        const { data: existingLink } = await admin
+          .from("organization_people")
+          .select("id")
+          .eq("organization_id", org.id)
+          .eq("person_id", personId)
+          .maybeSingle();
+
+        if (!existingLink) {
+          await memoryUpdateField({
+            workspaceId,
+            entityType: "person",
+            entityId: personId,
+            field: "org_link",
+            value: org.id,
+            confidence: 70,
+            because: `Email signature names ${org.name ?? "a known organization"}`,
+            source: "enrichment",
+            sourceDetails: { ...sourceDetails, ruleId: "heuristic-signature-company-link" },
+          });
+        }
+      }
+    }
+
+    // Contact timestamps: low-stakes bookkeeping, written directly.
+    if (enrichment?.contactAt) {
+      const admin = createAdminClient();
+      const { data: person } = await admin
+        .from("people")
+        .select("first_contact_at, last_contact_at")
+        .eq("id", personId)
+        .eq("workspace_id", workspaceId)
+        .maybeSingle();
+
+      if (person) {
+        const updates: Record<string, string> = {};
+        if (!person.first_contact_at || enrichment.contactAt < person.first_contact_at) {
+          updates.first_contact_at = enrichment.contactAt;
+        }
+        if (!person.last_contact_at || enrichment.contactAt > person.last_contact_at) {
+          updates.last_contact_at = enrichment.contactAt;
+        }
+        if (Object.keys(updates).length > 0) {
+          await admin
+            .from("people")
+            .update(updates)
+            .eq("id", personId)
+            .eq("workspace_id", workspaceId);
+        }
+      }
+    }
+  } catch (error) {
+    // Enrichment is best-effort — never fail person resolution over it
+    console.error(
+      `[person-resolver] Enrichment failed for person ${personId}:`,
+      error
+    );
+  }
 }
 
 /**

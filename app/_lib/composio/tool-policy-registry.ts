@@ -91,6 +91,12 @@ const TOOL_POLICIES: Record<string, ComposioToolPolicy> = {
     risk: "read",
     requiresHumanConfirmation: false,
   },
+  // Current toolkit (verified live 2026-08-06) — CAL_GET_TEAM_BOOKINGS 404s.
+  [COMPOSIO_TOOL_SLUGS.CAL_FETCH_ALL_BOOKINGS]: {
+    slug: COMPOSIO_TOOL_SLUGS.CAL_FETCH_ALL_BOOKINGS,
+    risk: "read",
+    requiresHumanConfirmation: false,
+  },
   [COMPOSIO_TOOL_SLUGS.CAL_RETRIEVE_MY_INFORMATION]: {
     slug: COMPOSIO_TOOL_SLUGS.CAL_RETRIEVE_MY_INFORMATION,
     risk: "read",
@@ -526,6 +532,18 @@ const TOOL_POLICIES: Record<string, ComposioToolPolicy> = {
     risk: "read",
     requiresHumanConfirmation: false,
   },
+  // Current toolkit (verified live 2026-08-06) — the un-prefixed message
+  // reads above 404 after Composio's Outlook rework.
+  [COMPOSIO_TOOL_SLUGS.OUTLOOK_OUTLOOK_GET_MESSAGE]: {
+    slug: COMPOSIO_TOOL_SLUGS.OUTLOOK_OUTLOOK_GET_MESSAGE,
+    risk: "read",
+    requiresHumanConfirmation: false,
+  },
+  [COMPOSIO_TOOL_SLUGS.OUTLOOK_OUTLOOK_LIST_MESSAGES]: {
+    slug: COMPOSIO_TOOL_SLUGS.OUTLOOK_OUTLOOK_LIST_MESSAGES,
+    risk: "read",
+    requiresHumanConfirmation: false,
+  },
   [COMPOSIO_TOOL_SLUGS.OUTLOOK_GET_EVENT]: {
     slug: COMPOSIO_TOOL_SLUGS.OUTLOOK_GET_EVENT,
     risk: "read",
@@ -624,6 +642,12 @@ const TOOL_POLICIES: Record<string, ComposioToolPolicy> = {
     requiresHumanConfirmation: true,
   },
   // --- QuickBooks
+  // Current toolkit (verified live 2026-08-06) — capture backfill read.
+  [COMPOSIO_TOOL_SLUGS.QUICKBOOKS_CUSTOMER_BALANCE_DETAIL]: {
+    slug: COMPOSIO_TOOL_SLUGS.QUICKBOOKS_CUSTOMER_BALANCE_DETAIL,
+    risk: "read",
+    requiresHumanConfirmation: false,
+  },
   [COMPOSIO_TOOL_SLUGS.QUICKBOOKS_GET_COMPANY_INFO]: {
     slug: COMPOSIO_TOOL_SLUGS.QUICKBOOKS_GET_COMPANY_INFO,
     risk: "read",
@@ -665,6 +689,22 @@ const TOOL_POLICIES: Record<string, ComposioToolPolicy> = {
     requiresHumanConfirmation: true,
   },
   // --- Calendly (verified against Composio API 2026-07-13)
+  // Current toolkit (verified live 2026-08-06) — capture backfill reads.
+  [COMPOSIO_TOOL_SLUGS.CALENDLY_GET_CURRENT_USER]: {
+    slug: COMPOSIO_TOOL_SLUGS.CALENDLY_GET_CURRENT_USER,
+    risk: "read",
+    requiresHumanConfirmation: false,
+  },
+  [COMPOSIO_TOOL_SLUGS.CALENDLY_LIST_EVENTS]: {
+    slug: COMPOSIO_TOOL_SLUGS.CALENDLY_LIST_EVENTS,
+    risk: "read",
+    requiresHumanConfirmation: false,
+  },
+  [COMPOSIO_TOOL_SLUGS.CALENDLY_LIST_EVENT_INVITEES]: {
+    slug: COMPOSIO_TOOL_SLUGS.CALENDLY_LIST_EVENT_INVITEES,
+    risk: "read",
+    requiresHumanConfirmation: false,
+  },
   [COMPOSIO_TOOL_SLUGS.CALENDLY_LIST_EVENT_TYPES]: {
     slug: COMPOSIO_TOOL_SLUGS.CALENDLY_LIST_EVENT_TYPES,
     risk: "read",
@@ -736,6 +776,12 @@ const TOOL_POLICIES: Record<string, ComposioToolPolicy> = {
     requiresHumanConfirmation: true,
   },
   // --- Dropbox
+  // Current toolkit (verified live 2026-08-06) — capture backfill read.
+  [COMPOSIO_TOOL_SLUGS.DROPBOX_LIST_FILES_IN_FOLDER]: {
+    slug: COMPOSIO_TOOL_SLUGS.DROPBOX_LIST_FILES_IN_FOLDER,
+    risk: "read",
+    requiresHumanConfirmation: false,
+  },
   [COMPOSIO_TOOL_SLUGS.DROPBOX_FILES_SEARCH]: {
     slug: COMPOSIO_TOOL_SLUGS.DROPBOX_FILES_SEARCH,
     risk: "read",

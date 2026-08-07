@@ -31,6 +31,21 @@ import {
  * 3. Pending action signals (question, deliverable, reply needed)
  */
 
+/**
+ * A contract-field value extracted from capture content, targeting the
+ * sender's person record or their organization. Applied through
+ * memoryUpdateField (confidence-gated), never written directly.
+ */
+export const FieldExtractionSchema = z.object({
+  entity: z.enum(["person", "org"]),
+  field: z.string(),
+  value: z.string(),
+  confidence: z.number().min(0).max(100),
+  evidence_quote: z.string().optional(),
+});
+
+export type FieldExtraction = z.infer<typeof FieldExtractionSchema>;
+
 export const EmailAnalysisSchema = z.object({
   findings: z.array(
     z.object({
@@ -55,6 +70,7 @@ export const EmailAnalysisSchema = z.object({
     .enum(["client", "prospect", "team", "partner", "vendor", "personal", "unknown"])
     .optional(),
   memory_proposals: z.array(MemoryProposalSchema).optional(),
+  field_extractions: z.array(FieldExtractionSchema).optional(),
   is_noise: z.boolean(),
   noise_reason: z.string().optional(),
 });
@@ -117,6 +133,15 @@ Even when revenue signals are weak, propose Memory surfaces when the email impli
 
 Return up to 3 memory_proposals with confidence 70-100, action create|link|update, and system_play slug (system:create-org, system:create-work, system:create-meeting, system:create-person; for \`me\` facts use system:create-note).
 
+## FIELD EXTRACTIONS (structured record fields)
+When the email is from a real human contact (NOT sent by the user, NOT a vendor/SaaS notification), also extract concrete profile field values visible in the content or signature into field_extractions. Only include values explicitly present — never guess.
+
+Allowed fields:
+- **person** (about the SENDER): phone, title, billing_email, timezone (IANA, only if explicitly stated), address_line_1, address_line_2, city, state, postal_code, country (ISO 3166-1 alpha-2)
+- **org** (the sender's company): billing_email, website, address_line_1, address_line_2, city, state, postal_code, country, tax_id
+
+Each item: { "entity": "person"|"org", "field": "<field>", "value": "<value>", "confidence": 0-100, "evidence_quote": "<short quote>" }. Confidence 85+ only when the value is unambiguous (e.g. printed in a signature block). Omit field_extractions entirely when nothing qualifies.
+
 ## NOISE SIGNALS (Skip these)
 - Security alerts, login notifications, password resets
 - Newsletter subscriptions, marketing emails
@@ -168,6 +193,18 @@ ${body}
 Return JSON with your analysis. If this is noise (automated, notification, newsletter), mark is_noise: true.`;
 }
 
+/** Keep only well-formed field extractions; a bad item never sinks the analysis. */
+function coerceFieldExtractions(raw: unknown): FieldExtraction[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const valid = raw.flatMap((item) => {
+    const parsed = FieldExtractionSchema.safeParse(item);
+    return parsed.success && parsed.data.value.trim().length > 0
+      ? [parsed.data]
+      : [];
+  });
+  return valid.length > 0 ? valid : undefined;
+}
+
 /** LLMs often omit `findings` when marking noise — coerce before Zod parse. */
 export function coerceEmailAnalysis(raw: unknown): EmailAnalysis {
   const obj =
@@ -189,6 +226,7 @@ export function coerceEmailAnalysis(raw: unknown): EmailAnalysis {
     memory_proposals: Array.isArray(obj.memory_proposals)
       ? obj.memory_proposals
       : undefined,
+    field_extractions: coerceFieldExtractions(obj.field_extractions),
     is_noise: typeof obj.is_noise === "boolean" ? obj.is_noise : false,
     noise_reason:
       typeof obj.noise_reason === "string" ? obj.noise_reason : undefined,

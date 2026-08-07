@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { LlmSpendContext } from "@/app/_lib/ai";
+
 /**
  * Four-tier field matching cascade:
  * 1. Deterministic (exact match after normalization) - confidence 0.99
@@ -52,7 +54,12 @@ const DEFAULT_CONFIG: FourTierMatchConfig = {
 
 export interface FourTierMatchContext {
   embedFn?: EmbeddingFn;
-  userId?: string;
+  /**
+   * Attribution for the LLM tier. Its absence is what disables that tier, so
+   * an unattributable caller degrades to the cheaper tiers rather than
+   * spending anonymously.
+   */
+  spend?: LlmSpendContext;
   unstructuredText?: string;
 }
 
@@ -137,11 +144,11 @@ export async function matchFieldFourTier(
     }
   }
 
-  if (mergedConfig.enableLlm && ctx.userId && ctx.unstructuredText) {
+  if (mergedConfig.enableLlm && ctx.spend && ctx.unstructuredText) {
     const llmResults = await extractFieldsWithLlm(
       ctx.unstructuredText,
       { targetFields },
-      ctx.userId
+      ctx.spend
     );
     tiersAttempted.push("llm");
 

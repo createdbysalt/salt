@@ -1,15 +1,70 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
-import { Calendar, Lightbulb, ArrowUpRight, Timer, TrendingDown, TrendingUp } from "lucide-react";
-import type { HqSideRailData } from "@/app/_features/hq/types";
+import {
+  ArrowUpRight,
+  Calendar,
+  Lightbulb,
+  Loader2,
+  PlugZap,
+  RefreshCw,
+  Timer,
+  TrendingDown,
+  TrendingUp,
+} from "lucide-react";
+import { toast } from "sonner";
+import { connectGoogleCalendar } from "@/app/_features/connectors/actions/calendar/connect";
+import { connectComposioProvider } from "@/app/_features/connectors/actions/composio-connect";
+import { connectGoogle } from "@/app/_features/connectors/actions/gmail/connect";
+import { ConnectorIcon } from "@/app/_features/connectors/components/connector-icons";
+import { connectorsPageUrl } from "@/app/_features/connectors/constants";
+import type { ConnectorCatalogId } from "@/app/_features/connectors/types";
+import {
+  connectorHealthImpactCopy,
+  shouldShowConnectorHealth,
+} from "@/app/_features/hq/connector-health";
+import type { HqConnectorHealthItem, HqSideRailData } from "@/app/_features/hq/types";
 
 type Props = {
   data: HqSideRailData;
 };
 
 export function SideRail({ data }: Props) {
-  const { timeSaved, schedule, headsUp, scheduleContext } = data;
+  const { timeSaved, schedule, headsUp, scheduleContext, connectorHealth } = data;
+  const reconnectItems = connectorHealth.items;
+  const showConnectorHealth = shouldShowConnectorHealth(reconnectItems.length);
+  const [connectingId, setConnectingId] = React.useState<string | null>(null);
+
+  const handleReconnect = async (item: HqConnectorHealthItem) => {
+    if (connectingId) return;
+    setConnectingId(item.catalogId);
+    const returnUrl = connectorsPageUrl({ connector: item.catalogId });
+    try {
+      const result =
+        item.catalogId === "google" || item.provider === "gmail"
+          ? await connectGoogle({ returnUrl })
+          : item.catalogId === "google-calendar" ||
+              item.provider === "googlecalendar"
+            ? await connectGoogleCalendar({ returnUrl })
+            : await connectComposioProvider(item.provider, { returnUrl });
+      if (!result.success) {
+        toast.error(result.error || `Failed to reconnect ${item.name}`);
+        setConnectingId(null);
+        return;
+      }
+      // Same-tab OAuth — leave the spinner until navigation unloads the page.
+      window.location.href = result.url;
+    } catch (error) {
+      console.error("[hq] connector reconnect failed:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : `Failed to reconnect ${item.name}`,
+      );
+      setConnectingId(null);
+    }
+  };
 
   return (
     <aside className="space-y-3">
@@ -17,12 +72,10 @@ export function SideRail({ data }: Props) {
         className="glass-card animate-rise relative overflow-hidden rounded-3xl p-5"
         style={{ animationDelay: "200ms" }}
       >
-        <div className="flex items-center justify-between">
-          <span className="chip">
-            <Timer className="size-3 text-flame" /> Time saved
-          </span>
-          <span className="text-[11px] tabular-nums text-muted-foreground">{timeSaved.weekLabel}</span>
-        </div>
+        <header className="flex items-center gap-2">
+          <Timer className="size-[18px]" strokeWidth={1.75} />
+          <h3 className="font-semibold tracking-tight">Time saved</h3>
+        </header>
         <div className="mt-4 flex items-baseline gap-2">
           <span className="font-display text-5xl tracking-tight">{timeSaved.valueLabel}</span>
           <span className="text-sm text-muted-foreground">back this week</span>
@@ -164,6 +217,69 @@ export function SideRail({ data }: Props) {
           ))}
         </ul>
       </div>
+
+      {showConnectorHealth ? (
+        <div
+          className="glass-card animate-rise rounded-3xl p-5"
+          style={{ animationDelay: "440ms" }}
+        >
+          <header className="mb-1 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <PlugZap className="size-[18px]" strokeWidth={1.75} />
+              <h3 className="font-semibold tracking-tight">Connector health</h3>
+            </div>
+            <span className="chip">{reconnectItems.length}</span>
+          </header>
+          <p className="mb-4 text-[11px] text-muted-foreground">
+            {connectorHealthImpactCopy(reconnectItems.length)}
+          </p>
+          <ul className="space-y-2">
+            {reconnectItems.map((item) => {
+              const isConnecting = connectingId === item.catalogId;
+              return (
+                <li key={item.catalogId}>
+                  <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-card px-3 py-2.5">
+                    <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border/50 bg-background">
+                      <ConnectorIcon
+                        id={item.catalogId as ConnectorCatalogId}
+                        size={18}
+                      />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[13px] font-semibold leading-5">
+                        {item.name}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">Needs reconnect</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void handleReconnect(item)}
+                      disabled={connectingId !== null}
+                      aria-label={`Reconnect ${item.name}`}
+                      className="surface-aurora relative inline-flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-lg text-white transition hover:opacity-90 disabled:opacity-60"
+                    >
+                      <span className="relative z-10">
+                        {isConnecting ? (
+                          <Loader2 className="size-3.5 animate-spin" />
+                        ) : (
+                          <RefreshCw className="size-3.5" />
+                        )}
+                      </span>
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+          <Link
+            href={connectorsPageUrl()}
+            className="mt-3 inline-flex items-center gap-1 text-[11px] font-medium text-foreground hover:underline"
+          >
+            View all connectors
+            <ArrowUpRight className="size-3" />
+          </Link>
+        </div>
+      ) : null}
     </aside>
   );
 }

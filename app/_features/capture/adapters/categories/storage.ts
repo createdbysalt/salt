@@ -106,6 +106,20 @@ function normalizeGoogleDrive(payload: unknown): CaptureEnvelope | null {
   const modifiedTime =
     (record.modifiedTime as string) ?? (record.createdTime as string) ?? null;
 
+  // "Who changed it": sharer beats owner (the sharer is the action's actor).
+  const actor = sharingUser ?? ownerLike[0];
+  const ownerEmail = ((actor?.emailAddress as string) ?? "").toLowerCase() || null;
+  const ownerName = (actor?.displayName as string) ?? null;
+
+  // Drive reports size as a string of bytes (absent for native Docs files).
+  const rawSize = record.size;
+  const fileSize =
+    typeof rawSize === "number"
+      ? rawSize
+      : typeof rawSize === "string" && rawSize !== ""
+        ? parseInt(rawSize, 10)
+        : null;
+
   return {
     sourceType: "googledrive" as CaptureSourceType,
     captureType: "file",
@@ -117,7 +131,11 @@ function normalizeGoogleDrive(payload: unknown): CaptureEnvelope | null {
     extracted: {
       file_name: name,
       mime_type: mimeType,
+      owner_email: ownerEmail,
+      owner_name: ownerName,
+      file_size: Number.isFinite(fileSize) ? fileSize : null,
       web_view_link: (record.webViewLink as string) ?? null,
+      deep_link: (record.webViewLink as string) ?? null,
       is_folder: mimeType === "application/vnd.google-apps.folder",
     },
     raw: {
@@ -151,6 +169,16 @@ function normalizeDropbox(payload: unknown): CaptureEnvelope | null {
     }
   }
 
+  const pathDisplay = (record.path_display as string) ?? null;
+  // Folder = everything before the file name ("/Clients/Acme/brief.pdf" → "/Clients/Acme").
+  const folderPath = pathDisplay?.includes("/")
+    ? pathDisplay.slice(0, pathDisplay.lastIndexOf("/")) || "/"
+    : null;
+  const modifiedByEmail =
+    typeof sharingInfo?.modified_by === "string" && sharingInfo.modified_by.includes("@")
+      ? (sharingInfo.modified_by as string).toLowerCase()
+      : null;
+
   return {
     sourceType: "dropbox" as CaptureSourceType,
     captureType: "file",
@@ -162,12 +190,80 @@ function normalizeDropbox(payload: unknown): CaptureEnvelope | null {
     threadId: (record.parent_shared_folder_id as string) ?? null,
     extracted: {
       file_name: name,
-      path: (record.path_display as string) ?? null,
+      path: pathDisplay,
+      folder_path: folderPath,
+      owner_email: modifiedByEmail,
       is_folder: isFolder,
       size: (record.size as number) ?? null,
+      file_size: (record.size as number) ?? null,
+      web_view_link: (record.preview_url as string) ?? null,
+      deep_link: (record.preview_url as string) ?? null,
     },
     raw: {
       dropboxId: externalId,
+      source: "composio_trigger",
+    },
+    noise: null,
+  };
+}
+
+/**
+ * OneDrive (Microsoft Graph driveItem). Backfill rows carry the full
+ * resource: name, size, webUrl, parentReference.path
+ * ("/drive/root:/Clients/Acme"), file.mimeType, lastModifiedBy.user.
+ */
+function normalizeOneDrive(payload: unknown): CaptureEnvelope | null {
+  if (!payload || typeof payload !== "object") return null;
+  const record = payload as Record<string, unknown>;
+
+  const externalId = (record.id as string) ?? (record.itemId as string);
+  if (!externalId) return null;
+
+  const name = (record.name as string) ?? null;
+  const file = record.file as Record<string, unknown> | undefined;
+  const isFolder = record.folder !== undefined && record.folder !== null;
+
+  const parentRef = record.parentReference as Record<string, unknown> | undefined;
+  const rawPath = (parentRef?.path as string) ?? null;
+  // Graph paths are "/drive/root:/Clients/Acme" — strip the drive prefix.
+  const folderPath = rawPath ? rawPath.replace(/^\/drives?\/[^/]*\/?root:?/, "") || "/" : null;
+
+  const modifiedBy = record.lastModifiedBy as Record<string, unknown> | undefined;
+  const createdBy = record.createdBy as Record<string, unknown> | undefined;
+  const actorUser = ((modifiedBy?.user ?? createdBy?.user) ?? undefined) as
+    | Record<string, unknown>
+    | undefined;
+  const ownerEmail = ((actorUser?.email as string) ?? "").toLowerCase() || null;
+  const ownerName = (actorUser?.displayName as string) ?? null;
+
+  const participants: EnvelopeParticipant[] = ownerEmail
+    ? [{ email: ownerEmail, name: ownerName, role: "from" }]
+    : [];
+
+  return {
+    sourceType: "onedrive" as CaptureSourceType,
+    captureType: "file",
+    externalId,
+    title: name,
+    occurredAt:
+      (record.lastModifiedDateTime as string) ??
+      (record.createdDateTime as string) ??
+      null,
+    participants,
+    threadId: (parentRef?.id as string) ?? null,
+    extracted: {
+      file_name: name,
+      mime_type: (file?.mimeType as string) ?? null,
+      folder_path: folderPath,
+      owner_email: ownerEmail,
+      owner_name: ownerName,
+      file_size: typeof record.size === "number" ? record.size : null,
+      web_view_link: (record.webUrl as string) ?? null,
+      deep_link: (record.webUrl as string) ?? null,
+      is_folder: isFolder,
+    },
+    raw: {
+      fileId: externalId,
       source: "composio_trigger",
     },
     noise: null,
@@ -233,6 +329,8 @@ export function createStorageCategoryAdapter(provider: string): CaptureAdapter {
           return normalizeGoogleDrive(payload);
         case "dropbox":
           return normalizeDropbox(payload);
+        case "onedrive":
+          return normalizeOneDrive(payload);
         default:
           // Any unknown storage provider gets generic extraction
           return normalizeGenericStorage(payload, provider as CaptureSourceType);

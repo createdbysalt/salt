@@ -224,7 +224,10 @@ function extractBillingSignals(
     signals.push("billing_payment_overdue");
   }
 
-  const amount = extracted.amount as number | undefined;
+  // Canonical `amount` (decimal dollars) with fallbacks for rows written
+  // before the alias existed. Threshold is $1,000.
+  const amountRaw = extracted.amount ?? extracted.amount_paid ?? extracted.amount_due;
+  const amount = typeof amountRaw === "number" ? amountRaw : undefined;
   if (amount && amount >= 1000) {
     signals.push("billing_large_amount");
   }

@@ -131,6 +131,53 @@ describe("runPreIngestGate", () => {
     });
     expect(result).toBeNull();
   });
+
+  it("drops mail from expanded ESP infrastructure domains", () => {
+    for (const domain of ["mcsv.net", "braze.com", "mktomail.com", "rs6.net", "convertkit-mail.com"]) {
+      const result = runPreIngestGate({
+        senderEmail: `campaign@${domain}`,
+        senderDomain: domain,
+        headers: {},
+      });
+      expect(result?.action, domain).toBe("drop");
+      expect(result?.category, domain).toBe("marketing");
+    }
+  });
+
+  it("drops product-announcement local parts", () => {
+    for (const local of ["notifications", "newsletter", "marketing", "digest", "updates"]) {
+      const result = runPreIngestGate({
+        senderEmail: `${local}@product.io`,
+        senderDomain: "product.io",
+        headers: {},
+      });
+      expect(result?.action, local).toBe("drop");
+      expect(result?.category, local).toBe("automated");
+    }
+  });
+
+  it("drops noreply variants with tags or suffixes", () => {
+    for (const local of ["noreply+billing", "no-reply.security", "donotreply-alerts"]) {
+      const result = runPreIngestGate({
+        senderEmail: `${local}@company.com`,
+        senderDomain: "company.com",
+        headers: {},
+      });
+      expect(result?.action, local).toBe("drop");
+    }
+  });
+
+  it("still passes real people whose names resemble automated words", () => {
+    // Exact-match only: "news.smith" or "anna" must never be dropped
+    for (const local of ["anna", "news.smith", "updates-team-lead", "notice"]) {
+      const result = runPreIngestGate({
+        senderEmail: `${local}@acme.com`,
+        senderDomain: "acme.com",
+        headers: {},
+      });
+      expect(result, local).toBeNull();
+    }
+  });
 });
 
 describe("extractDomainFromEmail", () => {

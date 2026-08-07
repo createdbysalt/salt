@@ -70,15 +70,113 @@ describe("crm category adapter", () => {
     });
   });
 
-  describe("generic crm extraction", () => {
+  describe("pipedrive trigger payloads (flat deal/organization shapes)", () => {
     const adapter = createCrmCategoryAdapter("pipedrive");
+
+    it("passes conformance against deal and organization fixtures", () => {
+      runAdapterConformance(adapter, [
+        {
+          name: "new deal",
+          payload: {
+            id: "42",
+            title: "Retainer renewal",
+            value: "2500",
+            currency: "USD",
+            status: "open",
+            stage_id: "3",
+            user_id: "9",
+          },
+          // IDs overlap across Pipedrive object types — dedupe key is scoped.
+          expectExternalId: "deal:42",
+        },
+        {
+          name: "new organization",
+          payload: {
+            id: "77",
+            name: "Acme Creative",
+            email: "hello@acmecreative.co",
+            web: "https://acmecreative.co",
+          },
+          expectExternalId: "organization:77",
+        },
+        { name: "no id", payload: { title: "?" }, expectExternalId: null },
+      ]);
+    });
+
+    it("normalizes deals with decimal-dollar value + currency (detail contract)", () => {
+      const envelope = adapter.normalize({
+        id: "42",
+        title: "Retainer renewal",
+        value: "2500",
+        currency: "USD",
+        status: "open",
+        stage_id: "3",
+      });
+
+      expect(envelope?.extracted.entity_type).toBe("deal");
+      expect(envelope?.extracted.entity_name).toBe("Retainer renewal");
+      // Pipedrive sends major units as a string — no /100 anywhere.
+      expect(envelope?.extracted.deal_value).toBe(2500);
+      expect(envelope?.extracted.currency).toBe("USD");
+      expect(envelope?.extracted.status).toBe("open");
+      expect(envelope?.extracted.stage).toBe("3");
+    });
+
+    it("normalizes organizations with contact fields", () => {
+      const envelope = adapter.normalize({
+        id: "77",
+        name: "Acme Creative",
+        email: "Hello@AcmeCreative.co",
+      });
+
+      expect(envelope?.extracted.entity_type).toBe("organization");
+      expect(envelope?.extracted.entity_name).toBe("Acme Creative");
+      expect(envelope?.participants[0]?.email).toBe("hello@acmecreative.co");
+    });
 
     it("unwraps one level of nesting", () => {
       const envelope = adapter.normalize({
-        data: { id: "deal-42", title: "Retainer renewal" },
+        data: { id: "42", title: "Retainer renewal", value: "100" },
       });
-      expect(envelope?.externalId).toBe("deal-42");
+      expect(envelope?.externalId).toBe("deal:42");
       expect(envelope?.title).toBe("Retainer renewal");
+    });
+
+    it("returns null for invalid payload", () => {
+      expect(adapter.normalize(null)).toBeNull();
+      expect(adapter.normalize({})).toBeNull();
+    });
+  });
+
+  describe("generic crm extraction", () => {
+    const adapter = createCrmCategoryAdapter("zoho");
+
+    it("unwraps one level of nesting and fills contract fields", () => {
+      const envelope = adapter.normalize({
+        deal: {
+          id: "z-1",
+          name: "Website rebuild",
+          value: 4800,
+          currency: "USD",
+          status: "won",
+        },
+      });
+      expect(envelope?.externalId).toBe("z-1");
+      expect(envelope?.extracted.entity_type).toBe("deal");
+      expect(envelope?.extracted.entity_name).toBe("Website rebuild");
+      expect(envelope?.extracted.deal_value).toBe(4800);
+      expect(envelope?.extracted.currency).toBe("USD");
+      expect(envelope?.extracted.status).toBe("won");
+    });
+
+    it("classifies rows without deal fields as contacts", () => {
+      const envelope = adapter.normalize({
+        id: "c-1",
+        name: "Ada Lovelace",
+        email: "ada@northwind.com",
+      });
+      expect(envelope?.extracted.entity_type).toBe("contact");
+      expect(envelope?.extracted.deal_value).toBeNull();
     });
 
     it("returns null for invalid payload", () => {

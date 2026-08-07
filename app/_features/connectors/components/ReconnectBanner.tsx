@@ -4,13 +4,16 @@ import * as React from "react";
 import Link from "next/link";
 import { PlugZap, X } from "lucide-react";
 import type { ReconnectNeeded } from "@/app/_features/connectors/queries";
-import { connectorsPageUrl } from "@/app/_features/connectors/constants";
+import { reconnectNeededHref } from "@/app/_features/connectors/constants";
 
 /**
  * Proactive reconnect banner (plan 2026-07-07 WS1). Surfaces connectors whose
  * Composio connection expired so a silently-dead connection — Google's 7-day
  * testing-mode token expiry — never quietly stops Plays. Dismissible per
  * session; reappears on the next load while the connection is still expired.
+ *
+ * HQ now uses the side-rail Connector Health card instead; this component
+ * remains available for other surfaces.
  */
 export function ReconnectBanner({ items }: { items: ReconnectNeeded[] }) {
   const [dismissed, setDismissed] = React.useState(false);
@@ -25,11 +28,7 @@ export function ReconnectBanner({ items }: { items: ReconnectNeeded[] }) {
       : names.length === 2
         ? `${names[0]} and ${names[1]}`
         : `${names[0]} and ${names.length - 1} more`;
-  // One connector → deep-link straight to it; several → the connectors list.
-  const href =
-    items.length === 1
-      ? connectorsPageUrl({ connector: items[0].catalogId })
-      : connectorsPageUrl();
+  const href = reconnectNeededHref(items);
 
   return (
     <div

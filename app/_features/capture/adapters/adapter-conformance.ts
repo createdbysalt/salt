@@ -13,6 +13,13 @@ export interface AdapterFixture {
   payload: unknown;
   /** null = the adapter should decline to ingest this payload. */
   expectExternalId: string | null;
+  /**
+   * Detail-contract keys (docs/architecture/capture-detail-contract.md) that
+   * this payload must populate in envelope.extracted — present and non-null.
+   * List only what the payload actually carries: pointer-only trigger shapes
+   * assert `needs_hydration` instead of content fields.
+   */
+  expectContractFields?: readonly string[];
 }
 
 export function runAdapterConformance(
@@ -80,6 +87,26 @@ export function runAdapterConformance(
     if (envelope.captureType === "message") {
       expect(envelope.noise, `${fixture.name}: messages need noise input`).not.toBeNull();
       expect(envelope.noise?.sourceType).toBe(adapter.sourceType);
+    }
+
+    // Detail contract (capture-detail-contract.md): declared fields must be
+    // populated — undefined means the adapter never wrote the key, null means
+    // it wrote it but extracted nothing. Both fail.
+    if (fixture.expectContractFields) {
+      const extracted = envelope.extracted as Record<string, unknown>;
+      for (const field of fixture.expectContractFields) {
+        const value = extracted[field];
+        expect(
+          value !== undefined && value !== null,
+          `${fixture.name}: contract field '${field}' is ${value === undefined ? "missing" : "null"}`,
+        ).toBe(true);
+        if (Array.isArray(value)) {
+          expect(
+            value.length,
+            `${fixture.name}: contract field '${field}' is an empty array`,
+          ).toBeGreaterThan(0);
+        }
+      }
     }
   }
 }

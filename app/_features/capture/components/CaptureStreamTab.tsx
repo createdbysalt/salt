@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition, useCallback, type MouseEvent, type Re
 import { motion, AnimatePresence } from "framer-motion";
 import { retryCaptureIntelligence } from "../actions/retry-capture";
 import { loadMoreStreamCaptures } from "../actions/load-more-captures";
+import { submitCaptureFeedback, neverCaptureSender } from "../actions/capture-feedback";
 import { CAPTURE_STREAM_INITIAL_LIMIT } from "../stream-constants";
 import {
   CheckCircle2,
@@ -27,6 +28,9 @@ import {
   Play,
   Eye,
   Loader2,
+  ThumbsUp,
+  ThumbsDown,
+  Ban,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { CaptureStatus, StreamEntry } from "@/app/_lib/demo/capture-demo-data";
@@ -106,7 +110,17 @@ type RealStreamEntry = Omit<StreamEntry, "dayGroup"> & {
   isBootstrap?: boolean;
   playsDispatched?: PlayDispatchedEntry[];
   watchesTriggered?: WatchTriggerEntry[];
+  /** Gate outcome — noise rows render demoted (muted, no Salt CTA). */
+  gateAction?: string | null;
 };
+
+/** Noise = admission gate said noise, or the classifier called it noise. */
+function isNoiseEntry(entry: RealStreamEntry): boolean {
+  if (entry.gateAction === "noise") return true;
+  return Boolean(
+    entry.enrichedMetadata?.signals_matched?.includes("email_classified_noise")
+  );
+}
 
 const APPLE_EASE = [0.32, 0.72, 0, 1] as const;
 
@@ -190,12 +204,14 @@ function generateCaptureHeader(
     const eventType = (data.event_type as string) ?? "";
     const customerName = (data.customer_name as string) ?? (data.customer_email as string) ?? "customer";
     const invoiceNumber = data.invoice_number as string | null;
-    const rawAmount = data.amount_paid ?? data.amount_due ?? data.amount;
+    const rawAmount = data.amount ?? data.amount_paid ?? data.amount_due;
     const amount = typeof rawAmount === "number" ? rawAmount : null;
     const currency = ((data.currency as string) ?? "usd").toUpperCase();
 
+    // extracted money fields are decimal dollars (adapters convert from
+    // minor units at ingest) — format as-is, no /100 here.
     const formatAmount = (amt: number) => {
-      return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(amt / 100);
+      return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(amt);
     };
 
     if (eventType.includes("payment") || signalSet.has("billing_payment_matched")) {
@@ -429,6 +445,7 @@ export function CaptureStreamTab({
         extractedData: c.extracted_data ?? null,
         confidence: c.overall_confidence ?? 0,
         isBootstrap: c.is_bootstrap ?? false,
+        gateAction: c.gate_action ?? null,
       } as RealStreamEntry;
     });
   }, [allCaptures, hasRealData]);
@@ -755,6 +772,7 @@ function CaptureRow({
   const isUserAdded = e.source === "added";
   const enriched = e.enrichedMetadata;
   const signals = enriched?.signals_matched ?? [];
+  const isNoise = isNoiseEntry(e);
 
   // Generate clear header: "Email from John Smith" / "Invoice: $4,500"
   const header = generateCaptureHeader(e.origin, signals, e.extractedData, e.from);
@@ -764,7 +782,8 @@ function CaptureRow({
   const showRetryAction = e.category === "error" && !!onRetry;
   const hasIconActions = showRetryAction;
 
-  const reviewWithSaltButton = onAskSalt ? (
+  // Noise rows render demoted: muted, no "Review with Salt" CTA.
+  const reviewWithSaltButton = onAskSalt && !isNoise ? (
     <button
       type="button"
       onClick={(ev) => {
@@ -802,7 +821,10 @@ function CaptureRow({
           }
         }}
         aria-expanded={isOpen}
-        className="flex w-full cursor-pointer items-center gap-3 px-4 py-3.5 text-left transition hover:bg-muted/40"
+        className={cn(
+          "flex w-full cursor-pointer items-center gap-3 px-4 py-3.5 text-left transition hover:bg-muted/40",
+          isNoise && "opacity-55 hover:opacity-90"
+        )}
       >
         {/* Time + Connector Logo */}
         <div className="flex shrink-0 items-center gap-2.5">
@@ -1011,6 +1033,37 @@ function cleanSnippet(text: string): string {
     .replace(/[\u200B-\u200D\uFEFF\u00AD]/g, "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+const TRIAGE_ACTION_LABELS: Record<string, string> = {
+  surface_now: "surface now",
+  batch_digest: "batch into digest",
+  silent_archive: "archive silently",
+};
+
+const CLASSIFICATION_CATEGORY_LABELS: Record<string, string> = {
+  action_required: "Action required",
+  money_moves: "Money moves",
+  opportunities: "Opportunity",
+  updates: "Update",
+  subscribed: "Subscribed",
+  noise: "Noise",
+};
+
+function formatClassificationSummary(classification: {
+  type: string;
+  category: string;
+  priority_tier: string;
+  priority_score: number;
+  triage_action: string;
+}): string {
+  const category =
+    CLASSIFICATION_CATEGORY_LABELS[classification.category] ?? classification.category;
+  const type =
+    classification.type.charAt(0).toUpperCase() + classification.type.slice(1);
+  const triage =
+    TRIAGE_ACTION_LABELS[classification.triage_action] ?? classification.triage_action;
+  return `${category} \u00b7 ${type} \u00b7 Priority ${classification.priority_tier} (${classification.priority_score}/100) \u00b7 Triage: ${triage}`;
 }
 
 function deriveNoActionReason(entry: RealStreamEntry): string {
@@ -1297,7 +1350,8 @@ function AreaContext({
     const attendees = data.attendees as Array<{ email?: string; name?: string }> | null;
     const attendeeCount = (attendees?.length ?? (data.attendee_count as number | null)) ?? 0;
     const organizer = data.organizer_email as string | null;
-    const meetingUrl = data.meeting_url as string | null;
+    const meetingUrl =
+      (data.meeting_link as string) ?? (data.meeting_url as string) ?? null;
 
     const formatTime = (iso: string) => {
       try {
@@ -1350,7 +1404,7 @@ function AreaContext({
 
   // Billing context
   if (sourceType === "stripe" || sourceType === "quickbooks" || sourceType === "xero") {
-    const rawAmount = data.amount_paid ?? data.amount_due ?? data.amount;
+    const rawAmount = data.amount ?? data.amount_paid ?? data.amount_due;
     const amount = typeof rawAmount === "number" ? rawAmount : null;
     const currency = (data.currency as string)?.toUpperCase() ?? "USD";
     const customerName = data.customer_name as string | null;
@@ -1359,8 +1413,9 @@ function AreaContext({
     const status = data.status as string | null;
     const dueDate = data.due_date as string | null;
 
+    // extracted money fields are decimal dollars — no /100 here.
     const formatAmount = (amt: number, curr: string) =>
-      new Intl.NumberFormat("en-US", { style: "currency", currency: curr }).format(amt / 100);
+      new Intl.NumberFormat("en-US", { style: "currency", currency: curr }).format(amt);
 
     const amountValue =
       amount !== null
@@ -1418,6 +1473,7 @@ function AreaContext({
     const channel = data.channel as string | null;
     const isDM = data.is_dm as boolean | null;
     const senderName = data.sender_name as string | null;
+    const senderId = data.sender_id as string | null;
     const text = data.text as string | null;
     const message = text ?? preview;
 
@@ -1425,7 +1481,7 @@ function AreaContext({
       <DetailFields>
         {header}
         {!isDM && channel && <DetailRow label="Channel" value={`#${channel}`} />}
-        <DetailRow label="From" value={senderName} />
+        <DetailRow label="From" value={senderName ?? senderId} />
         {message && <DetailBlock label="Message">{message}</DetailBlock>}
       </DetailFields>
     );
@@ -1461,15 +1517,24 @@ function AreaContext({
   // CRM context (HubSpot, Salesforce, Pipedrive)
   if (sourceType === "hubspot" || sourceType === "salesforce" || sourceType === "pipedrive") {
     const entityType = data.entity_type as string | null;
-    const entityName = data.entity_name as string | null;
+    const entityName = (data.entity_name as string) ?? (data.name as string) ?? null;
     const status = data.status as string | null;
     const stage = data.stage as string | null;
     const value = data.deal_value as number | null;
+    // Deal values are decimal dollars + ISO currency, same contract as billing.
+    const currency = ((data.currency as string) ?? "USD").toUpperCase();
 
-    const valueFormatted =
-      value != null
-        ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value)
-        : null;
+    let valueFormatted: string | null = null;
+    if (value != null) {
+      try {
+        valueFormatted = new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency,
+        }).format(value);
+      } catch {
+        valueFormatted = `${value.toLocaleString()} ${currency}`;
+      }
+    }
 
     return (
       <DetailFields>
@@ -1542,7 +1607,14 @@ function CaptureCardDetail({
   const hasSignals = (enriched?.signals_matched?.length ?? 0) > 0;
   const hasLinkedRecords = (enriched?.linked_records?.length ?? 0) > 0;
   const hasPlayFit = enriched?.play_fit && Object.keys(enriched.play_fit).length > 0;
-  const hasAnalysisData = hasSignals || hasLinkedRecords || hasPlayFit;
+  const classification = enriched?.email_classification;
+  const decision = enriched?.record_capture_decision;
+  const hasAnalysisData =
+    hasSignals || hasLinkedRecords || hasPlayFit || Boolean(classification) || Boolean(decision);
+  const feedbackSenderEmail =
+    typeof e.extractedData?.sender_email === "string"
+      ? (e.extractedData.sender_email as string)
+      : null;
 
   const allPlayFit = hasPlayFit
     ? Object.entries(enriched!.play_fit).sort(([, a], [, b]) => b.score - a.score)
@@ -1577,6 +1649,28 @@ function CaptureCardDetail({
             Salt&apos;s Analysis
           </p>
           <div className="space-y-3">
+            {/* Email classification (stored analysis, emails only) */}
+            {classification && (
+              <div>
+                <p className="mb-1.5 text-[10px] font-medium text-muted-foreground">
+                  Classification
+                </p>
+                <p className={DETAIL_TEXT}>
+                  {formatClassificationSummary(classification)}
+                </p>
+              </div>
+            )}
+
+            {/* Record capture decision reason (stored, from criteria engine) */}
+            {decision?.reason && (
+              <div>
+                <p className="mb-1.5 text-[10px] font-medium text-muted-foreground">
+                  Salt&apos;s decision
+                </p>
+                <p className={DETAIL_TEXT}>{decision.reason}</p>
+              </div>
+            )}
+
             {/* Signals */}
             {hasSignals && (
               <div>
@@ -1639,17 +1733,22 @@ function CaptureCardDetail({
                 <MinusCircle className="mt-0.5 size-3.5 shrink-0" strokeWidth={2} />
                 <p>
                   {e.category === "processing" ? (
-                    "Still analyzing this capture..."
+                    "No analysis yet \u2014 Salt scans on a schedule."
                   ) : e.category === "no-signal" ? (
                     deriveNoActionReason(e)
                   ) : (
-                    "No actionable signals detected in this capture."
+                    "No analysis stored for this capture yet."
                   )}
                 </p>
               </div>
             )}
           </div>
         </div>
+
+        {/* TRAIN SALT — explicit feedback loop (Phase C2) */}
+        {feedbackSenderEmail && (
+          <CaptureFeedbackBar captureId={e.id} senderEmail={feedbackSenderEmail} />
+        )}
 
         {/* Only show error state with retry - no processing indicator */}
         {e.category === "error" && (
@@ -1675,6 +1774,86 @@ function CaptureCardDetail({
         )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Explicit feedback bar (Phase C2): More/Less like this adjusts the sender's
+ * learned reputation; Never blocks the sender at the gate.
+ */
+function CaptureFeedbackBar({
+  captureId,
+  senderEmail,
+}: {
+  captureId: string;
+  senderEmail: string;
+}) {
+  const [isPending, startTransition] = useTransition();
+  const [submitted, setSubmitted] = useState<"more" | "less" | "never" | null>(null);
+
+  const feedbackButtonClass =
+    "inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/60 px-2.5 py-1 text-[11px] font-medium text-foreground/70 transition hover:border-border hover:text-foreground disabled:opacity-50";
+
+  if (submitted) {
+    return (
+      <div className="border-t border-border/40 px-4 py-2.5">
+        <p className="text-[11px] text-muted-foreground">
+          {submitted === "never"
+            ? `Got it — mail from ${senderEmail} won't be captured anymore.`
+            : "Thanks — Salt will use this to tune future captures."}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 border-t border-border/40 px-4 py-2.5">
+      <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+        Train Salt
+      </span>
+      <button
+        type="button"
+        disabled={isPending}
+        className={feedbackButtonClass}
+        onClick={() =>
+          startTransition(async () => {
+            const result = await submitCaptureFeedback(captureId, "more_like_this");
+            if (result.success) setSubmitted("more");
+          })
+        }
+      >
+        <ThumbsUp className="size-3" strokeWidth={2} />
+        More like this
+      </button>
+      <button
+        type="button"
+        disabled={isPending}
+        className={feedbackButtonClass}
+        onClick={() =>
+          startTransition(async () => {
+            const result = await submitCaptureFeedback(captureId, "less_like_this");
+            if (result.success) setSubmitted("less");
+          })
+        }
+      >
+        <ThumbsDown className="size-3" strokeWidth={2} />
+        Less like this
+      </button>
+      <button
+        type="button"
+        disabled={isPending}
+        className={feedbackButtonClass}
+        onClick={() =>
+          startTransition(async () => {
+            const result = await neverCaptureSender(captureId);
+            if (result.success) setSubmitted("never");
+          })
+        }
+      >
+        <Ban className="size-3" strokeWidth={2} />
+        Never capture this sender
+      </button>
     </div>
   );
 }

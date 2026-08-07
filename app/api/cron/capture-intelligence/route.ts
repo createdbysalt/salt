@@ -63,6 +63,9 @@ export async function GET(req: NextRequest) {
       emailsProcessed: result.totalEmailsProcessed,
       findingsCreated: result.totalFindingsCreated,
       peopleResolved: result.totalPeopleResolved,
+      sendersPromoted: result.totalSendersPromoted,
+      sendersNeedingConfirmation: result.totalSendersNeedingConfirmation,
+      budgetExhausted: result.budgetExhausted,
       failures: result.failures.length,
     });
   } catch (error) {

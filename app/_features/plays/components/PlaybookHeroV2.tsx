@@ -75,6 +75,7 @@ export function PlaybookHeroV2({
           slug={playbook.slug}
           enabled={playbook.enabled}
           isLocked={isLocked}
+          runnable={playbook.runnable}
         />
       </div>
 

@@ -1,6 +1,111 @@
 import "server-only";
 
+import {
+  canSpend,
+  isBlocked,
+  shouldDegrade,
+  type SpendOrigin,
+} from "@/app/_lib/usage/can-spend";
+import { recordLlmCall } from "@/app/_lib/usage/record-llm-usage";
 import { LLM_FALLBACK_MODEL, resolveModel, type ModelRoutingKey } from "./models";
+
+/**
+ * Who a language-model call is spent on behalf of.
+ *
+ * The ledger is workspace-scoped and `sendLlm` used to receive only a
+ * `userId`, which is not the same thing and cannot be turned into one:
+ * `workspace_members` is one-to-many, and several callers pass a synthetic
+ * actor (`"catalog-sync-cron"`) where no user exists at all. Resolving a
+ * workspace from the user would bill spend to whichever workspace someone
+ * joined first — silently, and more wrongly once workspace switching ships.
+ *
+ * So attribution is an explicit argument, and "this spend belongs to no
+ * workspace" is a stated case rather than an omission. The union is what makes
+ * the compiler refuse a call site that has not thought about it: there is no
+ * default, and forgetting is a build error rather than a plausible wrong bill.
+ *
+ * Full rationale, including why AsyncLocalStorage does not work here:
+ * `docs/architecture/billing-metering.md`.
+ */
+export type LlmSpendContext =
+  | {
+      kind: "workspace";
+      workspaceId: string;
+      /**
+       * Forwarded to the provider as `user` for abuse attribution. Optional
+       * because background work — post-OAuth first scans, crons — is genuinely
+       * the workspace's spend with no acting user behind it. Billing only ever
+       * reads `workspaceId`; this field never affects attribution.
+       */
+      userId?: string;
+      /**
+       * How far spend admission may go for this call. Defaults to `"user"`.
+       *
+       * A default is safe here in a way it was not for `workspaceId`, because
+       * the stakes are asymmetric. Getting the workspace wrong produces a wrong
+       * bill, silently. Getting the origin wrong only changes *which* blocking
+       * outcome applies once a workspace is already over budget — and at this
+       * boundary `deny` and `queue` do the same thing, since `sendLlm` has no
+       * channel to explain itself and returns null either way, which every
+       * caller already handles.
+       *
+       * `"committed"` is the value that genuinely matters and must be passed
+       * explicitly: it marks work the user was already promised (an approved
+       * play mid-execution), which degrades but is never refused.
+       */
+      origin?: SpendOrigin;
+    }
+  | {
+      kind: "platform";
+      /** Synthetic actor for provider attribution, e.g. `"catalog-sync-cron"`. */
+      actor: string;
+      /** Why no workspace owns this spend. Recorded in code, not discarded. */
+      reason: string;
+    };
+
+/** Spend attributable to a workspace. Metered and gated. */
+export function workspaceSpend(
+  workspaceId: string,
+  userId?: string,
+  origin?: SpendOrigin,
+): LlmSpendContext {
+  return { kind: "workspace", workspaceId, userId, origin };
+}
+
+/**
+ * Spend on work the user has already approved and is waiting on. Degrades
+ * under budget pressure but is never refused, because abandoning a play
+ * mid-execution leaves a half-finished action and nothing to show for it.
+ */
+export function committedSpend(
+  workspaceId: string,
+  userId?: string,
+): LlmSpendContext {
+  return { kind: "workspace", workspaceId, userId, origin: "committed" };
+}
+
+/**
+ * Spend on work nobody is waiting for — crons, post-OAuth scans, recomputes.
+ * Deferred rather than refused once a workspace is over budget, so a paused
+ * background job never surfaces as a broken feature.
+ */
+export function backgroundSpend(
+  workspaceId: string,
+  userId?: string,
+): LlmSpendContext {
+  return { kind: "workspace", workspaceId, userId, origin: "background" };
+}
+
+/**
+ * Platform-global spend that belongs to no single workspace — tool
+ * classification, catalog sync, admin tooling. Not metered against any
+ * workspace, because charging one tenant for shared infrastructure would be
+ * worse than not charging at all. `reason` exists so the choice stays legible
+ * at the call site instead of looking like an oversight.
+ */
+export function platformSpend(actor: string, reason: string): LlmSpendContext {
+  return { kind: "platform", actor, reason };
+}
 
 export interface LlmChatMessage {
   role: "system" | "user" | "assistant";
@@ -61,25 +166,53 @@ export interface SendLlmOptions {
 /** @deprecated Use sendLlm */
 export const sendOpenAi = async (
   messages: LlmChatMessage[],
-  userId: string,
+  spend: LlmSpendContext,
   max = 100,
   temp = 1,
   model?: string,
-) => sendLlm(messages, userId, { maxTokens: max, temperature: temp, model });
+) => sendLlm(messages, spend, { maxTokens: max, temperature: temp, model });
 
 export async function sendLlm(
   messages: LlmChatMessage[],
-  userId: string,
+  spend: LlmSpendContext,
   options: SendLlmOptions = {},
 ): Promise<string | null> {
   const { apiKey, baseUrl, appUrl, viaOpenRouter } = getLlmConfig();
   if (!apiKey) return null;
 
-  const model =
+  let model =
     options.model ??
     (options.routingKey
       ? resolveModel(options.routingKey)
       : process.env.OPENAI_MODEL ?? LLM_FALLBACK_MODEL);
+
+  // Admission, before a single token is bought. Platform spend is exempt: it
+  // belongs to no tenant, so there is no budget to measure it against, and
+  // gating shared infrastructure on one workspace's overspend would be wrong.
+  if (spend.kind === "workspace") {
+    const decision = await canSpend({
+      workspaceId: spend.workspaceId,
+      kind: "llm_tokens",
+      origin: spend.origin ?? "user",
+    });
+
+    if (isBlocked(decision)) {
+      // Null is the established "no answer" contract here, and every caller
+      // already has a deterministic fallback for it. Surfacing a distinct
+      // error type would mean revisiting all of them for a case where the
+      // correct behaviour — degrade quietly — is what null already produces.
+      console.warn(
+        `[usage] LLM call refused for workspace ${spend.workspaceId}: ${decision.reason}`,
+      );
+      return null;
+    }
+
+    // The one lever this primitive owns. Swapping model class is the least
+    // visible step on the ladder, which is why it comes first.
+    if (shouldDegrade(decision)) {
+      model = options.fallbackModel ?? LLM_FALLBACK_MODEL;
+    }
+  }
 
   const url = `${baseUrl}/chat/completions`;
 
@@ -102,7 +235,10 @@ export async function sendLlm(
     messages,
     max_tokens: options.maxTokens ?? 100,
     temperature: options.temperature ?? 1,
-    user: userId,
+    user:
+      spend.kind === "workspace"
+        ? spend.userId ?? spend.workspaceId
+        : spend.actor,
   };
 
   try {
@@ -115,7 +251,10 @@ export async function sendLlm(
     if (!res.ok) {
       const fallback = options.fallbackModel ?? LLM_FALLBACK_MODEL;
       if (model !== fallback) {
-        return sendLlm(messages, userId, { ...options, model: fallback });
+        // The retry is a second real request and meters itself. Not recording
+        // the failed attempt is deliberate: a non-2xx response carries no
+        // usage block, so any figure here would be invented.
+        return sendLlm(messages, spend, { ...options, model: fallback });
       }
       if (process.env.DEBUG_OPENAI === "1") {
         console.warn("LLM request failed:", res.status, await res.text());
@@ -125,6 +264,32 @@ export async function sendLlm(
 
     const data = (await res.json()) as LlmChatCompletionResponse;
     const answer = data?.choices?.[0]?.message?.content;
+
+    if (spend.kind === "workspace") {
+      // Awaited rather than fired and forgotten: several callers run in crons
+      // and fire-and-forget server actions where the process can be torn down
+      // as soon as the promise they awaited settles, which would drop the
+      // record for exactly the long-running work worth measuring.
+      //
+      // Guarded separately from the request because this sits inside the
+      // outer try: without its own catch, a metering bug would be caught below
+      // and turn a perfectly good answer into a null. The ledger observes the
+      // call, it does not get a vote in whether the call succeeded.
+      try {
+        await recordLlmCall({
+          workspaceId: spend.workspaceId,
+          model,
+          usage: {
+            inputTokens: data?.usage?.prompt_tokens,
+            outputTokens: data?.usage?.completion_tokens,
+          },
+          routingKey: options.routingKey ?? null,
+        });
+      } catch (meteringError) {
+        console.error("[usage] LLM metering failed:", meteringError);
+      }
+    }
+
     return typeof answer === "string" ? answer : null;
   } catch (error) {
     if (process.env.DEBUG_OPENAI === "1") {
