@@ -1,11 +1,11 @@
 /**
- * Intake Parser - Re-export from Memory Records Playbook
+ * Intake Parser - Re-export from Memory Care
  *
- * The intake logic lives in the memory-records playbook.
+ * The intake logic lives in the Memory Care module.
  * This file re-exports for backward compatibility with existing imports.
  *
  * Prefer importing directly from:
- * @/app/_features/plays/playbooks/v2/_meta/memory-records/scripts
+ * @/app/_features/memory/care/intake
  */
 
 export {
@@ -19,4 +19,4 @@ export {
   type IntakeEntityType,
   type ParsedEntity,
   type ParsedIntakeRequest,
-} from "@/app/_features/plays/playbooks/v2/_meta/memory-records/scripts";
+} from "@/app/_features/memory/care/intake";

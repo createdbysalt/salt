@@ -6,8 +6,8 @@
  */
 
 import { createClient } from "@/app/_lib/supabase/server";
-import type { IntakeEntityType } from "@/app/_features/plays/playbooks/v2/_meta/memory-records/scripts";
-import { canonicalizeIdentifier } from "@/app/_features/plays/playbooks/v2/_meta/memory-records/scripts";
+import type { IntakeEntityType } from "@/app/_features/memory/care/intake";
+import { canonicalizeIdentifier } from "@/app/_features/memory/care/intake";
 
 /**
  * A detected signal with extracted data.

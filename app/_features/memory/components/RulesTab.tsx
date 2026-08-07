@@ -12,39 +12,39 @@ import {
 } from "lucide-react";
 import { Button, Label, Slider } from "@repo/ui";
 import { PlaysSectionHeader } from "@/app/_features/plays/components/PlaysSectionHeader";
-import { PlaybookEnabledToggle } from "@/app/_features/plays/components/PlaybookEnabledToggle";
 import { BlocklistManager } from "@/app/_features/capture/components/BlocklistManager";
-import {
-  updateKeeperAutonomyThreshold,
-} from "@/app/(settings)/settings/_components/sections/plays-actions";
+import { CareCapabilityToggle } from "./CareCapabilityToggle";
+import { updateMemoryCareThreshold } from "../care/actions";
+import type { CareCapability } from "../care/types";
 
 /**
  * Memory → Rules — the rules themselves.
  *
- * - Care capabilities: plain-language cards over the `_meta` playbooks
- *   (the engine is untouched; this is the presentation layer).
+ * - Care capabilities: plain-language cards over the Memory Care
+ *   capabilities (`app/_features/memory/care`).
  * - Admission policy: blocklist + global autonomy stance.
  *
  * The flywheel: Rules shape Filter; feedback in Filter flows back here as
  * lessons (fast-follow).
  */
 
-export interface CareCapability {
+export interface CareCapabilityState {
+  capability: CareCapability;
   slug: string;
   enabled: boolean;
 }
 
 const CAPABILITY_META: Record<
-  string,
+  CareCapability,
   { title: string; description: string; icon: typeof Brain }
 > = {
-  "memory-records": {
+  records: {
     title: "Fill in record details",
     description:
       "Salt keeps your records complete and accurate by learning from your connected accounts.",
     icon: Wand2,
   },
-  "memory-hygiene": {
+  hygiene: {
     title: "Keep records clean",
     description:
       "Detects duplicates, stale records, and data quality issues before they pile up.",
@@ -64,9 +64,9 @@ const CAPABILITY_META: Record<
   },
 };
 
-const CAPABILITY_ORDER = [
-  "memory-records",
-  "memory-hygiene",
+const CAPABILITY_ORDER: CareCapability[] = [
+  "records",
+  "hygiene",
   "connections",
   "notes",
 ];
@@ -87,7 +87,7 @@ const THRESHOLD_LABELS: Record<number, { label: string; description: string }> =
   },
   100: {
     label: "Always ask",
-    description: "Salt never auto-executes; all changes require your approval.",
+    description: "Salt never applies changes on its own; everything waits in Watching.",
   },
 };
 
@@ -100,7 +100,7 @@ function getThresholdMeta(value: number) {
 
 interface RulesTabProps {
   workspaceId: string;
-  capabilities: CareCapability[];
+  capabilities: CareCapabilityState[];
   initialThreshold: number;
 }
 
@@ -116,16 +116,16 @@ export function RulesTab({
   const hasChanges = threshold !== savedThreshold;
   const thresholdMeta = getThresholdMeta(threshold);
 
-  const orderedCapabilities = CAPABILITY_ORDER.map((slug) => {
-    const capability = capabilities.find((c) => c.slug === slug);
-    const meta = CAPABILITY_META[slug];
-    return capability && meta ? { ...capability, ...meta } : null;
+  const orderedCapabilities = CAPABILITY_ORDER.map((capability) => {
+    const state = capabilities.find((c) => c.capability === capability);
+    const meta = CAPABILITY_META[capability];
+    return state ? { ...state, ...meta } : null;
   }).filter((c): c is NonNullable<typeof c> => c !== null);
 
   function handleSaveThreshold() {
     startTransition(async () => {
       try {
-        await updateKeeperAutonomyThreshold(workspaceId, threshold);
+        await updateMemoryCareThreshold(workspaceId, threshold);
         setSavedThreshold(threshold);
         toast.success("Autonomy settings saved");
       } catch {
@@ -150,17 +150,17 @@ export function RulesTab({
         <div className="grid gap-4 sm:grid-cols-2">
           {orderedCapabilities.map((capability) => (
             <div
-              key={capability.slug}
+              key={capability.capability}
               className="rounded-2xl border border-border/60 bg-card p-5"
             >
               <div className="flex items-start justify-between gap-3">
                 <span className="grid size-9 place-items-center rounded-xl bg-muted/70 text-muted-foreground">
                   <capability.icon className="size-4.5" strokeWidth={1.75} />
                 </span>
-                <PlaybookEnabledToggle
-                  playbookSlug={capability.slug}
+                <CareCapabilityToggle
+                  workspaceId={workspaceId}
+                  capability={capability.capability}
                   initialEnabled={capability.enabled}
-                  compact
                 />
               </div>
               <h3 className="mt-3 text-sm font-semibold text-foreground">
@@ -186,7 +186,7 @@ export function RulesTab({
               <div className="flex items-center gap-2">
                 <Brain className="h-5 w-5 text-muted-foreground" />
                 <Label className="text-base font-medium">
-                  Auto-execute threshold
+                  Auto-apply threshold
                 </Label>
               </div>
               <span className="text-2xl font-semibold tabular-nums">

@@ -1,0 +1,213 @@
+/**
+ * Memory field tiers — the shared policy for how aggressively a proposed
+ * Memory write may be applied. Pure functions only; no I/O.
+ *
+ * Used by:
+ * - `app/_lib/memory-tools/update-field.ts` (hard never-touch refusal +
+ *   caller-raised bars via `minThreshold`)
+ * - `app/_features/memory/care/decision-pipeline.ts` (apply / watch / refuse)
+ *
+ * Tier model (replaces the retired execution-router's ask-first logic):
+ *
+ * | Tier        | Bar                        | Examples                              |
+ * |-------------|----------------------------|---------------------------------------|
+ * | standard    | workspace threshold        | notes, preferences, addresses         |
+ * | sensitive   | max(workspace, 95)         | industry, relationship type,          |
+ * |             |                            | first-time classifications            |
+ * | destructive | max(workspace, 95)         | status → past_client / completed /    |
+ * |             | (snapshot via provenance)  | cancelled / void                      |
+ * | never_touch | refused at any confidence  | billing total, amount_paid, money     |
+ * |             |                            | model fields                          |
+ *
+ * Low-risk observation fields (last_contacted_at, names, emails) bypass
+ * gating entirely — they are always safe to apply.
+ */
+
+export type MemoryFieldTier =
+  | "standard"
+  | "sensitive"
+  | "destructive"
+  | "never_touch";
+
+export type TieredEntityType =
+  | "person"
+  | "organization"
+  | "work"
+  | "billing"
+  | "me";
+
+/** Minimum bar applied to sensitive and destructive tiers. */
+export const ELEVATED_TIER_FLOOR = 95;
+
+/**
+ * Never-touch: money fields. Hard rule — never auto-written at any
+ * confidence. Not a queue, not an approval: a refusal.
+ */
+const NEVER_TOUCH_FIELDS: Record<string, string[]> = {
+  billing: ["total", "amount_paid"],
+  work: ["billing_model"],
+  me: ["business_model", "pricing_model"],
+};
+
+/**
+ * Sensitive: identity and relationship classifications. Always held to the
+ * elevated bar, even when overwriting an existing value.
+ */
+const SENSITIVE_FIELDS: Record<string, string[]> = {
+  person: ["industry", "preferred_channel", "relationship_type"],
+  organization: ["industry", "industry_parent", "relationship_status"],
+  work: ["work_type"],
+  billing: [],
+  me: [],
+};
+
+/**
+ * First-time classifications: sensitive only while the field has no
+ * meaningful value yet. Re-classifications of an already-set value fall back
+ * to the standard bar (the user can correct from the activity feed).
+ */
+const FIRST_TIME_CLASSIFICATION_FIELDS: Record<string, string[]> = {
+  person: ["record_status"],
+  organization: ["record_status"],
+  work: ["work_status", "status"],
+  billing: ["status"],
+  me: [],
+};
+
+/**
+ * Destructive transitions: moving a record INTO one of these values is held
+ * to the elevated bar. The previous value is snapshotted in
+ * `profile_field_provenance` on every applied write, so reversal is one
+ * click — but the bar is high because these transitions close things out.
+ */
+const DESTRUCTIVE_VALUES: Record<string, string[]> = {
+  record_status: ["past_client", "archived", "lost"],
+  work_status: ["completed", "cancelled", "lost"],
+  status: ["completed", "cancelled", "lost", "void"],
+};
+
+/**
+ * Low-risk observation fields that bypass gating entirely.
+ * (Union of the retired execution-router and confidence-gate bypass lists.)
+ */
+const ALWAYS_AUTO_FIELDS: Record<string, string[]> = {
+  person: [
+    "last_contacted_at",
+    "last_contact_at",
+    "first_contact_at",
+    "first_name",
+    "last_name",
+    "email",
+    "phone",
+    "company",
+    "role",
+    "avatar_url",
+  ],
+  organization: [
+    "last_contacted_at",
+    "last_contact_at",
+    "name",
+    "domain",
+    "website",
+    "logo_url",
+  ],
+  work: ["last_activity_at", "title"],
+  billing: ["last_activity_at"],
+  me: ["business_name", "business_website"],
+};
+
+function isEmptyValue(value: unknown): boolean {
+  return (
+    value === null ||
+    value === undefined ||
+    value === "" ||
+    value === "unknown"
+  );
+}
+
+function includesField(
+  map: Record<string, string[]>,
+  entityType: string,
+  field: string
+): boolean {
+  return map[entityType]?.includes(field) ?? false;
+}
+
+/** True when the field is never auto-written at any confidence. */
+export function isNeverTouchField(entityType: string, field: string): boolean {
+  return includesField(NEVER_TOUCH_FIELDS, entityType, field);
+}
+
+/** True when the field bypasses confidence gating entirely. */
+export function isAlwaysAutoField(entityType: string, field: string): boolean {
+  return includesField(ALWAYS_AUTO_FIELDS, entityType, field);
+}
+
+/**
+ * Classify a proposed Memory write into its tier.
+ *
+ * @param currentValue - the field's current value (used for first-time
+ *   classification detection). Pass null/undefined when unknown.
+ * @param proposedValue - the value being proposed (used for destructive
+ *   transition detection).
+ */
+export function classifyFieldTier(
+  entityType: TieredEntityType | string,
+  field: string,
+  proposedValue?: unknown,
+  currentValue?: unknown
+): MemoryFieldTier {
+  if (isNeverTouchField(entityType, field)) return "never_touch";
+
+  if (
+    typeof proposedValue === "string" &&
+    (DESTRUCTIVE_VALUES[field] ?? []).includes(proposedValue)
+  ) {
+    return "destructive";
+  }
+
+  if (includesField(SENSITIVE_FIELDS, entityType, field)) return "sensitive";
+
+  if (
+    includesField(FIRST_TIME_CLASSIFICATION_FIELDS, entityType, field) &&
+    isEmptyValue(currentValue)
+  ) {
+    return "sensitive";
+  }
+
+  return "standard";
+}
+
+/**
+ * The confidence bar a proposal must clear for its tier, given the
+ * workspace's auto-apply threshold.
+ */
+export function tierBar(tier: MemoryFieldTier, workspaceThreshold: number): number {
+  switch (tier) {
+    case "sensitive":
+    case "destructive":
+      return Math.max(workspaceThreshold, ELEVATED_TIER_FLOOR);
+    case "standard":
+      return workspaceThreshold;
+    case "never_touch":
+      return Number.POSITIVE_INFINITY;
+  }
+}
+
+export type TierDecision = "apply" | "watch" | "refuse";
+
+/**
+ * Pure routing decision for a proposal. Always-auto fields are handled by
+ * callers before reaching this function.
+ */
+export function decideTierOutcome(
+  tier: MemoryFieldTier,
+  confidence: number,
+  workspaceThreshold: number
+): { decision: TierDecision; bar: number } {
+  if (tier === "never_touch") {
+    return { decision: "refuse", bar: Number.POSITIVE_INFINITY };
+  }
+  const bar = tierBar(tier, workspaceThreshold);
+  return { decision: confidence >= bar ? "apply" : "watch", bar };
+}

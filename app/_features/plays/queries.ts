@@ -27,6 +27,7 @@ import type {
 import type { PlaybookBlueprintRow } from "./playbooks/types";
 import type { PlayDefinition } from "./utils/play-definition";
 import type { PlayTemplateRow } from "./types";
+import { isMemoryCareActivityMetadata } from "./utils/plays-activity-filter";
 // v1 authored playbooks removed - v2 playbooks are filesystem-based
 import { normalizePlaybookTrigger } from "./utils/playbook-display";
 import type {
@@ -55,11 +56,13 @@ function mapPlayerSlug(slug: string | null | undefined): PlayerSlug {
     "client-risk",
     "scope",
     "billing",
-    "keeper",
+    "memory-care",
     "general",
   ];
-  if (slug && allowed.includes(slug as PlayerSlug)) {
-    return slug as PlayerSlug;
+  // The retired "keeper" slug maps onto Memory Care.
+  const normalized = slug === "keeper" ? "memory-care" : slug;
+  if (normalized && allowed.includes(normalized as PlayerSlug)) {
+    return normalized as PlayerSlug;
   }
   return DEFAULT_PLAYER_SLUG;
 }
@@ -233,29 +236,30 @@ export async function listActivityEntries(
   const workspaceId = await getWorkspaceId();
   const supabase = await createClient();
 
-  const [{ data, error }, { count }] = await Promise.all([
-    supabase
-      .from("activity_entries")
-      .select(
-        "id, workspace_id, play_run_id, actor_user_id, action, title, detail, metadata, created_at",
-      )
-      .eq("workspace_id", workspaceId)
-      .order("created_at", { ascending: false })
-      .range(offset, offset + limit - 1),
-    supabase
-      .from("activity_entries")
-      .select("id", { count: "exact", head: true })
-      .eq("workspace_id", workspaceId),
-  ]);
+  // Oversample so post-filter still fills the page after dropping Care rows.
+  const fetchLimit = Math.min(Math.max(limit * 3, limit + 50), 200);
+
+  const { data, error } = await supabase
+    .from("activity_entries")
+    .select(
+      "id, workspace_id, play_run_id, actor_user_id, action, title, detail, metadata, created_at",
+    )
+    .eq("workspace_id", workspaceId)
+    .order("created_at", { ascending: false })
+    .range(0, fetchLimit - 1);
 
   if (error) throw error;
 
-  const rows = (data ?? []) as ActivityEntryRow[];
-  const enriched = await enrichActivitySourceUrls(rows, workspaceId, supabase);
+  const filtered = ((data ?? []) as ActivityEntryRow[]).filter(
+    (row) => !isMemoryCareActivityMetadata(row.metadata),
+  );
+  const page = filtered.slice(offset, offset + limit);
+  const enriched = await enrichActivitySourceUrls(page, workspaceId, supabase);
 
+  // Count is approximate when Care rows are dense; oversample keeps the page full.
   return {
     entries: enriched,
-    totalCount: count ?? 0,
+    totalCount: filtered.length,
   };
 }
 

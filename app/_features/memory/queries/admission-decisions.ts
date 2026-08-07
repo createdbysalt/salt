@@ -6,8 +6,8 @@ import { createClient } from "@/app/_lib/supabase/server";
 /**
  * Admission decisions for Memory → Filter.
  *
- * Record-centric view of the capture gate pipeline: what is waiting on the
- * user's call (candidates), what Salt let in (signals), and what it kept out
+ * Record-centric view of the capture gate pipeline: what Salt is watching
+ * (candidates), what it let in (signals), and what it kept out
  * (noise/drop/held) with plain-language reasons from the gate result.
  */
 
@@ -23,9 +23,9 @@ export interface AdmissionItem {
 }
 
 export interface AdmissionDecisions {
-  /** gate_action = 'candidate' — scored in, awaiting the user's call. */
+  /** gate_action = 'candidate' — scored in; lives in Watching until nudged or the bar clears. */
   candidates: AdmissionItem[];
-  /** gate_action = 'signal' — admitted in the last 7 days. */
+  /** gate_action = 'signal' — admitted in the last 7 days (Handled). */
   letIn: AdmissionItem[];
   /** noise/drop/held in the last 7 days. */
   keptOutCount: number;

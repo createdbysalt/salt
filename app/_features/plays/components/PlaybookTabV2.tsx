@@ -25,9 +25,9 @@ import type { PlaybookSection as V2Section } from "../playbooks/schema/v2/types"
 
 const APPLE_EASE = [0.32, 0.72, 0, 1] as const;
 
-// `_meta` playbooks (memory-records, memory-hygiene, connections, notes) are
-// re-skinned as care capability cards in Memory → Rules and hidden from the
-// library here. UI-layer filter only — discovery/execution are untouched.
+// Memory Care capabilities (records, hygiene, connections, notes) surface as
+// capability cards in Memory → Rules and are hidden from the library here.
+// UI-layer filter only — discovery/execution are untouched.
 // `daily-briefing` stays visible.
 const SECTION_ORDER: PlaybookSectionFilter[] = [
   "relationships",

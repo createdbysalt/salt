@@ -13,7 +13,7 @@ import {
   evaluateEvidence,
   logOddsToProbability,
   probabilityToLogOdds,
-} from "./intake";
+} from "./index";
 
 describe("parseIntakeRequest", () => {
   it("parses single person request", () => {

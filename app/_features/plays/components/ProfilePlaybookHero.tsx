@@ -106,7 +106,7 @@ export function ProfilePlaybookHero({ blueprint, stats }: ProfilePlaybookHeroPro
             </div>
           </div>
 
-{blueprint.playerSlug !== "keeper" && (
+{blueprint.playerSlug !== "memory-care" && (
             <button
               type="button"
               onClick={() => openEditInAskSalt(blueprint.name)}

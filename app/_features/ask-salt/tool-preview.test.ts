@@ -27,21 +27,20 @@ describe("generic executor previews (5.5.3)", () => {
   });
 
   it("labels playbook steps with the playbook name", () => {
-    expect(formatToolStepLabel("load_playbook", { slug: "memory-records" })).toBe(
-      "Load Memory Records playbook",
+    expect(formatToolStepLabel("load_memory_intake", {})).toBe(
+      "Load Memory Care intake",
     );
-    expect(
-      formatToolStepLabel(
-        "load_playbook",
-        { slug: "memory-records" },
-        { found: true, name: "Memory Records" },
-      ),
-    ).toBe("Load Memory Records playbook");
+    expect(formatToolStepLabel("load_playbook", { slug: "reengage" })).toBe(
+      "Load Reengage playbook",
+    );
     expect(formatToolStepLabel("adopt_playbook", { slug: "reengage" })).toBe(
       "Enable Reengage playbook",
     );
+    expect(formatToolStepLabel("parse_intake", { slug: "memory-care" })).toBe(
+      "Parse intake (Memory Care)",
+    );
     expect(formatToolStepLabel("parse_intake", { slug: "memory-records" })).toBe(
-      "Parse intake (Memory Records)",
+      "Parse intake (Memory Care)",
     );
     expect(
       formatToolStepLabel("propose_play", {

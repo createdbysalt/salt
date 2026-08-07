@@ -136,7 +136,7 @@ describe("executeSystemPlay create-person", () => {
         detail: "Jane Doe",
         metadata: expect.objectContaining({
           source: "system_play",
-          player_slug: "keeper",
+          player_slug: "memory-care",
           auto_executed: true,
           entity_type: "person",
           entity_id: "new-person-id",
@@ -153,7 +153,7 @@ describe("executeSystemPlay create-person", () => {
         state: "approved",
         queue: "auto_handled",
         metadata: expect.objectContaining({
-          keeper_profile: true,
+          memory_care_profile: true,
           section: "relationships",
           profile_entity_type: "person",
           profile_entity_id: "new-person-id",

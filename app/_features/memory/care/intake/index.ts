@@ -1,5 +1,5 @@
 /**
- * Memory Records Playbook - Intake Script
+ * Memory Care — Intake
  *
  * Handles entity intake from two sources:
  * 1. Ask Salt — User explicitly requests to add records
@@ -10,6 +10,9 @@
  * - Record qualifiers (when to suggest creating a record)
  * - Dependency ordering for multi-entity creation
  * - Watch trigger fields for incomplete records
+ *
+ * (Moved from the retired memory-records system playbook into the Memory
+ * Care module.)
  */
 
 /**

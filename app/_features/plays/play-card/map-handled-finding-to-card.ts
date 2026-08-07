@@ -7,8 +7,8 @@ import {
 import { playerById, type PlayerId } from "@/app/_lib/demo/plays-demo-data";
 import {
   formatProfileFieldValue,
-  keeperPlaybookDisplayName,
-} from "@/app/_features/plays/playbooks/records-engine/keeper-profile-display";
+  memoryCarePlaybookDisplayName,
+} from "@/app/_features/plays/playbooks/records-engine/memory-care-display";
 import type { ProfileFieldKey } from "@/app/_features/plays/playbooks/records-engine/types";
 import type { PlaybookSection } from "@/app/_features/plays/playbooks/schema/v2/types";
 import type { PlayCardViewModel } from "./types";
@@ -23,7 +23,7 @@ function getSectionFromFindingType(type: FindingType): PlaybookSection {
     return "relationships";
   }
   if (type === "referral") return "relationships";
-  return "_meta";
+  return "work";
 }
 
 /**
@@ -40,7 +40,6 @@ function getSectionLabel(section: PlaybookSection): string {
     connections: "Connections",
     notes: "Notes",
     communication: "Communication",
-    _meta: "System",
   };
   return labels[section];
 }
@@ -72,7 +71,7 @@ export function mapHandledFindingToCard(finding: FindingWithContext): PlayCardVi
   const field = readMetadataString(finding, "profile_field");
   const value = readMetadataString(finding, "profile_value");
   const blueprintSlug = readMetadataString(finding, "blueprint_slug");
-  const isKeeper = readMetadataBool(finding, "keeper_profile");
+  const isMemoryCare = isMemoryCareProfileFinding(finding);
 
   const changeLine =
     field && value
@@ -82,8 +81,8 @@ export function mapHandledFindingToCard(finding: FindingWithContext): PlayCardVi
         )}`
       : null;
 
-  const playbookName = isKeeper
-    ? keeperPlaybookDisplayName(blueprintSlug)
+  const playbookName = isMemoryCare
+    ? memoryCarePlaybookDisplayName(blueprintSlug)
     : FINDING_TYPE_LABELS[finding.finding_type];
 
   const section = getSectionFromFindingType(finding.finding_type);
@@ -99,7 +98,7 @@ export function mapHandledFindingToCard(finding: FindingWithContext): PlayCardVi
 
   return {
     id: finding.id,
-    kind: isKeeper ? "profile" : "risk",
+    kind: isMemoryCare ? "profile" : "risk",
     mode: "handled",
 
     // V2 attribution (derived from finding)
@@ -108,7 +107,7 @@ export function mapHandledFindingToCard(finding: FindingWithContext): PlayCardVi
     section,
     sectionLabel: getSectionLabel(section),
     layer: "learn",
-    outputType: isKeeper ? "memory_update" : "notification",
+    outputType: isMemoryCare ? "memory_update" : "notification",
     approvalMode: "none", // Auto-handled = no approval needed
     autoApplyThreshold: null,
     confidenceExplanation: null,
@@ -135,10 +134,10 @@ export function mapHandledFindingToCard(finding: FindingWithContext): PlayCardVi
     },
     // Body fields kept for parity but the handled variant renders changeLine.
     profile:
-      isKeeper && field
+      isMemoryCare && field
         ? { field, proposedValue: value ?? "", because: finding.content }
         : undefined,
-    risk: !isKeeper
+    risk: !isMemoryCare
       ? { signal: finding.content ?? finding.title, recommendation: "" }
       : undefined,
     primaryAction: null,
@@ -147,7 +146,7 @@ export function mapHandledFindingToCard(finding: FindingWithContext): PlayCardVi
     provenance: {
       source: "finding",
       findingId: finding.id,
-      apply: isKeeper ? "keeper_profile" : "act",
+      apply: isMemoryCare ? "memory_care" : "act",
       flagged: Boolean(finding.flagged_at),
     },
     askSalt,
@@ -155,7 +154,7 @@ export function mapHandledFindingToCard(finding: FindingWithContext): PlayCardVi
 }
 
 function getFindingPlayerId(finding: FindingWithContext): PlayerId {
-  if (readMetadataBool(finding, "keeper_profile")) return "keeper";
+  if (isMemoryCareProfileFinding(finding)) return "memory-care";
   if (finding.finding_type.startsWith("revenue_")) return "client-risk";
   if (finding.finding_type.startsWith("pending_")) return "follow-up";
   if (
@@ -163,9 +162,17 @@ function getFindingPlayerId(finding: FindingWithContext): PlayerId {
     finding.finding_type === "new_person" ||
     finding.finding_type === "new_org"
   ) {
-    return "keeper";
+    return "memory-care";
   }
   return "brief";
+}
+
+/** Accepts the current key plus the retired `keeper_profile` metadata key. */
+function isMemoryCareProfileFinding(finding: FindingWithContext): boolean {
+  return (
+    readMetadataBool(finding, "memory_care_profile") ||
+    readMetadataBool(finding, "keeper_profile")
+  );
 }
 
 function readMetadataString(finding: FindingWithContext, key: string): string | null {

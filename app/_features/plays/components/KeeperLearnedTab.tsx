@@ -32,7 +32,7 @@ import {
   markLearningsSeen,
 } from "@/app/_features/me/actions/salt-learnings";
 import { CorrectionModal } from "@/app/_features/me/components/CorrectionModal";
-import type { KeeperEntityType } from "@/app/_features/plays/playbooks/evidence-accumulator";
+import type { LearningEntityType } from "@/app/_lib/learning";
 
 type KeeperLearnedTabProps = {
   digest: LearningsDigest;
@@ -433,7 +433,7 @@ export function KeeperLearnedTab({ digest, workspaceId }: KeeperLearnedTabProps)
           onOpenChange={(open) => !open && setCorrectionLearning(null)}
           learningId={correctionLearning.id}
           workspaceId={workspaceId}
-          entityType={correctionLearning.entity_type as KeeperEntityType}
+          entityType={correctionLearning.entity_type as LearningEntityType}
           entityId={correctionLearning.entity_id}
           entityLabel={correctionLearning.entity_label}
           fieldPath={correctionLearning.field_path}

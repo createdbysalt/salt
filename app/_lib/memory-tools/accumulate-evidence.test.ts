@@ -82,7 +82,7 @@ describe("memoryAccumulateEvidence", () => {
       title: "Memory Hygiene is watching",
       detail: "Missing required field: email",
       metadata: expect.objectContaining({
-        player_slug: "keeper",
+        player_slug: "memory-care",
         evidence_id: "ev-1",
         entity_type: "person",
         entity_id: "person-1",

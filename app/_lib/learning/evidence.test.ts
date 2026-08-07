@@ -4,7 +4,7 @@ import {
   valuesContradict,
   getFieldTtl,
   FIELD_TTL_DAYS,
-} from "./evidence-accumulator";
+} from "./index";
 
 describe("computeCorroboratedConfidence", () => {
   it("returns base confidence for single observation", () => {

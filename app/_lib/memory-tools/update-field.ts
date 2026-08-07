@@ -35,6 +35,7 @@ import {
   getAggregatedConfidence,
   resolveEvidence,
 } from "@/app/_lib/learning";
+import { isNeverTouchField } from "@/app/_lib/learning/field-tiers";
 import { getWorkspaceThreshold } from "./get-threshold";
 import type { UpdateFieldInput, UpdateFieldResult } from "./types";
 
@@ -47,11 +48,27 @@ import type { UpdateFieldInput, UpdateFieldResult } from "./types";
 export async function memoryUpdateField(
   input: UpdateFieldInput
 ): Promise<UpdateFieldResult> {
-  const { threshold } = await getWorkspaceThreshold(
+  // Never-touch fields (money) are refused at any confidence. This is a hard
+  // rule enforced by the tool itself, not a queue — no evidence is parked.
+  if (isNeverTouchField(input.entityType, input.field)) {
+    return {
+      action: "rejected",
+      threshold: Number.POSITIVE_INFINITY,
+      confidence: input.confidence,
+      message: `Refused: ${input.field} is a never-touch field and is never auto-written`,
+    };
+  }
+
+  const { threshold: workspaceThreshold } = await getWorkspaceThreshold(
     input.workspaceId,
     input.entityType,
     input.field
   );
+
+  // Callers (e.g. Memory Care tiered bars) may raise the bar, never lower it.
+  const threshold = input.minThreshold
+    ? Math.max(workspaceThreshold, input.minThreshold)
+    : workspaceThreshold;
 
   // First, accumulate the evidence regardless of confidence
   // This creates the audit trail
@@ -516,7 +533,7 @@ async function recordProvenance(
     entity_id: input.entityId,
     field: input.field,
     value: String(input.value),
-    source: input.source === "playbook" ? "rule" : input.source,
+    source: input.source === "playbook" || input.source === "care" ? "rule" : input.source,
     blueprint_slug: input.sourceDetails?.playbookSlug ?? null,
     rule_id: input.sourceDetails?.ruleId ?? null,
     confidence: input.confidence,

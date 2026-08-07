@@ -3,7 +3,7 @@
 /**
  * Correction Learning Actions
  *
- * Handles user corrections to keeper auto-executes. Three paths:
+ * Handles user corrections to Memory Care auto-applies. Three paths:
  * 1. Quick undo: minimal signal, small penalty
  * 2. Structured reason: predefined categories, medium penalty
  * 3. Conversational: Ask Salt explanation, full context learning
@@ -13,8 +13,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/app/_lib/supabase/server";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { getTenantContext } from "@/app/_features/auth/queries";
-import { resolveEvidence } from "@/app/_features/plays/playbooks/evidence-accumulator";
-import type { KeeperEntityType } from "@/app/_features/plays/playbooks/evidence-accumulator";
+import { resolveEvidence, type LearningEntityType } from "@/app/_lib/learning";
 
 // ============================================================================
 // Types
@@ -35,7 +34,7 @@ export interface CorrectionEventRow {
   id: string;
   workspace_id: string;
   learning_id: string | null;
-  entity_type: KeeperEntityType;
+  entity_type: LearningEntityType;
   entity_id: string;
   field_path: string;
   wrong_value: unknown;
@@ -53,7 +52,7 @@ export interface CorrectionEventRow {
 export interface RecordCorrectionInput {
   workspaceId: string;
   learningId?: string;
-  entityType: KeeperEntityType;
+  entityType: LearningEntityType;
   entityId: string;
   fieldPath: string;
   wrongValue: unknown;
@@ -84,7 +83,7 @@ const BASE_PENALTIES: Record<CorrectionType, number> = {
  */
 export async function calculateConfidencePenalty(
   workspaceId: string,
-  entityType: KeeperEntityType,
+  entityType: LearningEntityType,
   entityId: string,
   fieldPath: string,
   correctionType: CorrectionType,
@@ -204,7 +203,7 @@ export async function recordCorrection(
  */
 async function applyPenaltyToPendingEvidence(
   workspaceId: string,
-  entityType: KeeperEntityType,
+  entityType: LearningEntityType,
   entityId: string,
   fieldPath: string,
   penalty: number,
@@ -250,7 +249,7 @@ async function applyPenaltyToPendingEvidence(
 export async function recordQuickUndo(
   learningId: string,
   workspaceId: string,
-  entityType: KeeperEntityType,
+  entityType: LearningEntityType,
   entityId: string,
   fieldPath: string,
   wrongValue: unknown,
@@ -277,7 +276,7 @@ export async function recordQuickUndo(
 export async function recordStructuredCorrection(
   learningId: string,
   workspaceId: string,
-  entityType: KeeperEntityType,
+  entityType: LearningEntityType,
   entityId: string,
   fieldPath: string,
   wrongValue: unknown,
@@ -311,7 +310,7 @@ export async function recordStructuredCorrection(
 export async function recordConversationalCorrection(input: {
   workspaceId: string;
   learningId?: string;
-  entityType: KeeperEntityType;
+  entityType: LearningEntityType;
   entityId: string;
   fieldPath: string;
   wrongValue: unknown;
@@ -356,7 +355,7 @@ export async function recordConversationalCorrection(input: {
  */
 export async function getEntityCorrections(
   workspaceId: string,
-  entityType: KeeperEntityType,
+  entityType: LearningEntityType,
   entityId: string,
 ): Promise<CorrectionEventRow[]> {
   const supabase = await createClient();
@@ -378,7 +377,7 @@ export async function getEntityCorrections(
  */
 export async function getCorrectionCount(
   workspaceId: string,
-  entityType: KeeperEntityType,
+  entityType: LearningEntityType,
   entityId: string,
   fieldPath: string,
 ): Promise<number> {

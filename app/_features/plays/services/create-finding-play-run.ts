@@ -1,216 +1,23 @@
 import "server-only";
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
-import type { PersonProfileFieldKey } from "@/app/_features/plays/playbooks/records-engine/types";
-import { routePlay, type PlayQueue, type PlayStakes } from "@/app/_features/plays/lib/play-record";
+import type { PlayQueue, PlayStakes } from "@/app/_features/plays/lib/play-record";
 
 /**
- * Memory Records Play Run creation service.
+ * Finding play_run creation service.
  *
- * Creates play_runs for Memory record suggestions (profile updates,
- * relationship questions, risk signals). All Memory-learning output
- * that belongs in the approval queue should flow through here.
+ * Creates play_runs for capture-intelligence findings that genuinely need a
+ * human decision: client-risk signals and routing (unmatched sender)
+ * classifications.
  *
- * Note: "Keeper" in this filename is legacy terminology. The current
- * architecture uses sections (relationships, billing, etc.) not players.
- * See brand-identity/product-internal/terminology-engineering.md.
+ * Memory mutations do NOT flow through here — Memory Care
+ * (app/_features/memory/care) handles those with tiered confidence bars and
+ * transparency via Memory → Filter, not approval queues.
  */
 
-export interface CreateKeeperProfilePlayRunInput {
-  workspaceId: string;
-  personId: string;
-  personName: string;
-  field: PersonProfileFieldKey;
-  proposedValue: string;
-  because: string | null;
-  confidence: number;
-  sourceUrl: string | null;
-  triggerLabel: string | null;
-  /** If high confidence (≥85), auto-handle instead of queuing for approval. */
-  autoHandle?: boolean;
-  /** Links to entity_evidence records that triggered this play. */
-  evidenceIds?: string[];
-}
-
-export interface CreateKeeperQuestionPlayRunInput {
-  workspaceId: string;
-  personId: string;
-  personName: string;
-  field: PersonProfileFieldKey;
-  prompt: string;
-  options: Array<{ value: string; label: string }>;
-  sourceUrl: string | null;
-  triggerLabel: string | null;
-  /** Links to entity_evidence records that triggered this play. */
-  evidenceIds?: string[];
-}
-
-export type CreateKeeperPlayRunResult =
+export type CreateFindingPlayRunResult =
   | { ok: true; playRunId: string; autoHandled: boolean }
   | { ok: false; error: string };
-
-const FIELD_LABELS: Record<string, string> = {
-  relationship_type: "relationship",
-  role: "role",
-  company: "company",
-  location: "location",
-};
-
-function formatFieldLabel(field: string): string {
-  return FIELD_LABELS[field] ?? field.replace(/_/g, " ");
-}
-
-function formatPrimaryLabel(field: string, value: string): string {
-  const fieldLabel = formatFieldLabel(field);
-  if (field === "relationship_type") {
-    return `Save as ${value.charAt(0).toUpperCase() + value.slice(1)}`;
-  }
-  return `Save ${fieldLabel}`;
-}
-
-/**
- * Create a profile-type play_run for a Keeper suggestion.
- *
- * This replaces the previous flow of inserting into intelligence_findings
- * with keeper_profile metadata. The play_run will appear in the Plays queue
- * and can be approved via applyKeeperPlayRun.
- */
-export async function createKeeperProfilePlayRun(
-  input: CreateKeeperProfilePlayRunInput
-): Promise<CreateKeeperPlayRunResult> {
-  const supabase = createAdminClient();
-
-  // Profile mutations are medium stakes (internal state changes)
-  const stakes: PlayStakes = "medium";
-  const queue = routePlay(input.confidence, stakes);
-  const shouldAutoHandle = queue === "auto_handled";
-  const state = shouldAutoHandle ? "approved" : "queued";
-
-  const title = `Mark ${input.personName} as ${input.proposedValue}`;
-  const preview = input.because ?? `Keeper suggests ${formatFieldLabel(input.field)} based on recent signals.`;
-
-  const { data: run, error: insertError } = await supabase
-    .from("play_runs")
-    .insert({
-      workspace_id: input.workspaceId,
-      target_type: "person",
-      target_id: input.personId,
-      target_label: input.personName,
-      state,
-      queue,
-      stakes,
-      title,
-      preview,
-      confidence: input.confidence,
-      source_context: {
-        source: "playbook",
-        playbook_slug: "memory-records",
-        trigger_signal: input.triggerLabel ?? "From email",
-      },
-      evidence_ids: input.evidenceIds ?? [],
-      metadata: {
-                playbook_name: "People Records",
-        keeper_profile: true,
-        profile_field: input.field,
-        profile_value: input.proposedValue,
-        because: input.because,
-        primary_label: formatPrimaryLabel(input.field, input.proposedValue),
-        trigger_label: input.triggerLabel ?? "From email",
-        source_url: input.sourceUrl,
-      },
-      approved_at: shouldAutoHandle ? new Date().toISOString() : null,
-    })
-    .select("id")
-    .single();
-
-  if (insertError || !run) {
-    return { ok: false, error: insertError?.message ?? "Could not create play run" };
-  }
-
-  // If auto-handled, also apply the profile field immediately
-  if (shouldAutoHandle) {
-    const { approveProfileFieldSuggestion } = await import(
-      "@/app/_features/people/actions/profile-fields"
-    );
-    await approveProfileFieldSuggestion({
-      personId: input.personId,
-      field: input.field,
-    });
-
-    // Create activity entry for auto-executed play
-    await supabase.from("activity_entries").insert({
-      workspace_id: input.workspaceId,
-      play_run_id: run.id,
-      action: "auto_applied",
-      title,
-      detail: `Salt auto-applied: ${input.because ?? `Confidence ${input.confidence}%`}`,
-      metadata: {
-        auto_executed: true,
-        confidence: input.confidence,
-        field: input.field,
-        value: input.proposedValue,
-      },
-    });
-  }
-
-  return { ok: true, playRunId: run.id as string, autoHandled: shouldAutoHandle };
-}
-
-/**
- * Create a question-type play_run for a Keeper classification question.
- *
- * When Keeper isn't confident enough to suggest a value but has enough signal
- * to ask, it creates a question play. The user picks from one-tap options.
- */
-export async function createKeeperQuestionPlayRun(
-  input: CreateKeeperQuestionPlayRunInput
-): Promise<CreateKeeperPlayRunResult> {
-  const supabase = createAdminClient();
-
-  // Questions are low stakes - just asking, not doing
-  const stakes: PlayStakes = "low";
-  // Questions always need user input, so always goes to needs_you
-  const queue: PlayQueue = "needs_you";
-
-  const { data: run, error: insertError } = await supabase
-    .from("play_runs")
-    .insert({
-      workspace_id: input.workspaceId,
-      target_type: "person",
-      target_id: input.personId,
-      target_label: input.personName,
-      state: "queued",
-      queue,
-      stakes,
-      title: input.prompt,
-      preview: `Salt couldn't determine the ${formatFieldLabel(input.field)}. Pick one.`,
-      confidence: null,
-      source_context: {
-        source: "playbook",
-        playbook_slug: "memory-records",
-        trigger_signal: input.triggerLabel ?? "From email",
-      },
-      evidence_ids: input.evidenceIds ?? [],
-      metadata: {
-                playbook_name: "People Records",
-        keeper_question: true,
-        question_field: input.field,
-        question_options: input.options,
-        trigger_label: input.triggerLabel ?? "From email",
-        source_url: input.sourceUrl,
-      },
-    })
-    .select("id")
-    .single();
-
-  if (insertError || !run) {
-    return { ok: false, error: insertError?.message ?? "Could not create play run" };
-  }
-
-  return { ok: true, playRunId: run.id as string, autoHandled: false };
-}
-
-// --- Risk and Routing Play Runs (Phase 3) ---
 
 export interface CreateRiskPlayRunInput {
   workspaceId: string;
@@ -253,7 +60,7 @@ export interface CreateRoutingPlayRunInput {
  */
 export async function createRiskPlayRun(
   input: CreateRiskPlayRunInput
-): Promise<CreateKeeperPlayRunResult> {
+): Promise<CreateFindingPlayRunResult> {
   const supabase = createAdminClient();
 
   // Risk signals are high stakes - always need user attention
@@ -278,12 +85,12 @@ export async function createRiskPlayRun(
       confidence: input.confidence,
       source_context: {
         source: "playbook",
-        playbook_slug: "keeper-client-risk",
+        playbook_slug: "client-risk",
         trigger_signal: input.triggerLabel,
       },
       evidence_ids: input.evidenceIds ?? [],
       metadata: {
-                playbook_name: "Client Risk",
+        playbook_name: "Client Risk",
         play_card_kind: "risk",
         risk_signal: input.signal,
         risk_recommendation: input.recommendation,
@@ -311,7 +118,7 @@ export async function createRiskPlayRun(
  */
 export async function createRoutingPlayRun(
   input: CreateRoutingPlayRunInput
-): Promise<CreateKeeperPlayRunResult> {
+): Promise<CreateFindingPlayRunResult> {
   const supabase = createAdminClient();
 
   // Routing is medium stakes - needs user decision but no external action
@@ -334,12 +141,12 @@ export async function createRoutingPlayRun(
       confidence: input.confidence,
       source_context: {
         source: "playbook",
-        playbook_slug: "keeper-route-signal",
+        playbook_slug: "route-signal",
         trigger_signal: input.triggerLabel,
       },
       evidence_ids: input.evidenceIds ?? [],
       metadata: {
-                playbook_name: "Route Signal",
+        playbook_name: "Route Signal",
         play_card_kind: "routing",
         from_email: input.fromEmail,
         from_name: input.fromName,

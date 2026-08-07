@@ -577,16 +577,16 @@ export async function fetchProfileBlueprintDetail(blueprintSlug: string): Promis
 }
 
 // ---------------------------------------------------------------------------
-// Keeper play_run actions (Phase 2 — unified play_runs path)
+// Memory Care play_run actions (Phase 2 — unified play_runs path)
 // ---------------------------------------------------------------------------
 
 /**
- * Apply a Keeper profile play_run — writes the profile field and marks as ran.
+ * Apply a Memory Care profile play_run — writes the profile field and marks as ran.
  *
- * This is the play_runs equivalent of applyKeeperProfileFinding. It reads the
+ * This is the play_runs equivalent of applyMemoryCareProfileFinding. It reads the
  * profile field/value from play_run metadata and applies it to the person.
  */
-export async function applyKeeperPlayRun(
+export async function applyMemoryCarePlayRun(
   playRunId: string
 ): Promise<{ success: boolean; error?: string }> {
   const { context } = await getTenantContext();
@@ -610,7 +610,8 @@ export async function applyKeeperPlayRun(
   }
 
   const meta = run.metadata as Record<string, unknown> | null;
-  if (!meta?.keeper_profile) {
+  // Accepts the retired `keeper_profile` metadata key as a legacy fallback.
+  if (!meta?.memory_care_profile && !meta?.keeper_profile) {
     return { success: false, error: "Not a Memory profile play" };
   }
 
@@ -668,9 +669,9 @@ export async function applyKeeperPlayRun(
 }
 
 /**
- * Answer a Keeper question play_run — writes the chosen value and marks as ran.
+ * Answer a Memory Care question play_run — writes the chosen value and marks as ran.
  */
-export async function answerKeeperQuestionPlayRun(
+export async function answerMemoryCareQuestionPlayRun(
   playRunId: string,
   answer: string
 ): Promise<{ success: boolean; error?: string }> {
@@ -695,7 +696,8 @@ export async function answerKeeperQuestionPlayRun(
   }
 
   const meta = run.metadata as Record<string, unknown> | null;
-  if (!meta?.keeper_question) {
+  // Accepts the retired `keeper_question` metadata key as a legacy fallback.
+  if (!meta?.memory_care_question && !meta?.keeper_question) {
     return { success: false, error: "Not a Memory question play" };
   }
 

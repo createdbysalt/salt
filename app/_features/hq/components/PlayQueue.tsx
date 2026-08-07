@@ -29,13 +29,13 @@ import {
 import type { PlayCardViewModel } from "@/app/_features/plays/play-card/types";
 import {
   approvePlayRun,
-  applyKeeperPlayRun,
+  applyMemoryCarePlayRun,
   dismissPlayRun,
   editPlayRun,
 } from "@/app/_features/plays/actions";
 import {
   actOnFinding,
-  applyKeeperProfileFinding,
+  applyMemoryCareProfileFinding,
   applyMemoryPlan,
   dismissFinding,
 } from "@/app/_features/capture/actions/intelligence-findings";
@@ -227,7 +227,7 @@ export function PlayQueue({ initialCards, timeSavedLabel = null }: PlayQueueProp
       if (action.kind === "apply_memory" && vm.provenance.source === "play_run") {
         const { playRunId } = vm.provenance;
         void (async () => {
-          const result = await applyKeeperPlayRun(playRunId);
+          const result = await applyMemoryCarePlayRun(playRunId);
           if (result.success) {
             toast.success(action.label);
             router.refresh();
@@ -247,8 +247,8 @@ export function PlayQueue({ initialCards, timeSavedLabel = null }: PlayQueueProp
         const { findingId, apply } = vm.provenance;
         void (async () => {
           const result =
-            apply === "keeper_profile"
-              ? await applyKeeperProfileFinding(findingId)
+            apply === "memory_care"
+              ? await applyMemoryCareProfileFinding(findingId)
               : apply === "memory_plan"
                 ? await applyMemoryPlan(findingId)
                 : await actOnFinding(findingId);

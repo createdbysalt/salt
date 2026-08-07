@@ -143,13 +143,11 @@ export function PlaybookCardV2({
           {description}
         </p>
 
-        {section !== "_meta" && (
-          <PlaybookStepDots
-            stepCount={stepCount}
-            dotClass={sectionStyles?.dot}
-            className="mt-4"
-          />
-        )}
+        <PlaybookStepDots
+          stepCount={stepCount}
+          dotClass={sectionStyles?.dot}
+          className="mt-4"
+        />
 
         <div className="mt-4 pt-4 border-t border-border/30 flex items-center justify-between gap-3">
           <p className="min-w-0 truncate text-[11px] text-muted-foreground/80">

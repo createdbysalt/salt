@@ -51,14 +51,6 @@ vi.mock("@/app/_lib/supabase/admin", () => ({
   }),
 }));
 
-vi.mock("../../execution-router", () => ({
-  determineExecutionPath: vi.fn().mockResolvedValue({
-    path: "auto_execute",
-    confidence: 90,
-    reason: "High confidence",
-  }),
-}));
-
 const sendLlmMock = vi.fn().mockResolvedValue("draft text");
 vi.mock("@/app/_lib/ai/gpt", () => ({
   sendLlm: (...args: unknown[]) => sendLlmMock(...args),

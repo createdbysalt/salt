@@ -14,7 +14,7 @@ import {
   accumulateEvidence,
   evaluateEvidence,
   logOddsToProbability,
-} from "@/app/_features/plays/playbooks/v2/_meta/memory-records/scripts";
+} from "@/app/_features/memory/care/intake";
 import { createIntakePlayRun } from "@/app/_features/plays/services/create-intake-play-run";
 import type {
   AddSignalInput,

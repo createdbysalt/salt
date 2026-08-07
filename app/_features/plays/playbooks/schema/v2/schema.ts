@@ -21,7 +21,6 @@ const PlaybookSectionSchema = z.enum([
   "connections",
   "notes",
   "communication",
-  "_meta",
 ]);
 
 const PlaybookLayerSchema = z.enum(["learn", "act"]);
@@ -360,7 +359,6 @@ export function inferSectionFromSlug(slug: string): z.infer<typeof PlaybookSecti
     "connections-records": "connections",
     "me-records": "me",
     "convos-records": "relationships",
-    "convos-keeper": "relationships",
     "follow-up": "relationships",
     "invoice-reminder": "billing",
     "invoice-chase": "billing",
@@ -368,17 +366,7 @@ export function inferSectionFromSlug(slug: string): z.infer<typeof PlaybookSecti
     "cash-runway": "billing",
     "meeting-prep": "meetings",
     "meeting-recap": "meetings",
-    "daily-briefing": "_meta",
-    "memory-hygiene": "_meta",
-    // Legacy keeper- prefixed slugs
-    "keeper-people-records": "relationships",
-    "keeper-organizations-records": "relationships",
-    "keeper-work-records": "work",
-    "keeper-billing-records": "billing",
-    "keeper-files-records": "files",
-    "keeper-meetings-records": "meetings",
-    // Unified memory-records maps to relationships by default
-    "memory-records": "relationships",
+    "daily-briefing": "me",
   };
   return mapping[slug] ?? null;
 }
@@ -392,7 +380,6 @@ export function mapV1PlayerToVoice(playerSlug: string): string | undefined {
     billing: "billing",
     "follow-up": "follow-up",
     brief: "brief",
-    keeper: undefined,
   };
   return mapping[playerSlug];
 }

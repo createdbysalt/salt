@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildKeeperCardDisplay,
-  buildKeeperProfileFindingCopy,
-  isActionableKeeperProfileResult,
-  keeperPlaybookDisplayName,
-} from "./keeper-profile-display";
+  buildMemoryCareCardDisplay,
+  buildMemoryCareProfileFindingCopy,
+  isActionableMemoryCareProfileResult,
+  memoryCarePlaybookDisplayName,
+} from "./memory-care-display";
 import type { ProfileFieldResult } from "./types";
 
 function result(overrides: Partial<ProfileFieldResult> = {}): ProfileFieldResult {
@@ -21,19 +21,19 @@ function result(overrides: Partial<ProfileFieldResult> = {}): ProfileFieldResult
   };
 }
 
-describe("keeper profile display", () => {
+describe("memory care display", () => {
   it("maps memory-records slug to Memory Records", () => {
-    expect(keeperPlaybookDisplayName("memory-records")).toBe("Memory Records");
+    expect(memoryCarePlaybookDisplayName("memory-records")).toBe("Memory Records");
   });
 
   it("maps legacy keeper slugs to Memory Records for backward compatibility", () => {
-    expect(keeperPlaybookDisplayName("keeper-people-records")).toBe("Memory Records");
-    expect(keeperPlaybookDisplayName("keeper-organizations-records")).toBe("Memory Records");
-    expect(keeperPlaybookDisplayName("keeper-work-records")).toBe("Memory Records");
+    expect(memoryCarePlaybookDisplayName("keeper-people-records")).toBe("Memory Records");
+    expect(memoryCarePlaybookDisplayName("keeper-organizations-records")).toBe("Memory Records");
+    expect(memoryCarePlaybookDisplayName("keeper-work-records")).toBe("Memory Records");
   });
 
   it("uses human titles for relationship suggestions", () => {
-    const copy = buildKeeperProfileFindingCopy({
+    const copy = buildMemoryCareProfileFindingCopy({
       field: "relationship_type",
       result: result(),
       targetLabel: "Matheus Martins",
@@ -47,12 +47,12 @@ describe("keeper profile display", () => {
 
   it("rejects unknown relationship suggestions", () => {
     expect(
-      isActionableKeeperProfileResult(result({ value: "unknown", source: "ai_fallback" })),
+      isActionableMemoryCareProfileResult(result({ value: "unknown", source: "ai_fallback" })),
     ).toBe(false);
   });
 
   it("builds card display for existing findings", () => {
-    const display = buildKeeperCardDisplay({
+    const display = buildMemoryCareCardDisplay({
       findingTitle: "Review relationship for Memory",
       findingContent: "Review relationship: unknown.",
       blueprintSlug: "memory-records",

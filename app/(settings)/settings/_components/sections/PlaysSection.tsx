@@ -12,12 +12,14 @@ import { SettingsPage } from "../SettingsPage";
 import { SettingsSection } from "../SettingsSection";
 import { SettingsCard } from "../SettingsCard";
 import {
-  updateKeeperAutonomyThreshold,
-  getKeeperAutonomyThreshold,
   getWorkspaceTrustLevel,
   updateWorkspaceTrustLevel,
   type WorkspaceTrustLevel,
 } from "./plays-actions";
+import {
+  getMemoryCareSettings,
+  updateMemoryCareThreshold,
+} from "@/app/_features/memory/care/actions";
 
 interface PlaysSectionProps {
   workspaceId: string;
@@ -40,7 +42,7 @@ const THRESHOLD_LABELS: Record<number, { label: string; description: string }> =
   },
   100: {
     label: "Always ask",
-    description: "Salt never auto-executes; all changes require your approval.",
+    description: "Salt never applies changes on its own; everything waits in Watching.",
   },
 };
 
@@ -67,12 +69,12 @@ export function PlaysSection({ workspaceId, initialThreshold, initialTrustLevel 
 
   async function loadSettings() {
     try {
-      const [thresholdValue, trustValue] = await Promise.all([
-        getKeeperAutonomyThreshold(workspaceId),
+      const [careSettings, trustValue] = await Promise.all([
+        getMemoryCareSettings(workspaceId),
         getWorkspaceTrustLevel(workspaceId),
       ]);
-      setThreshold(thresholdValue);
-      setSavedThreshold(thresholdValue);
+      setThreshold(careSettings.threshold);
+      setSavedThreshold(careSettings.threshold);
       setTrustLevel(trustValue);
     } catch {
       toast.error("Failed to load settings");
@@ -102,7 +104,7 @@ export function PlaysSection({ workspaceId, initialThreshold, initialTrustLevel 
   function handleSave() {
     startTransition(async () => {
       try {
-        await updateKeeperAutonomyThreshold(workspaceId, threshold);
+        await updateMemoryCareThreshold(workspaceId, threshold);
         setSavedThreshold(threshold);
         toast.success("Autonomy settings saved");
       } catch {
@@ -132,7 +134,7 @@ export function PlaysSection({ workspaceId, initialThreshold, initialTrustLevel 
                   <div className="flex items-center gap-2">
                     <Brain className="h-5 w-5 text-muted-foreground" />
                     <Label className="text-base font-medium">
-                      Auto-execute threshold
+                      Auto-apply threshold
                     </Label>
                   </div>
                   <span className="text-2xl font-semibold tabular-nums">
@@ -174,9 +176,9 @@ export function PlaysSection({ workspaceId, initialThreshold, initialTrustLevel 
                   records without asking.
                 </p>
                 <p>
-                  Changes are always visible in your{" "}
-                  <span className="font-medium text-foreground">Me → Learned</span>{" "}
-                  tab, where you can undo them if needed.
+                  Changes are always visible in{" "}
+                  <span className="font-medium text-foreground">Memory → Filter → Handled</span>,
+                  where you can roll them back if needed.
                 </p>
               </div>
 

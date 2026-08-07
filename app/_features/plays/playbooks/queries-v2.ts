@@ -10,7 +10,6 @@ import { discoverV2Playbooks, getPlaybookBySlug } from "./schema/v2/discovery";
 import type { PlaybookSection, PlaybookLayer, PlaybookDefinitionV2, PlaybookCategory, PlaybookStep } from "./schema/v2/types";
 import { getPlaybookCategory, isPlaybookLocked, isPlaybookEditable } from "./schema/v2/types";
 import { getPlaybookEnabledStatesMap } from "../actions/playbook-settings";
-import { hasPlaybookScript } from "./script-registry";
 
 /**
  * Playbook origin types for badge display:
@@ -98,7 +97,6 @@ const SECTION_LABELS: Record<PlaybookSection, { label: string; desc: string }> =
     connections: { label: "Connections", desc: "Entity links" },
     notes: { label: "Notes", desc: "Preferences and context" },
     communication: { label: "Communication", desc: "Email and messaging" },
-    _meta: { label: "System", desc: "Cross-cutting operations" },
   };
 
 /**
@@ -140,12 +138,10 @@ function mapPlaybookListItem(
   const locked = isPlaybookLocked(definition);
   const editable = isPlaybookEditable(definition);
 
-  // Execution capability: learn playbooks run through the static script
-  // registry; act playbooks run through the v2 step executor.
+  // Execution capability: only act playbooks are runnable (v2 step executor).
+  // Learn-layer memory maintenance is owned by Memory Care capabilities.
   const runnable =
-    definition.layer === "learn"
-      ? hasPlaybookScript(definition.slug)
-      : (definition.steps?.length ?? 0) > 0;
+    definition.layer === "act" && (definition.steps?.length ?? 0) > 0;
 
   return {
     slug: definition.slug,
@@ -212,7 +208,6 @@ export const getPlaybooksV2 = cache(
       connections: 0,
       notes: 0,
       communication: 0,
-      _meta: 0,
     };
 
     const byLayer = { learn: 0, act: 0 };

@@ -5,7 +5,8 @@
  * Sections are the new grouping mechanism for playbooks.
  *
  * Capability rules:
- * - Memory writes: only _meta section learn-layer playbooks
+ * - Memory writes: no playbook section writes Memory — Memory Care
+ *   (`app/_features/memory/care`) owns all Memory mutations
  * - Destructive actions: none (safety first)
  * - User-created: always requires approval
  *
@@ -19,7 +20,6 @@
  * - connections: sky (links)
  * - notes: muted (text)
  * - communication: cyan (email, messaging)
- * - _meta: ink (system)
  */
 
 import {
@@ -31,7 +31,6 @@ import {
   User,
   Link,
   FileText,
-  Settings,
   MessageSquare,
   type LucideIcon,
 } from "lucide-react";
@@ -163,17 +162,6 @@ export const SECTION_CAPABILITIES: Record<PlaybookSection, SectionCapabilities> 
     canWriteMemory: false,
     domainToolkits: ["gmail", "outlook"],
   },
-  _meta: {
-    slug: "_meta",
-    name: "System",
-    description: "Memory-wide operations and maintenance",
-    icon: "settings",
-    Icon: Settings,
-    color: "ink",
-    monogram: "SY",
-    canWriteMemory: true,
-    domainToolkits: [],
-  },
 };
 
 /**
@@ -184,8 +172,8 @@ export function getSectionCapabilities(slug: PlaybookSection): SectionCapabiliti
 }
 
 /**
- * Check if a section's learn-layer playbooks can write Memory records.
- * Only _meta section playbooks can write to Memory.
+ * Check if a section's playbooks can write Memory records.
+ * No playbook section writes Memory — Memory Care owns all Memory mutations.
  */
 export function sectionCanWriteMemory(section: PlaybookSection): boolean {
   return SECTION_CAPABILITIES[section]?.canWriteMemory ?? false;
@@ -206,9 +194,9 @@ export function playbookAlwaysRequiresApproval(isUserCreated: boolean): boolean 
 export const ALL_SECTIONS = Object.keys(SECTION_CAPABILITIES) as PlaybookSection[];
 
 /**
- * User-facing sections (excludes _meta).
+ * User-facing sections (all sections — the `_meta` system section is retired).
  */
-export const USER_SECTIONS = ALL_SECTIONS.filter((s) => s !== "_meta");
+export const USER_SECTIONS = ALL_SECTIONS;
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * COLOR UTILITIES

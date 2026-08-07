@@ -91,7 +91,7 @@ async function recordEvidenceActivity(
         : "Salt is watching evidence",
       detail: input.because,
       metadata: {
-        player_slug: "keeper",
+        player_slug: "memory-care",
         auto_executed: true,
         evidence_id: evidenceId,
         entity_type: input.entityType,

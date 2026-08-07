@@ -44,7 +44,7 @@ A play is billable when **at least one tool it executed carries `external_effect
 | `true` | Leaves Salt — a third party can observe it | `GMAIL_SEND_EMAIL`, `GOOGLECALENDAR_CREATE_EVENT`, `SLACK_SEND_MESSAGE`, `STRIPE_CREATE_INVOICE` |
 | `false` | Internal, or housekeeping inside the user's own account | All Memory tools, all `read` tools, `GMAIL_ADD_LABEL_TO_EMAIL` |
 
-**Memory tools are never billable.** Memory mutations, entity linking, and Keeper maintenance are LEARN-layer work. They are still metered with `billable: false` so the margin monitor can see the spend, but they never reach an invoice — charging for them would be charging the user for Salt organizing itself.
+**Memory tools are never billable.** Memory mutations, entity linking, and Memory Care maintenance are LEARN-layer work. They are still metered with `billable: false` so the margin monitor can see the spend, but they never reach an invoice — charging for them would be charging the user for Salt organizing itself.
 
 **Resolution order** (`app/_lib/composio/external-effect.ts`):
 

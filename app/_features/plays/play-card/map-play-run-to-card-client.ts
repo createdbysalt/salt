@@ -45,9 +45,8 @@ function resolveV2PlaybookFromMetadata(row: PlayRunRow): V2Resolution | null {
 
   const meta = row.metadata as Record<string, unknown> | null;
 
-  // Prefer persisted section metadata for generic system playbooks like
-  // memory-records, then fall back to the slug pattern.
-  let section: PlaybookSection = "_meta";
+  // Prefer persisted section metadata, then fall back to the slug pattern.
+  let section: PlaybookSection = "work";
   if (typeof meta?.section === "string" && isPlaybookSection(meta.section)) {
     section = meta.section;
   } else if (playbookSlug.includes("person") || playbookSlug.includes("org") || playbookSlug.includes("relationship")) {
@@ -253,18 +252,24 @@ export function mapPlayRunToCardClient(row: PlayRunRow): PlayCardViewModel {
 }
 
 function resolvePlayerSlug(row: PlayRunRow): PlayerId {
-  if (row.player_slug && isValidPlayerSlug(row.player_slug)) {
-    return row.player_slug;
+  if (row.player_slug && isValidPlayerSlug(normalizePlayerSlug(row.player_slug))) {
+    return normalizePlayerSlug(row.player_slug) as PlayerId;
   }
   const meta = row.metadata;
   if (meta && typeof meta === "object" && typeof meta.player_slug === "string") {
-    if (isValidPlayerSlug(meta.player_slug)) return meta.player_slug;
+    const normalized = normalizePlayerSlug(meta.player_slug);
+    if (isValidPlayerSlug(normalized)) return normalized;
   }
   return "brief";
 }
 
+/** The retired "keeper" slug maps onto Memory Care. */
+function normalizePlayerSlug(slug: string): string {
+  return slug === "keeper" ? "memory-care" : slug;
+}
+
 function isValidPlayerSlug(slug: string): slug is PlayerId {
-  return ["follow-up", "brief", "client-risk", "scope", "billing", "keeper"].includes(slug);
+  return ["follow-up", "brief", "client-risk", "scope", "billing", "memory-care"].includes(slug);
 }
 
 function resolveKind(row: PlayRunRow): PlayCardKind {
@@ -273,8 +278,13 @@ function resolveKind(row: PlayRunRow): PlayCardKind {
     if (meta.play_card_kind && typeof meta.play_card_kind === "string") {
       if (isValidKind(meta.play_card_kind)) return meta.play_card_kind;
     }
-    if (meta.keeper_question === true) return "question";
-    if (meta.keeper_profile === true) return "profile";
+    // Accepts the retired keeper_* metadata keys as legacy fallbacks.
+    if (meta.memory_care_question === true || meta.keeper_question === true) {
+      return "question";
+    }
+    if (meta.memory_care_profile === true || meta.keeper_profile === true) {
+      return "profile";
+    }
   }
   if (row.draft_body) return "acting";
   return "risk";

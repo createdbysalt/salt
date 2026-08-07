@@ -155,7 +155,7 @@ export function parsePlaybookV2Yaml(
   if (definition.layer === "learn" && definition.voice) {
     errors.push({
       path: "voice",
-      message: `Learn-layer playbooks (keepers) should not have a voice. Voice is for act-layer playbooks that produce user-facing content.`,
+      message: `Learn-layer definitions should not have a voice. Voice is for act-layer playbooks that produce user-facing content.`,
     });
   }
 
@@ -221,18 +221,4 @@ export function getSectionMetadata(section: PlaybookSection): SectionMetadata {
 
 export function getAllSections(): SectionMetadata[] {
   return Object.values(SECTION_METADATA);
-}
-
-export function getPlaybooksBySectionLayer(
-  section: PlaybookSection,
-  layer: "learn" | "act"
-): string[] {
-  const meta = SECTION_METADATA[section];
-  if (!meta) return [];
-
-  if (layer === "learn") {
-    return ["keeper"];
-  }
-
-  return (meta.templates ?? []).filter((t) => t !== "keeper");
 }

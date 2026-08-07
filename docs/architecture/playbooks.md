@@ -1,8 +1,10 @@
 # Playbooks Reference
 
-> **Playbooks are reusable orchestration logic that respond to signals using tools.**
+> **Playbooks are reusable act-layer orchestration that respond to signals using tools.**
 
-Playbooks are the "brain" of Salt's proactive AI. They're self-contained packages (like Claude skills) with instructions, triggers, and execution code. Playbooks are **pure orchestration** — they don't enforce protection themselves; that's the tool layer's job.
+Playbooks are the "brain" of Salt's proactive **actions**. They're self-contained packages (like Claude skills) with instructions, triggers, and execution code. Playbooks are **pure orchestration** — they don't enforce Memory protection themselves; that's the tool layer's job.
+
+**Learn-layer Memory enrichment is not a playbook.** It lives in [Memory Care](memory-care.md) (`app/_features/memory/care/`). Do not add new `learn`-layer packages or `_meta` / Keeper system playbooks.
 
 ---
 
@@ -24,16 +26,15 @@ playbooks/v2/{section}/{slug}/
 
 ---
 
-## Layers
+## Layer
 
 | Layer | Purpose | Output | Examples |
 |-------|---------|--------|----------|
-| `learn` | Enrich Memory records | Memory updates | keeper-people-records, keeper-billing-records |
-| `act` | Take actions, create outputs | Notifications, drafts | invoice-reminder, daily-briefing, cash-celebration |
+| `act` | Take actions, create outputs | Notifications, drafts, briefings, queue findings | invoice-reminder, daily-briefing, cash-celebration |
 
-**Learn playbooks** respond to signals by updating Memory fields. They use `memory_update_field` which enforces confidence thresholds.
+Playbooks are **act-layer only**. Memory enrichment (records, hygiene, connections, notes) is [Memory Care](memory-care.md) — proposals into a shared decision pipeline, not playbook runs.
 
-**Act playbooks** respond to signals by creating outputs — notifications, email drafts, summaries. They may require voice profiles for consistent tone.
+Act playbooks create outputs — notifications, email drafts, summaries, Plays Queue items. They may require voice profiles for consistent tone.
 
 ---
 
@@ -43,13 +44,17 @@ Playbooks are organized by domain:
 
 | Section | Domain | Examples |
 |---------|--------|----------|
-| `relationships` | People + Organizations | keeper-people-records, keeper-org-records |
-| `work` | Projects, retainers | keeper-work-records |
-| `billing` | Invoices, payments | keeper-billing-records, invoice-reminder |
-| `meetings` | Meetings, agendas | keeper-meetings-records |
-| `files` | Documents, contracts | keeper-files-records |
-| `me` | Operator profile, business | keeper-me-records |
-| `_meta` | Cross-cutting operations | daily-briefing, memory-records |
+| `relationships` | People + Organizations | relationship health alerts |
+| `work` | Projects, retainers | work status alerts |
+| `billing` | Invoices, payments | invoice-reminder |
+| `meetings` | Meetings, agendas | meeting follow-ups |
+| `files` | Documents, contracts | file-related acting playbooks |
+| `me` | Operator profile, business | daily-briefing |
+| `connections` | Relationship graph acting plays | connection alerts |
+| `notes` | Note-related acting plays | note follow-ups |
+| `communication` | Messaging / channel acting plays | draft reminders |
+
+The retired `_meta` section (system / Keeper packages) is removed. Memory Care owns those behaviors.
 
 ---
 
@@ -62,9 +67,9 @@ slug: invoice-reminder          # Auto-inferred from name if omitted
 version: 1.0.0
 description: Drafts payment reminders for overdue invoices
 
-section: billing                # relationships|work|billing|files|meetings|me|_meta
-layer: act                      # learn | act
-voice: billing                  # Required for act-layer, forbidden for learn-layer
+section: billing                # relationships|work|billing|files|meetings|me|connections|notes|communication
+layer: act                      # act only — learn-layer is Memory Care
+voice: billing                  # Required for act-layer
 
 # Triggers — when this playbook activates
 triggers:
@@ -75,7 +80,6 @@ triggers:
 
 # Tools this playbook uses (reference, not definition)
 tools:
-  - memory_update_field
   - get_entity_facts
   - notify
 
@@ -84,10 +88,6 @@ requirements:
   categories:
     required: [billing]         # Must have billing connector
     optional: [email]
-
-# Optional: policy overrides
-policy:
-  auto_apply_threshold: 95      # Override workspace default for this playbook
 
 # Optional: value model (for ROI tracking)
 value:
@@ -116,20 +116,17 @@ instructions:
 | `signal` | Capture emits a workspace signal | `billing_payment_matched` |
 | `schedule` | Cron spec matches | `0 9 * * 1` (Mondays 9am) |
 | `pattern` | Threshold predicate on Memory | `days_since_contact >= 14` |
-| `chat` | User invokes via Ask Salt | "update this person's records" |
+| `chat` | User invokes via Ask Salt | "draft a reminder for this invoice" |
 | `manual` | User clicks "Run" in Plays UI | Direct invocation |
 
 ---
 
 ## Execution Script
 
-The `scripts/run.ts` file contains the playbook's execution logic:
+The `scripts/run.ts` file contains the playbook's execution logic. Act playbooks prepare outputs and typically create `play_runs` for approval when work leaves Salt.
 
 ```typescript
 // scripts/run.ts
-import { memoryUpdateField, memoryGetFacts } from "@/app/_lib/memory-tools";
-import { fillRules } from "../definition.yaml";
-
 export interface RunInput {
   signal: string;
   entityType: string;
@@ -138,86 +135,22 @@ export interface RunInput {
 }
 
 export async function run(input: RunInput): Promise<{
-  rulesEvaluated: number;
-  rulesMatched: number;
-  updates: Array<{ field: string; value: string; action: string; confidence: number }>;
+  summary: string;
+  // ... playbook-specific result
 }> {
-  // 1. Get current facts
-  const facts = await memoryGetFacts(input);
-  
-  const updates = [];
-  let rulesMatched = 0;
-  
-  // 2. Evaluate fill_rules
-  for (const rule of fillRules) {
-    if (evaluateCondition(rule.when, facts)) {
-      rulesMatched++;
-      
-      // 3. Call protected tool - IT handles threshold
-      const result = await memoryUpdateField({
-        workspaceId: input.workspaceId,
-        entityType: input.entityType,
-        entityId: input.entityId,
-        field: rule.field,
-        value: rule.set.value,
-        confidence: rule.confidence,
-        because: rule.because,
-        source: "playbook",
-      });
-      
-      updates.push({
-        field: rule.field,
-        value: rule.set.value,
-        action: result.action,
-        confidence: rule.confidence,
-      });
-    }
-  }
-  
-  return {
-    rulesEvaluated: fillRules.length,
-    rulesMatched,
-    updates,
-  };
+  // Read Memory via tools / queries as needed
+  // Draft outputs; queue for approval when external_effect applies
+  return { summary: "Drafted reminder" };
 }
 ```
 
-**Key principle:** The script calls `memoryUpdateField` with a confidence score. The tool decides whether to apply or accumulate based on the workspace threshold. The playbook doesn't know or care about the threshold.
+**Memory mutations:** If an act flow needs a Memory write, call `memoryUpdateField` with `source: "playbook"` only for provenance of rare act-adjacent updates. Ongoing enrichment belongs in Memory Care (`source: "care"`). The tool enforces thresholds and field tiers.
 
 ---
 
-## Fill Rules (Learn Layer)
+## Memory enrichment (not playbooks)
 
-Learn-layer playbooks use fill rules to infer field values from signals:
-
-```yaml
-# In definition.yaml
-fill_rules:
-  version: 1
-  fields: [relationship_type, title, org_link]
-  rules:
-    - id: people-rel-payment-client
-      field: relationship_type
-      when:
-        signal: has_payment_received
-        op: eq
-        value: true
-      set:
-        value: client
-      confidence: 95
-      because: "Payment received indicates client relationship"
-    
-    - id: people-rel-invoice-client
-      field: relationship_type
-      when:
-        signal: has_invoice_sent
-        op: eq
-        value: true
-      set:
-        value: client
-      confidence: 90
-      because: "Invoice sent indicates client relationship"
-```
+Field fill rules, evidence accumulation, and auto-apply / watch / refuse routing live in [Memory Care](memory-care.md) and `app/_lib/learning/field-tiers.ts`. Do not add `fill_rules` learn-layer packages under `playbooks/v2/`.
 
 ---
 
@@ -229,7 +162,7 @@ Users must "adopt" a playbook before it runs in their workspace:
 // adopt-blueprint.ts
 const adoption = await adoptPlaybookBlueprint({
   workspaceId,
-  blueprintSlug: "keeper-billing-records",
+  blueprintSlug: "invoice-reminder",
 });
 
 // Creates a play_template row linking workspace to blueprint
@@ -246,7 +179,7 @@ const adoption = await adoptPlaybookBlueprint({
 
 ## Signal Dispatch
 
-When a signal fires, the dispatch system finds and runs matching playbooks:
+When a signal fires, the dispatch system finds and runs matching **act** playbooks; Memory Care handles learn-layer signals separately (`runCareForSignal`):
 
 ```typescript
 // trigger-dispatch.ts
@@ -259,10 +192,10 @@ const results = await dispatchSignalTrigger({
   evidence: { amount: 2500 },
 });
 
-// For each matching playbook:
+// For each matching act playbook:
 // 1. Check if adopted and active
-// 2. For profile/learn playbooks: run script directly
-// 3. For acting playbooks: create play_run in "queued" state
+// 2. Create play_run in "queued" state (or run per policy)
+// Memory Care capabilities run via care/scheduler — no play_runs
 ```
 
 ---
@@ -273,40 +206,29 @@ The `PLAYBOOK.md` file contains instructions that Ask Salt reads:
 
 ```markdown
 ---
-name: Memory Records
-slug: memory-records
-version: 2.0.0
-description: Keep Memory records complete and accurate.
+name: Invoice Reminder
+slug: invoice-reminder
+version: 1.0.0
+description: Draft payment reminders for overdue invoices.
 
 triggers:
   - type: signal
-    signals: [person_created, person_updated, billing_payment_matched, ...]
+    signals: [billing_due_date_passed]
 
 tools:
-  - memory_update_field
-  - memory_get_facts
+  - get_entity_facts
+  - notify
 ---
 
-# Memory Records
+# Invoice Reminder
 
-You keep Memory records complete and accurate by learning from connected accounts.
+You draft payment reminders when invoices pass their due date.
 
 ## What You Do
 
-When a signal arrives (new person, payment received, meeting completed), you:
-
-1. Load the current facts for the entity
-2. Evaluate the fill_rules to see what fields can be inferred
-3. For each match, call `memory_update_field` with the confidence score
-4. The tool handles threshold checking — you just provide the confidence
-
-## Fill Rules
-
-| Signal | Field | Value | Confidence |
-|--------|-------|-------|------------|
-| has_payment_received | relationship_type | client | 95 |
-| has_invoice_sent | relationship_type | client | 90 |
-| email_domain_matches_workspace | relationship_type | team | 92 |
+1. Load invoice and client context from Memory
+2. Draft a reminder in the workspace voice
+3. Queue the draft for approval in Plays
 ```
 
 ---
@@ -314,7 +236,7 @@ When a signal arrives (new person, payment received, meeting completed), you:
 ## Creating a New Playbook
 
 1. Create directory: `playbooks/v2/{section}/{slug}/`
-2. Create `definition.yaml` with triggers, tools, and rules
+2. Create `definition.yaml` with `layer: act`, triggers, tools
 3. Create `scripts/run.ts` with execution logic
 4. Create `PLAYBOOK.md` with instructions
 5. Run `pnpm playbooks:compile` to validate
@@ -324,8 +246,9 @@ When a signal arrives (new person, payment received, meeting completed), you:
 - Slug matches directory name
 - All referenced signals exist
 - All referenced tools exist
-- Fill rules have valid fields
 - Evals pass
+
+For Memory field enrichment, extend Memory Care capabilities — do not create a learn-layer playbook.
 
 ---
 
@@ -344,6 +267,7 @@ Users will be able to create their own playbooks with:
 ## See Also
 
 - [Primitives Overview](primitives.md) — How playbooks fit in the architecture
+- [Memory Care](memory-care.md) — Learn-layer enrichment (not playbooks)
 - [Signals Reference](signals.md) — What triggers playbooks
 - [Tools Reference](tools.md) — What playbooks use
 - [Playbook Schema v2](../../app/_features/plays/playbooks/schema/v2/CLAUDE.md) — YAML schema details

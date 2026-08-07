@@ -102,6 +102,3 @@ export interface AggregatedEvidence {
   /** True if evidence contains contradicting values that need user resolution */
   hasConflict?: boolean;
 }
-
-export type KeeperEntityType = LearningEntityType;
-export type KeeperEvidenceType = EvidenceType;

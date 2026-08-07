@@ -7,7 +7,6 @@ import {
   Calendar,
   User,
   Link,
-  Settings,
   MessageSquare,
   type LucideIcon,
 } from "lucide-react";
@@ -22,8 +21,7 @@ export type PlaybookSection =
   | "me"
   | "connections"
   | "notes"
-  | "communication"
-  | "_meta";
+  | "communication";
 
 export type SectionColor =
   | "violet"
@@ -184,12 +182,6 @@ const SECTION_META: Record<Exclude<PlaybookSection, "all">, SectionMeta> = {
     icon: MessageSquare,
     description: "Email and messaging",
     color: "cyan",
-  },
-  _meta: {
-    label: "System",
-    icon: Settings,
-    description: "Cross-cutting operations",
-    color: "slate",
   },
 };
 

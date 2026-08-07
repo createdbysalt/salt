@@ -296,7 +296,7 @@ async function storeSignal(signal: ResourceSignal): Promise<void> {
       title: signal.evidence.summary ?? "Resource activity detected",
       detail: signal.evidence.resourceUrl ?? null,
       metadata: {
-        playerSlug: "keeper",
+        playerSlug: "memory-care",
         signal_key: signal.key,
         resource_id: signal.resourceId,
         resource_type: signal.resourceType,

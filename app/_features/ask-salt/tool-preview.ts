@@ -229,6 +229,7 @@ const MEMORY_TOOL_STEPS: Record<string, string> = {
   enrich_entity_context: "Scan connected apps for context",
   enrich_entity: "Scan connected apps",
   load_playbook: "Load playbook",
+  load_memory_intake: "Load Memory Care intake",
   adopt_playbook: "Enable playbook",
   propose_play: "Queue play for approval",
   parse_intake: "Parse intake",
@@ -273,6 +274,10 @@ export function formatToolStepLabel(
       return playbook ? `Load ${playbook} playbook` : MEMORY_TOOL_STEPS.load_playbook;
     }
 
+    if (toolName === "load_memory_intake") {
+      return MEMORY_TOOL_STEPS.load_memory_intake;
+    }
+
     if (toolName === "adopt_playbook") {
       const playbook = resolvePlaybookDisplayName(input, output);
       return playbook ? `Enable ${playbook} playbook` : MEMORY_TOOL_STEPS.adopt_playbook;
@@ -287,8 +292,15 @@ export function formatToolStepLabel(
     }
 
     if (toolName === "parse_intake") {
-      const playbook = resolvePlaybookDisplayName(input, output);
-      return playbook ? `Parse intake (${playbook})` : MEMORY_TOOL_STEPS.parse_intake;
+      const intakeLabel = resolvePlaybookDisplayName(input, output);
+      if (intakeLabel) {
+        const normalized =
+          /memory.?care|memory.?records/i.test(intakeLabel)
+            ? "Memory Care"
+            : intakeLabel;
+        return `Parse intake (${normalized})`;
+      }
+      return MEMORY_TOOL_STEPS.parse_intake;
     }
 
     if (toolName === "enrich_entity") {

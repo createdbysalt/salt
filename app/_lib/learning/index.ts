@@ -25,8 +25,6 @@ export type {
   EntityEvidenceRow,
   AccumulateEvidenceInput,
   AggregatedEvidence,
-  KeeperEntityType,
-  KeeperEvidenceType,
 } from "./types";
 
 // Evidence accumulation
@@ -52,18 +50,6 @@ export {
   getActingTriggerSignals,
   getSignalsForSurface,
 } from "./signals";
-
-// Evidence → Play promotion
-export type {
-  PromotionCandidate,
-  PromotionResult,
-} from "./promotion";
-
-export {
-  findPromotionCandidates,
-  promoteEvidenceToPlay,
-  runPromotionPass,
-} from "./promotion";
 
 // Outcome tracking
 export type {

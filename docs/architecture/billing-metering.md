@@ -273,7 +273,7 @@ A play is billable when **at least one tool it executed carries `external_effect
 | Play sends an email, books a meeting, issues an invoice | **Yes** |
 | Play only reads, classifies, or writes to Memory | No |
 | Ask Salt sends one email with no surrounding play | **Yes** — a standalone external action is one play |
-| Keeper applies a profile field | No |
+| Memory Care applies a profile field | No |
 | Play fails before any external effect | No |
 | Play succeeds, user thumbs-down within 72h | Reversed (G4) |
 

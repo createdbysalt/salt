@@ -3,8 +3,7 @@ import "server-only";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { isValidSignalKey, getSignalDefinition } from "./signal-registry";
 import { discoverV2Playbooks, getPlaybookBySlug } from "./schema/v2/discovery";
-import { hasPlaybookScript, executePlaybookScript } from "./script-registry";
-import type { LearningEntityType } from "@/app/_lib/memory-tools";
+import { runCareForSignal } from "@/app/_features/memory/care/scheduler";
 
 /**
  * Minimal playbook info needed for trigger dispatch.
@@ -141,13 +140,30 @@ export async function isPlaybookEnabled(
 export async function dispatchSignalTrigger(
   context: SignalTriggerContext,
 ): Promise<DispatchResult[]> {
+  // Memory Care capabilities subscribe to signals directly (they are not
+  // playbooks and never create play_runs).
+  const careOutcomes = await runCareForSignal({
+    workspaceId: context.workspaceId,
+    signalKey: context.signalKey,
+    entityType: context.entitySurface,
+    entityId: context.entityId,
+    entityLabel: context.entityLabel,
+    evidence: context.evidence,
+  });
+
+  const results: DispatchResult[] = careOutcomes.map(({ capability, result }) => ({
+    success: result.success,
+    playbookSlug: `memory-care:${capability}`,
+    error: result.error,
+    skipped: result.skipped,
+  }));
+
   const matchingPlaybooks = findPlaybooksForSignal(context.signalKey);
 
   if (matchingPlaybooks.length === 0) {
-    return [];
+    return results;
   }
 
-  const results: DispatchResult[] = [];
   const admin = createAdminClient();
 
   for (const playbook of matchingPlaybooks) {
@@ -163,27 +179,8 @@ export async function dispatchSignalTrigger(
     }
 
     if (playbook.layer === "learn") {
-      if (hasPlaybookScript(playbook.slug)) {
-        const scriptResult = await executePlaybookScript(playbook.slug, {
-          workspaceId: context.workspaceId,
-          trigger: "signal",
-          signal: context.signalKey,
-          entityType: context.entitySurface as LearningEntityType,
-          entityId: context.entityId,
-          entityLabel: context.entityLabel,
-          triggerData: context.evidence,
-        });
-
-        results.push({
-          success: scriptResult.success,
-          playbookSlug: playbook.slug,
-          error: scriptResult.error,
-          skipped: scriptResult.skipped,
-        });
-        continue;
-      }
-
-      // No script - records-engine handles separately
+      // Learn-layer memory maintenance is owned by Memory Care capabilities
+      // (dispatched above), not by playbooks.
       results.push({
         success: true,
         playbookSlug: playbook.slug,

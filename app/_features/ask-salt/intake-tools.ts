@@ -8,9 +8,12 @@ import {
   getMissingFieldsToWatch,
   type IntakeEntityType,
   type ParsedEntity,
-} from "@/app/_features/plays/playbooks/v2/_meta/memory-records/scripts";
-
-const INTAKE_PLAYBOOK_SLUGS = new Set(["memory-records"]);
+} from "@/app/_features/memory/care/intake";
+import {
+  isMemoryCareIntakeId,
+  loadMemoryCareIntake,
+  MEMORY_CARE_INTAKE_ID,
+} from "./memory-care-intake";
 
 function presentFieldsForEntity(entity: ParsedEntity): string[] {
   const present: string[] = [];
@@ -35,11 +38,11 @@ function serializeEntity(entity: ParsedEntity) {
 }
 
 export function runPlaybookIntake(slug: string, message: string) {
-  if (!INTAKE_PLAYBOOK_SLUGS.has(slug)) {
+  if (!isMemoryCareIntakeId(slug)) {
     return {
       success: false as const,
-      message: `No intake script registered for playbook "${slug}".`,
-      supportedSlugs: [...INTAKE_PLAYBOOK_SLUGS],
+      message: `No Memory Care intake registered for "${slug}". Use load_memory_intake first.`,
+      supportedIds: [MEMORY_CARE_INTAKE_ID, "memory-records"],
     };
   }
 
@@ -48,7 +51,9 @@ export function runPlaybookIntake(slug: string, message: string) {
 
   return {
     success: true as const,
-    playbookSlug: slug,
+    intakeId: MEMORY_CARE_INTAKE_ID,
+    /** @deprecated Use intakeId — kept for older tool-call transcripts. */
+    playbookSlug: MEMORY_CARE_INTAKE_ID,
     isMultiEntity: parsed.isMultiEntity,
     entityCount: parsed.entities.length,
     entities: parsed.entities.map(serializeEntity),
@@ -115,19 +120,62 @@ function entityTypeToEnrichType(type: IntakeEntityType): string {
 
 export function buildIntakeTools(): ToolSet {
   return {
+    load_memory_intake: tool({
+      description: `Load Memory Care intake — the procedure for adding people, orgs, work, billing, files, or meetings to Memory from chat. NOT a playbook and never queues Plays. Call this FIRST when the user asks to add/create/log Memory records, then follow procedureSteps + call parse_intake.`,
+      inputSchema: z.object({}),
+      execute: async () => {
+        const intake = loadMemoryCareIntake();
+        if (!intake) {
+          return {
+            found: false as const,
+            message: "Memory Care intake contract is unavailable.",
+          };
+        }
+        return {
+          found: true as const,
+          id: intake.id,
+          name: intake.name,
+          description: intake.description,
+          whenToUse: intake.whenToUse,
+          procedureMd: intake.procedureMd,
+          procedureSteps: intake.chatContract.procedure,
+          chat: {
+            execution: intake.chatContract.execution,
+            enrichment: intake.chatContract.enrichment,
+            explicitIntentAuthorizesCreate:
+              intake.chatContract.explicitIntentAuthorizesCreate,
+            askSaltTools: intake.chatContract.askSaltTools,
+            enrichmentCategories: intake.chatContract.enrichmentCategories,
+          },
+          approvalRequired: false,
+          note: "Memory Care learn-layer intake — not a playbook. Do not call propose_play.",
+        };
+      },
+    }),
+
     parse_intake: tool({
-      description: `REQUIRED first step after load_playbook for memory-records. Parses the user's message into ALL entities to create (person, org, work, billing, etc.) with tier order and link instructions. Never call memory_create_* before parse_intake when this playbook is loaded. If isMultiEntity is true, you MUST create every item in creationOrder — e.g. "add Jane Example, project for her" creates person AND work.`,
+      description: `REQUIRED first step after load_memory_intake. Parses the user's message into ALL entities to create (person, org, work, billing, etc.) with tier order and link instructions. Never call memory_create_* before parse_intake. If isMultiEntity is true, you MUST create every item in creationOrder — e.g. "add Jane Example, project for her" creates person AND work.`,
       inputSchema: z.object({
+        intake_id: z
+          .string()
+          .min(1)
+          .optional()
+          .describe(`Intake id from load_memory_intake (default: ${MEMORY_CARE_INTAKE_ID})`),
         playbook_slug: z
           .string()
           .min(1)
-          .describe("Slug from load_playbook (e.g. memory-records)"),
+          .optional()
+          .describe("Deprecated alias for intake_id (memory-records / memory-care)"),
         message: z
           .string()
           .min(1)
           .describe("The user's request to parse (usually the latest user message)"),
       }),
-      execute: async ({ playbook_slug, message }) => runPlaybookIntake(playbook_slug, message),
+      execute: async ({ intake_id, playbook_slug, message }) =>
+        runPlaybookIntake(
+          intake_id ?? playbook_slug ?? MEMORY_CARE_INTAKE_ID,
+          message,
+        ),
     }),
   };
 }

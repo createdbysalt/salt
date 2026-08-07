@@ -1,7 +1,7 @@
 import type { ProfileFieldKey, ProfileFieldResult } from "./types";
 import { getRelationshipLabel } from "@/app/_features/memory/taxonomy/registry";
 
-export const KEEPER_PLAYBOOK_DISPLAY_NAMES: Record<string, string> = {
+export const MEMORY_CARE_PLAYBOOK_DISPLAY_NAMES: Record<string, string> = {
   "memory-records": "Memory Records",
   // Legacy mappings for backward compatibility
   "keeper-people-records": "Memory Records",
@@ -28,12 +28,12 @@ const FIELD_LABELS: Partial<Record<ProfileFieldKey, string>> = {
   start_date: "start date",
 };
 
-export function keeperPlaybookDisplayName(blueprintSlug: string | null | undefined): string {
+export function memoryCarePlaybookDisplayName(blueprintSlug: string | null | undefined): string {
   if (!blueprintSlug) return "Records";
-  return KEEPER_PLAYBOOK_DISPLAY_NAMES[blueprintSlug] ?? formatSlugLabel(blueprintSlug);
+  return MEMORY_CARE_PLAYBOOK_DISPLAY_NAMES[blueprintSlug] ?? formatSlugLabel(blueprintSlug);
 }
 
-export function isActionableKeeperProfileResult(result: ProfileFieldResult): boolean {
+export function isActionableMemoryCareProfileResult(result: ProfileFieldResult): boolean {
   if (!result.value?.trim()) return false;
   if (result.field === "relationship_type" && result.value === "unknown") return false;
   return true;
@@ -45,7 +45,7 @@ export function formatProfileFieldValue(field: ProfileFieldKey, value: string | 
   return value.trim();
 }
 
-export function buildKeeperProfileFindingCopy(input: {
+export function buildMemoryCareProfileFindingCopy(input: {
   field: ProfileFieldKey;
   result: ProfileFieldResult;
   targetLabel: string | null;
@@ -63,7 +63,7 @@ export function buildKeeperProfileFindingCopy(input: {
       : `Mark ${target} as ${valueLabel}`;
     return {
       title,
-      content: because ?? `People Records suggests ${valueLabel} based on recent signals.`,
+      content: because ?? `Memory Care suggests ${valueLabel} based on recent signals.`,
       primaryAction: `Save as ${valueLabel}`,
     };
   }
@@ -98,7 +98,7 @@ export function buildKeeperProfileFindingCopy(input: {
   };
 }
 
-export function buildKeeperCardDisplay(input: {
+export function buildMemoryCareCardDisplay(input: {
   findingTitle: string;
   findingContent: string | null;
   blueprintSlug: string | null;
@@ -121,7 +121,7 @@ export function buildKeeperCardDisplay(input: {
       preview:
         input.because?.trim() ||
         "Salt couldn't tell client, prospect, or partner from email alone. Set this on their People record.",
-      playbookName: keeperPlaybookDisplayName(input.blueprintSlug),
+      playbookName: memoryCarePlaybookDisplayName(input.blueprintSlug),
       primaryAction: null,
       isActionable: false,
     };
@@ -138,17 +138,17 @@ export function buildKeeperCardDisplay(input: {
     evidence: {},
   };
 
-  const copy = buildKeeperProfileFindingCopy({
+  const copy = buildMemoryCareProfileFindingCopy({
     field,
     result,
     targetLabel: input.targetLabel,
-    blueprintSlug: input.blueprintSlug ?? "keeper-people-records",
+    blueprintSlug: input.blueprintSlug ?? "memory-records",
   });
 
   return {
     title: copy.title || input.findingTitle,
     preview: copy.content,
-    playbookName: keeperPlaybookDisplayName(input.blueprintSlug),
+    playbookName: memoryCarePlaybookDisplayName(input.blueprintSlug),
     primaryAction: copy.primaryAction,
     isActionable: true,
   };

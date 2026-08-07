@@ -26,26 +26,29 @@ describe("memory-monopoly", () => {
   });
 
   describe("validateMemoryMonopoly", () => {
-    it("allows _meta section to use any memory slug", () => {
-      const result = validateMemoryMonopoly(
-        ["memory_create_person", "memory_update_org"],
-        "_meta",
-      );
-      expect(result.ok).toBe(true);
-    });
-
-    it("rejects non-_meta section using memory-mutating slugs", () => {
-      const result = validateMemoryMonopoly(
-        ["memory_create_person"],
+    it("rejects memory-mutating slugs in every section", () => {
+      // No playbook section may write Memory — Memory Care owns mutations.
+      const sections = [
         "relationships",
-      );
-      expect(result.ok).toBe(false);
-      if (!result.ok) {
-        expect(result.violations).toContain("memory_create_person");
+        "work",
+        "billing",
+        "files",
+        "meetings",
+        "me",
+        "connections",
+        "notes",
+        "communication",
+      ] as const;
+      for (const section of sections) {
+        const result = validateMemoryMonopoly(["memory_create_person"], section);
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+          expect(result.violations).toContain("memory_create_person");
+        }
       }
     });
 
-    it("allows non-_meta section to use non-memory slugs", () => {
+    it("allows sections to use non-memory slugs", () => {
       const result = validateMemoryMonopoly(
         ["GMAIL_CREATE_EMAIL_DRAFT", "STRIPE_CREATE_INVOICE"],
         "relationships",

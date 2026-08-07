@@ -199,10 +199,10 @@ const ACTION_LABELS: Record<
   LearningStoryKind,
   { accept: string; dismiss: string }
 > = {
-  fields: { accept: "Looks right", dismiss: "Not now" },
+  fields: { accept: "That's right", dismiss: "Not this" },
   merge: { accept: "Merge them", dismiss: "Keep both" },
   archive: { accept: "Archive", dismiss: "Keep" },
-  link: { accept: "Link it", dismiss: "Not now" },
+  link: { accept: "Link it", dismiss: "Not this" },
 };
 
 const MAX_SECONDARY_SENTENCES = 2;

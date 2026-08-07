@@ -5,7 +5,9 @@
  *
  * Key concepts:
  * - Section: Where the playbook lives (relationships, work, billing, etc.)
- * - Layer: What it does (learn = keeper, act = action)
+ * - Layer: What it does (learn = memory maintenance, act = action).
+ *   Playbooks in this tree are act-layer; learn-layer memory maintenance is
+ *   owned by Memory Care (`app/_features/memory/care`).
  * - Voice: How it sounds (references voice profiles in /me)
  *
  * Usage:

@@ -8,18 +8,18 @@ import { RulesTab } from "@/app/_features/memory/components/RulesTab";
 import { parseMemoryTab, type MemoryTab } from "@/app/_features/memory/memory-tab-routing";
 import { getLearningEvidence } from "@/app/_features/memory/queries/learning-evidence";
 import { getAdmissionDecisions } from "@/app/_features/memory/queries/admission-decisions";
-import { getPlaybooksV2ForWorkspace } from "@/app/_features/plays/playbooks/queries-v2";
-import { getKeeperAutonomyThreshold } from "@/app/(settings)/settings/_components/sections/plays-actions";
+import { getHandledWrites } from "@/app/_features/memory/queries/handled-items";
+import {
+  getCareCapabilityStates,
+  getCareThreshold,
+} from "@/app/_features/memory/care/settings";
+import {
+  CARE_CAPABILITIES,
+  CARE_SETTINGS_SLUGS,
+} from "@/app/_features/memory/care/types";
 import { resolveMockContentEnabled } from "@/app/_lib/demo/mock-content";
 import { createClient } from "@/app/_lib/supabase/server";
 import MemoryLoading from "./loading";
-
-const CARE_CAPABILITY_SLUGS = [
-  "memory-records",
-  "memory-hygiene",
-  "connections",
-  "notes",
-] as const;
 
 async function MemoryGraphSection({ workspaceId }: { workspaceId: string }) {
   const graphData = await getConnectionsGraphData(workspaceId);
@@ -27,28 +27,30 @@ async function MemoryGraphSection({ workspaceId }: { workspaceId: string }) {
 }
 
 async function MemoryFilterSection({ workspaceId }: { workspaceId: string }) {
-  const [evidence, decisions] = await Promise.all([
+  const [evidence, decisions, handledWrites] = await Promise.all([
     getLearningEvidence(workspaceId),
     getAdmissionDecisions(workspaceId),
+    getHandledWrites(workspaceId),
   ]);
   return (
     <FilterTab
       evidence={evidence}
-      decisions={decisions}
+      admissions={decisions}
+      handledWrites={handledWrites}
       workspaceId={workspaceId}
     />
   );
 }
 
 async function MemoryRulesSection({ workspaceId }: { workspaceId: string }) {
-  const [playbooks, threshold] = await Promise.all([
-    getPlaybooksV2ForWorkspace(),
-    getKeeperAutonomyThreshold(workspaceId).catch(() => 85),
+  const [threshold, states] = await Promise.all([
+    getCareThreshold(workspaceId),
+    getCareCapabilityStates(workspaceId),
   ]);
-  const capabilities = CARE_CAPABILITY_SLUGS.map((slug) => ({
-    slug,
-    enabled:
-      playbooks.playbooks.find((p) => p.slug === slug)?.enabled ?? true,
+  const capabilities = CARE_CAPABILITIES.map((capability) => ({
+    capability,
+    slug: CARE_SETTINGS_SLUGS[capability],
+    enabled: states[capability],
   }));
   return (
     <RulesTab

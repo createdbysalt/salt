@@ -36,7 +36,6 @@ const SECTIONS: PlaybookSection[] = [
   "connections",
   "notes",
   "communication",
-  "_meta",
 ];
 
 export interface DiscoveredSection {

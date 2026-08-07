@@ -197,11 +197,14 @@ Never auto-apply playbook changes without human approval.
 | `supabase/migrations/*_playbook_blueprints.sql` | Registry + learning tables |
 | `app/_features/plays/playbooks/memory-monopoly.ts` | Memory-write constraint enforcement |
 
-## Two-Pipeline Reality (Compiled vs Keeper-Seeded)
+## Two-Pipeline Reality (historical — superseded)
 
-Salt maintains **two playbook pipelines** by design:
+> **Superseded (2026-08):** Keeper / system playbooks are retired. Learn-layer
+> Memory enrichment is [Memory Care](memory-care.md)
+> (`app/_features/memory/care/`). Playbooks are **act-layer only**. The text
+> below is kept for historical context of the old dual pipeline.
 
-### Compiled Playbooks (Acting)
+### Compiled Playbooks (Acting) — still the act-layer path
 
 Standard path for most playbooks:
 
@@ -210,17 +213,15 @@ Standard path for most playbooks:
 3. Run `pnpm playbooks:compile` — validates definition, runs evals, emits seed migration
 4. Seed migration UPSERTS into `playbook_blueprints`
 
-**Discovered by:** `discoverPlaybookDirs()` — excludes `keeper-*` prefixes.
+**Discovered by:** `discoverPlaybookDirs()`.
 
-### Keeper Playbooks (Profile, Policy-in-Markdown)
+### Keeper Playbooks (retired)
 
-Separate path for Memory record policies:
+Retired path for Memory record policies (do not author new ones):
 
-1. Author `playbook.md` in `app/_features/plays/playbooks/keeper-<surface>/`
-2. Policy lives in `procedure_md` (no definition JSON required)
-3. Optionally include `fill_rules` JSON for rule-based field completion
-4. **Manually** write a seed migration to UPSERT the row
-5. Run `pnpm playbooks:compile` — validates frontmatter + fill_rules (if present), does NOT emit seed
+1. ~~Author `playbook.md` in `app/_features/plays/playbooks/keeper-<surface>/`~~
+2. Policy and fill rules now live in Memory Care + the field registry
+3. See [Memory Care](memory-care.md) for the current system
 
 **Discovered by:** `discoverKeeperPlaybookDirs()` — includes only `keeper-*` prefixes.
 

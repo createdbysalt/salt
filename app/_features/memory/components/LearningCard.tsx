@@ -38,25 +38,31 @@ interface LearningCardProps {
 }
 
 const ENTITY_PLAYBOOK_LABELS: Record<LearningEntityType, string> = {
-  person: "People Records",
-  organization: "Org Records",
-  work: "Work Records",
-  meeting: "Meeting Records",
-  file: "File Records",
-  me: "Me Records",
-  billing: "Billing Records",
+  person: "Memory Care · Records",
+  organization: "Memory Care · Records",
+  work: "Memory Care · Records",
+  meeting: "Memory Care · Records",
+  file: "Memory Care · Records",
+  me: "Memory Care · Records",
+  billing: "Memory Care · Records",
 };
 
+/**
+ * Display labels for the slug recorded on a learning/evidence row. Historical
+ * rows carry retired slugs; all of them read as Memory Care capabilities.
+ */
 const PLAYBOOK_SLUG_LABELS: Record<string, string> = {
-  "people-records": "People Records",
-  "org-records": "Org Records",
-  "work-records": "Work Records",
-  "meeting-records": "Meeting Records",
-  "file-records": "File Records",
-  "billing-records": "Billing Records",
-  "keeper-people-records": "People Records",
-  "keeper-work-records": "Work Records",
-  "keeper-meetings-records": "Meeting Records",
+  "memory-records": "Memory Care · Records",
+  "memory-hygiene": "Memory Care · Hygiene",
+  "memory-connections": "Memory Care · Connections",
+  "memory-notes": "Memory Care · Notes",
+  "memory-care": "Memory Care",
+  "people-records": "Memory Care · Records",
+  "org-records": "Memory Care · Records",
+  "work-records": "Memory Care · Records",
+  "meeting-records": "Memory Care · Records",
+  "file-records": "Memory Care · Records",
+  "billing-records": "Memory Care · Records",
 };
 
 const SPRING = { type: "spring" as const, stiffness: 320, damping: 30, mass: 0.85 };
@@ -276,7 +282,7 @@ function FieldEditorRow({
           {onDismiss && (
             <button
               type="button"
-              aria-label={`Dismiss ${formatFieldLabel(field.fieldPath)}`}
+              aria-label={`Not this — ${formatFieldLabel(field.fieldPath)}`}
               onClick={handleDismiss}
               disabled={isPending}
               className="inline-flex size-8 items-center justify-center rounded-lg text-muted-foreground/70 transition hover:bg-muted hover:text-foreground disabled:opacity-60"
@@ -296,7 +302,7 @@ function FieldEditorRow({
               ) : (
                 <Check className="size-3.5" strokeWidth={2.25} />
               )}
-              Save
+              That&apos;s right
             </button>
           )}
         </div>
@@ -321,6 +327,12 @@ export function LearningCard({
   const styles = getSectionColorStyles(section);
   const playbookLabel = ENTITY_PLAYBOOK_LABELS[evidence.entityType] ?? "Records";
   const isMerge = story.kind === "merge";
+  // Progress toward the bar: the highest-confidence field that still has a
+  // tier bar to clear.
+  const progressField =
+    evidence.fields
+      .filter((field) => field.bar != null)
+      .sort((a, b) => b.confidence - a.confidence)[0] ?? null;
 
   const handleAcceptAll = () => {
     if (!onAcceptAll) return;
@@ -421,6 +433,15 @@ export function LearningCard({
         {story.reason && (
           <p className="border-l-2 border-border/60 pl-3 text-[13px] italic leading-relaxed text-muted-foreground">
             {story.reason}
+          </p>
+        )}
+
+        {progressField && (
+          <p className="text-[12px] tabular-nums text-muted-foreground/80">
+            {progressField.sourceCount}{" "}
+            {progressField.sourceCount === 1 ? "signal" : "signals"}
+            <span className="text-muted-foreground/45"> · </span>
+            {Math.round(progressField.confidence)} of {progressField.bar}
           </p>
         )}
 

@@ -16,7 +16,7 @@ import {
   recordConversationalCorrection,
   type CorrectionReason,
 } from "@/app/_features/me/actions/corrections";
-import type { KeeperEntityType } from "@/app/_features/plays/playbooks/evidence-accumulator";
+import type { LearningEntityType } from "@/app/_lib/learning";
 
 export interface BuildCorrectionToolsOptions {
   workspaceId: string;
@@ -124,7 +124,7 @@ async function findRecentLearning(
   entityName: string,
 ): Promise<{
   id: string;
-  entityType: KeeperEntityType;
+  entityType: LearningEntityType;
   entityId: string;
   fieldPath: string;
   newValue: unknown;
@@ -146,7 +146,7 @@ async function findRecentLearning(
 
   return {
     id: data.id,
-    entityType: data.entity_type as KeeperEntityType,
+    entityType: data.entity_type as LearningEntityType,
     entityId: data.entity_id,
     fieldPath: data.field_path,
     newValue: data.new_value,
@@ -156,7 +156,7 @@ async function findRecentLearning(
 async function resolveEntityByName(
   workspaceId: string,
   entityName: string,
-): Promise<{ id: string; type: KeeperEntityType; name: string } | null> {
+): Promise<{ id: string; type: LearningEntityType; name: string } | null> {
   const supabase = await createClient();
 
   // Try people first
@@ -290,7 +290,7 @@ export function buildCorrectionTools({
           const learning = await findRecentLearning(workspaceId, entityName);
 
           // Resolve entity if no learning found
-          let entityType: KeeperEntityType = "person";
+          let entityType: LearningEntityType = "person";
           let entityId: string;
           let fieldPath = "relationship_type";
           let wrongValue: unknown = "unknown";

@@ -5,13 +5,13 @@ export function playbookKindLabel(kind: PlaybookKind): string {
   return kind === "profile" ? "Capture" : "Action";
 }
 
-/** Eyebrow on profile playbook detail hero (e.g. "Keeper play"). */
+/** Eyebrow on profile playbook detail hero (e.g. "Memory Care play"). */
 export function playbookHeroEyebrow(
   kind: PlaybookKind,
   playerSlug: PlayerSlug,
 ): string {
-  if (kind === "profile" && playerSlug === "keeper") {
-    return "Keeper play";
+  if (kind === "profile" && playerSlug === "memory-care") {
+    return "Memory Care play";
   }
   return `${playbookKindLabel(kind)} playbook`;
 }

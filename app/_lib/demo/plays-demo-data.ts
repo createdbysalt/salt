@@ -1,6 +1,6 @@
 import { FileText, Users, AlertTriangle, FileSignature, Receipt, BookMarked, Wand2, type LucideIcon } from "lucide-react";
 
-export type PlayerId = "follow-up" | "brief" | "client-risk" | "scope" | "billing" | "keeper" | "general";
+export type PlayerId = "follow-up" | "brief" | "client-risk" | "scope" | "billing" | "memory-care" | "general";
 
 export type Tone = "flame" | "sky" | "violet" | "muted" | "ink";
 
@@ -118,9 +118,9 @@ export const PLAYERS: Player[] = [
     approval: "Approval required for client-facing sends",
   },
   {
-    id: "keeper",
-    name: "Keeper",
-    monogram: "KP",
+    id: "memory-care",
+    name: "Memory Care",
+    monogram: "MC",
     role: "Record upkeep",
     job: "Classifies and fills Memory records from capture signals.",
     description:
@@ -132,8 +132,8 @@ export const PLAYERS: Player[] = [
     department: "knowledge",
     playbooks: ["People Records"],
     tools: ["Gmail", "Stripe", "Salt"],
-    memory: "Auto-applies high-confidence fills. Low-confidence guesses wait for your approval on the profile.",
-    approval: "Threshold-gated auto-fill; manual correction feeds learning",
+    memory: "Auto-applies fills that clear the confidence bar. Everything else stays visible in Watching.",
+    approval: "Confidence-bar auto-fill; corrections feed learning",
   },
   {
     id: "general",
@@ -590,7 +590,7 @@ export const ACTIVITY: ActivityEntry[] = [
     trigger: "You approved sending later — Friday 9:00 AM", sources: ["Gmail thread", "Calendar availability"], outcome: "Queued to send Friday 9:00 AM via Gmail.", learned: "Elena reads digests Friday mornings.", eta: "Friday 9:00 AM", reversible: true },
   { id: "a-13", time: "9:12 AM", dayGroup: "Today", playerId: "billing", title: "Scheduled Halcyon invoice reminder", target: "Halcyon Studio", playbook: "Billing Play", status: "scheduled", category: "in-progress",
     trigger: "Net-15 invoice — reminder set for due date", sources: ["QuickBooks invoice", "Last reminder thread"], outcome: "Reminder will send automatically on the due date.", learned: "—", eta: "On due date", reversible: true },
-  { id: "a-14", time: "8:45 AM", dayGroup: "Today", playerId: "keeper", title: "Building case for renewal outreach", target: "Vector Health", playbook: "Renewal signal", status: "pending", category: "watching",
+  { id: "a-14", time: "8:45 AM", dayGroup: "Today", playerId: "memory-care", title: "Building case for renewal outreach", target: "Vector Health", playbook: "Renewal signal", status: "pending", category: "watching",
     trigger: "Contract renewal in 60 days", sources: ["Stripe subscription", "Usage metrics"], outcome: "Gathering more signals before suggesting action.", learned: "—", evidenceSummary: "2 of 4 signals detected", confidencePercent: 52, confidenceThreshold: 80, signals: ["Contract date approaching", "Usage dropped 15%", "No recent engagement", "Support tickets rising"], reversible: true },
 ];
 
@@ -610,7 +610,7 @@ import type { FindingWithContext } from "@/app/_features/capture/types/intellige
  */
 export const MOCK_QUEUE_FINDINGS: FindingWithContext[] = [
   // ──────────────────────────────────────────────────────────────────────────
-  // KEEPER PROFILE UPDATES (kind: "profile")
+  // MEMORY CARE PROFILE UPDATES (kind: "profile")
   // ──────────────────────────────────────────────────────────────────────────
   {
     id: "mock-f-1",
@@ -625,7 +625,7 @@ export const MOCK_QUEUE_FINDINGS: FindingWithContext[] = [
       source_id: "email-123",
       quotes: ["VP of Product, Luma Health"],
       metadata: {
-        keeper_profile: true,
+        memory_care_profile: true,
         profile_field: "title",
         profile_value: "VP of Product",
         because: "Title in email signature differs from profile",
@@ -660,7 +660,7 @@ export const MOCK_QUEUE_FINDINGS: FindingWithContext[] = [
       source_id: "email-456",
       quotes: ["Call me at (415) 555-0142 if easier"],
       metadata: {
-        keeper_profile: true,
+        memory_care_profile: true,
         profile_field: "phone",
         profile_value: "(415) 555-0142",
         because: "Phone number found in email body",
@@ -695,7 +695,7 @@ export const MOCK_QUEUE_FINDINGS: FindingWithContext[] = [
       source_id: "invoice-789",
       quotes: [],
       metadata: {
-        keeper_profile: true,
+        memory_care_profile: true,
         profile_field: "organization",
         profile_value: "Atlas Coaching",
         because: "Stripe payment from Atlas Coaching domain",
@@ -719,7 +719,7 @@ export const MOCK_QUEUE_FINDINGS: FindingWithContext[] = [
   },
 
   // ──────────────────────────────────────────────────────────────────────────
-  // KEEPER QUESTIONS (kind: "question")
+  // MEMORY CARE QUESTIONS (kind: "question")
   // ──────────────────────────────────────────────────────────────────────────
   {
     id: "mock-f-4",
@@ -734,7 +734,7 @@ export const MOCK_QUEUE_FINDINGS: FindingWithContext[] = [
       source_id: "email-abc",
       quotes: ["Sarah mentioned you'd be the right person to talk to"],
       metadata: {
-        keeper_question: true,
+        memory_care_question: true,
         question_field: "relationship_type",
         question_options: [
           { value: "referral", label: "Referral" },
@@ -773,7 +773,7 @@ export const MOCK_QUEUE_FINDINGS: FindingWithContext[] = [
       source_id: "email-def",
       quotes: ["I'll need to loop in our CFO for anything over $10k"],
       metadata: {
-        keeper_question: true,
+        memory_care_question: true,
         question_field: "is_decision_maker",
         question_options: [
           { value: "yes", label: "Yes, can approve" },
@@ -1614,7 +1614,7 @@ export const MOCK_AUTO_HANDLED_FINDINGS: FindingWithContext[] = [
       source_id: "email-ah1",
       quotes: ["linkedin.com/in/elenamarquez"],
       metadata: {
-        keeper_profile: true,
+        memory_care_profile: true,
         profile_field: "linkedin",
         profile_value: "linkedin.com/in/elenamarquez",
         because: "LinkedIn URL in email signature",
@@ -1649,7 +1649,7 @@ export const MOCK_AUTO_HANDLED_FINDINGS: FindingWithContext[] = [
       source_id: "cal-ah2",
       quotes: [],
       metadata: {
-        keeper_profile: true,
+        memory_care_profile: true,
         profile_field: "timezone",
         profile_value: "America/Los_Angeles",
         because: "All meetings scheduled in Pacific Time",
@@ -1684,7 +1684,7 @@ export const MOCK_AUTO_HANDLED_FINDINGS: FindingWithContext[] = [
       source_id: "pi-ah3",
       quotes: [],
       metadata: {
-        keeper_profile: true,
+        memory_care_profile: true,
         profile_field: "email_verified",
         profile_value: "true",
         because: "Email matched Stripe customer record",

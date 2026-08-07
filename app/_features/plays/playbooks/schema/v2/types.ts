@@ -18,6 +18,13 @@ import type {
 
 export type PlaybookLayer = "learn" | "act";
 
+/**
+ * Playbook section (memory domain).
+ *
+ * Playbooks are act-layer only: they prepare work within a section. Memory
+ * maintenance (the retired `_meta` section) is owned by Memory Care
+ * (`app/_features/memory/care`), not by playbooks.
+ */
 export type PlaybookSection =
   | "relationships"
   | "work"
@@ -27,8 +34,7 @@ export type PlaybookSection =
   | "me"
   | "connections"
   | "notes"
-  | "communication"
-  | "_meta";
+  | "communication";
 
 export type PlaybookTriggerType = "signal" | "schedule" | "manual";
 
@@ -290,9 +296,10 @@ export interface SectionMetadata {
 /* ─────────────────────────────────────────────────────────────────────────────
  * EDITABILITY MODEL
  * ─────────────────────────────────────────────────────────────────────────────
- * - System playbooks (section: _meta) → locked, cannot be edited
  * - Template playbooks → read-only base, can be cloned and customized
  * - Other playbooks → fully editable
+ * ("system" is retained for historical origins; no current playbook section
+ * maps to it since the `_meta` section was retired in favor of Memory Care.)
  * ───────────────────────────────────────────────────────────────────────────── */
 
 export type PlaybookCategory = "system" | "template" | "custom";
@@ -547,55 +554,6 @@ export const SECTION_METADATA: Record<PlaybookSection, SectionMetadata> = {
     ],
     templates: ["email-triage", "auto-label-inbox", "auto-archive-noise", "email-digest", "setup-inbox-labels"],
   },
-  _meta: {
-    name: "System",
-    slug: "_meta",
-    description: "Memory-wide operations",
-    icon: "settings",
-    memory_types: [],
-    signals: [
-      "entity_learning_extracted",
-      "person_created",
-      "person_updated",
-      "org_created",
-      "org_updated",
-      "work_created",
-      "work_updated",
-      "billing_created",
-      "billing_updated",
-      "meeting_created",
-      "meeting_updated",
-      // Notes intake signals
-      "capture_processed",
-      "note_created",
-      "note_flagged",
-      "preference_detected",
-      "context_extracted",
-      // Connections inference signals
-      "capture_email_received",
-      "capture_email_sent",
-      "capture_meeting_completed",
-      "connection_inferred",
-      "connection_strengthened",
-      "relationship_at_risk",
-      "billing_payment_matched",
-      "file_shared",
-      // Duplicate detection signals
-      "person_duplicate_email",
-      "person_duplicate_phone",
-      "org_duplicate_domain",
-      "billing_duplicate_number",
-      "file_duplicate_hash",
-      "meeting_duplicate_time_attendees",
-      // Hygiene signals
-      "person_no_activity_90d",
-      "org_no_activity_90d",
-      "work_stale_active",
-      "person_missing_email",
-      "person_orphan",
-    ],
-    templates: ["daily-briefing", "hygiene", "archive", "memory-records", "notes", "connections"],
-  },
 };
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -603,45 +561,43 @@ export const SECTION_METADATA: Record<PlaybookSection, SectionMetadata> = {
  * ───────────────────────────────────────────────────────────────────────────── */
 
 /**
- * Derives the playbook category based on section and template flag.
- * - System: section is _meta (locked, cannot be edited)
+ * Derives the playbook category from the template flag.
  * - Template: marked as template (read-only base, cloneable)
  * - Custom: everything else (fully editable)
  */
 export function getPlaybookCategory(
   definition: Pick<PlaybookDefinitionV2, "section" | "template">
 ): PlaybookCategory {
-  if (definition.section === "_meta") return "system";
   if (definition.template) return "template";
   return "custom";
 }
 
 /**
  * Whether a playbook is locked (cannot be edited).
- * System playbooks are always locked.
+ * No current playbook is locked — Memory Care capabilities are not playbooks.
  */
 export function isPlaybookLocked(
-  definition: Pick<PlaybookDefinitionV2, "section">
+  _definition: Pick<PlaybookDefinitionV2, "section">
 ): boolean {
-  return definition.section === "_meta";
+  return false;
 }
 
 /**
  * Whether a playbook can be edited by the user.
- * Templates and system playbooks cannot be edited directly.
+ * Templates cannot be edited directly (clone first).
  */
 export function isPlaybookEditable(
   definition: Pick<PlaybookDefinitionV2, "section" | "template">
 ): boolean {
-  return definition.section !== "_meta" && !definition.template;
+  return !definition.template;
 }
 
 /**
  * Whether a playbook can be cloned to create a custom version.
- * Templates are designed for this; system playbooks cannot be cloned.
+ * Templates are designed for this.
  */
 export function isPlaybookCloneable(
   definition: Pick<PlaybookDefinitionV2, "section" | "template">
 ): boolean {
-  return definition.template === true && definition.section !== "_meta";
+  return definition.template === true;
 }

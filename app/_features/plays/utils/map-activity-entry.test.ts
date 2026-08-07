@@ -25,13 +25,27 @@ describe("mapActivityEntryForUi", () => {
         metadata: {
           source: "system_play",
           auto_executed: true,
-          player_slug: "keeper",
+          player_slug: "memory-care",
         },
       })
     );
 
     expect(entry.category).toBe("salt-acted");
-    expect(entry.playerId).toBe("keeper");
+    expect(entry.playerId).toBe("memory-care");
+  });
+
+  it("maps the retired keeper player slug onto Memory Care", () => {
+    const entry = mapActivityEntryForUi(
+      activityRow({
+        metadata: {
+          source: "system_play",
+          auto_executed: true,
+          player_slug: "keeper",
+        },
+      })
+    );
+
+    expect(entry.playerId).toBe("memory-care");
   });
 
   it("keeps manually created rows in progress", () => {

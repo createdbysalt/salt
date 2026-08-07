@@ -14,8 +14,13 @@ export type { LearningEntityType, EvidenceType };
 
 /**
  * Source context for tool calls - who/what is making the change.
+ *
+ * "care" is the Memory Care system (app/_features/memory/care) — the
+ * background capabilities that keep Memory complete, clean, connected, and
+ * noted. "playbook" is legacy provenance from the retired system playbooks;
+ * act-layer playbooks never mutate Memory directly.
  */
-export type ToolSource = "playbook" | "ask_salt" | "manual" | "enrichment" | "cron";
+export type ToolSource = "care" | "playbook" | "ask_salt" | "manual" | "enrichment" | "cron";
 
 /**
  * Result action from a protected tool call.
@@ -72,6 +77,13 @@ export interface UpdateFieldInput {
   };
   /** The evidence chain that led to this decision - for trust/explainability */
   evidenceChain?: EvidenceChainItem[];
+  /**
+   * Optional floor that can only RAISE the effective bar (e.g. the Memory
+   * Care tiered bars for sensitive/destructive fields). The tool applies
+   * `max(workspaceThreshold, minThreshold)` — callers can never lower the
+   * workspace threshold through this field.
+   */
+  minThreshold?: number;
 }
 
 export interface UpdateFieldResult {

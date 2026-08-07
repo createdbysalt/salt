@@ -86,8 +86,8 @@ function validateUserPlaybookDraft(input: {
 
   if (memoryMutationViolations.length > 0) {
     errors.push(
-      `User playbooks cannot mutate Memory records: ${memoryMutationViolations.join(", ")}. ` +
-        "These actions are reserved for Keeper playbooks.",
+        `User playbooks cannot mutate Memory records: ${memoryMutationViolations.join(", ")}. ` +
+        "These actions are reserved for Memory Care.",
     );
   }
 
@@ -101,12 +101,12 @@ function validateUserPlaybookDraft(input: {
     definition = validation.definition;
     requiredActions = validation.requiredActions;
 
-    // User-created playbooks are never in _meta section, so they can't write Memory
+    // No playbook may write Memory — Memory Care owns all Memory mutations.
     const monopolyCheck = validateMemoryMonopoly(requiredActions, "relationships");
     if (!monopolyCheck.ok) {
       errors.push(
         `User playbooks cannot mutate Memory records: ${monopolyCheck.violations.join(", ")}. ` +
-          "These actions are reserved for system playbooks.",
+          "These actions are reserved for Memory Care.",
       );
     }
 

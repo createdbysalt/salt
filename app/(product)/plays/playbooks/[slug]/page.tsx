@@ -9,7 +9,6 @@ import {
 import { getPlaybookBySlug } from "@/app/_features/plays/playbooks/schema/v2/discovery";
 import { getPlaybookV2BySlug } from "@/app/_features/plays/playbooks/queries-v2";
 import { getPlaybookEnabledState } from "@/app/_features/plays/actions/playbook-settings";
-import { resolvePlaybookSettingsSlug } from "@/app/_features/plays/utils/playbook-settings-slug";
 import { readPlaybookMd } from "@/app/_features/plays/playbooks/read-playbook-md";
 import { readPackageData } from "@/app/_features/plays/playbooks/read-package-files";
 
@@ -30,7 +29,7 @@ export default async function PlaybookDetailRoute({
     notFound();
   }
 
-  const settingsSlug = resolvePlaybookSettingsSlug(slug);
+  const settingsSlug = slug;
   const isMemoryPlaybook = parsed.definition.layer === "learn";
   const [stats, enabled, settings, connectorStats] = await Promise.all([
     getProfileProvenanceStats(settingsSlug),

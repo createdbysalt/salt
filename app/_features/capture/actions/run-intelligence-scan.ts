@@ -12,7 +12,7 @@ import {
   runDailyScan,
   type DailyScanResult,
 } from "../services/intelligence";
-import { executePlaybookScript } from "@/app/_features/plays/playbooks/script-registry";
+import { runCareCapability } from "@/app/_features/memory/care";
 
 function isNextRedirectError(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
@@ -69,7 +69,7 @@ export interface SyncAndScanActionResult {
   success: boolean;
   sync?: CaptureSyncSummary | null;
   scan?: DailyScanResult;
-  /** On-demand system playbook runs (memory-hygiene, memory-records). */
+  /** On-demand Memory Care runs (hygiene, records). */
   playbookRuns?: Record<string, { success: boolean; summary?: string }>;
   error?: string;
 }
@@ -153,22 +153,22 @@ export async function syncAndScanCaptures(options?: {
       scan.errors.unshift(...scanWarnings);
     }
 
-    // On-demand system playbook runs: hygiene findings and fill-rule sweeps
-    // feed the Watching queue immediately instead of waiting for the weekly
-    // schedule.
+    // On-demand Memory Care runs: hygiene findings and fill-rule sweeps
+    // feed Watching immediately instead of waiting for the weekly schedule.
     const playbookRuns: SyncAndScanActionResult["playbookRuns"] = {};
-    for (const slug of ["memory-hygiene", "memory-records"] as const) {
-      const result = await executePlaybookScript(slug, {
+    for (const capability of ["hygiene", "records"] as const) {
+      const result = await runCareCapability(capability, {
         workspaceId: workspace.id,
         trigger: "manual",
-        signal: "sync_and_scan",
+        triggerSignal: "sync_and_scan",
       });
-      playbookRuns[slug] = {
+      const key = `memory-${capability}`;
+      playbookRuns[key] = {
         success: result.success,
         summary: result.summary ?? result.error,
       };
       if (!result.success && result.error) {
-        scan.errors.push(`${slug}: ${result.error}`);
+        scan.errors.push(`${key}: ${result.error}`);
       }
     }
 

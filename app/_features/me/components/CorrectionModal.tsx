@@ -21,14 +21,14 @@ import {
   recordStructuredCorrection,
   type CorrectionReason,
 } from "../actions/corrections";
-import type { KeeperEntityType } from "@/app/_features/plays/playbooks/evidence-accumulator";
+import type { LearningEntityType } from "@/app/_lib/learning";
 
 interface CorrectionModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   learningId: string;
   workspaceId: string;
-  entityType: KeeperEntityType;
+  entityType: LearningEntityType;
   entityId: string;
   entityLabel: string;
   fieldPath: string;

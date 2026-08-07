@@ -12,13 +12,13 @@ import {
 import {
   approvePlayRun,
   dismissPlayRun,
-  applyKeeperPlayRun,
-  answerKeeperQuestionPlayRun,
+  applyMemoryCarePlayRun,
+  answerMemoryCareQuestionPlayRun,
 } from "@/app/_features/plays/actions";
 import {
   actOnFinding,
   answerRelationshipQuestion,
-  applyKeeperProfileFinding,
+  applyMemoryCareProfileFinding,
   applyMemoryPlan,
   dismissFinding,
   toggleFlagFinding,
@@ -179,10 +179,10 @@ export function PlayQueueList({
     const results = await Promise.allSettled(
       selectedVms.map(async (vm) => {
         if (vm.provenance.source === "play_run") {
-          return applyKeeperPlayRun(vm.provenance.playRunId);
+          return applyMemoryCarePlayRun(vm.provenance.playRunId);
         } else if (vm.provenance.source === "finding") {
-          if (vm.provenance.apply === "keeper_profile") {
-            return applyKeeperProfileFinding(vm.provenance.findingId);
+          if (vm.provenance.apply === "memory_care") {
+            return applyMemoryCareProfileFinding(vm.provenance.findingId);
           }
           return actOnFinding(vm.provenance.findingId);
         }
@@ -308,12 +308,12 @@ export function PlayQueueList({
       return;
     }
 
-    // Keeper profile play_run (Phase 2 path)
+    // Memory Care profile play_run (Phase 2 path)
     if (action.kind === "apply_memory" && vm.provenance.source === "play_run") {
       const { playRunId } = vm.provenance;
       setRowPending(vm.id, true);
       void (async () => {
-        const result = await applyKeeperPlayRun(playRunId);
+        const result = await applyMemoryCarePlayRun(playRunId);
         setRowPending(vm.id, false);
         if (result.success) {
           setStatuses((current) => ({ ...current, [vm.id]: "acted" }));
@@ -330,8 +330,8 @@ export function PlayQueueList({
       setRowPending(vm.id, true);
       void (async () => {
         const result =
-          vm.provenance.source === "finding" && vm.provenance.apply === "keeper_profile"
-            ? await applyKeeperProfileFinding(findingId)
+          vm.provenance.source === "finding" && vm.provenance.apply === "memory_care"
+            ? await applyMemoryCareProfileFinding(findingId)
             : vm.provenance.source === "finding" && vm.provenance.apply === "memory_plan"
               ? await applyMemoryPlan(findingId)
               : await actOnFinding(findingId);
@@ -376,12 +376,12 @@ export function PlayQueueList({
   const handleAnswer = (vm: PlayCardViewModel, value: string) => {
     const option = vm.question?.options.find((candidate) => candidate.value === value);
 
-    // Keeper question play_run (Phase 2 path)
+    // Memory Care question play_run (Phase 2 path)
     if (vm.provenance.source === "play_run") {
       const { playRunId } = vm.provenance;
       setRowPending(vm.id, true);
       void (async () => {
-        const result = await answerKeeperQuestionPlayRun(playRunId, value);
+        const result = await answerMemoryCareQuestionPlayRun(playRunId, value);
         setRowPending(vm.id, false);
         if (result.success) {
           setStatuses((current) => ({ ...current, [vm.id]: "acted" }));

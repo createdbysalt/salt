@@ -166,11 +166,11 @@ One table per Memory record type; children prefixed with the parent noun; worksp
 
 ### Record status (2026-07-02)
 
-`people` and `organizations` carry `record_status` (`active`/`inactive`, default `active`), `record_status_source` (`manual`/`keeper`; NULL = never explicitly set), `record_status_changed_at`. Precedence: a manual value is never silently overridden by Keeper. Definition of *active* lives in the field-contract canon (90-day signal window).
+`people` and `organizations` carry `record_status` (`active`/`inactive`, default `active`), `record_status_source` (`manual`/`keeper` historically — Memory Care writes use care provenance; NULL = never explicitly set), `record_status_changed_at`. Precedence: a manual value is never silently overridden by Memory Care. Definition of *active* lives in the field-contract canon (90-day signal window).
 
 ### Field-contract vocabularies (2026-07-02)
 
-DB constraints are aligned with `app/_features/memory/taxonomy/registry.ts` (single source for dropdowns, Keeper rules, and AI prompts):
+DB constraints are aligned with `app/_features/memory/taxonomy/registry.ts` (single source for dropdowns, Memory Care fill rules, and AI prompts):
 
 | Vocabulary | DB enforcement |
 |---|---|

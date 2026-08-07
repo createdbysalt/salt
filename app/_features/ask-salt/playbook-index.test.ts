@@ -36,7 +36,8 @@ describe("buildAskSaltPlaybookIndexBlock", () => {
 
     expect(block).toContain("load_playbook");
     expect(block).toContain("propose_play");
-    expect(block).toMatch(/do not improvise/i);
+    expect(block).toContain("load_memory_intake");
+    expect(block).toMatch(/never use propose_play for Memory creates/i);
   });
 
   it("omits optional annotations gracefully", () => {

@@ -309,7 +309,8 @@ Salt's proactive AI is built on three primitives. **Read these before building p
 | **Primitives Overview** | `./docs/architecture/primitives.md` | **START HERE** — Signals, Tools, Playbooks |
 | Signals Reference | `./docs/architecture/signals.md` | Signal taxonomy and registry |
 | Tools Reference | `./docs/architecture/tools.md` | Tool contracts and risk classes |
-| Playbooks Reference | `./docs/architecture/playbooks.md` | Playbook structure and execution model |
+| Playbooks Reference | `./docs/architecture/playbooks.md` | Act-layer playbook structure and execution |
+| **Memory Care** | `./docs/architecture/memory-care.md` | Learn-layer enrichment (replaces Keeper / system playbooks) |
 | Memory Tools | `./app/_lib/memory-tools/CLAUDE.md` | Protected Memory mutation tools |
 | Playbook Schema v2 | `./app/_features/plays/playbooks/schema/v2/CLAUDE.md` | YAML schema for playbook definitions |
 | **Playbook Troubleshooting** | `./docs/guides/playbook-troubleshooting.md` | **Debug missing playbooks** — silent validation errors |

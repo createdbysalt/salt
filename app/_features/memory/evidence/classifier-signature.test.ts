@@ -4,14 +4,11 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/app/_lib/supabase/server", () => ({
   createClient: vi.fn(),
 }));
-// classifier imports the memory-records script package for identifier
+// classifier imports the memory-care intake module for identifier
 // canonicalization; stub it so this test stays free of DB dependencies.
-vi.mock(
-  "@/app/_features/plays/playbooks/v2/_meta/memory-records/scripts",
-  () => ({
-    canonicalizeIdentifier: (value: string) => value.trim().toLowerCase(),
-  })
-);
+vi.mock("@/app/_features/memory/care/intake", () => ({
+  canonicalizeIdentifier: (value: string) => value.trim().toLowerCase(),
+}));
 
 import { parseEmailSignature, parseSignatureFromBody } from "./classifier";
 

@@ -1,9 +1,10 @@
 import "server-only";
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
-import { gateProfileFieldMutation } from "./confidence-gate";
+import { processCareProposal } from "@/app/_features/memory/care/decision-pipeline";
 
-export const CONNECTIONS_PLAYBOOK_SLUG = "keeper-connections";
+/** Settings/provenance slug for the Memory Care connections capability. */
+export const CONNECTIONS_CAPABILITY_SLUG = "memory-connections";
 
 export type LinkType = "person_org" | "person_work" | "person_person" | "org_work" | "person_space" | "work_space";
 
@@ -194,7 +195,7 @@ async function resolveOrCreateOrg(
           workspace_id: workspaceId,
           name: domainToOrgName(domain),
           domain,
-          created_via: "keeper_connections",
+          created_via: "system_play",
         })
         .select("id")
         .single();
@@ -223,7 +224,7 @@ async function resolveOrCreateOrg(
         .insert({
           workspace_id: workspaceId,
           name: value,
-          created_via: "keeper_connections",
+          created_via: "system_play",
         })
         .select("id")
         .single();
@@ -350,7 +351,7 @@ async function createEntityLink(
       relation_type: "related",
       confidence,
       because,
-      source: "keeper_connections",
+      source: "memory_care",
     },
     { onConflict: "workspace_id,source_type,source_id,target_type,target_id" },
   );
@@ -389,45 +390,40 @@ export async function applyConnectionLinks(
       status: "skipped",
     };
 
-    // Route through confidence gate for proper execution path
+    // Route through the Memory Care decision pipeline
     const entityType = input.sourceType === "org" ? "organization" : input.sourceType;
-    const gateResult = await gateProfileFieldMutation({
+    const decision = await processCareProposal({
       workspaceId: input.workspaceId,
+      capability: "connections",
       entityType,
       entityId: input.sourceId,
       entityLabel: input.sourceId,
       field: `link:${rule.link_type}`,
       proposedValue: resolvedValue,
       currentValue: null,
-      result: {
-        field: "org_link",
-        value: resolvedValue,
-        source: "rule",
-        ruleId: rule.id,
-        confidence: rule.confidence,
-        because: rule.because,
-        evidence: input.signals as unknown as Record<string, unknown>,
-        status: "pending",
-      },
+      confidence: rule.confidence,
+      because: rule.because,
+      ruleId: rule.id,
+      evidenceType: "llm_inference",
+      evidenceDetails: input.signals as unknown as Record<string, unknown>,
       sourceType: "ask_salt",
-      playbookSlug: CONNECTIONS_PLAYBOOK_SLUG,
     });
 
-    // Handle based on execution path
-    if (gateResult.path === "accumulate") {
+    if (decision.action === "watch") {
       result.status = "accumulating";
-      result.skip_reason = `Gathering evidence (${gateResult.aggregatedConfidence}% confidence)`;
+      result.skip_reason = `Gathering evidence (${decision.aggregatedConfidence}% confidence)`;
       results.push(result);
       continue;
     }
 
-    if (gateResult.path === "approval_required") {
-      result.status = "pending";
+    if (decision.action === "refuse") {
+      result.status = "skipped";
+      result.skip_reason = decision.reason;
       results.push(result);
       continue;
     }
 
-    // Path is auto_execute - proceed with creating the link
+    // Decision is apply - proceed with creating the link
     if (rule.link_type === "person_org" && rule.resolve_org_by) {
       const org = await resolveOrCreateOrg(
         admin,

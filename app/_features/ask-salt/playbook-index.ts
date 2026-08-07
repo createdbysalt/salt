@@ -6,6 +6,19 @@ import {
   resolvePlaybookChatContract,
   type PlaybookChatContract,
 } from "./playbook-chat-contract";
+import {
+  isMemoryCareIntakeId,
+  loadMemoryCareIntake,
+} from "./memory-care-intake";
+
+/** Retired Care capability settings slugs — not act-layer playbooks. */
+const MEMORY_CARE_BLUEPRINT_SLUGS = new Set([
+  "memory-records",
+  "memory-hygiene",
+  "memory-connections",
+  "memory-notes",
+  "memory-care",
+]);
 
 /**
  * A workspace-adopted playbook as Ask Salt sees it — the lightweight "skill
@@ -73,7 +86,10 @@ export async function resolveAskSaltPlaybooks(
     return [];
   }
 
-  const rows = templates as unknown as TemplateRow[];
+  const rows = (templates as unknown as TemplateRow[]).filter((row) => {
+    const slug = row.blueprint_slug ?? row.slug;
+    return !MEMORY_CARE_BLUEPRINT_SLUGS.has(slug) && !isMemoryCareIntakeId(row.slug);
+  });
   const blueprintSlugs = [
     ...new Set(rows.map((r) => r.blueprint_slug).filter((s): s is string => Boolean(s))),
   ];
@@ -118,6 +134,25 @@ export async function loadAskSaltPlaybook(
   workspaceId: string,
   slug: string,
 ): Promise<AskSaltPlaybookDetail | null> {
+  // Memory Care intake is not a playbook — bridge old load_playbook calls.
+  if (isMemoryCareIntakeId(slug)) {
+    const intake = loadMemoryCareIntake();
+    if (!intake) return null;
+    return {
+      templateId: "memory-care-intake",
+      slug: intake.id,
+      name: intake.name,
+      description: intake.description,
+      whenToUse: intake.whenToUse,
+      requiredActions: [],
+      playerSlug: null,
+      procedureMd: intake.procedureMd,
+      approvalRequired: false,
+      hasActingSteps: false,
+      chatContract: intake.chatContract,
+    };
+  }
+
   const supabase = await createClient();
 
   const { data: row, error } = await supabase
@@ -229,7 +264,11 @@ export async function resolveAskSaltBlueprints(
   if (error || !blueprints) return [];
 
   return blueprints
-    .filter((b) => !b.slug.startsWith("keeper-"))
+    .filter(
+      (b) =>
+        !String(b.slug).startsWith("keeper-") &&
+        !MEMORY_CARE_BLUEPRINT_SLUGS.has(String(b.slug)),
+    )
     .map((b) => {
       const chatContract = resolvePlaybookChatContract(b.slug as string);
       return {
@@ -280,7 +319,7 @@ export function buildAskSaltPlaybookIndexBlock(
 
   lines.push("");
   lines.push(
-    "ROUTING: When a request matches a playbook's 'use when' above, call load_playbook as your FIRST action — do not improvise. Follow chat.procedure from load_playbook. For inline learn playbooks: parse_intake → enrich_entity (parallel) → memory_create_* → add_to_watching. For queue act playbooks: enrich/draft in chat, then propose_play for external actions.",
+    "ROUTING: For adding Memory records, call load_memory_intake (not a playbook) → parse_intake → enrich_entity → memory_create_* → add_to_watching. When a request matches an act playbook's 'use when' above, call load_playbook FIRST, then propose_play for external actions — never use propose_play for Memory creates.",
   );
 
   return lines.join("\n");

@@ -18,7 +18,7 @@ export type HqQueuePlayerId =
   | "client-risk"
   | "scope"
   | "billing"
-  | "keeper"
+  | "memory-care"
   | "general";
 export type HqQueueChannel = "Gmail" | "Slack" | "Notion" | "Memory" | "Stripe";
 export type HqQueueTone = "flame" | "sky" | "violet" | "muted" | "ink";
@@ -71,12 +71,19 @@ const HQ_QUEUE_PLAYERS: HqQueuePlayer[] = [
   { id: "client-risk", name: "Client Risk", tone: "flame", icon: AlertTriangle },
   { id: "scope", name: "Scope", tone: "violet", icon: FileSignature },
   { id: "billing", name: "Billing", tone: "flame", icon: Receipt },
-  { id: "keeper", name: "Keeper", tone: "ink", icon: BookMarked },
+  { id: "memory-care", name: "Memory Care", tone: "ink", icon: BookMarked },
   { id: "general", name: "General", tone: "muted", icon: Wand2 },
 ];
 
-export function getHqQueuePlayer(id: HqQueuePlayerId): HqQueuePlayer {
-  const player = HQ_QUEUE_PLAYERS.find((entry) => entry.id === id);
+export function getHqQueuePlayer(id: string): HqQueuePlayer {
+  // Legacy "keeper" rows and unknown slugs fall back to general — Memory Care
+  // approvals no longer land in the HQ queue, but historical cards may still
+  // carry the slug.
+  const normalized =
+    id === "keeper" ? "memory-care" : (id as HqQueuePlayerId);
+  const player =
+    HQ_QUEUE_PLAYERS.find((entry) => entry.id === normalized) ??
+    HQ_QUEUE_PLAYERS.find((entry) => entry.id === "general");
   if (!player) {
     throw new Error(`Unknown HQ queue player: ${id}`);
   }

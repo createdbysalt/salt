@@ -103,14 +103,16 @@ function mapActionToCategory(
 function mapPlayerFromMetadata(
   metadata: Record<string, unknown> | null,
 ): PlayerId {
-  const slug = metadata?.playerSlug ?? metadata?.player_slug;
+  const rawSlug = metadata?.playerSlug ?? metadata?.player_slug;
+  // The retired "keeper" slug maps onto Memory Care.
+  const slug = rawSlug === "keeper" ? "memory-care" : rawSlug;
   const allowed: PlayerId[] = [
     "follow-up",
     "brief",
     "client-risk",
     "scope",
     "billing",
-    "keeper",
+    "memory-care",
   ];
   if (typeof slug === "string" && allowed.includes(slug as PlayerId)) {
     return slug as PlayerId;

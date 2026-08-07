@@ -27,7 +27,6 @@
     "check:doc-drift": "bash scripts/check-doc-drift.sh",
     "seed:test-users": "tsx scripts/seed-test-users.ts",
     "coverage:fields": "tsx scripts/generate-field-coverage.ts",
-    "generate:playbooks": "tsx app/_features/memory/taxonomy/generate-playbook.ts",
     "waitlist:report": "tsx scripts/waitlist-conversion-report.ts",
     "waitlist:report:op": "op run --env-file=.env.1password -- tsx scripts/waitlist-conversion-report.ts",
     "waitlist:resend-sync": "tsx scripts/waitlist-resend-audience-sync.ts",

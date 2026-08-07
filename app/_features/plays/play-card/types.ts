@@ -48,7 +48,7 @@ export type PlayCardProvenance =
       source: "finding";
       findingId: string;
       /** Which finding apply path the primary action should call. */
-      apply: "keeper_profile" | "memory_plan" | "act";
+      apply: "memory_care" | "memory_plan" | "act";
       flagged: boolean;
     };
 

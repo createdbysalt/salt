@@ -14,7 +14,7 @@ import "server-only";
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { routePlay, type PlayQueue, type PlayStakes } from "@/app/_features/plays/lib/play-record";
-import type { IntakeEntityType } from "@/app/_features/plays/playbooks/v2/_meta/memory-records/scripts";
+import type { IntakeEntityType } from "@/app/_features/memory/care/intake";
 import type { ExtractedFieldValue } from "@/app/_features/memory/evidence/types";
 
 export interface CreateIntakePlayRunInput {

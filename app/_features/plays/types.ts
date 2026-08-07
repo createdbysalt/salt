@@ -51,11 +51,14 @@ export type PlayerSlug =
   | "client-risk"
   | "scope"
   | "billing"
-  | "keeper"
+  | "memory-care"
   | "general";
 
 /**
  * Section-based playbook groupings (replaces players).
+ *
+ * The retired `_meta` section (system memory playbooks) is owned by Memory
+ * Care (`app/_features/memory/care`), not by playbooks.
  */
 export type PlaybookSection =
   | "relationships"
@@ -66,8 +69,7 @@ export type PlaybookSection =
   | "me"
   | "connections"
   | "notes"
-  | "communication"
-  | "_meta";
+  | "communication";
 
 export type PlaybookKind = "acting" | "profile";
 

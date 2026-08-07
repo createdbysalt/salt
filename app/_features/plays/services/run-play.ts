@@ -614,12 +614,14 @@ export async function executePlayRun(
         }
 
         // Memory-monopoly defense-in-depth: reject memory-mutating slugs in
-        // non-keeper plays even if they somehow bypassed parse-time validation.
-        const isKeeper = run.player_slug === "keeper";
-        if (!isKeeper && isMemoryMutatingSlug(toolSlug)) {
+        // non-care plays even if they somehow bypassed parse-time validation.
+        // The retired "keeper" slug is accepted for legacy play_runs rows.
+        const isMemoryCare =
+          run.player_slug === "memory-care" || run.player_slug === "keeper";
+        if (!isMemoryCare && isMemoryMutatingSlug(toolSlug)) {
           return await fail(
             "MEMORY_MONOPOLY_VIOLATION",
-            `Memory-mutating tool ${toolSlug} cannot run in non-keeper play — this should have been caught at parse time`,
+            `Memory-mutating tool ${toolSlug} cannot run in non-care play — this should have been caught at parse time`,
             journal,
           );
         }

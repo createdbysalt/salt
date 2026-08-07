@@ -11,7 +11,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/app/_lib/supabase/server";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { getTenantContext } from "@/app/_features/auth/queries";
-import type { KeeperEntityType } from "@/app/_features/plays/playbooks/evidence-accumulator";
+import type { LearningEntityType } from "@/app/_lib/learning";
 
 // ============================================================================
 // Types
@@ -20,7 +20,7 @@ import type { KeeperEntityType } from "@/app/_features/plays/playbooks/evidence-
 export interface SaltLearningRow {
   id: string;
   workspace_id: string;
-  entity_type: KeeperEntityType;
+  entity_type: LearningEntityType;
   entity_id: string;
   entity_label: string;
   field_path: string;
@@ -41,7 +41,7 @@ export interface SaltLearningRow {
 
 export interface RecordLearningInput {
   workspaceId: string;
-  entityType: KeeperEntityType;
+  entityType: LearningEntityType;
   entityId: string;
   entityLabel: string;
   fieldPath: string;
@@ -255,7 +255,7 @@ export async function undoSaltLearning(
  */
 export async function getEntityLearningsCount(
   workspaceId: string,
-  entityType: KeeperEntityType,
+  entityType: LearningEntityType,
   entityId: string,
 ): Promise<number> {
   const supabase = await createClient();
@@ -277,7 +277,7 @@ export async function getEntityLearningsCount(
  */
 export async function getEntityLearnings(
   workspaceId: string,
-  entityType: KeeperEntityType,
+  entityType: LearningEntityType,
   entityId: string,
 ): Promise<SaltLearningRow[]> {
   const supabase = await createClient();

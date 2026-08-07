@@ -1206,7 +1206,7 @@ async function logActivity(
     actor_user_id: actorUserId,
     metadata: {
       source: "system_play",
-      player_slug: "keeper",
+      player_slug: "memory-care",
       auto_executed: true,
       reversible: false,
       ...metadata,
@@ -1280,8 +1280,8 @@ async function logAutoHandledMemoryRun(
     },
     metadata: {
       playbook_name: "Memory Records",
-      player_slug: "keeper",
-      keeper_profile: true,
+      player_slug: "memory-care",
+      memory_care_profile: true,
       play_card_kind: "profile",
       output_type: "memory_update",
       layer: "learn",

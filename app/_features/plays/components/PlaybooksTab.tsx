@@ -8,7 +8,7 @@ import type { PlaybookV2QueryResult } from "@/app/_features/plays/playbooks/quer
  * Playbooks Tab — the library of moves Salt runs on your behalf.
  *
  * (Renamed from Customize in the 2026-08-06 reorg; Connectors moved to
- * Sources, `_meta` care playbooks surfaced as capability cards in
+ * Sources, Memory Care capabilities surfaced as capability cards in
  * Memory → Rules.)
  */
 interface PlaybooksTabProps {

@@ -3,6 +3,12 @@ import "server-only";
 import { cache } from "react";
 import { createClient } from "@/app/_lib/supabase/server";
 import type { LearningEntityType } from "@/app/_lib/learning";
+import {
+  classifyFieldTier,
+  isAlwaysAutoField,
+  tierBar,
+} from "@/app/_lib/learning/field-tiers";
+import { getCareThreshold } from "../care/settings";
 
 export interface LearningEvidenceRow {
   id: string;
@@ -56,6 +62,11 @@ export interface LearningField {
   items: LearningFieldEvidenceItem[];
   /** Best human-readable reason ("because") across the field's evidence, if any. */
   topReason: string | null;
+  /**
+   * The tier-aware confidence bar this field must clear before Salt applies
+   * it. Null/absent for meta candidates and always-auto fields.
+   */
+  bar?: number | null;
   /** Parsed hygiene operation (merge/archive/link) for "_" meta fields. */
   metaCandidate: LearningMetaCandidate | null;
 }
@@ -169,6 +180,7 @@ function getDefaultLabel(entityType: string): string {
 export const getLearningEvidence = cache(
   async (workspaceId: string): Promise<GroupedLearningEvidence[]> => {
     const supabase = await createClient();
+    const workspaceThreshold = await getCareThreshold(workspaceId);
 
     const { data: evidence, error } = await supabase
       .from("entity_evidence")
@@ -354,6 +366,7 @@ export const getLearningEvidence = cache(
       );
 
       if (!field) {
+        const metaCandidate = parseMetaCandidate(e.field_path, e.proposed_value);
         field = {
           fieldPath: e.field_path,
           proposedValue: proposedValueStr,
@@ -364,7 +377,18 @@ export const getLearningEvidence = cache(
           evidenceIds: [],
           items: [],
           topReason: null,
-          metaCandidate: parseMetaCandidate(e.field_path, e.proposed_value),
+          bar:
+            metaCandidate || isAlwaysAutoField(e.entity_type, e.field_path)
+              ? null
+              : tierBar(
+                  classifyFieldTier(
+                    e.entity_type,
+                    e.field_path,
+                    e.proposed_value,
+                  ),
+                  workspaceThreshold,
+                ),
+          metaCandidate,
         };
         group.fields.push(field);
       }

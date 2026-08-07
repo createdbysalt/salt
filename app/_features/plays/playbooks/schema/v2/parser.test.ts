@@ -6,7 +6,7 @@ describe("parsePlaybookV2Yaml", () => {
   it("parses a valid learn-layer playbook", () => {
     const yaml = `
 name: Billing Records
-slug: billing-keeper
+slug: billing-records
 version: 1.0.0
 description: Maintain billing records from payment evidence
 
@@ -190,7 +190,7 @@ output:
 
   it("rejects learn-layer with voice", () => {
     const yaml = `
-name: Test Keeper
+name: Test Learn Playbook
 version: 1.0.0
 description: Test playbook
 section: billing
@@ -299,14 +299,14 @@ describe("getSectionMetadata", () => {
 });
 
 describe("getAllSections", () => {
-  it("returns all 10 sections", () => {
+  it("returns all 9 sections", () => {
     const sections = getAllSections();
-    expect(sections).toHaveLength(10);
+    expect(sections).toHaveLength(9);
     expect(sections.map((s) => s.slug)).toContain("relationships");
     expect(sections.map((s) => s.slug)).toContain("notes");
     expect(sections.map((s) => s.slug)).toContain("communication");
     expect(sections.map((s) => s.slug)).not.toContain("convos");
-    expect(sections.map((s) => s.slug)).toContain("_meta");
+    expect(sections.map((s) => s.slug)).not.toContain("_meta");
   });
 });
 
@@ -319,11 +319,11 @@ describe("inferSlugFromName", () => {
 });
 
 describe("inferSectionFromSlug", () => {
-  it("maps v1 slugs to sections", () => {
-    expect(inferSectionFromSlug("keeper-billing-records")).toBe("billing");
-    expect(inferSectionFromSlug("keeper-people-records")).toBe("relationships");
+  it("maps known slugs to sections", () => {
+    expect(inferSectionFromSlug("billing-records")).toBe("billing");
+    expect(inferSectionFromSlug("people-records")).toBe("relationships");
     expect(inferSectionFromSlug("invoice-chase")).toBe("billing");
-    expect(inferSectionFromSlug("daily-briefing")).toBe("_meta");
+    expect(inferSectionFromSlug("daily-briefing")).toBe("me");
     expect(inferSectionFromSlug("unknown-slug")).toBeNull();
   });
 });

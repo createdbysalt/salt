@@ -97,7 +97,7 @@ export function buildEnrichmentTools(options: BuildEnrichmentToolsOptions): Tool
     }),
 
     enrich_entity: tool({
-      description: `Scan connected apps (Gmail, Calendar, Stripe, Drive, etc.) to gather enrichment data BEFORE creating or updating a Memory record. Call during playbook intake after parse_intake — run in parallel for each entity. Returns found fields with sources. When the loaded playbook has explicitIntentAuthorizesCreate, proceed to memory_create_* after enrichment unless duplicates require confirmation.`,
+      description: `Scan connected apps (Gmail, Calendar, Stripe, Drive, etc.) to gather enrichment data BEFORE creating or updating a Memory record. Call during Memory Care intake after parse_intake — run in parallel for each entity. Returns found fields with sources. When load_memory_intake reports explicitIntentAuthorizesCreate, proceed to memory_create_* after enrichment unless duplicates require confirmation.`,
       inputSchema: enrichEntityInputSchema,
       execute: async (input: EnrichEntityInput) => {
         console.log("[enrich_entity] Called with:", JSON.stringify(input, null, 2));

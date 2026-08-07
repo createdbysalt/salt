@@ -42,8 +42,8 @@ describe("buildLearningStory", () => {
     const story = buildLearningStory(makeEvidence([makeField()]));
     expect(story.kind).toBe("fields");
     expect(story.primarySentence).toBe("I think Lisa is a client.");
-    expect(story.acceptLabel).toBe("Looks right");
-    expect(story.dismissLabel).toBe("Not now");
+    expect(story.acceptLabel).toBe("That's right");
+    expect(story.dismissLabel).toBe("Not this");
   });
 
   it("uses 'an' before vowel sounds", () => {

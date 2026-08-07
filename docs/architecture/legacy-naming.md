@@ -17,6 +17,11 @@ Retired product terms and where legacy strings still appear in code. **Do not us
 | Strategy / Serve / S-modes | Retired (April 2026) | No new UI labels |
 | SEE → ACT → APPROVE | LEARN → ACT → GROW | Product loop |
 | Creative agencies (ICP) | Solo service entrepreneurs | Audience |
+| Keeper / Keeper playbooks | Memory Care | Learn-layer enrichment; see `docs/architecture/memory-care.md` |
+| System playbooks (`v2/_meta/`) | Memory Care capabilities | records / hygiene / connections / notes — not playbooks |
+| `_meta` playbook section | Removed | `daily-briefing` lives under `me`; Memory Care is `app/_features/memory/care/` |
+| `keeper_auto_execute_threshold` | `memory_care_auto_apply_threshold` | Column on `workspaces`; accessors in `care/settings.ts` |
+| Memory Filter "Pending your call" / approval queue | Watching / Handled / Kept out | Correction replaces learn-layer approval |
 
 ## URL redirects (runtime)
 

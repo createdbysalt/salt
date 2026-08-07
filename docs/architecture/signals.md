@@ -160,9 +160,9 @@ The signal dispatch system (`trigger-dispatch.ts`) maintains an index:
 const index = buildSignalTriggerIndex();
 // Returns: Map<signalKey, PlaybookBlueprintRow[]>
 
-// Find playbooks for a signal
+// Find act-layer playbooks for a signal
 const playbooks = findPlaybooksForSignal("billing_payment_matched");
-// Returns: [keeper-billing-records, cash-celebration, ...]
+// Returns: [cash-celebration, ...] — Memory Care handles learn-layer separately
 ```
 
 ---

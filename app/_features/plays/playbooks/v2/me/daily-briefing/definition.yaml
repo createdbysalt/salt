@@ -1,13 +1,13 @@
 # Daily Briefing
 # Morning summary of what needs attention across all sections.
-# Spans all memory types - operates ON Memory, not within a section.
+# Operator-facing briefing - lives in the Me section.
 
 name: Daily Briefing
 slug: daily-briefing
 version: 2.0.0
 description: Morning summary of what needs your attention
 
-section: _meta
+section: me
 layer: act
 voice: brief
 

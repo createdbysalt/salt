@@ -35,12 +35,20 @@ test.describe("Memory surface tabs", () => {
     await expect(sections.getByRole("link", { name: "Rules" })).toBeVisible();
   });
 
-  test("Filter tab shows admission decisions", async ({ page }) => {
+  test("Filter tab shows Watching / Handled / Kept out pill", async ({
+    page,
+  }) => {
     await gotoAppRoute(page, "/memory?tab=filter");
 
     await expect(
       page.getByRole("heading", { name: /^filter$/i, level: 2 }),
     ).toBeVisible({ timeout: 15000 });
+
+    const views = page.getByRole("tablist", { name: "Filter views" });
+    await expect(views).toBeVisible();
+    await expect(views.getByRole("tab", { name: /Watching/i })).toBeVisible();
+    await expect(views.getByRole("tab", { name: /Handled/i })).toBeVisible();
+    await expect(views.getByRole("tab", { name: /Kept out/i })).toBeVisible();
   });
 
   test("Rules tab shows care capabilities and admission policy", async ({ page }) => {
