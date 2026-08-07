@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { ChevronRight, X } from "lucide-react";
+import { Check, ChevronRight, X } from "lucide-react";
 import { cn } from "@repo/utils";
 import type {
   ConnectorDefinition,
@@ -68,30 +68,36 @@ function ConnectorLibraryCard({
               {definition.nativeBadge}
             </span>
           ) : null}
-          {isConnected ? (
-            <span
-              className={cn(
-                "size-1.5 shrink-0 rounded-full",
-                status.needsReconnect ? "bg-amber-500" : "bg-success",
-              )}
-              aria-label={status.needsReconnect ? "Reconnect needed" : "Connected"}
-              title={status.needsReconnect ? "Reconnect needed" : "Connected"}
-            />
-          ) : null}
         </div>
         <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
           {definition.description}
         </p>
       </div>
 
-      <div className="flex w-8 shrink-0 items-center justify-end">
+      <div className="flex shrink-0 items-center justify-end gap-1.5">
         {definition.comingSoon ? (
           <span className="text-[11px] font-medium text-muted-foreground">Soon</span>
         ) : (
-          <ChevronRight
-            className="size-4 text-muted-foreground/40 transition-colors group-hover:text-foreground/60"
-            aria-hidden
-          />
+          <>
+            {isConnected ? (
+              <span
+                className={cn(
+                  "grid size-6 place-items-center rounded-full",
+                  status.needsReconnect
+                    ? "bg-amber-500/15 text-amber-600"
+                    : "bg-success/15 text-success",
+                )}
+                aria-label={status.needsReconnect ? "Reconnect needed" : "Connected"}
+                title={status.needsReconnect ? "Reconnect needed" : "Connected"}
+              >
+                <Check className="size-3.5" strokeWidth={2.5} />
+              </span>
+            ) : null}
+            <ChevronRight
+              className="size-4 text-muted-foreground/40 transition-colors group-hover:text-foreground/60"
+              aria-hidden
+            />
+          </>
         )}
       </div>
     </motion.button>
