@@ -56,6 +56,8 @@ export const spacesRoutes = {
 // ============================================================================
 
 export const memoryRoutes = {
+  /** Memory graph — every record and the relationships between them */
+  home: "/memory",
   people: {
     list: peopleRoutes.list,
     detail: peopleRoutes.detail,
@@ -150,6 +152,7 @@ const LEGACY_ROUTE_MAP: Record<string, string> = {
   "/tables/pinned": "/work",
   "/capture": "/plays?tab=activity&view=captures",
   "/notes": "/me",
+  "/connections": "/memory",
 };
 
 export function isLegacyRoute(pathname: string): boolean {

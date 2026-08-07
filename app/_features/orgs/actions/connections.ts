@@ -63,6 +63,6 @@ export async function persistOrgConnection(input: {
   revalidatePath(`/orgs/${input.orgId}`);
   const targetPath = getEntityPath(input.connection.type, input.connection.id);
   if (targetPath) revalidatePath(targetPath);
-  revalidatePath("/connections");
+  revalidatePath("/memory");
   return { success: true };
 }

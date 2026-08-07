@@ -109,7 +109,7 @@ Without 1Password CLI, use `.env.local` (copy from `.env.example`). The dev serv
 | `/people` | Session | Primary nav target for contacts/relationships (replaced legacy `/clients`) |
 | `/work` | Session | Projects and work surface |
 | `/spaces` | Session | Role-aware collaboration spaces |
-| `/connections` | Session | Connections surface |
+| `/memory` | Session | Memory Map graph (`/connections` redirects here) |
 | `/plays` | Session | Approval outbox; Capture stream lives in Activity → Captures |
 | `/billing` | Session | Billing surface (`app/(product)/billing/page.tsx`) |
 

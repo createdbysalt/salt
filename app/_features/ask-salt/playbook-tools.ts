@@ -436,7 +436,7 @@ export function buildPlaybookTools(options: BuildPlaybookToolsOptions): ToolSet 
             created: result.created,
             missingToolkits: result.missingToolkits.map((t) => t.toolkit),
             message: `Adopted "${blueprint.name}" but it requires connections that aren't ready: ${result.missingToolkits.map((t) => t.toolkit).join(", ")}. ${notConnected.length > 0 ? `Please connect ${notConnected.map((t) => t.toolkit).join(", ")} in Settings → Connections.` : ""} ${needsReconnect.length > 0 ? `Please reconnect ${needsReconnect.map((t) => t.toolkit).join(", ")} (token expired).` : ""}`.trim(),
-            connectUrl: "/connections",
+            connectUrl: "/memory",
           };
         }
 

@@ -82,7 +82,7 @@ export async function getPeople() {
 | Spaces | `/spaces` |
 | Plays | `/plays` |
 | Captures (in Plays) | `/plays?tab=activity&view=captures` |
-| Connections | `/connections` |
+| Memory Map | `/memory` (`/connections` redirects here) |
 | Conversations | `/conversations` |
 | Meetings | `/meetings` |
 | Work | `/work` |

@@ -46,7 +46,7 @@ export async function createProject(data: ProjectInput) {
 
 ## Canonical Routes
 
-Use `/hq`, `/people`, `/spaces`, `/plays`, `/connections` — not `/studio`, `/clients`, `/bridge`, or `/table` for new work.
+Use `/hq`, `/people`, `/spaces`, `/plays`, `/memory` — not `/studio`, `/clients`, `/bridge`, `/table`, or `/connections` for new work.
 
 Captures live at `/plays?tab=activity&view=captures` (`/capture` redirects there).
 

@@ -15,7 +15,7 @@ const ROUTES = [
   "/people",
   "/orgs",
   "/work",
-  "/connections",
+  "/memory",
 ] as const;
 
 async function measureRoute(path: string): Promise<{ path: string; ms: number; status: number }> {

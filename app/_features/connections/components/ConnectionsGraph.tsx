@@ -22,7 +22,7 @@ type FGLink = LinkObject<FGNode>;
 const TYPES: NodeType[] = ["person", "org", "work", "billing", "file", "note", "meeting"];
 
 function nodeRadius(degree: number) {
-  return 3 + Math.min(8, Math.sqrt(degree) * 1.8);
+  return 6.5 + Math.min(10, Math.sqrt(degree) * 2.6);
 }
 
 interface ConnectionsGraphProps {
@@ -168,7 +168,47 @@ export function ConnectionsGraph({ initialData }: ConnectionsGraphProps) {
     setQuery("");
   }, [nodesById]);
 
-  const recenter = () => fgRef.current?.zoomToFit(500, 80);
+  // Fit the graph in view without zooming past 1x — zoomToFit has no max-zoom cap,
+  // so small graphs would load in overly zoomed-in.
+  const fitGraph = useCallback((ms = 500) => {
+    const fg = fgRef.current;
+    const nodes = graphData.nodes;
+    if (!fg || nodes.length === 0 || size.w === 0) return;
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const n of nodes) {
+      if (n.x == null || n.y == null) continue;
+      minX = Math.min(minX, n.x); maxX = Math.max(maxX, n.x);
+      minY = Math.min(minY, n.y); maxY = Math.max(maxY, n.y);
+    }
+    if (!Number.isFinite(minX)) return;
+    // Extra room for node radii + halos, plus padding from the edges
+    const pad = 120;
+    const w = Math.max(1, maxX - minX) + pad * 2;
+    const h = Math.max(1, maxY - minY) + pad * 2;
+    const scale = Math.min(size.w / w, size.h / h, 1);
+    fg.centerAt((minX + maxX) / 2, (minY + maxY) / 2, ms);
+    fg.zoom(scale, ms);
+  }, [graphData.nodes, size.w, size.h]);
+
+  const recenter = () => fitGraph(500);
+
+  // Fit instantly on first mount so the page never flashes a zoomed-in default
+  // camera while the simulation finishes cooling (warmup ticks mean node
+  // positions already exist at mount).
+  const fittedRef = useRef(false);
+  useEffect(() => {
+    if (!ForceGraph2D || fittedRef.current || graphData.nodes.length === 0 || size.w === 0) return;
+    const raf = requestAnimationFrame(() => {
+      if (fittedRef.current) return;
+      fittedRef.current = true;
+      fitGraph(0);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [ForceGraph2D, graphData.nodes.length, size.w, fitGraph]);
+
+  const handleNodeHover = useCallback((node: NodeObject | null) => {
+    setHoverId(node ? (node as FGNode).id : null);
+  }, []);
 
   // Tooltip — convert graph coords to screen coords on demand
   const [hoverScreenPos, setHoverScreenPos] = useState<{ x: number; y: number } | null>(null);
@@ -187,12 +227,44 @@ export function ConnectionsGraph({ initialData }: ConnectionsGraphProps) {
     return () => cancelAnimationFrame(raf);
   }, [hoverId, nodesById]);
 
+  // Smooth hover/selection size transitions: tween each node's scale and repaint per frame
+  const nodeScaleRef = useRef(new Map<string, number>());
+  const scaleRafRef = useRef(0);
+  useEffect(() => {
+    cancelAnimationFrame(scaleRafRef.current);
+    const start = performance.now();
+    const DURATION = 200;
+    const from = new Map(nodeScaleRef.current);
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / DURATION);
+      const ease = 1 - Math.pow(1 - t, 3);
+      const ids = new Set<string>(from.keys());
+      if (hoverId) ids.add(hoverId);
+      if (selectedId) ids.add(selectedId);
+      const next = new Map<string, number>();
+      for (const id of ids) {
+        const target = id === hoverId ? 1.5 : id === selectedId ? 1.25 : 1;
+        const initial = from.get(id) ?? 1;
+        const value = initial + (target - initial) * ease;
+        if (Math.abs(value - 1) > 0.001 || target !== 1) next.set(id, value);
+      }
+      nodeScaleRef.current = next;
+      // The graph's render loop runs continuously by default, so the new
+      // scale values are picked up on the next painted frame.
+      if (t < 1) scaleRafRef.current = requestAnimationFrame(tick);
+    };
+    scaleRafRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(scaleRafRef.current);
+  }, [hoverId, selectedId]);
+
   // Canvas painters — matte discs by default; gradient orbs for hubs and focused nodes.
   // In plain mode: every node is a flat neutral gray disc, no halo, no gradient.
-  const paintNode = useCallback((node: NodeObject, ctx: CanvasRenderingContext2D) => {
+  const paintNode = useCallback((node: NodeObject, ctx: CanvasRenderingContext2D, globalScale: number) => {
     const n = node as FGNode;
     if (n.x == null || n.y == null) return;
-    const baseR = nodeRadius(n.degree);
+    // Counteract zoom-out: nodes grow as the camera pulls back (capped), like map markers
+    const zoomBoost = Math.min(2.5, Math.max(1, 1 / Math.sqrt(globalScale)));
+    const baseR = nodeRadius(n.degree) * zoomBoost;
     const isHover = hoverId === n.id;
     const isSelected = selectedId === n.id;
     const isNeighbor = neighbors?.has(n.id);
@@ -201,7 +273,7 @@ export function ConnectionsGraph({ initialData }: ConnectionsGraphProps) {
     const isHub = n.degree >= 5;
     const isOrb = !plain && (isHub || isFocused);
     const color = plain ? "#6B7280" : TYPE_META[n.type].color;
-    const r = isFocused ? baseR * 1.22 : baseR;
+    const r = baseR * (nodeScaleRef.current.get(n.id) ?? 1);
 
     ctx.globalAlpha = dim ? 0.18 : 1;
 
@@ -255,10 +327,11 @@ export function ConnectionsGraph({ initialData }: ConnectionsGraphProps) {
     ctx.globalAlpha = 1;
   }, [hoverId, selectedId, focusId, neighbors, plain]);
 
-  const paintPointerArea = useCallback((node: NodeObject, color: string, ctx: CanvasRenderingContext2D) => {
+  const paintPointerArea = useCallback((node: NodeObject, color: string, ctx: CanvasRenderingContext2D, globalScale: number) => {
     const n = node as FGNode;
     if (n.x == null || n.y == null) return;
-    const r = nodeRadius(n.degree) + 4;
+    const zoomBoost = Math.min(2.5, Math.max(1, 1 / Math.sqrt(globalScale)));
+    const r = nodeRadius(n.degree) * zoomBoost + 4;
     ctx.fillStyle = color;
     ctx.beginPath();
     ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
@@ -275,44 +348,41 @@ export function ConnectionsGraph({ initialData }: ConnectionsGraphProps) {
       const focusType = nodesById.get(focusId)?.type;
       return focusType ? TYPE_META[focusType].color + "80" : "rgba(160,160,160,0.5)";
     }
-    if (focusId) return "rgba(160,160,160,0.05)";
-    return "rgba(160,160,160,0.16)";
+    if (focusId) return "rgba(120,130,145,0.08)";
+    return "rgba(120,130,145,0.32)";
   }, [focusId, nodesById, plain]);
 
   const linkWidth = useCallback((link: LinkObject) => {
     const s = typeof link.source === "object" ? (link.source as FGNode).id : (link.source as string);
     const t = typeof link.target === "object" ? (link.target as FGNode).id : (link.target as string);
-    return focusId && (s === focusId || t === focusId) ? 1.1 : 0.55;
+    return focusId && (s === focusId || t === focusId) ? 1.4 : 0.8;
   }, [focusId]);
 
-  // Initial zoom-to-fit once the sim cools
-  const fittedRef = useRef(false);
+  // Final settle: once the sim cools, ease into the fitted frame
   const onEngineStop = useCallback(() => {
-    if (fittedRef.current) return;
-    fittedRef.current = true;
-    fgRef.current?.zoomToFit(400, 80);
-  }, []);
+    fitGraph(400);
+  }, [fitGraph]);
 
-  // Configure forces for a tight Obsidian-style circular cluster
+  // Configure forces for a spread-out constellation (weak centering, strong repulsion)
   const forcesConfiguredRef = useRef(false);
   useEffect(() => {
     if (!ForceGraph2D || !fgRef.current || forcesConfiguredRef.current) return;
     const fg = fgRef.current;
     const center = fg.d3Force("center") as { strength?: (n: number) => unknown } | undefined;
-    center?.strength?.(1);
+    center?.strength?.(0.25);
 
     const charge = fg.d3Force("charge") as {
       strength?: (n: number) => unknown;
       distanceMax?: (n: number) => unknown;
     } | undefined;
-    charge?.strength?.(-120);
-    charge?.distanceMax?.(420);
+    charge?.strength?.(-150);
+    charge?.distanceMax?.(460);
 
     const linkForce = fg.d3Force("link") as {
       distance?: (d: number) => unknown;
       strength?: (s: number) => unknown;
     } | undefined;
-    linkForce?.distance?.(72);
+    linkForce?.distance?.(80);
     linkForce?.strength?.(0.55);
     fg.d3ReheatSimulation();
     forcesConfiguredRef.current = true;
@@ -366,7 +436,7 @@ export function ConnectionsGraph({ initialData }: ConnectionsGraphProps) {
           nodePointerAreaPaint={paintPointerArea}
           linkColor={linkColor}
           linkWidth={linkWidth}
-          onNodeHover={(node) => setHoverId(node ? (node as FGNode).id : null)}
+          onNodeHover={handleNodeHover}
           onNodeClick={(node) => setSelectedId((node as FGNode).id)}
           onBackgroundClick={() => setSelectedId(null)}
           enableNodeDrag

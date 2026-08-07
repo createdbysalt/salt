@@ -92,6 +92,6 @@ export async function updateWorkspaceTrustLevel(
 
   revalidatePath("/settings/plays");
   revalidatePath("/settings"); // Connector modal reads trust from settingsByConnector
-  revalidatePath("/connections");
+  revalidatePath("/memory");
   revalidatePath("/plays"); // Ask Salt tools depend on trust level
 }

@@ -30,13 +30,49 @@ export function GraphDetailPanel({
     { person: [], org: [], work: [], billing: [], file: [], note: [], conversation: [], meeting: [], resource: [] }
   );
 
+  // Phrase about the record itself: prefer the cached AI narrative (same
+  // "Summary" + "Worth attention" as the record's overview page), else fall
+  // back to a deterministic line from the node's own fields.
+  const cachedSummary = node.summary?.trim();
+  const cachedAttention = node.worthAttention?.trim();
+  const attentionIsNotable = cachedAttention && !/^nothing\b/i.test(cachedAttention);
+
+  const TYPE_FALLBACKS: Record<NodeType, string> = {
+    person: "A person in your memory.",
+    org: "An organization in your memory.",
+    work: "A piece of work in your memory.",
+    billing: "A billing record.",
+    file: "A resource.",
+    note: "A note.",
+    conversation: "A conversation.",
+    meeting: "A meeting.",
+    resource: "A resource.",
+  };
+  const context = node.sublabel
+    ? `${node.sublabel.charAt(0).toUpperCase()}${node.sublabel.slice(1)}.`
+    : TYPE_FALLBACKS[node.type];
+  const fallback =
+    node.recordStatus === "inactive"
+      ? `${context.slice(0, -1)} — quiet lately, worth a look.`
+      : context;
+
+  const base = cachedSummary ?? fallback;
+  // AI narratives are full sentences; deterministic flags are lowercase
+  // continuations meant to follow an em dash.
+  const phrase =
+    attentionIsNotable && cachedAttention
+      ? /^[a-z]/.test(cachedAttention)
+        ? `${base.replace(/\.$/, "")} — ${cachedAttention}.`
+        : `${base} ${cachedAttention}`
+      : base;
+
   return (
     <motion.aside
       initial={{ x: 32, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: 32, opacity: 0 }}
       transition={{ duration: 0.32, ease: APPLE_EASE }}
-      className="absolute top-4 right-4 bottom-4 w-[340px] z-20 rounded-2xl border border-border/60 bg-background/95 backdrop-blur-xl shadow-[var(--shadow-lift)] flex flex-col overflow-hidden"
+      className="absolute bottom-4 right-4 w-[340px] z-20 max-h-[calc(100%-5.5rem)] rounded-2xl border border-border/60 bg-background/95 backdrop-blur-xl shadow-[var(--shadow-lift)] flex flex-col overflow-hidden"
     >
       {/* Header */}
       <div className="relative p-5 border-b border-border/60">
@@ -65,11 +101,7 @@ export function GraphDetailPanel({
           <p className="text-sm text-muted-foreground mt-1">{node.sublabel}</p>
         )}
 
-        <div className="flex items-center gap-3 mt-4 text-xs text-muted-foreground">
-          <span className="tabular-nums">
-            <span className="text-foreground font-medium">{node.degree}</span> connections
-          </span>
-        </div>
+        <p className="text-xs text-muted-foreground mt-3 leading-relaxed">{phrase}</p>
 
         {node.href && (
           <button
@@ -83,7 +115,12 @@ export function GraphDetailPanel({
       </div>
 
       {/* Neighbors */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
+        {neighbors.length > 0 && (
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-foreground">
+            Connections
+          </p>
+        )}
         {(Object.keys(grouped) as NodeType[]).map((type) => {
           const items = grouped[type];
           if (items.length === 0) return null;

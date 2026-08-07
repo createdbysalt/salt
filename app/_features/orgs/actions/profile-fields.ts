@@ -191,7 +191,7 @@ export async function correctOrgProfileField(input: {
   revalidatePath(`/orgs/${input.orgId}`);
   revalidatePath("/orgs");
   revalidatePath("/people");
-  revalidatePath("/connections");
+  revalidatePath("/memory");
   revalidatePath("/plays");
 
   if (input.field === "relationship_status" || input.field === "key_contact") {
