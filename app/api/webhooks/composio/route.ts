@@ -18,7 +18,16 @@ import { verifyComposioWebhookSignature } from "@/app/_lib/composio/webhook-sign
 import { resolveAdapterForTriggerSlug } from "@/app/_features/capture/adapters/trigger-routing";
 import { ingestEnvelope } from "@/app/_features/capture/services/ingest-envelope";
 import { isFeatureEnabled, FeatureFlag } from "@/app/_lib/feature-flags";
-import { enrichWebhookPayload } from "@/app/_lib/composio/webhook-enrichment";
+import {
+  enrichWebhookPayload,
+  hasEnrichmentSpec,
+  type EnrichmentResult,
+} from "@/app/_lib/composio/webhook-enrichment";
+import { captureAlreadyIngested } from "@/app/_features/capture/services/pre-enrichment-gates";
+import {
+  getCaptureBudgetStatus,
+  recordBudgetExceededWarning,
+} from "@/app/_features/capture/services/capture-budget";
 import { routeResourceWebhook } from "@/app/_lib/resources/live/signal-router";
 
 export const maxDuration = 60;
@@ -308,18 +317,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, handled: "capture_disabled" });
   }
 
-  // Enrich minimal payloads (e.g., Outlook sends only message ID)
-  const enrichment = await enrichWebhookPayload(
-    event.triggerSlug,
-    event.payload,
-    event.connectedAccountId,
-    integration.workspace_id,
-  );
-  const payloadToNormalize = enrichment.payload;
-
+  // Normalize BEFORE enrichment (Phase 6): pointer-only payloads (Outlook
+  // sends just a message ID) used to pay for a Composio fetch before any
+  // gate ran. Cheap gates — adapter decline, dedupe, daily budget — run on
+  // the minimal envelope first; only survivors pay for hydration.
   let envelope;
   try {
-    envelope = adapter.normalize(payloadToNormalize);
+    envelope = adapter.normalize(event.payload);
   } catch (error) {
     console.error("[composio-webhook] adapter threw on payload", {
       sourceType: adapter.sourceType,
@@ -329,7 +333,7 @@ export async function POST(req: NextRequest) {
     await recordWebhookOutcome(admin, "malformed_payload", {
       triggerSlug: event.triggerSlug,
       connectedAccountId: event.connectedAccountId,
-      payload: payloadToNormalize,
+      payload: event.payload,
       detail: {
         sourceType: adapter.sourceType,
         error: error instanceof Error ? error.message : String(error),
@@ -345,10 +349,85 @@ export async function POST(req: NextRequest) {
     await recordWebhookOutcome(admin, "declined", {
       triggerSlug: event.triggerSlug,
       connectedAccountId: event.connectedAccountId,
-      payload: payloadToNormalize,
-      detail: { sourceType: adapter.sourceType, enriched: enrichment.enriched },
+      payload: event.payload,
+      detail: { sourceType: adapter.sourceType, enriched: false },
     });
     return NextResponse.json({ ok: true, handled: "declined" });
+  }
+
+  let enrichment: EnrichmentResult = { enriched: false, payload: event.payload };
+
+  const extracted = envelope.extracted as Record<string, unknown> | null;
+  const needsHydration =
+    extracted?.needs_hydration === true &&
+    hasEnrichmentSpec(event.triggerSlug);
+
+  if (needsHydration) {
+    // Cheap gate 1: replayed/re-tried delivery of an already-ingested
+    // message — ack without paying for a second fetch.
+    const duplicate = await captureAlreadyIngested(
+      admin,
+      integration.workspace_id,
+      envelope.sourceType,
+      envelope.externalId,
+    );
+    if (duplicate) {
+      return NextResponse.json({
+        ok: true,
+        handled: "trigger",
+        outcome: "duplicate",
+        enriched: false,
+      });
+    }
+
+    // Cheap gate 2: over the daily capture budget, skip the paid fetch —
+    // ingestEnvelope stamps the minimal envelope as noise.
+    const budget = await getCaptureBudgetStatus(integration.workspace_id, admin);
+    if (budget.exceeded) {
+      await recordBudgetExceededWarning(integration.workspace_id, budget, admin);
+    } else {
+      // Enrich minimal payloads (e.g., Outlook sends only message ID)
+      enrichment = await enrichWebhookPayload(
+        event.triggerSlug,
+        event.payload,
+        event.connectedAccountId,
+        integration.workspace_id,
+      );
+
+      if (enrichment.enriched) {
+        let enrichedEnvelope;
+        try {
+          enrichedEnvelope = adapter.normalize(enrichment.payload);
+        } catch (error) {
+          console.error("[composio-webhook] adapter threw on enriched payload", {
+            sourceType: adapter.sourceType,
+            triggerSlug: event.triggerSlug,
+            error,
+          });
+          await recordWebhookOutcome(admin, "malformed_payload", {
+            triggerSlug: event.triggerSlug,
+            connectedAccountId: event.connectedAccountId,
+            payload: enrichment.payload,
+            detail: {
+              sourceType: adapter.sourceType,
+              enriched: true,
+              error: error instanceof Error ? error.message : String(error),
+            },
+          });
+          return NextResponse.json({ ok: true, handled: "malformed_payload" });
+        }
+        if (!enrichedEnvelope) {
+          await recordWebhookOutcome(admin, "declined", {
+            triggerSlug: event.triggerSlug,
+            connectedAccountId: event.connectedAccountId,
+            payload: enrichment.payload,
+            detail: { sourceType: adapter.sourceType, enriched: true },
+          });
+          return NextResponse.json({ ok: true, handled: "declined" });
+        }
+        envelope = enrichedEnvelope;
+      }
+    }
   }
 
   const config = integration.config as Record<string, unknown> | null;

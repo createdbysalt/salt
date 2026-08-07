@@ -22,7 +22,7 @@ import type { LearningEntityType } from "@/app/_lib/learning";
 import {
   getSectionColorStyles,
   type PlaybookSection,
-} from "./PlaybookSectionNav";
+} from "@/app/_features/plays/components/PlaybookSectionNav";
 import {
   buildLearningStory,
   formatFieldLabel,
@@ -187,7 +187,7 @@ function EvidenceItemRow({ item }: { item: LearningFieldEvidenceItem }) {
           <>
             <span className="text-muted-foreground/40">·</span>
             <Link
-              href="/plays?tab=activity&view=captures"
+              href="/sources?tab=activity"
               className="font-medium text-foreground/80 transition hover:text-foreground"
             >
               View capture

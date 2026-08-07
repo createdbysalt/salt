@@ -12,29 +12,27 @@ interface MemoryGraphPageProps {
   initialGraphData?: ConnectionsGraphData;
 }
 
+/**
+ * Memory → Map tab content. Rendered inside the Memory page shell, which
+ * provides the outer wrapper and the Map / Filter / Rules tab bar.
+ */
 export function MemoryGraphPage({ initialGraphData }: MemoryGraphPageProps) {
   return (
-    <div className="relative min-h-full">
-      <div aria-hidden className="salt-ambient-wash" />
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.22, ease: APPLE_EASE }}
+      className="space-y-6"
+    >
+      <PlaysSectionHeader
+        eyebrow="What Salt knows"
+        title="Memory Map"
+        description="Everything Salt remembers, and how it all connects."
+      />
 
-      <div className="mx-auto w-full max-w-[1400px] space-y-8 pb-10">
-        <motion.div
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.22, ease: APPLE_EASE }}
-          className="space-y-6"
-        >
-          <PlaysSectionHeader
-            eyebrow="Connections"
-            title="Memory Map"
-            description="Everything Salt remembers, and how it all connects."
-          />
-
-          <div className="min-h-[640px] h-[calc(100vh-280px)]">
-            <ConnectionsGraph initialData={initialGraphData} />
-          </div>
-        </motion.div>
+      <div className="min-h-[560px] h-[calc(100vh-340px)]">
+        <ConnectionsGraph initialData={initialGraphData} />
       </div>
-    </div>
+    </motion.div>
   );
 }

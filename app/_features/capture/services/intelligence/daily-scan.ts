@@ -186,7 +186,10 @@ async function fetchCapturesInLookback(
       .in("source_type", [...EMAIL_SCAN_SOURCE_TYPES])
       // Held rows (Memory-first pool) are thin and unenriched by design —
       // scanning them would spend LLM budget on mail the user can't see.
-      .or("gate_action.is.null,gate_action.not.in.(drop,held)")
+      // Gate-noise rows are excluded too (Phase 6): the gate's noise verdict
+      // is final — fetching them would only burn rows the per-row policy
+      // (shouldReanalyzeCapture) would skip anyway.
+      .or("gate_action.is.null,gate_action.not.in.(drop,held,noise)")
       .gte("created_at", cutoff)
       .order("created_at", { ascending: false });
 

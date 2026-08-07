@@ -18,7 +18,7 @@ app/
 
 ## Feature Modules (`_features/`)
 
-Primary surfaces: `hq`, `people`, `plays`, `capture` (stream in Plays Activity), `connections`, `meetings`, `shell`, `spaces`, `marketing`, `onboarding`, `messaging`, `relationships` (shared components/actions), `auth`, `billing`.
+Primary surfaces: `hq`, `people`, `sources` (intake: Connectors + Activity), `plays`, `capture` (stream in Sources → Activity), `connections`, `memory`, `meetings`, `shell`, `spaces`, `marketing`, `onboarding`, `messaging`, `relationships` (shared components/actions), `auth`, `billing`.
 
 Each feature module contains:
 - `actions/` or `actions.ts` - Server Actions for mutations (prefer `actions/` directory for multiple files)
@@ -80,9 +80,9 @@ export async function getPeople() {
 | HQ | `/hq` |
 | People | `/people` |
 | Spaces | `/spaces` |
-| Plays | `/plays` |
-| Captures (in Plays) | `/plays?tab=activity&view=captures` |
-| Memory Map | `/memory` (`/connections` redirects here) |
+| Sources | `/sources` (Connectors + Activity) |
+| Plays | `/plays` (Queue / Playbooks / Activity) |
+| Memory Map | `/memory` (`/connections` redirects here; tabs: Map / Filter / Rules) |
 | Conversations | `/conversations` |
 | Meetings | `/meetings` |
 | Work | `/work` |

@@ -16,7 +16,7 @@ import {
   type StepContext,
 } from "../utils/play-definition";
 import { isMemoryMutatingSlug } from "../playbooks/memory-monopoly";
-import { capabilityAction } from "@/app/_lib/composio/capability-keys";
+import { capabilityAction, READ_CAPABILITY_KEYS } from "@/app/_lib/composio/capability-keys";
 
 /**
  * Play-run executor — the acting engine (compiled-play model).
@@ -57,6 +57,22 @@ export interface ToolkitStatus {
   connected: boolean;
   needsReconnect: boolean;
 }
+
+/**
+ * What the executor asks the bundle-admission gate. Structural twin of the
+ * contract in `app/_lib/usage/play-admission.ts` — defined here so the pure
+ * orchestrator never imports from a server-only module.
+ */
+export interface RunPlayAdmissionCandidate {
+  /** Concrete act-step tool slugs, Salt-internal (memory_*) slugs excluded. */
+  toolSlugs: readonly string[];
+  /** True when any act step declares an external-effect capability. */
+  hasExternalCapabilityStep: boolean;
+}
+
+export type RunPlayAdmissionDecision =
+  | { allowed: true; reason: string }
+  | { allowed: false; reason: string; userMessage: string };
 
 export interface RunPlayDeps {
   /** Atomic claim: approved/scheduled → executing. Null = lost the race or bad state. */
@@ -126,6 +142,21 @@ export interface RunPlayDeps {
     toolSlugs: string[];
     llmSlots: (string | null | undefined)[];
   }): Promise<void>;
+  /**
+   * Bundle admission (pricing §1 enforcement) — the revenue-side gate.
+   * Called once per run, after consent and before any step executes, and
+   * only for plays that could bill (acting steps with external effect or an
+   * external capability). Refusal is at admission, never mid-execution, and
+   * lands the run in `blocked` — re-approvable after upgrade or overage
+   * opt-in — rather than `failed`, because a bundle decision is not playbook
+   * failure evidence for the learning loop.
+   *
+   * Optional so the pure executor stays testable without entitlements.
+   */
+  checkPlayAdmission?(
+    workspaceId: string,
+    candidate: RunPlayAdmissionCandidate,
+  ): Promise<RunPlayAdmissionDecision>;
   /** Optional hook for playbook learning loop */
   onLearningSignal?(
     signal: {
@@ -170,6 +201,7 @@ export type RunPlayFailureCode =
   | "EXECUTION_FAILED"
   | "MEMORY_MONOPOLY_VIOLATION"
   | "TOOLKIT_BLOCKED"
+  | "ENTITLEMENT_EXHAUSTED"
   | "PACING_BLOCKED";
 
 export type RunPlayResult =
@@ -303,6 +335,70 @@ export async function executePlayRun(
       );
     }
     const actorUserId = template.actions_approved_by ?? "";
+
+    // Bundle admission (pricing §1): refuse at admission, never mid-run.
+    // Only plays that could bill are gated — a play with no acting steps, or
+    // whose act tools are all internal, can never consume the bundle. A
+    // blocked run is NOT failed: nothing about the playbook is wrong, so the
+    // learning loop hears nothing and the run stays re-approvable once the
+    // workspace upgrades or opts into overage.
+    if (deps.checkPlayAdmission) {
+      const actSteps = definition.steps.filter((step) => step.kind === "act");
+      const candidate: RunPlayAdmissionCandidate = {
+        toolSlugs: actSteps
+          .map((step) => (step.kind === "act" ? step.tool : undefined))
+          .filter(
+            (slug): slug is string =>
+              typeof slug === "string" && !isMemoryMutatingSlug(slug),
+          ),
+        hasExternalCapabilityStep: actSteps.some(
+          (step) =>
+            step.kind === "act" &&
+            typeof step.capability === "string" &&
+            !READ_CAPABILITY_KEYS.has(step.capability),
+        ),
+      };
+
+      if (candidate.toolSlugs.length > 0 || candidate.hasExternalCapabilityStep) {
+        let admission: RunPlayAdmissionDecision;
+        try {
+          admission = await deps.checkPlayAdmission(workspaceId, candidate);
+        } catch (admissionError) {
+          // Fail open — constraint 7. The run is still metered on success,
+          // so the reconciliation sweep sees whatever this gate waved through.
+          console.error(
+            "[run-play] admission check threw for run %s — allowing:",
+            runId,
+            admissionError,
+          );
+          admission = { allowed: true, reason: "admission dep threw" };
+        }
+
+        if (!admission.allowed) {
+          const blockedAt = deps.now();
+          await deps.finalizeRun(runId, workspaceId, {
+            state: "blocked",
+            last_error: admission.userMessage,
+            updated_at: blockedAt,
+            metadata: {
+              ...(run.metadata ?? {}),
+              entitlement_blocked: true,
+              entitlement_blocked_at: blockedAt,
+            },
+          });
+          await deps.recordActivity(runId, workspaceId, {
+            action: "logged",
+            title: run.title,
+            detail: `Play paused: ${admission.userMessage}`,
+          });
+          return {
+            ok: false,
+            code: "ENTITLEMENT_EXHAUSTED",
+            message: admission.userMessage,
+          };
+        }
+      }
+    }
 
     // Toolkit connection check: pause (don't fail) when a required toolkit is
     // disconnected or expired. The user reconnects, then re-approves the play.

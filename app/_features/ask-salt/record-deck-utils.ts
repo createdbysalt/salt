@@ -457,7 +457,7 @@ export function buildDeckCompletionEntries(
           id: item.id,
           summary: `Created playbook "${item.draft.name}"`,
           linkLabel: item.draft.name,
-          href: savedHrefs.get(item.id) ?? "/plays?tab=customize",
+          href: savedHrefs.get(item.id) ?? "/plays?tab=playbooks",
           memoryLabel: "Playbooks",
           subtitle: stepCount > 0 ? `${stepCount} step${stepCount === 1 ? "" : "s"}` : undefined,
           recordKind: "playbook",

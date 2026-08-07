@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { connectorsPageUrl, reconnectNeededHref } from "./constants";
 
+describe("connectorsPageUrl", () => {
+  it("points at the Sources surface", () => {
+    expect(connectorsPageUrl()).toBe("/sources");
+    expect(connectorsPageUrl({ connector: "notion" })).toBe("/sources?connector=notion");
+  });
+});
+
 describe("reconnectNeededHref", () => {
   it("deep-links a single expired connector", () => {
     expect(reconnectNeededHref([{ catalogId: "notion" }])).toBe(

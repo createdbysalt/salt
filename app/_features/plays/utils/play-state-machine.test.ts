@@ -54,6 +54,19 @@ describe("play-state-machine", () => {
       expect(canTransitionPlayRun("failed", "dismissed")).toBe(true);
     });
 
+    it("allows executing → blocked (toolkit, pacing, bundle)", () => {
+      expect(canTransitionPlayRun("executing", "blocked")).toBe(true);
+    });
+
+    it("allows blocked → approved (re-approval) and blocked → dismissed", () => {
+      // Re-approval is how a blocked play runs after the cause is fixed:
+      // toolkit reconnected, pacing window elapsed, bundle refilled.
+      expect(nextStateForAction("approve", "blocked")).toBe("approved");
+      expect(nextStateForAction("dismiss", "blocked")).toBe("dismissed");
+      expect(canTransitionPlayRun("blocked", "executing")).toBe(false);
+      expect(canTransitionPlayRun("blocked", "ran")).toBe(false);
+    });
+
     it("keeps ran and dismissed terminal", () => {
       expect(canTransitionPlayRun("ran", "failed")).toBe(false);
       expect(canTransitionPlayRun("dismissed", "queued")).toBe(false);

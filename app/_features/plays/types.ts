@@ -21,6 +21,10 @@ export const PLAY_RUN_STATES = [
   "ran",
   "failed",
   "dismissed",
+  // Written only by the executor (admin client): a claimable run that cannot
+  // proceed right now — toolkit disconnected, pacing guard, or play bundle
+  // exhausted. Re-approvable once the cause is fixed.
+  "blocked",
 ] as const;
 
 export type PlayRunState = (typeof PLAY_RUN_STATES)[number];

@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, Eye, Loader2 } from "lucide-react";
 import { LearningCard } from "./LearningCard";
-import { PlaysTabEmptyState } from "./PlaysTabEmptyState";
+import { PlaysTabEmptyState } from "@/app/_features/plays/components/PlaysTabEmptyState";
 import type {
   GroupedLearningEvidence,
   LearningField,

@@ -42,7 +42,7 @@ description: Build production UI for Salt using @repo/ui during Lovable migratio
 
 | Surface | Routes |
 |---------|--------|
-| App | `/hq`, `/people`, `/plays`, `/spaces`, `/connections`, `/work`, `/me`, `/billing`, … |
+| App | `/hq`, `/people`, `/plays`, `/spaces`, `/memory`, `/work`, `/me`, `/billing`, … |
 | Marketing | `/`, `/pricing`, legal pages under `(public)/` |
 | Auth | `/signin`, onboarding |
 

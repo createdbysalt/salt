@@ -16,6 +16,10 @@ import "server-only";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { backfillGmailCaptures } from "./gmail-backfill";
 import {
+  getWebhookVolumeMetrics,
+  type WebhookVolumeMetrics,
+} from "./webhook-volume";
+import {
   backfillCalBookings,
   backfillCalendarCaptures,
   backfillCalendlyEvents,
@@ -162,6 +166,8 @@ export interface ReconciliationRunResult {
   connectionsReconciled: number;
   capturesCreated: number;
   failures: Array<{ workspaceId: string; provider: string; error: string }>;
+  /** Per-provider webhook/capture volume over the trailing 24h (Phase 6). */
+  webhookVolume: WebhookVolumeMetrics;
 }
 
 /**
@@ -185,6 +191,7 @@ export async function runCaptureReconciliation(): Promise<ReconciliationRunResul
     connectionsReconciled: 0,
     capturesCreated: 0,
     failures: [],
+    webhookVolume: { windowHours: 24, outcomes: [], captures: [], truncated: false },
   };
 
   for (const integration of integrations ?? []) {
@@ -209,6 +216,14 @@ export async function runCaptureReconciliation(): Promise<ReconciliationRunResul
         error: error instanceof Error ? error.message : "unknown",
       });
     }
+  }
+
+  // Volume monitor (Phase 6): the cron response doubles as the per-provider
+  // webhook/capture volume report. A metrics failure must not fail the run.
+  try {
+    result.webhookVolume = await getWebhookVolumeMetrics(24);
+  } catch (error) {
+    console.error("[capture-reconciliation] volume metrics failed:", error);
   }
 
   return result;

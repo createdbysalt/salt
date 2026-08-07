@@ -489,7 +489,7 @@ export function CaptureStreamTab({
               captureId,
               title,
               sourceLabel,
-              href: `/plays?tab=activity&view=captures`,
+              href: `/sources?tab=activity`,
             },
             prompt: promptHint,
           },

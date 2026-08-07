@@ -74,13 +74,15 @@ describe("capture-intelligence-outcome", () => {
     ).toBe("routed");
   });
 
-  it("re-analyzes no_signal and scan_error captures unless rescan is forced off", () => {
+  it("treats no_signal as terminal, retries scan_error, and honors explicit rescan", () => {
+    // Phase 6 scan policy: the LLM gets at most one look — no_signal rows
+    // (gate-stamped or scan-derived) are not re-analyzed on later scans.
     expect(
       shouldReanalyzeCapture({
         outcome: "no_signal",
         scanned_at: "2026-06-13T12:00:00.000Z",
       })
-    ).toBe(true);
+    ).toBe(false);
     expect(
       shouldReanalyzeCapture({
         outcome: "scan_error",
@@ -95,6 +97,12 @@ describe("capture-intelligence-outcome", () => {
       })
     ).toBe(false);
     expect(shouldReanalyzeCapture(null)).toBe(true);
+    expect(
+      shouldReanalyzeCapture(
+        { outcome: "no_signal", scanned_at: "2026-06-13T12:00:00.000Z" },
+        { rescan: true }
+      )
+    ).toBe(true);
     expect(
       shouldReanalyzeCapture(
         { outcome: "finding_created", scanned_at: "2026-06-13T12:00:00.000Z" },

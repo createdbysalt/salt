@@ -149,7 +149,7 @@ value:
 
 4. **Write steps**: Start with `fetch`, then `classify`/`branch`, then `draft`/`action`
 
-5. **Test**: Restart dev server, check `/plays?tab=customize`
+5. **Test**: Restart dev server, check `/plays?tab=playbooks`
 
 ## Signal Registry
 
@@ -230,7 +230,7 @@ Validation errors show in dev server console. Fix all errors before committing.
 
 ## UI Display
 
-Playbooks appear in `/plays?tab=customize`:
+Playbooks appear in `/plays?tab=playbooks`:
 - Regular playbooks: Toggle on/off, show step count
 - System playbooks: "Always on" badge, no step count
 
@@ -260,4 +260,4 @@ Before committing a new playbook:
 - [ ] All step references valid (forEach references existing fetch)
 - [ ] Output type valid (`email_draft`, `notification`, `memory_update`, `finding`, `briefing`)
 - [ ] No discovery errors in dev server
-- [ ] Shows in UI at `/plays?tab=customize`
+- [ ] Shows in UI at `/plays?tab=playbooks`

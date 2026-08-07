@@ -41,6 +41,16 @@ vi.mock("./connector-backfills", () => ({
   backfillOutlookCaptures: (...args: unknown[]) => outlookBackfill(...args),
 }));
 
+const volumeMetrics = vi.fn(async (_hours?: number) => ({
+  windowHours: 24,
+  outcomes: [{ triggerSlug: "OUTLOOK_MESSAGE_TRIGGER", outcome: "declined", count: 4 }],
+  captures: [{ sourceType: "outlook", count: 12 }],
+  truncated: false,
+}));
+vi.mock("./webhook-volume", () => ({
+  getWebhookVolumeMetrics: (hours?: number) => volumeMetrics(hours),
+}));
+
 import { runCaptureReconciliation } from "./capture-reconciliation";
 
 describe("runCaptureReconciliation", () => {
@@ -100,6 +110,29 @@ describe("runCaptureReconciliation", () => {
     expect(outlookBackfill).toHaveBeenCalledWith("ws-1", expect.any(Object));
     expect(result.connectionsReconciled).toBe(1);
     expect(result.capturesCreated).toBe(2);
+  });
+
+  it("attaches the 24h webhook volume rollup to the run result", async () => {
+    integrations.push({ workspace_id: "ws-1", provider: "outlook" });
+    outlookBackfill.mockResolvedValue({ success: true, capturesCreated: 1 });
+
+    const result = await runCaptureReconciliation();
+
+    expect(volumeMetrics).toHaveBeenCalledWith(24);
+    expect(result.webhookVolume.captures).toEqual([
+      { sourceType: "outlook", count: 12 },
+    ]);
+  });
+
+  it("keeps the run result when volume metrics fail", async () => {
+    integrations.push({ workspace_id: "ws-1", provider: "outlook" });
+    outlookBackfill.mockResolvedValue({ success: true, capturesCreated: 1 });
+    volumeMetrics.mockRejectedValueOnce(new Error("metrics down"));
+
+    const result = await runCaptureReconciliation();
+
+    expect(result.connectionsReconciled).toBe(1);
+    expect(result.webhookVolume.outcomes).toEqual([]);
   });
 
   it("skips providers without a reconciler", async () => {

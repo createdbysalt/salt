@@ -283,7 +283,7 @@ The invariant: **every write of `state: 'ran'` has a matching ledger row.** Idem
 
 ## Current state — read this before you assume anything works
 
-Honest status as of 2026-08-06. Vendor spend is now gated on a per-workspace budget; the **play bundle** is still not.
+Honest status as of 2026-08-06. Vendor spend is gated on a per-workspace budget, and the **play bundle** is gated at admission.
 
 | Capability | Built | Enforced |
 |------------|:-----:|:--------:|
@@ -292,9 +292,9 @@ Honest status as of 2026-08-06. Vendor spend is now gated on a per-workspace bud
 | `external_effect` billability | Yes | n/a |
 | Per-play itemized COGS | Yes | n/a |
 | Tier catalog and Stripe subscription sync | Yes | n/a |
-| `getWorkspaceEntitlement()` / `playsRemaining` | Yes | Read by `canSpend`; **no play-path caller** |
+| `getWorkspaceEntitlement()` / `playsRemaining` | Yes | **Yes** — read by `canSpend` and play admission |
 | `canSpend()` COGS-to-revenue circuit breaker | Yes | **Yes** — exits 1, 3, 4, 6 |
-| `playsIncluded` bundle limit | Catalog only | **No** |
+| `playsIncluded` bundle limit | Yes | **Yes** — `checkPlayAdmission` gates `executePlayRun` |
 | `askSaltDailyLimit` | Yes | **Yes** — ledger-backed |
 | `captureBudgetMicros` | Yes | **Yes** — via the manual scan cap |
 | `storageQuotaBytes` | Catalog only | **No** |
@@ -305,7 +305,24 @@ Honest status as of 2026-08-06. Vendor spend is now gated on a per-workspace bud
 | Legacy `ai_credits` | Table + UI | **No** — `deduct_ai_credits` is never called |
 | Composio per-workspace rate cap | Yes | **Partial** — in-memory per instance, so serverless multiplies it |
 
-**Consequence, stated plainly:** a workspace on the $29 Starter tier can no longer burn unbounded vendor money — cost is capped at roughly what it pays. It can still run unlimited *plays*, because nothing checks `playsRemaining` before `executePlayRun`. Those are different failures: the first was a margin problem, the second is a revenue problem. Only the first is fixed.
+**Consequence, stated plainly:** a workspace on the $29 Starter tier can no longer burn unbounded vendor money — cost is capped at roughly what it pays — and can no longer run unlimited *plays* either: `checkPlayAdmission` refuses a billable play at admission once the bundle is exhausted, unless overage is enabled. Both the margin leak and the revenue leak are closed for the executor path. Ask Salt standalone actions (the second metering point, `createPlayRecord`) are still ungated — they bill correctly but nothing refuses them at zero remaining; that belongs to the overage UI phase.
+
+### Play-bundle admission (shipped 2026-08-06)
+
+The revenue-side gate, and the inverse twin of `canSpend`: cost admission asks "can we afford to serve this workspace", bundle admission asks "has this workspace used what it bought".
+
+| Piece | Where |
+|-------|-------|
+| Admission check | [`app/_lib/usage/play-admission.ts`](../../app/_lib/usage/play-admission.ts) |
+| Gate placement | `executePlayRun` — after consent, before any step executes |
+| Production binding | `app/_features/plays/services/run-play-deps.ts` |
+
+Four properties:
+
+1. **Only plays that could bill are gated.** The candidate is built from the compiled definition: concrete act-step slugs (Salt-internal `memory_*` slugs excluded) plus a flag for external capability act steps, whose concrete tool resolves at runtime. A play with no acting steps, or whose act tools are all internal (mailbox housekeeping), is allowed without an entitlement read — it can never consume the bundle.
+2. **Blocked, not failed.** A refused run finalizes to `state: "blocked"` with an upgrade/overage message and stays re-approvable. It is deliberately *not* `failed`: nothing about the playbook is wrong, and the learning loop must not receive failure evidence for a billing decision. `"blocked"` is now a first-class `PlayRunState` (`blocked → approved | dismissed`), which also repaired re-approval for toolkit- and pacing-blocked runs — previously the executor wrote a state no claim filter accepted.
+3. **Overage opt-in is the escape hatch.** `overageEnabled` workspaces pass the gate with an exhausted bundle; the play meters as billable and accrues overage against the G5 cap, which `resolveRevenueMicros` already counts as revenue for the cost gate.
+4. **Fails open.** An entitlement-read error allows the play, matching `canSpend` and constraint 7. The execution is still metered on the way out, so a waved-through play leaves a ledger row for the G1 reconciliation sweep.
 
 ### The ledger was unwritable for a day (fixed 2026-08-06)
 
@@ -424,7 +441,7 @@ The aggregate itself is a `STABLE` SQL function (`workspace_cogs_micros`) rather
 
 1. ~~**Ask Salt chat**~~ — bounded as of 2026-08-06 by fair use, budget admission, and a step cap that tightens to 5 under pressure. Tool fan-out within a healthy turn is still 12 steps × N tools; each Composio call now passes `canSpend`, so the cost is bounded by the workspace budget even though the step count is not bounded per turn.
 2. ~~**Sync & Scan**~~ — bounded as of 2026-08-06. `scanAll: true` used to mean *unbounded*: the paginating branch of `fetchCapturesInLookback` was a `while (true)` that ignored `maxEmails` entirely, so `maxEmails` applied only to the branch that flag skipped. One click classified every capture in the lookback window — a seven-day default — at one model call each, making the cost of a click a function of the user's inbox size rather than of anything Salt chose. Both branches now honour the ceiling, and `syncAndScanCaptures` derives it from the tier via `resolveScanCaptureCap` (`app/_lib/usage/capture-scan-cap.ts`). The loop is extracted as `collectCapturePages` specifically so a test fails if it ever becomes unbounded again. This is a per-scan ceiling, not a budget check; `canSpend()` supersedes it and this becomes the backstop underneath.
-3. **Play approval** — no entitlement check before `executePlayRun`.
+3. ~~**Play approval**~~ — gated as of 2026-08-06: `checkPlayAdmission` refuses a billable play at admission when the bundle is exhausted and overage is off (see "Play-bundle admission" above). Ask Salt standalone actions remain ungated.
 4. **Capture crons** — bounded per run (50 workspaces × 100 emails) but repeat every 30 minutes and scale with tenant count.
 5. **Webhook enrichment** — bypasses the Composio gate entirely; volume is driven by the user's inbox.
 
@@ -486,7 +503,8 @@ Checklist for any change that calls a paid vendor API:
 | `app/_lib/usage/cogs.ts` | MTD COGS read, cached with local-delta accounting |
 | `app/_lib/usage/ledger.ts` | `recordUsageEvent`, `reverseUsageEvent`, `countBillablePlays` |
 | `app/_lib/usage/tiers.ts` | `TIER_CATALOG` — capacities and prices. Server-side truth. |
-| `app/_lib/usage/entitlements.ts` | `getWorkspaceEntitlement` — called by Ask Salt admission |
+| `app/_lib/usage/entitlements.ts` | `getWorkspaceEntitlement` — called by Ask Salt admission and play admission |
+| `app/_lib/usage/play-admission.ts` | `checkPlayAdmission` — the bundle gate in front of `executePlayRun` |
 | `app/_lib/usage/play-cost.ts` | COGS estimation in micro-USD, floor-breach thresholds |
 | `app/_lib/usage/llm-cost.ts` | Token → micro-USD by model. Unknown models price expensive. |
 | `app/_lib/usage/ask-salt-usage.ts` | `checkAskSaltAllowance`, `recordAskSaltUsage` |

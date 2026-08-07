@@ -15,7 +15,7 @@ import {
   Building2,
   FileText,
   Network,
-  Plug,
+  Inbox,
   Database,
 } from "lucide-react";
 import {
@@ -36,11 +36,11 @@ const COMMANDS = [
   // Navigation
   { type: "nav", icon: LayoutDashboard, label: "Go to HQ", keywords: "hq today briefing command center focus priorities", href: "/hq", shortcut: "G H" },
   { type: "nav", icon: Network, label: "Go to Memory Map", keywords: "memory map connections graph relationships", href: "/memory", shortcut: "G X" },
-  { type: "nav", icon: Plug, label: "Go to Connectors", keywords: "connectors integrations apps gmail calendar drive stripe accounts tools connect", href: "/plays?tab=customize&customize=connectors" },
+  { type: "nav", icon: Inbox, label: "Go to Sources", keywords: "sources connectors integrations apps gmail calendar drive stripe accounts tools connect intake", href: "/sources", shortcut: "G R" },
   { type: "nav", icon: Database, label: "Go to Memory", keywords: "memory people orgs work files me context", href: "/people", shortcut: "G M" },
   { type: "nav", icon: PenLine, label: "Go to Me", keywords: "me notes reports principles private studio knowledge", href: "/me" },
   { type: "nav", icon: Play, label: "Go to Plays", keywords: "actions tasks ai", href: "/plays", shortcut: "G P" },
-  { type: "nav", icon: PenLine, label: "Plays — Captures (audit)", keywords: "notes capture quick stream audit log captures", href: "/plays?tab=activity&view=captures" },
+  { type: "nav", icon: PenLine, label: "Sources — Activity (audit)", keywords: "notes capture quick stream audit log captures activity", href: "/sources?tab=activity" },
   { type: "nav", icon: Users, label: "Go to People", keywords: "contacts clients users", href: "/people", shortcut: "G U" },
   { type: "nav", icon: Building2, label: "Go to Orgs", keywords: "organizations companies clients partners vendors", href: "/orgs", shortcut: "G O" },
   { type: "nav", icon: FolderKanban, label: "Go to Work", keywords: "projects work", href: "/work", shortcut: "G W" },

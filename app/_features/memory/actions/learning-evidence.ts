@@ -63,7 +63,7 @@ export async function acceptLearningEvidence(
         field: input.fieldPath,
         value: input.proposedValue,
         confidence: 100,
-        because: "Accepted from the Watching queue",
+        because: "Accepted in Memory → Filter",
         source: "manual",
         sourceDetails: { externalId: userId },
       });
@@ -96,6 +96,7 @@ export async function acceptLearningEvidence(
     return { success: false, error: error.message };
   }
 
+  revalidatePath("/memory");
   revalidatePath("/plays");
   return { success: true };
 }
@@ -132,6 +133,7 @@ export async function dismissLearningEvidence(
     return { success: false, error: error.message };
   }
 
+  revalidatePath("/memory");
   revalidatePath("/plays");
   return { success: true };
 }

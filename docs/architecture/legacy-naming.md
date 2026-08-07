@@ -10,7 +10,9 @@ Retired product terms and where legacy strings still appear in code. **Do not us
 | Studio OS / business OS | Proactive AI for your business | Marketing category |
 | Dashboard (product) | HQ | Command center |
 | Clients / Relationships routes | People | `/people` |
-| Capture (top-level route) | Plays Activity → Captures | `/capture` redirects to `/plays?tab=activity&view=captures` |
+| Capture (top-level route) | Sources → Activity | `/capture` redirects to `/sources?tab=activity` |
+| Connectors (in Plays Customize) | Sources → Connectors | `/plays?tab=customize&customize=connectors` redirects to `/sources` |
+| Watching queue (Plays) | Memory → Filter | `/plays?filter=learning` redirects to `/memory?tab=filter` |
 | Notes (top-level route) | Me | `/notes` redirects to `/me` |
 | Strategy / Serve / S-modes | Retired (April 2026) | No new UI labels |
 | SEE → ACT → APPROVE | LEARN → ACT → GROW | Product loop |
@@ -26,7 +28,10 @@ Handled in `middleware.ts` and `app/_features/shell/routes.ts`:
 | `/studio/clients`, `/dashboard/clients`, `/clients/*` | `/people/*` |
 | `/relationships/*` | `/people/*` |
 | `/sales/*` | `/hq` |
-| `/capture` | `/plays?tab=activity&view=captures` |
+| `/capture` | `/sources?tab=activity` |
+| `/plays?tab=customize` | `/plays?tab=playbooks` (connectors → `/sources`) |
+| `/plays?tab=activity&view=captures` | `/sources?tab=activity` |
+| `/plays?filter=learning` | `/memory?tab=filter` |
 | `/notes` | `/me` |
 | `/roundtables`, `/tables` | `/spaces` |
 | `bridge.*`, `table.*` subdomains | `/spaces` |

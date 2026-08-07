@@ -91,10 +91,10 @@ Primary app routes:
 | Production URL | Local URL | Surface |
 |----------------|-----------|---------|
 | `app.usesalt.io/hq` | `localhost:3000/hq` | HQ |
-| `app.usesalt.io/plays` | `localhost:3000/plays` | Plays |
-| `app.usesalt.io/plays?tab=activity&view=captures` | `localhost:3000/plays?tab=activity&view=captures` | Captures (inside Plays Activity) |
+| `app.usesalt.io/sources` | `localhost:3000/sources` | Sources (Connectors + Activity) |
+| `app.usesalt.io/plays` | `localhost:3000/plays` | Plays (Queue / Playbooks / Activity) |
 | `app.usesalt.io/spaces` | `localhost:3000/spaces` | Spaces |
-| `app.usesalt.io/connections` | `localhost:3000/connections` | Connections |
+| `app.usesalt.io/memory` | `localhost:3000/memory` | Memory Map (`/connections` redirects here) |
 | `app.usesalt.io/people` | `localhost:3000/people` | People |
 | `app.usesalt.io/work` | `localhost:3000/work` | Work |
 | `app.usesalt.io/conversations` | `localhost:3000/conversations` | Conversations |
@@ -103,7 +103,7 @@ Primary app routes:
 | `app.usesalt.io/billing` | `localhost:3000/billing` | Billing |
 | `app.usesalt.io/settings` | `localhost:3000/settings` | Settings (`app/(settings)/`) |
 
-**Legacy redirects:** `/capture` → Plays Activity Captures; `/notes` → `/me`; `/roundtables` and `/tables` → `/spaces`.
+**Legacy redirects:** `/capture` → Sources Activity (`/sources?tab=activity`); `/notes` → `/me`; `/connections` → `/memory`; `/roundtables` and `/tables` → `/spaces`. Pre-reorg Plays URLs (`tab=customize`, `view=captures`, `filter=learning`) redirect to `/sources`, `/sources?tab=activity`, and `/memory?tab=filter` respectively.
 
 Use `localhost:3000/*` for normal development. Only use subdomain-style local testing if a task specifically touches host-based routing.
 
@@ -445,7 +445,7 @@ Core utilities and integrations used across the app:
 
 ### `app/_features/` - Feature Modules
 
-Domain-specific code organized by feature. Current app-facing surfaces include `hq`, `plays`, `capture` (stream folded into Plays Activity), `connections`, `meetings`, `people`, `orgs`, `work`, `spaces`, `shell`, and supporting modules such as `auth`, `billing`, `payments`, `marketing`, `messaging`, and `relationships` (shared components/actions).
+Domain-specific code organized by feature. Current app-facing surfaces include `hq`, `sources` (intake: Connectors + Activity), `plays`, `capture` (stream lives in Sources → Activity), `connections` (Memory Map graph at `/memory`), `meetings`, `people`, `orgs`, `work`, `spaces`, `shell`, and supporting modules such as `auth`, `billing`, `payments`, `marketing`, `messaging`, and `relationships` (shared components/actions).
 
 ### `brand-identity/` - Brand & Product Documentation
 

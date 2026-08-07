@@ -287,9 +287,24 @@ export function PlayQueueList({
     if (source) fireCelebration(source);
 
     if (action.kind === "approve_send" && vm.provenance.source === "play_run") {
+      const { playRunId } = vm.provenance;
       setStatuses((current) => ({ ...current, [vm.id]: "approved" }));
-      void approvePlayRun(vm.provenance.playRunId);
-      toast("Approved & sending");
+      void (async () => {
+        const result = await approvePlayRun(playRunId);
+        if (result.ok) {
+          toast("Approved & sending");
+        } else {
+          // Approval was refused (e.g. ENTITLEMENT_EXHAUSTED — the play
+          // bundle is used up). The run is blocked, not approved, so undo
+          // the optimistic status and say why.
+          setStatuses((current) => {
+            const next = { ...current };
+            delete next[vm.id];
+            return next;
+          });
+          toast.error(result.message);
+        }
+      })();
       return;
     }
 

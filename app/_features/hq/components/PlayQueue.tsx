@@ -196,19 +196,31 @@ export function PlayQueue({ initialCards, timeSavedLabel = null }: PlayQueueProp
               return;
             }
           }
-          await approvePlayRun(playRunId);
+          const approveResult = await approvePlayRun(playRunId);
+          if (!approveResult.ok) {
+            // Refused at admission (e.g. ENTITLEMENT_EXHAUSTED — bundle used
+            // up). Undo the optimistic approval and surface the reason.
+            toast.error(approveResult.message);
+            setStatuses((current) => {
+              const next = { ...current };
+              delete next[vm.id];
+              return next;
+            });
+            router.refresh();
+            return;
+          }
+          setCombo((current) => {
+            const next = current + 1;
+            setComboKey((key) => key + 1);
+            return next;
+          });
+          if (comboTimer.current) clearTimeout(comboTimer.current);
+          comboTimer.current = setTimeout(() => setCombo(0), 4000);
+          toast.success(action.label, {
+            description: "Salt will finish this on Plays after you confirm.",
+          });
           router.refresh();
         })();
-        setCombo((current) => {
-          const next = current + 1;
-          setComboKey((key) => key + 1);
-          return next;
-        });
-        if (comboTimer.current) clearTimeout(comboTimer.current);
-        comboTimer.current = setTimeout(() => setCombo(0), 4000);
-        toast.success(action.label, {
-          description: "Salt will finish this on Plays after you confirm.",
-        });
         return;
       }
 

@@ -48,23 +48,29 @@ export function GraphDetailPanel({
     meeting: "A meeting.",
     resource: "A resource.",
   };
-  const context = node.sublabel
-    ? `${node.sublabel.charAt(0).toUpperCase()}${node.sublabel.slice(1)}.`
-    : TYPE_FALLBACKS[node.type];
-  const fallback =
-    node.recordStatus === "inactive"
-      ? `${context.slice(0, -1)} — quiet lately, worth a look.`
-      : context;
 
-  const base = cachedSummary ?? fallback;
-  // AI narratives are full sentences; deterministic flags are lowercase
-  // continuations meant to follow an em dash.
-  const phrase =
-    attentionIsNotable && cachedAttention
-      ? /^[a-z]/.test(cachedAttention)
-        ? `${base.replace(/\.$/, "")} — ${cachedAttention}.`
-        : `${base} ${cachedAttention}`
-      : base;
+  // The phrase only renders when it adds information the header doesn't
+  // already show — restating the sublabel (e.g. a meeting's date) is noise.
+  let phrase: string | null = null;
+  if (cachedSummary) {
+    phrase = cachedSummary;
+    if (attentionIsNotable && cachedAttention) {
+      // AI narratives are full sentences; deterministic flags are lowercase
+      // continuations meant to follow an em dash.
+      phrase = /^[a-z]/.test(cachedAttention)
+        ? `${phrase.replace(/\.$/, "")} — ${cachedAttention}.`
+        : `${phrase} ${cachedAttention}`;
+    }
+  } else if (attentionIsNotable && cachedAttention) {
+    phrase = /^[a-z]/.test(cachedAttention)
+      ? `${cachedAttention.charAt(0).toUpperCase()}${cachedAttention.slice(1)}.`
+      : cachedAttention;
+  } else if (node.recordStatus === "inactive") {
+    const context = node.sublabel
+      ? `${node.sublabel.charAt(0).toUpperCase()}${node.sublabel.slice(1)}`
+      : TYPE_FALLBACKS[node.type].replace(/\.$/, "");
+    phrase = `${context} — quiet lately, worth a look.`;
+  }
 
   return (
     <motion.aside
@@ -101,7 +107,11 @@ export function GraphDetailPanel({
           <p className="text-sm text-muted-foreground mt-1">{node.sublabel}</p>
         )}
 
-        <p className="text-xs text-muted-foreground mt-3 leading-relaxed">{phrase}</p>
+        {phrase && (
+          <p className="text-xs text-muted-foreground mt-3 leading-relaxed">
+            {phrase}
+          </p>
+        )}
 
         {node.href && (
           <button

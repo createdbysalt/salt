@@ -9,8 +9,8 @@ import {
   Brain,
   Check,
   ChevronDown,
-  LayoutDashboard,
   Inbox,
+  LayoutDashboard,
   Play,
   Settings,
   X,
@@ -47,13 +47,13 @@ const SIDEBAR_NAV_ICON =
 /** px-3 + 18px icon + gap-x-3 */
 const MEMORY_SUBNAV_INDENT = "pl-[calc(0.75rem+18px+0.75rem)]";
 
+// Nav order: HQ → Plays → Sources → Memory.
 const TOP_NAV = [
   { title: "HQ", url: "/hq", icon: LayoutDashboard },
   { title: "Plays", url: "/plays", icon: Play },
-  // Connections retired (2026-08-06) — graph moved to Memory (/memory).
-  // Connectors live inside Plays → Customize → Connectors (not a top-level nav).
-  // Capture removed from nav (2026-06-13) — stream lives at Plays → Activity → Captures
-  // /capture redirects to /plays?tab=activity&view=captures
+  { title: "Sources", url: "/sources", icon: Inbox },
+  // Connectors + capture stream live under Sources (2026-08-06 reorg).
+  // /capture redirects to /sources?tab=activity
 ] as const;
 
 const MEMORY_NAV = [

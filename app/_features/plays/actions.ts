@@ -161,12 +161,14 @@ export async function approvePlayRun(id: string): Promise<ActionResult<PlayRunRo
 
   // Atomic claim: the state filter inside the UPDATE makes double-click /
   // two-device approvals race-safe — exactly one caller gets the row.
+  // "blocked" is claimable: a run paused by a toolkit reconnect, pacing
+  // guard, or exhausted bundle re-enters here once the cause is fixed.
   const { data: claimed } = await supabase
     .from("play_runs")
     .update({ state: "approved", approved_at: now, updated_at: now })
     .eq("id", id)
     .eq("workspace_id", workspace.id)
-    .in("state", ["queued", "draft", "approved", "scheduled"])
+    .in("state", ["queued", "draft", "approved", "scheduled", "blocked"])
     .select("*")
     .maybeSingle();
 

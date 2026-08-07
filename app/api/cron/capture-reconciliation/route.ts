@@ -51,6 +51,7 @@ export async function GET(req: NextRequest) {
       connectionsReconciled: result.connectionsReconciled,
       capturesCreated: result.capturesCreated,
       failures: result.failures.length,
+      webhookVolume: result.webhookVolume,
     });
   } catch (error) {
     console.error("[Capture reconciliation cron] Run failed:", error);

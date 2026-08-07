@@ -1125,7 +1125,7 @@ import type {
   LearningField,
   LearningFieldEvidenceItem,
   LearningMetaCandidate,
-} from "@/app/_features/plays/queries/learning-evidence";
+} from "@/app/_features/memory/queries/learning-evidence";
 
 function mockEvidenceItems(
   entries: Array<{

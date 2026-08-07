@@ -236,19 +236,31 @@ export async function getConnectionsGraphData(
     });
   }
 
-  // Current AI summary per meeting (same source as the meeting overview page)
+  // AI summary per meeting (same source as the meeting overview page).
+  // Rows arrive newest-first: prefer the row flagged is_current, else the
+  // most recent generation.
   const meetingSummaryById = new Map<string, string>();
   const meetingIds = meetings.map((m) => m.id);
   if (meetingIds.length > 0) {
     const { data: summaryRows } = await supabase
       .from("meeting_summaries")
-      .select("meeting_id, content")
+      .select("meeting_id, content, is_current, created_at")
       .in("meeting_id", meetingIds)
-      .eq("is_current", true);
+      .order("created_at", { ascending: false });
+    const currentByMeeting = new Map<string, string>();
+    const latestByMeeting = new Map<string, string>();
     for (const row of summaryRows ?? []) {
-      if (row.meeting_id && row.content) {
-        meetingSummaryById.set(row.meeting_id, row.content);
+      if (!row.meeting_id || !row.content) continue;
+      if (!latestByMeeting.has(row.meeting_id)) {
+        latestByMeeting.set(row.meeting_id, row.content);
       }
+      if (row.is_current && !currentByMeeting.has(row.meeting_id)) {
+        currentByMeeting.set(row.meeting_id, row.content);
+      }
+    }
+    for (const id of meetingIds) {
+      const content = currentByMeeting.get(id) ?? latestByMeeting.get(id);
+      if (content) meetingSummaryById.set(id, content);
     }
   }
 

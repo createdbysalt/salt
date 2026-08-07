@@ -8,6 +8,10 @@ import { enrichAndPersist } from "./enrichment";
 import { promoteRepliedRecipients } from "./relationship-discovery";
 import { recordOutboundReplies } from "./sender-reputation";
 import { mergeIntelligenceMeta } from "./intelligence/capture-intelligence-outcome";
+import {
+  getCaptureBudgetStatus,
+  recordBudgetExceededWarning,
+} from "./capture-budget";
 import type { CaptureEnvelope } from "../adapters/types";
 import type { CaptureOrigin, CaptureState } from "../types";
 import type { GatePipelineResult } from "../types/gate-result";
@@ -113,15 +117,27 @@ export async function ingestEnvelope(
     }
   }
 
-  const isNoise = gateResult?.finalAction === "noise";
+  const admin = createAdminClient();
+
+  // Daily capture budget (Phase 6): past the cap the row still lands, but is
+  // stamped as noise — no enrichment fetch, no evidence, no LLM scan. Held
+  // mail is already thin/unenriched and keeps its discovery semantics.
+  const budget = await getCaptureBudgetStatus(workspaceId, admin);
+  if (budget.exceeded) {
+    await recordBudgetExceededWarning(workspaceId, budget, admin);
+  }
+
   const isHeld = gateResult?.finalAction === "held";
+  const forcedNoiseByBudget = budget.exceeded && !isHeld;
+  const isNoise =
+    forcedNoiseByBudget || gateResult?.finalAction === "noise";
   const captureState: CaptureState = gateResult?.finalAction === "signal" ? "routed" : "pending";
   const overallConfidence = gateResult?.targetEntity?.confidence ?? null;
 
   // Noise rows skip enrichment and scanning by design; without a terminal
   // intelligence outcome they render as "Processing" forever in the stream.
-  // Stamp no_signal at insert — the scan still re-analyzes no_signal rows,
-  // so a later pass can upgrade them if they turn out to matter.
+  // Stamp no_signal at insert — terminal unless an explicit rescan is
+  // requested (Phase 6 scan policy: the LLM gets at most one look).
   // Held rows (Memory-first) store a thin extract only — sender/subject/thread.
   const extractedData = isHeld
     ? thinHeldExtracted(envelope.extracted as Record<string, unknown>)
@@ -132,7 +148,15 @@ export async function ingestEnvelope(
         })
       : envelope.extracted;
 
-  const admin = createAdminClient();
+  const gateResultForRow = gateResult
+    ? ({
+        ...gateResult,
+        ...(forcedNoiseByBudget ? { budgetExceeded: true } : {}),
+      } as unknown as Record<string, unknown>)
+    : forcedNoiseByBudget
+      ? ({ budgetExceeded: true } as Record<string, unknown>)
+      : null;
+
   const { data, error } = await admin
     .from("capture_events")
     .insert({
@@ -148,8 +172,10 @@ export async function ingestEnvelope(
       state: captureState,
       overall_confidence: overallConfidence,
       is_bootstrap: options.isBootstrap ?? false,
-      gate_action: gateResult?.finalAction ?? null,
-      gate_result: gateResult ? (gateResult as unknown as Record<string, unknown>) : null,
+      gate_action: forcedNoiseByBudget
+        ? "noise"
+        : (gateResult?.finalAction ?? null),
+      gate_result: gateResultForRow,
     } as never)
     .select("id")
     .single();
@@ -228,7 +254,9 @@ export async function ingestEnvelope(
     if (isNoise) {
       return {
         outcome: "noise",
-        noiseReason: gateResult?.gateResults.admission?.reason ?? "Low signal score",
+        noiseReason: forcedNoiseByBudget
+          ? `Daily capture budget exceeded (${budget.count}/${budget.limit} in 24h)`
+          : (gateResult?.gateResults.admission?.reason ?? "Low signal score"),
         captureId: data.id,
         gateResult,
       };

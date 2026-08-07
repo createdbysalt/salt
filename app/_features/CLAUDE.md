@@ -53,7 +53,7 @@ _features/[feature]/
 | `hq` | Daily operating home, inbox, insights, dashboard analytics actions |
 | `plays` | Approval outbox, playbooks, players, capture stream in Activity |
 | `people` | People CRUD, profile fields, activity |
-| `connections` | Relationship and context graph |
+| `connections` | Memory Map graph (`/memory`) + per-record Connections tabs |
 | `spaces` | Role-aware shared workspaces |
 | `work` | Work and project memory |
 | `meetings` | Meeting intelligence |

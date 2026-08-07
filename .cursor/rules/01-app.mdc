@@ -46,8 +46,8 @@ export async function createProject(data: ProjectInput) {
 
 ## Canonical Routes
 
-Use `/hq`, `/people`, `/spaces`, `/plays`, `/memory` — not `/studio`, `/clients`, `/bridge`, `/table`, or `/connections` for new work.
+Use `/hq`, `/people`, `/spaces`, `/sources`, `/plays`, `/memory` — not `/studio`, `/clients`, `/bridge`, `/table`, or `/connections` for new work.
 
-Captures live at `/plays?tab=activity&view=captures` (`/capture` redirects there).
+Connectors and the capture stream live at `/sources` (tabs: Connectors / Stream). Plays is slimmed to Queue / Playbooks / Activity; Memory has Map / Filter / Rules tabs.
 
-Legacy paths redirect in `middleware.ts`. See `docs/architecture/legacy-naming.md`.
+Legacy paths redirect in `middleware.ts` and `app/_features/plays/plays-tab-routing.ts`. See `docs/architecture/legacy-naming.md`.

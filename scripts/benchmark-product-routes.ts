@@ -11,7 +11,7 @@ const BASE_URL = process.env.BENCHMARK_BASE_URL ?? "http://localhost:3000";
 const ROUTES = [
   "/hq",
   "/plays",
-  "/plays?tab=activity&view=captures",
+  "/sources?tab=activity",
   "/people",
   "/orgs",
   "/work",

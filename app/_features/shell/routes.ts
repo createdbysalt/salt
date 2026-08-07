@@ -1,10 +1,11 @@
 /**
  * Route Constants - Single source of truth for all app routes
  *
- * Architecture: HQ + People + Spaces (+ Plays, Capture, Connections)
- * - People        → Contacts, relationships, client context
+ * Architecture: HQ + Sources + Memory + Plays
  * - HQ            → Command center, daily briefing, approval queue
- * - Spaces        → Shared client and project workspaces
+ * - Sources       → Connectors (the pipes) + Activity (what came in)
+ * - Memory        → Map (graph) + Filter (admission decisions) + Rules
+ * - Plays         → Queue (action approvals), Playbooks, Activity
  */
 
 import { connectorsPageUrl } from "@/app/_features/connectors/constants";
@@ -52,8 +53,23 @@ export const spacesRoutes = {
 } as const;
 
 // ============================================================================
+// SOURCES ROUTES (intake — Connectors + Activity)
+// ============================================================================
+
+export const sourcesRoutes = {
+  home: "/sources",
+  activity: "/sources?tab=activity",
+} as const;
+
+// ============================================================================
 // MEMORY SURFACE ROUTES
 // ============================================================================
+
+export const memoryTabRoutes = {
+  map: "/memory",
+  filter: "/memory?tab=filter",
+  rules: "/memory?tab=rules",
+} as const;
 
 export const memoryRoutes = {
   /** Memory graph — every record and the relationships between them */
@@ -110,6 +126,7 @@ export const settingsRoutes = {
 
 export const routes = {
   hq: hqRoutes,
+  sources: sourcesRoutes,
   people: peopleRoutes,
   spaces: spacesRoutes,
   billing: billingRoutes,
@@ -150,7 +167,7 @@ const LEGACY_ROUTE_MAP: Record<string, string> = {
   "/tables": "/work",
   "/tables/all": "/work",
   "/tables/pinned": "/work",
-  "/capture": "/plays?tab=activity&view=captures",
+  "/capture": "/sources?tab=activity",
   "/notes": "/me",
   "/connections": "/memory",
 };
@@ -240,6 +257,7 @@ export function getLegacyRedirect(
 // ============================================================================
 
 export type HqRoutes = typeof hqRoutes;
+export type SourcesRoutes = typeof sourcesRoutes;
 export type PeopleRoutes = typeof peopleRoutes;
 export type BillingRoutes = typeof billingRoutes;
 export type SettingsRoutes = typeof settingsRoutes;

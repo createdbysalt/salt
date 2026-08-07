@@ -37,6 +37,7 @@ Seven exit points carry every dollar Salt spends. Instrument those and features 
 | `record-llm-usage.ts` | `recordLlmCall` — called from inside `sendLlm`, never from a feature |
 | `capture-scan-cap.ts` | `resolveScanCaptureCap` — per-tier ceiling for one manual capture scan |
 | `entitlements.ts` | `getWorkspaceEntitlement` — tier, bundle, period, pricing version |
+| `play-admission.ts` | `checkPlayAdmission` — the bundle gate in front of `executePlayRun` |
 | `can-spend.ts` | `canSpend` — the circuit breaker. Ladder, revenue basis, origins. |
 | `cogs.ts` | MTD COGS read, cached with local-delta accounting |
 | `index.ts` | Export hub |
@@ -100,12 +101,13 @@ Because a burst fits inside the cache TTL, `recordUsageEvent` calls `noteLocalSp
 | `askSaltDailyLimit` | **Yes** — ledger-backed, rolling 24h |
 | `captureBudgetMicros` | **Yes** — via `resolveScanCaptureCap`, manual scan only |
 | `sendLlm` token spend (14 call sites) | **Yes** — recorded and gated |
-| `getWorkspaceEntitlement` / `playsRemaining` | Read by `canSpend`; **no play-path caller** |
-| `playsIncluded`, `storageQuotaBytes` | **Nowhere** |
+| `getWorkspaceEntitlement` / `playsRemaining` | **Yes** — read by `canSpend` and play admission |
+| `playsIncluded` | **Yes** — `checkPlayAdmission` gates `executePlayRun` (blocked, re-approvable; overage passes) |
+| `storageQuotaBytes` | **Nowhere** |
 | `MAX_TOOL_CALLS_PER_PLAY` | **Nowhere** |
 | Embedding spend | **Nowhere** — deliberate; see the architecture doc |
 
-Shadow metering of the *play bundle* is still deliberate (pricing §4: observe 60–90 days, then set bundles from real percentiles). Cost is capped; **revenue is not** — nothing checks `playsRemaining` before `executePlayRun`, so a Starter workspace can run unlimited plays. **Do not assume a limit works because it is defined here.**
+Shadow metering of *bundle sizes* is still deliberate (pricing §4: observe 60–90 days, then set bundles from real percentiles) — the numbers are placeholders, but the gate itself now runs. Ask Salt standalone actions (`createPlayRecord` with `executedToolSlugs`) bill correctly but are not yet refused at zero remaining; that belongs to the overage UI phase. **Do not assume a limit works because it is defined here.**
 
 `sendLlm` takes an `LlmSpendContext` and both gates and meters itself — never call `canSpend` or `recordLlmCall` around it from a feature. Attribution must stay required: `AsyncLocalStorage` and user→workspace lookup were both investigated and rejected, so see the architecture doc before reopening either.
 

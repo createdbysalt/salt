@@ -6,20 +6,20 @@ import { cn } from "@repo/utils";
 /**
  * Plays Surface Tabs
  *
- * New structure (from 2026-06-13 interview):
- * - Queue: Daily attention surface (Needs You / Auto-handled toggle)
- * - Customize: Configuration (Playbooks, Connectors)
- * - Activity: Audit trail / history
+ * Structure (2026-08-06 reorg):
+ * - Queue: Action approvals (Needs You / Auto-handled toggle)
+ * - Playbooks: the library of moves Salt runs
+ * - Activity: Actions audit trail
  *
- * Previous: Queue / Players / Playbook / Activity / Connectors (5 tabs)
- * New: Queue / Customize / Activity (3 tabs)
+ * Intake moved to Sources (Connectors / Activity); memory-admission decisions
+ * moved to Memory → Filter.
  */
 
-export type PlaysTab = "queue" | "customize" | "activity";
+export type PlaysTab = "queue" | "playbooks" | "activity";
 
 const tabs: { id: PlaysTab; label: string }[] = [
   { id: "queue", label: "Queue" },
-  { id: "customize", label: "Customize" },
+  { id: "playbooks", label: "Playbooks" },
   { id: "activity", label: "Activity" },
 ];
 

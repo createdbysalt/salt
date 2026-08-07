@@ -1,26 +1,16 @@
 import type { PlaysTab } from "./load-plays-page-data";
 
-export type PlaysActivityViewUi = "actions" | "captures";
-/** Queue filter. Note: "learning" is the URL param but displays as "Watching" in UI */
-export type PlaysQueueFilterUi = "needs_you" | "auto_handled" | "learning";
+/** Queue filter: Needs You / Auto-handled. */
+export type PlaysQueueFilterUi = "needs_you" | "auto_handled";
 
 export function parsePlaysQueueFilter(value: string | null | undefined): PlaysQueueFilterUi {
   if (value === "auto_handled") return "auto_handled";
-  if (value === "learning") return "learning";
   return "needs_you";
-}
-
-export function playsTabCacheKey(tab: PlaysTab, activityView: PlaysActivityViewUi): string {
-  if (tab !== "activity") {
-    return tab;
-  }
-  return `activity:${activityView}`;
 }
 
 export function buildPlaysPath(
   tab: PlaysTab,
   queueFilter: PlaysQueueFilterUi,
-  activityView: PlaysActivityViewUi,
 ): string {
   const params = new URLSearchParams();
   if (tab !== "queue") {
@@ -29,9 +19,6 @@ export function buildPlaysPath(
   if (tab === "queue" && queueFilter !== "needs_you") {
     params.set("filter", queueFilter);
   }
-  if (tab === "activity" && activityView === "captures") {
-    params.set("view", "captures");
-  }
   const query = params.toString();
   return query ? `/plays?${query}` : "/plays";
 }
@@ -39,41 +26,47 @@ export function buildPlaysPath(
 export function syncPlaysUrl(
   tab: PlaysTab,
   queueFilter: PlaysQueueFilterUi,
-  activityView: PlaysActivityViewUi,
 ) {
-  const path = buildPlaysPath(tab, queueFilter, activityView);
+  const path = buildPlaysPath(tab, queueFilter);
   window.history.replaceState(window.history.state, "", path);
 }
 
-export type CustomizeSectionUi = "playbooks" | "connectors";
-
 /**
- * Sync the Customize URL. When `connector` is set, the Connectors section is
- * showing that connector's detail (grid → detail happens in place, so the URL
- * stays under /plays and browser back returns to the grid).
+ * Resolve pre-reorg (2026-08-06) Plays URLs to their new homes:
+ * - Customize → Connectors moved to Sources (/sources)
+ * - Activity → Captures moved to Sources → Activity (/sources?tab=activity)
+ * - Queue → Watching (learning) moved to Memory → Filter (/memory?tab=filter)
+ * - tab=customize renamed to tab=playbooks
+ *
+ * Returns the redirect target, or null when the URL is already canonical.
  */
-export function buildPlaysCustomizePath(
-  section: CustomizeSectionUi,
-  connector?: string | null,
-): string {
-  const params = new URLSearchParams();
-  params.set("tab", "customize");
-  if (section === "connectors") {
-    params.set("customize", "connectors");
-    if (connector) {
-      params.set("connector", connector);
+export function resolvePlaysLegacyRedirect(params: {
+  tab?: string | null;
+  filter?: string | null;
+  view?: string | null;
+  customize?: string | null;
+  connector?: string | null;
+}): string | null {
+  if (params.tab === "customize") {
+    if (params.customize === "connectors" || params.connector) {
+      const search = new URLSearchParams();
+      if (params.connector) search.set("connector", params.connector);
+      const query = search.toString();
+      return query ? `/sources?${query}` : "/sources";
     }
+    if (params.customize === "voices" || params.customize === "players") {
+      return "/me?tab=voice";
+    }
+    return "/plays?tab=playbooks";
   }
-  return `/plays?${params.toString()}`;
-}
 
-export function syncPlaysCustomizeUrl(
-  section: CustomizeSectionUi,
-  connector?: string | null,
-) {
-  window.history.replaceState(
-    window.history.state,
-    "",
-    buildPlaysCustomizePath(section, connector),
-  );
+  if (params.view === "captures" || params.view === "stream") {
+    return "/sources?tab=activity";
+  }
+
+  if (params.filter === "learning") {
+    return "/memory?tab=filter";
+  }
+
+  return null;
 }

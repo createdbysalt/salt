@@ -13,15 +13,12 @@ import {
   type FindingWithContext,
 } from "@/app/_features/capture/types/intelligence-findings";
 import { ActivityTab } from "./ActivityTab";
-import { ActivityViewToggle, type ActivityView } from "./ActivityViewToggle";
-import { CaptureStreamTab } from "@/app/_features/capture/components/CaptureStreamTab";
 import { PlaysSectionHeader } from "./PlaysSectionHeader";
 import { PlaysTabs } from "./PlaysTabs";
 import { QueueToggle } from "./QueueToggle";
-import { CustomizeTab } from "./CustomizeTab";
+import { PlaybooksTab } from "./PlaybooksTab";
 import { getSectionMeta } from "./PlaybookSectionNav";
 import { PlayQueueList } from "./PlayCard/PlayQueueList";
-import { LearningTab } from "./LearningTab";
 import { mapFindingToCard } from "../play-card/map-finding-to-card";
 import { mapPlayRunToCardClient } from "../play-card/map-play-run-to-card-client";
 import { mapHandledFindingToCard } from "../play-card/map-handled-finding-to-card";
@@ -42,29 +39,28 @@ import {
 } from "./QueueFilterMenu";
 import {
   getSectionFromFindingType,
-  getSectionFromLearningEntity,
   getSectionFromPlayRun,
   matchesSectionFilter,
   QUEUE_SECTION_ORDER,
   type QueueSectionFilter,
 } from "../utils/queue-section";
-import type { PlaysActivityView, PlaysTab } from "@/app/_features/plays/load-plays-page-data";
-import { usePlaysTabCache, type PlaysTabData } from "../hooks/usePlaysTabCache";
+import type { PlaysTab } from "@/app/_features/plays/load-plays-page-data";
+import { usePlaysTabCache } from "../hooks/usePlaysTabCache";
+import type { PlaysTabData } from "../plays-tab-data";
 import { usePlayRunsRealtime } from "../hooks/usePlayRunsRealtime";
 import type { HqBriefingData } from "@/app/_features/plays/types";
 import type { HqSideRailData } from "@/app/_features/hq/types";
 
 /**
- * Plays Page — Redesigned 2026-06-13
+ * Plays Page — what Salt is doing, and what it needs from you.
  *
- * New structure:
- * - Queue: Daily attention (Needs You / Auto-handled toggle)
- * - Customize: Playbooks, Connectors
- * - Activity: Audit trail
+ * Structure (2026-08-06 reorg):
+ * - Queue: Action approvals (Needs You / Auto-handled)
+ * - Playbooks: the library
+ * - Activity: Actions audit trail
  *
- * Capture has been folded into Plays. The Queue now shows:
- * - Findings about people (revenue signals, new contacts, pending actions)
- * - Prepared actions (drafts ready to send)
+ * Intake (Connectors / Activity) lives in Sources; memory-admission decisions
+ * live in Memory → Filter.
  */
 
 function openAskSalt(options?: {
@@ -81,10 +77,6 @@ function openAskSalt(options?: {
       },
     })
   );
-}
-
-function parseActivityView(value: PlaysActivityView): ActivityView {
-  return value === "captures" ? "captures" : "actions";
 }
 
 function findingMatchesSearch(finding: FindingWithContext, term: string): boolean {
@@ -134,32 +126,27 @@ function mapAutoHandledRunToCard(play: PlayRunRow): PlayCardViewModel {
 
 export function PlaysPage({
   initialTab,
-  initialActivityView,
   initialQueueFilter,
   initialData,
   sideRail,
   briefing,
 }: {
   initialTab: PlaysTab;
-  initialActivityView: PlaysActivityView;
-  initialQueueFilter: "needs_you" | "auto_handled" | "learning";
+  initialQueueFilter: "needs_you" | "auto_handled";
   initialData: PlaysTabData;
   sideRail?: HqSideRailData;
   briefing?: HqBriefingData;
 }) {
   const {
     tab,
-    activityView,
     queueFilter,
     activeData,
     isTabLoading,
     handleTabChange,
     handleQueueFilterChange,
-    handleActivityViewChange,
     invalidateActiveTab,
   } = usePlaysTabCache({
     tab: initialTab,
-    activityView: parseActivityView(initialActivityView),
     queueFilter: initialQueueFilter,
     data: initialData,
   });
@@ -168,15 +155,10 @@ export function PlaysPage({
     initialQueue,
     initialActivity,
     activityTotalCount,
-    connectors,
     initialFindings,
     autoHandledFindings,
     autoHandledRuns,
     playsRanToday,
-    learningEvidence,
-    streamCaptures,
-    captureStats,
-    hasCaptureData,
     playbooksV2,
     workspaceId,
     keeperUnseenCount,
@@ -231,18 +213,13 @@ export function PlaysPage({
         const section = getSectionFromPlayRun(play);
         counts.set(section, (counts.get(section) ?? 0) + 1);
       }
-    } else if (queueFilter === "auto_handled") {
+    } else {
       for (const finding of autoHandledFindings) {
         const section = getSectionFromFindingType(finding.finding_type);
         counts.set(section, (counts.get(section) ?? 0) + 1);
       }
       for (const play of autoHandledRuns) {
         const section = getSectionFromPlayRun(play);
-        counts.set(section, (counts.get(section) ?? 0) + 1);
-      }
-    } else {
-      for (const item of learningEvidence ?? []) {
-        const section = getSectionFromLearningEntity(item.entityType);
         counts.set(section, (counts.get(section) ?? 0) + 1);
       }
     }
@@ -259,7 +236,6 @@ export function PlaysPage({
     autoHandledRuns,
     initialFindings,
     initialQueue,
-    learningEvidence,
     queueFilter,
     sectionLabels,
   ]);
@@ -355,27 +331,6 @@ export function PlaysPage({
     [initialQueue, normalizedQueueSearch, queueFilters]
   );
 
-  const filteredLearningEvidence = useMemo(() => {
-    const items = learningEvidence ?? [];
-    return items.filter((item) => {
-      if (
-        !matchesSectionFilter(
-          queueFilters.sections,
-          getSectionFromLearningEntity(item.entityType),
-        )
-      ) {
-        return false;
-      }
-      if (!normalizedQueueSearch) return true;
-      return (
-        item.entityLabel.toLowerCase().includes(normalizedQueueSearch) ||
-        item.fields.some((field) =>
-          field.fieldPath.toLowerCase().includes(normalizedQueueSearch)
-        )
-      );
-    });
-  }, [learningEvidence, normalizedQueueSearch, queueFilters.sections]);
-
   // Unify findings (scan signals shown as plays) and prepared plays into one
   // ordered list of view models, rendered by the single PlayCard.
   const queueCards = useMemo<PlayCardViewModel[]>(
@@ -424,7 +379,7 @@ export function PlaysPage({
             ? `Scanned ${result.scan.emailsProcessed} captures, ${result.scan.findingsCreated} new or updated findings.${vendorNote}`
             : result.scan.emailsProcessed > 0 || vendorDismissed > 0 || vendorRepaired > 0
               ? `Re-scanned ${result.scan.emailsProcessed} captures.${vendorNote || " No new findings yet — try structural subjects like training sessions or deliverables ready for review."}`
-              : "No captures in the lookback window needed scanning. Sync Gmail first at /connections if the stream is empty.";
+              : "No captures in the lookback window needed scanning. Sync Gmail first in Sources if the stream is empty.";
         setActionResult({
           success: result.scan.errors.length === 0 || result.scan.emailsProcessed > 0,
           message: `${syncNote}${scanNote}${errorNote}`,
@@ -462,7 +417,6 @@ export function PlaysPage({
   const queueCounts = {
     needs_you: needsYouCount,
     auto_handled: playsRanToday ?? autoHandledCount,
-    learning: learningEvidence?.length ?? 0,
   };
 
   return (
@@ -514,23 +468,17 @@ export function PlaysPage({
                   eyebrow={
                     queueFilter === "needs_you"
                       ? "Needs your attention"
-                      : queueFilter === "learning"
-                        ? "Building confidence"
-                        : "Salt handled"
+                      : "Salt handled"
                   }
                   title={
                     queueFilter === "needs_you"
                       ? "Needs You"
-                      : queueFilter === "learning"
-                        ? "Watching"
-                        : "Auto-handled"
+                      : "Auto-handled"
                   }
                   description={
                     queueFilter === "needs_you"
                       ? "Unresolved decisions waiting for you. Approve, edit, apply, or dismiss."
-                      : queueFilter === "learning"
-                        ? "Salt is gathering signals. Accept when ready, or wait for more evidence."
-                        : "Recent confident Memory and Salt updates. Activity keeps the full history."
+                      : "Recent confident Memory and Salt updates. Activity keeps the full history."
                   }
                 />
                 <QueueToggle
@@ -547,9 +495,7 @@ export function PlaysPage({
                   placeholder={
                     queueFilter === "needs_you"
                       ? "Search queued plays"
-                      : queueFilter === "learning"
-                        ? "Search watching…"
-                        : "Search handled updates"
+                      : "Search handled updates"
                   }
                   filterActive={activeQueueFilterCount > 0}
                   filterActiveCount={activeQueueFilterCount}
@@ -609,20 +555,6 @@ export function PlaysPage({
                       : "Salt's drafting the next batch. Check back soon."
                   }
                 />
-              ) : queueFilter === "learning" ? (
-                <LearningTab
-                  evidence={filteredLearningEvidence}
-                  workspaceId={workspaceId ?? ""}
-                  onUpdate={invalidateActiveTab}
-                  emptyTitle={
-                    hasActiveQueueFilter ? "No matching evidence" : undefined
-                  }
-                  emptyDescription={
-                    hasActiveQueueFilter
-                      ? "Try clearing search or adjusting the filters."
-                      : undefined
-                  }
-                />
               ) : (
                 <AutoHandledTimeline
                   findings={filteredAutoHandledFindings}
@@ -638,16 +570,15 @@ export function PlaysPage({
             </motion.div>
           )}
 
-          {/* CUSTOMIZE TAB */}
-          {tab === "customize" && (
+          {/* PLAYBOOKS TAB */}
+          {tab === "playbooks" && (
             <motion.div
-              key="customize"
+              key="playbooks"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              <CustomizeTab
-                connectors={connectors}
+              <PlaybooksTab
                 playbooksV2={playbooksV2}
                 workspaceId={workspaceId ?? ""}
                 keeperUnseenCount={keeperUnseenCount}
@@ -664,37 +595,15 @@ export function PlaysPage({
               exit={{ opacity: 0 }}
               className="space-y-8"
             >
-              <div className="flex flex-wrap items-end justify-between gap-4">
-                <PlaysSectionHeader
-                  eyebrow={
-                    activityView === "captures"
-                      ? "All captured context"
-                      : "All actions taken"
-                  }
-                  title="Activity"
-                  description={
-                    activityView === "captures"
-                      ? "Everything Salt saw from connected apps — a complete record of context entering your system."
-                      : "Everything Salt has done, approved, or learned from. A complete record of what shipped and why."
-                  }
-                />
-                <ActivityViewToggle
-                  active={activityView}
-                  onChange={handleActivityViewChange}
-                />
-              </div>
-              {activityView === "actions" ? (
-                <ActivityTab
-                  initialActivity={initialActivity}
-                  initialTotalCount={activityTotalCount}
-                />
-              ) : (
-                <CaptureStreamTab
-                  realStreamCaptures={streamCaptures}
-                  realStats={captureStats}
-                  hasRealData={hasCaptureData}
-                />
-              )}
+              <PlaysSectionHeader
+                eyebrow="All actions taken"
+                title="Activity"
+                description="Everything Salt has done, approved, or learned from. A complete record of what shipped and why."
+              />
+              <ActivityTab
+                initialActivity={initialActivity}
+                initialTotalCount={activityTotalCount}
+              />
             </motion.div>
           )}
         </AnimatePresence>
@@ -703,4 +612,3 @@ export function PlaysPage({
     </div>
   );
 }
-

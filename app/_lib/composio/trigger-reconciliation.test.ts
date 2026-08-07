@@ -34,13 +34,21 @@ vi.mock("@/app/_lib/supabase/admin", () => ({
   }),
 }));
 
-let slugsByProvider: Record<string, string[]> = {};
+let specsByProvider: Record<
+  string,
+  Array<{ slug: string; config: Record<string, unknown> | null }>
+> = {};
 
-vi.mock("./trigger-subscriptions", () => ({
-  getCaptureTriggerSlugs: vi.fn(
-    async (provider: string) => slugsByProvider[provider] ?? [],
-  ),
-}));
+vi.mock("./trigger-subscriptions", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("./trigger-subscriptions")>();
+  return {
+    ...actual,
+    getCaptureTriggerSpecs: vi.fn(
+      async (provider: string) => specsByProvider[provider] ?? [],
+    ),
+  };
+});
 
 function integrationRow(overrides: Record<string, unknown>) {
   return {
@@ -60,17 +68,17 @@ describe("runTriggerReconciliation", () => {
     vi.clearAllMocks();
     mockRows = [];
     configUpdates.length = 0;
-    slugsByProvider = {};
+    specsByProvider = {};
     mockListActive.mockResolvedValue({ items: [], nextCursor: null });
     mockDeleteTrigger.mockResolvedValue({});
   });
 
   it("creates missing subscriptions and persists trigger IDs", async () => {
     mockRows = [integrationRow({})];
-    slugsByProvider = {
+    specsByProvider = {
       stripe: [
-        "STRIPE_INVOICE_PAYMENT_SUCCEEDED_TRIGGER",
-        "STRIPE_CHARGE_FAILED_TRIGGER",
+        { slug: "STRIPE_INVOICE_PAYMENT_SUCCEEDED_TRIGGER", config: null },
+        { slug: "STRIPE_CHARGE_FAILED_TRIGGER", config: null },
       ],
     };
     mockCreateTrigger
@@ -93,9 +101,65 @@ describe("runTriggerReconciliation", () => {
     expect(result.configsUpdated).toBe(1);
   });
 
+  it("passes Salt-curated upstream filter config when creating subscriptions", async () => {
+    mockRows = [integrationRow({ provider: "slack", composio_connection_id: "conn-s" })];
+    specsByProvider = {
+      slack: [
+        {
+          slug: "SLACK_CHANNEL_MESSAGE_RECEIVED",
+          config: { is_bot_message: false },
+        },
+      ],
+    };
+    mockCreateTrigger.mockResolvedValueOnce({ triggerId: "t-slack" });
+
+    const { runTriggerReconciliation } = await import("./trigger-reconciliation");
+    const result = await runTriggerReconciliation();
+
+    expect(result.triggersCreated).toBe(1);
+    expect(mockCreateTrigger).toHaveBeenCalledWith(
+      "ws-1",
+      "SLACK_CHANNEL_MESSAGE_RECEIVED",
+      {
+        connectedAccountId: "conn-s",
+        triggerConfig: { interval: 1, is_bot_message: false },
+      },
+    );
+  });
+
+  it("keeps the filter config when the interval rung is rejected", async () => {
+    mockRows = [integrationRow({ provider: "slack", composio_connection_id: "conn-s" })];
+    specsByProvider = {
+      slack: [
+        {
+          slug: "SLACK_CHANNEL_MESSAGE_RECEIVED",
+          config: { is_bot_message: false },
+        },
+      ],
+    };
+    // Webhook triggers reject `interval` — the ladder must retry with the
+    // filters intact rather than dropping to an unfiltered subscription.
+    mockCreateTrigger
+      .mockRejectedValueOnce(new Error("unknown config key: interval"))
+      .mockResolvedValueOnce({ triggerId: "t-slack" });
+
+    const { runTriggerReconciliation } = await import("./trigger-reconciliation");
+    const result = await runTriggerReconciliation();
+
+    expect(result.triggersCreated).toBe(1);
+    expect(mockCreateTrigger).toHaveBeenLastCalledWith(
+      "ws-1",
+      "SLACK_CHANNEL_MESSAGE_RECEIVED",
+      {
+        connectedAccountId: "conn-s",
+        triggerConfig: { is_bot_message: false },
+      },
+    );
+  });
+
   it("deletes orphaned instances whose account matches no integration row", async () => {
     mockRows = [integrationRow({ composio_connection_id: "conn-current" })];
-    slugsByProvider = { stripe: [] };
+    specsByProvider = { stripe: [] };
     mockListActive.mockResolvedValue({
       items: [
         {
@@ -122,7 +186,9 @@ describe("runTriggerReconciliation", () => {
         config: { captureTriggerIds: ["dead-id", "live-id"] },
       }),
     ];
-    slugsByProvider = { gmail: ["GMAIL_NEW_GMAIL_MESSAGE"] };
+    specsByProvider = {
+      gmail: [{ slug: "GMAIL_NEW_GMAIL_MESSAGE", config: null }],
+    };
     mockListActive.mockResolvedValue({
       items: [
         {
@@ -150,7 +216,9 @@ describe("runTriggerReconciliation", () => {
       integrationRow({ capture_enabled: false, composio_connection_id: "conn-off" }),
       integrationRow({ id: "int-2", is_active: false, composio_connection_id: "conn-dead" }),
     ];
-    slugsByProvider = { stripe: ["STRIPE_CHARGE_FAILED_TRIGGER"] };
+    specsByProvider = {
+      stripe: [{ slug: "STRIPE_CHARGE_FAILED_TRIGGER", config: null }],
+    };
     mockListActive.mockResolvedValue({
       items: [
         {
@@ -173,11 +241,15 @@ describe("runTriggerReconciliation", () => {
 
   it("continues past per-slug create failures and records them", async () => {
     mockRows = [integrationRow({})];
-    slugsByProvider = {
-      stripe: ["BAD_SLUG_404", "STRIPE_CHARGE_FAILED_TRIGGER"],
+    specsByProvider = {
+      stripe: [
+        { slug: "BAD_SLUG_404", config: null },
+        { slug: "STRIPE_CHARGE_FAILED_TRIGGER", config: null },
+      ],
     };
-    // createTriggerInstance retries once without triggerConfig, so the bad
-    // slug rejects twice before the good slug succeeds.
+    // The creation ladder retries a config-less spec once without
+    // triggerConfig, so the bad slug rejects twice before the good slug
+    // succeeds.
     mockCreateTrigger
       .mockRejectedValueOnce(new Error("Trigger type not found"))
       .mockRejectedValueOnce(new Error("Trigger type not found"))

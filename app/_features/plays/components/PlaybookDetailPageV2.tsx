@@ -92,7 +92,7 @@ export function PlaybookDetailPageV2({
 
       <div className={memoryDetailShellClass}>
         <Link
-          href="/plays?tab=customize&customize=playbooks"
+          href="/plays?tab=playbooks"
           className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition mb-4"
         >
           <ArrowLeft className="size-3.5" strokeWidth={2} />

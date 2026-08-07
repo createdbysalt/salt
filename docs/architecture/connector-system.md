@@ -42,7 +42,7 @@ Salt's connector system enables users to connect third-party services (Gmail, St
         │                             │                             │
         ▼                             ▼                             ▼
 ┌───────────────┐           ┌───────────────┐            ┌───────────────┐
-│   Plays       │           │  Ask Salt     │            │   Memory      │
+│   Sources     │           │  Ask Salt     │            │   Memory      │
 │   Activity    │           │  Chat + Tools │            │   Records     │
 └───────────────┘           └───────────────┘            └───────────────┘
 ```
@@ -220,7 +220,7 @@ User authorizes in provider
   └─ Creates/updates workspace_integrations row
   └─ Auto-enables capture (if adapter exists)
   └─ Creates triggers in Composio
-  └─ Redirects to /plays?tab=customize&customize=connectors
+  └─ Redirects to /sources
 ```
 
 ### 2. API Key Connection Flow

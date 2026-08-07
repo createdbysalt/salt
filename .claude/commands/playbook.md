@@ -21,7 +21,7 @@ This command uses the playbook-creator skill. See:
 1. Run `/playbook new billing/late-fee` to create the YAML file
 2. Edit the YAML with triggers, steps, and output
 3. Restart dev server to validate
-4. Check `/plays?tab=customize` to verify it appears
+4. Check `/plays?tab=playbooks` to verify it appears
 
 ### Playbook structure (v2)
 

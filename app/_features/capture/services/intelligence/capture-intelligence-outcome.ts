@@ -46,8 +46,12 @@ export function mergeIntelligenceMeta(
 
 /**
  * Whether a capture should be classified again during scan.
- * Re-analyzes never-scanned, no_signal, and scan_error captures so new
- * intelligence rules (e.g. Memory proposals) can surface on the next run.
+ *
+ * Scan policy (capture-pipeline repair, Phase 6): the LLM gets at most one
+ * look. `no_signal` is terminal — re-analyzing it on every scan burned model
+ * spend on rows already judged (either by the gate pipeline at ingest or by
+ * a previous scan). `scan_error` stays retryable (transient failures should
+ * heal). An explicit `rescan` (dev/manual) overrides both.
  */
 export function shouldReanalyzeCapture(
   meta: CaptureIntelligenceMeta | null,
@@ -55,7 +59,7 @@ export function shouldReanalyzeCapture(
 ): boolean {
   if (options.rescan) return true;
   if (!meta) return true;
-  return meta.outcome === "no_signal" || meta.outcome === "scan_error";
+  return meta.outcome === "scan_error";
 }
 
 export function readIntelligenceMeta(

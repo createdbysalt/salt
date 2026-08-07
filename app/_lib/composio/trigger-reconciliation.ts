@@ -2,7 +2,10 @@ import "server-only";
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { getComposioClient } from "./client";
-import { getCaptureTriggerSlugs } from "./trigger-subscriptions";
+import {
+  createCaptureTriggerInstance,
+  getCaptureTriggerSpecs,
+} from "./trigger-subscriptions";
 
 /**
  * Trigger Reconciliation (capture-pipeline repair, Phase 2)
@@ -112,31 +115,6 @@ async function listAllTriggerInstances(): Promise<TriggerInstance[]> {
   return instances;
 }
 
-/**
- * Create one trigger instance. Polling triggers on Salt's own OAuth client
- * support 1-minute intervals; fall back to Composio's default when the
- * trigger's config schema rejects it.
- */
-async function createTriggerInstance(
-  workspaceId: string,
-  slug: string,
-  connectedAccountId: string,
-): Promise<string> {
-  const triggers = triggersApi();
-  try {
-    const result = await triggers.create(workspaceId, slug, {
-      connectedAccountId,
-      triggerConfig: { interval: 1 },
-    });
-    return result.triggerId;
-  } catch {
-    const result = await triggers.create(workspaceId, slug, {
-      connectedAccountId,
-    });
-    return result.triggerId;
-  }
-}
-
 function sameIdSet(a: string[], b: string[]): boolean {
   if (a.length !== b.length) return false;
   const sortedA = [...a].sort();
@@ -211,18 +189,18 @@ export async function runTriggerReconciliation(): Promise<ReconciliationResult> 
 
     result.connectionsSeen++;
 
-    const enabledSlugs = await getCaptureTriggerSlugs(row.provider);
+    const enabledSpecs = await getCaptureTriggerSpecs(row.provider);
     const live = liveByConnection.get(row.composio_connection_id) ?? [];
     const liveSlugs = new Set(live.map((i) => i.triggerName.toUpperCase()));
 
     const createdIds: string[] = [];
-    for (const slug of enabledSlugs) {
-      if (liveSlugs.has(slug.toUpperCase())) continue;
+    for (const spec of enabledSpecs) {
+      if (liveSlugs.has(spec.slug.toUpperCase())) continue;
 
       try {
-        const triggerId = await createTriggerInstance(
+        const { triggerId } = await createCaptureTriggerInstance(
           row.workspace_id,
-          slug,
+          spec,
           row.composio_connection_id,
         );
         createdIds.push(triggerId);
@@ -230,13 +208,13 @@ export async function runTriggerReconciliation(): Promise<ReconciliationResult> 
         result.created.push({
           workspaceId: row.workspace_id,
           provider: row.provider,
-          slug,
+          slug: spec.slug,
         });
       } catch (error) {
         result.failures.push({
           workspaceId: row.workspace_id,
           provider: row.provider,
-          detail: `create ${slug}`,
+          detail: `create ${spec.slug}`,
           error: error instanceof Error ? error.message : "Creation failed",
         });
       }

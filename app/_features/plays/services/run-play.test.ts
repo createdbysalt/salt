@@ -111,6 +111,8 @@ function makeDeps(options: {
   auditOk?: boolean;
   /** Slug a capability step resolves to (null = nothing connected → skip). */
   capabilityTool?: string | null;
+  /** Bundle admission verdict. Undefined = gate not wired (tests the pure executor). */
+  admission?: { allowed: true } | { allowed: false; userMessage: string } | Error;
 }): RunPlayDeps & { calls: string[] } {
   const calls: string[] = [];
   return {
@@ -159,6 +161,31 @@ function makeDeps(options: {
       return makeRun({ state: patch.state as PlayRunRow["state"] });
     }),
     now: () => "2026-06-12T12:00:00.000Z",
+    ...buildAdmissionDep(options.admission, calls),
+  };
+}
+
+function buildAdmissionDep(
+  admission:
+    | { allowed: true }
+    | { allowed: false; userMessage: string }
+    | Error
+    | undefined,
+  calls: string[],
+): Pick<RunPlayDeps, "checkPlayAdmission"> {
+  if (admission === undefined) return {};
+  return {
+    checkPlayAdmission: vi.fn(async () => {
+      calls.push("checkPlayAdmission");
+      if (admission instanceof Error) throw admission;
+      return admission.allowed
+        ? { allowed: true as const, reason: "test" }
+        : {
+            allowed: false as const,
+            reason: "test",
+            userMessage: admission.userMessage,
+          };
+    }),
   };
 }
 
@@ -529,6 +556,92 @@ describe("executePlayRun", () => {
 
       expect(result).toMatchObject({ ok: true, outcome: "ran" });
       expect(deps.executeTool).toHaveBeenCalled();
+    });
+  });
+
+  describe("bundle admission (pricing §1)", () => {
+    it("blocks before any step when the bundle is exhausted", async () => {
+      const onLearningSignal = vi.fn(async () => undefined);
+      const deps = makeDeps({
+        admission: {
+          allowed: false,
+          userMessage: "Bundle exhausted — upgrade in Billing",
+        },
+      });
+      deps.onLearningSignal = onLearningSignal;
+
+      const result = await executePlayRun(RUN_ID, WORKSPACE_ID, deps);
+
+      expect(result).toMatchObject({
+        ok: false,
+        code: "ENTITLEMENT_EXHAUSTED",
+        message: "Bundle exhausted — upgrade in Billing",
+      });
+      expect(deps.executeTool).not.toHaveBeenCalled();
+      expect(deps.calls).toContain("finalizeRun:blocked");
+      expect(deps.calls).not.toContain("finalizeRun:failed");
+      // A billing block is not playbook failure evidence — the learning loop
+      // must not see it.
+      expect(onLearningSignal).not.toHaveBeenCalled();
+    });
+
+    it("runs when the bundle has plays remaining", async () => {
+      const deps = makeDeps({ admission: { allowed: true } });
+
+      const result = await executePlayRun(RUN_ID, WORKSPACE_ID, deps);
+
+      expect(result).toMatchObject({ ok: true, outcome: "ran" });
+      expect(deps.calls).toContain("checkPlayAdmission");
+      expect(deps.executeTool).toHaveBeenCalled();
+    });
+
+    it("never gates a play with no acting steps", async () => {
+      // Render + LLM only: the play can never bill, so the admission dep
+      // must not even be consulted — an exhausted bundle must not stop
+      // internal work.
+      const template = makeTemplate({
+        required_actions: [],
+        approved_actions: [],
+        definition: {
+          version: 1,
+          steps: [
+            { kind: "render", template: "Hi {{run.recipient_label}}", bind: "body" },
+            {
+              kind: "llm",
+              purpose: "polish",
+              instructions: "Polish",
+              inputs: ["body"],
+              bind: "polished",
+              modelSlot: "copyClientFacing",
+            },
+          ],
+        },
+      });
+      const deps = makeDeps({ template, admission: { allowed: true } });
+
+      const result = await executePlayRun(RUN_ID, WORKSPACE_ID, deps);
+
+      expect(result).toMatchObject({ ok: true, outcome: "ran" });
+      expect(deps.calls).not.toContain("checkPlayAdmission");
+    });
+
+    it("fails open when the admission check throws", async () => {
+      // Constraint 7: billing telemetry must not break customer work.
+      const deps = makeDeps({ admission: new Error("ledger down") });
+
+      const result = await executePlayRun(RUN_ID, WORKSPACE_ID, deps);
+
+      expect(result).toMatchObject({ ok: true, outcome: "ran" });
+      expect(deps.executeTool).toHaveBeenCalled();
+    });
+
+    it("still blocks at read_only trust before consulting admission", async () => {
+      const deps = makeDeps({ trust: "read_only", admission: { allowed: true } });
+
+      const result = await executePlayRun(RUN_ID, WORKSPACE_ID, deps);
+
+      expect(result).toMatchObject({ ok: false, code: "TRUST_READ_ONLY" });
+      expect(deps.calls).not.toContain("checkPlayAdmission");
     });
   });
 });

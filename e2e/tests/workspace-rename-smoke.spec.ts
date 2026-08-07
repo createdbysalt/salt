@@ -5,10 +5,10 @@ test.use({ storageState: "./fixtures/auth.json" });
 
 test.describe("Workspace rename smoke", () => {
   // The Settings integrations page retired with the connector platform —
-  // connectors live in Plays → Customize → Connectors, fed by the DB-driven
+  // connectors live in Sources → Connectors, fed by the DB-driven
   // catalog and shown as a master-detail grid (cards → detail in place).
   test("loads connectors catalog from workspace tables", async ({ page }) => {
-    await gotoAppRoute(page, "/plays?tab=customize&customize=connectors");
+    await gotoAppRoute(page, "/sources");
 
     await expect(page).not.toHaveURL(/\/signin|\/login/, { timeout: 15_000 });
     await expect(page.getByRole("heading", { name: "Connectors" })).toBeVisible({

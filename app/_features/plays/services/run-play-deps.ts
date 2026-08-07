@@ -5,6 +5,7 @@ import { resolveCapabilityTool } from "@/app/_lib/composio/capability-resolver";
 import { executeConnectorTool } from "./execute-connector-tool";
 import { committedSpend, sendLlm } from "@/app/_lib/ai/gpt";
 import { recordPlayExecution } from "@/app/_lib/usage/record-play-usage";
+import { checkPlayAdmission } from "@/app/_lib/usage/play-admission";
 import { assembleOperatorContext, type ContentSurface } from "@/app/_lib/ai/assembleOperatorContext";
 import { capturePlaybookLearningSignal } from "../playbooks/learning/capture-signals";
 import type { OpportunityGapRow, PlayRunRow, PlayTemplateRow } from "../types";
@@ -210,6 +211,9 @@ export function createRunPlayDeps(): RunPlayDeps {
     },
 
     now: () => new Date().toISOString(),
+
+    checkPlayAdmission: (workspaceId, candidate) =>
+      checkPlayAdmission(workspaceId, candidate),
 
     async recordPlayUsage(input) {
       await recordPlayExecution({

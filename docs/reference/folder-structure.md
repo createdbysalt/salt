@@ -65,7 +65,7 @@ app/
 │   ├── people/           # People & relationships (canonical)
 │   ├── spaces/           # Shared workspaces
 │   ├── plays/            # Plays approval outbox
-│   ├── connections/      # Connections surface
+│   ├── memory/           # Memory Map graph surface
 │   ├── work/             # Work surface
 │   ├── billing/          # Billing surface
 │   └── ...               # orgs, teams, meetings, me, files, trash, setup
@@ -208,7 +208,10 @@ import { cn } from '@repo/utils'
 |-------------|-----------|
 | `/studio`, `/dashboard` | `/hq` |
 | `/clients`, `/relationships` | `/people` |
-| Legacy `/capture` | `/plays?tab=activity&view=captures` |
+| Legacy `/capture` | `/sources?tab=activity` |
+| `/plays?tab=customize` | `/plays?tab=playbooks` (connectors → `/sources`) |
+| `/plays?tab=activity&view=captures` | `/sources?tab=activity` |
+| `/plays?filter=learning` | `/memory?tab=filter` |
 | `/notes` | `/me` |
 | `/roundtables`, `/tables` | `/spaces` |
 
