@@ -3,9 +3,13 @@
 import { motion } from "framer-motion";
 import { ArrowUpRight, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { TYPE_META, type GraphNode, type NodeType } from "../types";
+import { MemoryCreateLinkButton } from "@/app/_features/memory/components/MemoryCreateLinkButton";
+import { parseNodeId, TYPE_META, type GraphNode, type NodeType } from "../types";
 
 const APPLE_EASE = [0.32, 0.72, 0, 1] as const;
+
+// Kinds the create-link dialog can attach to a record
+const LINKABLE_KINDS = new Set(["person", "org", "work", "billing", "meeting", "file"]);
 
 export function GraphDetailPanel({
   node,
@@ -20,6 +24,21 @@ export function GraphDetailPanel({
 }) {
   const router = useRouter();
   const meta = TYPE_META[node.type];
+
+  const parsed = parseNodeId(node.id);
+  const linkKind =
+    parsed && LINKABLE_KINDS.has(parsed.type)
+      ? (parsed.type as "person" | "org" | "work" | "billing" | "meeting" | "file")
+      : null;
+  const existingConnections = neighbors.map((n) => {
+    const p = parseNodeId(n.id);
+    return {
+      id: p?.id ?? n.id,
+      name: n.label,
+      type: n.type,
+      subtitle: n.sublabel,
+    };
+  });
 
   // Group neighbors by type for scannable display
   const grouped = neighbors.reduce<Record<NodeType, GraphNode[]>>(
@@ -78,7 +97,7 @@ export function GraphDetailPanel({
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: 32, opacity: 0 }}
       transition={{ duration: 0.32, ease: APPLE_EASE }}
-      className="absolute bottom-4 right-4 w-[340px] z-20 max-h-[calc(100%-5.5rem)] rounded-2xl border border-border/60 bg-background/95 backdrop-blur-xl shadow-[var(--shadow-lift)] flex flex-col overflow-hidden"
+      className="absolute bottom-4 right-4 w-[400px] z-20 max-h-[calc(100%-5.5rem)] rounded-2xl border border-border/60 bg-background/95 backdrop-blur-xl shadow-[var(--shadow-lift)] flex flex-col overflow-hidden"
     >
       {/* Header */}
       <div className="relative p-5 border-b border-border/60">
@@ -113,14 +132,29 @@ export function GraphDetailPanel({
           </p>
         )}
 
-        {node.href && (
-          <button
-            onClick={() => router.push(node.href!)}
-            className="mt-4 w-full h-9 inline-flex items-center justify-center gap-1.5 rounded-full bg-foreground text-background text-sm font-medium hover:opacity-90 transition"
-          >
-            Open record
-            <ArrowUpRight className="size-3.5" strokeWidth={2.25} />
-          </button>
+        {(node.href || linkKind) && (
+          <div className="mt-4 flex items-center gap-2">
+            {node.href && (
+              <button
+                onClick={() => router.push(node.href!)}
+                className="flex-1 h-9 inline-flex items-center justify-center gap-1.5 rounded-full bg-foreground text-background text-sm font-medium hover:opacity-90 transition"
+              >
+                Open record
+                <ArrowUpRight className="size-3.5" strokeWidth={2.25} />
+              </button>
+            )}
+            {linkKind && parsed && (
+              <MemoryCreateLinkButton
+                recordKind={linkKind}
+                recordId={parsed.id}
+                recordName={node.label}
+                existingConnections={existingConnections}
+                onLink={() => router.refresh()}
+                variant="panel"
+                className={node.href ? "flex-1 justify-center" : "w-full justify-center"}
+              />
+            )}
+          </div>
         )}
       </div>
 
