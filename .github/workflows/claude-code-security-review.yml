@@ -13,23 +13,34 @@ jobs:
     name: security
     runs-on: ubuntu-latest
     steps:
+      - name: Detect Dependabot PR
+        id: dependabot
+        run: |
+          head_ref="${{ github.event.pull_request.head.ref }}"
+          actor="${{ github.event.pull_request.user.login }}"
+          if [ "$actor" = "dependabot[bot]" ] || [[ "$head_ref" == dependabot/* ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       # Dependabot PRs cannot read repository secrets (GitHub restriction), so the
       # Claude action fails immediately without ANTHROPIC_API_KEY. Skip cleanly so
       # required checks stay green; dependency bumps are low-risk for this scan.
       - name: Skip Dependabot PRs (no secret access)
-        if: github.actor == 'dependabot[bot]' || startsWith(github.head_ref, 'dependabot/')
+        if: steps.dependabot.outputs.skip == 'true'
         run: |
           echo "Skipping AI security review — Dependabot PRs cannot access ANTHROPIC_API_KEY."
           echo "Re-run after merge to staging/main, or enable Dependabot secret access in repo settings."
 
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        if: github.actor != 'dependabot[bot]' && !startsWith(github.head_ref, 'dependabot/')
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.dependabot.outputs.skip != 'true'
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 2
 
       - uses: anthropics/claude-code-security-review@main # no semver tag published; pin when release SHA available
-        if: github.actor != 'dependabot[bot]' && !startsWith(github.head_ref, 'dependabot/')
+        if: steps.dependabot.outputs.skip != 'true'
         with:
           comment-pr: true
           claude-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
