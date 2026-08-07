@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
+import { ArrowLeft } from "lucide-react";
 import { cn } from "@repo/utils";
 import type {
   ConnectorCapabilityGroups,
@@ -11,11 +12,8 @@ import type {
 } from "@/app/_features/connectors";
 import { catalogById } from "@/app/_features/connectors/catalog-view";
 import { fetchConnectorTools } from "@/app/_features/connectors/actions";
-import {
-  ConnectorsRail,
-  connectorsPaneSurfaceClassName,
-} from "@/app/_features/connectors/components/detail/ConnectorsRail";
-import { ConnectorsBrowsePane } from "@/app/_features/connectors/components/detail/ConnectorsBrowsePane";
+import { connectorsPaneSurfaceClassName } from "@/app/_features/connectors/components/detail/ConnectorsRail";
+import { ConnectorsLibrary } from "@/app/_features/connectors/components/ConnectorsLibrary";
 import { ConnectorDetailPane } from "@/app/_features/connectors/components/detail/ConnectorDetailPane";
 import { ConnectorDetailPaneSkeleton } from "@/app/_features/connectors/components/detail/ConnectorDetailPaneSkeleton";
 
@@ -131,52 +129,47 @@ export function ConnectorsSurface({
     onNavigate(null);
   }, [onNavigate]);
 
-  const rightPane = selected ? (
-    toolsLoading ? (
-      <ConnectorDetailPaneSkeleton />
-    ) : (
-      <ConnectorDetailPane
-        connectorId={selected}
+  if (!selected) {
+    // Library view: Playbooks-style search + filters + cards, no rail.
+    return (
+      <ConnectorsLibrary
         data={connectorsData}
-        toolGroups={toolGroups}
-        embedded
-        onBack={handleBackToGrid}
-        oauthReturnUrl={buildUrl(selected)}
-        onConnectionChange={handleConnectionChange}
+        onSelect={handleSelectConnector}
       />
-    )
-  ) : (
-    <ConnectorsBrowsePane
-      data={connectorsData}
-      showHeader={false}
-      embedded
-      activeId={selected}
-      onSelect={handleSelectConnector}
-    />
-  );
+    );
+  }
 
   return (
-    // Master-detail: persistent rail (search + connected + available) on
-    // the left, browse grid or the selected connector's detail on the right.
-    <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[14rem_minmax(0,1fr)] lg:gap-8">
-      <aside className="hidden lg:block">
-        <div className="sticky top-4 h-[calc(100vh-14rem)] min-h-64">
-          <ConnectorsRail
-            data={connectorsData}
-            activeId={selected}
-            onSelect={handleSelectConnector}
-            onBrowseAll={handleBackToGrid}
-          />
-        </div>
-      </aside>
+    <div className="space-y-4">
+      <button
+        type="button"
+        onClick={handleBackToGrid}
+        className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition"
+      >
+        <ArrowLeft className="size-3.5" strokeWidth={2} />
+        Back to Connectors
+      </button>
+
       <motion.div
-        key={selected ? `detail:${selected}` : "browse"}
+        key={`detail:${selected}`}
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.2 }}
         className={cn("min-w-0 p-5 lg:p-6", connectorsPaneSurfaceClassName)}
       >
-        {rightPane}
+        {toolsLoading ? (
+          <ConnectorDetailPaneSkeleton />
+        ) : (
+          <ConnectorDetailPane
+            connectorId={selected}
+            data={connectorsData}
+            toolGroups={toolGroups}
+            embedded
+            onBack={handleBackToGrid}
+            oauthReturnUrl={buildUrl(selected)}
+            onConnectionChange={handleConnectionChange}
+          />
+        )}
       </motion.div>
     </div>
   );

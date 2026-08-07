@@ -50,7 +50,6 @@ import type {
 } from "@/app/_features/connectors";
 import { catalogById } from "@/app/_features/connectors/catalog-view";
 import { connectorsPageUrl } from "@/app/_features/connectors/constants";
-import { daysSince } from "@/app/_features/connectors/staleness";
 import {
   fetchConnectorActivity,
   updateConnectorEmailMode,
@@ -156,7 +155,6 @@ export function ConnectorDetailPane({
   // Expired or failed live verification: not "connected", but was — show
   // reconnect, not connect. Quiet connections are auto-verified server-side.
   const needsReconnect = Boolean(status?.needsReconnect);
-  const lastActivityDays = daysSince(status?.lastActivityAt ?? null);
   const inlineApiKeyConnect = definition
     ? usesInlineApiKeyConnect(definition)
     : false;
@@ -583,38 +581,35 @@ export function ConnectorDetailPane({
             <ConnectorIcon id={connectorId} size={24} />
           </div>
           <div className="min-w-0 space-y-1">
-            <h1 className="text-xl font-semibold tracking-tight text-foreground">
-              {meta.displayName}
-            </h1>
-            <p className="text-sm text-muted-foreground">{meta.tagline}</p>
-            <div className="flex flex-wrap items-center gap-2 pt-0.5">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h1 className="text-xl font-semibold tracking-tight text-foreground">
+                {meta.displayName}
+              </h1>
               {connected ? (
-                <span className="text-xs font-medium text-success">Connected</span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                  <span className="size-1.5 rounded-full bg-success" aria-hidden />
+                  Connected
+                </span>
               ) : needsReconnect ? (
-                <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300">
+                  <span className="size-1.5 rounded-full bg-amber-500" aria-hidden />
                   Reconnect needed
                 </span>
               ) : definition.comingSoon ? (
-                <span className="text-xs text-muted-foreground">Coming soon</span>
-              ) : null}
-              {connected && status?.label ? (
-                <span className="truncate text-xs text-muted-foreground">
-                  {status.label}
-                </span>
-              ) : null}
-              {connected && status?.lastActivityAt !== undefined ? (
-                <span className="truncate text-xs text-muted-foreground">
-                  {lastActivityDays === null
-                    ? "No activity yet"
-                    : lastActivityDays === 0
-                      ? "Active today"
-                      : `Last activity ${lastActivityDays}d ago`}
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                  Coming soon
                 </span>
               ) : null}
             </div>
+            <p className="text-sm text-muted-foreground">{meta.tagline}</p>
+            {connected && status?.label ? (
+              <p className="truncate text-xs text-muted-foreground/80 pt-0.5">
+                {status.label}
+              </p>
+            ) : null}
             {needsReconnect ? (
               <p className="max-w-xl pt-1 text-xs leading-relaxed text-muted-foreground">
-                This connection stopped working — Salt verified it can no
+                This connection stopped working. Salt verified it can no
                 longer reach the account. Reconnect to restore access; your
                 tool preferences are kept.
               </p>

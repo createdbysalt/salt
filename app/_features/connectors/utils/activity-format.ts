@@ -183,13 +183,13 @@ export function activityFriendlyError(
   }
   const raw = (entry.error ?? "").toLowerCase();
   if (/expired|invalid_grant|reauth|401|unauthor/.test(raw)) {
-    return "The connection may have expired — reconnect to fix it.";
+    return "The connection may have expired. Reconnect to fix it.";
   }
   if (/rate|quota|429|too many/.test(raw)) {
     return "The provider was busy and asked Salt to slow down. It'll retry later.";
   }
   if (/permission|scope|403|forbidden/.test(raw)) {
-    return "Salt doesn't have permission for this — check the connector's tools.";
+    return "Salt doesn't have permission for this. Check the connector's tools.";
   }
   if (/network|timeout|econn|fetch failed|unavailable|503|502/.test(raw)) {
     return "Salt couldn't reach the provider. This is usually temporary.";
