@@ -9,11 +9,11 @@ import {
   Brain,
   Check,
   ChevronDown,
-  Inbox,
   LayoutDashboard,
   Play,
   Settings,
   X,
+  Bolt,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@repo/ui";
 import type { User } from "@supabase/supabase-js";
@@ -51,7 +51,7 @@ const MEMORY_SUBNAV_INDENT = "pl-[calc(0.75rem+18px+0.75rem)]";
 const TOP_NAV = [
   { title: "HQ", url: "/hq", icon: LayoutDashboard },
   { title: "Plays", url: "/plays", icon: Play },
-  { title: "Sources", url: "/sources", icon: Inbox },
+  { title: "Sources", url: "/sources", icon: Bolt },
   // Connectors + capture stream live under Sources (2026-08-06 reorg).
   // /capture redirects to /sources?tab=activity
 ] as const;
