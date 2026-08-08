@@ -4,18 +4,18 @@ import type { FilterStatus } from "./FilterStatusPill";
 /**
  * Pure grouping logic for Memory → Filter pill counts.
  * Mirrors FilterTab's count derivation so the transparency model stays tested.
+ * P11: kept-out counts moved to Sources → Activity (KeptOutSection) — the
+ * Filter pill is watching/handled only.
  */
 function filterCounts(input: {
   evidenceCount: number;
   candidateCount: number;
   handledWriteCount: number;
   letInCount: number;
-  keptOutCount: number;
 }): Record<FilterStatus, number> {
   return {
     watching: input.evidenceCount + input.candidateCount,
     handled: input.handledWriteCount + input.letInCount,
-    kept_out: input.keptOutCount,
   };
 }
 
@@ -27,7 +27,6 @@ describe("Filter pill counts", () => {
         candidateCount: 2,
         handledWriteCount: 0,
         letInCount: 0,
-        keptOutCount: 0,
       }).watching
     ).toBe(5);
   });
@@ -39,20 +38,18 @@ describe("Filter pill counts", () => {
         candidateCount: 0,
         handledWriteCount: 4,
         letInCount: 1,
-        keptOutCount: 0,
       }).handled
     ).toBe(5);
   });
 
-  it("keeps kept_out as the admission kept-out count", () => {
-    expect(
-      filterCounts({
-        evidenceCount: 1,
-        candidateCount: 1,
-        handledWriteCount: 1,
-        letInCount: 1,
-        keptOutCount: 12,
-      }).kept_out
-    ).toBe(12);
+  it("has no kept_out status — kept-out lives on Sources (P11)", () => {
+    const counts = filterCounts({
+      evidenceCount: 1,
+      candidateCount: 1,
+      handledWriteCount: 1,
+      letInCount: 1,
+    });
+
+    expect(Object.keys(counts).sort()).toEqual(["handled", "watching"]);
   });
 });
