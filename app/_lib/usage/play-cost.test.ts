@@ -2,11 +2,25 @@ import { describe, expect, it } from "vitest";
 
 import {
   COMPOSIO_ACTION_MICROS,
+  COMPOSIO_TRIGGER_EVENT_MICROS,
   DEFAULT_LLM_STEP_MICROS,
   estimatePlayCost,
   exceedsPricingFloor,
   PLAY_OVERHEAD_MICROS,
 } from "./play-cost";
+
+// Vendor price pins — Composio pricing effective 2026-08-15, verified live
+// 2026-08-07 against composio.dev/updated-pricing. If Composio changes
+// pricing, these tests are SUPPOSED to fail until the constants move.
+describe("Composio price constants (Aug 15, 2026)", () => {
+  it("prices a tool call at $0.004", () => {
+    expect(COMPOSIO_ACTION_MICROS).toBe(4_000);
+  });
+
+  it("prices a delivered trigger event at $0.001", () => {
+    expect(COMPOSIO_TRIGGER_EVENT_MICROS).toBe(1_000);
+  });
+});
 
 describe("estimatePlayCost", () => {
   it("charges overhead alone for a play that executed nothing", () => {

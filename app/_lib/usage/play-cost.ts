@@ -15,8 +15,21 @@ import type { CostBreakdown } from "./types";
  * per estimated cent.
  */
 
-/** Composio tool execution and trigger delivery — 87% of capture cost. */
-export const COMPOSIO_ACTION_MICROS = 2_000;
+/**
+ * Composio tool execution — the dominant share of capture cost.
+ * $0.004/call effective 2026-08-15 (verified live 2026-08-07 against
+ * composio.dev/updated-pricing; grandfathered pricing ends 2026-12-31).
+ */
+export const COMPOSIO_ACTION_MICROS = 4_000;
+
+/**
+ * Composio trigger event, billed at delivery (egress) — $0.001/event under
+ * the same Aug 15 pricing. Events filtered out by trigger config are never
+ * delivered and cost $0, which is why upstream filters are THE cost lever.
+ * Recording at webhook ingress lands with the composio_trigger_event ledger
+ * kind (Sources plan Phase 0.7/3.1).
+ */
+export const COMPOSIO_TRIGGER_EVENT_MICROS = 1_000;
 
 /** Fixed orchestration overhead per play: claim, journal writes, finalize. */
 export const PLAY_OVERHEAD_MICROS = 500;
