@@ -101,7 +101,7 @@ function normalizeSlack(payload: unknown): CaptureEnvelope | null {
   const parsedTs = parseFloat(ts);
 
   return {
-    sourceType: "slack" as CaptureSourceType,
+    sourceType: "slack",
     captureType: "message",
     externalId,
     title: text?.slice(0, 100) ?? null,
@@ -132,7 +132,7 @@ function normalizeSlack(payload: unknown): CaptureEnvelope | null {
       source: "composio_trigger",
     },
     noise: {
-      sourceType: "slack" as CaptureSourceType,
+      sourceType: "slack",
       fromEmail: participants[0]?.email ?? undefined,
       subject: text?.slice(0, 100) ?? undefined,
       bodyText: text ?? undefined,
@@ -193,7 +193,7 @@ export function createMessagingCategoryAdapter(provider: string): CaptureAdapter
     : []; // Unknown providers: triggers come from DB
 
   return {
-    sourceType: provider as CaptureSourceType,
+    sourceType: provider,
     toolkit: provider,
     triggerSlugs,
     deriveSignals: deriveMessagingSignals,
@@ -205,7 +205,7 @@ export function createMessagingCategoryAdapter(provider: string): CaptureAdapter
           return normalizeSlack(payload);
         default:
           // Any unknown messaging provider gets generic extraction
-          return normalizeGenericMessaging(payload, provider as CaptureSourceType);
+          return normalizeGenericMessaging(payload, provider);
       }
     },
   };

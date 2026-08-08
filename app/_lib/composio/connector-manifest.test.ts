@@ -5,46 +5,56 @@ import {
   listAgentExposableToolSlugs,
 } from "./tool-policy-registry";
 import { composioToolInputSchemas } from "./tool-policy";
-import {
-  getAskSaltManifest,
-  type AskSaltManifestEntry,
-} from "./unified-connector-registry";
 
-const ASK_SALT_CONNECTOR_MANIFEST: readonly AskSaltManifestEntry[] = getAskSaltManifest();
+/**
+ * Ask Salt toolkits enabled today (mirror of connector_overrides rows with
+ * ask_salt_slug_prefix set — the runtime set is DB-driven via
+ * listAskSaltEntries()). Composio names every tool TOOLKIT_ACTION, so the
+ * slug prefix derives from the toolkit key by convention.
+ */
+const ASK_SALT_TOOLKITS = [
+  "gmail",
+  "googlecalendar",
+  "googledocs",
+  "googledrive",
+  "googlesheets",
+  "googleslides",
+  "stripe",
+] as const;
 
-function manifestEntryForSlug(slug: string): AskSaltManifestEntry | null {
-  return ASK_SALT_CONNECTOR_MANIFEST.find((entry) => slug.startsWith(entry.slugPrefix)) ?? null;
+function slugPrefix(toolkit: string): string {
+  return `${toolkit.toUpperCase()}_`;
 }
 
 /**
  * Consistency guard: adding a connector or tool to Ask Salt touches several
- * registries (manifest, policy, Zod schema). These tests fail CI when any of
- * them drift out of sync — a half-registered connector silently drops tools or
- * skips argument validation in production, so it must never merge.
+ * registries (DB manifest, policy, Zod schema). These tests fail CI when any
+ * of them drift out of sync — a half-registered connector silently drops
+ * tools or skips argument validation in production, so it must never merge.
  */
 describe("connector manifest integrity", () => {
   it("has unique toolkits and slug prefixes", () => {
-    const toolkits = ASK_SALT_CONNECTOR_MANIFEST.map((e) => e.toolkit);
-    const prefixes = ASK_SALT_CONNECTOR_MANIFEST.map((e) => e.slugPrefix);
-    expect(new Set(toolkits).size).toBe(toolkits.length);
+    const prefixes = ASK_SALT_TOOLKITS.map(slugPrefix);
+    expect(new Set(ASK_SALT_TOOLKITS).size).toBe(ASK_SALT_TOOLKITS.length);
     expect(new Set(prefixes).size).toBe(prefixes.length);
   });
 
   it("agrees with getComposioProviderForToolSlug for every connector", () => {
-    for (const entry of ASK_SALT_CONNECTOR_MANIFEST) {
-      const probeSlug = `${entry.slugPrefix}PROBE_ACTION`;
-      expect(getComposioProviderForToolSlug(probeSlug)).toBe(entry.catalogProvider);
-      expect(manifestEntryForSlug(probeSlug)?.toolkit).toBe(entry.toolkit);
+    for (const toolkit of ASK_SALT_TOOLKITS) {
+      const probeSlug = `${slugPrefix(toolkit)}PROBE_ACTION`;
+      expect(getComposioProviderForToolSlug(probeSlug)).toBe(toolkit);
     }
   });
 
   it("exposes at least one runnable tool per connector (no half-registered connector)", () => {
     const exposable = listAgentExposableToolSlugs();
-    for (const entry of ASK_SALT_CONNECTOR_MANIFEST) {
-      const matching = exposable.filter((slug) => slug.startsWith(entry.slugPrefix));
+    for (const toolkit of ASK_SALT_TOOLKITS) {
+      const matching = exposable.filter((slug) =>
+        slug.startsWith(slugPrefix(toolkit)),
+      );
       expect(
         matching.length,
-        `Manifest connector "${entry.toolkit}" has no policy-exposable tools — register tools or remove it from the manifest.`,
+        `Ask Salt connector "${toolkit}" has no policy-exposable tools — register tools or remove it from the manifest.`,
       ).toBeGreaterThan(0);
     }
   });
@@ -69,11 +79,11 @@ describe("policy and schema registries stay in sync", () => {
     }
   });
 
-  it("every agent-exposable slug for an Ask Salt connector maps to the manifest", () => {
+  it("every agent-exposable slug for an Ask Salt connector has policy and schema", () => {
+    const prefixes = ASK_SALT_TOOLKITS.map(slugPrefix);
     for (const slug of listAgentExposableToolSlugs()) {
-      const entry = manifestEntryForSlug(slug);
-      // Non-Ask-Salt connectors (calcom, fireflies) legitimately return null.
-      if (entry) {
+      // Non-Ask-Salt connectors (calcom, fireflies) legitimately don't match.
+      if (prefixes.some((prefix) => slug.startsWith(prefix))) {
         expect(getComposioToolPolicy(slug)).not.toBeNull();
         expect(composioToolInputSchemas[slug]).toBeDefined();
       }

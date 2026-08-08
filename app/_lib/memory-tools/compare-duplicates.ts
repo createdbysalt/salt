@@ -6,7 +6,7 @@
  */
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
-import type { LearningEntityType } from "./types";
+import { getMemoryEntityTable, type LearningEntityType } from "./types";
 
 export interface FieldComparison {
   field: string;
@@ -53,7 +53,7 @@ export async function memoryCompareDuplicates(
   const { workspaceId, entityType, recordAId, recordBId } = input;
   const supabase = createAdminClient();
 
-  const table = getTableName(entityType);
+  const table = getMemoryEntityTable(entityType);
   if (!table) return null;
 
   const { data: records, error } = await supabase
@@ -107,18 +107,6 @@ export async function memoryCompareDuplicates(
     fields,
     mergePreview,
   };
-}
-
-function getTableName(entityType: LearningEntityType): string | null {
-  const tables: Record<string, string> = {
-    person: "people",
-    organization: "organizations",
-    work: "work",
-    billing: "billing_records",
-    meeting: "meetings",
-    file: "files",
-  };
-  return tables[entityType] || null;
 }
 
 function getRecordName(record: Record<string, unknown>, entityType: LearningEntityType): string {

@@ -10,29 +10,15 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { runSignalScanAllWorkspaces } from "@/app/_features/plays/services/signal-scanner";
-
-const CRON_SECRET = process.env.CRON_SECRET;
+import { assertInternalSecret } from "@/app/_lib/security/assert-internal-secret";
 
 export const maxDuration = 300;
 
 export async function GET(req: NextRequest) {
   const startTime = Date.now();
 
-  if (!CRON_SECRET) {
-    console.error("[Signal scan cron] CRON_SECRET not configured");
-    return NextResponse.json(
-      { error: "Server configuration error" },
-      { status: 500 }
-    );
-  }
-
-  const authHeader = req.headers.get("Authorization");
-  const token = authHeader?.replace("Bearer ", "");
-
-  if (!token || token !== CRON_SECRET) {
-    console.warn("[Signal scan cron] Unauthorized request attempt");
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const unauthorized = assertInternalSecret(req, "[Signal scan cron]");
+  if (unauthorized) return unauthorized;
 
   try {
     const { results, totalPlaysCreated } = await runSignalScanAllWorkspaces();

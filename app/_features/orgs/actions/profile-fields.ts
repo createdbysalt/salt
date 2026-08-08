@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import type { TablesUpdate } from "@/app/_lib/supabase/database.types";
 import type { ActionResult } from "@/app/_features/plays/actions";
 import type { OrgProfileFieldKey } from "@/app/_features/orgs/types";
 import { scheduleOrgHealthRecompute } from "@/app/_features/orgs/health/recompute";
@@ -284,7 +285,16 @@ export async function updateOrgAddress(input: {
   const workspace = requireWorkspaceMember(context);
   const admin = createAdminClient();
 
-  const columnMap: Record<OrgAddressField, string> = {
+  const columnMap: Record<
+    OrgAddressField,
+    | "address_line_1"
+    | "address_line_2"
+    | "city"
+    | "state"
+    | "postal_code"
+    | "country"
+    | "tax_id"
+  > = {
     addressLine1: "address_line_1",
     addressLine2: "address_line_2",
     city: "city",
@@ -304,10 +314,12 @@ export async function updateOrgAddress(input: {
     taxId: "tax_id",
   };
 
-  const column = columnMap[input.field];
+  const patch: TablesUpdate<"organizations"> = {};
+  patch[columnMap[input.field]] = input.value.trim() || null;
+
   const { error } = await admin
     .from("organizations")
-    .update({ [column]: input.value.trim() || null })
+    .update(patch)
     .eq("id", input.orgId)
     .eq("workspace_id", workspace.id);
 

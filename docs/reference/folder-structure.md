@@ -35,7 +35,7 @@ app/
 │   ├── connections/      # Relationship and context graph
 │   ├── meetings/         # Meeting intelligence
 │   ├── work/             # Work and project memory
-│   ├── memory/           # Memory surface (/memory tabs: Map/Filter/Rules), Memory Care module (care/), taxonomy registry, edge store
+│   ├── memory/           # Memory surface (/memory tabs: Map/Activity/Rules), Memory Care module (care/), taxonomy registry, edge store
 │   ├── me/               # Operator profile, goals, voice (utils/ for activity + voice helpers)
 │   ├── shell/            # App shell, navigation, layout
 │   ├── marketing/        # Landing pages, lead capture
@@ -67,7 +67,7 @@ app/
 │   ├── spaces/           # Shared workspaces
 │   ├── plays/            # Plays approval outbox
 │   ├── sources/          # Sources intake surface (Connectors + Activity)
-│   ├── memory/           # Memory Map graph surface (Map / Filter / Rules tabs)
+│   ├── memory/           # Memory Map graph surface (Map / Activity / Rules tabs)
 │   ├── work/             # Work surface
 │   ├── billing/          # Billing surface
 │   └── ...               # orgs, teams, meetings, me, files, trash, setup
@@ -213,7 +213,8 @@ import { cn } from '@repo/utils'
 | Legacy `/capture` | `/sources?tab=activity` |
 | `/plays?tab=customize` | `/plays?tab=playbooks` (connectors → `/sources`) |
 | `/plays?tab=activity&view=captures` | `/sources?tab=activity` |
-| `/plays?filter=learning` | `/memory?tab=filter` |
+| `/plays?filter=learning` | `/memory?tab=activity` |
+| `/memory?tab=filter` | `/memory?tab=activity` (legacy alias) |
 | `/notes` | `/me` |
 | `/roundtables`, `/tables` | `/spaces` |
 

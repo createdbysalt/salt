@@ -4,7 +4,7 @@ import { supportedLanguages, defaultLanguage } from '../../lib/i18n'
 
 const VISUAL_KEY_OPTIONS = [
   { title: 'Integrations (app grid)', value: 'integrations' },
-  { title: 'Capture & Memory (activity list)', value: 'capture-memory' },
+  { title: 'Sources & Memory (activity list)', value: 'capture-memory' },
   { title: 'Morning Brief (schedule + heads up)', value: 'morning-brief' },
   { title: 'Plays (draft + approve)', value: 'plays' },
   { title: 'Intelligence (client health)', value: 'intelligence' },

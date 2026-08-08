@@ -1,5 +1,5 @@
 import type { ConnectorCategory, EnrichableEntityType } from "./types";
-import { buildProviderToCategoryMap } from "../unified-connector-registry";
+import { getCaptureCategory } from "../capture-categories";
 
 export const ENTITY_ENRICHMENT_CATEGORIES: Record<EnrichableEntityType, ConnectorCategory[]> = {
   person: ["email", "calendar", "billing", "crm", "meetings", "documents", "communication"],
@@ -10,14 +10,6 @@ export const ENTITY_ENRICHMENT_CATEGORIES: Record<EnrichableEntityType, Connecto
   file: ["documents", "storage", "email"],
   me: ["email", "calendar", "billing"],
 };
-
-/**
- * Provider key → category mapping — DERIVED FROM UNIFIED REGISTRY
- *
- * This map is now built from the unified connector registry.
- * To add a connector, edit: app/_lib/composio/unified-connector-registry.ts
- */
-export const CONNECTOR_TO_CATEGORY: Record<string, ConnectorCategory> = buildProviderToCategoryMap();
 
 export const PERSON_FIELD_SCHEMA = {
   identity: ["name", "email", "phone", "billing_email", "timezone"],
@@ -129,8 +121,14 @@ export function getCategoriesForEntity(entityType: EnrichableEntityType): Connec
   return ENTITY_ENRICHMENT_CATEGORIES[entityType];
 }
 
-export function getCategoryForConnector(connector: string): ConnectorCategory | null {
-  return CONNECTOR_TO_CATEGORY[connector.toLowerCase()] ?? null;
+/**
+ * Category for a provider key, from `connector_overrides.capture_category`
+ * (DB-backed, cached; frozen fallback when the DB is unreachable).
+ */
+export async function getCategoryForConnector(
+  connector: string,
+): Promise<ConnectorCategory | null> {
+  return getCaptureCategory(connector);
 }
 
 export function getFieldsForCategory(

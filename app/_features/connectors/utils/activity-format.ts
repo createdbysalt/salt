@@ -125,6 +125,19 @@ const CURATED_ACTIONS: Record<string, string> = {
 };
 
 /**
+ * Curated copy lookup by tool slug — null when the slug has no hand-written
+ * copy, so callers can fall back to their own humanization.
+ */
+export function curatedActivityAction(toolSlug: string): string | null {
+  return CURATED_ACTIONS[toolSlug] ?? null;
+}
+
+/** Past-tense an imperative phrase: "create customer" → "Created customer". */
+export function pastTenseAction(phrase: string): string {
+  return toPastTense(phrase);
+}
+
+/**
  * The friendly action line. Curated copy for the essentials → the tool's
  * plain-language summary (past-tensed) → a de-slugged, provider-stripped name.
  */

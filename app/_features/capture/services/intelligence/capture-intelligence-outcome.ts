@@ -6,6 +6,14 @@ export type CaptureIntelligenceOutcome =
   | "no_signal"
   | "finding_created"
   | "scan_error"
+  /**
+   * Signal found, but the sender matched no person/org (Plays canon
+   * Phase 2). Honest replacement for the retired route-signal ghost
+   * play_run: nothing is created anywhere — the held-sender /
+   * relationship-discovery pool the same cron runs covers unknown-sender
+   * surfacing. Never carries a finding_id.
+   */
+  | "signal_unrouted"
   | "routed"
   | "dismissed";
 
@@ -77,7 +85,8 @@ export function readIntelligenceMeta(
   if (
     outcome !== "no_signal" &&
     outcome !== "finding_created" &&
-    outcome !== "scan_error"
+    outcome !== "scan_error" &&
+    outcome !== "signal_unrouted"
   ) {
     return null;
   }
@@ -107,6 +116,9 @@ export function resolveCaptureIntelligenceOutcome(input: {
   if (input.intelligenceMeta?.outcome === "scan_error") {
     return "scan_error";
   }
+  if (input.intelligenceMeta?.outcome === "signal_unrouted") {
+    return "signal_unrouted";
+  }
   if (input.intelligenceMeta?.outcome === "finding_created") {
     // Scanned and linked before, but finding was dismissed/acted — treat as no signal.
     return "no_signal";
@@ -125,6 +137,7 @@ export const INTELLIGENCE_OUTCOME_LABELS: Record<CaptureIntelligenceOutcome, str
   no_signal: "No signal",
   finding_created: "Finding created",
   scan_error: "Scan error",
+  signal_unrouted: "Signal, no profile",
   routed: "Routed to Memory",
   dismissed: "Dismissed",
 };
@@ -134,6 +147,7 @@ export const INTELLIGENCE_OUTCOME_DETAIL: Record<CaptureIntelligenceOutcome, str
   no_signal: "Scanned — nothing actionable for Plays",
   finding_created: "Linked to a Plays finding",
   scan_error: "Scan could not read this capture",
+  signal_unrouted: "Signal found — sender not matched to a person or org yet",
   routed: "Routed via legacy Memory flow",
   dismissed: "Dismissed from Capture queue",
 };
@@ -174,6 +188,9 @@ export function mapOutcomeToCategory(outcome: CaptureIntelligenceOutcome): Captu
     case "finding_created":
       return "queued";
     case "no_signal":
+    // signal_unrouted is honest "no action": nothing was queued for the user —
+    // the held-sender pool surfaces the sender if they keep showing up.
+    case "signal_unrouted":
     case "routed":
     case "dismissed":
       return "no-signal";

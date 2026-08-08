@@ -3,6 +3,7 @@ import "server-only";
 import { getConnectorsPageData } from "@/app/_features/connectors/queries";
 import {
   getCaptureStream,
+  getDiscoveryStatus,
   getTodayCaptureStats,
   hasCaptures,
 } from "@/app/_features/capture/queries";
@@ -30,6 +31,7 @@ export function emptySourcesPageData(): SourcesPageData {
     hasCaptureData: false,
     workspaceId: null,
     keptOut: null,
+    discovery: null,
   };
 }
 
@@ -53,12 +55,14 @@ export async function loadSourcesPageData(options: {
   }
 
   if (workspaceId) {
-    const [streamCaptures, captureStats, hasCaptureData, admissions] = await Promise.all([
-      getCaptureStream(workspaceId, { limit: CAPTURE_STREAM_INITIAL_LIMIT }),
-      getTodayCaptureStats(workspaceId),
-      hasCaptures(workspaceId),
-      getAdmissionDecisions(workspaceId),
-    ]);
+    const [streamCaptures, captureStats, hasCaptureData, admissions, discovery] =
+      await Promise.all([
+        getCaptureStream(workspaceId, { limit: CAPTURE_STREAM_INITIAL_LIMIT }),
+        getTodayCaptureStats(workspaceId),
+        hasCaptures(workspaceId),
+        getAdmissionDecisions(workspaceId),
+        getDiscoveryStatus(workspaceId),
+      ]);
 
     return {
       ...base,
@@ -70,6 +74,7 @@ export async function loadSourcesPageData(options: {
         count: admissions.keptOutCount,
         sample: admissions.keptOutSample,
       },
+      discovery,
     };
   }
 

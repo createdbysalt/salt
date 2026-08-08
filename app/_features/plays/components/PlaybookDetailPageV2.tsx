@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -29,18 +29,15 @@ import {
   Columns,
   Sparkles,
 } from "lucide-react";
-import { Label, Slider, Tabs, TabsList, TabsTrigger, TabsContent } from "@repo/ui";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@repo/ui";
 import { cn } from "@repo/utils";
 import {
   memoryDetailShellClass,
-  memoryDetailGridClass,
   memoryTabsListClass,
   memoryTabTriggerClass,
   memoryTabPanelClass,
 } from "@/app/_features/memory/utils/memory-layout";
-import { updateProfilePlaybookSettings } from "@/app/_features/people/actions/profile-fields";
 import { PlaybookHeroV2 } from "./PlaybookHeroV2";
-import { MemoryPlaybookOverviewTab } from "./MemoryPlaybookOverviewTab";
 import { getSectionColorStyles } from "./PlaybookSectionNav";
 import type { PlaybookListItem } from "../playbooks/queries-v2";
 import type {
@@ -49,20 +46,15 @@ import type {
   PlaybookClassifyStep,
   PlaybookSection,
 } from "../playbooks/schema/v2/types";
-import type {
-  ProfileFillRule,
-  ProfilePlaybookSettings,
-  ProfileProvenanceStats,
-} from "../playbooks/records-engine/types";
 import type { PackageData } from "../playbooks/read-package-files";
 import type { PlaybookConnectorStats } from "../queries";
+import type { PlaybookRunStats } from "../run-stats";
 
 interface PlaybookDetailPageV2Props {
   playbook: PlaybookListItem;
   definition: PlaybookDefinitionV2;
-  stats: ProfileProvenanceStats;
-  settings: ProfilePlaybookSettings | null;
-  settingsBlueprintSlug: string;
+  /** Real run stats over play_runs (Phase 5b). */
+  runStats: PlaybookRunStats;
   playbookMdContent?: string | null;
   packageData?: PackageData | null;
   connectorStats?: PlaybookConnectorStats;
@@ -71,25 +63,18 @@ interface PlaybookDetailPageV2Props {
 export function PlaybookDetailPageV2({
   playbook,
   definition,
-  stats,
-  settings,
-  settingsBlueprintSlug,
+  runStats,
   playbookMdContent,
   packageData,
   connectorStats,
 }: PlaybookDetailPageV2Props) {
   const [tab, setTab] = useState("overview");
   const sectionStyles = getSectionColorStyles(playbook.section as PlaybookSection);
-  const isMemoryPlaybook = playbook.layer === "learn";
-  const policy = definition.policy;
-  const showSidebar = isMemoryPlaybook && !!policy;
   const hasPlaybookMd = !!playbookMdContent;
   const hasPackage = !!packageData;
 
   return (
     <div className="relative min-h-full">
-      <div aria-hidden className="salt-ambient-wash" />
-
       <div className={memoryDetailShellClass}>
         <Link
           href="/plays?tab=playbooks"
@@ -99,15 +84,9 @@ export function PlaybookDetailPageV2({
           Back to Playbooks
         </Link>
 
-        <PlaybookHeroV2 playbook={playbook} stats={stats} connectedAppCount={connectorStats?.connected ?? 0} />
+        <PlaybookHeroV2 playbook={playbook} runStats={runStats} connectorStats={connectorStats} />
 
-        <div
-          className={
-            showSidebar
-              ? memoryDetailGridClass
-              : "grid grid-cols-1 gap-5 sm:gap-6"
-          }
-        >
+        <div className="grid grid-cols-1 gap-5 sm:gap-6">
           {/* Main content area */}
           <div className="min-w-0 space-y-6">
             <Tabs value={tab} onValueChange={setTab} className="space-y-5">
@@ -135,8 +114,6 @@ export function PlaybookDetailPageV2({
                       {playbookMdContent}
                     </ReactMarkdown>
                   </div>
-                ) : isMemoryPlaybook && policy ? (
-                  <MemoryPlaybookOverviewTab policy={policy} />
                 ) : (
                   /* Fallback: Action Playbook Overview */
                   <div className="space-y-6">
@@ -193,19 +170,12 @@ export function PlaybookDetailPageV2({
                     packageData={packageData}
                     playbook={playbook}
                     definition={definition}
-                    isMemoryPlaybook={isMemoryPlaybook}
-                    policy={policy}
                   />
                 ) : (
                   /* Fallback for non-package playbooks */
                   <div className="space-y-6">
                     <ManagedPlaybookCallout />
-                    {isMemoryPlaybook && policy && (
-                      <RuleConfiguration policy={policy} definition={definition} />
-                    )}
-                    {!isMemoryPlaybook && (
-                      <RawJsonToggle definition={definition} />
-                    )}
+                    <RawJsonToggle definition={definition} />
                   </div>
                 )}
               </TabsContent>
@@ -213,15 +183,6 @@ export function PlaybookDetailPageV2({
             </Tabs>
           </div>
 
-          {/* Sidebar */}
-          {showSidebar ? (
-            <PlaybookSidebar
-              playbook={playbook}
-              definition={definition}
-              settings={settings}
-              settingsBlueprintSlug={settingsBlueprintSlug}
-            />
-          ) : null}
         </div>
       </div>
     </div>
@@ -326,14 +287,10 @@ function PackageAdvancedView({
   packageData,
   playbook,
   definition,
-  isMemoryPlaybook,
-  policy,
 }: {
   packageData: PackageData;
   playbook: PlaybookListItem;
   definition: PlaybookDefinitionV2;
-  isMemoryPlaybook: boolean;
-  policy: PlaybookDefinitionV2["policy"];
 }) {
   const [showAllSignals, setShowAllSignals] = useState(false);
   const [showAllFields, setShowAllFields] = useState(false);
@@ -454,26 +411,30 @@ function PackageAdvancedView({
         </section>
       </div>
 
-      {/* Tools */}
+      {/* Tools — the definition.yaml `tools` allowlist (single-document canon;
+          tools.yaml is retired) */}
       <section className="rounded-xl border border-border/50 bg-card/50 overflow-hidden">
         <div className="px-4 py-3 border-b border-border/50 bg-muted/30">
           <div className="flex items-center gap-2">
             <Wrench className="size-4 text-muted-foreground" />
             <h3 className="text-sm font-semibold text-foreground">Tools</h3>
-            <span className="text-xs text-muted-foreground">({packageData.tools.length})</span>
+            <span className="text-xs text-muted-foreground">({definition.tools?.length ?? 0})</span>
           </div>
         </div>
         <div className="p-4">
-          <div className="space-y-2">
-            {packageData.tools.map((tool) => (
-              <div key={tool.name} className="flex items-center justify-between text-sm font-mono bg-muted/30 px-3 py-2 rounded-lg">
-                <span className="text-foreground">{tool.name}</span>
-                {tool.protection && (
-                  <span className="text-xs text-muted-foreground">{tool.protection}</span>
-                )}
-              </div>
-            ))}
-          </div>
+          {definition.tools?.length ? (
+            <div className="space-y-2">
+              {definition.tools.map((tool) => (
+                <div key={tool} className="flex items-center justify-between text-sm font-mono bg-muted/30 px-3 py-2 rounded-lg">
+                  <span className="text-foreground">{tool}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No tools declared. Action steps must name a tool listed here.
+            </p>
+          )}
         </div>
       </section>
     </div>
@@ -506,54 +467,6 @@ function ContentCard({ title, icon, children }: { title: string; icon: React.Rea
       </div>
       {children}
     </section>
-  );
-}
-
-function MetaItem({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <div>
-      <dt className="text-muted-foreground text-xs">{label}</dt>
-      <dd className={cn("mt-0.5 capitalize", mono && "font-mono text-xs")}>{value}</dd>
-    </div>
-  );
-}
-
-function FillRuleCard({ rule, threshold }: { rule: ProfileFillRule; threshold: number }) {
-  const autoApplies = rule.confidence >= threshold;
-
-  return (
-    <div className="rounded-lg border border-border/50 p-3 bg-muted/20 font-mono text-xs">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex-1 min-w-0 space-y-1">
-          <div className="text-muted-foreground">
-            <span className="text-foreground font-semibold">{rule.id}</span>
-          </div>
-          <div>
-            <span className="text-muted-foreground">when </span>
-            <span className="text-foreground">{rule.when.signal}</span>
-            <span className="text-muted-foreground"> {rule.when.op} </span>
-            <span className="text-foreground">{String(rule.when.value)}</span>
-          </div>
-          <div>
-            <span className="text-muted-foreground">set </span>
-            <span className="text-foreground">{rule.field}</span>
-            <span className="text-muted-foreground"> = </span>
-            <span className="text-emerald-600 dark:text-emerald-400">"{rule.set.value}"</span>
-          </div>
-        </div>
-        <span
-          className={cn(
-            "text-xs font-semibold tabular-nums px-2 py-1 rounded shrink-0",
-            autoApplies
-              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-              : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
-          )}
-        >
-          {rule.confidence}
-        </span>
-      </div>
-      <p className="text-muted-foreground mt-2 font-sans text-xs">{rule.because}</p>
-    </div>
   );
 }
 
@@ -601,228 +514,9 @@ function StepCard({
   );
 }
 
-function TriggerIcon({ type }: { type: string }) {
-  if (type === "signal") return <Zap className="size-4" />;
-  if (type === "schedule") return <Clock className="size-4" />;
-  return <MousePointer className="size-4" />;
-}
-
-function getTriggerDescription(definition: PlaybookDefinitionV2): string {
-  const trigger = definition.trigger ?? definition.triggers?.[0];
-  if (!trigger) return "You run this playbook manually when needed.";
-
-  if (trigger.type === "signal") {
-    const signalMap: Record<string, string> = {
-      person_created: "Runs when a new person is added to Memory.",
-      person_updated: "Runs when a person record is updated.",
-      billing_due_date_passed: "Runs when an invoice becomes overdue.",
-      meeting_end_passed: "Runs after a meeting ends.",
-    };
-    // Support both single signal and signals array
-    const signal = "signal" in trigger && trigger.signal
-      ? trigger.signal
-      : ("signals" in trigger && trigger.signals?.[0]) || "unknown";
-    return signalMap[signal] ?? `Runs on "${signal.replace(/_/g, " ")}" signal.`;
-  }
-  if (trigger.type === "schedule") {
-    if (trigger.cron === "0 9 * * *") return "Runs every day at 9:00 AM.";
-    return `Scheduled: ${trigger.cron}`;
-  }
-  return "You run this playbook manually when needed.";
-}
-
-/* ─────────────────────────────────────────────────────────────────────────────
- * SIDEBAR
- * ───────────────────────────────────────────────────────────────────────────── */
-
-function PlaybookSidebar({
-  playbook,
-  definition,
-  settings,
-  settingsBlueprintSlug,
-}: {
-  playbook: PlaybookListItem;
-  definition: PlaybookDefinitionV2;
-  settings: ProfilePlaybookSettings | null;
-  settingsBlueprintSlug: string;
-}) {
-  const isMemory = playbook.layer === "learn";
-  const policy = definition.policy;
-  const defaultThreshold = policy?.auto_apply_threshold ?? 85;
-
-  if (!isMemory || !policy) {
-    return null;
-  }
-
-  return (
-    <div className="space-y-5">
-      <SidebarCard title="Threshold">
-        <ThresholdControl
-          blueprintSlug={settingsBlueprintSlug}
-          defaultThreshold={defaultThreshold}
-          settings={settings}
-        />
-      </SidebarCard>
-    </div>
-  );
-}
-
-function SidebarCard({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="glass-card rounded-2xl p-4 space-y-3">
-      <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">{title}</p>
-      {children}
-    </div>
-  );
-}
-
-type ThresholdSaveStatus = "idle" | "saving" | "saved";
-
-function ThresholdControl({
-  blueprintSlug,
-  defaultThreshold,
-  settings,
-}: {
-  blueprintSlug: string;
-  defaultThreshold: number;
-  settings: ProfilePlaybookSettings | null;
-}) {
-  const [threshold, setThreshold] = useState(settings?.autoApplyThreshold ?? defaultThreshold);
-  const [status, setStatus] = useState<ThresholdSaveStatus>("idle");
-  const settingsRef = useRef(settings);
-  settingsRef.current = settings;
-  const isInitialMount = useRef(true);
-
-  useEffect(() => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      return;
-    }
-
-    const timer = setTimeout(async () => {
-      const current = settingsRef.current;
-      setStatus("saving");
-
-      const result = await updateProfilePlaybookSettings({
-        blueprintSlug,
-        contextFacts: current?.contextFacts ?? {},
-        autoApplyThreshold: threshold,
-        aiFallbackEnabled: current?.aiFallbackEnabled ?? true,
-      });
-
-      if (!result.ok) {
-        console.error("[ThresholdControl] Failed to save:", result.message);
-      }
-
-      setStatus("saved");
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [threshold, blueprintSlug]);
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-baseline justify-between gap-2">
-        <Label htmlFor="playbook-threshold" className="text-xs text-muted-foreground font-normal">
-          Auto-apply confidence
-        </Label>
-        <div className="flex items-center gap-2">
-          {status === "saving" && (
-            <Loader2 className="size-3 animate-spin text-muted-foreground" aria-hidden />
-          )}
-          {status === "saved" && (
-            <Check className="size-3 text-muted-foreground" aria-hidden />
-          )}
-          <span className="font-display text-2xl text-foreground tabular-nums">{threshold}%</span>
-        </div>
-      </div>
-
-      <Slider
-        id="playbook-threshold"
-        min={50}
-        max={100}
-        step={1}
-        value={[threshold]}
-        onValueChange={(value) => setThreshold(value[0] ?? defaultThreshold)}
-        aria-label="Auto-apply confidence threshold"
-      />
-
-      <p className="text-xs text-muted-foreground">
-        At {threshold}% or higher, Salt applies changes on its own. Below that, it waits for your review.
-      </p>
-    </div>
-  );
-}
-
 /* ─────────────────────────────────────────────────────────────────────────────
  * MARKDOWN COMPONENTS
  * ───────────────────────────────────────────────────────────────────────────── */
-
-function AdvancedSection({
-  icon,
-  title,
-  description,
-  children,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-3">
-      <div className="flex items-start gap-3">
-        <span className="text-muted-foreground mt-0.5">{icon}</span>
-        <div>
-          <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-          <p className="text-xs text-muted-foreground">{description}</p>
-        </div>
-      </div>
-      <div className="pl-7">
-        <div className="rounded-xl border border-border/50 bg-muted/20 px-4 py-3">
-          {children}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function RuleConfiguration({
-  policy,
-  definition,
-}: {
-  policy: NonNullable<PlaybookDefinitionV2["policy"]>;
-  definition: PlaybookDefinitionV2;
-}) {
-  const [showJson, setShowJson] = useState(false);
-
-  return (
-    <div className="space-y-4">
-      <div>
-        <h4 className="text-sm font-semibold text-foreground mb-1">Rule configuration</h4>
-        <p className="text-xs text-muted-foreground">
-          {policy.fill_rules.length} rules across {policy.fields.length} fields. Repeated manual corrections become proposed rule changes for your review.
-        </p>
-
-        <button
-          onClick={() => setShowJson(!showJson)}
-          className="mt-3 text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
-        >
-          <ChevronRight className={cn("size-3 transition-transform", showJson && "rotate-90")} />
-          {showJson ? "Hide" : "Show"} raw JSON
-        </button>
-
-        {showJson && (
-          <div className="mt-3 font-mono text-xs bg-muted/50 rounded-lg border border-border/40 p-4 overflow-x-auto max-h-[400px]">
-            <pre className="text-foreground/80">
-              {JSON.stringify(definition, null, 2)}
-            </pre>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
 
 function RawJsonToggle({ definition }: { definition: PlaybookDefinitionV2 }) {
   const [showJson, setShowJson] = useState(false);

@@ -36,9 +36,8 @@ steps:
     prompt: |
       Create a relationship health alert.
 
-      At-risk relationships:
-      - High priority: {{risk_level.high_priority.count}}
-      - Medium priority: {{risk_level.medium_priority.count}}
+      At-risk relationships: {{at_risk_relationships}}
+      Prioritized by risk level: {{risk_level}}
 
       List the top 3 relationships that need attention.
       For each, suggest a specific action.

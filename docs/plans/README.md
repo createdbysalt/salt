@@ -23,7 +23,7 @@ Plans may still reference retired concepts. When reading or executing a plan, tr
 | Roundtables / `/roundtables` | Spaces / `/spaces` |
 | Standalone `/capture` | Sources → Activity (`/sources?tab=activity`) |
 | Plays → Customize (connectors) | Sources → Connectors (`/sources`) |
-| Plays → Watching (learning queue) | Memory → Filter (`/memory?tab=filter`) |
+| Plays → Watching (learning queue) | Memory → Activity (`/memory?tab=activity`) |
 | `/dashboard/*`, `/clients` | `/hq`, `/people`, `/work`, etc. |
 | `app/actions/projects/` | Removed — use `_features/work/` or `people/` |
 | `app/actions/` (central) | Removed — use `_features/<feature>/actions/` |

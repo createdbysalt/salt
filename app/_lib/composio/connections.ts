@@ -11,17 +11,12 @@ import {
   type ComposioOAuthDisplay,
 } from "./oauth-state";
 import {
-  getConnector,
-  getAuthConfigId,
-  getApiKeyFieldName,
-  isRegisteredProvider,
-} from "./unified-connector-registry";
-import {
   getConnectorRegistryEntry,
   isRegisteredConnectorProvider,
 } from "./connector-registry";
 import { assertWorkspaceMembership } from "./workspace-auth";
 import { setCaptureState } from "./capture-state";
+import { invalidateConnectionHealth } from "./health-check-cache";
 
 interface ResolvedConnectorAuth {
   authConfigId: string;
@@ -30,15 +25,19 @@ interface ResolvedConnectorAuth {
 }
 
 /**
- * DB-first auth config resolution (capture-pipeline repair Phase 5).
+ * DB-backed auth config resolution (Sources plan 5.1).
  *
  * connector_overrides is authoritative: it carries the explicit
  * auth_config_env_var name (env override) and the pinned auth_config_id.
  * If the provider has a DB row, that row decides connectability — an empty
  * authConfigId means "not connectable" and we do NOT fall back, so removing
- * an override actually disconnects the provider. The code-first
- * unified-connector-registry is only consulted when the provider is missing
- * from the catalog (pre-sync) or the DB is unreachable.
+ * an override actually disconnects the provider. When the DB registry is
+ * unreachable the provider is treated as not connectable (fail closed).
+ *
+ * catalog_only providers are never connectable (Sources plan 5.5): no synced
+ * tools, triggers, or capture adapter, so a connection would be inert. This
+ * is the hard server-side gate every connect path funnels through; the
+ * catalog UI labels them browse-only.
  */
 async function resolveConnectorAuth(
   provider: string,
@@ -47,6 +46,7 @@ async function resolveConnectorAuth(
     const entry = await getConnectorRegistryEntry(provider);
     if (entry) {
       if (!entry.authConfigId) return null;
+      if (entry.tier === "catalog_only") return null;
       return {
         authConfigId: entry.authConfigId,
         authMethod: entry.authMethod,
@@ -55,28 +55,20 @@ async function resolveConnectorAuth(
     }
   } catch (error) {
     console.error(
-      "[composio] connector registry unavailable, using code fallback:",
+      "[composio] connector registry unavailable:",
       error instanceof Error ? error.message : error,
     );
   }
-
-  const connector = getConnector(provider);
-  const authConfigId = getAuthConfigId(provider);
-  if (!connector || !authConfigId) return null;
-  return {
-    authConfigId,
-    authMethod: connector.authMethod,
-    apiKeyFieldName: getApiKeyFieldName(provider),
-  };
+  return null;
 }
 
 async function isKnownProvider(provider: string): Promise<boolean> {
   try {
-    if (await isRegisteredConnectorProvider(provider)) return true;
+    return await isRegisteredConnectorProvider(provider);
   } catch {
-    // DB unavailable — fall through to the code registry.
+    // DB unavailable — fail closed (unknown provider).
+    return false;
   }
-  return isRegisteredProvider(provider);
 }
 
 export type ComposioConnectionStatus = "connected" | "pending" | "expired" | "error";
@@ -331,7 +323,7 @@ export async function initiateApiKeyConnection(
     const { adapterForToolkit } = await import(
       "@/app/_features/capture/adapters/registry"
     );
-    if (adapterForToolkit(provider)) {
+    if (await adapterForToolkit(provider)) {
       const captureResult = await setCaptureState(workspaceId, provider, true);
       if (!captureResult.ok) {
         console.warn(
@@ -341,6 +333,8 @@ export async function initiateApiKeyConnection(
         );
       }
     }
+
+    emitConnectorConnectedSignal(workspaceId, provider);
 
     return { success: true, status: composioStatus };
   } catch (error) {
@@ -421,18 +415,12 @@ export async function handleConnectionCallback(
       return { success: false, error: "Failed to store integration" };
     }
 
-    // Run first scan for Gmail/Calendar connections
-    if (
-      composioStatus === "connected" &&
-      (stateData.provider === "gmail" || stateData.provider === "googlecalendar")
-    ) {
-      const { runFirstScanForWorkspace } = await import(
-        "@/app/_features/plays/services/first-scan"
-      );
-      void runFirstScanForWorkspace(stateData.workspaceId).catch((scanError) => {
-        console.error("[composio] first scan failed:", scanError);
-      });
-    }
+    // A fresh (re)connect invalidates any cached Ask Salt health verdict.
+    invalidateConnectionHealth(stateData.workspaceId, stateData.provider);
+
+    // First-scan seeding removed 2026-08-07 (plays canon: a play is a playbook
+    // run — no fabricated "Approve & send" cards). A quiet queue after connect
+    // is acceptable until the getting-started playbook ships (Phase 5).
 
     // Auto-enable capture for connectors that support it (single write
     // path: setCaptureState couples the flag with trigger subscriptions).
@@ -440,7 +428,7 @@ export async function handleConnectionCallback(
       const { adapterForToolkit } = await import(
         "@/app/_features/capture/adapters/registry"
       );
-      if (adapterForToolkit(stateData.provider)) {
+      if (await adapterForToolkit(stateData.provider)) {
         console.log(`[composio] Auto-enabling capture for ${stateData.provider}`);
         const captureResult = await setCaptureState(
           stateData.workspaceId,
@@ -509,6 +497,8 @@ export async function handleConnectionCallback(
           );
         });
       }
+
+      emitConnectorConnectedSignal(stateData.workspaceId, stateData.provider, email);
     }
 
     return {
@@ -795,5 +785,37 @@ export async function disconnectConnection(
     return { success: false, error: "Failed to disconnect integration" };
   }
 
+  invalidateConnectionHealth(workspaceId, provider);
+
   return { success: true };
+}
+
+/**
+ * Workspace-scoped onboarding signal. The workspace id doubles as the entity
+ * id so signal-dispatch dedup collapses multi-connector onboarding into one
+ * run per 72h window; the provider rides in evidence/label.
+ */
+function emitConnectorConnectedSignal(
+  workspaceId: string,
+  provider: string,
+  email?: string | null
+): void {
+  void import("@/app/_lib/learning/emit-signal")
+    .then(({ emitEntitySignal }) =>
+      emitEntitySignal({
+        workspaceId,
+        surface: "workspace",
+        entityId: workspaceId,
+        signal: "connector_connected",
+        entityLabel: provider,
+        evidence: { provider, ...(email ? { email } : {}) },
+      })
+    )
+    .catch((error) => {
+      console.error(
+        "[composio] connector_connected signal failed:",
+        provider,
+        error
+      );
+    });
 }

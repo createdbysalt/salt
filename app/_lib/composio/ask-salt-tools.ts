@@ -6,12 +6,7 @@ import { COMPOSIO_TOOL_SLUGS } from "./tool-slugs";
 import { executeComposioAction } from "./actions";
 import { isSendEmailTool, getProviderForSendTool } from "./capability-config";
 import {
-  getAskSaltSlugPrefixes,
-  getAskSaltToolkits,
-} from "./unified-connector-registry";
-import {
   getComposioToolPolicy,
-  listAgentExposableToolSlugs,
   type ComposioToolPolicy,
 } from "./tool-policy";
 import { classifyToolByHeuristic } from "./tool-classification-heuristics";
@@ -20,38 +15,28 @@ import {
   classifyStakes,
   type SourceContext,
 } from "@/app/_features/plays/lib/play-record";
+import {
+  curatedActivityAction,
+  pastTenseAction,
+  activityDetailText,
+} from "@/app/_features/connectors/utils/activity-format";
+import { getComposioProviderForToolSlug } from "@/app/_features/connectors/connector-capabilities";
 import type { OutcomeExpected } from "@/app/_lib/learning/outcomes";
 
-/** Per-app connectors Ask Salt supports — derived from the connector manifest. */
-export const ASK_SALT_COMPOSIO_TOOLKITS: string[] = getAskSaltToolkits();
-
-/** Toolkit key → tool slug prefix, derived from the connector manifest. */
-const TOOLKIT_SLUG_PREFIXES: Record<string, string> = getAskSaltSlugPrefixes();
-
 /**
- * Exact tool slugs Ask Salt preloads for the given toolkits.
- * Without an explicit preload, Composio defaults to every tool in the
- * toolkits (plus router meta-tools) — keep the surface deterministic.
+ * Tool slug → toolkit, via the shared prefix map in connector-capabilities.
+ * Composio names every tool TOOLKIT_ACTION, so prefix matching needs no
+ * per-connector registry — any toolkit's tools resolve, which is what lets
+ * newly enabled connectors get heuristic policy classification immediately.
  */
-export function askSaltPreloadSlugsForToolkits(toolkits: readonly string[]): string[] {
-  const prefixes = toolkits
-    .map((toolkit) => TOOLKIT_SLUG_PREFIXES[toolkit])
-    .filter((prefix): prefix is string => Boolean(prefix));
-  return listAgentExposableToolSlugs().filter((slug) =>
-    prefixes.some((prefix) => slug.startsWith(prefix)),
-  );
+function providerForSlug(slug: string): string | null {
+  return getComposioProviderForToolSlug(slug);
 }
-
-export const ASK_SALT_PRELOAD_TOOL_SLUGS: string[] = askSaltPreloadSlugsForToolkits(
-  ASK_SALT_COMPOSIO_TOOLKITS,
-);
 
 export type AskSaltTrustLevel = "read_only" | "act_with_approval" | "trust";
 export type AskSaltEmailMode = "draft" | "send";
 
 export interface AskSaltToolPolicyOptions {
-  /** Workspace-level disabled tool slugs (connector settings toggles). */
-  disabledTools?: readonly string[];
   /**
    * Trust ladder per provider (gmail, googlecalendar). When provided, mutating
    * tools for providers not at act_with_approval are never registered.
@@ -77,15 +62,6 @@ export interface AskSaltToolWrapOptions extends AskSaltToolPolicyOptions {
     chatId: string;
     messageId?: string;
   };
-}
-
-function providerForSlug(slug: string): string | null {
-  for (const [toolkit, prefix] of Object.entries(TOOLKIT_SLUG_PREFIXES)) {
-    if (slug.startsWith(prefix)) {
-      return toolkit;
-    }
-  }
-  return null;
 }
 
 /** Lowercase aliases models often invent (e.g. googledocs_get_document_by_id). */
@@ -143,10 +119,6 @@ export function isAskSaltSlugAllowed(
 ): boolean {
   const policy = getPolicyWithHeuristicFallback(slug);
   if (!policy || policy.risk === "destructive") {
-    return false;
-  }
-
-  if (options.disabledTools?.includes(slug)) {
     return false;
   }
 
@@ -286,8 +258,26 @@ function formatToolTitle(slug: string, input: Record<string, unknown>): string {
   if (slug === COMPOSIO_TOOL_SLUGS.GOOGLECALENDAR_UPDATE_EVENT) {
     return "Updated calendar event";
   }
-  // Default: humanize the slug
-  return slug.replace(/_/g, " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
+  if (slug === COMPOSIO_TOOL_SLUGS.STRIPE_CREATE_CUSTOMER) {
+    const who =
+      typeof input.name === "string" && input.name.trim()
+        ? input.name.trim()
+        : typeof input.email === "string" && input.email.trim()
+          ? input.email.trim()
+          : null;
+    return who ? `Added Stripe customer: ${who}` : "Added a Stripe customer";
+  }
+  // Default: curated plain-language copy ("Added a Stripe customer"), then a
+  // past-tensed, provider-stripped slug — never the raw slug with spaces.
+  const curated = curatedActivityAction(slug);
+  if (curated) return curated;
+  const provider = getComposioProviderForToolSlug(slug);
+  const words = slug.toLowerCase().split("_").filter(Boolean);
+  if (provider && words[0] === provider) {
+    const action = pastTenseAction(words.slice(1).join(" "));
+    return `${action} in ${provider.charAt(0).toUpperCase()}${provider.slice(1)}`;
+  }
+  return pastTenseAction(words.join(" "));
 }
 
 function formatToolPreview(slug: string, input: Record<string, unknown>): string {
@@ -297,7 +287,9 @@ function formatToolPreview(slug: string, input: Record<string, unknown>): string
   if (slug === COMPOSIO_TOOL_SLUGS.GOOGLECALENDAR_CREATE_EVENT) {
     return `${input.start_datetime || ""} - ${input.end_datetime || ""}`;
   }
-  return "";
+  // Default: surface the args a person cares about (a name, recipient, amount),
+  // hiding API plumbing like calendarId or pageToken.
+  return activityDetailText(input) ?? "";
 }
 
 function getOutcomeExpectation(slug: string): {

@@ -13,17 +13,16 @@ import {
   buildSparkline,
   buildWeeklyActivityBars,
   computeWeekOverWeekPct,
-  estimateMinutesSaved,
   formatClockTime,
   formatMinutesSaved,
   formatDurationMinutes,
   formatShortDate,
   getWeekNumber,
   normalizeShare,
-  playRunActivityTimestamp,
   startOfDay,
   toDateKey,
 } from "./hq-dashboard-utils";
+import { getWorkspaceRunStats } from "@/app/_features/plays/queries";
 import type {
   HqAutomation,
   HqCalendarEvent,
@@ -58,56 +57,20 @@ function formatProposalStage(status: string): string {
   }
 }
 
-async function loadTimeSaved(workspaceId: string): Promise<HqSideRailData["timeSaved"]> {
-  const { supabase } = await getWorkspaceContext();
+async function loadTimeSaved(_workspaceId: string): Promise<HqSideRailData["timeSaved"]> {
+  // Phase 5b: same query as playbook hero cards. Completed runs (state = ran)
+  // × each playbook's declared value.estimate — the retired stakes heuristic
+  // is gone, so this number matches the billing unit and canon #9.
+  const stats = await getWorkspaceRunStats();
   const now = new Date();
-  const fourteenDaysAgo = startOfDay(now);
-  fourteenDaysAgo.setDate(now.getDate() - 13);
-  const rangeStartIso = fourteenDaysAgo.toISOString();
-
-  const { data } = await supabase
-    .from("play_runs")
-    .select("state, ran_at, approved_at, stakes")
-    .eq("workspace_id", workspaceId)
-    .in("state", ["ran", "approved"])
-    .or(`ran_at.gte.${rangeStartIso},approved_at.gte.${rangeStartIso}`);
-
-  const activity = (data ?? [])
-    .map((row) => ({
-      date: playRunActivityTimestamp(row),
-      minutes: estimateMinutesSaved(row.stakes as string | null),
-    }))
-    .filter((entry): entry is { date: Date; minutes: number } => entry.date !== null)
-    .filter((entry) => startOfDay(entry.date) >= fourteenDaysAgo);
-
-  const minutesByDay = Array.from({ length: 7 }, (_, index) => {
-    const day = startOfDay(now);
-    day.setDate(now.getDate() - (6 - index));
-    const key = toDateKey(day);
-    return activity
-      .filter((entry) => toDateKey(startOfDay(entry.date)) === key)
-      .reduce((sum, entry) => sum + entry.minutes, 0);
-  });
-
-  const minutesThisWeek = minutesByDay.reduce((sum, minutes) => sum + minutes, 0);
-  const lastWeekStart = startOfDay(now);
-  lastWeekStart.setDate(now.getDate() - 13);
-  const lastWeekEnd = startOfDay(now);
-  lastWeekEnd.setDate(now.getDate() - 7);
-  const minutesLastWeek = activity
-    .filter((entry) => {
-      const day = startOfDay(entry.date);
-      return day >= lastWeekStart && day < lastWeekEnd;
-    })
-    .reduce((sum, entry) => sum + entry.minutes, 0);
 
   return {
-    minutesThisWeek,
-    valueLabel: formatMinutesSaved(minutesThisWeek),
-    weekOverWeekPct: computeWeekOverWeekPct(minutesThisWeek, minutesLastWeek),
-    weeklyActivity: buildWeeklyActivityBars(minutesByDay),
+    minutesThisWeek: stats.minutesThisWeek,
+    valueLabel: formatMinutesSaved(stats.minutesThisWeek),
+    weekOverWeekPct: computeWeekOverWeekPct(stats.minutesThisWeek, stats.minutesLastWeek),
+    weeklyActivity: buildWeeklyActivityBars(stats.minutesByDay),
     weekLabel: `Week ${getWeekNumber(now)}`,
-    hasActivity: activity.length > 0,
+    hasActivity: stats.hasActivity,
   };
 }
 

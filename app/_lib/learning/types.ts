@@ -41,7 +41,8 @@ export type SignalSurface =
   | "file"
   | "note"
   | "operator"
-  | "capture";
+  | "capture"
+  | "workspace";
 
 export interface SignalDefinition {
   key: string;

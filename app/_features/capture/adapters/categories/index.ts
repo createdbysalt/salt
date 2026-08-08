@@ -8,7 +8,7 @@
  * **Scalable architecture:**
  * - Category adapters accept ANY provider in their category
  * - Known providers get specific parsing; unknown get generic extraction
- * - Category mapping comes from DB (connector_catalog.category)
+ * - Category mapping comes from DB (connector_overrides.capture_category)
  * - Infrastructure ready for 250+ connectors; UI shows only enabled ones
  *
  * NOTE: App-specific adapters (gmail.ts, googlecalendar.ts, etc.) are RETIRED.
@@ -49,11 +49,14 @@ const CATEGORY_ADAPTERS: Record<ConnectorCategory, CategoryAdapterGetter> = {
 /**
  * Get adapter by category for a provider.
  *
- * Returns an adapter for ANY provider that has a category mapping in the DB.
+ * Returns an adapter for ANY provider that has a category mapping in the DB
+ * (`connector_overrides.capture_category`, via getCategoryForConnector).
  * Known providers get specific parsing; unknown get generic extraction.
  */
-export function getCategoryAdapter(provider: string): CaptureAdapter | null {
-  const category = getCategoryForConnector(provider);
+export async function getCategoryAdapter(
+  provider: string,
+): Promise<CaptureAdapter | null> {
+  const category = await getCategoryForConnector(provider);
 
   if (category) {
     const categoryGetter = CATEGORY_ADAPTERS[category];
@@ -69,7 +72,9 @@ export function getCategoryAdapter(provider: string): CaptureAdapter | null {
  * Get adapter by toolkit (provider key).
  * Alias for getCategoryAdapter — all adapters are category-based.
  */
-export function adapterForToolkitWithCategory(toolkit: string): CaptureAdapter | null {
+export async function adapterForToolkitWithCategory(
+  toolkit: string,
+): Promise<CaptureAdapter | null> {
   return getCategoryAdapter(toolkit);
 }
 
@@ -86,6 +91,37 @@ export function getAdapterForCategory(
 }
 
 /**
+ * Providers with hand-written normalize parsing — a dedicated branch in their
+ * category adapter's normalize switch, not the generic fallback (documents
+ * and project_management are all-generic; crm covers only hubspot/pipedrive,
+ * meetings only fireflies). Long-tail providers outside this set supplement
+ * deterministic signal derivation with the LLM generic-signal-extractor
+ * (Sources plan 5.4).
+ */
+const HAND_WRITTEN_PARSING_PROVIDERS: ReadonlySet<string> = new Set([
+  "gmail",
+  "outlook",
+  "googlecalendar",
+  "outlook_calendar",
+  "cal",
+  "calendly",
+  "stripe",
+  "quickbooks",
+  "googledrive",
+  "dropbox",
+  "onedrive",
+  "hubspot",
+  "pipedrive",
+  "fireflies",
+  "slack",
+]);
+
+/** Whether a provider has hand-written normalize parsing in its category adapter. */
+export function hasHandWrittenParsing(provider: string): boolean {
+  return HAND_WRITTEN_PARSING_PROVIDERS.has(provider);
+}
+
+/**
  * List known category adapters with their hardcoded providers.
  *
  * @deprecated Use DB-backed category lookup via getCategoryForConnector().
@@ -94,7 +130,7 @@ export function getAdapterForCategory(
  */
 export function listCategoryAdapters(): { category: ConnectorCategory; providers: string[] }[] {
   return [
-    { category: "email", providers: ["gmail", "outlook", "yahoo_mail"] },
+    { category: "email", providers: ["gmail", "outlook"] },
     { category: "calendar", providers: ["googlecalendar", "outlook_calendar", "cal", "calendly"] },
     { category: "billing", providers: ["stripe", "quickbooks", "xero"] },
     { category: "storage", providers: ["googledrive", "dropbox", "onedrive"] },

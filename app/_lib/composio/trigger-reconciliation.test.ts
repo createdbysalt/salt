@@ -140,7 +140,9 @@ describe("runTriggerReconciliation", () => {
     // Webhook triggers reject `interval` — the ladder must retry with the
     // filters intact rather than dropping to an unfiltered subscription.
     mockCreateTrigger
-      .mockRejectedValueOnce(new Error("unknown config key: interval"))
+      .mockRejectedValueOnce(
+        Object.assign(new Error("unknown config key: interval"), { status: 400 }),
+      )
       .mockResolvedValueOnce({ triggerId: "t-slack" });
 
     const { runTriggerReconciliation } = await import("./trigger-reconciliation");
@@ -247,12 +249,12 @@ describe("runTriggerReconciliation", () => {
         { slug: "STRIPE_CHARGE_FAILED_TRIGGER", config: null },
       ],
     };
-    // The creation ladder retries a config-less spec once without
-    // triggerConfig, so the bad slug rejects twice before the good slug
-    // succeeds.
+    // A dead slug throws the SDK's typed not-found error (no `status`), which
+    // fails the ladder fast (3.7) — one attempt, then the good slug succeeds.
     mockCreateTrigger
-      .mockRejectedValueOnce(new Error("Trigger type not found"))
-      .mockRejectedValueOnce(new Error("Trigger type not found"))
+      .mockRejectedValueOnce(
+        Object.assign(new Error("Trigger type not found"), { statusCode: 400 }),
+      )
       .mockResolvedValueOnce({ triggerId: "t-good" });
 
     const { runTriggerReconciliation } = await import("./trigger-reconciliation");

@@ -181,63 +181,45 @@ export interface PlaybookDraftStep {
   step: "draft";
   id: string;
   prompt: string;
+  /** Run the prompt once per item of the named source list ({{item.*}} in the prompt). */
+  forEach?: string;
   max_tokens?: number;
-}
-
-export interface PlaybookForEachStep {
-  step: "forEach";
-  id: string;
-  over: string;
-  steps?: PlaybookStep[];
 }
 
 export interface PlaybookBranchStep {
   step: "branch";
   id?: string;
   if?: string;
-  switch?: string;
-  cases?: Record<string, unknown>;
   steps?: PlaybookStep[];
-  goto?: string;
 }
 
-export type PlaybookStepApproval = "required";
+/**
+ * Per-step gate, canonical on every step type:
+ * - required: always pause for a human, never earned away
+ * - ask: pause until earned autonomy for this playbook+tool
+ * - auto (default): workspace trust dial is the ceiling
+ *
+ * Executable on action steps; on other step types it is declared intent
+ * consumed by the output gate and UI.
+ */
+export type PlaybookStepApproval = "auto" | "ask" | "required";
 
 export interface PlaybookActionStep {
   step: "action";
   id?: string;
   tool: string;
   args?: Record<string, unknown>;
+  /** @deprecated Use `approval: "ask"` instead. */
   needsApproval?: boolean;
   approval?: PlaybookStepApproval;
-}
-
-export interface PlaybookComputeStep {
-  step: "compute";
-  id: string;
-  value: string;
-}
-
-export interface PlaybookGotoStep {
-  step: "goto";
-  target: string;
-}
-
-export interface PlaybookLabelStep {
-  step: "label";
-  id: string;
 }
 
 export type PlaybookStep =
   | PlaybookFetchStep
   | PlaybookClassifyStep
   | PlaybookDraftStep
-  | PlaybookForEachStep
   | PlaybookBranchStep
-  | PlaybookActionStep
-  | PlaybookComputeStep
-  | PlaybookGotoStep
-  | PlaybookLabelStep;
+  | PlaybookActionStep;
 
 export interface PlaybookExample {
   label: string;
@@ -271,7 +253,11 @@ export type PlaybookOutputType =
   | "finding"
   | "briefing";
 
-export type PlaybookApprovalMode = "none" | "per_entity" | "batch";
+/**
+ * Output gate after parsing. The schema accepts the legacy modes
+ * (none/per_entity/batch) and normalizes them: none → auto, the rest → ask.
+ */
+export type PlaybookApprovalMode = "auto" | "ask";
 
 export interface PlaybookOutput {
   type: PlaybookOutputType;
@@ -339,6 +325,12 @@ export interface PlaybookDefinitionV2 {
   voice?: string;
   steps?: PlaybookStep[];
   instructions?: PlaybookActionInstructions;
+  /**
+   * Single-document canon: tool allowlist declared in the definition
+   * (replaces tools.yaml). When present, every action step's tool is
+   * validated against this list at parse time.
+   */
+  tools?: string[];
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -499,7 +491,8 @@ export const SECTION_METADATA: Record<PlaybookSection, SectionMetadata> = {
     description: "Your profile and preferences",
     icon: "user",
     memory_types: ["operator", "workspace"],
-    signals: [],
+    // Workspace-scoped onboarding lives here (getting-started playbook).
+    signals: ["connector_connected"],
     templates: ["memory"],
   },
   connections: {

@@ -18,7 +18,16 @@
 import "server-only";
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import type { Tables } from "@/app/_lib/supabase/database.types";
 import { REFLECTION_CONFIG, toSignalSourceWeight, type SignalSourceWeight } from "./types";
+
+/**
+ * The generated row types numeric columns as number, while the domain
+ * mapper expects the raw string form Postgres decimals can arrive in.
+ */
+function mapWeightRow(row: Tables<"signal_source_weights">): SignalSourceWeight {
+  return toSignalSourceWeight({ ...row, weight_adjustment: String(row.weight_adjustment) });
+}
 
 /**
  * Get the weight adjustment for a specific signal source + field type combo.
@@ -78,7 +87,7 @@ export async function getAllSignalSourceWeights(
     return [];
   }
 
-  return (data ?? []).map(toSignalSourceWeight);
+  return (data ?? []).map(mapWeightRow);
 }
 
 /**
@@ -102,7 +111,7 @@ export async function getWeightsForSource(
     return [];
   }
 
-  return (data ?? []).map(toSignalSourceWeight);
+  return (data ?? []).map(mapWeightRow);
 }
 
 /**
@@ -126,7 +135,7 @@ export async function getWeightsForField(
     return [];
   }
 
-  return (data ?? []).map(toSignalSourceWeight);
+  return (data ?? []).map(mapWeightRow);
 }
 
 /**

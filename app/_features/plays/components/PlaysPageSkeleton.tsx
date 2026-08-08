@@ -7,7 +7,6 @@ export function PlaysPageSkeleton({ tab = "queue" }: { tab?: PlaysTab }) {
   if (tab === "playbooks") {
     return (
       <div className="relative min-h-full">
-        <div aria-hidden className="salt-ambient-wash" />
         <div className="mx-auto w-full max-w-[1400px] space-y-8">
           <PlaysTabBarSkeleton />
           <PlaysPlaybooksSkeleton />
@@ -19,7 +18,6 @@ export function PlaysPageSkeleton({ tab = "queue" }: { tab?: PlaysTab }) {
   if (tab === "activity") {
     return (
       <div className="relative min-h-full">
-        <div aria-hidden className="salt-ambient-wash" />
         <div className="mx-auto w-full max-w-[1400px] space-y-8">
           <PlaysTabBarSkeleton />
           <PlaysActivitySkeleton />
@@ -30,7 +28,6 @@ export function PlaysPageSkeleton({ tab = "queue" }: { tab?: PlaysTab }) {
 
   return (
     <div className="relative min-h-full">
-      <div aria-hidden className="salt-ambient-wash" />
       <div className="mx-auto w-full max-w-[1400px] space-y-8">
         <PlaysTabBarSkeleton />
         <PlaysQueueSkeleton />

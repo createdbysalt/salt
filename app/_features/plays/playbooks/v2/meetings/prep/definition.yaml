@@ -33,7 +33,7 @@ steps:
   - step: draft
     id: meeting_brief
     prompt: |
-      Create a brief for the upcoming meeting: {{meeting.title}}
+      Create a brief for the upcoming meetings: {{upcoming_meetings}}
 
       Include:
       - Who's attending and their context

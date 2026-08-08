@@ -1,7 +1,7 @@
 /**
  * Email Category Adapter (Captures V2 Phase 1).
  *
- * Handles all email-like sources: gmail, outlook, yahoo_mail, etc.
+ * Handles all email-like sources: gmail, outlook, etc.
  * Uses shared parsers where available, falls back to generic extraction.
  *
  * Category adapter pattern:
@@ -36,15 +36,21 @@ import {
 } from "@/app/_lib/composio/parsers/gmail-rows";
 import type { CaptureSourceType } from "@/app/_features/capture/types";
 
-type KnownEmailProvider = "gmail" | "outlook" | "yahoo_mail";
+type KnownEmailProvider = "gmail" | "outlook";
 
-const KNOWN_EMAIL_PROVIDERS: KnownEmailProvider[] = ["gmail", "outlook", "yahoo_mail"];
+const KNOWN_EMAIL_PROVIDERS: KnownEmailProvider[] = ["gmail", "outlook"];
 
 /**
  * Email source types the intelligence scan should cover. Single source of
  * truth so the scan follows this adapter as providers are added.
+ *
+ * capture_events.source_type is TEXT (Sources plan 5.2) — providers no longer
+ * need DB enum membership. (yahoo_mail once sat in this list without being in
+ * the enum, silently killing the email digest and daily intelligence scans;
+ * the TEXT column removes that failure class.)
  */
-export const EMAIL_SCAN_SOURCE_TYPES: readonly string[] = KNOWN_EMAIL_PROVIDERS;
+export const EMAIL_SCAN_SOURCE_TYPES: readonly CaptureSourceType[] =
+  KNOWN_EMAIL_PROVIDERS;
 
 /** Attachment metadata for enrichment */
 interface AttachmentMeta {
@@ -74,7 +80,6 @@ interface EmailExtractedData extends Record<string, unknown> {
 const EMAIL_TRIGGER_SLUGS: Record<KnownEmailProvider, string[]> = {
   gmail: ["GMAIL_NEW_GMAIL_MESSAGE"],
   outlook: ["OUTLOOK_MESSAGE_TRIGGER", "OUTLOOK_SENT_MESSAGE_TRIGGER"],
-  yahoo_mail: [], // No triggers available yet - backfill only
 };
 
 function parseAddress(
@@ -213,19 +218,12 @@ const GATE_RELEVANT_HEADERS = new Set([
   "references",
 ]);
 
-function extractGmailHeaders(payload: unknown): Record<string, string> {
-  if (!payload || typeof payload !== "object") return {};
-  const record = payload as Record<string, unknown>;
-  const nested = typeof record.message === "object" && record.message !== null
-    ? (record.message as Record<string, unknown>)
-    : null;
-
-  // Gmail API shape: { payload: { headers: [{ name, value }] } }
-  const apiPayload = (record.payload ?? nested?.payload) as
-    | Record<string, unknown>
-    | undefined;
-  const headerList = apiPayload?.headers ?? record.headers ?? nested?.headers;
-
+/**
+ * Filter a header list ({ name, value } pairs or a flat record) down to the
+ * gate-relevant set. Shared across providers: Gmail's payload.headers and
+ * Outlook's internetMessageHeaders carry the same pair shape.
+ */
+function filterGateHeaders(headerList: unknown): Record<string, string> {
   const result: Record<string, string> = {};
 
   if (Array.isArray(headerList)) {
@@ -251,6 +249,21 @@ function extractGmailHeaders(payload: unknown): Record<string, string> {
   }
 
   return result;
+}
+
+function extractGmailHeaders(payload: unknown): Record<string, string> {
+  if (!payload || typeof payload !== "object") return {};
+  const record = payload as Record<string, unknown>;
+  const nested = typeof record.message === "object" && record.message !== null
+    ? (record.message as Record<string, unknown>)
+    : null;
+
+  // Gmail API shape: { payload: { headers: [{ name, value }] } }
+  const apiPayload = (record.payload ?? nested?.payload) as
+    | Record<string, unknown>
+    | undefined;
+  const headerList = apiPayload?.headers ?? record.headers ?? nested?.headers;
+  return filterGateHeaders(headerList);
 }
 
 function normalizeGmail(payload: unknown): CaptureEnvelope | null {
@@ -383,7 +396,7 @@ function normalizeOutlook(payload: unknown): CaptureEnvelope | null {
   if (isMinimalPayload) {
     // Return a placeholder envelope that signals need for hydration
     return {
-      sourceType: "outlook" as CaptureSourceType,
+      sourceType: "outlook",
       captureType: "message",
       externalId,
       title: null,
@@ -471,7 +484,7 @@ function normalizeOutlook(payload: unknown): CaptureEnvelope | null {
   };
 
   return {
-    sourceType: "outlook" as CaptureSourceType,
+    sourceType: "outlook",
     captureType: "message",
     externalId,
     title: subject,
@@ -483,10 +496,15 @@ function normalizeOutlook(payload: unknown): CaptureEnvelope | null {
       messageId: externalId,
       conversationId,
       hasAttachments,
+      // Pre-ingest gate reads raw.headers for List-Unsubscribe / Precedence /
+      // Auto-Submitted checks. Graph carries them as internetMessageHeaders
+      // {name, value} pairs — present on hydrated fetches that request them;
+      // absent means no header gating, same as before (2.7 parity with Gmail).
+      headers: filterGateHeaders(record.internetMessageHeaders),
       source: "composio_trigger",
     },
     noise: {
-      sourceType: "outlook" as CaptureSourceType,
+      sourceType: "outlook",
       fromEmail: fromEmail?.toLowerCase() ?? undefined,
       subject: subject ?? undefined,
       isSentByUser,
@@ -566,7 +584,14 @@ function normalizeGenericEmail(
       messageId: externalId,
       source: "composio_trigger",
     },
-    noise: null,
+    // Message captures must consult the noise gate (conformance harness) —
+    // generic providers get the same gate inputs as known ones.
+    noise: {
+      sourceType,
+      fromEmail: participants[0]?.email ?? undefined,
+      subject: subject ?? undefined,
+      isSentByUser: false,
+    },
   };
 }
 
@@ -580,7 +605,7 @@ export function createEmailCategoryAdapter(provider: string): CaptureAdapter {
     : []; // Unknown providers: triggers come from DB
 
   return {
-    sourceType: provider as CaptureSourceType,
+    sourceType: provider,
     toolkit: provider,
     triggerSlugs,
     deriveSignals: deriveEmailSignals,
@@ -594,7 +619,7 @@ export function createEmailCategoryAdapter(provider: string): CaptureAdapter {
           return normalizeOutlook(payload);
         default:
           // Any unknown email provider gets generic extraction
-          return normalizeGenericEmail(payload, provider as CaptureSourceType);
+          return normalizeGenericEmail(payload, provider);
       }
     },
   };

@@ -1,11 +1,12 @@
-import { Home, Network, Play, Brain, Settings, ChevronDown } from "lucide-react";
+import { LayoutDashboard, Play, Bolt, Brain, Settings, ChevronDown } from "lucide-react";
 import { SALT_LOGO_PATH } from "../constants";
 import { cn } from "@repo/utils";
 
+// Mirrors AppSidebar TOP_NAV order: HQ → Plays → Sources → Memory.
 const topNav = [
-  { icon: Home, label: "HQ", active: true, badge: null as number | null, expandable: false },
+  { icon: LayoutDashboard, label: "HQ", active: true, badge: null as number | null, expandable: false },
   { icon: Play, label: "Plays", active: false, badge: 6, expandable: false },
-  { icon: Network, label: "Connections", active: false, badge: null, expandable: false },
+  { icon: Bolt, label: "Sources", active: false, badge: null, expandable: false },
   { icon: Brain, label: "Memory", active: false, badge: null, expandable: true },
 ];
 

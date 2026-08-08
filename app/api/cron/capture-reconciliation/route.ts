@@ -9,30 +9,16 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { assertInternalSecret } from "@/app/_lib/security/assert-internal-secret";
 import { runCaptureReconciliation } from "@/app/_features/capture/services/capture-reconciliation";
-
-const CRON_SECRET = process.env.CRON_SECRET;
 
 export const maxDuration = 300;
 
 export async function GET(req: NextRequest) {
   const startTime = Date.now();
 
-  if (!CRON_SECRET) {
-    console.error("[Capture reconciliation cron] CRON_SECRET not configured");
-    return NextResponse.json(
-      { error: "Server configuration error" },
-      { status: 500 },
-    );
-  }
-
-  const authHeader = req.headers.get("Authorization");
-  const token = authHeader?.replace("Bearer ", "");
-
-  if (!token || token !== CRON_SECRET) {
-    console.warn("[Capture reconciliation cron] Unauthorized request attempt");
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const unauthorized = assertInternalSecret(req, "[Capture reconciliation cron]");
+  if (unauthorized) return unauthorized;
 
   try {
     const result = await runCaptureReconciliation();
@@ -50,6 +36,7 @@ export async function GET(req: NextRequest) {
       connectionsSeen: result.connectionsSeen,
       connectionsReconciled: result.connectionsReconciled,
       capturesCreated: result.capturesCreated,
+      skipped: result.skipped,
       failures: result.failures.length,
       webhookVolume: result.webhookVolume,
     });

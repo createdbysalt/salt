@@ -80,6 +80,14 @@ export const TONE_SOFT: Record<Tone, string> = {
   ink: "bg-foreground/8 text-foreground",
 };
 
+export const TONE_TEXT: Record<Tone, string> = {
+  flame: "text-flame",
+  sky: "text-sky",
+  violet: "text-violet",
+  muted: "text-muted-foreground",
+  ink: "text-foreground",
+};
+
 export function playerById(id: PlayerId | string): Player {
   const normalized = id === "keeper" ? "memory-care" : id;
   const player =

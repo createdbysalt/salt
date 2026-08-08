@@ -263,21 +263,39 @@ export async function isBlocked(
   }
 
   if (checks.senderName) {
-    const { data: patternData } = await admin
-      .from("capture_blocklist")
-      .select("*")
-      .eq("workspace_id", workspaceId)
-      .eq("type", "sender_pattern")
-      .limit(100);
+    // Page through ALL sender patterns (2.10): a flat .limit(100) silently
+    // stopped enforcing entries 101+ — a blocklist that quietly un-enforces
+    // is worse than none. Stable order so pages never skip under inserts.
+    const PATTERN_PAGE_SIZE = 100;
+    for (let offset = 0; ; offset += PATTERN_PAGE_SIZE) {
+      const { data: patternData, error: patternError } = await admin
+        .from("capture_blocklist")
+        .select("*")
+        .eq("workspace_id", workspaceId)
+        .eq("type", "sender_pattern")
+        .order("id")
+        .range(offset, offset + PATTERN_PAGE_SIZE - 1);
 
-    for (const entry of patternData ?? []) {
-      if (matchesSenderGlobPattern(entry.value, checks.senderName)) {
-        return {
-          blocked: true,
-          reason: entry.reason ?? `Matched sender pattern: ${entry.value}`,
-          matchedEntry: mapBlocklistEntry(entry),
-        };
+      if (patternError) {
+        // Fail open on infra errors, same bargain as the exact-match path.
+        console.error(
+          "[blocklist-manager] sender-pattern load error:",
+          patternError,
+        );
+        break;
       }
+
+      for (const entry of patternData ?? []) {
+        if (matchesSenderGlobPattern(entry.value, checks.senderName)) {
+          return {
+            blocked: true,
+            reason: entry.reason ?? `Matched sender pattern: ${entry.value}`,
+            matchedEntry: mapBlocklistEntry(entry),
+          };
+        }
+      }
+
+      if (!patternData || patternData.length < PATTERN_PAGE_SIZE) break;
     }
   }
 

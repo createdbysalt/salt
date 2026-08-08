@@ -10,7 +10,6 @@
  */
 
 import type { AskSaltContext } from "@/app/_features/shell/components/AskSaltPanel";
-import { playerById, type PlayerId } from "@/app/_lib/demo/plays-demo-data";
 import {
   SECTION_METADATA,
   type PlaybookSection,
@@ -19,7 +18,8 @@ import {
   type PlaybookApprovalMode,
 } from "../playbooks/schema/v2/types";
 import type { PlayRunRow } from "../types";
-import type { PlayCardViewModel, PlayCardKind, PlayCardErrorState } from "./types";
+import type { PlayCardViewModel, PlayCardKind, PlayCardErrorState, PlayArtifact } from "./types";
+import { buildPlayHeadline, summarizeEvidence, type PlayEvidenceItem } from "../lib/play-headline";
 
 interface V2Resolution {
   playbookSlug: string;
@@ -72,7 +72,7 @@ function resolveV2PlaybookFromMetadata(row: PlayRunRow): V2Resolution | null {
     sectionLabel: sectionMeta?.name ?? section,
     layer: (meta?.layer as PlaybookLayer) ?? "learn",
     outputType: (meta?.output_type as PlaybookOutputType) ?? "memory_update",
-    approvalMode: "per_entity",
+    approvalMode: "ask",
     autoApplyThreshold: null,
     confidenceExplanation: null,
     valueEstimate: null,
@@ -135,8 +135,8 @@ export function mapPlayRunToCardClient(row: PlayRunRow): PlayCardViewModel {
   const v2 = resolveV2PlaybookFromMetadata(row);
   const error = detectErrors(row, v2);
 
-  const playerSlug = resolvePlayerSlug(row);
-  const player = playerById(playerSlug);
+  // Legacy attribution (deprecated) — pass-through, no demo-player fallback
+  const playerSlug = row.player_slug ?? null;
   const kind = v2 ? kindFromOutputType(v2.outputType) : resolveKind(row);
 
   const ageMinutes = Math.round(
@@ -155,9 +155,12 @@ export function mapPlayRunToCardClient(row: PlayRunRow): PlayCardViewModel {
     id: row.id,
     title: row.title,
     recipientLabel: row.recipient_label ?? row.target_label ?? "this record",
-    sourceLabel: v2?.sectionLabel ?? player.name,
+    sourceLabel: v2?.sectionLabel ?? row.player_name ?? "Salt",
     href: "/plays",
   };
+
+  const stepPosition = readStepPosition(row);
+  const sourceAppLabel = channelAppLabel(row.channel, readMetadataString(row, "source_url"));
 
   return {
     id: row.id,
@@ -175,9 +178,15 @@ export function mapPlayRunToCardClient(row: PlayRunRow): PlayCardViewModel {
     valueEstimate: v2?.valueEstimate ?? null,
 
     playerSlug,
-    playerName: row.player_name ?? player.name,
+    playerName: row.player_name ?? null,
 
     subject: row.title,
+    headline: buildPlayHeadline({
+      headline: readMetadataString(row, "headline"),
+      subject: row.title,
+      targetLabel: row.recipient_label ?? row.target_label,
+      outputType: v2?.outputType ?? null,
+    }),
     targetLabel: row.recipient_label ?? row.target_label,
     targetPrefix: kind === "acting" ? "To" : "For",
     preview: row.paused_for_approval && row.approval_context
@@ -189,6 +198,15 @@ export function mapPlayRunToCardClient(row: PlayRunRow): PlayCardViewModel {
     triggerLabel: v2 ? row.source_context?.trigger_signal ?? null : readMetadataString(row, "trigger_label"),
     channel: row.channel,
     sourceUrl: readMetadataString(row, "source_url"),
+    stepPosition,
+    artifacts: readArtifacts(row),
+    evidence: summarizeEvidence({
+      triggerLabel: v2 ? row.source_context?.trigger_signal ?? null : readMetadataString(row, "trigger_label"),
+      sourceUrl: readMetadataString(row, "source_url"),
+      sourceAppLabel: sourceAppLabel,
+      confidenceExplanation: v2?.confidenceExplanation ?? null,
+      entries: readEvidenceEntries(row),
+    }),
 
     acting:
       kind === "acting"
@@ -251,27 +269,6 @@ export function mapPlayRunToCardClient(row: PlayRunRow): PlayCardViewModel {
   };
 }
 
-function resolvePlayerSlug(row: PlayRunRow): PlayerId {
-  if (row.player_slug && isValidPlayerSlug(normalizePlayerSlug(row.player_slug))) {
-    return normalizePlayerSlug(row.player_slug) as PlayerId;
-  }
-  const meta = row.metadata;
-  if (meta && typeof meta === "object" && typeof meta.player_slug === "string") {
-    const normalized = normalizePlayerSlug(meta.player_slug);
-    if (isValidPlayerSlug(normalized)) return normalized;
-  }
-  return "brief";
-}
-
-/** The retired "keeper" slug maps onto Memory Care. */
-function normalizePlayerSlug(slug: string): string {
-  return slug === "keeper" ? "memory-care" : slug;
-}
-
-function isValidPlayerSlug(slug: string): slug is PlayerId {
-  return ["follow-up", "brief", "client-risk", "scope", "billing", "memory-care"].includes(slug);
-}
-
 function resolveKind(row: PlayRunRow): PlayCardKind {
   const meta = row.metadata;
   if (meta && typeof meta === "object") {
@@ -292,6 +289,81 @@ function resolveKind(row: PlayRunRow): PlayCardKind {
 
 function isValidKind(kind: string): kind is PlayCardKind {
   return ["acting", "profile", "question", "risk", "routing"].includes(kind);
+}
+
+/** Per-app prepared artifacts, from metadata.artifacts (executor-written). */
+function readArtifacts(row: PlayRunRow): PlayArtifact[] | null {
+  const meta = row.metadata as Record<string, unknown> | null;
+  const raw = meta?.artifacts;
+  if (!Array.isArray(raw)) return null;
+  const items = raw.filter(
+    (a): a is PlayArtifact =>
+      !!a &&
+      typeof a === "object" &&
+      typeof (a as PlayArtifact).appId === "string" &&
+      typeof (a as PlayArtifact).label === "string",
+  );
+  return items.length ? items : null;
+}
+
+/** Reasoning-chain entries, from metadata.evidence (executor-written). */
+function readEvidenceEntries(row: PlayRunRow): PlayEvidenceItem[] | undefined {
+  const meta = row.metadata as Record<string, unknown> | null;
+  const raw = meta?.evidence;
+  if (!Array.isArray(raw)) return undefined;
+  const items = raw.filter(
+    (e): e is PlayEvidenceItem =>
+      !!e && typeof e === "object" && typeof (e as PlayEvidenceItem).label === "string",
+  );
+  return items.length ? items : undefined;
+}
+
+/** "Step N of M" for the card face, from step_history + approval_context. */
+function readStepPosition(
+  row: PlayRunRow,
+): { current: number; total: number | null; label: string | null } | null {
+  const meta = row.metadata as Record<string, unknown> | null;
+  const history = Array.isArray(meta?.step_history) ? meta!.step_history.length : 0;
+  const totalRaw = meta?.total_steps;
+  const total = typeof totalRaw === "number" && totalRaw > 0 ? totalRaw : null;
+
+  const approvalIndex = row.approval_context?.step_index;
+  const current =
+    typeof approvalIndex === "number"
+      ? approvalIndex + 1
+      : history > 0
+        ? history + 1
+        : // Queued run waiting at its first gate — step 1 by definition.
+          total != null
+          ? 1
+          : null;
+
+  if (current == null) return null;
+  const label =
+    (typeof row.approval_context?.tool_slug === "string" &&
+      formatToolSlug(row.approval_context.tool_slug)) ||
+    null;
+  return { current, total, label };
+}
+
+function channelAppLabel(
+  channel: string | null,
+  sourceUrl: string | null,
+): string | null {
+  const host = (() => {
+    if (!sourceUrl) return "";
+    try {
+      return new URL(sourceUrl).hostname.toLowerCase();
+    } catch {
+      return "";
+    }
+  })();
+  if (host.includes("mail.google") || host.includes("gmail")) return "Gmail";
+  if (host.includes("stripe")) return "Stripe";
+  if (host.includes("calendar.google")) return "Google Calendar";
+  if (channel === "Gmail" || channel === "Email") return "Gmail";
+  if (channel === "Stripe") return "Stripe";
+  return channel;
 }
 
 function readMetadataString(row: PlayRunRow, key: string): string | null {

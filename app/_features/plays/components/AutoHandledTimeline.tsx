@@ -20,8 +20,6 @@ interface AutoHandledTimelineProps {
   pageSize?: number;
 }
 
-type GroupedCards = Array<{ label: string; cards: PlayCardViewModel[] }>;
-
 const DEFAULT_PAGE_SIZE = 50;
 
 export function AutoHandledTimeline({
@@ -59,17 +57,10 @@ export function AutoHandledTimeline({
   const totalCount = allCards.length;
   const hasMore = visibleCount < totalCount;
 
-  const grouped = useMemo<GroupedCards>(() => {
-    const visibleCards = allCards.slice(0, visibleCount);
-    const groups = new Map<string, PlayCardViewModel[]>();
-    for (const card of visibleCards) {
-      const label = formatDay(card.handled?.handledAt ?? new Date().toISOString());
-      const current = groups.get(label) ?? [];
-      current.push(card);
-      groups.set(label, current);
-    }
-    return [...groups.entries()].map(([label, groupCards]) => ({ label, cards: groupCards }));
-  }, [allCards, visibleCount]);
+  const visibleCards = useMemo(
+    () => allCards.slice(0, visibleCount),
+    [allCards, visibleCount],
+  );
 
   const handleLoadMore = () => {
     setIsLoadingMore(true);
@@ -126,7 +117,7 @@ export function AutoHandledTimeline({
     })();
   };
 
-  if (grouped.length === 0) {
+  if (visibleCards.length === 0) {
     return (
       <PlaysTabEmptyState
         icon={CheckCircle2}
@@ -138,37 +129,30 @@ export function AutoHandledTimeline({
 
   return (
     <section className="space-y-6" aria-label="Auto-handled plays">
-      {grouped.map((group) => (
-        <div key={group.label} className="space-y-3">
-          <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-            {group.label}
-          </h3>
-          <div className="space-y-2.5">
-            {group.cards.map((vm) => (
-              <PlayCard
-                key={vm.id}
-                vm={vm}
-                draft={[]}
-                isEditing={false}
-                isPending={Boolean(pending[vm.id])}
-                flagged={false}
-                onStartEdit={() => {}}
-                onStopEdit={() => {}}
-                onDraftChange={() => {}}
-                onPrimary={() => {}}
-                onDismiss={() => {}}
-                onFlag={() => {}}
-                onSchedule={() => {}}
-                onEditWithSalt={() => handleCorrect(vm)}
-                onAnswer={() => {}}
-                onUndo={() => handleUndo(vm)}
-                onFeedback={(type) => handleFeedback(vm, type)}
-                feedbackGiven={feedback[vm.id]}
-              />
-            ))}
-          </div>
-        </div>
-      ))}
+      <div className="space-y-2.5">
+        {visibleCards.map((vm) => (
+          <PlayCard
+            key={vm.id}
+            vm={vm}
+            draft={[]}
+            isEditing={false}
+            isPending={Boolean(pending[vm.id])}
+            flagged={false}
+            onStartEdit={() => {}}
+            onStopEdit={() => {}}
+            onDraftChange={() => {}}
+            onPrimary={() => {}}
+            onDismiss={() => {}}
+            onFlag={() => {}}
+            onSchedule={() => {}}
+            onEditWithSalt={() => handleCorrect(vm)}
+            onAnswer={() => {}}
+            onUndo={() => handleUndo(vm)}
+            onFeedback={(type) => handleFeedback(vm, type)}
+            feedbackGiven={feedback[vm.id]}
+          />
+        ))}
+      </div>
 
       {hasMore && (
         <div className="flex justify-center pt-2">
@@ -189,19 +173,4 @@ export function AutoHandledTimeline({
       )}
     </section>
   );
-}
-
-function formatDay(iso: string): string {
-  const date = new Date(iso);
-  const today = new Date();
-  const yesterday = new Date();
-  yesterday.setDate(today.getDate() - 1);
-
-  if (date.toDateString() === today.toDateString()) return "Today";
-  if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
-
-  return new Intl.DateTimeFormat(undefined, {
-    month: "short",
-    day: "numeric",
-  }).format(date);
 }

@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
-import { memoryAccumulateEvidence } from "@/app/_lib/memory-tools";
+import type { Json } from "@/app/_lib/supabase/database.types";
 import type { EvidenceType } from "@/app/_lib/learning";
 import { scheduleOrgHealthRecompute } from "@/app/_features/orgs/health/recompute";
 import { scheduleRelationshipHealthRecompute } from "@/app/_features/people/health/recompute";
@@ -85,7 +85,9 @@ export async function writeProfileFieldProvenance(input: {
     source: input.source,
     rule_id: input.ruleId,
     confidence: input.confidence,
-    evidence: input.evidence,
+    // Boundary cast into the Json column; evidence arrives as
+    // Record<string, unknown> from ProfileFieldResult.
+    evidence: input.evidence as Json,
     blueprint_slug: input.blueprintSlug as string | null,
     blueprint_version: input.blueprintVersion,
     status: input.status,
@@ -119,11 +121,6 @@ export async function applyProfileFieldResults(input: {
   results: ProfileFieldResult[];
   blueprintSlug: string;
   blueprintVersion: number;
-  /**
-   * When true, Salt has a real person but couldn't classify the relationship.
-   * Emit a one-tap Watching question instead of guessing — never gate saving.
-   */
-  relationshipUnknown?: boolean;
   /** Source tracking for evidence accumulation. */
   sourceType?: string;
   sourceCaptureId?: string;
@@ -137,16 +134,6 @@ export async function applyProfileFieldResults(input: {
   }
 
   const targetLabel = await resolveProfileTargetLabel(entityType, entityId);
-
-  if (input.relationshipUnknown && entityType === "person") {
-    await maybeEmitRelationshipQuestion({
-      admin,
-      workspaceId: input.workspaceId,
-      personId: entityId,
-      targetLabel,
-      results: input.results,
-    });
-  }
 
   for (const result of input.results) {
     if (!result.value) {
@@ -224,11 +211,12 @@ async function getCurrentFieldValue(
   field: string,
 ): Promise<unknown> {
   if (entityType === "person") {
+    // No company_name mapping: people has no company column — org linkage
+    // lives in organization_people.
     const fieldMap: Record<string, string> = {
       relationship_type: "relationship_type",
       title: "title",
       record_status: "relationship_type", // Maps to same column
-      company_name: "company",
       email: "email",
       phone: "phone",
     };
@@ -296,21 +284,21 @@ async function applyEntityFieldUpdate(
       return;
     }
 
-    if (field === "company_name") {
-      await admin
-        .from("people")
-        .update({ company: value })
-        .eq("id", entityId)
-        .eq("workspace_id", workspaceId);
-      return;
-    }
+    // No company_name branch: people has no company column (the field is not
+    // in PersonProfileFieldKey either) — the old update could never persist.
   }
 
   if (entityType === "organization") {
     if (field === "website" || field === "industry" || field === "relationship_status") {
+      // Assignment through the narrowed key union keeps the patch typed to
+      // real columns (a computed key would widen to a string index signature).
+      const orgPatch: Partial<
+        Record<"website" | "industry" | "relationship_status", string>
+      > = {};
+      orgPatch[field] = value;
       await admin
         .from("organizations")
-        .update({ [field]: value, updated_at: new Date().toISOString() })
+        .update({ ...orgPatch, updated_at: new Date().toISOString() })
         .eq("id", entityId)
         .eq("workspace_id", workspaceId);
       if (field === "relationship_status") scheduleOrgHealthRecompute(entityId);
@@ -355,57 +343,7 @@ async function applyEntityFieldUpdate(
   }
 }
 
-/**
- * Emit a one-tap relationship question as a Watching evidence item when Salt
- * has a real person but couldn't classify the relationship. Replaces the
- * retired question play_run — the user answers from Memory → Filter.
- */
-async function maybeEmitRelationshipQuestion(input: {
-  admin: ReturnType<typeof createAdminClient>;
-  workspaceId: string;
-  personId: string;
-  targetLabel: string | null;
-  results: ProfileFieldResult[];
-}): Promise<void> {
-  // If Salt did land a relationship value, there is nothing to ask.
-  const hasRelationshipResult = input.results.some(
-    (result) => result.field === "relationship_type" && result.value?.trim(),
-  );
-  if (hasRelationshipResult) return;
-
-  // Dedupe: don't stack unanswered questions for the same person + field.
-  const { data: existing } = await input.admin
-    .from("entity_evidence")
-    .select("id")
-    .eq("workspace_id", input.workspaceId)
-    .eq("entity_type", "person")
-    .eq("entity_id", input.personId)
-    .eq("field_path", "_relationship_question")
-    .is("resolved_at", null)
-    .limit(1)
-    .maybeSingle();
-
-  if (existing?.id) return;
-
-  const target = input.targetLabel?.trim() || "this contact";
-  await memoryAccumulateEvidence({
-    workspaceId: input.workspaceId,
-    entityType: "person",
-    entityId: input.personId,
-    field: "_relationship_question",
-    value: {
-      prompt: `How do you know ${target}?`,
-      options: [
-        { value: "client", label: "Client" },
-        { value: "prospect", label: "Prospect" },
-        { value: "partner", label: "Partner" },
-        { value: "vendor", label: "Vendor" },
-      ],
-    },
-    confidence: 0,
-    evidenceType: "behavioral_signal",
-    because: `Salt couldn't determine the relationship for ${target}. One tap sets it.`,
-    source: "care",
-    sourceDetails: { playbookSlug: "memory-records" },
-  });
-}
+// Retired 2026-08-08 (founder call): the `_relationship_question` one-tap
+// Watching item is gone. Its UI was never built, it rendered as a JSON blob,
+// and a question at confidence 0 violates the Watching contract (concrete
+// proposals only). Relationship stays unclassified until evidence arrives.

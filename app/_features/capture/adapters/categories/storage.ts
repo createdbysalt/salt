@@ -121,7 +121,7 @@ function normalizeGoogleDrive(payload: unknown): CaptureEnvelope | null {
         : null;
 
   return {
-    sourceType: "googledrive" as CaptureSourceType,
+    sourceType: "googledrive",
     captureType: "file",
     externalId,
     title: name,
@@ -180,7 +180,7 @@ function normalizeDropbox(payload: unknown): CaptureEnvelope | null {
       : null;
 
   return {
-    sourceType: "dropbox" as CaptureSourceType,
+    sourceType: "dropbox",
     captureType: "file",
     externalId,
     title: name,
@@ -241,7 +241,7 @@ function normalizeOneDrive(payload: unknown): CaptureEnvelope | null {
     : [];
 
   return {
-    sourceType: "onedrive" as CaptureSourceType,
+    sourceType: "onedrive",
     captureType: "file",
     externalId,
     title: name,
@@ -317,7 +317,7 @@ export function createStorageCategoryAdapter(provider: string): CaptureAdapter {
     : []; // Unknown providers: triggers come from DB
 
   return {
-    sourceType: provider as CaptureSourceType,
+    sourceType: provider,
     toolkit: provider,
     triggerSlugs,
     deriveSignals: deriveStorageSignals,
@@ -333,7 +333,7 @@ export function createStorageCategoryAdapter(provider: string): CaptureAdapter {
           return normalizeOneDrive(payload);
         default:
           // Any unknown storage provider gets generic extraction
-          return normalizeGenericStorage(payload, provider as CaptureSourceType);
+          return normalizeGenericStorage(payload, provider);
       }
     },
   };

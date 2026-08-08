@@ -108,7 +108,7 @@ export async function memoryGetOrphanRecords(
   if (!entityType || entityType === "file") {
     const { data: files } = await supabase
       .from("files")
-      .select("id, title, filename")
+      .select("id, file_name")
       .eq("workspace_id", workspaceId)
       .is("deleted_at", null)
       .is("archived_at", null)
@@ -125,7 +125,7 @@ export async function memoryGetOrphanRecords(
           records.push({
             id: file.id,
             entityType: "file",
-            name: file.title || file.filename || "Unknown",
+            name: file.file_name || "Unknown",
             signal: "file_orphan",
             severity: 60,
             suggestedAction: "Link to entity or mark as standalone",
@@ -138,13 +138,14 @@ export async function memoryGetOrphanRecords(
   if (!entityType || entityType === "billing") {
     const { data: billing } = await supabase
       .from("billing_records")
-      .select("id, number, organization_id, person_id, project_id")
+      // billing_records has no project_id column — the work link is work_id
+      .select("id, number, organization_id, person_id, work_id")
       .eq("workspace_id", workspaceId)
       .is("deleted_at", null)
       .is("archived_at", null)
       .is("organization_id", null)
       .is("person_id", null)
-      .is("project_id", null)
+      .is("work_id", null)
       .limit(limit);
 
     if (billing) {

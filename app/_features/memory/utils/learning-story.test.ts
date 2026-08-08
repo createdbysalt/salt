@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { buildLearningStory, formatFieldLabel } from "./learning-story";
+import {
+  buildLearningStory,
+  formatFieldLabel,
+  formatSourceLabel,
+} from "./learning-story";
 import type {
   GroupedLearningEvidence,
   LearningField,
@@ -169,7 +173,7 @@ describe("buildLearningStory", () => {
     expect(story.primarySentence).toBe("I think Jane Example works at Meridian Corp.");
   });
 
-  it("renders link candidates without target as gathering evidence (defensive)", () => {
+  it("keeps link copy proposal-shaped even without a target (defensive)", () => {
     const story = buildLearningStory(
       makeEvidence([
         makeField({
@@ -181,8 +185,9 @@ describe("buildLearningStory", () => {
     );
     expect(story.kind).toBe("link");
     expect(story.primarySentence).toBe(
-      "I'm gathering evidence to connect Jane Example to an organization.",
+      "I think Jane Example works at an organization.",
     );
+    expect(story.primarySentence).not.toContain("gathering evidence");
   });
 
   it("picks the reason from the highest-confidence field that has one", () => {
@@ -249,5 +254,28 @@ describe("formatFieldLabel", () => {
 
   it("humanizes unknown snake_case fields", () => {
     expect(formatFieldLabel("preferred_channel")).toBe("Preferred Channel");
+  });
+});
+
+describe("formatSourceLabel", () => {
+  it("maps tool sources to plain English", () => {
+    expect(formatSourceLabel("care")).toBe("Memory Care");
+    expect(formatSourceLabel("playbook")).toBe("Memory Care");
+    expect(formatSourceLabel("ask_salt")).toBe("You told me");
+    expect(formatSourceLabel("manual")).toBe("You set this");
+  });
+
+  it("maps connected-account sources to product names", () => {
+    expect(formatSourceLabel("gmail")).toBe("Gmail");
+    expect(formatSourceLabel("googlecalendar")).toBe("Google Calendar");
+    expect(formatSourceLabel("outlook_calendar")).toBe("Outlook Calendar");
+    expect(formatSourceLabel("quickbooks")).toBe("QuickBooks");
+  });
+
+  it("never shows a raw slug for unknown sources", () => {
+    expect(formatSourceLabel("memory_care_debug_probe")).toBe(
+      "Memory Care Debug Probe",
+    );
+    expect(formatSourceLabel("some-new-tool")).toBe("Some New Tool");
   });
 });

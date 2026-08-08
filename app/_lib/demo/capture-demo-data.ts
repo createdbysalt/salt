@@ -9,9 +9,9 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { PlayerId } from "@/app/_lib/demo/plays-demo-data";
+import type { CaptureStatus, StreamEntry } from "@/app/_features/capture/types";
 
 export type CaptureSource = "added" | "found";
-export type CaptureStatus = "pending" | "auto-routed" | "confirmed" | "dismissed";
 export type CaptureOrigin =
   | "manual"
   | "gmail"
@@ -187,31 +187,6 @@ export const PENDING_CAPTURES: PendingCapture[] = [
   },
 ];
 
-export type StreamEntry = {
-  id: string;
-  dayGroup: "Today" | "Yesterday" | "Earlier this week";
-  time: string;
-  source: CaptureSource;
-  origin: CaptureOrigin;
-  status: CaptureStatus;
-  snippet: string;
-  routedTo: string;
-  trigger?: string;
-  sources?: string[];
-  learned?: string;
-  extractedData?: Record<string, unknown>;
-  enrichedMetadata?: {
-    signals_matched: string[];
-    linked_records: Array<{ surface: string; entity_id: string; entity_label: string; confidence: number }>;
-    play_fit: Record<string, { score: number; reason: string; matched_signals?: string[]; threshold?: number; meets_threshold?: boolean }>;
-    plays_dispatched?: Array<{ play_slug: string; play_name: string; play_run_id: string; state: string; dispatched_at: string }>;
-    watches_triggered?: Array<{ entity_id: string; entity_label: string; surface: string; match_type: string; matched_value: string }>;
-  };
-  from?: string;
-  sourceUrl?: string;
-  isBootstrap?: boolean;
-};
-
 export const CAPTURE_STREAM: StreamEntry[] = [
   {
     id: "s-1",
@@ -272,7 +247,7 @@ export const CAPTURE_STREAM: StreamEntry[] = [
     dayGroup: "Today",
     time: "11:20 AM",
     source: "found",
-    origin: "calendar",
+    origin: "googlecalendar",
     status: "pending",
     snippet:
       "Salt finished grouping the new context from Gmail, Calendar, Drive, and Stripe. Found people, organizations, work, files, notes, relationships, and original sources.",
@@ -339,7 +314,7 @@ export const CAPTURE_STREAM: StreamEntry[] = [
     dayGroup: "Earlier this week",
     time: "Mon 9:48 AM",
     source: "found",
-    origin: "drive",
+    origin: "googledrive",
     status: "confirmed",
     snippet: "New Atlas Coaching SOW uploaded to Drive with updated tooling assumptions.",
     routedTo: "Memory · Atlas Coaching",

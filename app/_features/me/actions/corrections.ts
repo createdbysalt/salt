@@ -12,6 +12,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/app/_lib/supabase/server";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import type { Json } from "@/app/_lib/supabase/database.types";
 import { getTenantContext } from "@/app/_features/auth/queries";
 import { resolveEvidence, type LearningEntityType } from "@/app/_lib/learning";
 import { incrementReflectionTrigger } from "@/app/_features/memory/care/reflection/triggers";
@@ -211,8 +212,10 @@ export async function recordCorrection(
       entity_type: input.entityType,
       entity_id: input.entityId,
       field_path: input.fieldPath,
-      wrong_value: input.wrongValue,
-      correct_value: input.correctValue ?? null,
+      // wrongValue/correctValue arrive as unknown from callers; the DB columns
+      // are jsonb, so narrow at the write boundary only.
+      wrong_value: input.wrongValue as Json,
+      correct_value: (input.correctValue ?? null) as Json,
       correction_type: input.correctionType,
       correction_reason: input.correctionReason ?? null,
       user_explanation: input.userExplanation ?? null,
@@ -419,7 +422,7 @@ export async function recordConversationalCorrection(input: {
     await admin
       .from("correction_events")
       .update({
-        extracted_patterns: input.extractedPatterns ?? [],
+        extracted_patterns: (input.extractedPatterns ?? []) as Json,
         resulting_fact_id: input.resultingFactId ?? null,
       })
       .eq("id", result.id);

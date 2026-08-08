@@ -36,8 +36,13 @@ import {
   resolveEvidence,
 } from "@/app/_lib/learning";
 import { isNeverTouchField } from "@/app/_lib/learning/field-tiers";
+import {
+  findBlockingCorrection,
+  getCorrectionBlocklist,
+} from "@/app/_lib/learning/correction-blocklist";
 import { getWorkspaceThreshold } from "./get-threshold";
-import type { UpdateFieldInput, UpdateFieldResult } from "./types";
+import type { Json } from "@/app/_lib/supabase/database.types";
+import type { TableUpdate, UpdateFieldInput, UpdateFieldResult } from "./types";
 
 /**
  * Update a Memory field with confidence-gated protection.
@@ -57,6 +62,27 @@ export async function memoryUpdateField(
       confidence: input.confidence,
       message: `Refused: ${input.field} is a never-touch field and is never auto-written`,
     };
+  }
+
+  // Correction read-forward: a value the user dismissed ("Not this") is
+  // never re-proposed or re-applied by automated callers. Manual writes
+  // bypass — the user re-accepting a dismissed value always wins.
+  if (input.source !== "manual") {
+    const blocklist = await getCorrectionBlocklist(
+      input.workspaceId,
+      input.entityType,
+      input.entityId,
+      input.field
+    );
+    const blocking = findBlockingCorrection(blocklist, input.field, input.value);
+    if (blocking) {
+      return {
+        action: "rejected",
+        threshold: Number.POSITIVE_INFINITY,
+        confidence: input.confidence,
+        message: `Refused: value was previously corrected by the user (correction ${blocking.id})`,
+      };
+    }
   }
 
   const { threshold: workspaceThreshold } = await getWorkspaceThreshold(
@@ -222,7 +248,7 @@ async function updatePersonField(
   admin: ReturnType<typeof createAdminClient>,
   input: UpdateFieldInput
 ): Promise<void> {
-  const fieldMap: Record<string, string> = {
+  const fieldMap: Record<string, keyof TableUpdate<"people">> = {
     relationship_type: "relationship_type",
     title: "title",
     email: "email",
@@ -261,7 +287,7 @@ async function updatePersonField(
 
   await admin
     .from("people")
-    .update({ [dbField]: input.value })
+    .update({ [dbField]: input.value } as TableUpdate<"people">)
     .eq("id", input.entityId)
     .eq("workspace_id", input.workspaceId);
 }
@@ -320,7 +346,7 @@ async function updateOrgField(
   admin: ReturnType<typeof createAdminClient>,
   input: UpdateFieldInput
 ): Promise<void> {
-  const fieldMap: Record<string, string> = {
+  const fieldMap: Record<string, keyof TableUpdate<"organizations">> = {
     relationship_status: "relationship_status",
     industry: "industry",
     industry_parent: "industry_parent",
@@ -368,7 +394,7 @@ async function updateOrgField(
 
   await admin
     .from("organizations")
-    .update({ [dbField]: input.value })
+    .update({ [dbField]: input.value } as TableUpdate<"organizations">)
     .eq("id", input.entityId)
     .eq("workspace_id", input.workspaceId);
 }
@@ -377,7 +403,7 @@ async function updateWorkField(
   admin: ReturnType<typeof createAdminClient>,
   input: UpdateFieldInput
 ): Promise<void> {
-  const fieldMap: Record<string, string> = {
+  const fieldMap: Record<string, keyof TableUpdate<"work">> = {
     status: "status",
     description: "description",
     deadline: "deadline",
@@ -391,7 +417,7 @@ async function updateWorkField(
 
   await admin
     .from("work")
-    .update({ [dbField]: input.value })
+    .update({ [dbField]: input.value } as TableUpdate<"work">)
     .eq("id", input.entityId)
     .eq("workspace_id", input.workspaceId);
 }
@@ -400,11 +426,13 @@ async function updateBillingField(
   admin: ReturnType<typeof createAdminClient>,
   input: UpdateFieldInput
 ): Promise<void> {
-  const fieldMap: Record<string, string> = {
+  const fieldMap: Record<string, keyof TableUpdate<"billing_records">> = {
     status: "status",
     organizationId: "organization_id",
     personId: "person_id",
-    projectId: "project_id",
+    // billing_records has no project_id column — the work link is work_id
+    projectId: "work_id",
+    workId: "work_id",
   };
 
   const dbField = fieldMap[input.field];
@@ -414,7 +442,7 @@ async function updateBillingField(
 
   await admin
     .from("billing_records")
-    .update({ [dbField]: input.value })
+    .update({ [dbField]: input.value } as TableUpdate<"billing_records">)
     .eq("id", input.entityId)
     .eq("workspace_id", input.workspaceId);
 }
@@ -423,7 +451,7 @@ async function updateMeetingField(
   admin: ReturnType<typeof createAdminClient>,
   input: UpdateFieldInput
 ): Promise<void> {
-  const fieldMap: Record<string, string> = {
+  const fieldMap: Record<string, keyof TableUpdate<"meetings">> = {
     status: "status",
     meeting_type: "meeting_type",
     location_type: "location_type",
@@ -440,7 +468,7 @@ async function updateMeetingField(
 
   await admin
     .from("meetings")
-    .update({ [dbField]: input.value })
+    .update({ [dbField]: input.value } as TableUpdate<"meetings">)
     .eq("id", input.entityId)
     .eq("workspace_id", input.workspaceId);
 }
@@ -449,7 +477,9 @@ async function updateFileField(
   admin: ReturnType<typeof createAdminClient>,
   input: UpdateFieldInput
 ): Promise<void> {
-  const fieldMap: Record<string, string> = {
+  // Note: files has no work_id column — a former workId → work_id mapping
+  // targeted a nonexistent column and could never have applied.
+  const fieldMap: Record<string, keyof TableUpdate<"files">> = {
     category: "category",
     document_type: "document_type",
     lifecycle_status: "lifecycle_status",
@@ -458,7 +488,6 @@ async function updateFileField(
     signed_date: "signed_date",
     organizationId: "organization_id",
     personId: "person_id",
-    workId: "work_id",
   };
 
   const dbField = fieldMap[input.field];
@@ -468,7 +497,7 @@ async function updateFileField(
 
   await admin
     .from("files")
-    .update({ [dbField]: input.value })
+    .update({ [dbField]: input.value } as TableUpdate<"files">)
     .eq("id", input.entityId)
     .eq("workspace_id", input.workspaceId);
 }
@@ -478,7 +507,7 @@ async function updateOperatorField(
   input: UpdateFieldInput
 ): Promise<void> {
   // Me fields can be on profiles or workspaces
-  const profileFields: Record<string, string> = {
+  const profileFields: Record<string, keyof TableUpdate<"profiles">> = {
     display_name: "display_name",
     role_title: "role_title",
     tagline: "tagline",
@@ -492,13 +521,13 @@ async function updateOperatorField(
   if (profileFields[input.field]) {
     await admin
       .from("profiles")
-      .update({ [profileFields[input.field]]: input.value })
+      .update({ [profileFields[input.field]]: input.value } as TableUpdate<"profiles">)
       .eq("id", input.entityId);
     return;
   }
 
   // Workspace fields
-  const workspaceFields: Record<string, string> = {
+  const workspaceFields: Record<string, keyof TableUpdate<"workspaces">> = {
     name: "name",
     tagline: "tagline",
     description: "description",
@@ -513,7 +542,7 @@ async function updateOperatorField(
   if (workspaceFields[input.field]) {
     await admin
       .from("workspaces")
-      .update({ [workspaceFields[input.field]]: input.value })
+      .update({ [workspaceFields[input.field]]: input.value } as TableUpdate<"workspaces">)
       .eq("id", input.entityId);
     return;
   }
@@ -542,9 +571,11 @@ async function recordProvenance(
     evidence: {
       source: input.source,
       ...input.sourceDetails,
-      evidenceChain: input.evidenceChain ?? [],
+      // Boundary cast: chain items carry `value: unknown`, which is Json in
+      // practice (values originate from Json columns and tool inputs).
+      evidenceChain: (input.evidenceChain ?? []) as unknown as Json,
     },
-    previous_value: previous.value,
+    previous_value: (previous.value ?? null) as Json,
     previous_provenance_id: previous.provenanceId,
     set_at: appliedAt,
   });

@@ -9,14 +9,18 @@ describe("memory tab routing helpers", () => {
     expect(parseMemoryTab("something-else")).toBe("map");
   });
 
-  it("parses filter and rules tabs", () => {
-    expect(parseMemoryTab("filter")).toBe("filter");
+  it("parses activity and rules tabs", () => {
+    expect(parseMemoryTab("activity")).toBe("activity");
     expect(parseMemoryTab("rules")).toBe("rules");
+  });
+
+  it("treats filter as a legacy alias for activity", () => {
+    expect(parseMemoryTab("filter")).toBe("activity");
   });
 
   it("builds shareable memory URLs", () => {
     expect(buildMemoryPath("map")).toBe("/memory");
-    expect(buildMemoryPath("filter")).toBe("/memory?tab=filter");
+    expect(buildMemoryPath("activity")).toBe("/memory?tab=activity");
     expect(buildMemoryPath("rules")).toBe("/memory?tab=rules");
   });
 });

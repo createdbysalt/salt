@@ -1,11 +1,7 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Loader2, Zap } from "lucide-react";
-import { Button } from "@repo/ui";
-import { cn } from "@repo/utils";
-import { syncAndScanCaptures } from "@/app/_features/capture/actions/run-intelligence-scan";
 import type { PlayRunRow } from "../types";
 import type { AskSaltContext } from "@/app/_features/shell/components/AskSaltPanel";
 import {
@@ -23,6 +19,7 @@ import { mapFindingToCard } from "../play-card/map-finding-to-card";
 import { mapPlayRunToCardClient } from "../play-card/map-play-run-to-card-client";
 import { mapHandledFindingToCard } from "../play-card/map-handled-finding-to-card";
 import { validatePlayCard } from "../play-card/validate-play-card";
+import { sortQueueCards } from "../lib/queue-sort";
 import type { PlayCardViewModel } from "../play-card/types";
 import { PlaysPageSkeleton } from "./PlaysPageSkeleton";
 import { AutoHandledTimeline } from "./AutoHandledTimeline";
@@ -179,11 +176,6 @@ export function PlaysPage({
   }
 
 
-  const [isPipelinePending, startPipelineTransition] = useTransition();
-  const [actionResult, setActionResult] = useState<{
-    success: boolean;
-    message: string;
-  } | null>(null);
   const [queueSearch, setQueueSearch] = useState("");
   const [queueFilters, setQueueFilters] = useState<QueueFiltersState>(EMPTY_QUEUE_FILTERS);
 
@@ -332,11 +324,13 @@ export function PlaysPage({
 
   // Unify findings (scan signals shown as plays) and prepared plays into one
   // ordered list of view models, rendered by the single PlayCard.
+  // Order: money at risk → time-sensitive → newest (spec Q11).
   const queueCards = useMemo<PlayCardViewModel[]>(
-    () => [
-      ...filteredFindings.map(mapFindingToCard),
-      ...filteredQueue.map(mapPlayRunToCardClient),
-    ],
+    () =>
+      sortQueueCards([
+        ...filteredFindings.map(mapFindingToCard),
+        ...filteredQueue.map(mapPlayRunToCardClient),
+      ]),
     [filteredFindings, filteredQueue]
   );
 
@@ -351,47 +345,6 @@ export function PlaysPage({
     }),
     [filteredAutoHandledFindings, filteredAutoHandledRuns],
   );
-
-  const handleSyncAndScan = () => {
-    setActionResult(null);
-    startPipelineTransition(async () => {
-      const result = await syncAndScanCaptures({ lookbackDays: 7 });
-      if (result.success && result.scan) {
-        const syncNote = result.sync
-          ? `Synced ${result.sync.capturesCreated} new captures. `
-          : "";
-        const firstWarning = result.scan.errors[0];
-        const errorNote =
-          result.scan.errors.length > 0
-            ? firstWarning
-              ? ` ${firstWarning}`
-              : ` (${result.scan.errors.length} warnings)`
-            : "";
-        const vendorDismissed = result.scan.findingsDismissedAsVendor ?? 0;
-        const vendorRepaired = result.scan.findingsMemoryRepaired ?? 0;
-        const vendorNote =
-          vendorDismissed > 0 || vendorRepaired > 0
-            ? ` Cleared ${vendorDismissed} subscription/vendor item(s) from the queue${vendorRepaired > 0 ? `, repaired ${vendorRepaired} finding(s)` : ""}.`
-            : "";
-        const scanNote =
-          result.scan.findingsCreated > 0
-            ? `Scanned ${result.scan.emailsProcessed} captures, ${result.scan.findingsCreated} new or updated findings.${vendorNote}`
-            : result.scan.emailsProcessed > 0 || vendorDismissed > 0 || vendorRepaired > 0
-              ? `Re-scanned ${result.scan.emailsProcessed} captures.${vendorNote || " No new findings yet — try structural subjects like training sessions or deliverables ready for review."}`
-              : "No captures in the lookback window needed scanning. Sync Gmail first in Sources if the stream is empty.";
-        setActionResult({
-          success: result.scan.errors.length === 0 || result.scan.emailsProcessed > 0,
-          message: `${syncNote}${scanNote}${errorNote}`,
-        });
-        invalidateActiveTab();
-      } else {
-        setActionResult({
-          success: false,
-          message: result.error || "Sync and scan failed",
-        });
-      }
-    });
-  };
 
   // Count what the queue can actually render (valid, mapped cards), not the raw
   // server finding count — otherwise non-renderable findings inflate the badge
@@ -420,33 +373,11 @@ export function PlaysPage({
 
   return (
     <div className="relative min-h-full">
-      <div aria-hidden className="salt-ambient-wash" />
-
       <div className="mx-auto w-full max-w-[1400px] space-y-8">
         {/* Tab Bar */}
         <div className="flex flex-wrap items-center justify-between gap-4">
           <PlaysTabs active={tab} onChange={handleTabChange} />
         </div>
-
-        {/* Sync / Scan result toast */}
-        {actionResult && (
-          <div
-            className={`flex items-start justify-between gap-3 rounded-lg border p-3 text-sm ${
-              actionResult.success
-                ? "border-green-500/30 bg-green-500/10 text-green-600"
-                : "border-red-500/30 bg-red-500/10 text-red-600"
-            }`}
-          >
-            <span className="min-w-0 flex-1">{actionResult.message}</span>
-            <button
-              type="button"
-              onClick={() => setActionResult(null)}
-              className="shrink-0 underline hover:no-underline"
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
 
         {isTabLoading ? (
           <PlaysPageSkeleton tab={tab} />
@@ -509,27 +440,6 @@ export function PlaysPage({
                       itemKindOptions={queueItemKindOptions}
                     />
                   }
-                  trailingAction={
-                    process.env.NODE_ENV === "development" ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleSyncAndScan}
-                        disabled={isPipelinePending}
-                        className={cn(
-                          "h-9 shrink-0 rounded-full border-border/60 bg-card px-3.5 gap-1.5 text-sm font-medium text-foreground shadow-none hover:border-border hover:bg-muted/40",
-                        )}
-                      >
-                        {isPipelinePending ? (
-                          <Loader2 className="size-3.5 animate-spin" strokeWidth={2.25} />
-                        ) : (
-                          <Zap className="size-3.5" strokeWidth={2.25} />
-                        )}
-                        {isPipelinePending ? "Syncing…" : "Sync & Scan"}
-                      </Button>
-                    ) : undefined
-                  }
                 />
 
                 <QueueActiveFilterBadges
@@ -551,7 +461,7 @@ export function PlaysPage({
                   emptyDescription={
                     hasActiveQueueFilter
                       ? "Try clearing search or adjusting the filters."
-                      : "Salt's drafting the next batch. Check back soon."
+                      : "Salt is reading your connected accounts — your next plays land here."
                   }
                 />
               ) : (

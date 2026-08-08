@@ -6,13 +6,18 @@ interface ApprovalRow {
   playbook_slug: string;
   tool_slug: string;
   approved_count: number;
+  autonomy_granted_at: string | null;
+  autonomy_offered_at: string | null;
+  autonomy_declined_at: string | null;
 }
 
 const rows: ApprovalRow[] = [];
 const inserted: Array<Record<string, unknown>> = [];
-const updates: Array<{ id: string; patch: Record<string, unknown> }> = [];
+const updates: Array<{ id?: string; patch: Record<string, unknown> }> = [];
+const insertedRuns: Array<Record<string, unknown>> = [];
+let openOfferExists = false;
 
-function fakeQuery() {
+function fakeQuery(table: string) {
   const filters: Record<string, unknown> = {};
   const builder = {
     select: () => builder,
@@ -20,7 +25,13 @@ function fakeQuery() {
       filters[column] = value;
       return builder;
     },
+    not: () => builder,
+    order: () => builder,
+    limit: () => builder,
     maybeSingle: async () => {
+      if (table === "play_runs") {
+        return { data: openOfferExists ? { id: "offer-run" } : null, error: null };
+      }
       const match = rows.find(
         (r) =>
           r.workspace_id === filters.workspace_id &&
@@ -30,13 +41,28 @@ function fakeQuery() {
       return { data: match ?? null, error: null };
     },
     update: (patch: Record<string, unknown>) => ({
-      eq: async (_column: string, id: unknown) => {
-        updates.push({ id: id as string, patch });
-        return { error: null };
+      eq: (column: string, value: unknown) => {
+        if (column === "id") {
+          updates.push({ id: value as string, patch });
+          return Promise.resolve({ error: null });
+        }
+        // grant/decline/revoke chain: .update().eq(ws).eq(slug).eq(tool)
+        return {
+          eq: () => ({
+            eq: async () => {
+              updates.push({ patch });
+              return { error: null };
+            },
+          }),
+        };
       },
     }),
     insert: async (row: Record<string, unknown>) => {
-      inserted.push(row);
+      if (table === "play_runs") {
+        insertedRuns.push(row);
+      } else {
+        inserted.push(row);
+      }
       return { error: null };
     },
   };
@@ -44,19 +70,38 @@ function fakeQuery() {
 }
 
 vi.mock("@/app/_lib/supabase/admin", () => ({
-  createAdminClient: () => ({ from: () => fakeQuery() }),
+  createAdminClient: () => ({ from: (table: string) => fakeQuery(table) }),
 }));
 
 import {
   EARNED_AUTONOMY_THRESHOLD,
+  declineAutonomyOffer,
+  grantAutonomy,
   hasEarnedAutonomy,
   recordActionApproval,
+  revokeAutonomy,
 } from "./earned-autonomy";
+
+function makeRow(overrides: Partial<ApprovalRow> = {}): ApprovalRow {
+  return {
+    id: "a1",
+    workspace_id: "ws-1",
+    playbook_slug: "email-triage",
+    tool_slug: "GMAIL_ARCHIVE",
+    approved_count: 0,
+    autonomy_granted_at: null,
+    autonomy_offered_at: null,
+    autonomy_declined_at: null,
+    ...overrides,
+  };
+}
 
 beforeEach(() => {
   rows.length = 0;
   inserted.length = 0;
   updates.length = 0;
+  insertedRuns.length = 0;
+  openOfferExists = false;
 });
 
 describe("hasEarnedAutonomy", () => {
@@ -64,25 +109,20 @@ describe("hasEarnedAutonomy", () => {
     expect(await hasEarnedAutonomy("ws-1", "email-triage", "GMAIL_ARCHIVE")).toBe(false);
   });
 
-  it("is false below the threshold", async () => {
-    rows.push({
-      id: "a1",
-      workspace_id: "ws-1",
-      playbook_slug: "email-triage",
-      tool_slug: "GMAIL_ARCHIVE",
-      approved_count: EARNED_AUTONOMY_THRESHOLD - 1,
-    });
+  it("is false at the threshold without a grant — offers never flip silently", async () => {
+    rows.push(
+      makeRow({ approved_count: EARNED_AUTONOMY_THRESHOLD, autonomy_offered_at: "2026-08-08" })
+    );
     expect(await hasEarnedAutonomy("ws-1", "email-triage", "GMAIL_ARCHIVE")).toBe(false);
   });
 
-  it("flips true at the threshold — the step runs silently from here on", async () => {
-    rows.push({
-      id: "a1",
-      workspace_id: "ws-1",
-      playbook_slug: "email-triage",
-      tool_slug: "GMAIL_ARCHIVE",
-      approved_count: EARNED_AUTONOMY_THRESHOLD,
-    });
+  it("is true only once the user grants the offer", async () => {
+    rows.push(
+      makeRow({
+        approved_count: EARNED_AUTONOMY_THRESHOLD,
+        autonomy_granted_at: "2026-08-08",
+      })
+    );
     expect(await hasEarnedAutonomy("ws-1", "email-triage", "GMAIL_ARCHIVE")).toBe(true);
   });
 });
@@ -101,17 +141,82 @@ describe("recordActionApproval", () => {
   });
 
   it("increments an existing counter", async () => {
-    rows.push({
-      id: "a1",
-      workspace_id: "ws-1",
-      playbook_slug: "email-triage",
-      tool_slug: "GMAIL_ARCHIVE",
-      approved_count: 4,
-    });
+    rows.push(makeRow({ approved_count: 4 }));
 
     await recordActionApproval("ws-1", "email-triage", "GMAIL_ARCHIVE");
 
     expect(updates).toHaveLength(1);
     expect(updates[0].patch.approved_count).toBe(5);
+  });
+
+  it("creates an autonomy offer when the count crosses the threshold", async () => {
+    rows.push(makeRow({ approved_count: EARNED_AUTONOMY_THRESHOLD - 1 }));
+
+    await recordActionApproval("ws-1", "email-triage", "GMAIL_ARCHIVE");
+
+    expect(insertedRuns).toHaveLength(1);
+    expect(insertedRuns[0]).toMatchObject({
+      workspace_id: "ws-1",
+      state: "queued",
+      source_context: expect.objectContaining({ playbook_slug: "email-triage" }),
+    });
+    const evidence = (insertedRuns[0] as { trigger_evidence: Record<string, unknown> })
+      .trigger_evidence;
+    expect(evidence.kind).toBe("autonomy_offer");
+    expect(evidence.tool_slug).toBe("GMAIL_ARCHIVE");
+  });
+
+  it("does not create an offer below the threshold", async () => {
+    rows.push(makeRow({ approved_count: 3 }));
+
+    await recordActionApproval("ws-1", "email-triage", "GMAIL_ARCHIVE");
+
+    expect(insertedRuns).toHaveLength(0);
+  });
+
+  it("does not offer when autonomy is already granted", async () => {
+    rows.push(
+      makeRow({
+        approved_count: EARNED_AUTONOMY_THRESHOLD * 2 - 1,
+        autonomy_granted_at: "2026-08-01",
+      })
+    );
+
+    await recordActionApproval("ws-1", "email-triage", "GMAIL_ARCHIVE");
+
+    expect(insertedRuns).toHaveLength(0);
+  });
+
+  it("dedups while an offer is still open", async () => {
+    rows.push(makeRow({ approved_count: EARNED_AUTONOMY_THRESHOLD - 1 }));
+    openOfferExists = true;
+
+    await recordActionApproval("ws-1", "email-triage", "GMAIL_ARCHIVE");
+
+    expect(insertedRuns).toHaveLength(0);
+  });
+});
+
+describe("grant / decline / revoke", () => {
+  it("grantAutonomy sets autonomy_granted_at", async () => {
+    await grantAutonomy("ws-1", "email-triage", "GMAIL_ARCHIVE");
+
+    expect(updates).toHaveLength(1);
+    expect(updates[0].patch.autonomy_granted_at).toEqual(expect.any(String));
+    expect(updates[0].patch.autonomy_declined_at).toBeNull();
+  });
+
+  it("declineAutonomyOffer sets autonomy_declined_at", async () => {
+    await declineAutonomyOffer("ws-1", "email-triage", "GMAIL_ARCHIVE");
+
+    expect(updates).toHaveLength(1);
+    expect(updates[0].patch.autonomy_declined_at).toEqual(expect.any(String));
+  });
+
+  it("revokeAutonomy clears the grant", async () => {
+    await revokeAutonomy("ws-1", "email-triage", "GMAIL_ARCHIVE");
+
+    expect(updates).toHaveLength(1);
+    expect(updates[0].patch.autonomy_granted_at).toBeNull();
   });
 });

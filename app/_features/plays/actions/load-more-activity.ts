@@ -1,11 +1,11 @@
 "use server";
 
-import { listActivityEntries } from "../queries";
-import type { ActivityEntryRow } from "../types";
+import { listPlayActivityRuns } from "../queries";
+import type { PlayActivityRunRow } from "../types";
 
-export async function loadMoreActivityEntries(
+export async function loadMoreActivityRuns(
   offset: number,
   limit = 50,
-): Promise<{ entries: ActivityEntryRow[]; totalCount: number }> {
-  return listActivityEntries(offset, limit);
+): Promise<{ runs: PlayActivityRunRow[]; totalCount: number }> {
+  return listPlayActivityRuns(offset, limit);
 }

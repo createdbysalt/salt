@@ -1,5 +1,4 @@
 import type { AskSaltContext } from "@/app/_features/shell/components/AskSaltPanel";
-import { playerById, type PlayerId } from "@/app/_lib/demo/plays-demo-data";
 import { getPlaybookBySlug } from "../playbooks/schema/v2/discovery";
 import {
   SECTION_METADATA,
@@ -48,7 +47,7 @@ function resolveV2Playbook(row: PlayRunRow): V2Resolution | null {
       sectionLabel: "Work",
       layer: "learn",
       outputType: "memory_update",
-      approvalMode: "per_entity",
+      approvalMode: "ask",
       autoApplyThreshold: null,
       confidenceExplanation: null,
       valueEstimate: null,
@@ -66,7 +65,7 @@ function resolveV2Playbook(row: PlayRunRow): V2Resolution | null {
     sectionLabel: sectionMeta?.name ?? def.section,
     layer: def.layer,
     outputType: def.output.type,
-    approvalMode: def.output.approval ?? "per_entity",
+    approvalMode: def.output.approval ?? "ask",
     autoApplyThreshold: def.policy?.auto_apply_threshold ?? null,
     confidenceExplanation: def.policy?.confidence_explanation ?? null,
     valueEstimate: def.value?.estimate ? `~${def.value.estimate} min saved` : null,
@@ -125,7 +124,8 @@ function kindFromOutputType(outputType: PlaybookOutputType): PlayCardKind {
  * to play_runs should flow through here.
  *
  * V2-first: Attempts to resolve playbook via source_context.playbook_slug.
- * Falls back to legacy player-based resolution if v2 lookup fails.
+ * Legacy player attribution is passed through from the row as-is; it is never
+ * resolved through demo-player data.
  */
 export function mapPlayRunToCard(row: PlayRunRow): PlayCardViewModel {
   // V2-first: try to resolve from playbook definition
@@ -134,9 +134,8 @@ export function mapPlayRunToCard(row: PlayRunRow): PlayCardViewModel {
   // Detect error conditions
   const error = detectErrors(row, v2);
 
-  // Legacy fallback
-  const playerSlug = resolvePlayerSlug(row);
-  const player = playerById(playerSlug);
+  // Legacy attribution (deprecated) — pass-through, no demo-player fallback
+  const playerSlug = row.player_slug ?? null;
   const kind = v2 ? kindFromOutputType(v2.outputType) : resolveKind(row);
 
   const ageMinutes = Math.round(
@@ -155,7 +154,7 @@ export function mapPlayRunToCard(row: PlayRunRow): PlayCardViewModel {
     id: row.id,
     title: row.title,
     recipientLabel: row.recipient_label ?? row.target_label ?? "this record",
-    sourceLabel: v2?.sectionLabel ?? player.name,
+    sourceLabel: v2?.sectionLabel ?? row.player_name ?? "Salt",
     href: "/plays",
   };
 
@@ -177,14 +176,19 @@ export function mapPlayRunToCard(row: PlayRunRow): PlayCardViewModel {
 
     // Legacy attribution (deprecated)
     playerSlug,
-    playerName: row.player_name ?? player.name,
+    playerName: row.player_name ?? null,
 
     subject: row.title,
     targetLabel: row.recipient_label ?? row.target_label,
     targetPrefix: kind === "acting" ? "To" : "For",
-    preview: row.paused_for_approval && row.approval_context
-      ? `Waiting for approval: ${formatToolSlug(row.approval_context.tool_slug)}`
-      : row.preview,
+    preview:
+      row.paused_for_approval && row.approval_context
+        ? row.state === "blocked"
+          ? (row.last_error
+              ? `Parked: ${row.last_error}`
+              : row.preview)
+          : `Waiting for approval: ${formatToolSlug(row.approval_context.tool_slug)}`
+        : row.preview,
     confidence: row.confidence,
     stakes: (row.stakes as "low" | "medium" | "high" | null) ?? null,
     ageMinutes,
@@ -252,28 +256,87 @@ export function mapPlayRunToCard(row: PlayRunRow): PlayCardViewModel {
 
     // Error state (if any)
     error,
+
+    // Execution chain for paused runs (steps auto-ran → pending action)
+    chain: buildChain(row),
   };
 }
 
-function resolvePlayerSlug(row: PlayRunRow): PlayerId {
-  if (row.player_slug && isValidPlayerSlug(normalizePlayerSlug(row.player_slug))) {
-    return normalizePlayerSlug(row.player_slug) as PlayerId;
-  }
+type StepHistoryEntry = { id: string; kind: string; status: string };
+
+function readStepHistory(row: PlayRunRow): StepHistoryEntry[] {
   const meta = row.metadata;
-  if (meta && typeof meta === "object" && typeof meta.player_slug === "string") {
-    const normalized = normalizePlayerSlug(meta.player_slug);
-    if (isValidPlayerSlug(normalized)) return normalized;
+  if (!meta || typeof meta !== "object") return [];
+  const raw = (meta as Record<string, unknown>).step_history;
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(
+    (e): e is StepHistoryEntry =>
+      !!e &&
+      typeof e === "object" &&
+      typeof (e as StepHistoryEntry).id === "string" &&
+      typeof (e as StepHistoryEntry).status === "string"
+  );
+}
+
+function humanizeStepId(id: string): string {
+  return id.replace(/[_-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function buildChain(
+  row: PlayRunRow
+): PlayCardViewModel["chain"] | undefined {
+  if (!row.paused_for_approval || !row.approval_context) return undefined;
+
+  const history = readStepHistory(row);
+  const steps: Array<{ id: string; label: string; status: "done" | "skipped" | "failed" }> = [];
+
+  for (const entry of history) {
+    if (entry.status === "paused") continue; // the pending step renders separately
+    const data = row.context_inputs?.[entry.id];
+    const count = Array.isArray(data) ? data.length : null;
+    const label =
+      count != null && count > 0
+        ? `${humanizeStepId(entry.id)} · ${count}`
+        : humanizeStepId(entry.id);
+    steps.push({
+      id: entry.id,
+      label,
+      status:
+        entry.status === "success"
+          ? "done"
+          : entry.status === "skipped"
+            ? "skipped"
+            : "failed",
+    });
   }
-  return "brief";
-}
 
-/** The retired "keeper" slug maps onto Memory Care. */
-function normalizePlayerSlug(slug: string): string {
-  return slug === "keeper" ? "memory-care" : slug;
-}
+  // Fallback for runs written before step_history existed: show the steps
+  // declared before paused_at_step from the playbook definition.
+  if (steps.length === 0) {
+    const slug = row.source_context?.playbook_slug;
+    const def = slug ? getPlaybookBySlug(slug)?.definition : null;
+    const at = row.paused_at_step ?? row.approval_context.step_index;
+    if (def?.steps && typeof at === "number") {
+      for (const s of def.steps.slice(0, at)) {
+        const id = s.id ?? "step";
+        steps.push({ id, label: humanizeStepId(id), status: "done" });
+      }
+    }
+  }
 
-function isValidPlayerSlug(slug: string): slug is PlayerId {
-  return ["follow-up", "brief", "client-risk", "scope", "billing", "memory-care"].includes(slug);
+  if (steps.length === 0) return undefined;
+
+  const blocked = row.state === "blocked";
+  return {
+    steps,
+    pending: {
+      label: blocked
+        ? "Reconnect, then approve to resume"
+        : `Approve: ${formatToolSlug(row.approval_context.tool_slug)}`,
+      tool: row.approval_context.tool_slug,
+      blocked,
+    },
+  };
 }
 
 function resolveKind(row: PlayRunRow): PlayCardKind {

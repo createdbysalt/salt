@@ -1,9 +1,20 @@
 import "server-only";
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
-import { isValidSignalKey, getSignalDefinition } from "./signal-registry";
+import type { Json } from "@/app/_lib/supabase/database.types";
+import { isValidSignalKey } from "./signal-registry";
 import { discoverV2Playbooks, getPlaybookBySlug } from "./schema/v2/discovery";
 import { runCareForSignal } from "@/app/_features/memory/care/scheduler";
+import {
+  buildExecutionContextV2,
+  executePlaybookV2,
+} from "./schema/v2/executor";
+import { resolveWorkspaceActor } from "@/app/_features/plays/services/workspace-actor";
+import {
+  recordInlineToolExecutions,
+  collectExecutedToolSlugs,
+} from "@/app/_features/plays/services/record-inline-executions";
+import { recordPlaybookRun } from "./run-recording";
 
 /**
  * Minimal playbook info needed for trigger dispatch.
@@ -14,13 +25,24 @@ export interface PlaybookTriggerInfo {
   description: string;
   layer: "learn" | "act";
   section: string;
+  /** When declared, the playbook only fires for this entity surface. */
+  surface?: string;
 }
 
 export interface SignalTriggerContext {
   workspaceId: string;
   signalKey: string;
   entityId: string;
-  entitySurface: "person" | "organization" | "work" | "billing" | "meeting" | "file";
+  entitySurface:
+    | "person"
+    | "organization"
+    | "work"
+    | "billing"
+    | "meeting"
+    | "file"
+    // Workspace-scoped events (e.g. connector_connected) carry the workspace
+    // id as entityId so dispatch dedup is once-per-workspace per cooldown.
+    | "workspace";
   entityLabel?: string;
   evidence?: Record<string, unknown>;
 }
@@ -52,12 +74,16 @@ export function buildSignalTriggerIndex(): Map<string, PlaybookTriggerInfo[]> {
     if (signalTriggers.length === 0) continue;
 
     const signalKeys: string[] = [];
+    let surface: string | undefined;
     for (const trigger of signalTriggers) {
       if ("signal" in trigger && trigger.signal) {
         signalKeys.push(trigger.signal);
       }
       if ("signals" in trigger && trigger.signals && trigger.signals.length > 0) {
         signalKeys.push(...trigger.signals);
+      }
+      if (trigger.surface) {
+        surface = trigger.surface;
       }
     }
 
@@ -82,6 +108,7 @@ export function buildSignalTriggerIndex(): Map<string, PlaybookTriggerInfo[]> {
         description: def.description,
         layer: def.layer,
         section: def.section,
+        surface,
       };
 
       const existing = index.get(signalKey) ?? [];
@@ -167,6 +194,17 @@ export async function dispatchSignalTrigger(
   const admin = createAdminClient();
 
   for (const playbook of matchingPlaybooks) {
+    // Surface-scoped triggers (e.g. a person-only playbook on a signal that
+    // also fires for organizations) don't fire for other surfaces.
+    if (playbook.surface && playbook.surface !== context.entitySurface) {
+      results.push({
+        success: true,
+        playbookSlug: playbook.slug,
+        skipped: "surface_mismatch",
+      });
+      continue;
+    }
+
     const enabled = await isPlaybookEnabled(context.workspaceId, playbook.slug);
 
     if (!enabled) {
@@ -189,54 +227,189 @@ export async function dispatchSignalTrigger(
       continue;
     }
 
-    // Act-layer playbook: create queued play_run
-    const signalDef = getSignalDefinition(context.signalKey);
-    const title = `${playbook.name} — ${context.entityLabel ?? context.entityId}`;
-    const preview = signalDef
-      ? `Triggered by: ${signalDef.description}`
-      : `Signal: ${context.signalKey}`;
-
-    const { data: run, error: insertError } = await admin
-      .from("play_runs")
-      .insert({
-        workspace_id: context.workspaceId,
-        state: "queued",
-        title,
-        preview,
-        target_type: context.entitySurface,
-        target_id: context.entityId,
-        target_label: context.entityLabel ?? context.entityId,
-        trigger_source: "signal",
-        trigger_evidence: {
-          signal_key: context.signalKey,
-          entity_surface: context.entitySurface,
-          entity_id: context.entityId,
-          ...context.evidence,
-        },
-        context_inputs: {
-          [`${context.entitySurface}_id`]: context.entityId,
-        },
-      })
-      .select("id")
-      .single();
-
-    if (insertError || !run) {
-      results.push({
-        success: false,
-        playbookSlug: playbook.slug,
-        error: insertError?.message ?? "Insert failed",
-      });
-      continue;
-    }
-
-    results.push({
-      success: true,
-      playbookSlug: playbook.slug,
-      playRunId: run.id as string,
-    });
+    results.push(await executeSignalPlaybook(playbook, context, admin));
   }
 
   return results;
+}
+
+/**
+ * A refiring signal (the every-2h scan) must not re-draft while a recent run
+ * for the same playbook + entity + signal exists, open or not. Without this
+ * the scanner creates a new card per entity per scan.
+ */
+const SIGNAL_RUN_COOLDOWN_HOURS = 72;
+
+type AdminClient = ReturnType<typeof createAdminClient>;
+
+async function findRecentSignalRun(
+  admin: AdminClient,
+  input: {
+    workspaceId: string;
+    playbookSlug: string;
+    signalKey: string;
+    entitySurface: string;
+    entityId: string;
+  }
+): Promise<string | null> {
+  const cutoff = new Date(
+    Date.now() - SIGNAL_RUN_COOLDOWN_HOURS * 60 * 60 * 1000
+  ).toISOString();
+
+  const { data } = await admin
+    .from("play_runs")
+    .select("id")
+    .eq("workspace_id", input.workspaceId)
+    .eq("source_context->>playbook_slug", input.playbookSlug)
+    .eq("trigger_evidence->>signal_key", input.signalKey)
+    .eq("target_type", input.entitySurface)
+    .eq("target_id", input.entityId)
+    .gte("created_at", cutoff)
+    .limit(1)
+    .maybeSingle();
+
+  return (data?.id as string) ?? null;
+}
+
+/**
+ * Act-layer signal path: run the playbook through the v2 executor with the
+ * entity context so the step chain actually runs (fetch → classify → draft)
+ * and declared gates pause for approval. Replaces the pre-Phase-4 behavior of
+ * inserting a bare announcement row with no execution behind it.
+ */
+async function executeSignalPlaybook(
+  playbook: PlaybookTriggerInfo,
+  context: SignalTriggerContext,
+  admin: AdminClient
+): Promise<DispatchResult> {
+  const parsed = getPlaybookBySlug(playbook.slug);
+  if (!parsed) {
+    return {
+      success: false,
+      playbookSlug: playbook.slug,
+      error: "Playbook definition not found",
+    };
+  }
+
+  const recentRunId = await findRecentSignalRun(admin, {
+    workspaceId: context.workspaceId,
+    playbookSlug: playbook.slug,
+    signalKey: context.signalKey,
+    entitySurface: context.entitySurface,
+    entityId: context.entityId,
+  });
+  if (recentRunId) {
+    return {
+      success: true,
+      playbookSlug: playbook.slug,
+      skipped: "cooldown",
+    };
+  }
+
+  const userId = await resolveWorkspaceActor(context.workspaceId);
+  if (!userId) {
+    return {
+      success: false,
+      playbookSlug: playbook.slug,
+      error: "No workspace member to act as",
+    };
+  }
+
+  const start = Date.now();
+
+  try {
+    const execContext = await buildExecutionContextV2(
+      context.workspaceId,
+      userId,
+      {
+        type: "signal",
+        signalKey: context.signalKey,
+        entityId: context.entityId,
+        entitySurface: context.entitySurface,
+        entityLabel: context.entityLabel,
+      },
+      parsed.definition.voice
+    );
+
+    const execResult = await executePlaybookV2(parsed.definition, execContext);
+
+    await recordPlaybookRun(
+      playbook.slug,
+      {
+        workspaceId: context.workspaceId,
+        trigger: "signal",
+        signal: context.signalKey,
+      },
+      {
+        success: execResult.status === "success" || execResult.status === "paused",
+        error: execResult.status === "error" ? execResult.reason : undefined,
+        skipped: execResult.status === "skipped" ? execResult.reason : undefined,
+        summary:
+          execResult.status === "success"
+            ? `Produced ${execResult.outputCount ?? 0} output(s)`
+            : execResult.reason,
+        data: {
+          status: execResult.status,
+          outputCount:
+            execResult.outputCount ??
+            (execResult.status === "paused" ? 1 : 0),
+          playRunIds: execResult.playRunIds,
+        },
+      },
+      Date.now() - start
+    );
+
+    if (execResult.status === "skipped") {
+      return {
+        success: true,
+        playbookSlug: playbook.slug,
+        skipped: execResult.reason ?? "skipped",
+      };
+    }
+
+    if (execResult.status === "error") {
+      return {
+        success: false,
+        playbookSlug: playbook.slug,
+        error: execResult.reason ?? "Execution failed",
+      };
+    }
+
+    // Tools that executed inline (gates cleared) get their own metered
+    // auto_handled record — paused runs anchor their metering to the resume.
+    const inlineTools = collectExecutedToolSlugs(execResult.stepResults);
+    await recordInlineToolExecutions({
+      workspaceId: context.workspaceId,
+      playbookSlug: playbook.slug,
+      title: `${playbook.name} — ${context.entityLabel ?? context.entityId}`,
+      preview: `Ran ${inlineTools.length} step(s) without approval`,
+      triggerSignal: context.signalKey,
+      evidence: {
+        signal_key: context.signalKey,
+        entity_surface: context.entitySurface,
+        entity_id: context.entityId,
+        ...context.evidence,
+      },
+      toolSlugs: inlineTools,
+    });
+
+    const playRunId =
+      execResult.status === "paused"
+        ? execResult.pausedAt?.playRunId
+        : execResult.playRunIds?.[0];
+
+    return {
+      success: true,
+      playbookSlug: playbook.slug,
+      playRunId,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      playbookSlug: playbook.slug,
+      error: error instanceof Error ? error.message : "Execution failed",
+    };
+  }
 }
 
 /**
@@ -264,8 +437,10 @@ export async function updateCaptureWithDispatchResults(
 
   if (!capture) return;
 
-  const currentMetadata = (capture.enriched_metadata as Record<string, unknown>) ?? {};
-  const currentDispatched = (currentMetadata.plays_dispatched as unknown[]) ?? [];
+  const currentMetadata = (capture.enriched_metadata ?? {}) as Record<string, Json>;
+  const currentDispatched = Array.isArray(currentMetadata.plays_dispatched)
+    ? currentMetadata.plays_dispatched
+    : [];
 
   // Add new dispatches
   const newDispatches = successfulDispatches.map((r) => ({

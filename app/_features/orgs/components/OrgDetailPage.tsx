@@ -152,7 +152,6 @@ export function OrgDetailPage({ orgId, detailData = null, linkableEntities = [] 
   if (!org && !detailData?.summary) {
     return (
       <div className="relative min-h-full">
-        <div aria-hidden className="salt-ambient-wash" />
         <div className={memoryDetailShellClass}>
           <Link
             href="/orgs"
@@ -177,8 +176,6 @@ export function OrgDetailPage({ orgId, detailData = null, linkableEntities = [] 
 
   return (
     <div className="relative min-h-full">
-      <div aria-hidden className="salt-ambient-wash" />
-
       <div className={memoryDetailShellClass}>
         <Link
           href="/orgs"

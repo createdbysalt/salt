@@ -144,7 +144,7 @@ function normalizeStripe(payload: unknown): CaptureEnvelope | null {
       : null;
 
   return {
-    sourceType: "stripe" as CaptureSourceType,
+    sourceType: "stripe",
     captureType: "payment",
     externalId,
     title: eventType ? `Stripe: ${eventType}` : "Stripe Event",
@@ -296,7 +296,7 @@ function normalizeQuickbooksReportRow(
     : [];
 
   return {
-    sourceType: "quickbooks" as CaptureSourceType,
+    sourceType: "quickbooks",
     captureType: "payment",
     externalId,
     title: `QuickBooks ${txnType}${docNum ? ` ${docNum}` : ""}`,
@@ -348,7 +348,7 @@ function normalizeQuickbooks(payload: unknown): CaptureEnvelope | null {
     : [];
 
   return {
-    sourceType: "quickbooks" as CaptureSourceType,
+    sourceType: "quickbooks",
     captureType: "payment",
     externalId,
     title: `QuickBooks Invoice ${(record.DocNumber as string) ?? externalId}`,
@@ -442,7 +442,7 @@ export function createBillingCategoryAdapter(provider: string): CaptureAdapter {
     : []; // Unknown providers: triggers come from DB
 
   return {
-    sourceType: provider as CaptureSourceType,
+    sourceType: provider,
     toolkit: provider,
     triggerSlugs,
     deriveSignals: deriveBillingSignals,
@@ -456,7 +456,7 @@ export function createBillingCategoryAdapter(provider: string): CaptureAdapter {
           return normalizeQuickbooks(payload);
         default:
           // Any unknown billing provider gets generic extraction
-          return normalizeGenericBilling(payload, provider as CaptureSourceType);
+          return normalizeGenericBilling(payload, provider);
       }
     },
   };

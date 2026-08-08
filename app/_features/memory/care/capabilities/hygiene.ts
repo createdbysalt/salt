@@ -4,7 +4,7 @@
  * Unified data quality scan:
  * - Duplicate records (merge candidates)
  * - Stale records (archive candidates)
- * - Incomplete records (fill suggestions)
+ * - Incomplete records (counted internally — never emitted without a value)
  * - Orphan records (link candidates — ONLY with concrete resolved targets)
  *
  * Emits evidence to Watching (Memory → Filter) for user review.
@@ -28,7 +28,32 @@ import {
   extractDomain,
   isPersonalDomain,
 } from "@/app/_features/capture/services/system-plays/person-signals";
+import {
+  findBlockingCorrection,
+  getCorrectionBlocklist,
+} from "@/app/_lib/learning/correction-blocklist";
 import { CARE_SETTINGS_SLUGS, type CareRunContext, type CareRunResult } from "../types";
+
+/**
+ * Corrections feed forward: a candidate the user dismissed ("Keep both",
+ * "Keep", "Not this") must not re-surface on the next scan. Returns true
+ * when the (field, value) pair is blocked for this entity.
+ */
+async function isBlockedByCorrection(
+  workspaceId: string,
+  entityType: string,
+  entityId: string,
+  field: string,
+  value: unknown
+): Promise<boolean> {
+  const blocklist = await getCorrectionBlocklist(
+    workspaceId,
+    entityType,
+    entityId,
+    field
+  );
+  return findBlockingCorrection(blocklist, field, value) !== null;
+}
 
 interface OrphanRecord {
   id: string;
@@ -82,6 +107,19 @@ async function emitLinkCandidatesWithTargets(
         .maybeSingle();
 
       if (!org) continue;
+
+      // Corrections feed forward: a dismissed link to this org never re-surfaces.
+      if (
+        await isBlockedByCorrection(
+          workspaceId,
+          "person",
+          person.id,
+          "_link_candidate",
+          { targetId: org.id }
+        )
+      ) {
+        continue;
+      }
 
       // Found a concrete candidate — emit with target
       const orphanRecord = personOrphans.find((o) => o.id === person.id);
@@ -143,16 +181,29 @@ export async function runHygieneCapability(
   for (const match of duplicatesResult.matches) {
     if (match.confidence < 80) continue;
 
+    const mergeValue = {
+      targetId: match.recordB.id,
+      targetName: match.recordB.name,
+      signal: match.signal,
+    };
+    if (
+      await isBlockedByCorrection(
+        workspaceId,
+        match.entityType,
+        match.recordA.id,
+        "_merge_candidate",
+        mergeValue
+      )
+    ) {
+      continue;
+    }
+
     const evidenceResult = await memoryAccumulateEvidence({
       workspaceId,
       entityType: match.entityType,
       entityId: match.recordA.id,
       field: "_merge_candidate",
-      value: {
-        targetId: match.recordB.id,
-        targetName: match.recordB.name,
-        signal: match.signal,
-      },
+      value: mergeValue,
       confidence: match.confidence,
       evidenceType: "cross_reference",
       because: match.because,
@@ -166,6 +217,20 @@ export async function runHygieneCapability(
   // --- STALE RECORDS ---
   for (const record of staleResult.records) {
     if (record.severity < 60) continue;
+
+    // Any archive dismissal blocks — "keep this record active" isn't
+    // value-specific (the day counts change every scan).
+    if (
+      await isBlockedByCorrection(
+        workspaceId,
+        record.entityType,
+        record.id,
+        "_archive_candidate",
+        null
+      )
+    ) {
+      continue;
+    }
 
     const evidenceResult = await memoryAccumulateEvidence({
       workspaceId,
@@ -188,26 +253,10 @@ export async function runHygieneCapability(
   }
 
   // --- INCOMPLETE RECORDS ---
-  for (const record of incompleteResult.records) {
-    if (record.severity < 70) continue;
-
-    for (const field of record.missingFields) {
-      const evidenceResult = await memoryAccumulateEvidence({
-        workspaceId,
-        entityType: record.entityType,
-        entityId: record.id,
-        field: "_missing_field",
-        value: { field, reason: "missing_required_field" },
-        confidence: record.severity,
-        evidenceType: "behavioral_signal",
-        because: `Missing required field: ${field}`,
-        source: "care",
-        sourceDetails: { playbookSlug: source },
-      });
-
-      if (evidenceResult.evidenceId) emitted.push(evidenceResult.evidenceId);
-    }
-  }
+  // P5/Watching contract: a gap without a proposed value is a diagnostic, not
+  // a proposal — it never surfaces to Watching. Incomplete records are counted
+  // internally only; enrichment that finds a concrete value emits through the
+  // records capability instead.
 
   // --- ORPHAN RECORDS ---
   // P5: emit _link_candidate ONLY when we have a concrete resolved target.

@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import type { Json } from "@/app/_lib/supabase/database.types";
 import type { CaptureSourceType, ExtractedData } from "../../types";
 import { extractEmailToAnalyze } from "../extract-capture-email";
 import { hydrateGmailCaptureBody } from "../hydrate-capture";
@@ -10,32 +11,21 @@ import {
   parseMemoryProposals,
   type MemoryProposal,
 } from "../../types/memory-proposals";
-import {
-  classifyEmailSender,
-  filterMemoryProposalsForSender,
-} from "./email-sender-context";
-import {
-  loadKnownWorkspaceEntities,
-  resolveMemoryProposals,
-} from "./entity-resolver";
-import {
-  FINDING_TYPE_LABELS,
-  type FindingType,
-} from "../../types/intelligence-findings";
+import { classifyEmailSender, filterMemoryProposalsForSender } from "./email-sender-context";
+import { loadKnownWorkspaceEntities, resolveMemoryProposals } from "./entity-resolver";
+import { FINDING_TYPE_LABELS, type FindingType } from "../../types/intelligence-findings";
 import {
   getPaymentPayerHint,
   isPaymentRailEmail,
   resolvePaymentPayerPerson,
 } from "./finding-target";
 import { classifyCapture } from "./capture-classifier";
-import {
-  createScopedMemoryLoader,
-  buildMemoryContextBlock,
-} from "./scoped-memory-context";
+import { createScopedMemoryLoader, buildMemoryContextBlock } from "./scoped-memory-context";
 import { persistCaptureIntelligenceOutcome } from "./capture-intelligence-persistence";
 import {
   readIntelligenceMeta,
   shouldReanalyzeCapture,
+  type CaptureIntelligenceMeta,
 } from "./capture-intelligence-outcome";
 import { repairVendorFindings } from "./repair-vendor-findings";
 import { EMAIL_SCAN_SOURCE_TYPES } from "../../adapters/categories/email";
@@ -43,13 +33,8 @@ import { loadSenderProfileRegistry } from "../../queries/sender-profiles";
 import { learnVendorFromClassification } from "./sender-profile-learn";
 import type { SenderProfileRegistry } from "../../types/sender-profiles";
 import { routeMeFactProposals } from "@/app/_features/me/services/route-fact-proposals";
-import {
-  createRiskPlayRun,
-  createRoutingPlayRun,
-} from "@/app/_features/plays/services/create-finding-play-run";
 import { extractAndPersistNotes } from "./persist-extracted-notes";
 import type { NoteExtractionInput } from "./note-extractor";
-import { processCaptureAgainstWatches } from "@/app/_lib/learning";
 import { parseSignatureFromBody } from "@/app/_features/memory/evidence/classifier";
 import { applyFieldExtractions } from "./apply-field-extractions";
 
@@ -117,12 +102,40 @@ const NEEDS_ROUTING_FINDING_TYPES = new Set<FindingType>([
   "pending_deliverable",
 ]);
 
-interface CaptureEventRow {
+export interface CaptureEventRow {
   id: string;
   source_type: CaptureSourceType;
   source_external_id: string | null;
   raw_payload: Record<string, unknown>;
   extracted_data: ExtractedData;
+}
+
+type JsonObject = { [key: string]: Json | undefined };
+
+/**
+ * capture_events.source_type is TEXT (Sources plan 5.2), so scan source types
+ * no longer need filtering to a frozen enum — any provider key is queryable.
+ */
+const EMAIL_SOURCE_TYPES: readonly CaptureSourceType[] = EMAIL_SCAN_SOURCE_TYPES;
+
+/** DB row → scan domain row; one boundary cast on the Json payload value. */
+function toCaptureEventRow(row: {
+  id: string;
+  source_type: CaptureSourceType;
+  source_external_id: string | null;
+  raw_payload: Json;
+  extracted_data: Json;
+}): CaptureEventRow {
+  return {
+    id: row.id,
+    source_type: row.source_type,
+    source_external_id: row.source_external_id,
+    raw_payload:
+      row.raw_payload && typeof row.raw_payload === "object" && !Array.isArray(row.raw_payload)
+        ? row.raw_payload
+        : {},
+    extracted_data: row.extracted_data as unknown as ExtractedData,
+  };
 }
 
 /** Cap provider fetches per scan run — hydration is a bounded assist. */
@@ -135,14 +148,12 @@ function isSentCapture(row: CaptureEventRow): boolean {
     return (row.extracted_data.labels ?? []).includes("SENT");
   }
   // Category email adapters write a flat shape with isSentByUser (no `type`).
-  const adapterExtracted = row.extracted_data as
-    | { isSentByUser?: unknown; labels?: unknown }
-    | null;
+  const adapterExtracted = row.extracted_data as {
+    isSentByUser?: unknown;
+    labels?: unknown;
+  } | null;
   if (adapterExtracted?.isSentByUser === true) return true;
-  if (
-    Array.isArray(adapterExtracted?.labels) &&
-    adapterExtracted.labels.includes("SENT")
-  ) {
+  if (Array.isArray(adapterExtracted?.labels) && adapterExtracted.labels.includes("SENT")) {
     return true;
   }
   const labelIds = (row.raw_payload?.labelIds as string[] | undefined) ?? [];
@@ -183,7 +194,7 @@ async function fetchCapturesInLookback(
       .from("capture_events")
       .select("id, source_type, source_external_id, raw_payload, extracted_data")
       .eq("workspace_id", workspaceId)
-      .in("source_type", [...EMAIL_SCAN_SOURCE_TYPES])
+      .in("source_type", EMAIL_SOURCE_TYPES)
       // Held rows (Memory-first pool) are thin and unenriched by design —
       // scanning them would spend LLM budget on mail the user can't see.
       // Gate-noise rows are excluded too (Phase 6): the gate's noise verdict
@@ -198,12 +209,12 @@ async function fetchCapturesInLookback(
     if (error) {
       return { rows: [], error: error.message };
     }
-    return { rows: (data ?? []) as CaptureEventRow[] };
+    return { rows: (data ?? []).map(toCaptureEventRow) };
   }
 
   return collectCapturePages(async (from, to) => {
     const { data, error } = await baseQuery().range(from, to);
-    return { data: (data ?? null) as CaptureEventRow[] | null, error: error?.message };
+    return { data: data ? data.map(toCaptureEventRow) : null, error: error?.message };
   }, options.maxEmails);
 }
 
@@ -220,10 +231,10 @@ async function fetchCapturesInLookback(
 export async function collectCapturePages(
   fetchPage: (
     from: number,
-    to: number,
+    to: number
   ) => Promise<{ data: CaptureEventRow[] | null; error?: string }>,
   maxRows: number,
-  batchSize: number = SCAN_ALL_BATCH_SIZE,
+  batchSize: number = SCAN_ALL_BATCH_SIZE
 ): Promise<{ rows: CaptureEventRow[]; error?: string }> {
   const rows: CaptureEventRow[] = [];
   let offset = 0;
@@ -246,11 +257,6 @@ export async function collectCapturePages(
   return { rows };
 }
 
-function summarizeSignals(analysis: EmailAnalysis): string {
-  const labels = analysis.findings.map((f) => FINDING_TYPE_LABELS[f.type as FindingType]);
-  return [...new Set(labels)].join(", ");
-}
-
 function boostFindingConfidence(
   finding: EmailAnalysis["findings"][number],
   context: { knownPerson: boolean; bidirectionalThread: boolean }
@@ -270,9 +276,7 @@ function filterActionableFindings(
   memoryProposals: MemoryProposal[] = []
 ): ScoredFinding[] {
   const minConfidence =
-    memoryProposals.length > 0
-      ? MIN_FINDING_CONFIDENCE_WITH_MEMORY
-      : MIN_FINDING_CONFIDENCE;
+    memoryProposals.length > 0 ? MIN_FINDING_CONFIDENCE_WITH_MEMORY : MIN_FINDING_CONFIDENCE;
 
   const scored = findings
     .map((finding) => boostFindingConfidence(finding, context))
@@ -300,7 +304,7 @@ function buildEvidenceMetadata(
   analysis: EmailAnalysis,
   memoryProposals: MemoryProposal[],
   senderRegistry?: SenderProfileRegistry
-): Record<string, unknown> {
+): JsonObject {
   const sender = classifyEmailSender(
     {
       from_email: email.from_email,
@@ -347,15 +351,7 @@ async function patchExistingFindingMemoryIfMissing(args: {
   supabase: ReturnType<typeof createAdminClient>;
   senderRegistry?: SenderProfileRegistry;
 }): Promise<boolean> {
-  const {
-    findingId,
-    email,
-    analysis,
-    memoryProposals,
-    dryRun,
-    supabase,
-    senderRegistry,
-  } = args;
+  const { findingId, email, analysis, memoryProposals, dryRun, supabase, senderRegistry } = args;
   if (memoryProposals.length === 0) return false;
 
   const { data: row, error } = await supabase
@@ -367,19 +363,18 @@ async function patchExistingFindingMemoryIfMissing(args: {
   if (error || !row) return false;
   if (hasStoredMemoryProposals(row.evidence)) return false;
 
-  const evidence =
+  const evidence: JsonObject =
     row.evidence && typeof row.evidence === "object" && !Array.isArray(row.evidence)
-      ? (row.evidence as Record<string, unknown>)
+      ? row.evidence
       : {};
 
-  const metadata =
-    evidence.metadata &&
-    typeof evidence.metadata === "object" &&
-    !Array.isArray(evidence.metadata)
-      ? (evidence.metadata as Record<string, unknown>)
+  const rawMetadata = evidence.metadata;
+  const metadata: JsonObject =
+    rawMetadata && typeof rawMetadata === "object" && !Array.isArray(rawMetadata)
+      ? rawMetadata
       : {};
 
-  const updatedEvidence = {
+  const updatedEvidence: JsonObject = {
     ...evidence,
     metadata: {
       ...metadata,
@@ -405,62 +400,6 @@ async function patchExistingFindingMemoryIfMissing(args: {
   return true;
 }
 
-/**
- * Build capture signals and data for watch matching.
- * Extracts signals that watches can filter against.
- */
-function buildCaptureSignals(
-  email: EmailToAnalyze,
-  analysis: EmailAnalysis,
-  context: { personId?: string; orgId?: string }
-): { signals: string[]; data: Record<string, unknown> } {
-  const signals: string[] = ["capture_email_received"];
-
-  if (email.is_sent_by_user) {
-    signals.push("capture_email_sent");
-  }
-
-  if (email.has_prior_thread) {
-    signals.push("capture_email_reply");
-  }
-
-  // Map finding types to capture signals
-  const findingTypes = new Set(analysis.findings?.map((f) => f.type) ?? []);
-
-  if (findingTypes.has("revenue_buying") || findingTypes.has("revenue_closing")) {
-    signals.push("capture_revenue_signal");
-  }
-
-  if (findingTypes.has("revenue_risk")) {
-    signals.push("capture_risk_signal");
-  }
-
-  if (findingTypes.has("pending_question") || findingTypes.has("pending_reply")) {
-    signals.push("capture_pending_signal");
-  }
-
-  if (findingTypes.has("new_person")) {
-    signals.push("capture_new_contact");
-  }
-
-  if (findingTypes.has("referral")) {
-    signals.push("capture_referral");
-  }
-
-  const data: Record<string, unknown> = {
-    from_email: email.from_email,
-    from_name: email.from_name,
-    subject: email.subject,
-    is_sent_by_user: email.is_sent_by_user,
-    has_prior_thread: email.has_prior_thread,
-    person_id: context.personId,
-    org_id: context.orgId,
-    finding_types: Array.from(findingTypes),
-  };
-
-  return { signals, data };
-}
-
 function qualifiesForNeedsRouting(
   findings: ScoredFinding[],
   memoryProposals: MemoryProposal[] = []
@@ -472,6 +411,435 @@ function qualifiesForNeedsRouting(
   const maxConfidence = Math.max(...findings.map((f) => f.confidence));
   if (maxConfidence < NEEDS_ROUTING_MIN_CONFIDENCE) return false;
   return findings.some((f) => NEEDS_ROUTING_FINDING_TYPES.has(f.type as FindingType));
+}
+
+/**
+ * Shared per-workspace scan pipeline state. `runDailyScan` builds this once
+ * per run; the Gmail backfill (Sources plan 3.4) builds it once per backfill
+ * to analyze admitted captures inline on their transient bodies.
+ */
+export interface ScanPipelineContext {
+  supabase: ReturnType<typeof createAdminClient>;
+  workspaceId: string;
+  userId: string;
+  dryRun: boolean;
+  rescan: boolean;
+  llmCall: DailyScanOptions["llmCall"];
+  result: DailyScanResult;
+  findingIdsByCaptureId: Map<string, string>;
+  knownEntities: Awaited<ReturnType<typeof loadKnownWorkspaceEntities>>;
+  senderRegistry: SenderProfileRegistry;
+  scopedMemory: ReturnType<typeof createScopedMemoryLoader>;
+  /**
+   * Per-run provider-fetch budget for body hydration. Null disables
+   * hydration — the inline backfill path already carries the transient body
+   * and must not pay for a second fetch.
+   */
+  hydration: { used: number; max: number } | null;
+}
+
+export async function createScanPipelineContext(options: {
+  workspaceId: string;
+  userId: string;
+  llmCall: DailyScanOptions["llmCall"];
+  dryRun?: boolean;
+  rescan?: boolean;
+  enableHydration?: boolean;
+  result?: DailyScanResult;
+  findingIdsByCaptureId?: Map<string, string>;
+  supabase?: ReturnType<typeof createAdminClient>;
+}): Promise<ScanPipelineContext> {
+  const supabase = options.supabase ?? createAdminClient();
+  const [knownEntities, senderRegistry, scopedMemory] = await Promise.all([
+    loadKnownWorkspaceEntities(supabase, options.workspaceId),
+    loadSenderProfileRegistry(supabase, options.workspaceId),
+    createScopedMemoryLoader(supabase, options.workspaceId, options.userId),
+  ]);
+  return {
+    supabase,
+    workspaceId: options.workspaceId,
+    userId: options.userId,
+    dryRun: options.dryRun ?? false,
+    rescan: options.rescan ?? false,
+    llmCall: options.llmCall,
+    result: options.result ?? {
+      workspaceId: options.workspaceId,
+      emailsProcessed: 0,
+      findingsCreated: 0,
+      peopleResolved: 0,
+      fieldsApplied: 0,
+      fieldsAccumulated: 0,
+      errors: [],
+    },
+    findingIdsByCaptureId: options.findingIdsByCaptureId ?? new Map(),
+    knownEntities,
+    senderRegistry,
+    scopedMemory,
+    hydration: options.enableHydration ? { used: 0, max: MAX_HYDRATIONS_PER_RUN } : null,
+  };
+}
+
+/**
+ * Run one capture through the intelligence pipeline: extract, optionally
+ * hydrate the body, resolve person/org, classify, then persist findings,
+ * memory proposals, and the ledger outcome.
+ *
+ * Shared by the daily scan and the Gmail backfill's inline analysis (3.4).
+ * The backfill passes an in-memory row whose extracted_data carries the
+ * transient full body — persistence here only ever merges outcome metadata
+ * into the stored (thin) row, so the body never reaches the database.
+ */
+export async function processCaptureForScan(
+  ctx: ScanPipelineContext,
+  rawEmail: CaptureEventRow
+): Promise<void> {
+  const {
+    supabase,
+    workspaceId,
+    userId,
+    dryRun,
+    rescan,
+    llmCall,
+    result,
+    findingIdsByCaptureId,
+    knownEntities,
+    senderRegistry,
+    scopedMemory,
+  } = ctx;
+
+  const existingMeta = readIntelligenceMeta(rawEmail.extracted_data);
+  const linkedFindingId = findingIdsByCaptureId.get(rawEmail.id);
+
+  if (!shouldReanalyzeCapture(existingMeta, { rescan })) {
+    if (linkedFindingId) {
+      result.emailsProcessed++;
+      await persistCaptureIntelligenceOutcome(supabase, rawEmail.id, "finding_created", {
+        findingId: linkedFindingId,
+        dryRun,
+      });
+    }
+    return;
+  }
+
+  try {
+    result.emailsProcessed++;
+
+    // Legacy MessageExtractedData rows treat any thread_id as prior thread;
+    // adapter-shape rows (Outlook et al.) always carry a conversation id, so
+    // rely on their explicit is_reply flag and subject instead.
+    const adapterShape = rawEmail.extracted_data as {
+      subject?: unknown;
+      is_reply?: unknown;
+    } | null;
+    const subjectForReply =
+      rawEmail.extracted_data?.type === "message"
+        ? (rawEmail.extracted_data.subject ?? "")
+        : typeof adapterShape?.subject === "string"
+          ? adapterShape.subject
+          : "";
+
+    const email = extractEmailToAnalyze(
+      rawEmail.id,
+      rawEmail.raw_payload,
+      rawEmail.extracted_data,
+      {
+        has_prior_thread:
+          /^re:/i.test(subjectForReply) ||
+          adapterShape?.is_reply === true ||
+          Boolean(rawEmail.extracted_data?.type === "message" && rawEmail.extracted_data.thread_id),
+      }
+    );
+
+    if (!email) {
+      result.errors.push(`Could not extract email metadata for capture ${rawEmail.id}`);
+      await persistCaptureIntelligenceOutcome(supabase, rawEmail.id, "scan_error", { dryRun });
+      return;
+    }
+
+    // Envelope captures store only a snippet — hydrate the full body
+    // transiently through the source pointer (3.7), bounded per run.
+    // Falls back to the snippet when hydration declines or fails.
+    // Null budget (inline backfill path) disables hydration entirely.
+    const hydration = ctx.hydration;
+    if (!email.body_text && hydration && hydration.used < hydration.max) {
+      hydration.used++;
+      const hydratedBody = await hydrateGmailCaptureBody(workspaceId, rawEmail);
+      if (hydratedBody) {
+        email.body_text = hydratedBody;
+      }
+    }
+
+    const fromPaymentRail = isPaymentRailEmail(email.from_email);
+    const paymentPayerHint = getPaymentPayerHint(email);
+
+    let personId: string | undefined;
+    let orgId: string | undefined;
+    let knownPerson = false;
+
+    if (fromPaymentRail) {
+      personId = await resolvePaymentPayerPerson(workspaceId, email, paymentPayerHint);
+      knownPerson = Boolean(personId);
+    } else {
+      // Signature heuristics: free enrichment (phone/company/title) parsed
+      // from the email body tail — routed through confidence-gated tools.
+      const signatureHints =
+        !email.is_sent_by_user && email.body_text ? parseSignatureFromBody(email.body_text) : {};
+
+      const personResult = await resolvePerson(workspaceId, {
+        email: email.from_email,
+        name: email.from_name ?? undefined,
+        signals: {
+          is_bidirectional_thread: email.has_prior_thread,
+          you_initiated: email.is_sent_by_user,
+        },
+        sourceType: "email",
+        sourceCaptureId: rawEmail.id,
+        enrichment: {
+          phone: signatureHints.phone,
+          company: signatureHints.company,
+          title: signatureHints.title,
+          contactAt: email.sent_at || undefined,
+        },
+      });
+
+      personId = personResult.person_id;
+      knownPerson = Boolean(personId && !personResult.is_new);
+
+      if (personResult.is_new && personId) {
+        result.peopleResolved++;
+      }
+
+      const orgResult = await resolveOrg(workspaceId, email.from_email);
+      orgId = orgResult.org_id;
+
+      if (personId && orgId) {
+        await linkPersonToOrg(workspaceId, personId, orgId);
+      }
+    }
+
+    const memoryItems = await scopedMemory.forEntity({ personId, orgId });
+
+    const classification = await classifyCapture(rawEmail, {
+      llmCall,
+      knownPerson,
+      bidirectionalThread: email.has_prior_thread && !email.is_sent_by_user,
+      senderRegistry,
+      memoryContext: buildMemoryContextBlock(memoryItems),
+    });
+
+    if (!classification || classification.isNoise || !classification.analysis) {
+      await persistCaptureIntelligenceOutcome(supabase, rawEmail.id, "no_signal", { dryRun });
+      return;
+    }
+
+    const analysis = classification.analysis;
+
+    // LLM field extractions → confidence-gated Memory writes. Sender
+    // fields only (received mail), never payment rails or vendor senders.
+    if (
+      !dryRun &&
+      !email.is_sent_by_user &&
+      !fromPaymentRail &&
+      (personId || orgId) &&
+      analysis.field_extractions?.length
+    ) {
+      try {
+        const extractionResult = await applyFieldExtractions({
+          workspaceId,
+          captureId: rawEmail.id,
+          personId,
+          orgId,
+          extractions: analysis.field_extractions,
+        });
+        result.fieldsApplied += extractionResult.applied;
+        result.fieldsAccumulated += extractionResult.accumulated;
+      } catch (extractionError) {
+        console.error("[daily-scan] Field extraction apply failed:", extractionError);
+      }
+    }
+
+    const rawMemoryProposals = filterActionableMemoryProposals(analysis.memory_proposals ?? []);
+
+    // Route `me`-surface facts straight into the operator memory review queue.
+    // Only from messages the user authored; nothing is trusted until confirmed.
+    if (!dryRun && email.is_sent_by_user) {
+      const meProposals = rawMemoryProposals.filter((p) => p.surface === "me");
+      if (meProposals.length > 0) {
+        try {
+          await routeMeFactProposals({
+            workspaceId,
+            userId,
+            proposals: meProposals,
+            captureId: rawEmail.id,
+            admin: supabase,
+          });
+        } catch (meError) {
+          console.error("[daily-scan] Failed to route me facts:", meError);
+        }
+      }
+    }
+    const senderContext = classifyEmailSender(
+      {
+        from_email: email.from_email,
+        from_name: email.from_name,
+        subject: email.subject,
+        body_text: email.body_text,
+        snippet: email.snippet,
+      },
+      { registry: senderRegistry }
+    );
+    const memoryProposals = filterMemoryProposalsForSender(
+      resolveMemoryProposals(rawMemoryProposals, knownEntities, {
+        fromEmail: email.from_email,
+        fromName: email.from_name,
+      }),
+      senderContext
+    );
+
+    await learnVendorFromClassification({
+      supabase,
+      workspaceId,
+      fromEmail: email.from_email,
+      sender: senderContext,
+      dryRun,
+    });
+    const analysisWithMemory: EmailAnalysis = {
+      ...analysis,
+      memory_proposals: memoryProposals,
+    };
+
+    const actionableFindings = filterActionableFindings(
+      analysis.findings,
+      {
+        knownPerson,
+        bidirectionalThread: email.has_prior_thread && !email.is_sent_by_user,
+      },
+      memoryProposals
+    );
+
+    if (actionableFindings.length === 0 && memoryProposals.length === 0) {
+      await persistCaptureIntelligenceOutcome(supabase, rawEmail.id, "no_signal", { dryRun });
+      return;
+    }
+
+    const existingFindingId = findingIdsByCaptureId.get(rawEmail.id);
+    if (existingFindingId) {
+      const patched = await patchExistingFindingMemoryIfMissing({
+        findingId: existingFindingId,
+        email,
+        analysis: analysisWithMemory,
+        memoryProposals,
+        dryRun,
+        supabase,
+        senderRegistry,
+      });
+      if (patched) {
+        result.findingsCreated++;
+      }
+      await persistCaptureIntelligenceOutcome(supabase, rawEmail.id, "finding_created", {
+        findingId: existingFindingId,
+        dryRun,
+      });
+      return;
+    }
+
+    const analysisWithBoosted = {
+      ...analysisWithMemory,
+      findings: actionableFindings,
+    };
+
+    if (!personId && !orgId) {
+      if (!qualifiesForNeedsRouting(actionableFindings, memoryProposals)) {
+        await persistCaptureIntelligenceOutcome(supabase, rawEmail.id, "no_signal", { dryRun });
+        return;
+      }
+
+      const routing = await routeUnknownSenderSignal({
+        workspaceId,
+        captureId: rawEmail.id,
+        email,
+        analysis: analysisWithBoosted,
+        memoryProposals,
+        paymentPayerHint,
+        dryRun,
+        supabase,
+        result,
+        senderRegistry,
+      });
+      await persistCaptureIntelligenceOutcome(supabase, rawEmail.id, routing.outcome, {
+        findingId: routing.findingId ?? undefined,
+        dryRun,
+      });
+      return;
+    }
+
+    const findingId = await createFindingsFromAnalysis({
+      workspaceId,
+      captureId: rawEmail.id,
+      email,
+      personId,
+      orgId,
+      analysis: analysisWithBoosted,
+      memoryProposals,
+      dryRun,
+      supabase,
+      result,
+      forceNeedsYou: fromPaymentRail && !personId,
+      senderRegistry,
+    });
+    await persistCaptureIntelligenceOutcome(
+      supabase,
+      rawEmail.id,
+      findingId ? "finding_created" : "no_signal",
+      { findingId: findingId ?? undefined, dryRun }
+    );
+
+    // Extract notes from email content (entity learning)
+    if (!dryRun && (personId || orgId)) {
+      try {
+        const anchorEntity = personId
+          ? { type: "person" as const, id: personId, name: email.from_name ?? email.from_email }
+          : {
+              type: "organization" as const,
+              id: orgId!,
+              name: email.from_name ?? email.from_email,
+            };
+
+        const extractionInput: NoteExtractionInput = {
+          sourceType: "email",
+          sourceId: rawEmail.id,
+          content: [email.subject, email.body_text ?? email.snippet].filter(Boolean).join("\n\n"),
+          subject: email.subject,
+          anchorEntity,
+          relatedEntities: orgId && personId ? { orgId } : undefined,
+        };
+
+        const entityNames = new Map<string, string>();
+        if (personId) entityNames.set(personId, email.from_name ?? email.from_email);
+        if (orgId) entityNames.set(orgId, email.from_name ?? "Organization");
+
+        await extractAndPersistNotes(extractionInput, entityNames, workspaceId);
+      } catch (noteError) {
+        // Don't fail the scan if note extraction fails
+        result.errors.push(
+          `Note extraction warning: ${noteError instanceof Error ? noteError.message : String(noteError)}`
+        );
+      }
+    }
+
+    if (analysis.relationship_type && personId && !dryRun) {
+      await supabase
+        .from("people")
+        .update({ relationship_type: analysis.relationship_type })
+        .eq("id", personId)
+        .is("relationship_type", null);
+    }
+  } catch (error) {
+    result.errors.push(
+      `Error processing email: ${error instanceof Error ? error.message : String(error)}`
+    );
+    await persistCaptureIntelligenceOutcome(supabase, rawEmail.id, "scan_error", { dryRun });
+  }
 }
 
 export async function runDailyScan(
@@ -498,8 +866,6 @@ export async function runDailyScan(
     errors: [],
   };
 
-  let hydrationsUsed = 0;
-
   const supabase = createAdminClient();
 
   const cutoff = new Date(Date.now() - lookbackHours * 60 * 60 * 1000).toISOString();
@@ -512,430 +878,55 @@ export async function runDailyScan(
   );
 
   if (fetchError) {
-    const hint =
-      fetchError.includes("capture_events")
-        ? " Capture tables are missing on this Supabase project — use pnpm dev:staging:op for Plays intelligence."
-        : "";
+    const hint = fetchError.includes("capture_events")
+      ? " Capture tables are missing on this Supabase project — use pnpm dev:staging:op for Plays intelligence."
+      : "";
     result.errors.push(`Failed to fetch emails: ${fetchError}.${hint}`);
     return result;
   }
 
   if (emails.length === 0) {
     result.errors.push(
-      `No email captures in the last ${lookbackHours}h for this workspace. Use Sync Captures after connecting an email account at /connections.`
+      `No email captures in the last ${lookbackHours}h for this workspace. Use Sync Captures after connecting an email account at /sources.`
     );
     return result;
   }
 
+  // Bounded to the scan window (2.10): a finding can only reference captures
+  // that existed when it was created, and every capture in this scan was
+  // created after `cutoff` — so findings older than the cutoff cannot link
+  // to them. Without this filter the load grew with workspace age on every
+  // scan, unbounded.
   const { data: existingFindings, error: findingsError } = await supabase
     .from("intelligence_findings")
     .select("id, evidence")
-    .eq("workspace_id", workspaceId);
+    .eq("workspace_id", workspaceId)
+    .gte("created_at", cutoff);
 
   if (findingsError) {
     result.errors.push(`Failed to load existing findings: ${findingsError.message}`);
   }
 
-  const findingIdsByCaptureId = collectFindingIdsByCaptureId(existingFindings);
+  const ctx = await createScanPipelineContext({
+    workspaceId,
+    userId,
+    llmCall,
+    dryRun,
+    rescan,
+    enableHydration: true,
+    result,
+    findingIdsByCaptureId: collectFindingIdsByCaptureId(existingFindings),
+    supabase,
+  });
 
   const orderedEmails = sortCapturesInboundFirst(emails);
-  const knownEntities = await loadKnownWorkspaceEntities(supabase, workspaceId);
-  const senderRegistry = await loadSenderProfileRegistry(supabase, workspaceId);
-  const scopedMemory = createScopedMemoryLoader(supabase, workspaceId, userId);
-
   for (const rawEmail of orderedEmails) {
-    const existingMeta = readIntelligenceMeta(rawEmail.extracted_data);
-    const linkedFindingId = findingIdsByCaptureId.get(rawEmail.id);
-
-    if (!shouldReanalyzeCapture(existingMeta, { rescan })) {
-      if (linkedFindingId) {
-        result.emailsProcessed++;
-        await persistCaptureIntelligenceOutcome(
-          supabase,
-          rawEmail.id,
-          "finding_created",
-          { findingId: linkedFindingId, dryRun }
-        );
-      }
-      continue;
-    }
-
-    try {
-      result.emailsProcessed++;
-
-      // Legacy MessageExtractedData rows treat any thread_id as prior thread;
-      // adapter-shape rows (Outlook et al.) always carry a conversation id, so
-      // rely on their explicit is_reply flag and subject instead.
-      const adapterShape = rawEmail.extracted_data as
-        | { subject?: unknown; is_reply?: unknown }
-        | null;
-      const subjectForReply =
-        rawEmail.extracted_data?.type === "message"
-          ? (rawEmail.extracted_data.subject ?? "")
-          : typeof adapterShape?.subject === "string"
-            ? adapterShape.subject
-            : "";
-
-      const email = extractEmailToAnalyze(
-        rawEmail.id,
-        rawEmail.raw_payload,
-        rawEmail.extracted_data,
-        {
-          has_prior_thread:
-            /^re:/i.test(subjectForReply) ||
-            adapterShape?.is_reply === true ||
-            Boolean(
-              rawEmail.extracted_data?.type === "message" &&
-                rawEmail.extracted_data.thread_id
-            ),
-        }
-      );
-
-      if (!email) {
-        result.errors.push(`Could not extract email metadata for capture ${rawEmail.id}`);
-        await persistCaptureIntelligenceOutcome(
-          supabase,
-          rawEmail.id,
-          "scan_error",
-          { dryRun }
-        );
-        continue;
-      }
-
-      // Envelope captures store only a snippet — hydrate the full body
-      // transiently through the source pointer (3.7), bounded per run.
-      // Falls back to the snippet when hydration declines or fails.
-      if (!email.body_text && hydrationsUsed < MAX_HYDRATIONS_PER_RUN) {
-        hydrationsUsed++;
-        const hydratedBody = await hydrateGmailCaptureBody(workspaceId, rawEmail);
-        if (hydratedBody) {
-          email.body_text = hydratedBody;
-        }
-      }
-
-      const fromPaymentRail = isPaymentRailEmail(email.from_email);
-      const paymentPayerHint = getPaymentPayerHint(email);
-
-      let personId: string | undefined;
-      let orgId: string | undefined;
-      let knownPerson = false;
-
-      if (fromPaymentRail) {
-        personId = await resolvePaymentPayerPerson(
-          workspaceId,
-          email,
-          paymentPayerHint
-        );
-        knownPerson = Boolean(personId);
-      } else {
-        // Signature heuristics: free enrichment (phone/company/title) parsed
-        // from the email body tail — routed through confidence-gated tools.
-        const signatureHints =
-          !email.is_sent_by_user && email.body_text
-            ? parseSignatureFromBody(email.body_text)
-            : {};
-
-        const personResult = await resolvePerson(workspaceId, {
-          email: email.from_email,
-          name: email.from_name ?? undefined,
-          signals: {
-            is_bidirectional_thread: email.has_prior_thread,
-            you_initiated: email.is_sent_by_user,
-          },
-          sourceType: "email",
-          sourceCaptureId: rawEmail.id,
-          enrichment: {
-            phone: signatureHints.phone,
-            company: signatureHints.company,
-            title: signatureHints.title,
-            contactAt: email.sent_at || undefined,
-          },
-        });
-
-        personId = personResult.person_id;
-        knownPerson = Boolean(personId && !personResult.is_new);
-
-        if (personResult.is_new && personId) {
-          result.peopleResolved++;
-        }
-
-        const orgResult = await resolveOrg(workspaceId, email.from_email);
-        orgId = orgResult.org_id;
-
-        if (personId && orgId) {
-          await linkPersonToOrg(workspaceId, personId, orgId);
-        }
-      }
-
-      const memoryItems = await scopedMemory.forEntity({ personId, orgId });
-
-      const classification = await classifyCapture(rawEmail, {
-        llmCall,
-        knownPerson,
-        bidirectionalThread: email.has_prior_thread && !email.is_sent_by_user,
-        senderRegistry,
-        memoryContext: buildMemoryContextBlock(memoryItems),
-      });
-
-      if (!classification || classification.isNoise || !classification.analysis) {
-        await persistCaptureIntelligenceOutcome(
-          supabase,
-          rawEmail.id,
-          "no_signal",
-          { dryRun }
-        );
-        continue;
-      }
-
-      const analysis = classification.analysis;
-
-      // LLM field extractions → confidence-gated Memory writes. Sender
-      // fields only (received mail), never payment rails or vendor senders.
-      if (
-        !dryRun &&
-        !email.is_sent_by_user &&
-        !fromPaymentRail &&
-        (personId || orgId) &&
-        analysis.field_extractions?.length
-      ) {
-        try {
-          const extractionResult = await applyFieldExtractions({
-            workspaceId,
-            captureId: rawEmail.id,
-            personId,
-            orgId,
-            extractions: analysis.field_extractions,
-          });
-          result.fieldsApplied += extractionResult.applied;
-          result.fieldsAccumulated += extractionResult.accumulated;
-        } catch (extractionError) {
-          console.error(
-            "[daily-scan] Field extraction apply failed:",
-            extractionError
-          );
-        }
-      }
-
-      const rawMemoryProposals = filterActionableMemoryProposals(
-        analysis.memory_proposals ?? []
-      );
-
-      // Route `me`-surface facts straight into the operator memory review queue.
-      // Only from messages the user authored; nothing is trusted until confirmed.
-      if (!dryRun && email.is_sent_by_user) {
-        const meProposals = rawMemoryProposals.filter((p) => p.surface === "me");
-        if (meProposals.length > 0) {
-          try {
-            await routeMeFactProposals({
-              workspaceId,
-              userId,
-              proposals: meProposals,
-              captureId: rawEmail.id,
-              admin: supabase,
-            });
-          } catch (meError) {
-            console.error("[daily-scan] Failed to route me facts:", meError);
-          }
-        }
-      }
-      const senderContext = classifyEmailSender(
-        {
-          from_email: email.from_email,
-          from_name: email.from_name,
-          subject: email.subject,
-          body_text: email.body_text,
-          snippet: email.snippet,
-        },
-        { registry: senderRegistry }
-      );
-      const memoryProposals = filterMemoryProposalsForSender(
-        resolveMemoryProposals(rawMemoryProposals, knownEntities, {
-          fromEmail: email.from_email,
-          fromName: email.from_name,
-        }),
-        senderContext
-      );
-
-      await learnVendorFromClassification({
-        supabase,
-        workspaceId,
-        fromEmail: email.from_email,
-        sender: senderContext,
-        dryRun,
-      });
-      const analysisWithMemory: EmailAnalysis = {
-        ...analysis,
-        memory_proposals: memoryProposals,
-      };
-
-      const actionableFindings = filterActionableFindings(
-        analysis.findings,
-        {
-          knownPerson,
-          bidirectionalThread: email.has_prior_thread && !email.is_sent_by_user,
-        },
-        memoryProposals
-      );
-
-      if (actionableFindings.length === 0 && memoryProposals.length === 0) {
-        await persistCaptureIntelligenceOutcome(
-          supabase,
-          rawEmail.id,
-          "no_signal",
-          { dryRun }
-        );
-        continue;
-      }
-
-      const existingFindingId = findingIdsByCaptureId.get(rawEmail.id);
-      if (existingFindingId) {
-        const patched = await patchExistingFindingMemoryIfMissing({
-          findingId: existingFindingId,
-          email,
-          analysis: analysisWithMemory,
-          memoryProposals,
-          dryRun,
-          supabase,
-          senderRegistry,
-        });
-        if (patched) {
-          result.findingsCreated++;
-        }
-        await persistCaptureIntelligenceOutcome(
-          supabase,
-          rawEmail.id,
-          "finding_created",
-          { findingId: existingFindingId, dryRun }
-        );
-        continue;
-      }
-
-      const analysisWithBoosted = {
-        ...analysisWithMemory,
-        findings: actionableFindings,
-      };
-
-      if (!personId && !orgId) {
-        if (!qualifiesForNeedsRouting(actionableFindings, memoryProposals)) {
-          await persistCaptureIntelligenceOutcome(
-            supabase,
-            rawEmail.id,
-            "no_signal",
-            { dryRun }
-          );
-          continue;
-        }
-
-        const findingId = await createNeedsRoutingFinding({
-          workspaceId,
-          captureId: rawEmail.id,
-          email,
-          analysis: analysisWithBoosted,
-          memoryProposals,
-          paymentPayerHint,
-          dryRun,
-          supabase,
-          result,
-          senderRegistry,
-        });
-        await persistCaptureIntelligenceOutcome(
-          supabase,
-          rawEmail.id,
-          findingId ? "finding_created" : "no_signal",
-          { findingId: findingId ?? undefined, dryRun }
-        );
-        continue;
-      }
-
-      const findingId = await createFindingsFromAnalysis({
-        workspaceId,
-        captureId: rawEmail.id,
-        email,
-        personId,
-        orgId,
-        analysis: analysisWithBoosted,
-        memoryProposals,
-        dryRun,
-        supabase,
-        result,
-        forceNeedsYou: fromPaymentRail && !personId,
-        senderRegistry,
-      });
-      await persistCaptureIntelligenceOutcome(
-        supabase,
-        rawEmail.id,
-        findingId ? "finding_created" : "no_signal",
-        { findingId: findingId ?? undefined, dryRun }
-      );
-
-      // Extract notes from email content (entity learning)
-      if (!dryRun && (personId || orgId)) {
-        try {
-          const anchorEntity = personId
-            ? { type: "person" as const, id: personId, name: email.from_name ?? email.from_email }
-            : { type: "organization" as const, id: orgId!, name: email.from_name ?? email.from_email };
-
-          const extractionInput: NoteExtractionInput = {
-            sourceType: "email",
-            sourceId: rawEmail.id,
-            content: [email.subject, email.body_text ?? email.snippet].filter(Boolean).join("\n\n"),
-            subject: email.subject,
-            anchorEntity,
-            relatedEntities: orgId && personId ? { orgId } : undefined,
-          };
-
-          const entityNames = new Map<string, string>();
-          if (personId) entityNames.set(personId, email.from_name ?? email.from_email);
-          if (orgId) entityNames.set(orgId, email.from_name ?? "Organization");
-
-          await extractAndPersistNotes(extractionInput, entityNames, workspaceId);
-        } catch (noteError) {
-          // Don't fail the scan if note extraction fails
-          result.errors.push(
-            `Note extraction warning: ${noteError instanceof Error ? noteError.message : String(noteError)}`
-          );
-        }
-      }
-
-      if (analysis.relationship_type && personId && !dryRun) {
-        await supabase
-          .from("people")
-          .update({ relationship_type: analysis.relationship_type })
-          .eq("id", personId)
-          .is("relationship_type", null);
-      }
-
-      // Check capture against active entity watches
-      if (!dryRun) {
-        try {
-          const captureSignals = buildCaptureSignals(email, analysis, { personId, orgId });
-          await processCaptureAgainstWatches({
-            workspaceId,
-            captureId: rawEmail.id,
-            captureSignals: captureSignals.signals,
-            captureData: captureSignals.data,
-          });
-        } catch (watchError) {
-          // Don't fail the scan if watch processing fails
-          console.error("[daily-scan] Watch processing error:", watchError);
-        }
-      }
-    } catch (error) {
-      result.errors.push(
-        `Error processing email: ${error instanceof Error ? error.message : String(error)}`
-      );
-      await persistCaptureIntelligenceOutcome(
-        supabase,
-        rawEmail.id,
-        "scan_error",
-        { dryRun }
-      );
-    }
+    await processCaptureForScan(ctx, rawEmail);
   }
 
   const repair = await repairVendorFindings(workspaceId, supabase, {
     dryRun,
-    senderRegistry,
+    senderRegistry: ctx.senderRegistry,
   });
   result.findingsDismissedAsVendor = repair.findingsDismissed;
   result.findingsMemoryRepaired = repair.findingsUpdated;
@@ -943,7 +934,13 @@ export async function runDailyScan(
   return result;
 }
 
-async function createNeedsRoutingFinding(args: {
+export interface UnknownSenderRoutingResult {
+  /** Ledger outcome to stamp on the capture (never `finding_created` with a fake id). */
+  outcome: CaptureIntelligenceMeta["outcome"];
+  findingId: string | null;
+}
+
+export interface UnknownSenderRoutingArgs {
   workspaceId: string;
   captureId: string;
   email: EmailToAnalyze;
@@ -954,71 +951,40 @@ async function createNeedsRoutingFinding(args: {
   supabase: ReturnType<typeof createAdminClient>;
   result: DailyScanResult;
   senderRegistry?: SenderProfileRegistry;
-}): Promise<string | null> {
-  const {
-    workspaceId,
-    captureId,
-    email,
-    analysis,
-    memoryProposals,
-    paymentPayerHint,
-    dryRun,
-    result,
-  } = args;
-
-  const findingConfidences = analysis.findings.map((f) => f.confidence);
-  const proposalConfidences = memoryProposals.map((p) => p.confidence);
-  const confidence = Math.max(
-    ...(findingConfidences.length ? findingConfidences : [0]),
-    ...(proposalConfidences.length ? proposalConfidences : [NEEDS_ROUTING_MIN_CONFIDENCE])
-  );
-  const senderLabel = email.from_name?.trim() || email.from_email;
-  const signalSummary = summarizeSignals(analysis);
-
-  const title = paymentPayerHint
-    ? `Route payment from ${paymentPayerHint.name}`
-    : memoryProposals.length > 0 && analysis.findings.length === 0
-      ? `Memory suggestions: ${email.subject || senderLabel}`
-      : `Route to a profile: ${email.subject || senderLabel}`;
-
-  const preview = paymentPayerHint
-    ? `Payment detected for ${paymentPayerHint.name}, but they aren't linked in Memory yet. Choose or create the right person.`
-    : memoryProposals.length > 0 && analysis.findings.length === 0
-      ? `Salt suggested ${memoryProposals.length} Memory update(s) from this email. Choose or create the right profile first.`
-      : `Salt noticed ${signalSummary.toLowerCase()} from ${senderLabel}, but isn't sure which person or org this belongs to yet.`;
-
-  if (dryRun) {
-    result.findingsCreated++;
-    return "dry-run-finding";
-  }
-
-  // Route to play_runs instead of intelligence_findings (Phase 3)
-  const playRunResult = await createRoutingPlayRun({
-    workspaceId,
-    title,
-    preview,
-    confidence,
-    sourceUrl: null,
-    triggerLabel: "From email",
-    captureId,
-    evidenceQuotes: analysis.findings
-      .map((f) => f.evidence_quote)
-      .filter((q): q is string => Boolean(q)),
-    fromEmail: email.from_email,
-    fromName: email.from_name,
-    paymentPayerHint: paymentPayerHint?.name ?? null,
-  });
-
-  if (!playRunResult.ok) {
-    result.errors.push(`Failed to create routing play run: ${playRunResult.error}`);
-    return null;
-  }
-
-  result.findingsCreated++;
-  return playRunResult.playRunId;
 }
 
-async function createFindingsFromAnalysis(args: {
+/**
+ * Handle an unknown-sender capture that carries signals.
+ *
+ * Plays canon Phase 2: create NOTHING — no play_runs row and no replacement
+ * record. The held-sender / relationship-discovery pool the same cron runs
+ * already covers unknown-sender surfacing; the retired "route-signal" play
+ * only produced an invisible ghost card. The capture gets the honest
+ * `signal_unrouted` outcome instead of `finding_created` with a foreign
+ * play_runs id stuffed into extracted_data.intelligence.finding_id, which
+ * made Sources Activity claim a confirmed finding the user could never see.
+ *
+ * Exported for test.
+ */
+export async function routeUnknownSenderSignal(
+  _args: UnknownSenderRoutingArgs
+): Promise<UnknownSenderRoutingResult> {
+  // Signal found, sender unrouted — record that truth and stop.
+  // No findingsCreated increment: nothing was created.
+  return { outcome: "signal_unrouted", findingId: null };
+}
+
+/**
+ * Persist actionable findings for a resolved person/org.
+ *
+ * Plays canon Phase 2: revenue_risk lands in intelligence_findings like every
+ * other finding type (the retired "client-risk" play_run detour produced only
+ * invisible ghost cards), with state stamped `needs_you` explicitly so it
+ * renders in HQ "Heads up" and feeds people/orgs health scoring.
+ *
+ * Exported for test.
+ */
+export async function createFindingsFromAnalysis(args: {
   workspaceId: string;
   captureId: string;
   email: EmailToAnalyze;
@@ -1053,81 +1019,43 @@ async function createFindingsFromAnalysis(args: {
 
   let firstFindingId: string | null = null;
   const minConfidence =
-    memoryProposals.length > 0
-      ? MIN_FINDING_CONFIDENCE_WITH_MEMORY
-      : MIN_FINDING_CONFIDENCE;
-
-  const targetLabel = email.from_name?.trim() || email.from_email;
+    memoryProposals.length > 0 ? MIN_FINDING_CONFIDENCE_WITH_MEMORY : MIN_FINDING_CONFIDENCE;
 
   for (const finding of analysis.findings) {
     if (finding.confidence < minConfidence) continue;
 
-    // Route revenue_risk to play_runs (Phase 3)
-    if (finding.type === "revenue_risk") {
-      if (dryRun) {
-        result.findingsCreated++;
-        firstFindingId ??= "dry-run-finding";
-        continue;
-      }
-
-      const riskResult = await createRiskPlayRun({
-        workspaceId,
-        personId: personId ?? null,
-        orgId: personId ? null : (orgId ?? null),
-        targetLabel,
-        title: finding.title,
-        signal: finding.content ?? finding.title,
-        recommendation: null,
-        confidence: finding.confidence,
-        sourceUrl: null,
-        triggerLabel: "From email",
-        captureId,
-        evidenceQuotes: finding.evidence_quote ? [finding.evidence_quote] : [],
-      });
-
-      if (!riskResult.ok) {
-        result.errors.push(`Failed to create risk play run: ${riskResult.error}`);
-      } else {
-        result.findingsCreated++;
-        firstFindingId ??= riskResult.playRunId;
-      }
-      continue;
-    }
-
-    // Other finding types still go to intelligence_findings (interim)
+    // revenue_risk is stamped `needs_you` explicitly regardless of
+    // confidence. The generic rule would auto-handle at >= 85, but risk must
+    // always get human attention — it can never silently auto-handle.
     const state =
+      finding.type === "revenue_risk" ||
       forceNeedsYou ||
       finding.confidence < HIGH_CONFIDENCE_THRESHOLD ||
       memoryProposals.length > 0
         ? "needs_you"
         : "auto_handled";
 
-    const metadata = buildEvidenceMetadata(
-      email,
-      analysis,
-      memoryProposals,
-      senderRegistry
-    );
+    const metadata = buildEvidenceMetadata(email, analysis, memoryProposals, senderRegistry);
 
     if (!dryRun) {
       const { data: inserted, error: insertError } = await supabase
         .from("intelligence_findings")
         .insert({
-        workspace_id: workspaceId,
-        person_id: personId ?? null,
-        org_id: personId ? null : (orgId ?? null),
-        finding_type: finding.type as FindingType,
-        title: finding.title,
-        content: finding.content ?? null,
-        evidence: {
-          source_type: "email",
-          source_id: captureId,
-          quotes: finding.evidence_quote ? [finding.evidence_quote] : undefined,
-          metadata,
-        },
-        confidence: finding.confidence,
-        state,
-      })
+          workspace_id: workspaceId,
+          person_id: personId ?? null,
+          org_id: personId ? null : (orgId ?? null),
+          finding_type: finding.type as FindingType,
+          title: finding.title,
+          content: finding.content ?? null,
+          evidence: {
+            source_type: "email",
+            source_id: captureId,
+            quotes: finding.evidence_quote ? [finding.evidence_quote] : undefined,
+            metadata,
+          },
+          confidence: finding.confidence,
+          state,
+        })
         .select("id")
         .single();
 

@@ -125,14 +125,14 @@ export function createProjectManagementCategoryAdapter(provider: string): Captur
     : []; // Unknown providers: triggers come from DB
 
   return {
-    sourceType: provider as CaptureSourceType,
+    sourceType: provider,
     toolkit: provider,
     triggerSlugs,
     deriveSignals: derivePmSignals,
 
     normalize(payload: unknown): CaptureEnvelope | null {
       // All PM providers currently use generic extraction
-      return normalizeGenericPm(payload, provider as CaptureSourceType);
+      return normalizeGenericPm(payload, provider);
     },
   };
 }

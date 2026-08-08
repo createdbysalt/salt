@@ -9,9 +9,18 @@ import { deleteEdgesFrom } from "@/app/_features/memory/lib/edge-store";
 
 type ActionResult = { success: true } | { error: string };
 
+type TrashTable =
+  | "people"
+  | "organizations"
+  | "work"
+  | "billing_records"
+  | "files"
+  | "meetings"
+  | "notes";
+
 interface EntityConfig {
-  table: string;
-  tenantColumn: "workspace_id" | "workspace_id";
+  table: TrashTable;
+  tenantColumn: "workspace_id";
   listPath: string;
 }
 
@@ -65,20 +74,21 @@ export async function archiveItem(
     const admin = createAdminClient();
     const now = new Date().toISOString();
 
-    const updatePayload: Record<string, unknown> = {
-      archived_at: now,
-      updated_at: now,
-    };
-    if (entityType === "note") {
-      updatePayload.is_archived = true;
-    }
-
-    const { error } = await admin
-      .from(config.table)
-      .update(updatePayload)
-      .eq("id", entityId)
-      .eq(config.tenantColumn, workspace.id)
-      .is("deleted_at", null);
+    // notes carry an extra is_archived flag the other surfaces don't have
+    const { error } =
+      entityType === "note"
+        ? await admin
+            .from("notes")
+            .update({ archived_at: now, updated_at: now, is_archived: true })
+            .eq("id", entityId)
+            .eq(config.tenantColumn, workspace.id)
+            .is("deleted_at", null)
+        : await admin
+            .from(config.table)
+            .update({ archived_at: now, updated_at: now })
+            .eq("id", entityId)
+            .eq(config.tenantColumn, workspace.id)
+            .is("deleted_at", null);
 
     if (error) {
       console.error("archiveItem error:", error);
@@ -105,22 +115,24 @@ export async function restoreFromArchive(
 
     const config = ENTITY_CONFIG[entityType];
     const admin = createAdminClient();
+    const now = new Date().toISOString();
 
-    const updatePayload: Record<string, unknown> = {
-      archived_at: null,
-      updated_at: new Date().toISOString(),
-    };
-    if (entityType === "note") {
-      updatePayload.is_archived = false;
-    }
-
-    const { error } = await admin
-      .from(config.table)
-      .update(updatePayload)
-      .eq("id", entityId)
-      .eq(config.tenantColumn, workspace.id)
-      .not("archived_at", "is", null)
-      .is("deleted_at", null);
+    const { error } =
+      entityType === "note"
+        ? await admin
+            .from("notes")
+            .update({ archived_at: null, updated_at: now, is_archived: false })
+            .eq("id", entityId)
+            .eq(config.tenantColumn, workspace.id)
+            .not("archived_at", "is", null)
+            .is("deleted_at", null)
+        : await admin
+            .from(config.table)
+            .update({ archived_at: null, updated_at: now })
+            .eq("id", entityId)
+            .eq(config.tenantColumn, workspace.id)
+            .not("archived_at", "is", null)
+            .is("deleted_at", null);
 
     if (error) {
       console.error("restoreFromArchive error:", error);
@@ -149,17 +161,29 @@ export async function trashItem(
     const admin = createAdminClient();
     const now = new Date().toISOString();
 
-    const { error } = await admin
-      .from(config.table)
-      .update({
-        deleted_at: now,
-        deleted_by: context.userId,
-        archived_at: null,
-        updated_at: now,
-        ...(entityType === "note" ? { is_archived: false } : {}),
-      })
-      .eq("id", entityId)
-      .eq(config.tenantColumn, workspace.id);
+    const { error } =
+      entityType === "note"
+        ? await admin
+            .from("notes")
+            .update({
+              deleted_at: now,
+              deleted_by: context.userId,
+              archived_at: null,
+              updated_at: now,
+              is_archived: false,
+            })
+            .eq("id", entityId)
+            .eq(config.tenantColumn, workspace.id)
+        : await admin
+            .from(config.table)
+            .update({
+              deleted_at: now,
+              deleted_by: context.userId,
+              archived_at: null,
+              updated_at: now,
+            })
+            .eq("id", entityId)
+            .eq(config.tenantColumn, workspace.id);
 
     if (error) {
       console.error("trashItem error:", error);

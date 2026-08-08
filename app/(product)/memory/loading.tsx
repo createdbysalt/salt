@@ -3,7 +3,6 @@ import { Skeleton } from "@repo/ui";
 export default function MemoryLoading() {
   return (
     <div className="relative min-h-full">
-      <div aria-hidden className="salt-ambient-wash" />
       <div className="mx-auto w-full max-w-[1400px] space-y-8 pb-10">
         <div className="space-y-2">
           <Skeleton className="h-3 w-32" />

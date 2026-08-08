@@ -7,26 +7,39 @@
  * touches floating point.
  */
 
-export type UsageEventType =
-  | "play_executed"
-  | "action_sent"
-  | "ask_salt_query"
-  | "capture_ingested"
-  | "capture_processed"
-  | "storage_delta"
-  /**
-   * Raw language-model spend recorded at `sendLlm`. Always non-billable: it is
-   * the cost underneath other outcomes, not an outcome itself. Highest
-   * cardinality type in the ledger — one row per model call.
-   */
-  | "llm_call"
-  /**
-   * One Composio trigger event, billed by the vendor at delivery (egress) —
-   * $0.001/event under the Aug 15 2026 pricing. Always non-billable: pure
-   * COGS visibility for the margin monitor. Recorded at webhook ingress,
-   * idempotent on the Standard-Webhooks delivery id.
-   */
-  | "composio_trigger_event";
+/**
+ * Every ledger event type. A runtime list (not just a union) because the DB
+ * enforces the same set via the usage_events_event_type_check constraint —
+ * a unit test asserts the two stay identical, so adding a type here without
+ * a migration fails CI instead of the ledger swallowing constraint
+ * violations silently.
+ *
+ * - `llm_call`: raw language-model spend recorded at `sendLlm`. Always
+ *   non-billable: the cost underneath other outcomes, not an outcome itself.
+ *   Highest cardinality type in the ledger — one row per model call.
+ * - `composio_trigger_event`: one Composio trigger event, billed by the
+ *   vendor at delivery (egress) — $0.001/event under the Aug 15 2026
+ *   pricing. Always non-billable: pure COGS visibility. Recorded at webhook
+ *   ingress, idempotent on the Standard-Webhooks delivery id.
+ * - `composio_action`: one successful Composio tool call recorded at the
+ *   execution gate — $0.004/call under the Aug 15 2026 pricing. Always
+ *   non-billable: pure COGS visibility. Covers every non-play execution
+ *   (backfills, hydration, enrichment, Ask Salt reads); play runs keep
+ *   their run-level estimate in `play_executed` to avoid double counting.
+ */
+export const USAGE_EVENT_TYPES = [
+  "play_executed",
+  "action_sent",
+  "ask_salt_query",
+  "capture_ingested",
+  "capture_processed",
+  "storage_delta",
+  "llm_call",
+  "composio_trigger_event",
+  "composio_action",
+] as const;
+
+export type UsageEventType = (typeof USAGE_EVENT_TYPES)[number];
 
 export type UsageReversalReason =
   | "play_failed"

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type Ref } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -11,21 +11,12 @@ import {
 } from "framer-motion";
 import {
   ArrowUpRight,
-  Clock,
-  Edit3,
   Flame,
   Sparkles,
-  X,
   Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@repo/utils";
-import {
-  getHqQueuePlayer,
-  HQ_QUEUE_CHANNEL,
-  HQ_QUEUE_TONE_SOFT,
-  type HqQueueChannel,
-} from "@/app/_lib/demo/hq-play-queue";
 import type { PlayCardViewModel } from "@/app/_features/plays/play-card/types";
 import {
   approvePlayRun,
@@ -43,15 +34,15 @@ import {
   ApproveCelebration,
   useApproveCelebration,
 } from "@/app/_features/plays/components/ApproveCelebration";
+import { PlayCard } from "@/app/_features/plays/components/PlayCard/PlayCard";
 
-const SALT_ICON_PATH = "/landing/salt-icon.svg";
 const APPLE_EASE = [0.32, 0.72, 0, 1] as const;
 const SPRING = { type: "spring" as const, stiffness: 380, damping: 32, mass: 0.8 };
 const SOFT_SPRING = { type: "spring" as const, stiffness: 260, damping: 28, mass: 0.9 };
 const STACK_PEEK_Y = 6;
 const STACK_MAX_VISIBLE = 4;
-/** Fixed height so every card in the stack peeks at the same size. */
-const STACK_CARD_HEIGHT = 340;
+/** Approximate face height so the stack container reserves space. */
+const STACK_CARD_HEIGHT = 260;
 
 type Status = "idle" | "approved" | "skipped";
 
@@ -63,83 +54,17 @@ function stackMotion(stackIndex: number) {
   };
 }
 
-function mapQueueChannel(channel: string | null): HqQueueChannel {
-  const allowed: HqQueueChannel[] = ["Gmail", "Slack", "Notion", "Memory", "Stripe"];
-  if (channel && allowed.includes(channel as HqQueueChannel)) {
-    return channel as HqQueueChannel;
-  }
-  return "Memory";
-}
-
-function formatEta(vm: PlayCardViewModel): string {
-  if (vm.ageMinutes != null) {
-    return `${vm.ageMinutes}m ago`;
-  }
-  return "Ready to review";
-}
-
-function formatRecipient(vm: PlayCardViewModel): string {
-  if (!vm.targetLabel) return "Ready to review";
-  return `${vm.targetPrefix} ${vm.targetLabel}`;
-}
-
-/** Salt → connector(s) — the clearest signal for which apps this play touches. */
-function ConnectionStack({
-  channel,
-  channels,
-}: {
-  channel: HqQueueChannel;
-  channels?: HqQueueChannel[];
-}) {
-  const stack = channels?.length ? channels : [channel];
-  const label = stack.map((key) => HQ_QUEUE_CHANNEL[key].label).join(" · ");
-
-  return (
-    <span
-      className="inline-flex h-9 shrink-0 items-center gap-2 rounded-2xl border border-border/60 bg-muted/50 py-1 pl-1.5 pr-3"
-      title={`Salt → ${label}`}
-      aria-label={`Connects through ${label}`}
-    >
-      <span className="flex -space-x-1.5">
-        <span className="grid size-6 place-items-center overflow-hidden rounded-full bg-card ring-1 ring-border/70">
-          <img src={SALT_ICON_PATH} alt="" className="size-3.5" />
-        </span>
-        {stack.map((key) => {
-          const { Icon, color } = HQ_QUEUE_CHANNEL[key];
-          return (
-            <span
-              key={key}
-              className="grid size-6 place-items-center rounded-full bg-card ring-1 ring-border/70"
-            >
-              <Icon className="size-3.5" style={{ color }} aria-hidden />
-            </span>
-          );
-        })}
-      </span>
-      <span className="flex min-w-0 flex-col leading-none">
-        <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/70">
-          Via
-        </span>
-        <span className="truncate text-[12px] font-semibold tracking-tight text-foreground">
-          {label}
-        </span>
-      </span>
-    </span>
+function openAskSaltEdit(vm: PlayCardViewModel) {
+  window.dispatchEvent(
+    new CustomEvent("salt:open-ask-salt", {
+      detail: {
+        prompt: "Edit this Play before it sends — ",
+        mode: "ask" as const,
+        context: vm.askSalt,
+        autoSubmit: false,
+      },
+    })
   );
-}
-
-function collapsedDetail(vm: PlayCardViewModel): string | null {
-  if (vm.kind === "acting" && vm.acting) {
-    return `Draft to ${vm.acting.recipientLabel}`;
-  }
-  if (vm.kind === "question" && vm.question) {
-    return vm.question.prompt;
-  }
-  return vm.preview;
-}
-
-function sourceActionLabel(channel: HqQueueChannel): string {
-  return channel === "Gmail" ? "Open live Gmail" : `Open in ${HQ_QUEUE_CHANNEL[channel].label}`;
 }
 
 type PlayQueueProps = {
@@ -153,11 +78,10 @@ export function PlayQueue({ initialCards, timeSavedLabel = null }: PlayQueueProp
   const [cards] = useState(initialCards);
   const [statuses, setStatuses] = useState<Record<string, Status>>({});
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [combo, setCombo] = useState(0);
   const [comboKey, setComboKey] = useState(0);
   const comboTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const approveBtnRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
-  const draftRefs = useRef<Map<string, HTMLTextAreaElement>>(new Map());
   const { burst, fireCelebration } = useApproveCelebration();
   const reduceMotion = useReducedMotion();
 
@@ -165,12 +89,6 @@ export function PlayQueue({ initialCards, timeSavedLabel = null }: PlayQueueProp
     const status = statuses[card.id];
     return status !== "approved" && status !== "skipped";
   });
-
-  const draftTextFor = useCallback(
-    (vm: PlayCardViewModel) =>
-      drafts[vm.id] ?? vm.acting?.draftBody.join("\n\n") ?? vm.preview ?? "",
-    [drafts],
-  );
 
   const handlePrimary = useCallback(
     (vm: PlayCardViewModel, source?: HTMLElement | null) => {
@@ -228,11 +146,11 @@ export function PlayQueue({ initialCards, timeSavedLabel = null }: PlayQueueProp
         const { playRunId } = vm.provenance;
         void (async () => {
           const result = await applyMemoryCarePlayRun(playRunId);
-          if (result.success) {
+          if (result.ok) {
             toast.success(action.label);
             router.refresh();
           } else {
-            toast.error(result.error ?? "Could not apply");
+            toast.error(result.message ?? "Could not apply");
             setStatuses((current) => {
               const next = { ...current };
               delete next[vm.id];
@@ -318,7 +236,7 @@ export function PlayQueue({ initialCards, timeSavedLabel = null }: PlayQueueProp
 
       if (key === "a" || key === "enter") {
         event.preventDefault();
-        act(current, "approved", approveBtnRefs.current.get(current.id) ?? null);
+        act(current, "approved");
       } else if (key === "d" || key === "x" || key === "backspace") {
         event.preventDefault();
         act(current, "skipped");
@@ -422,23 +340,18 @@ export function PlayQueue({ initialCards, timeSavedLabel = null }: PlayQueueProp
             const isTop = stackIndex === 0;
             const status = statuses[card.id];
             const exitX = status === "approved" ? 120 : status === "skipped" ? -120 : 0;
-            const player = getHqQueuePlayer(card.playerSlug);
-            const PlayerIcon = player.icon;
             const stackStyle = stackMotion(stackIndex);
-            const channel = mapQueueChannel(card.channel);
-            const channelMeta = HQ_QUEUE_CHANNEL[channel];
-            const ChannelIcon = channelMeta.Icon;
-            const primaryLabel = card.primaryAction?.label ?? "Approve";
-            const detail = collapsedDetail(card);
-            const whatLine = `${primaryLabel} in ${channelMeta.label}`;
-            const whyLine = card.triggerLabel ?? detail ?? card.preview ?? "Ready for review.";
-            const draftText = draftTextFor(card);
-            const playbookLine = card.playbookName
-              ? `${card.playbookName} Play`
-              : `${card.sectionLabel ?? player.name} Play`;
+            const cardDraft = (
+              drafts[card.id] ??
+              card.acting?.draftBody.join("\n\n") ??
+              ""
+            )
+              .split(/\n{2,}/)
+              .map((p) => p.trim())
+              .filter(Boolean);
 
             return (
-              <motion.article
+              <motion.div
                 key={card.id}
                 layout
                 initial={
@@ -464,184 +377,45 @@ export function PlayQueue({ initialCards, timeSavedLabel = null }: PlayQueueProp
                   isTop && !reduceMotion ? { y: stackStyle.y - 2, scale: stackStyle.scale } : undefined
                 }
                 className={cn(
-                  "group absolute inset-x-0 top-0 flex flex-col overflow-hidden rounded-3xl border border-border/50 bg-card shadow-[var(--shadow-card)] transition-colors",
-                  isTop
-                    ? "hover:border-border/80 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2"
-                    : "pointer-events-none"
+                  "absolute inset-x-0 top-0",
+                  !isTop && "pointer-events-none"
                 )}
                 style={{
-                  height: STACK_CARD_HEIGHT,
                   zIndex: STACK_MAX_VISIBLE - stackIndex,
                   transformOrigin: "top center",
-                  transition: "box-shadow 300ms cubic-bezier(0.32,0.72,0,1)",
                 }}
                 aria-hidden={!isTop}
               >
-                <div className="flex shrink-0 items-center gap-3 bg-card p-4 lg:px-5">
-                  <span
-                    className={cn(
-                      "grid size-10 shrink-0 place-items-center rounded-2xl",
-                      HQ_QUEUE_TONE_SOFT[player.tone]
-                    )}
-                  >
-                    <PlayerIcon className="size-4" strokeWidth={2} />
-                  </span>
-
-                  <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left">
-                    <p className="w-full min-w-0 truncate text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                      <span className="text-foreground/80">{playbookLine}</span>
-                    </p>
-
-                    <h3 className="line-clamp-1 text-[18px] font-semibold leading-tight tracking-tight text-foreground">
-                      {whatLine}
-                    </h3>
-
-                    {(card.subject || card.targetLabel) && (
-                      <p className="line-clamp-1 text-[13px] leading-relaxed text-foreground/75">
-                        <span className="font-medium text-foreground">{card.subject}</span>
-                        {card.targetLabel && (
-                          <span className="text-muted-foreground">
-                            {" "}
-                            · {card.targetPrefix} {card.targetLabel}
-                          </span>
-                        )}
-                      </p>
-                    )}
-
-                    {typeof card.ageMinutes === "number" && (
-                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                        <span className="inline-flex h-5 items-center gap-1 rounded-full px-1.5 text-[10px] text-muted-foreground/70">
-                          <Clock className="size-3" /> {formatEta(card)}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="ml-auto flex shrink-0 items-center gap-2">
-                    <div className="inline-flex items-center gap-1 rounded-2xl border border-border/50 bg-muted/60 p-1">
-                      <IconActionButton
-                        label="Dismiss"
-                        shortcut="D"
-                        onClick={() => act(card, "skipped")}
-                      >
-                        <X className="size-[18px]" strokeWidth={1.75} />
-                      </IconActionButton>
-                      <IconActionButton
-                        label="Edit with Salt"
-                        shortcut="E"
-                        onClick={() => draftRefs.current.get(card.id)?.focus()}
-                      >
-                        <Edit3 className="size-[18px]" strokeWidth={1.75} />
-                      </IconActionButton>
-                      <motion.button
-                        type="button"
-                        ref={(el) => {
-                          if (!isTop) return;
-                          if (el) approveBtnRefs.current.set(card.id, el);
-                          else approveBtnRefs.current.delete(card.id);
-                        }}
-                        onClick={(event) => act(card, "approved", event.currentTarget)}
-                        whileHover={
-                          isTop && !reduceMotion ? { scale: 1.02, y: -1 } : undefined
-                        }
-                        whileTap={isTop && !reduceMotion ? { scale: 0.97 } : undefined}
-                        transition={SPRING}
-                        className="surface-aurora relative ml-1 inline-flex h-9 items-center gap-1.5 overflow-hidden rounded-xl px-4 text-[13px] font-semibold text-white shadow-[var(--shadow-lift)] transition"
-                        aria-label={primaryLabel}
-                        tabIndex={isTop ? 0 : -1}
-                      >
-                        <Sparkles className="relative z-10 size-4" strokeWidth={2.25} />
-                        <span className="relative z-10 max-w-[10rem] truncate sm:max-w-none">
-                          {primaryLabel}
-                        </span>
-                      </motion.button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex min-h-0 flex-1 flex-col justify-between space-y-3 border-t border-border/40 bg-muted/40 px-4 pb-4 pt-4 lg:px-5">
-                  <div className="grid min-h-0 flex-1 gap-3 sm:grid-cols-[minmax(0,1.45fr)_minmax(220px,0.8fr)]">
-                    <div className="flex min-h-0 flex-col rounded-2xl border border-border/40 bg-card/90 px-3 py-2.5">
-                      <div className="mb-2 flex items-center justify-between gap-2">
-                        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                          Draft to send
-                        </p>
-                        <span className="text-[10px] font-medium text-muted-foreground">
-                          Editable
-                        </span>
-                      </div>
-                      <textarea
-                        ref={(el) => {
-                          if (!isTop) return;
-                          if (el) draftRefs.current.set(card.id, el);
-                          else draftRefs.current.delete(card.id);
-                        }}
-                        value={draftText}
-                        onChange={(event) =>
-                          setDrafts((current) => ({
-                            ...current,
-                            [card.id]: event.target.value,
-                          }))
-                        }
-                        tabIndex={isTop ? 0 : -1}
-                        rows={4}
-                        className="min-h-0 flex-1 resize-none bg-transparent text-[13px] leading-relaxed text-foreground outline-none placeholder:text-muted-foreground/50"
-                        placeholder="Salt will place the draft here before sending."
-                        aria-label="Draft to send"
-                      />
-                    </div>
-                    <div className="flex min-h-0 flex-col justify-between rounded-2xl border border-border/40 bg-card/90 px-3 py-2.5">
-                      <div>
-                        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                          Why now
-                        </p>
-                        <p className="mt-1 line-clamp-4 text-[13px] leading-relaxed text-foreground/80">
-                          {whyLine}
-                        </p>
-                      </div>
-                      <p className="mt-3 text-[11px] font-medium text-muted-foreground">
-                        Salt will {primaryLabel.toLowerCase()} through {channelMeta.label}.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    {card.sourceUrl ? (
-                      <a
-                        href={card.sourceUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        tabIndex={isTop ? 0 : -1}
-                        className="inline-flex h-8 items-center gap-1.5 rounded-full border border-border/50 bg-card px-2.5 text-[11px] font-semibold text-foreground transition hover:border-sky/30 hover:bg-sky/5 hover:text-sky"
-                      >
-                        <ChannelIcon
-                          className="size-3.5"
-                          style={{ color: channelMeta.color }}
-                          aria-hidden
-                        />
-                        {sourceActionLabel(channel)}
-                        <ArrowUpRight className="size-3" />
-                      </a>
-                    ) : (
-                      <span className="inline-flex h-8 items-center gap-1.5 rounded-full border border-border/60 bg-card px-2.5 text-[11px] font-semibold text-foreground shadow-sm">
-                        <ChannelIcon
-                          className="size-3.5"
-                          style={{ color: channelMeta.color }}
-                          aria-hidden
-                        />
-                        Sends via {channelMeta.label}
-                      </span>
-                    )}
-                    <Link
-                      href="/plays"
-                      tabIndex={isTop ? 0 : -1}
-                      className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground transition hover:text-foreground"
-                    >
-                      Open in Plays <ArrowUpRight className="size-3" />
-                    </Link>
-                  </div>
-                </div>
-              </motion.article>
+                {isTop ? (
+                  <PlayCard
+                    vm={card}
+                    draft={cardDraft}
+                    isEditing={editingId === card.id}
+                    isPending={false}
+                    flagged={false}
+                    ctaStyle="aurora"
+                    onStartEdit={() => setEditingId(card.id)}
+                    onStopEdit={() => setEditingId(null)}
+                    onDraftChange={(text) =>
+                      setDrafts((current) => ({ ...current, [card.id]: text }))
+                    }
+                    onPrimary={(source) => act(card, "approved", source)}
+                    onDismiss={() => act(card, "skipped")}
+                    onFlag={() => {}}
+                    onSchedule={() => {}}
+                    onEditWithSalt={() => openAskSaltEdit(card)}
+                    onAnswer={() => {}}
+                  />
+                ) : (
+                  /* Deck shell — cards behind the top render as an empty card
+                     silhouette so their content never bleeds past the top
+                     card (heights vary per play). */
+                  <div
+                    className="rounded-[24px] border border-border/50 bg-card"
+                    style={{ height: STACK_CARD_HEIGHT }}
+                  />
+                )}
+              </motion.div>
             );
           })}
         </AnimatePresence>
@@ -680,34 +454,5 @@ export function PlayQueue({ initialCards, timeSavedLabel = null }: PlayQueueProp
 
       <ApproveCelebration burst={burst} />
     </section>
-  );
-}
-
-function IconActionButton({
-  children,
-  label,
-  shortcut,
-  ref,
-  ...rest
-}: {
-  children: React.ReactNode;
-  label: string;
-  shortcut: string;
-  ref?: Ref<HTMLButtonElement>;
-} & React.ButtonHTMLAttributes<HTMLButtonElement>) {
-  return (
-    <button
-      ref={ref}
-      type="button"
-      aria-label={label}
-      title={`${label} (${shortcut})`}
-      {...rest}
-      className="group relative inline-flex size-9 items-center justify-center rounded-xl text-foreground/70 transition-all hover:bg-muted hover:text-foreground active:scale-95 disabled:pointer-events-none disabled:opacity-40"
-    >
-      {children}
-      <span className="pointer-events-none absolute -bottom-0.5 right-0.5 grid size-3.5 place-items-center rounded-full bg-muted text-[9px] font-bold text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
-        {shortcut}
-      </span>
-    </button>
   );
 }

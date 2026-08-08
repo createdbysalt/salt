@@ -33,6 +33,13 @@ test.describe("Plays surface", () => {
     await sections.getByRole("button", { name: "Activity" }).click();
     await expect(page.getByRole("heading", { name: /^activity$/i })).toBeVisible();
 
+    // Run-centric stat tiles (Completed / Decided count today; the others live)
+    await expect(page.getByText(/today's activity/i)).toBeVisible();
+    await expect(page.getByText("Completed", { exact: true })).toBeVisible();
+    await expect(page.getByText("Needs Attention", { exact: true })).toBeVisible();
+    await expect(page.getByText("In Progress", { exact: true })).toBeVisible();
+    await expect(page.getByText("Decided", { exact: true })).toBeVisible();
+
     await sections.getByRole("button", { name: "Queue" }).click();
     await expect(page.getByRole("heading", { name: /needs you/i })).toBeVisible();
   });
@@ -123,8 +130,8 @@ test.describe("Plays — legacy redirects", () => {
     await expect(page).toHaveURL(/\/sources/);
   });
 
-  test("filter=learning redirects to Memory Filter", async ({ page }) => {
+  test("filter=learning redirects to Memory Activity", async ({ page }) => {
     await gotoAppRoute(page, "/plays?tab=queue&filter=learning");
-    await expect(page).toHaveURL(/\/memory\?tab=filter/);
+    await expect(page).toHaveURL(/\/memory\?tab=activity/);
   });
 });

@@ -1,12 +1,12 @@
 import type { ConnectorsPageData } from "@/app/_features/connectors";
 import type { StreamCaptureSummary } from "@/app/_features/capture/types";
+import type { CaptureDiscoveryStatus } from "@/app/_features/capture/queries";
 import type { AdmissionItem } from "@/app/_features/memory/queries/admission-decisions";
 
 export const EMPTY_CONNECTORS: ConnectorsPageData = {
   workspaceId: null,
   catalog: [],
   connectors: {},
-  disabledToolsByConnector: {},
   settingsByConnector: {},
   captureByConnector: {},
 };
@@ -36,4 +36,6 @@ export type SourcesTabData = {
   workspaceId: string | null;
   /** P11: Kept out moved from Memory Filter to Sources Activity. */
   keptOut: KeptOutData | null;
+  /** 4.4: plan-tiered discovery cadence, shown honestly on Activity. */
+  discovery: CaptureDiscoveryStatus | null;
 };

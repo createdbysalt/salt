@@ -480,6 +480,17 @@ Non-negotiable. Violations are billing correctness bugs, not style issues.
 
 ---
 
+## Residual risks (accepted, not blocking)
+
+Carried from the Sources plan Phase 6 tamper-proofing pass (2026-08-08). These are deliberate trade-offs or out-of-scope concerns — revisit only if the linked assumption changes.
+
+1. **Metering fails open by design.** An unreadable ledger or entitlement error allows the play (hard constraint 7 — availability over perfect accounting). The execution is still metered on the way out, so a waved-through play leaves a ledger row for the G1 reconciliation sweep. Accepting this means transient Supabase outages can grant unmetered-at-admission usage; the mitigation is visibility (ledger rows + logs), not prevention.
+2. **Ledger idempotency is per play-run, not per vendor call.** If a vendor SDK retries internally and we record per attempt, double-charges are possible until per-call idempotency (Phase 0.6 of the Sources plan) lands.
+3. **Append-only `usage_events` assumes the service-role key is not exfiltrated.** The `usage_events_immutable` trigger rejects UPDATE/DELETE even for `service_role`, but an attacker holding `SUPABASE_SERVICE_ROLE_KEY` can drop the trigger itself. Key hygiene (1Password, no client-side exposure, rotation on suspicion) is the real boundary; the trigger guards against accidents and app-layer bugs, not a fully compromised key.
+4. **ACT-layer authorization is out of billing scope.** The `workspaces`/`studios` compat-view owner UPDATE and `workspace_tool_preferences.trust_level` self-escalation paths are authorization concerns, not metering ones — every auto-executed action still meters via `canSpend`, so abuse is bounded and visible in the ledger. Track them in the ACT-layer hardening work, not here.
+
+---
+
 ## Adding a new spend surface
 
 Checklist for any change that calls a paid vendor API:

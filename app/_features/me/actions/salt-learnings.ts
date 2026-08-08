@@ -10,6 +10,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/app/_lib/supabase/server";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import type { Json } from "@/app/_lib/supabase/database.types";
 import { getTenantContext } from "@/app/_features/auth/queries";
 import type { LearningEntityType } from "@/app/_lib/learning";
 
@@ -84,8 +85,10 @@ export async function recordSaltLearning(
       entity_label: input.entityLabel,
       field_path: input.fieldPath,
       field_label: input.fieldLabel ?? null,
-      old_value: input.oldValue ?? null,
-      new_value: input.newValue,
+      // oldValue/newValue arrive as unknown from callers; the DB columns are
+      // jsonb, so narrow at the write boundary only.
+      old_value: (input.oldValue ?? null) as Json,
+      new_value: input.newValue as Json,
       confidence: input.confidence,
       evidence_summary: input.evidenceSummary,
       evidence_ids: input.evidenceIds ?? null,

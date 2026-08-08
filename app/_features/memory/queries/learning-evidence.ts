@@ -116,6 +116,24 @@ function getEntityHref(entityType: string, entityId: string): string | null {
   }
 }
 
+/**
+ * Underscore-prefixed field paths are internal meta markers, not entity
+ * fields. Only the three the UI can render as concrete proposals may surface
+ * in Watching — anything else stays internal. Historical rows may carry
+ * retired markers (`_missing_field` diagnostics, `_relationship_question`,
+ * `_relationship_at_risk` — both retired 2026-08-08, at-risk now lands in
+ * HQ Heads up as `revenue_risk` findings) until their TTL expires.
+ */
+const RENDERABLE_META_FIELDS = new Set([
+  "_merge_candidate",
+  "_archive_candidate",
+  "_link_candidate",
+]);
+
+function isHiddenInternalField(fieldPath: string): boolean {
+  return fieldPath.startsWith("_") && !RENDERABLE_META_FIELDS.has(fieldPath);
+}
+
 function parseMetaCandidate(
   fieldPath: string,
   proposedValue: unknown,
@@ -332,7 +350,11 @@ export const getLearningEvidence = cache(
     const grouped = new Map<string, GroupedLearningEvidence>();
 
     for (const e of evidence) {
-      if (isInactiveMergeTarget(e) || isNoTargetLinkCandidate(e)) {
+      if (
+        isHiddenInternalField(e.field_path) ||
+        isInactiveMergeTarget(e) ||
+        isNoTargetLinkCandidate(e)
+      ) {
         continue;
       }
 
@@ -426,6 +448,18 @@ export const getLearningEvidence = cache(
     }
 
     for (const group of grouped.values()) {
+      // Competing values (same fieldPath, different proposed values): V1
+      // shows the leading candidate only. Evidence for the other values
+      // stays unresolved and keeps competing — the strongest applies first.
+      const leaders = new Map<string, LearningField>();
+      for (const field of group.fields) {
+        const existing = leaders.get(field.fieldPath);
+        if (!existing || field.confidence > existing.confidence) {
+          leaders.set(field.fieldPath, field);
+        }
+      }
+      group.fields = Array.from(leaders.values());
+
       group.totalConfidence = Math.max(...group.fields.map((f) => f.confidence));
       for (const field of group.fields) {
         field.topReason = pickTopReason(field.items);

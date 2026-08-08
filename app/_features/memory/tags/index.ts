@@ -18,7 +18,6 @@ export {
   getEntityTags,
   assignTag,
   unassignTag,
-  archiveUnusedTags,
   type TagScope,
   type TagCategory,
   type WorkspaceTag,

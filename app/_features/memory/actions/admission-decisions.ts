@@ -34,8 +34,10 @@ async function setCaptureGateAction(
   }
 
   const supabase = await createClient();
+  // Table is capture_events — "captures" does not exist; the untyped server
+  // client let this compile while Let-in/Keep-out silently failed at runtime.
   const { error } = await supabase
-    .from("captures")
+    .from("capture_events")
     .update({ gate_action: gateAction })
     .eq("id", captureId)
     .eq("workspace_id", workspace.id);

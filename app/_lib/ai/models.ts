@@ -20,6 +20,8 @@ export const MODEL_ROUTING = {
   askSalt: process.env.AI_MODEL_ASK_SALT ?? "google/gemini-3.5-flash",
   /** Memory record Summary + Worth attention narrative — high volume, deterministic fallback exists. */
   recordSummary: process.env.AI_MODEL_RECORD_SUMMARY ?? "openai/gpt-4o-mini",
+  /** Cold-inbound intent read (Sources Lane 1 discriminator) — one short call per unknown human-shaped sender, cheap by design. */
+  coldIntent: process.env.AI_MODEL_COLD_INTENT ?? "openai/gpt-4o-mini",
   /** Tool risk-class proposals for the connector review queue — proposals only, human approves. */
   toolClassification:
     process.env.AI_MODEL_TOOL_CLASSIFICATION ?? "anthropic/claude-sonnet-4",

@@ -110,6 +110,7 @@ export async function updateFindingState(
     }
 
     revalidatePath("/plays");
+    revalidatePath("/sources");
     return { success: true };
   } catch (err) {
     if (isNextRedirectError(err)) {
@@ -169,6 +170,7 @@ export async function applyMemoryPlan(
 
     if (result.success) {
       revalidatePath("/plays");
+      revalidatePath("/sources");
     }
 
     return result;
@@ -273,6 +275,7 @@ export async function applyMemoryCareProfileFinding(
     }
 
     revalidatePath("/plays");
+    revalidatePath("/sources");
     return { success: true };
   } catch (err) {
     if (isNextRedirectError(err)) {
@@ -357,6 +360,7 @@ export async function toggleFlagFinding(
     }
 
     revalidatePath("/plays");
+    revalidatePath("/sources");
     return { success: true, flagged: !isFlagged };
   } catch (err) {
     if (isNextRedirectError(err)) {
@@ -438,6 +442,7 @@ export async function dismissFindings(
   }
 
   revalidatePath("/plays");
+    revalidatePath("/sources");
   return { success: true, dismissed: data?.length ?? 0 };
 }
 
@@ -502,6 +507,7 @@ export async function answerRelationshipQuestion(
     }
 
     revalidatePath("/plays");
+    revalidatePath("/sources");
     return { success: true };
   } catch (err) {
     if (isNextRedirectError(err)) {
@@ -594,6 +600,7 @@ export async function undoHandledFinding(
     }
 
     revalidatePath("/plays");
+    revalidatePath("/sources");
     return { success: true };
   } catch (err) {
     if (isNextRedirectError(err)) {

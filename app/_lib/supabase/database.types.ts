@@ -897,6 +897,24 @@ export type Database = {
           },
         ]
       }
+      capture_budget_config: {
+        Row: {
+          daily_limit: number
+          singleton: boolean
+          window_hours: number
+        }
+        Insert: {
+          daily_limit?: number
+          singleton?: boolean
+          window_hours?: number
+        }
+        Update: {
+          daily_limit?: number
+          singleton?: boolean
+          window_hours?: number
+        }
+        Relationships: []
+      }
       capture_events: {
         Row: {
           capture_type: Database["public"]["Enums"]["capture_event_type"]
@@ -916,7 +934,7 @@ export type Database = {
           resolved_person_id: string | null
           source_connection_id: string | null
           source_external_id: string | null
-          source_type: Database["public"]["Enums"]["capture_source_type"]
+          source_type: string
           state: Database["public"]["Enums"]["capture_state"]
           title: string | null
           updated_at: string
@@ -940,7 +958,7 @@ export type Database = {
           resolved_person_id?: string | null
           source_connection_id?: string | null
           source_external_id?: string | null
-          source_type: Database["public"]["Enums"]["capture_source_type"]
+          source_type: string
           state?: Database["public"]["Enums"]["capture_state"]
           title?: string | null
           updated_at?: string
@@ -964,7 +982,7 @@ export type Database = {
           resolved_person_id?: string | null
           source_connection_id?: string | null
           source_external_id?: string | null
-          source_type?: Database["public"]["Enums"]["capture_source_type"]
+          source_type?: string
           state?: Database["public"]["Enums"]["capture_state"]
           title?: string | null
           updated_at?: string
@@ -1015,70 +1033,60 @@ export type Database = {
           },
         ]
       }
-      capture_routing_decisions: {
+      capture_record_links: {
         Row: {
-          action: Database["public"]["Enums"]["routing_action"] | null
           capture_event_id: string
           confidence: number
-          correction_notes: string | null
           created_at: string
-          evidence: Json | null
           id: string
-          original_target_entity_id: string | null
+          link_source: string
           reason: string | null
-          reviewed_at: string | null
-          reviewed_by: string | null
-          routed_at: string | null
-          status: Database["public"]["Enums"]["routing_status"]
-          target_entity_id: string | null
-          target_entity_type: string | null
+          target_entity_id: string
           target_surface: Database["public"]["Enums"]["memory_surface"]
-          updated_at: string
+          workspace_id: string
         }
         Insert: {
-          action?: Database["public"]["Enums"]["routing_action"] | null
           capture_event_id: string
-          confidence: number
-          correction_notes?: string | null
+          confidence?: number
           created_at?: string
-          evidence?: Json | null
           id?: string
-          original_target_entity_id?: string | null
+          link_source?: string
           reason?: string | null
-          reviewed_at?: string | null
-          reviewed_by?: string | null
-          routed_at?: string | null
-          status?: Database["public"]["Enums"]["routing_status"]
-          target_entity_id?: string | null
-          target_entity_type?: string | null
+          target_entity_id: string
           target_surface: Database["public"]["Enums"]["memory_surface"]
-          updated_at?: string
+          workspace_id: string
         }
         Update: {
-          action?: Database["public"]["Enums"]["routing_action"] | null
           capture_event_id?: string
           confidence?: number
-          correction_notes?: string | null
           created_at?: string
-          evidence?: Json | null
           id?: string
-          original_target_entity_id?: string | null
+          link_source?: string
           reason?: string | null
-          reviewed_at?: string | null
-          reviewed_by?: string | null
-          routed_at?: string | null
-          status?: Database["public"]["Enums"]["routing_status"]
-          target_entity_id?: string | null
-          target_entity_type?: string | null
+          target_entity_id?: string
           target_surface?: Database["public"]["Enums"]["memory_surface"]
-          updated_at?: string
+          workspace_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "capture_routing_decisions_capture_event_id_fkey"
+            foreignKeyName: "capture_record_links_capture_event_id_fkey"
             columns: ["capture_event_id"]
             isOneToOne: false
             referencedRelation: "capture_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "capture_record_links_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "studios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "capture_record_links_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
         ]
@@ -1711,6 +1719,7 @@ export type Database = {
           id: string
           learning_id: string | null
           resulting_fact_id: string | null
+          signal_source: string | null
           user_explanation: string | null
           workspace_id: string
           wrong_value: Json
@@ -1731,6 +1740,7 @@ export type Database = {
           id?: string
           learning_id?: string | null
           resulting_fact_id?: string | null
+          signal_source?: string | null
           user_explanation?: string | null
           workspace_id: string
           wrong_value: Json
@@ -1751,6 +1761,7 @@ export type Database = {
           id?: string
           learning_id?: string | null
           resulting_fact_id?: string | null
+          signal_source?: string | null
           user_explanation?: string | null
           workspace_id?: string
           wrong_value?: Json
@@ -2056,48 +2067,33 @@ export type Database = {
       }
       entity_watch_expressions: {
         Row: {
-          accumulated_signals: Json | null
-          capture_count: number | null
           created_at: string
-          expires_at: string | null
           expression_type: Database["public"]["Enums"]["watch_expression_type"]
           expression_value: string
           id: string
-          initial_reason: string | null
           last_matched_at: string | null
           target_entity_id: string
           target_surface: string
-          watch_purpose: string | null
           workspace_id: string
         }
         Insert: {
-          accumulated_signals?: Json | null
-          capture_count?: number | null
           created_at?: string
-          expires_at?: string | null
           expression_type: Database["public"]["Enums"]["watch_expression_type"]
           expression_value: string
           id?: string
-          initial_reason?: string | null
           last_matched_at?: string | null
           target_entity_id: string
           target_surface: string
-          watch_purpose?: string | null
           workspace_id: string
         }
         Update: {
-          accumulated_signals?: Json | null
-          capture_count?: number | null
           created_at?: string
-          expires_at?: string | null
           expression_type?: Database["public"]["Enums"]["watch_expression_type"]
           expression_value?: string
           id?: string
-          initial_reason?: string | null
           last_matched_at?: string | null
           target_entity_id?: string
           target_surface?: string
-          watch_purpose?: string | null
           workspace_id?: string
         }
         Relationships: [
@@ -2110,66 +2106,6 @@ export type Database = {
           },
           {
             foreignKeyName: "entity_watch_expressions_workspace_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "workspaces"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      entity_watches: {
-        Row: {
-          created_at: string
-          expires_at: string | null
-          filter_criteria: Json
-          id: string
-          on_match_extra_evidence: Json | null
-          on_match_signal: string
-          trigger_count: number
-          triggered_at: string | null
-          watch_for_signals: string[]
-          watched_entity_id: string
-          watched_entity_type: string
-          workspace_id: string
-        }
-        Insert: {
-          created_at?: string
-          expires_at?: string | null
-          filter_criteria?: Json
-          id?: string
-          on_match_extra_evidence?: Json | null
-          on_match_signal: string
-          trigger_count?: number
-          triggered_at?: string | null
-          watch_for_signals: string[]
-          watched_entity_id: string
-          watched_entity_type: string
-          workspace_id: string
-        }
-        Update: {
-          created_at?: string
-          expires_at?: string | null
-          filter_criteria?: Json
-          id?: string
-          on_match_extra_evidence?: Json | null
-          on_match_signal?: string
-          trigger_count?: number
-          triggered_at?: string | null
-          watch_for_signals?: string[]
-          watched_entity_id?: string
-          watched_entity_type?: string
-          workspace_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "entity_watches_workspace_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "studios"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "entity_watches_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -2481,11 +2417,14 @@ export type Database = {
           ai_summary: string | null
           app_url: string | null
           archived_at: string | null
+          because: string | null
           brand_metadata: Json | null
           bucket_id: string
           capture_event_id: string | null
           capture_source_url: string | null
           category: Database["public"]["Enums"]["file_category"]
+          composio_trigger_id: string | null
+          confidence: number | null
           created_at: string
           currency: string | null
           deleted_at: string | null
@@ -2506,15 +2445,24 @@ export type Database = {
           follow_up_suggested: boolean | null
           id: string
           is_operator_asset: boolean
+          last_activity_at: string | null
+          last_activity_summary: string | null
           lifecycle_status: string | null
+          live_config: Json | null
           mime_type: string | null
+          mode: string | null
           object_path: string | null
           organization_id: string | null
           person_id: string | null
           provider: Database["public"]["Enums"]["entity_provider"] | null
+          provider_metadata: Json | null
+          provider_metadata_at: string | null
+          resource_id: string | null
+          resource_type: string | null
           shared_with_client: boolean | null
           signed_date: string | null
           size_bytes: number | null
+          source: string | null
           source_external_id: string | null
           source_origin:
             | Database["public"]["Enums"]["entity_source_origin"]
@@ -2534,11 +2482,14 @@ export type Database = {
           ai_summary?: string | null
           app_url?: string | null
           archived_at?: string | null
+          because?: string | null
           brand_metadata?: Json | null
           bucket_id?: string
           capture_event_id?: string | null
           capture_source_url?: string | null
           category?: Database["public"]["Enums"]["file_category"]
+          composio_trigger_id?: string | null
+          confidence?: number | null
           created_at?: string
           currency?: string | null
           deleted_at?: string | null
@@ -2559,15 +2510,24 @@ export type Database = {
           follow_up_suggested?: boolean | null
           id?: string
           is_operator_asset?: boolean
+          last_activity_at?: string | null
+          last_activity_summary?: string | null
           lifecycle_status?: string | null
+          live_config?: Json | null
           mime_type?: string | null
+          mode?: string | null
           object_path?: string | null
           organization_id?: string | null
           person_id?: string | null
           provider?: Database["public"]["Enums"]["entity_provider"] | null
+          provider_metadata?: Json | null
+          provider_metadata_at?: string | null
+          resource_id?: string | null
+          resource_type?: string | null
           shared_with_client?: boolean | null
           signed_date?: string | null
           size_bytes?: number | null
+          source?: string | null
           source_external_id?: string | null
           source_origin?:
             | Database["public"]["Enums"]["entity_source_origin"]
@@ -2587,11 +2547,14 @@ export type Database = {
           ai_summary?: string | null
           app_url?: string | null
           archived_at?: string | null
+          because?: string | null
           brand_metadata?: Json | null
           bucket_id?: string
           capture_event_id?: string | null
           capture_source_url?: string | null
           category?: Database["public"]["Enums"]["file_category"]
+          composio_trigger_id?: string | null
+          confidence?: number | null
           created_at?: string
           currency?: string | null
           deleted_at?: string | null
@@ -2612,15 +2575,24 @@ export type Database = {
           follow_up_suggested?: boolean | null
           id?: string
           is_operator_asset?: boolean
+          last_activity_at?: string | null
+          last_activity_summary?: string | null
           lifecycle_status?: string | null
+          live_config?: Json | null
           mime_type?: string | null
+          mode?: string | null
           object_path?: string | null
           organization_id?: string | null
           person_id?: string | null
           provider?: Database["public"]["Enums"]["entity_provider"] | null
+          provider_metadata?: Json | null
+          provider_metadata_at?: string | null
+          resource_id?: string | null
+          resource_type?: string | null
           shared_with_client?: boolean | null
           signed_date?: string | null
           size_bytes?: number | null
+          source?: string | null
           source_external_id?: string | null
           source_origin?:
             | Database["public"]["Enums"]["entity_source_origin"]
@@ -5390,6 +5362,9 @@ export type Database = {
       playbook_action_approvals: {
         Row: {
           approved_count: number
+          autonomy_declined_at: string | null
+          autonomy_granted_at: string | null
+          autonomy_offered_at: string | null
           created_at: string
           id: string
           last_approved_at: string | null
@@ -5400,6 +5375,9 @@ export type Database = {
         }
         Insert: {
           approved_count?: number
+          autonomy_declined_at?: string | null
+          autonomy_granted_at?: string | null
+          autonomy_offered_at?: string | null
           created_at?: string
           id?: string
           last_approved_at?: string | null
@@ -5410,6 +5388,9 @@ export type Database = {
         }
         Update: {
           approved_count?: number
+          autonomy_declined_at?: string | null
+          autonomy_granted_at?: string | null
+          autonomy_offered_at?: string | null
           created_at?: string
           id?: string
           last_approved_at?: string | null
@@ -6112,7 +6093,6 @@ export type Database = {
           sender_classification: string | null
           sender_domain: string | null
           sender_email: string | null
-          watch_expression_id: string | null
           watch_target: string | null
           watch_type: string | null
           workspace_id: string
@@ -6135,7 +6115,6 @@ export type Database = {
           sender_classification?: string | null
           sender_domain?: string | null
           sender_email?: string | null
-          watch_expression_id?: string | null
           watch_target?: string | null
           watch_type?: string | null
           workspace_id: string
@@ -6158,7 +6137,6 @@ export type Database = {
           sender_classification?: string | null
           sender_domain?: string | null
           sender_email?: string | null
-          watch_expression_id?: string | null
           watch_target?: string | null
           watch_type?: string | null
           workspace_id?: string
@@ -6172,13 +6150,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "record_capture_decisions_watch_expression_id_fkey"
-            columns: ["watch_expression_id"]
-            isOneToOne: false
-            referencedRelation: "entity_watch_expressions"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "record_capture_decisions_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
@@ -6187,6 +6158,48 @@ export type Database = {
           },
           {
             foreignKeyName: "record_capture_decisions_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reflection_triggers: {
+        Row: {
+          category: string
+          correction_count: number
+          created_at: string
+          id: string
+          last_reflected_at: string | null
+          workspace_id: string
+        }
+        Insert: {
+          category: string
+          correction_count?: number
+          created_at?: string
+          id?: string
+          last_reflected_at?: string | null
+          workspace_id: string
+        }
+        Update: {
+          category?: string
+          correction_count?: number
+          created_at?: string
+          id?: string
+          last_reflected_at?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reflection_triggers_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "studios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reflection_triggers_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -6759,6 +6772,54 @@ export type Database = {
             columns: ["service_id"]
             isOneToOne: false
             referencedRelation: "workspace_services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      signal_source_weights: {
+        Row: {
+          correction_count: number
+          created_at: string
+          field_type: string
+          id: string
+          last_updated_at: string
+          signal_source: string
+          weight_adjustment: number
+          workspace_id: string
+        }
+        Insert: {
+          correction_count?: number
+          created_at?: string
+          field_type: string
+          id?: string
+          last_updated_at?: string
+          signal_source: string
+          weight_adjustment?: number
+          workspace_id: string
+        }
+        Update: {
+          correction_count?: number
+          created_at?: string
+          field_type?: string
+          id?: string
+          last_updated_at?: string
+          signal_source?: string
+          weight_adjustment?: number
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signal_source_weights_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "studios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signal_source_weights_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
         ]
@@ -8196,6 +8257,7 @@ export type Database = {
           calibration_proposal_count: number | null
           calibration_updated_at: string | null
           created_at: string | null
+          last_discovery_at: string | null
           updated_at: string | null
           workspace_id: string
         }
@@ -8209,6 +8271,7 @@ export type Database = {
           calibration_proposal_count?: number | null
           calibration_updated_at?: string | null
           created_at?: string | null
+          last_discovery_at?: string | null
           updated_at?: string | null
           workspace_id: string
         }
@@ -8222,6 +8285,7 @@ export type Database = {
           calibration_proposal_count?: number | null
           calibration_updated_at?: string | null
           created_at?: string | null
+          last_discovery_at?: string | null
           updated_at?: string | null
           workspace_id?: string
         }
@@ -10672,7 +10736,7 @@ export type Database = {
           origin: Database["public"]["Enums"]["capture_origin"]
           overall_confidence: number
           processed_at: string
-          source_type: Database["public"]["Enums"]["capture_source_type"]
+          source_type: string
           state: Database["public"]["Enums"]["capture_state"]
           title: string
         }[]
@@ -10753,13 +10817,9 @@ export type Database = {
           origin: Database["public"]["Enums"]["capture_origin"]
           overall_confidence: number
           routing_count: number
-          source_type: Database["public"]["Enums"]["capture_source_type"]
+          source_type: string
           title: string
         }[]
-      }
-      increment_watch_trigger_count: {
-        Args: { watch_id: string }
-        Returns: undefined
       }
       is_studio_member: { Args: { p_studio_id: string }; Returns: boolean }
       is_workspace_member: {
@@ -10785,14 +10845,6 @@ export type Database = {
       mark_token_spent_for_checkout: {
         Args: { p_token_hash: string }
         Returns: boolean
-      }
-      record_capture_correction: {
-        Args: {
-          p_new_entity_id: string
-          p_notes?: string
-          p_routing_id: string
-        }
-        Returns: undefined
       }
       reset_monthly_ai_credits: { Args: never; Returns: number }
       revoke_invoice_tokens: {
@@ -10874,47 +10926,6 @@ export type Database = {
         | "other"
       capture_origin: "added" | "found"
       capture_sender_kind: "client" | "vendor_saas" | "payment_rail"
-      capture_source_type:
-        | "gmail"
-        | "outlook"
-        | "slack"
-        | "whatsapp"
-        | "discord"
-        | "telegram"
-        | "googlecalendar"
-        | "outlook_calendar"
-        | "calendly"
-        | "calcom"
-        | "fireflies"
-        | "granola"
-        | "zoom"
-        | "googledrive"
-        | "googledocs"
-        | "googlesheets"
-        | "googleslides"
-        | "onedrive"
-        | "dropbox"
-        | "stripe"
-        | "quickbooks"
-        | "square"
-        | "mercury"
-        | "hubspot"
-        | "salesforce"
-        | "pipedrive"
-        | "notion"
-        | "linear"
-        | "asana"
-        | "clickup"
-        | "trello"
-        | "airtable"
-        | "instagram"
-        | "linkedin"
-        | "facebook"
-        | "youtube"
-        | "mailchimp"
-        | "kit"
-        | "manual"
-        | "ask_salt"
       capture_state: "pending" | "routed" | "dismissed"
       catalog_sync_status: "active" | "changed" | "removed"
       client_user_status: "pending" | "active" | "not_invited" | "revoked"
@@ -11042,13 +11053,6 @@ export type Database = {
         | "work_hours"
         | "custom"
       operator_goal_unit: "dollars" | "clients" | "projects" | "hours"
-      routing_action: "created" | "updated" | "linked"
-      routing_status:
-        | "auto_routed"
-        | "pending"
-        | "approved"
-        | "dismissed"
-        | "corrected"
       service_item_billing_interval: "monthly" | "quarterly" | "annually"
       service_item_pricing_type: "fixed" | "hourly" | "retainer" | "milestone"
       system_play_action:
@@ -11265,48 +11269,6 @@ export const Constants = {
       ],
       capture_origin: ["added", "found"],
       capture_sender_kind: ["client", "vendor_saas", "payment_rail"],
-      capture_source_type: [
-        "gmail",
-        "outlook",
-        "slack",
-        "whatsapp",
-        "discord",
-        "telegram",
-        "googlecalendar",
-        "outlook_calendar",
-        "calendly",
-        "calcom",
-        "fireflies",
-        "granola",
-        "zoom",
-        "googledrive",
-        "googledocs",
-        "googlesheets",
-        "googleslides",
-        "onedrive",
-        "dropbox",
-        "stripe",
-        "quickbooks",
-        "square",
-        "mercury",
-        "hubspot",
-        "salesforce",
-        "pipedrive",
-        "notion",
-        "linear",
-        "asana",
-        "clickup",
-        "trello",
-        "airtable",
-        "instagram",
-        "linkedin",
-        "facebook",
-        "youtube",
-        "mailchimp",
-        "kit",
-        "manual",
-        "ask_salt",
-      ],
       capture_state: ["pending", "routed", "dismissed"],
       catalog_sync_status: ["active", "changed", "removed"],
       client_user_status: ["pending", "active", "not_invited", "revoked"],
@@ -11444,14 +11406,6 @@ export const Constants = {
         "custom",
       ],
       operator_goal_unit: ["dollars", "clients", "projects", "hours"],
-      routing_action: ["created", "updated", "linked"],
-      routing_status: [
-        "auto_routed",
-        "pending",
-        "approved",
-        "dismissed",
-        "corrected",
-      ],
       service_item_billing_interval: ["monthly", "quarterly", "annually"],
       service_item_pricing_type: ["fixed", "hourly", "retainer", "milestone"],
       system_play_action: [

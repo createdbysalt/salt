@@ -1,21 +1,33 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
 vi.mock("server-only", () => ({}));
+
+// Per-table terminal results, reconfigurable per test. Any method call on the
+// chain returns the chain again except single/maybeSingle which resolve.
+const tableResults: Record<string, { data: unknown; error: unknown }> = {};
+
+function chainFor(table: string) {
+  const terminal = () =>
+    Promise.resolve(tableResults[table] ?? { data: null, error: null });
+  const chain: Record<string, unknown> = new Proxy(
+    {},
+    {
+      get(_, prop) {
+        if (prop === "then") return undefined;
+        if (prop === "single" || prop === "maybeSingle") return terminal;
+        return () => chain;
+      },
+    }
+  ) as Record<string, unknown>;
+  return chain;
+}
+
 vi.mock("@/app/_lib/supabase/admin", () => ({
   createAdminClient: vi.fn(() => ({
-    from: vi.fn(() => ({
-      select: vi.fn(() => ({
-        eq: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            maybeSingle: vi.fn(() => ({ data: null, error: null })),
-          })),
-        })),
-      })),
-      insert: vi.fn(() => ({
-        select: vi.fn(() => ({
-          single: vi.fn(() => ({ data: { id: "run-123" }, error: null })),
-        })),
-      })),
+    from: vi.fn((table: string) => ({
+      select: vi.fn(() => chainFor(table)),
+      insert: vi.fn(() => chainFor(table)),
+      update: vi.fn(() => chainFor(table)),
     })),
   })),
 }));
@@ -25,16 +37,64 @@ vi.mock("./schema/v2/discovery", () => ({
   getPlaybookBySlug: vi.fn(() => null),
 }));
 
+vi.mock("@/app/_features/memory/care/scheduler", () => ({
+  runCareForSignal: vi.fn(async () => []),
+}));
+
+vi.mock("./schema/v2/executor", () => ({
+  buildExecutionContextV2: vi.fn(
+    async (
+      workspaceId: string,
+      userId: string,
+      triggeredBy: unknown
+    ) => ({
+      workspaceId,
+      userId,
+      triggeredBy,
+      connectedCategories: new Set<string>(),
+      connectedCapabilities: new Set<string>(),
+    })
+  ),
+  executePlaybookV2: vi.fn(),
+}));
+
+vi.mock("@/app/_features/plays/services/workspace-actor", () => ({
+  resolveWorkspaceActor: vi.fn(async () => "actor-user-1"),
+}));
+
+vi.mock("@/app/_features/plays/services/record-inline-executions", () => ({
+  recordInlineToolExecutions: vi.fn(async () => null),
+  collectExecutedToolSlugs: vi.fn(() => []),
+}));
+
+vi.mock("./run-recording", () => ({
+  recordPlaybookRun: vi.fn(async () => undefined),
+}));
+
 import {
   buildSignalTriggerIndex,
+  dispatchSignalTrigger,
   findPlaybooksForSignal,
   getActiveSignalTriggers,
   hasPlaybookForSignal,
 } from "./trigger-dispatch";
-import { discoverV2Playbooks } from "./schema/v2/discovery";
+import { discoverV2Playbooks, getPlaybookBySlug } from "./schema/v2/discovery";
+import {
+  buildExecutionContextV2,
+  executePlaybookV2,
+} from "./schema/v2/executor";
+import {
+  recordInlineToolExecutions,
+  collectExecutedToolSlugs,
+} from "@/app/_features/plays/services/record-inline-executions";
 import type { PlaybookDefinitionV2 } from "./schema/v2/types";
 
 const mockDiscoverV2Playbooks = discoverV2Playbooks as ReturnType<typeof vi.fn>;
+const mockGetPlaybookBySlug = getPlaybookBySlug as ReturnType<typeof vi.fn>;
+const mockExecutePlaybookV2 = executePlaybookV2 as ReturnType<typeof vi.fn>;
+const mockBuildContext = buildExecutionContextV2 as ReturnType<typeof vi.fn>;
+const mockRecordInline = recordInlineToolExecutions as ReturnType<typeof vi.fn>;
+const mockCollectToolSlugs = collectExecutedToolSlugs as ReturnType<typeof vi.fn>;
 
 function makeV2Playbook(
   slug: string,
@@ -243,6 +303,165 @@ describe("Trigger Dispatch", () => {
 
       expect(playbooks).toHaveLength(2);
       expect(playbooks.map((p) => p.layer).sort()).toEqual(["act", "learn"]);
+    });
+  });
+
+  describe("dispatchSignalTrigger (act layer → executor)", () => {
+    const signalContext = {
+      workspaceId: "ws-1",
+      signalKey: "has_payment_received",
+      entityId: "person-1",
+      entitySurface: "person" as const,
+      entityLabel: "Anna",
+    };
+
+    function setupDispatch(options?: {
+      surface?: string;
+      recentRunId?: string | null;
+    }) {
+      const playbook = makeV2Playbook(
+        "payment-followup",
+        "has_payment_received"
+      );
+      if (options?.surface) {
+        playbook.definition.trigger = {
+          type: "signal",
+          signal: "has_payment_received",
+          surface: options.surface,
+        };
+      }
+      mockDiscoverV2Playbooks.mockReturnValue({
+        sections: new Map(),
+        allPlaybooks: [playbook],
+        errors: [],
+      });
+      mockGetPlaybookBySlug.mockReturnValue(playbook);
+      // Enabled by default (no settings row).
+      tableResults["profile_playbook_settings"] = { data: null, error: null };
+      tableResults["play_runs"] = {
+        data: options?.recentRunId ? { id: options.recentRunId } : null,
+        error: null,
+      };
+      return playbook;
+    }
+
+    it("runs the playbook through the v2 executor with entity context", async () => {
+      setupDispatch();
+      mockExecutePlaybookV2.mockResolvedValue({
+        status: "paused",
+        playbookSlug: "payment-followup",
+        stepResults: [],
+        pausedAt: { playRunId: "run-1" },
+      });
+
+      const results = await dispatchSignalTrigger(signalContext);
+
+      expect(mockExecutePlaybookV2).toHaveBeenCalledTimes(1);
+      expect(mockBuildContext).toHaveBeenCalledWith(
+        "ws-1",
+        "actor-user-1",
+        expect.objectContaining({
+          type: "signal",
+          signalKey: "has_payment_received",
+          entityId: "person-1",
+          entitySurface: "person",
+          entityLabel: "Anna",
+        }),
+        undefined
+      );
+      expect(results).toHaveLength(1);
+      expect(results[0]).toEqual({
+        success: true,
+        playbookSlug: "payment-followup",
+        playRunId: "run-1",
+      });
+    });
+
+    it("skips when a run for the same playbook + entity + signal exists within the cooldown", async () => {
+      setupDispatch({ recentRunId: "run-recent" });
+
+      const results = await dispatchSignalTrigger(signalContext);
+
+      expect(mockExecutePlaybookV2).not.toHaveBeenCalled();
+      expect(results[0]).toEqual({
+        success: true,
+        playbookSlug: "payment-followup",
+        skipped: "cooldown",
+      });
+    });
+
+    it("skips playbooks whose trigger surface does not match the entity surface", async () => {
+      setupDispatch({ surface: "organization" });
+
+      const results = await dispatchSignalTrigger(signalContext);
+
+      expect(mockExecutePlaybookV2).not.toHaveBeenCalled();
+      expect(results[0]).toEqual({
+        success: true,
+        playbookSlug: "payment-followup",
+        skipped: "surface_mismatch",
+      });
+    });
+
+    it("skips disabled playbooks without executing", async () => {
+      setupDispatch();
+      tableResults["profile_playbook_settings"] = {
+        data: { enabled: false },
+        error: null,
+      };
+
+      const results = await dispatchSignalTrigger(signalContext);
+
+      expect(mockExecutePlaybookV2).not.toHaveBeenCalled();
+      expect(results[0]).toEqual({
+        success: false,
+        playbookSlug: "payment-followup",
+        skipped: "disabled",
+      });
+    });
+
+    it("meters inline tool executions from completed runs", async () => {
+      setupDispatch();
+      mockExecutePlaybookV2.mockResolvedValue({
+        status: "success",
+        playbookSlug: "payment-followup",
+        stepResults: [
+          { stepId: "a", status: "success", data: { executed: true, tool: "T" } },
+        ],
+        outputCount: 1,
+        playRunIds: ["run-9"],
+      });
+      mockCollectToolSlugs.mockReturnValue(["GMAIL_SEND_EMAIL"]);
+
+      const results = await dispatchSignalTrigger(signalContext);
+
+      expect(mockRecordInline).toHaveBeenCalledWith(
+        expect.objectContaining({
+          workspaceId: "ws-1",
+          playbookSlug: "payment-followup",
+          triggerSignal: "has_payment_received",
+          toolSlugs: ["GMAIL_SEND_EMAIL"],
+        })
+      );
+      expect(results[0].playRunId).toBe("run-9");
+    });
+
+    it("returns an error result when the executor reports failure", async () => {
+      setupDispatch();
+      mockExecutePlaybookV2.mockResolvedValue({
+        status: "error",
+        playbookSlug: "payment-followup",
+        stepResults: [],
+        reason: "fetch failed",
+      });
+
+      const results = await dispatchSignalTrigger(signalContext);
+
+      expect(results[0]).toEqual({
+        success: false,
+        playbookSlug: "payment-followup",
+        error: "fetch failed",
+      });
     });
   });
 });

@@ -10,41 +10,6 @@ export type GuardableEntityType = Extract<
   "person" | "org" | "work" | "space"
 >;
 
-interface EntityTableConfig {
-  table: string;
-  tenantColumn: "workspace_id" | "workspace_id";
-  softDeleteColumn?: "deleted_at";
-  archivedAtColumn?: "archived_at";
-  /** When set, row must not equal this value (e.g. archived spaces). */
-  excludeStatus?: { column: string; value: string };
-}
-
-const ENTITY_CONFIG: Record<GuardableEntityType, EntityTableConfig> = {
-  person: {
-    table: "people",
-    tenantColumn: "workspace_id",
-    softDeleteColumn: "deleted_at",
-    archivedAtColumn: "archived_at",
-  },
-  org: {
-    table: "organizations",
-    tenantColumn: "workspace_id",
-    softDeleteColumn: "deleted_at",
-    archivedAtColumn: "archived_at",
-  },
-  work: {
-    table: "work",
-    tenantColumn: "workspace_id",
-    softDeleteColumn: "deleted_at",
-    archivedAtColumn: "archived_at",
-  },
-  space: {
-    table: "spaces",
-    tenantColumn: "workspace_id",
-    excludeStatus: { column: "status", value: "archived" },
-  },
-};
-
 export class EntityNotInWorkspaceError extends Error {
   constructor(
     public readonly entityType: GuardableEntityType,
@@ -52,6 +17,56 @@ export class EntityNotInWorkspaceError extends Error {
   ) {
     super(`${entityType} ${entityId} is not in this workspace`);
     this.name = "EntityNotInWorkspaceError";
+  }
+}
+
+/**
+ * One literal `.from()` per entity type: the Database generic can't follow a
+ * dynamic table variable, and each table's guard predicates differ anyway
+ * (spaces have no soft delete — archived spaces are excluded by status).
+ */
+async function fetchGuardRow(
+  admin: AdminClient,
+  workspaceId: string,
+  entityType: GuardableEntityType,
+  entityId: string,
+): Promise<{ data: { id: string } | null; error: { message: string } | null }> {
+  switch (entityType) {
+    case "person":
+      return admin
+        .from("people")
+        .select("id")
+        .eq("id", entityId)
+        .eq("workspace_id", workspaceId)
+        .is("deleted_at", null)
+        .is("archived_at", null)
+        .maybeSingle();
+    case "org":
+      return admin
+        .from("organizations")
+        .select("id")
+        .eq("id", entityId)
+        .eq("workspace_id", workspaceId)
+        .is("deleted_at", null)
+        .is("archived_at", null)
+        .maybeSingle();
+    case "work":
+      return admin
+        .from("work")
+        .select("id")
+        .eq("id", entityId)
+        .eq("workspace_id", workspaceId)
+        .is("deleted_at", null)
+        .is("archived_at", null)
+        .maybeSingle();
+    case "space":
+      return admin
+        .from("spaces")
+        .select("id")
+        .eq("id", entityId)
+        .eq("workspace_id", workspaceId)
+        .neq("status", "archived")
+        .maybeSingle();
   }
 }
 
@@ -65,26 +80,12 @@ export async function assertEntityInWorkspace(
   entityType: GuardableEntityType,
   entityId: string,
 ): Promise<void> {
-  const config = ENTITY_CONFIG[entityType];
-  let query = admin
-    .from(config.table)
-    .select("id")
-    .eq("id", entityId)
-    .eq(config.tenantColumn, workspaceId);
-
-  if (config.softDeleteColumn) {
-    query = query.is(config.softDeleteColumn, null);
-  }
-
-  if (config.archivedAtColumn) {
-    query = query.is(config.archivedAtColumn, null);
-  }
-
-  if (config.excludeStatus) {
-    query = query.neq(config.excludeStatus.column, config.excludeStatus.value);
-  }
-
-  const { data, error } = await query.maybeSingle();
+  const { data, error } = await fetchGuardRow(
+    admin,
+    workspaceId,
+    entityType,
+    entityId,
+  );
 
   if (error) {
     throw new Error(`Failed to verify ${entityType}: ${error.message}`);

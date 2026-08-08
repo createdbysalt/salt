@@ -152,13 +152,12 @@ export async function dismissWatchingEvidence(
     return { success: false, error: error.message };
   }
 
-  // Teach: record a correction when we know what was wrong.
-  if (
-    input.entityType &&
-    input.entityId &&
-    input.fieldPath &&
-    !isMetaCandidateField(input.fieldPath)
-  ) {
+  // Teach: record a correction when we know what was wrong. Meta candidates
+  // (merge/archive/link) teach too — "Keep both" must stop the same merge
+  // proposal from re-surfacing on the next hygiene scan. The correction
+  // blocklist matches meta candidates by target, so the stored display
+  // string is enough.
+  if (input.entityType && input.entityId && input.fieldPath) {
     try {
       await recordCorrection({
         workspaceId: workspace.id,

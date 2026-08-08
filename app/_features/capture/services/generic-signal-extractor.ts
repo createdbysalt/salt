@@ -17,9 +17,15 @@ import "server-only";
  *    admission.ts, provenance in the existing machinery).
  *
  * The LLM call is injected (same pattern as runDailyScan) so callers own
- * model routing and user attribution. Wire-up point: absorbDerivedSignals
- * falls back to this when an adapter has no deriveSignals — arrives with the
- * first long-tail capture source (Phase 7.2).
+ * model routing and user attribution.
+ *
+ * Wired (Sources plan Phase 5.4): absorbDerivedSignals in
+ * connector-backfills.ts supplements deterministic deriveSignals with this
+ * extractor for providers outside HAND_WRITTEN_PARSING_PROVIDERS, on
+ * newly-created envelopes only (the 6h reconciliation overlap would
+ * otherwise re-extract the same data every run). Callers thread a metered
+ * llmCall from runCaptureReconciliation (owner-attributed) and the manual
+ * sync/scan actions.
  */
 
 import type { CaptureEnvelope } from "../adapters/types";

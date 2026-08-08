@@ -7,12 +7,12 @@ import type {
   ScanSummaryItem,
   SourcedField,
 } from "./types";
-import { getCategoryForConnector } from "./registry";
+import { getCaptureCategoryMap } from "../capture-categories";
 
-export function consolidateResults(
+export async function consolidateResults(
   entityType: EnrichableEntityType,
   results: ExtractorResult[]
-): EnrichmentResult {
+): Promise<EnrichmentResult> {
   const fields: Record<string, SourcedField> = {};
   const orgs: ConnectionCandidate[] = [];
   const work: ConnectionCandidate[] = [];
@@ -21,6 +21,7 @@ export function consolidateResults(
   const sourcesQueried: string[] = [];
   const sourcesWithData: string[] = [];
   const scanSummary: ScanSummaryItem[] = [];
+  const categoryMap = await getCaptureCategoryMap();
 
   for (const result of results) {
     sourcesQueried.push(result.source);
@@ -36,7 +37,7 @@ export function consolidateResults(
 
     scanSummary.push({
       provider: providerKey,
-      category: getCategoryForConnector(providerKey) ?? "unknown",
+      category: categoryMap.get(providerKey) ?? "unknown",
       fieldsExtracted: Object.keys(result.fields).length,
       connectionsFound: connectionCount,
       notesFound: result.notes?.length ?? 0,

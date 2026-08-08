@@ -1,10 +1,12 @@
 "use client";
 
-import { useMemo, useState, useTransition, useCallback, type MouseEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition, useCallback, type MouseEvent, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { retryCaptureIntelligence } from "../actions/retry-capture";
 import { loadMoreStreamCaptures } from "../actions/load-more-captures";
+import { searchCaptureHistoryAction } from "../actions/search-capture-history";
 import { submitCaptureFeedback, neverCaptureSender } from "../actions/capture-feedback";
+import { syncAndScanCaptures } from "../actions/run-intelligence-scan";
 import { CAPTURE_STREAM_INITIAL_LIMIT } from "../stream-constants";
 import {
   CheckCircle2,
@@ -33,8 +35,13 @@ import {
   Ban,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import type { CaptureStatus, StreamEntry } from "@/app/_lib/demo/capture-demo-data";
-import type { StreamCaptureSummary, CaptureIntelligenceOutcome, EnrichedCaptureMetadata } from "../types";
+import type {
+  CaptureStatus,
+  StreamEntry,
+  StreamCaptureSummary,
+  CaptureIntelligenceOutcome,
+  EnrichedCaptureMetadata,
+} from "../types";
 import {
   type CaptureCategory,
   categoryFromEnrichment,
@@ -45,12 +52,9 @@ import { getSourceMeta, SOURCE_TAXONOMY } from "../source-taxonomy";
 import type { CaptureSourceType, SourceCategory } from "../types";
 import { ConnectorIcon } from "@/app/_features/connectors/components/connector-icons";
 import { connectorForToolkit } from "@/app/_features/connectors/utils/toolkit-connector";
-import { SourceExternalLink } from "./SourceExternalLink";
 import { SignalBadges } from "./SignalBadges";
-import { SuggestedActionsBar } from "./SuggestedActionsBar";
 import {
   CaptureFilterContent,
-  CaptureFilterPopover,
   countCaptureFilters,
   ORIGIN_TO_AREA,
   type StreamStateFilter,
@@ -58,6 +62,9 @@ import {
   type StreamTimingFilter,
 } from "./CaptureFilterPopover";
 import { PlaysSearchField } from "@/app/_features/plays/components/PlaysSearchField";
+import { Button } from "@repo/ui";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 import { cn } from "@repo/utils";
 
 interface CaptureStreamTabProps {
@@ -89,7 +96,7 @@ type WatchTriggerEntry = {
   entity_label: string;
   surface: string;
   match_type: string;
-  matched_value: string;
+  matched_value: string | null;
 };
 
 // dayGroup widened beyond the demo union: older captures group under month
@@ -112,6 +119,7 @@ type RealStreamEntry = Omit<StreamEntry, "dayGroup"> & {
   watchesTriggered?: WatchTriggerEntry[];
   /** Gate outcome — noise rows render demoted (muted, no Salt CTA). */
   gateAction?: string | null;
+  gateReason?: string | null;
 };
 
 /** Noise = admission gate said noise, or the classifier called it noise. */
@@ -120,6 +128,70 @@ function isNoiseEntry(entry: RealStreamEntry): boolean {
   return Boolean(
     entry.enrichedMetadata?.signals_matched?.includes("email_classified_noise")
   );
+}
+
+/** Map a capture summary (stream page or full-history search hit) to a row. */
+function toRealStreamEntry(c: StreamCaptureSummary): RealStreamEntry {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+  const weekStart = new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000);
+
+  const createdAt = new Date(c.created_at);
+  let dayGroup: string;
+  if (createdAt >= today) dayGroup = "Today";
+  else if (createdAt >= yesterday) dayGroup = "Yesterday";
+  else if (createdAt >= weekStart) dayGroup = "Earlier this week";
+  else {
+    dayGroup = createdAt.toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric",
+    });
+  }
+
+  const sourceMeta = getSourceMeta(c.source_type);
+  const outcome = c.intelligence_outcome;
+  // Use enrichment data to determine category when available
+  const category = categoryFromEnrichment(c.enriched_metadata, outcome);
+
+  let status: CaptureStatus = "pending";
+  if (outcome === "finding_created" || outcome === "routed") status = "confirmed";
+  else if (outcome === "dismissed") status = "dismissed";
+  else if (outcome === "no_signal") status = "auto-routed";
+
+  return {
+    id: c.capture_id,
+    dayGroup,
+    // Clock time is meaningless in multi-day groups — show the date there
+    time:
+      createdAt >= yesterday
+        ? createdAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+        : createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    source: c.origin as "added" | "found",
+    origin: c.source_type as StreamEntry["origin"],
+    status,
+    category,
+    snippet: c.title || "Untitled capture",
+    routedTo: CAPTURE_CATEGORY_LABELS[category],
+    trigger: `From ${sourceMeta.label}`,
+    sources: [sourceMeta.label],
+    learned: CAPTURE_CATEGORY_DETAIL[category],
+    intelligenceOutcome: outcome,
+    sourceUrl: c.source_url ?? null,
+    from: c.from_label ?? undefined,
+    subject: c.title ?? undefined,
+    contentSnippet: c.body_preview ?? undefined,
+    findingId: c.finding_id ?? null,
+    noSignalReason: outcome === "no_signal" ? "Nothing actionable found" : undefined,
+    enrichedMetadata: c.enriched_metadata ?? null,
+    extractedData: c.extracted_data ?? null,
+    confidence: c.overall_confidence ?? 0,
+    isBootstrap: c.is_bootstrap ?? false,
+    gateAction: c.gate_action ?? null,
+    gateReason: c.gate_reason ?? null,
+    playsDispatched: c.plays_dispatched ?? [],
+    watchesTriggered: c.watches_triggered ?? [],
+  } as RealStreamEntry;
 }
 
 const APPLE_EASE = [0.32, 0.72, 0, 1] as const;
@@ -388,66 +460,7 @@ export function CaptureStreamTab({
   // Convert real captures to stream entries format with new categories
   const realStreamEntries: RealStreamEntry[] = useMemo(() => {
     if (!hasRealData || allCaptures.length === 0) return [];
-
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
-    const weekStart = new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000);
-
-    return allCaptures.map((c) => {
-      const createdAt = new Date(c.created_at);
-      let dayGroup: string;
-      if (createdAt >= today) dayGroup = "Today";
-      else if (createdAt >= yesterday) dayGroup = "Yesterday";
-      else if (createdAt >= weekStart) dayGroup = "Earlier this week";
-      else {
-        dayGroup = createdAt.toLocaleDateString("en-US", {
-          month: "long",
-          year: "numeric",
-        });
-      }
-
-      const sourceMeta = getSourceMeta(c.source_type);
-      const outcome = c.intelligence_outcome;
-      // Use enrichment data to determine category when available
-      const category = categoryFromEnrichment(c.enriched_metadata, outcome);
-
-      let status: CaptureStatus = "pending";
-      if (outcome === "finding_created" || outcome === "routed") status = "confirmed";
-      else if (outcome === "dismissed") status = "dismissed";
-      else if (outcome === "no_signal") status = "auto-routed";
-
-      return {
-        id: c.capture_id,
-        dayGroup,
-        // Clock time is meaningless in multi-day groups — show the date there
-        time:
-          createdAt >= yesterday
-            ? createdAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
-            : createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-        source: c.origin as "added" | "found",
-        origin: c.source_type as StreamEntry["origin"],
-        status,
-        category,
-        snippet: c.title || "Untitled capture",
-        routedTo: CAPTURE_CATEGORY_LABELS[category],
-        trigger: `From ${sourceMeta.label}`,
-        sources: [sourceMeta.label],
-        learned: CAPTURE_CATEGORY_DETAIL[category],
-        intelligenceOutcome: outcome,
-        sourceUrl: c.source_url ?? null,
-        from: c.from_label ?? undefined,
-        subject: c.title ?? undefined,
-        contentSnippet: c.body_preview ?? undefined,
-        findingId: c.finding_id ?? null,
-        noSignalReason: outcome === "no_signal" ? "Nothing actionable found" : undefined,
-        enrichedMetadata: c.enriched_metadata ?? null,
-        extractedData: c.extracted_data ?? null,
-        confidence: c.overall_confidence ?? 0,
-        isBootstrap: c.is_bootstrap ?? false,
-        gateAction: c.gate_action ?? null,
-      } as RealStreamEntry;
-    });
+    return allCaptures.map(toRealStreamEntry);
   }, [allCaptures, hasRealData]);
 
   // Use real capture data only
@@ -459,7 +472,81 @@ export function CaptureStreamTab({
   const [timing, setTiming] = useState<StreamTimingFilter>("all");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [retryingId, setRetryingId] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
+
+  // Dev-only manual intake trigger: sync connected apps, then scan the
+  // lookback window for intelligence findings. The automated equivalent is
+  // the capture-intelligence cron.
+  const router = useRouter();
+  const [isSyncPending, startSyncTransition] = useTransition();
+
+  const handleSyncAndScan = () => {
+    startSyncTransition(async () => {
+      const result = await syncAndScanCaptures({ lookbackDays: 7 });
+      if (result.success && result.scan) {
+        const syncNote = result.sync
+          ? `Synced ${result.sync.capturesCreated} new captures. `
+          : "";
+        const firstWarning = result.scan.errors[0];
+        const errorNote =
+          result.scan.errors.length > 0
+            ? firstWarning
+              ? ` ${firstWarning}`
+              : ` (${result.scan.errors.length} warnings)`
+            : "";
+        const vendorDismissed = result.scan.findingsDismissedAsVendor ?? 0;
+        const vendorRepaired = result.scan.findingsMemoryRepaired ?? 0;
+        const vendorNote =
+          vendorDismissed > 0 || vendorRepaired > 0
+            ? ` Cleared ${vendorDismissed} subscription/vendor item(s) from the queue${vendorRepaired > 0 ? `, repaired ${vendorRepaired} finding(s)` : ""}.`
+            : "";
+        const scanNote =
+          result.scan.findingsCreated > 0
+            ? `Scanned ${result.scan.emailsProcessed} captures, ${result.scan.findingsCreated} new or updated findings.${vendorNote}`
+            : result.scan.emailsProcessed > 0 || vendorDismissed > 0 || vendorRepaired > 0
+              ? `Re-scanned ${result.scan.emailsProcessed} captures.${vendorNote || " No new findings yet."}`
+              : "No captures in the lookback window needed scanning. Sync Gmail first if the stream is empty.";
+        const success =
+          result.scan.errors.length === 0 || result.scan.emailsProcessed > 0;
+        const message = `${syncNote}${scanNote}${errorNote}`;
+        if (success) {
+          toast.success(message);
+        } else {
+          toast.error(message);
+        }
+        router.refresh();
+      } else {
+        toast.error(result.error || "Sync and scan failed");
+      }
+    });
+  };
+
+  // Full-history search (Sources plan 2.9): once the query is specific
+  // enough, search ALL capture history server-side — including dropped/held
+  // rows the stream hides — so the tab answers "did Salt see this, and what
+  // did it do with it?". `null` = history search inactive (client filter).
+  const [historyResults, setHistoryResults] = useState<RealStreamEntry[] | null>(null);
+  const [historySearching, setHistorySearching] = useState(false);
+  const historyTermRef = useRef("");
+
+  useEffect(() => {
+    const term = q.trim();
+    historyTermRef.current = term;
+    if (term.length < 2) {
+      setHistoryResults(null);
+      setHistorySearching(false);
+      return;
+    }
+    setHistorySearching(true);
+    const timer = setTimeout(() => {
+      void searchCaptureHistoryAction({ query: term }).then((result) => {
+        if (historyTermRef.current !== term) return; // superseded by a newer term
+        setHistorySearching(false);
+        setHistoryResults(result.success ? result.results.map(toRealStreamEntry) : []);
+      });
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [q]);
 
   const handleRetry = useCallback((captureId: string) => {
     setRetryingId(captureId);
@@ -474,7 +561,7 @@ export function CaptureStreamTab({
 
   const handleAskSalt = useCallback(
     (captureId: string, promptHint: string) => {
-      const capture = stream.find((e) => e.id === captureId);
+      const capture = (historyResults ?? stream).find((e) => e.id === captureId);
       if (!capture) return;
 
       const sourceMeta = capture.origin in SOURCE_TAXONOMY ? getSourceMeta(capture.origin as CaptureSourceType) : null;
@@ -496,7 +583,7 @@ export function CaptureStreamTab({
         })
       );
     },
-    [stream]
+    [stream, historyResults]
   );
 
   const toggleExpand = (id: string) =>
@@ -509,7 +596,10 @@ export function CaptureStreamTab({
 
   const entries = useMemo(() => {
     const term = q.trim().toLowerCase();
-    return stream
+    // History search active → server already matched the term across ALL
+    // capture history; only the facet filters apply client-side.
+    const base = historyResults ?? stream;
+    return base
       // State filter (Triggered Play, Triggered Watching, No Action, Processing, Error)
       .filter((e) => {
         if (state === "all") return true;
@@ -535,7 +625,7 @@ export function CaptureStreamTab({
       // Search filter — matches title, outcome, sender, subject, and app
       // (both the label "Gmail" and the raw source type "gmail")
       .filter((e) => {
-        if (!term) return true;
+        if (!term || historyResults) return true;
         const haystack = [
           e.snippet,
           e.routedTo,
@@ -546,7 +636,7 @@ export function CaptureStreamTab({
         ];
         return haystack.some((value) => value?.toLowerCase().includes(term));
       });
-  }, [q, state, area, timing, stream]);
+  }, [q, state, area, timing, stream, historyResults]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, RealStreamEntry[]>();
@@ -659,7 +749,34 @@ export function CaptureStreamTab({
             onTiming={setTiming}
           />
         }
+        trailingAction={
+          process.env.NODE_ENV === "development" ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleSyncAndScan}
+              disabled={isSyncPending}
+              className="h-9 shrink-0 rounded-full border-border/60 bg-card px-3.5 gap-1.5 text-sm font-medium text-foreground shadow-none hover:border-border hover:bg-muted/40"
+            >
+              {isSyncPending ? (
+                <Loader2 className="size-3.5 animate-spin" strokeWidth={2.25} />
+              ) : (
+                <Zap className="size-3.5" strokeWidth={2.25} />
+              )}
+              {isSyncPending ? "Syncing…" : "Sync & Scan"}
+            </Button>
+          ) : undefined
+        }
       />
+
+      {historyResults !== null && (
+        <p className="px-2 text-[11px] text-muted-foreground">
+          {historySearching
+            ? "Searching full history…"
+            : "Full history — includes kept-out and dropped mail with Salt's verdict on each."}
+        </p>
+      )}
 
       {grouped.length === 0 ? (
         <div className="glass-card rounded-3xl p-10 text-center">
@@ -671,7 +788,9 @@ export function CaptureStreamTab({
           <p className="mt-1 text-sm text-muted-foreground">
             {isEmptyDataset && !hasActiveSearchOrFilter
               ? "Connect Gmail or another tool to start capturing context automatically."
-              : "Adjust the filters or search."}
+              : historyResults !== null && !historySearching
+                ? "Salt never saw it — nothing in your full capture history matches."
+                : "Adjust the filters or search."}
           </p>
         </div>
       ) : (
@@ -724,13 +843,11 @@ export function CaptureStreamTab({
 
 function CaptureIconActionButton({
   label,
-  shortcut,
   onClick,
   disabled,
   children,
 }: {
   label: string;
-  shortcut?: string;
   onClick: (event: MouseEvent<HTMLButtonElement>) => void;
   disabled?: boolean;
   children: ReactNode;
@@ -739,17 +856,12 @@ function CaptureIconActionButton({
     <button
       type="button"
       aria-label={label}
-      title={shortcut ? `${label} (${shortcut})` : label}
+      title={label}
       onClick={onClick}
       disabled={disabled}
       className="group relative inline-flex size-9 items-center justify-center rounded-xl text-foreground/70 transition-all duration-200 hover:bg-background/90 hover:text-foreground hover:shadow-sm active:scale-95 disabled:pointer-events-none disabled:opacity-40"
     >
       {children}
-      {shortcut ? (
-        <span className="pointer-events-none absolute -bottom-0.5 right-0.5 grid size-3.5 place-items-center rounded-full bg-background text-[9px] font-bold text-muted-foreground opacity-0 shadow-sm transition-all duration-200 group-hover:opacity-100 group-hover:text-foreground">
-          {shortcut}
-        </span>
-      ) : null}
     </button>
   );
 }
@@ -855,6 +967,17 @@ function CaptureRow({
           </p>
           {/* Line 3: Trigger badges (Plays, Watching) + Category */}
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            {/* Gate verdict — kept-out/dropped rows surface the reason (2.9) */}
+            {(e.gateAction === "held" || e.gateAction === "drop") && (
+              <span
+                className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground"
+                title={e.gateReason ?? undefined}
+              >
+                <Ban className="size-2.5" strokeWidth={2.5} />
+                {e.gateAction === "held" ? "Kept out" : "Dropped"}
+                {e.gateReason ? ` — ${e.gateReason}` : ""}
+              </span>
+            )}
             {/* Triggered plays */}
             {(e.playsDispatched ?? []).map((play) => (
               <span
@@ -897,7 +1020,6 @@ function CaptureRow({
               {showRetryAction && (
                 <CaptureIconActionButton
                   label="Retry"
-                  shortcut="R"
                   onClick={(ev) => {
                     ev.stopPropagation();
                     onRetry(e.id);
@@ -1116,35 +1238,12 @@ const SURFACE_ICONS: Record<string, LucideIcon> = {
 
 /** Get source label for context attribution */
 function getSourceLabel(sourceType: string): string {
-  const labels: Record<string, string> = {
-    gmail: "Gmail",
-    outlook: "Outlook",
-    yahoo_mail: "Yahoo Mail",
-    googlecalendar: "Google Calendar",
-    outlook_calendar: "Outlook Calendar",
-    cal: "Cal.com",
-    calendly: "Calendly",
-    stripe: "Stripe",
-    quickbooks: "QuickBooks",
-    xero: "Xero",
-    googledrive: "Google Drive",
-    dropbox: "Dropbox",
-    onedrive: "OneDrive",
-    slack: "Slack",
-    fireflies: "Fireflies",
-    otter: "Otter",
-    hubspot: "HubSpot",
-    salesforce: "Salesforce",
-    pipedrive: "Pipedrive",
-    linear: "Linear",
-    asana: "Asana",
-    jira: "Jira",
-    trello: "Trello",
-    notion: "Notion",
-    googledocs: "Google Docs",
-    googlesheets: "Google Sheets",
-  };
-  return labels[sourceType] ?? sourceType.charAt(0).toUpperCase() + sourceType.slice(1);
+  const meta = getSourceMeta(sourceType);
+  if (meta) return meta.label;
+  return sourceType
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
 }
 
 const DETAIL_TEXT = "text-[12px] leading-relaxed text-foreground/80";

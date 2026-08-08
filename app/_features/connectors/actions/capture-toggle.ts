@@ -37,6 +37,6 @@ export async function setCaptureEnabled(input: {
     return { success: false, error: result.error };
   }
 
-  revalidatePath("/plays");
+  revalidatePath("/sources");
   return { success: true };
 }

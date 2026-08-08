@@ -35,8 +35,6 @@ export interface BuildConnectorDiscoveryToolsOptions {
   connectedToolkits: readonly string[];
   /** Composio connected-account id per toolkit. */
   connectionIdByToolkit: Record<string, string>;
-  /** Workspace-disabled tool slugs (connector settings toggles). */
-  disabledTools?: readonly string[];
 }
 
 const SearchSchema = z.object({
@@ -83,7 +81,6 @@ export function buildConnectorDiscoveryTools(
     userId,
     connectedToolkits,
     connectionIdByToolkit,
-    disabledTools = [],
   } = options;
 
   if (connectedToolkits.length === 0) {
@@ -120,37 +117,26 @@ export function buildConnectorDiscoveryTools(
         return { tools: [], note: `Catalog search failed: ${error.message}` };
       }
 
-      const allRows = (data ?? []).map((row) => {
-        const classification = Array.isArray(row.tool_classifications)
-          ? row.tool_classifications[0]
-          : row.tool_classifications;
-        return {
-          slug: row.tool_slug,
-          toolkit: row.toolkit_slug,
-          name: row.name,
-          description: row.description?.slice(0, 200) ?? null,
-          risk: classification?.risk ?? "unknown",
-          isDisabled: disabledTools.includes(row.tool_slug),
-        };
-      });
-
-      // Check if any matched tools are disabled (user turned them off in settings)
-      const disabledMatches = allRows.filter((r) => r.isDisabled);
-      const rows = allRows
-        .filter((row) => !row.isDisabled)
+      const rows = (data ?? [])
+        .map((row) => {
+          const classification = Array.isArray(row.tool_classifications)
+            ? row.tool_classifications[0]
+            : row.tool_classifications;
+          return {
+            slug: row.tool_slug,
+            toolkit: row.toolkit_slug,
+            name: row.name,
+            description: row.description?.slice(0, 200) ?? null,
+            risk: classification?.risk ?? "unknown",
+          };
+        })
         // Destructive tools never execute via AI — don't advertise them.
-        .filter((row) => row.risk !== "destructive")
-        .map(({ isDisabled: _, ...row }) => row);
+        .filter((row) => row.risk !== "destructive");
 
-      let note: string | undefined;
-      if (rows.length === 0 && disabledMatches.length > 0) {
-        const names = disabledMatches.map((r) => r.name).join(", ");
-        note = `Found ${disabledMatches.length} matching tool(s) but they're disabled: ${names}. The user can enable them in Connections settings.`;
-      } else if (rows.length === 0) {
-        note = "No approved tools matched. The catalog only lists tools reviewed for AI use on connected apps.";
-      } else if (disabledMatches.length > 0) {
-        note = `${disabledMatches.length} additional tool(s) matched but are disabled. The user can enable them in Connections settings.`;
-      }
+      const note =
+        rows.length === 0
+          ? "No approved tools matched. The catalog only lists tools reviewed for AI use on connected apps."
+          : undefined;
 
       return { tools: rows, note };
     },
@@ -190,7 +176,7 @@ export function buildConnectorDiscoveryTools(
         const policy = await getApprovedToolClassification(slug);
         const humanApproved = policy ? policy.risk !== "read" : undefined;
         // The gate re-validates and enforces classification (fail closed),
-        // disabled tools, trust ladder, and approval — and audits the run.
+        // the trust ladder, and approval — and audits the run.
         const result = await executeComposioAction<Record<string, unknown>, unknown>(
           slug,
           args,

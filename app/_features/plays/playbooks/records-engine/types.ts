@@ -500,6 +500,16 @@ export const CAPTURE_SIGNAL_KEYS = [
 export type CaptureSignalKey = (typeof CAPTURE_SIGNAL_KEYS)[number];
 
 /**
+ * Workspace-scoped signals — fired for workspace-level events rather than a
+ * Memory entity. The emitted entity is the workspace itself.
+ */
+export const WORKSPACE_SIGNAL_KEYS = [
+  "connector_connected",
+] as const;
+
+export type WorkspaceSignalKey = (typeof WORKSPACE_SIGNAL_KEYS)[number];
+
+/**
  * Email Intelligence signals — fired when email classification detects patterns.
  * These signals enable inbox triage, priority sorting, and behavioral learning.
  */
@@ -668,6 +678,7 @@ export const PROFILE_SIGNAL_KEYS = [
   ...OPERATOR_FACT_SIGNAL_KEYS,
   ...CAPTURE_SIGNAL_KEYS,
   ...EMAIL_INTELLIGENCE_SIGNAL_KEYS,
+  ...WORKSPACE_SIGNAL_KEYS,
 ] as const;
 
 export type ProfileSignalKey = (typeof PROFILE_SIGNAL_KEYS)[number];

@@ -7,10 +7,19 @@ import {
   type MemoryTrashItem,
 } from "../types/trash";
 
+type TrashTable =
+  | "people"
+  | "organizations"
+  | "work"
+  | "billing_records"
+  | "files"
+  | "meetings"
+  | "notes";
+
 interface EntityQueryConfig {
   entityType: TrashEntityType;
-  table: string;
-  tenantColumn: "workspace_id" | "workspace_id";
+  table: TrashTable;
+  tenantColumn: "workspace_id";
   labelColumns: string[];
   sublabelColumn?: string;
 }

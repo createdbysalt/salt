@@ -37,7 +37,7 @@ describe("plays tab routing helpers", () => {
       "/sources?tab=activity",
     );
     expect(resolvePlaysLegacyRedirect({ view: "stream" })).toBe("/sources?tab=activity");
-    expect(resolvePlaysLegacyRedirect({ filter: "learning" })).toBe("/memory?tab=filter");
+    expect(resolvePlaysLegacyRedirect({ filter: "learning" })).toBe("/memory?tab=activity");
   });
 
   it("leaves canonical URLs untouched", () => {

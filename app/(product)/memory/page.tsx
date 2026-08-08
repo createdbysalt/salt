@@ -9,6 +9,7 @@ import { parseMemoryTab, type MemoryTab } from "@/app/_features/memory/memory-ta
 import { getLearningEvidence } from "@/app/_features/memory/queries/learning-evidence";
 import { getAdmissionDecisions } from "@/app/_features/memory/queries/admission-decisions";
 import { getHandledWrites } from "@/app/_features/memory/queries/handled-items";
+import { getRecordCandidates } from "@/app/_features/memory/queries/record-candidates";
 import {
   getCareCapabilityStates,
   getCareThreshold,
@@ -17,6 +18,7 @@ import {
   CARE_CAPABILITIES,
   CARE_SETTINGS_SLUGS,
 } from "@/app/_features/memory/care/types";
+import { getLearnedWeights } from "@/app/_features/memory/care/actions";
 import { resolveMockContentEnabled } from "@/app/_lib/demo/mock-content";
 import { createClient } from "@/app/_lib/supabase/server";
 import MemoryLoading from "./loading";
@@ -27,25 +29,29 @@ async function MemoryGraphSection({ workspaceId }: { workspaceId: string }) {
 }
 
 async function MemoryFilterSection({ workspaceId }: { workspaceId: string }) {
-  const [evidence, decisions, handledWrites] = await Promise.all([
-    getLearningEvidence(workspaceId),
-    getAdmissionDecisions(workspaceId),
-    getHandledWrites(workspaceId),
-  ]);
+  const [evidence, decisions, handledWrites, recordCandidates] =
+    await Promise.all([
+      getLearningEvidence(workspaceId),
+      getAdmissionDecisions(workspaceId),
+      getHandledWrites(workspaceId),
+      getRecordCandidates(workspaceId),
+    ]);
   return (
     <FilterTab
       evidence={evidence}
       admissions={decisions}
       handledWrites={handledWrites}
+      recordCandidates={recordCandidates}
       workspaceId={workspaceId}
     />
   );
 }
 
 async function MemoryRulesSection({ workspaceId }: { workspaceId: string }) {
-  const [threshold, states] = await Promise.all([
+  const [threshold, states, learnedWeights] = await Promise.all([
     getCareThreshold(workspaceId),
     getCareCapabilityStates(workspaceId),
+    getLearnedWeights(workspaceId),
   ]);
   const capabilities = CARE_CAPABILITIES.map((capability) => ({
     capability,
@@ -57,6 +63,7 @@ async function MemoryRulesSection({ workspaceId }: { workspaceId: string }) {
       workspaceId={workspaceId}
       capabilities={capabilities}
       initialThreshold={threshold}
+      learnedWeights={learnedWeights}
     />
   );
 }
@@ -70,7 +77,6 @@ function MemoryShell({
 }) {
   return (
     <div className="relative min-h-full">
-      <div aria-hidden className="salt-ambient-wash" />
       <div className="mx-auto w-full max-w-[1400px] space-y-8 pb-10">
         <MemoryTabs active={tab} />
         {children}
@@ -113,7 +119,7 @@ export default async function MemoryRoute({
   return (
     <MemoryShell tab={tab}>
       <Suspense fallback={<MemoryLoading />}>
-        {tab === "filter" ? (
+        {tab === "activity" ? (
           <MemoryFilterSection workspaceId={workspace.id} />
         ) : (
           <MemoryRulesSection workspaceId={workspace.id} />

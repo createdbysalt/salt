@@ -7,9 +7,11 @@
 
 import { cache } from "react";
 import { discoverV2Playbooks, getPlaybookBySlug } from "./schema/v2/discovery";
-import type { PlaybookSection, PlaybookLayer, PlaybookDefinitionV2, PlaybookCategory, PlaybookStep } from "./schema/v2/types";
+import type { PlaybookSection, PlaybookLayer, PlaybookDefinitionV2, PlaybookCategory, PlaybookStep, PlaybookApprovalMode } from "./schema/v2/types";
 import { getPlaybookCategory, isPlaybookLocked, isPlaybookEditable } from "./schema/v2/types";
 import { getPlaybookEnabledStatesMap } from "../actions/playbook-settings";
+import { getPlaybookConnectorIds } from "../lib/playbook-connectors";
+import type { ConnectorCatalogId } from "@/app/_features/connectors/types";
 
 /**
  * Playbook origin types for badge display:
@@ -46,6 +48,15 @@ export interface PlaybookListItem {
   editable: boolean;
   stepCount: number;
   steps: PlaybookStepSummary[];
+  /** Connector logos this playbook works with (derived from requirement categories). */
+  connectorIds: ConnectorCatalogId[];
+  /** definition.yaml value.estimate — minutes of manual work saved per run. */
+  minutesSavedPerRun: number | null;
+  /**
+   * Output gate + step-level gating combined: "ask" when the output or any
+   * step requires approval, "auto" only when nothing ever asks.
+   */
+  approvalMode: PlaybookApprovalMode;
   triggerType: "signal" | "schedule" | "manual";
   triggerValue?: string;
   enabled?: boolean;
@@ -129,6 +140,19 @@ interface MapPlaybookOptions {
   packagePath?: string;
 }
 
+function deriveApprovalMode(
+  definition: PlaybookDefinitionV2
+): PlaybookApprovalMode {
+  const stepAsks = (definition.steps ?? []).some(
+    (step) =>
+      ("approval" in step &&
+        (step.approval === "ask" || step.approval === "required")) ||
+      ("needsApproval" in step && step.needsApproval === true)
+  );
+  if (stepAsks) return "ask";
+  return definition.output.approval ?? "ask";
+}
+
 function mapPlaybookListItem(
   definition: PlaybookDefinitionV2,
   origin: PlaybookOriginType,
@@ -161,6 +185,15 @@ function mapPlaybookListItem(
         step: step.step,
         ...("id" in step && typeof step.id === "string" ? { id: step.id } : {}),
       })) ?? [],
+    connectorIds: getPlaybookConnectorIds({
+      required: definition.requirements?.categories?.required,
+      optional: definition.requirements?.categories?.optional,
+    }),
+    minutesSavedPerRun:
+      typeof definition.value?.estimate === "number"
+        ? definition.value.estimate
+        : null,
+    approvalMode: deriveApprovalMode(definition),
     runnable,
     triggerType: (definition.trigger ?? definition.triggers?.[0])?.type ?? "manual",
     triggerValue: (() => {

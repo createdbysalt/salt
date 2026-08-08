@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
   evaluateRecordCapture,
-  shouldGraduateWatch,
   buildRecordCaptureInput,
   type RecordCaptureInput,
 } from "./record-capture-criteria";
@@ -238,70 +237,6 @@ describe("evaluateRecordCapture", () => {
       // Low score hits "cold inbound" first; consumer domain is an additional factor
       expect(result.reason).toContain("Cold inbound");
     });
-  });
-});
-
-describe("shouldGraduateWatch", () => {
-  it("graduates to CREATE when payment signal arrives", () => {
-    const accumulated = [{ type: "you_initiated" as const, weight: 40 }];
-    const newInput = makeInput({
-      admissionScore: 80,
-      admissionSignals: [{ type: "payment_customer", weight: 40 }],
-      senderEmail: "client@company.com",
-      senderName: "Client",
-      senderDomain: "company.com",
-    });
-
-    const result = shouldGraduateWatch(accumulated, 2, newInput);
-
-    expect(result.tier).toBe("create");
-  });
-
-  it("graduates to CREATE when bidirectional signal arrives", () => {
-    const accumulated = [{ type: "you_initiated" as const, weight: 40 }];
-    const newInput = makeInput({
-      admissionScore: 60,
-      admissionSignals: [{ type: "bidirectional", weight: 30 }],
-      senderEmail: "contact@company.com",
-      senderName: "Contact",
-      senderDomain: "company.com",
-    });
-
-    const result = shouldGraduateWatch(accumulated, 2, newInput);
-
-    expect(result.tier).toBe("create");
-  });
-
-  it("graduates after 3+ captures with name", () => {
-    const accumulated = [
-      { type: "shared_file" as const, weight: 20 },
-      { type: "shared_file" as const, weight: 20 },
-    ];
-    const newInput = makeInput({
-      admissionScore: 40,
-      admissionSignals: [{ type: "shared_file", weight: 20 }],
-      senderEmail: "frequent@company.com",
-      senderName: "Frequent Sender",
-      senderDomain: "company.com",
-    });
-
-    const result = shouldGraduateWatch(accumulated, 3, newInput);
-
-    expect(result.tier).toBe("create");
-  });
-
-  it("stays in WATCH when not enough signals", () => {
-    const accumulated = [{ type: "you_initiated" as const, weight: 40 }];
-    const newInput = makeInput({
-      admissionScore: 20,
-      admissionSignals: [{ type: "shared_file", weight: 20 }],
-      senderEmail: "contact@company.com",
-      senderDomain: "company.com",
-    });
-
-    const result = shouldGraduateWatch(accumulated, 2, newInput);
-
-    expect(result.tier).toBe("watch");
   });
 });
 

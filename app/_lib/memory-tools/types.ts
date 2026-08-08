@@ -8,9 +8,52 @@
  */
 
 import type { LearningEntityType, EvidenceType } from "@/app/_lib/learning";
+import type { Database } from "@/app/_lib/supabase/database.types";
 
 // Re-export for convenience
 export type { LearningEntityType, EvidenceType };
+
+// ============================================================================
+// Entity Type → Table Routing (shared by all protected tools)
+// ============================================================================
+
+/**
+ * The Memory tables the protected tools read/mutate, keyed by entity type.
+ * "me" is intentionally absent — operator fields route to profiles/workspaces.
+ *
+ * Typed via Pick so a renamed table fails compilation here, not at call sites.
+ */
+export type MemoryEntityTable = keyof Pick<
+  Database["public"]["Tables"],
+  "people" | "organizations" | "work" | "billing_records" | "meetings" | "files"
+>;
+
+/**
+ * Update payload for a public table. Used to type dynamic single-field
+ * payloads at the write boundary (the tools validate field names against
+ * allowlists before building the payload).
+ */
+export type TableUpdate<T extends keyof Database["public"]["Tables"]> =
+  Database["public"]["Tables"][T]["Update"];
+
+const MEMORY_ENTITY_TABLES: Partial<Record<LearningEntityType, MemoryEntityTable>> = {
+  person: "people",
+  organization: "organizations",
+  work: "work",
+  billing: "billing_records",
+  meeting: "meetings",
+  file: "files",
+};
+
+/**
+ * Resolve the table for an entity type. Returns null for entity types that
+ * have no single backing table ("me").
+ */
+export function getMemoryEntityTable(
+  entityType: LearningEntityType
+): MemoryEntityTable | null {
+  return MEMORY_ENTITY_TABLES[entityType] ?? null;
+}
 
 /**
  * Source context for tool calls - who/what is making the change.

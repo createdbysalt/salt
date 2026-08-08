@@ -1,11 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { buildWatchingTools } from "./watching-tools";
 
-vi.mock("@/app/_lib/learning/watches", () => ({
-  registerEntityWatch: vi.fn().mockResolvedValue({
-    success: true,
-    watchId: "watch-123",
-  }),
+vi.mock("@/app/_features/capture/services/watch-expressions", () => ({
+  registerWatchExpressions: vi.fn().mockResolvedValue({ registered: 1, skipped: 0 }),
 }));
 
 describe("buildWatchingTools", () => {
@@ -16,15 +13,16 @@ describe("buildWatchingTools", () => {
   });
 
   describe("add_to_watching tool", () => {
-    it("builds tool with correct description", () => {
+    it("builds tool with a description", () => {
       const tools = buildWatchingTools({ workspaceId });
       expect(tools.add_to_watching).toBeDefined();
-      expect(tools.add_to_watching.description).toContain("Register a watch");
-      expect(tools.add_to_watching.description).toContain("critical fields are missing");
+      expect(tools.add_to_watching.description).toContain("re-enrichment");
     });
 
-    it("registers watch for person with missing email", async () => {
-      const { registerEntityWatch } = await import("@/app/_lib/learning/watches");
+    it("registers identifier watches for a person", async () => {
+      const { registerWatchExpressions } = await import(
+        "@/app/_features/capture/services/watch-expressions"
+      );
       const tools = buildWatchingTools({ workspaceId });
       const tool = tools.add_to_watching as unknown as {
         execute: (input: Record<string, unknown>) => Promise<unknown>;
@@ -32,91 +30,59 @@ describe("buildWatchingTools", () => {
 
       const result = await tool.execute({
         entity_type: "person",
-        entity_id: "person-abc-123",
+        entity_id: "00000000-0000-0000-0000-0000000000ab",
         entity_name: "Jane Doe",
-        missing_fields: ["email", "phone"],
-        reason: "Email and phone not found during enrichment",
+        emails: ["jane@acme.com"],
+        missing_fields: ["phone"],
+        reason: "Phone not found during enrichment",
       });
 
-      expect(registerEntityWatch).toHaveBeenCalledTimes(2);
+      expect(registerWatchExpressions).toHaveBeenCalledWith(
+        expect.objectContaining({
+          workspaceId,
+          targetSurface: "people",
+          targetEntityId: "00000000-0000-0000-0000-0000000000ab",
+          emails: ["jane@acme.com"],
+        })
+      );
       expect(result).toMatchObject({
         success: true,
-        watchCount: 2,
+        watchCount: 1,
         entityType: "person",
-        entityId: "person-abc-123",
-        fieldsWatched: ["email", "phone"],
+        fieldsWatched: ["phone"],
       });
     });
 
-    it("registers watch for org with missing domain", async () => {
-      const { registerEntityWatch } = await import("@/app/_lib/learning/watches");
-      const tools = buildWatchingTools({ workspaceId });
-      const tool = tools.add_to_watching as unknown as {
-        execute: (input: Record<string, unknown>) => Promise<unknown>;
-      };
-
-      const result = await tool.execute({
-        entity_type: "organization",
-        entity_id: "org-xyz-789",
-        entity_name: "Acme Corp",
-        missing_fields: ["domain", "billing_email"],
-        reason: "Domain and billing email not found",
-      });
-
-      expect(registerEntityWatch).toHaveBeenCalledTimes(2);
-      expect(result).toMatchObject({
-        success: true,
-        watchCount: 2,
-        entityType: "organization",
-      });
-    });
-
-    it("registers watch for work with missing deadline", async () => {
-      const { registerEntityWatch } = await import("@/app/_lib/learning/watches");
-      const tools = buildWatchingTools({ workspaceId });
-      const tool = tools.add_to_watching as unknown as {
-        execute: (input: Record<string, unknown>) => Promise<unknown>;
-      };
-
-      const result = await tool.execute({
-        entity_type: "work",
-        entity_id: "work-def-456",
-        entity_name: "Website Project",
-        missing_fields: ["deadline", "contract_value"],
-        reason: "Timeline and budget not confirmed",
-      });
-
-      expect(registerEntityWatch).toHaveBeenCalledTimes(2);
-      expect(result).toMatchObject({
-        success: true,
-        entityType: "work",
-        fieldsWatched: ["deadline", "contract_value"],
-      });
-    });
-
-    it("uses custom watch_for signals when provided", async () => {
-      const { registerEntityWatch } = await import("@/app/_lib/learning/watches");
+    it("maps organizations to the organizations surface", async () => {
+      const { registerWatchExpressions } = await import(
+        "@/app/_features/capture/services/watch-expressions"
+      );
       const tools = buildWatchingTools({ workspaceId });
       const tool = tools.add_to_watching as unknown as {
         execute: (input: Record<string, unknown>) => Promise<unknown>;
       };
 
       await tool.execute({
-        entity_type: "billing",
-        entity_id: "billing-ghi-012",
-        missing_fields: ["due_at"],
-        watch_for: ["custom_billing_signal"],
-        reason: "Due date not found on invoice",
+        entity_type: "organization",
+        entity_id: "00000000-0000-0000-0000-0000000000cd",
+        entity_name: "Acme Corp",
+        domains: ["acme.com"],
+        missing_fields: ["billing_email"],
+        reason: "Billing email not found",
       });
 
-      expect(registerEntityWatch).toHaveBeenCalledWith(
+      expect(registerWatchExpressions).toHaveBeenCalledWith(
         expect.objectContaining({
-          watchForSignals: ["custom_billing_signal"],
+          targetSurface: "organizations",
+          domains: ["acme.com"],
         })
       );
     });
 
-    it("returns message with entity name when provided", async () => {
+    it("refuses to watch an entity with no known identifier", async () => {
+      const { registerWatchExpressions } = await import(
+        "@/app/_features/capture/services/watch-expressions"
+      );
       const tools = buildWatchingTools({ workspaceId });
       const tool = tools.add_to_watching as unknown as {
         execute: (input: Record<string, unknown>) => Promise<unknown>;
@@ -124,21 +90,25 @@ describe("buildWatchingTools", () => {
 
       const result = (await tool.execute({
         entity_type: "person",
-        entity_id: "person-abc-123",
-        entity_name: "Jane Doe",
-        missing_fields: ["phone"],
-        reason: "Phone not in signature",
-      })) as { message: string };
+        entity_id: "00000000-0000-0000-0000-0000000000ef",
+        entity_name: "Mystery Person",
+        missing_fields: ["email"],
+        reason: "Nothing known yet",
+      })) as { success: boolean; message: string };
 
-      expect(result.message).toContain("Jane Doe");
-      expect(result.message).toContain("phone");
+      expect(result.success).toBe(false);
+      expect(result.message).toContain("Mystery Person");
+      expect(registerWatchExpressions).not.toHaveBeenCalled();
     });
 
-    it("handles partial failures gracefully", async () => {
-      const { registerEntityWatch } = await import("@/app/_lib/learning/watches");
-      vi.mocked(registerEntityWatch)
-        .mockResolvedValueOnce({ success: true, watchId: "watch-1" })
-        .mockResolvedValueOnce({ success: false, error: "Database error" });
+    it("reports failure when no expressions could be registered", async () => {
+      const { registerWatchExpressions } = await import(
+        "@/app/_features/capture/services/watch-expressions"
+      );
+      vi.mocked(registerWatchExpressions).mockResolvedValueOnce({
+        registered: 0,
+        skipped: 1,
+      });
 
       const tools = buildWatchingTools({ workspaceId });
       const tool = tools.add_to_watching as unknown as {
@@ -147,13 +117,14 @@ describe("buildWatchingTools", () => {
 
       const result = (await tool.execute({
         entity_type: "person",
-        entity_id: "person-abc-123",
-        missing_fields: ["email", "phone"],
-        reason: "Testing partial failure",
-      })) as { success: boolean; watchCount: number };
+        entity_id: "00000000-0000-0000-0000-0000000000ab",
+        entity_name: "Jane Doe",
+        emails: ["not-an-email"],
+        missing_fields: ["phone"],
+        reason: "Bad identifier",
+      })) as { success: boolean };
 
-      expect(result.success).toBe(true);
-      expect(result.watchCount).toBe(1);
+      expect(result.success).toBe(false);
     });
   });
 });

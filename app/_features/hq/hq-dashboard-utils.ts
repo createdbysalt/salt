@@ -1,54 +1,11 @@
 const DAY_MS = 86_400_000;
 
-export type PlayRunTimeSavedRow = {
-  state: string;
-  ran_at: string | null;
-  approved_at: string | null;
-  stakes?: string | null;
-};
-
-/** Activity day for time saved — uses execution/approval timestamps only (never updated_at). */
-export function playRunActivityTimestamp(row: PlayRunTimeSavedRow): Date | null {
-  if (row.state === "ran") {
-    const raw = row.ran_at ?? row.approved_at;
-    if (!raw) return null;
-    const date = new Date(raw);
-    return Number.isNaN(date.getTime()) ? null : date;
-  }
-
-  if (row.state === "approved") {
-    if (!row.approved_at) return null;
-    const date = new Date(row.approved_at);
-    return Number.isNaN(date.getTime()) ? null : date;
-  }
-
-  return null;
-}
-
 export function startOfDay(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
 export function toDateKey(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-}
-
-/**
- * Conservative manual-minutes estimate for a completed play, keyed off its
- * stakes level (high = external sends like invoices/emails, medium = drafts
- * and Memory updates, low = internal enrichment). Deliberately undersells so
- * the number always reads as fair.
- */
-const MINUTES_SAVED_BY_STAKES: Record<string, number> = {
-  high: 25,
-  medium: 15,
-  low: 8,
-};
-const DEFAULT_MINUTES_SAVED = 12;
-
-export function estimateMinutesSaved(stakes: string | null | undefined): number {
-  if (!stakes) return DEFAULT_MINUTES_SAVED;
-  return MINUTES_SAVED_BY_STAKES[stakes] ?? DEFAULT_MINUTES_SAVED;
 }
 
 /** "45m" under an hour, then "2h" / "2h 40m". */

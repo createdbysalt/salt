@@ -1,24 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { createMeetingsCategoryAdapter, getMeetingsAdapter } from "./meetings";
 import { runAdapterConformance } from "../adapter-conformance";
-
-const FIREFLIES_TRANSCRIPT = {
-  id: "tr-abc123",
-  title: "Kickoff — Acme rebrand",
-  date: 1754500000000,
-  duration: 32.4,
-  participants: ["you@usesalt.io", "grace@acmecreative.co"],
-  meeting_attendees: [
-    { displayName: "You", email: "you@usesalt.io" },
-    { displayName: "Grace Chen", email: "grace@acmecreative.co" },
-  ],
-  summary: {
-    overview: "Aligned on rebrand scope, timeline, and next steps.",
-    action_items:
-      "- Send the revised proposal by Friday\n- Book the brand workshop\n- Share moodboard references",
-  },
-  transcript_url: "https://app.fireflies.ai/view/tr-abc123",
-};
+import { FIREFLIES_TRANSCRIPT } from "../__fixtures__/fireflies-payloads";
 
 describe("meetings category adapter", () => {
   describe("getMeetingsAdapter", () => {

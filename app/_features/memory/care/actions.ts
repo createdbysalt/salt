@@ -11,6 +11,12 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/app/_lib/supabase/server";
 import { getCareCapabilityStates, getCareThreshold } from "./settings";
 import {
+  getAllSignalSourceWeights,
+  resetSignalSourceWeight,
+  resetAllSignalSourceWeights,
+  type SignalSourceWeight,
+} from "./reflection";
+import {
   CARE_CAPABILITIES,
   CARE_SETTINGS_SLUGS,
   type CareCapability,
@@ -92,4 +98,48 @@ export async function setCareCapabilityEnabled(
   if (error) throw error;
 
   revalidatePath("/memory");
+}
+
+// =============================================================================
+// P8 Learned Weights (Reflection Pass)
+// =============================================================================
+
+/**
+ * Get all learned signal source weights for the workspace.
+ * Used by Memory → Rules to show "What Salt has learned" section.
+ */
+export async function getLearnedWeights(
+  workspaceId: string
+): Promise<SignalSourceWeight[]> {
+  return getAllSignalSourceWeights(workspaceId);
+}
+
+/**
+ * Reset a single learned weight (delete the adjustment).
+ * Salt will treat this source+field as fully reliable again.
+ */
+export async function resetLearnedWeight(
+  workspaceId: string,
+  signalSource: string,
+  fieldType: string
+): Promise<{ success: boolean }> {
+  const result = await resetSignalSourceWeight(workspaceId, signalSource, fieldType);
+  if (result) {
+    revalidatePath("/memory");
+  }
+  return { success: result };
+}
+
+/**
+ * Reset all learned weights for the workspace.
+ * Salt forgets everything it learned about signal reliability.
+ */
+export async function resetAllLearnedWeights(
+  workspaceId: string
+): Promise<{ deleted: number }> {
+  const result = await resetAllSignalSourceWeights(workspaceId);
+  if (result.deleted > 0) {
+    revalidatePath("/memory");
+  }
+  return result;
 }

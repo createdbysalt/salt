@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getCategoryAdapter } from "./categories";
+import { getAdapterForCategory } from "./categories";
 import type { CaptureAdapter } from "./types";
 import {
   GMAIL_TRIGGER_CAMEL,
@@ -21,10 +21,12 @@ function normalizeAll(adapter: CaptureAdapter, payloads: unknown[]) {
 }
 
 describe("adapter signal derivation (Phase 5.1)", () => {
-  const gmailAdapter = getCategoryAdapter("gmail")!;
-  const calendarAdapter = getCategoryAdapter("googlecalendar")!;
-  const stripeAdapter = getCategoryAdapter("stripe")!;
-  const calAdapter = getCategoryAdapter("cal")!;
+  // Signal-derivation tests pin the category directly — category resolution
+  // (DB-backed) is covered by the registry tests.
+  const gmailAdapter = getAdapterForCategory("email", "gmail");
+  const calendarAdapter = getAdapterForCategory("calendar", "googlecalendar");
+  const stripeAdapter = getAdapterForCategory("billing", "stripe");
+  const calAdapter = getAdapterForCategory("calendar", "cal");
 
   it("gmail: bidirectional when mail flows both ways, you_initiated on outbound", () => {
     const envelopes = normalizeAll(gmailAdapter, [

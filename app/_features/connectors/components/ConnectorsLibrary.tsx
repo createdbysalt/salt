@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Check, ChevronRight, X } from "lucide-react";
+import { Check, ChevronRight, PlugZap, X } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 import { cn } from "@repo/utils";
 import type {
   ConnectorDefinition,
@@ -72,14 +73,28 @@ function ConnectorLibraryCard({
         <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
           {definition.description}
         </p>
+        {/* Truthful status line: a problem says what it is; a healthy
+            connection shows its last capture. Quiet is never "broken". */}
+        {status.needsReconnect ? (
+          <p className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400">
+            Reconnect needed — connection expired
+          </p>
+        ) : isConnected && status.lastActivityAt ? (
+          <p className="mt-1 text-xs text-muted-foreground/80">
+            Last capture{" "}
+            {formatDistanceToNow(new Date(status.lastActivityAt), { addSuffix: true })}
+          </p>
+        ) : null}
       </div>
 
       <div className="flex shrink-0 items-center justify-end gap-1.5">
         {definition.comingSoon ? (
           <span className="text-[11px] font-medium text-muted-foreground">Soon</span>
+        ) : definition.tier === "catalog_only" ? (
+          <span className="text-[11px] font-medium text-muted-foreground">Browse-only</span>
         ) : (
           <>
-            {isConnected ? (
+            {isConnected || status.needsReconnect ? (
               <span
                 className={cn(
                   "grid size-6 place-items-center rounded-full",
@@ -90,7 +105,11 @@ function ConnectorLibraryCard({
                 aria-label={status.needsReconnect ? "Reconnect needed" : "Connected"}
                 title={status.needsReconnect ? "Reconnect needed" : "Connected"}
               >
-                <Check className="size-3.5" strokeWidth={2.5} />
+                {status.needsReconnect ? (
+                  <PlugZap className="size-3.5" strokeWidth={2.5} />
+                ) : (
+                  <Check className="size-3.5" strokeWidth={2.5} />
+                )}
               </span>
             ) : null}
             <ChevronRight

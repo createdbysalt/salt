@@ -40,9 +40,23 @@ vi.mock("./settings", () => ({
   getCareThreshold: vi.fn(async () => 85),
 }));
 
+vi.mock("./reflection", () => ({
+  getSignalSourceWeight: vi.fn(async () => 1.0),
+}));
+
+vi.mock("@/app/_lib/learning/correction-blocklist", () => ({
+  getCorrectionBlocklist: vi.fn(async () => []),
+  findBlockingCorrection: vi.fn(() => null),
+}));
+
 import { accumulateEvidence, resolveEvidence } from "@/app/_lib/learning";
+import {
+  findBlockingCorrection,
+  getCorrectionBlocklist,
+} from "@/app/_lib/learning/correction-blocklist";
 import { recordSaltLearning } from "@/app/_features/me/actions/salt-learnings";
 import { getCareThreshold } from "./settings";
+import { getSignalSourceWeight } from "./reflection";
 import { getCareFieldBar, processCareProposal } from "./decision-pipeline";
 
 describe("decision-pipeline", () => {
@@ -81,6 +95,40 @@ describe("decision-pipeline", () => {
   });
 
   describe("processCareProposal", () => {
+    it("refuses previously corrected values without accumulating or surfacing", async () => {
+      vi.mocked(findBlockingCorrection).mockReturnValueOnce({
+        id: "corr-9",
+        fieldPath: "location",
+        wrongValue: "Toronto",
+        reason: "never_true",
+        createdAt: "2026-08-01T00:00:00Z",
+      });
+
+      const decision = await processCareProposal({
+        workspaceId: "ws-1",
+        capability: "records",
+        entityType: "person",
+        entityId: "p-1",
+        field: "location",
+        proposedValue: "Toronto",
+        confidence: 99,
+        because: "email signature",
+        evidenceType: "behavioral_signal",
+        sourceType: "care",
+      });
+
+      expect(decision.action).toBe("refuse");
+      expect(decision.correctionGuardTriggered).toBe(true);
+      // The whole point: no evidence row, so nothing re-surfaces in Watching.
+      expect(accumulateEvidence).not.toHaveBeenCalled();
+      expect(getCorrectionBlocklist).toHaveBeenCalledWith(
+        "ws-1",
+        "person",
+        "p-1",
+        "location"
+      );
+    });
+
     it("refuses never-touch without accumulating evidence", async () => {
       const decision = await processCareProposal({
         workspaceId: "ws-1",
@@ -163,6 +211,87 @@ describe("decision-pipeline", () => {
 
       expect(decision.action).toBe("watch");
       expect(decision.bar).toBe(95);
+    });
+
+    describe("P8 signal source weight adjustment", () => {
+      it("applies weight to reduce effective confidence", async () => {
+        vi.mocked(accumulateEvidence).mockResolvedValue({
+          evidenceId: "ev-weight",
+          aggregatedConfidence: 90,
+        } as never);
+        vi.mocked(getSignalSourceWeight).mockResolvedValue(0.7);
+
+        const decision = await processCareProposal({
+          workspaceId: "ws-1",
+          capability: "records",
+          entityType: "person",
+          entityId: "p-1",
+          field: "industry",
+          proposedValue: "Technology",
+          confidence: 90,
+          because: "email signature",
+          evidenceType: "llm_inference",
+          sourceType: "email_signature",
+        });
+
+        // 90 * 0.7 = 63, which is below the 85 bar
+        expect(decision.action).toBe("watch");
+        expect(decision.aggregatedConfidence).toBe(63);
+        expect(getSignalSourceWeight).toHaveBeenCalledWith(
+          "ws-1",
+          "email_signature",
+          "industry"
+        );
+      });
+
+      it("does not reduce confidence when weight is 1.0", async () => {
+        vi.mocked(accumulateEvidence).mockResolvedValue({
+          evidenceId: "ev-full",
+          aggregatedConfidence: 90,
+        } as never);
+        vi.mocked(getSignalSourceWeight).mockResolvedValue(1.0);
+
+        const decision = await processCareProposal({
+          workspaceId: "ws-1",
+          capability: "records",
+          entityType: "person",
+          entityId: "p-1",
+          field: "location",
+          proposedValue: "NYC",
+          confidence: 90,
+          because: "calendar event",
+          evidenceType: "behavioral_signal",
+          sourceType: "calendar",
+        });
+
+        expect(decision.action).toBe("apply");
+        expect(decision.aggregatedConfidence).toBe(90);
+      });
+
+      it("weight floor of 0.5 still allows high-confidence proposals through", async () => {
+        vi.mocked(accumulateEvidence).mockResolvedValue({
+          evidenceId: "ev-floor",
+          aggregatedConfidence: 100,
+        } as never);
+        vi.mocked(getSignalSourceWeight).mockResolvedValue(0.5);
+
+        const decision = await processCareProposal({
+          workspaceId: "ws-1",
+          capability: "records",
+          entityType: "person",
+          entityId: "p-1",
+          field: "company_name",
+          proposedValue: "Acme",
+          confidence: 100,
+          because: "explicit statement",
+          evidenceType: "explicit_mention",
+          sourceType: "unreliable_source",
+        });
+
+        // 100 * 0.5 = 50, below 85 bar
+        expect(decision.action).toBe("watch");
+        expect(decision.aggregatedConfidence).toBe(50);
+      });
     });
   });
 });

@@ -63,9 +63,13 @@ function hasWebGL2Float(): boolean {
 }
 
 /** Foreground tint — opacity in the shader keeps it subtle */
-function parseCSSVarColor(varName: string, fallback: [number, number, number]): [number, number, number] {
+function parseCSSVarColor(
+  varName: string,
+  fallback: [number, number, number],
+  element?: HTMLElement,
+): [number, number, number] {
   try {
-    const value = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+    const value = getComputedStyle(element ?? document.documentElement).getPropertyValue(varName).trim();
     if (!value) return fallback;
     const tmp = document.createElement("canvas");
     tmp.width = tmp.height = 1;
@@ -79,8 +83,8 @@ function parseCSSVarColor(varName: string, fallback: [number, number, number]): 
   }
 }
 
-function getSubtleDotRGB(): [number, number, number] {
-  return parseCSSVarColor("--foreground", [0.16, 0.13, 0.12]);
+function getSubtleDotRGB(element?: HTMLElement): [number, number, number] {
+  return parseCSSVarColor("--foreground", [0.16, 0.13, 0.12], element);
 }
 
 // ─── GLSL shaders (exact Ramp physics) ────────────────────────────────────────
@@ -239,7 +243,7 @@ export function DotGridCanvas() {
     const canvasEl: HTMLCanvasElement = canvas;
     const containerEl: HTMLDivElement = container;
 
-    const dotColor = getSubtleDotRGB();
+    const dotColor = getSubtleDotRGB(container);
 
     let simVS: WebGLShader;
     let simFS: WebGLShader;

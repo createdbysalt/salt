@@ -26,7 +26,9 @@ describe("getWorkspaceCogs", () => {
     expect(rpc).toHaveBeenCalledWith("workspace_cogs_micros", {
       p_workspace_id: "ws-1",
       p_since: PERIOD,
-      p_until: null,
+      // Typed rpc args are optional, not nullable; the SQL param defaults to
+      // NULL either way.
+      p_until: undefined,
     });
   });
 

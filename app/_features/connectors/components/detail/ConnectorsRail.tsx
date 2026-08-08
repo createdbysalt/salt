@@ -69,6 +69,10 @@ function RailItem({
           <span className="shrink-0 text-[10px] font-medium text-muted-foreground/70">
             Soon
           </span>
+        ) : definition.tier === "catalog_only" ? (
+          <span className="shrink-0 text-[10px] font-medium text-muted-foreground/70">
+            Browse-only
+          </span>
         ) : null}
       </button>
     </li>

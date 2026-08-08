@@ -2,27 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   buildWeeklyActivityBars,
   computeWeekOverWeekPct,
-  estimateMinutesSaved,
   formatMinutesSaved,
   normalizeShare,
-  playRunActivityTimestamp,
   toDateKey,
   weekStartForDay,
 } from "./hq-dashboard-utils";
-
-describe("estimateMinutesSaved", () => {
-  it("scales estimates by stakes level", () => {
-    expect(estimateMinutesSaved("high")).toBe(25);
-    expect(estimateMinutesSaved("medium")).toBe(15);
-    expect(estimateMinutesSaved("low")).toBe(8);
-  });
-
-  it("falls back to the default for unknown or missing stakes", () => {
-    expect(estimateMinutesSaved(null)).toBe(12);
-    expect(estimateMinutesSaved(undefined)).toBe(12);
-    expect(estimateMinutesSaved("weird")).toBe(12);
-  });
-});
 
 describe("formatMinutesSaved", () => {
   it("formats minutes under an hour", () => {
@@ -33,38 +17,6 @@ describe("formatMinutesSaved", () => {
   it("formats hours with and without a remainder", () => {
     expect(formatMinutesSaved(60)).toBe("1h");
     expect(formatMinutesSaved(160)).toBe("2h 40m");
-  });
-});
-
-describe("playRunActivityTimestamp", () => {
-  it("uses ran_at for executed plays", () => {
-    expect(
-      playRunActivityTimestamp({
-        state: "ran",
-        ran_at: "2026-06-24T10:00:00Z",
-        approved_at: "2026-06-23T10:00:00Z",
-      }),
-    ).toEqual(new Date("2026-06-24T10:00:00Z"));
-  });
-
-  it("uses approved_at for approved plays", () => {
-    expect(
-      playRunActivityTimestamp({
-        state: "approved",
-        ran_at: null,
-        approved_at: "2026-06-24T10:00:00Z",
-      }),
-    ).toEqual(new Date("2026-06-24T10:00:00Z"));
-  });
-
-  it("returns null when approval timestamp is missing", () => {
-    expect(
-      playRunActivityTimestamp({
-        state: "approved",
-        ran_at: null,
-        approved_at: null,
-      }),
-    ).toBeNull();
   });
 });
 

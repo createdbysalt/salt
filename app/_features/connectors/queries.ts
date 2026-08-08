@@ -2,8 +2,10 @@ import "server-only";
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { getConnectionStatus } from "@/app/_lib/composio/connections";
-import { isToolProvablyUnavailable } from "@/app/_lib/composio/scope-availability";
+import { getCaptureTriggerSpecs } from "@/app/_lib/composio/trigger-subscriptions";
+import { readCaptureScope } from "@/app/_lib/composio/capture-scope";
 import { adapterForToolkit } from "@/app/_features/capture/adapters/registry";
+import { getCaptureCategoryMap } from "@/app/_lib/composio/capture-categories";
 import {
   listCatalogEntries,
   listConnectableEntries,
@@ -23,7 +25,6 @@ import { deriveConnectorOverview } from "./content-contract";
 import { isConnectionStale } from "./staleness";
 import { verifySuspectConnection } from "./connection-verify";
 import {
-  getDisabledToolsFromConfig,
   getEmailModeFromConfig,
   type EmailMode,
 } from "./connector-config";
@@ -52,6 +53,7 @@ function toConnectorDefinition(entry: ConnectorRegistryEntry): ConnectorDefiniti
     nativeBadge: entry.nativeBadge ?? undefined,
     composioProviders: [entry.toolkitSlug],
     comingSoon: entry.comingSoon,
+    tier: entry.tier,
     apiKeyForm: entry.apiKeyForm as ConnectorDefinition["apiKeyForm"],
     connectHelp: entry.connectHelp ?? undefined,
     tagline: entry.tagline ?? undefined,
@@ -73,7 +75,6 @@ export async function listFeaturedDefinitions(): Promise<ConnectorDefinition[]> 
 }
 
 interface ProviderSettings {
-  disabledTools: string[];
   trustLevel: ConnectorTrustLevel;
   emailMode: EmailMode;
   captureEnabled: boolean;
@@ -98,7 +99,6 @@ async function loadProviderSettings(
   for (const row of rows ?? []) {
     const config = row.config as Record<string, unknown> | null;
     byProvider[row.provider as string] = {
-      disabledTools: getDisabledToolsFromConfig(config),
       trustLevel:
         row.trust_level === "act_with_approval"
           ? "act_with_approval"
@@ -135,24 +135,7 @@ export async function getWorkspaceTrustLevel(
       : "read_only";
 }
 
-/**
- * All disabled Composio tool slugs for a workspace, merged across every
- * provider with tool toggles (Google family + Stripe).
- */
-export async function getWorkspaceDisabledTools(
-  workspaceId: string,
-): Promise<string[]> {
-  const byProvider = await loadProviderSettings(workspaceId, [
-    ...getToolPreferenceProviders(),
-  ]);
-  const disabled = new Set<string>(
-    Object.values(byProvider).flatMap((settings) => settings.disabledTools),
-  );
-  return [...disabled];
-}
-
 export interface WorkspaceConnectorPolicy {
-  disabledTools: string[];
   /**
    * Workspace-global trust applied to every provider (one Settings switch;
    * per-connector trust is retired). The per-provider shape is kept so tool
@@ -164,8 +147,8 @@ export interface WorkspaceConnectorPolicy {
 }
 
 /**
- * Trust + tool toggles + email mode for a workspace's connectors,
- * loaded for tool registration and execution-time checks.
+ * Trust + email mode for a workspace's connectors, loaded for tool
+ * registration and execution-time checks.
  */
 export async function getWorkspaceConnectorPolicy(
   workspaceId: string,
@@ -175,9 +158,6 @@ export async function getWorkspaceConnectorPolicy(
     getWorkspaceTrustLevel(workspaceId),
   ]);
 
-  const disabled = new Set<string>(
-    Object.values(byProvider).flatMap((settings) => settings.disabledTools),
-  );
   const trustByProvider: Record<string, ConnectorTrustLevel> = {};
   for (const provider of getToolPreferenceProviders()) {
     trustByProvider[provider] = workspaceTrust;
@@ -191,7 +171,6 @@ export async function getWorkspaceConnectorPolicy(
   }
 
   return {
-    disabledTools: [...disabled],
     trustByProvider,
     emailModeByProvider,
   };
@@ -284,7 +263,6 @@ export async function getConnectorsPageData(): Promise<ConnectorsPageData> {
       workspaceId: null,
       catalog,
       connectors: emptyStatus,
-      disabledToolsByConnector: {},
       settingsByConnector: {},
       captureByConnector: {},
     };
@@ -303,7 +281,6 @@ export async function getConnectorsPageData(): Promise<ConnectorsPageData> {
       workspaceId: null,
       catalog,
       connectors: emptyStatus,
-      disabledToolsByConnector: {},
       settingsByConnector: {},
       captureByConnector: {},
     };
@@ -331,18 +308,35 @@ export async function getConnectorsPageData(): Promise<ConnectorsPageData> {
   // silently dead token keeps composio_status "connected" while captures
   // stop, and the expiry webhook is not guaranteed — so silence decides
   // WHICH connections get a live verification below.
-  const staleCandidates = connectableEntries
+  //
+  // "Trigger-based" comes from the DB (connector_trigger_types via
+  // getCaptureTriggerSpecs, adapter fallback inside), not adapter code —
+  // the seam rule: connector #16's triggers are DB rows.
+  const preCandidates = connectableEntries
     .map((entry, index) => ({ entry, status: statuses[index] }))
-    .filter(({ entry, status }) => {
-      if (!status.connected) return false;
-      if (!settingsByProvider[entry.providerKey]?.captureEnabled) return false;
-      const adapter = adapterForToolkit(entry.providerKey);
-      return adapter !== null && adapter.triggerSlugs.length > 0;
-    });
+    .filter(
+      ({ entry, status }) =>
+        status.connected &&
+        (settingsByProvider[entry.providerKey]?.captureEnabled ?? false),
+    );
+  const triggerCountByProvider = new Map(
+    await Promise.all(
+      preCandidates.map(
+        async ({ entry }) =>
+          [
+            entry.providerKey,
+            (await getCaptureTriggerSpecs(entry.providerKey)).length,
+          ] as const,
+      ),
+    ),
+  );
+  const staleCandidates = preCandidates.filter(
+    ({ entry }) => (triggerCountByProvider.get(entry.providerKey) ?? 0) > 0,
+  );
   const lastCaptureByProvider = new Map(
     await Promise.all(
       staleCandidates.map(async ({ entry }) => {
-        const adapter = adapterForToolkit(entry.providerKey);
+        const adapter = await adapterForToolkit(entry.providerKey);
         const { data: row } = await supabase
           .from("capture_events")
           .select("created_at")
@@ -386,14 +380,13 @@ export async function getConnectorsPageData(): Promise<ConnectorsPageData> {
   );
 
   const connectors: ConnectorsPageData["connectors"] = {};
-  const disabledToolsByConnector: ConnectorsPageData["disabledToolsByConnector"] =
-    {};
   const settingsByConnector: ConnectorsPageData["settingsByConnector"] = {};
   const captureByConnector: ConnectorsPageData["captureByConnector"] = {};
 
   // Per-app connectors: each tile reflects only its own provider. OAuth
   // connectors label with the account email; API-key connectors have no
   // email, so a plain "Connected".
+  const captureCategories = await getCaptureCategoryMap();
   connectableEntries.forEach((entry, index) => {
     const status = statuses[index];
     const key = entry.catalogId as ConnectorCatalogId;
@@ -413,10 +406,10 @@ export async function getConnectorsPageData(): Promise<ConnectorsPageData> {
     };
 
     const settings = settingsByProvider[entry.providerKey];
-    disabledToolsByConnector[key] = settings?.disabledTools ?? [];
     captureByConnector[key] = {
-      capable: adapterForToolkit(entry.providerKey) !== null,
+      capable: captureCategories.has(entry.providerKey),
       enabled: settings?.captureEnabled ?? false,
+      scope: readCaptureScope(settings?.rawConfig ?? null),
     };
     settingsByConnector[key] =
       entry.providerKey === "gmail"
@@ -431,7 +424,6 @@ export async function getConnectorsPageData(): Promise<ConnectorsPageData> {
     workspaceId,
     catalog,
     connectors,
-    disabledToolsByConnector,
     settingsByConnector,
     captureByConnector,
     workspaceTrustLevel,
@@ -528,20 +520,6 @@ export async function getConnectorToolGroups(
     const classification = classificationBySlug.get(tool.tool_slug);
     const risk = classification?.risk;
     if (!risk || risk === "destructive") continue;
-    // Scope wall: hide tools the connection's OAuth grant provably cannot
-    // execute (certainty rules in scope-availability.ts — uncertain = show).
-    // Note: grantScopes would come from Composio connection at runtime, not static config.
-    if (
-      isToolProvablyUnavailable({
-        toolScopes: Array.isArray(tool.required_scopes)
-          ? (tool.required_scopes as string[])
-          : null,
-        grantScopes: null, // Runtime scope check not implemented yet
-        risk,
-      })
-    ) {
-      continue;
-    }
     // Raw Composio descriptions are developer API docs — show the
     // plain-language summary from the classification pass, or a cleaned
     // first sentence until one exists.
@@ -573,7 +551,7 @@ export async function getConnectorToolGroups(
       : deriveConnectorOverview({
           name: entry.name,
           groups: { read, write, overviewBullets: [] },
-          captureCapable: adapterForToolkit(entry.providerKey) !== null,
+          captureCapable: (await adapterForToolkit(entry.providerKey)) !== null,
         });
 
   return {

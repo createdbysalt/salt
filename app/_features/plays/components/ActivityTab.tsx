@@ -1,53 +1,54 @@
 "use client";
 
 import { useCallback, useMemo, useState, useTransition } from "react";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   RotateCcw,
   CheckCircle2,
   Clock,
-  Zap,
-  X,
   ChevronDown,
   Sparkles,
   Workflow,
   Target,
-  Eye,
   Loader2,
   Undo2,
-  List,
   FileText,
   User,
+  UserCheck,
   AlertTriangle,
+  X,
+  Zap,
+  History,
+  ArrowRight,
 } from "lucide-react";
 import { Badge, Checkbox } from "@repo/ui";
-import type { ActivityEntryRow } from "@/app/_features/plays/types";
-import { mapActivityEntryForUi } from "@/app/_features/plays/utils/map-activity-entry";
-import {
-  type ActivityCategory,
-  type ActivityEntry,
-} from "@/app/_lib/demo/plays-demo-data";
+import type {
+  PlayActivityCategory,
+  PlayActivityItem,
+  PlayActivityRunRow,
+} from "@/app/_features/plays/types";
+import { mapPlayRunToActivity } from "@/app/_features/plays/utils/map-play-run-to-activity";
 import { SourceExternalLink } from "@/app/_features/capture/components/SourceExternalLink";
-import { loadMoreActivityEntries } from "@/app/_features/plays/actions/load-more-activity";
+import { loadMoreActivityRuns } from "@/app/_features/plays/actions/load-more-activity";
 import { undoAutoAppliedAction } from "@/app/_features/plays/actions";
 import { cn } from "@repo/utils";
 import { PlaysSearchField } from "./PlaysSearchField";
+import {
+  getSectionColorStyles,
+  getSectionIcon,
+} from "./PlaybookSectionNav";
 
 const APPLE_EASE = [0.32, 0.72, 0, 1] as const;
 const PAGE_SIZE = 50;
 
 const CATEGORY_STYLES: Record<
-  ActivityCategory,
+  PlayActivityCategory,
   { label: string; cls: string; icon: typeof CheckCircle2 }
 > = {
-  "salt-acted": {
-    label: "Salt Acted",
+  completed: {
+    label: "Completed",
     cls: "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300",
-    icon: Zap,
-  },
-  "you-decided": {
-    label: "You Decided",
-    cls: "bg-muted text-muted-foreground",
     icon: CheckCircle2,
   },
   "in-progress": {
@@ -55,26 +56,25 @@ const CATEGORY_STYLES: Record<
     cls: "bg-flame/15 text-flame",
     icon: Clock,
   },
-  watching: {
-    label: "Watching",
-    cls: "bg-sky/15 text-sky",
-    icon: Eye,
-  },
-  error: {
-    label: "Error",
+  "needs-attention": {
+    label: "Needs Attention",
     cls: "bg-destructive/10 text-destructive",
     icon: AlertTriangle,
+  },
+  decided: {
+    label: "Decided",
+    cls: "bg-muted text-muted-foreground",
+    icon: UserCheck,
   },
 };
 
 type DateFilter = "Today" | "Yesterday" | "Earlier this week";
 
-const CATEGORY_OPTIONS: { id: ActivityCategory; label: string }[] = [
-  { id: "salt-acted", label: "Salt Acted" },
-  { id: "watching", label: "Watching" },
-  { id: "you-decided", label: "You Decided" },
+const CATEGORY_OPTIONS: { id: PlayActivityCategory; label: string }[] = [
+  { id: "completed", label: "Completed" },
   { id: "in-progress", label: "In Progress" },
-  { id: "error", label: "Error" },
+  { id: "needs-attention", label: "Needs Attention" },
+  { id: "decided", label: "Decided" },
 ];
 
 const DATE_OPTIONS: { id: DateFilter; label: string }[] = [
@@ -84,7 +84,7 @@ const DATE_OPTIONS: { id: DateFilter; label: string }[] = [
 ];
 
 export type ActivityFiltersState = {
-  categories: ActivityCategory[];
+  categories: PlayActivityCategory[];
   dates: DateFilter[];
 };
 
@@ -99,20 +99,29 @@ function toggleValue<T extends string>(values: T[], value: T, checked: boolean):
   return values.filter((item) => item !== value);
 }
 
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${ms} ms`;
+  const seconds = Math.round(ms / 100) / 10;
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  const rest = Math.round(seconds % 60);
+  return rest > 0 ? `${minutes}m ${rest}s` : `${minutes}m`;
+}
+
 export function ActivityTab({
   initialActivity,
   initialTotalCount = 0,
 }: {
-  initialActivity: ActivityEntryRow[];
+  initialActivity: PlayActivityRunRow[];
   initialTotalCount?: number;
 }) {
-  const [activityRows, setActivityRows] = useState(initialActivity);
+  const [activityRuns, setActivityRuns] = useState(initialActivity);
   const [totalCount, setTotalCount] = useState(initialTotalCount);
   const [isPending, startTransition] = useTransition();
 
   const activitySource = useMemo(
-    () => activityRows.map(mapActivityEntryForUi),
-    [activityRows],
+    () => activityRuns.map(mapPlayRunToActivity),
+    [activityRuns],
   );
   const [q, setQ] = useState("");
   const [filters, setFilters] = useState<ActivityFiltersState>({
@@ -129,14 +138,14 @@ export function ActivityTab({
       return next;
     });
 
-  const handleUndo = useCallback((entryId: string) => {
-    setUndoingId(entryId);
+  const handleUndo = useCallback((runId: string, entryId: string) => {
+    setUndoingId(runId);
     startTransition(async () => {
       const result = await undoAutoAppliedAction(entryId);
       setUndoingId(null);
       if (result.success) {
-        // Remove the undone entry from the list
-        setActivityRows((prev) => prev.filter((row) => row.id !== entryId));
+        // The undone run flips to dismissed; drop it from the visible list.
+        setActivityRuns((prev) => prev.filter((row) => row.id !== runId));
         setTotalCount((prev) => Math.max(0, prev - 1));
       }
     });
@@ -155,12 +164,13 @@ export function ActivityTab({
         !term
           ? true
           : e.title.toLowerCase().includes(term) ||
-            e.target.toLowerCase().includes(term),
+            e.target.toLowerCase().includes(term) ||
+            (e.playbookName?.toLowerCase().includes(term) ?? false),
       );
   }, [q, filters, activitySource]);
 
   const grouped = useMemo(() => {
-    const map = new Map<string, ActivityEntry[]>();
+    const map = new Map<string, PlayActivityItem[]>();
     entries.forEach((e) => {
       const arr = map.get(e.dayGroup) ?? [];
       arr.push(e);
@@ -169,28 +179,29 @@ export function ActivityTab({
     return Array.from(map.entries());
   }, [entries]);
 
+  // Completed + Decided count what happened today; In Progress and Needs
+  // Attention are live counts — they describe "now", not a day window.
   const counts = useMemo(() => {
     const today = activitySource.filter((e) => e.dayGroup === "Today");
     return {
-      saltActed: today.filter((e) => e.category === "salt-acted").length,
-      youDecided: today.filter((e) => e.category === "you-decided").length,
-      inProgress: today.filter((e) => e.category === "in-progress").length,
-      watching: today.filter((e) => e.category === "watching").length,
-      error: today.filter((e) => e.category === "error").length,
-      total: today.length,
+      completed: today.filter((e) => e.category === "completed").length,
+      decided: today.filter((e) => e.category === "decided").length,
+      inProgress: activitySource.filter((e) => e.category === "in-progress").length,
+      needsAttention: activitySource.filter((e) => e.category === "needs-attention").length,
     };
   }, [activitySource]);
 
+  const actionsToday = counts.completed + counts.decided;
   const activeFilterCount = countActivityFilters(filters);
-  const hasMore = activityRows.length < totalCount;
+  const hasMore = activityRuns.length < totalCount;
 
   const handleLoadMore = useCallback(() => {
     startTransition(async () => {
-      const result = await loadMoreActivityEntries(activityRows.length, PAGE_SIZE);
-      setActivityRows((prev) => [...prev, ...result.entries]);
+      const result = await loadMoreActivityRuns(activityRuns.length, PAGE_SIZE);
+      setActivityRuns((prev) => [...prev, ...result.runs]);
       setTotalCount(result.totalCount);
     });
-  }, [activityRows.length]);
+  }, [activityRuns.length]);
 
   return (
     <motion.div
@@ -207,19 +218,18 @@ export function ActivityTab({
               Today's activity
             </p>
             <h3 className="font-display text-lg tracking-tight mt-0.5">
-              {counts.total} actions today
+              {actionsToday} actions today
             </h3>
           </div>
           <p className="text-[11px] text-muted-foreground max-w-[280px] text-right hidden md:block">
-            Click any row to see details about what happened.
+            In Progress and Needs Attention show everything in flight right now.
           </p>
         </header>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-2.5">
-          <CountTile label="Salt Acted" value={counts.saltActed} tone="emerald" />
-          <CountTile label="Watching" value={counts.watching} tone="sky" />
-          <CountTile label="You Decided" value={counts.youDecided} tone="muted" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+          <CountTile label="Completed" value={counts.completed} tone="emerald" />
           <CountTile label="In Progress" value={counts.inProgress} tone="flame" />
-          <CountTile label="Error" value={counts.error} tone="destructive" />
+          <CountTile label="Needs Attention" value={counts.needsAttention} tone="destructive" />
+          <CountTile label="Decided" value={counts.decided} tone="muted" />
         </div>
       </section>
 
@@ -292,7 +302,7 @@ export function ActivityTab({
                     Loading…
                   </>
                 ) : (
-                  <>Load more ({totalCount - activityRows.length} remaining)</>
+                  <>Load more ({totalCount - activityRuns.length} remaining)</>
                 )}
               </button>
             </div>
@@ -310,17 +320,15 @@ function ActivityRow({
   onUndo,
   isUndoing,
 }: {
-  entry: ActivityEntry;
+  entry: PlayActivityItem;
   isOpen: boolean;
   onToggle: () => void;
-  onUndo: (entryId: string) => void;
+  onUndo: (runId: string, entryId: string) => void;
   isUndoing: boolean;
 }) {
   const categoryStyle = CATEGORY_STYLES[e.category];
   const CategoryIcon = categoryStyle.icon;
-  const isActionCategory = e.category === "salt-acted" || e.category === "you-decided";
-  const canUndo = isActionCategory && e.reversible !== false;
-  const isUserAction = e.category === "you-decided";
+  const canUndo = e.undoEntryId != null;
 
   return (
     <li className="group">
@@ -337,12 +345,12 @@ function ActivityRow({
               tabIndex={0}
               onClick={(ev) => {
                 ev.stopPropagation();
-                if (!isUndoing) onUndo(e.id);
+                if (!isUndoing && e.undoEntryId) onUndo(e.id, e.undoEntryId);
               }}
               onKeyDown={(ev) => {
                 if (ev.key === "Enter" || ev.key === " ") {
                   ev.stopPropagation();
-                  if (!isUndoing) onUndo(e.id);
+                  if (!isUndoing && e.undoEntryId) onUndo(e.id, e.undoEntryId);
                 }
               }}
               className={cn(
@@ -365,21 +373,53 @@ function ActivityRow({
         <span className="text-[11px] text-muted-foreground font-medium tabular-nums">
           {e.time}
         </span>
-        {isUserAction ? (
-          <span className="size-8 shrink-0 rounded-xl grid place-items-center bg-muted text-foreground">
-            <User className="size-3.5" strokeWidth={2.25} />
-          </span>
-        ) : (
-          <span className="surface-aurora grid size-8 shrink-0 place-items-center rounded-xl">
-            <Sparkles className="relative z-10 size-3.5 text-white" strokeWidth={2.5} />
-          </span>
-        )}
+        {(() => {
+          // Playbook runs wear the playbook's section icon + accent (same
+          // language as the Playbooks tab cards). Ask Salt and other
+          // Salt-executed actions get the aurora sparkles. The plain User
+          // avatar is reserved for pure decisions (dismissed) with no
+          // execution behind them.
+          if (e.playbookSection) {
+            const SectionIcon = getSectionIcon(e.playbookSection);
+            const styles = getSectionColorStyles(e.playbookSection);
+            return (
+              <span
+                className={cn(
+                  "size-8 shrink-0 rounded-xl grid place-items-center",
+                  styles.bg,
+                )}
+              >
+                <SectionIcon
+                  className={cn("size-3.5", styles.text)}
+                  strokeWidth={2.25}
+                />
+              </span>
+            );
+          }
+          if (e.state === "dismissed") {
+            return (
+              <span className="size-8 shrink-0 rounded-xl grid place-items-center bg-muted text-foreground">
+                <User className="size-3.5" strokeWidth={2.25} />
+              </span>
+            );
+          }
+          return (
+            <span className="surface-aurora grid size-8 shrink-0 place-items-center rounded-xl">
+              <Sparkles className="relative z-10 size-3.5 text-white" strokeWidth={2.5} />
+            </span>
+          );
+        })()}
         <div className="min-w-0">
           <p className="text-[13px] font-medium leading-tight truncate">
             {e.title}
           </p>
           <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
             {e.target}
+            {e.playbookName
+              ? ` · ${e.playbookName}`
+              : !e.target && e.channelLabel
+                ? e.channelLabel
+                : ""}
             {e.sourceUrl ? (
               <>
                 {" "}
@@ -400,7 +440,7 @@ function ActivityRow({
           )}
         >
           <CategoryIcon className="size-3" strokeWidth={2.5} />
-          {categoryStyle.label}
+          {e.badgeLabel}
         </span>
         <ChevronDown
           className={cn(
@@ -432,53 +472,63 @@ function ActivityCardDetail({
   onUndo,
   isUndoing,
 }: {
-  entry: ActivityEntry;
-  onUndo: (entryId: string) => void;
+  entry: PlayActivityItem;
+  onUndo: (runId: string, entryId: string) => void;
   isUndoing: boolean;
 }) {
   return (
     <div className="px-4 pb-5 pt-1 pl-[88px] pr-6 space-y-3.5">
-      {/* Salt Acted: Why confident, What happened, Sources, Undo (if reversible) */}
-      {e.category === "salt-acted" && (
+      {/* Completed: outcome, value, app, approval, trigger, sources, duration, undo */}
+      {e.category === "completed" && (
         <>
-          <DetailRow
-            icon={Sparkles}
-            label="Why confident"
-            value={e.confidenceReason ?? "Similar actions approved before"}
-          />
-          <DetailRow
-            icon={CheckCircle2}
-            label="What happened"
-            value={e.outcome ?? "—"}
-          />
-          <DetailRow
-            icon={FileText}
-            label="Sources"
-            value={
-              e.sources && e.sources.length > 0 ? (
-                <div className="flex flex-wrap gap-1.5">
-                  {e.sources.map((s) => (
-                    <span
-                      key={s}
-                      className="inline-flex items-center px-2 py-0.5 rounded-full bg-muted text-[11px] text-foreground/80"
-                    >
-                      {s}
+          {e.outcome && (
+            <DetailRow
+              icon={CheckCircle2}
+              label="Outcome"
+              value={e.outcome}
+            />
+          )}
+          {e.valueLabel && (
+            <DetailRow
+              icon={Zap}
+              label="Value"
+              value={
+                <>
+                  {e.valueLabel}
+                  {e.valueEstimated && (
+                    <span className="ml-1.5 text-[10px] uppercase tracking-[0.1em] text-muted-foreground font-semibold">
+                      est.
                     </span>
-                  ))}
-                </div>
-              ) : (
-                "—"
-              )
-            }
-          />
-          {e.reversible !== false && (
+                  )}
+                </>
+              }
+            />
+          )}
+          {e.channelLabel && (
+            <DetailRow icon={Workflow} label="App" value={e.channelLabel} />
+          )}
+          {e.approvalLabel && (
+            <DetailRow icon={UserCheck} label="Approval" value={e.approvalLabel} />
+          )}
+          {e.triggerLabel && (
+            <DetailRow icon={Target} label="Trigger" value={e.triggerLabel} />
+          )}
+          {e.durationMs != null && (
+            <DetailRow
+              icon={Clock}
+              label="Runtime"
+              value={formatDuration(e.durationMs)}
+            />
+          )}
+          <SourcesRow entry={e} />
+          {e.undoEntryId != null && (
             <DetailRow
               icon={Undo2}
               label="Undo"
               value={
                 <button
                   type="button"
-                  onClick={() => onUndo(e.id)}
+                  onClick={() => onUndo(e.id, e.undoEntryId as string)}
                   disabled={isUndoing}
                   className="text-xs font-medium text-foreground/80 hover:text-foreground underline disabled:opacity-50 disabled:cursor-wait"
                 >
@@ -490,127 +540,112 @@ function ActivityCardDetail({
         </>
       )}
 
-      {/* You Decided: Your decision, What shipped, Sources, Undo (if reversible) */}
-      {e.category === "you-decided" && (
-        <>
-          <DetailRow
-            icon={CheckCircle2}
-            label="Your decision"
-            value={e.status === "dismissed" ? "Dismissed" : "Approved"}
-          />
-          <DetailRow
-            icon={Workflow}
-            label="What shipped"
-            value={e.outcome ?? "—"}
-          />
-          <DetailRow
-            icon={FileText}
-            label="Sources"
-            value={
-              e.sources && e.sources.length > 0 ? (
-                <div className="flex flex-wrap gap-1.5">
-                  {e.sources.map((s) => (
-                    <span
-                      key={s}
-                      className="inline-flex items-center px-2 py-0.5 rounded-full bg-muted text-[11px] text-foreground/80"
-                    >
-                      {s}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                "—"
-              )
-            }
-          />
-          {e.reversible !== false && (
-            <DetailRow
-              icon={Undo2}
-              label="Undo"
-              value={
-                <button
-                  type="button"
-                  onClick={() => onUndo(e.id)}
-                  disabled={isUndoing}
-                  className="text-xs font-medium text-foreground/80 hover:text-foreground underline disabled:opacity-50 disabled:cursor-wait"
-                >
-                  {isUndoing ? "Reverting..." : "Revert this action"}
-                </button>
-              }
-            />
-          )}
-        </>
-      )}
-
-      {/* In Progress: What's staged, Next step, ETA */}
+      {/* In Progress: what's staged, real next step, ETA, queue link */}
       {e.category === "in-progress" && (
         <>
           <DetailRow
-            icon={Clock}
+            icon={FileText}
             label="What's staged"
-            value={e.outcome ?? "Draft ready for review"}
+            value={e.outcome ?? "—"}
           />
           <DetailRow
             icon={Target}
             label="Next step"
-            value="Review and approve"
+            value={e.nextStepLabel ?? "—"}
           />
-          <DetailRow
-            icon={Clock}
-            label="ETA"
-            value={e.eta ?? "Waiting on you"}
-          />
+          {e.etaLabel && (
+            <DetailRow icon={Clock} label="ETA" value={e.etaLabel} />
+          )}
+          {e.pausedForApproval && (
+            <DetailRow
+              icon={ArrowRight}
+              label="Queue"
+              value={
+                <Link
+                  href="/plays?tab=queue"
+                  className="text-xs font-medium text-foreground/80 hover:text-foreground underline"
+                >
+                  Review in Queue
+                </Link>
+              }
+            />
+          )}
         </>
       )}
 
-      {/* Watching: Evidence so far, Confidence, Threshold, Signals */}
-      {e.category === "watching" && (
+      {/* Needs Attention: error/blocked cause, pending step, queue link */}
+      {e.category === "needs-attention" && (
         <>
           <DetailRow
-            icon={Eye}
-            label="Evidence so far"
-            value={e.evidenceSummary ?? "Gathering signals..."}
-          />
-          <DetailRow
-            icon={Sparkles}
-            label="Confidence"
+            icon={AlertTriangle}
+            label={e.state === "blocked" ? "Blocked" : "Error"}
             value={
-              e.confidencePercent !== undefined
-                ? `${e.confidencePercent}%`
-                : "Building confidence..."
+              <span>
+                {e.errorLabel ?? "—"}
+                {e.errorDetail && e.errorDetail !== e.errorLabel && (
+                  <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground">
+                    {e.errorDetail}
+                  </span>
+                )}
+              </span>
             }
           />
+          {e.nextStepLabel && (
+            <DetailRow icon={Target} label="Next step" value={e.nextStepLabel} />
+          )}
           <DetailRow
-            icon={Target}
-            label="Threshold"
+            icon={ArrowRight}
+            label="Queue"
             value={
-              e.confidenceThreshold !== undefined
-                ? `${e.confidenceThreshold}% to auto-act`
-                : "—"
+              <Link
+                href="/plays?tab=queue"
+                className="text-xs font-medium text-foreground/80 hover:text-foreground underline"
+              >
+                {e.state === "blocked"
+                  ? "Reconnect and resume in Queue"
+                  : "Open in Queue"}
+              </Link>
             }
           />
-          <DetailRow
-            icon={List}
-            label="Signals"
-            value={
-              e.signals && e.signals.length > 0 ? (
-                <div className="flex flex-wrap gap-1.5">
-                  {e.signals.map((s, i) => (
-                    <span
-                      key={i}
-                      className="inline-flex items-center px-2 py-0.5 rounded-full bg-muted text-[11px] text-foreground/80"
-                    >
-                      {s}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                "Gathering..."
-              )
-            }
-          />
+          <SourcesRow entry={e} />
         </>
       )}
+
+      {/* Decided: the call you made, what it would have done */}
+      {e.category === "decided" && (
+        <>
+          <DetailRow
+            icon={UserCheck}
+            label="Your decision"
+            value={e.decisionLabel ?? "—"}
+          />
+          <DetailRow
+            icon={FileText}
+            label="What it was"
+            value={e.outcome ?? "—"}
+          />
+          {e.triggerLabel && (
+            <DetailRow icon={Target} label="Trigger" value={e.triggerLabel} />
+          )}
+        </>
+      )}
+
+      {e.playbookHref && e.playbookName && (
+        <DetailRow
+          icon={Workflow}
+          label="Playbook"
+          value={
+            <Link
+              href={e.playbookHref}
+              className="text-xs font-medium text-foreground/80 hover:text-foreground underline"
+            >
+              {e.playbookName}
+            </Link>
+          }
+        />
+      )}
+
+      {e.timeline.length > 0 && <TimelineRow entry={e} />}
 
       {e.sourceUrl ? (
         <DetailRow
@@ -623,6 +658,66 @@ function ActivityCardDetail({
   );
 }
 
+function SourcesRow({ entry: e }: { entry: PlayActivityItem }) {
+  if (e.sources.length === 0) return null;
+  return (
+    <DetailRow
+      icon={FileText}
+      label="Sources"
+      value={
+        <div className="flex flex-wrap gap-1.5">
+          {e.sources.map((s, i) =>
+            s.url ? (
+              <a
+                key={`${s.label}-${i}`}
+                href={s.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center px-2 py-0.5 rounded-full bg-muted text-[11px] text-foreground/80 hover:text-foreground transition"
+              >
+                {s.label}
+              </a>
+            ) : (
+              <span
+                key={`${s.label}-${i}`}
+                className="inline-flex items-center px-2 py-0.5 rounded-full bg-muted text-[11px] text-foreground/80"
+              >
+                {s.label}
+              </span>
+            ),
+          )}
+        </div>
+      }
+    />
+  );
+}
+
+function TimelineRow({ entry: e }: { entry: PlayActivityItem }) {
+  return (
+    <DetailRow
+      icon={History}
+      label="Run timeline"
+      value={
+        <ul className="space-y-1.5">
+          {e.timeline.map((t) => (
+            <li key={t.id} className="flex items-baseline gap-2">
+              <span className="text-[10px] text-muted-foreground tabular-nums shrink-0 w-14">
+                {t.time}
+              </span>
+              <span className="text-[12px] text-foreground/85">
+                {t.title}
+                {t.detail ? (
+                  <span className="text-muted-foreground"> — {t.detail}</span>
+                ) : null}
+              </span>
+            </li>
+          ))}
+        </ul>
+      }
+    />
+  );
+}
+
 function ActivityFilterPanel({
   state,
   onChange,
@@ -632,7 +727,7 @@ function ActivityFilterPanel({
 }) {
   const activeCount = countActivityFilters(state);
 
-  function updateCategories(category: ActivityCategory, checked: boolean) {
+  function updateCategories(category: PlayActivityCategory, checked: boolean) {
     onChange({
       ...state,
       categories: toggleValue(state.categories, category, checked),
@@ -741,7 +836,7 @@ function ActivityActiveFilterBadges({
   const activeCount = countActivityFilters(state);
   if (activeCount === 0) return null;
 
-  function removeCategory(category: ActivityCategory) {
+  function removeCategory(category: PlayActivityCategory) {
     onChange({
       ...state,
       categories: state.categories.filter((item) => item !== category),

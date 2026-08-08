@@ -101,6 +101,9 @@ export async function syncAndScanCaptures(options?: {
     if (isComposioConfigured()) {
       const reconciliation = await reconcileWorkspaceCaptures(workspace.id, {
         lookbackDays,
+        // Long-tail connectors supplement deterministic signals with the
+        // metered LLM extractor (Sources plan 5.4).
+        llmCall: createLlmCall(workspace.id, userId),
       });
 
       sync = {
@@ -173,6 +176,7 @@ export async function syncAndScanCaptures(options?: {
     }
 
     revalidatePath("/plays");
+    revalidatePath("/sources");
 
     return { success: true, sync, scan, playbookRuns };
   } catch (error) {
@@ -215,6 +219,7 @@ export async function syncCapturesFromGmail(options?: {
     const lookbackDays = options?.lookbackDays ?? 7;
     const reconciliation = await reconcileWorkspaceCaptures(workspace.id, {
       lookbackDays,
+      llmCall: createLlmCall(workspace.id, context.userId!),
     });
 
     if (reconciliation.failures.length > 0 && reconciliation.capturesCreated === 0) {
@@ -225,6 +230,7 @@ export async function syncCapturesFromGmail(options?: {
     }
 
     revalidatePath("/plays");
+    revalidatePath("/sources");
 
     return {
       success: true,
@@ -281,6 +287,7 @@ export async function runIntelligenceScan(options?: {
 
     if (!options?.dryRun) {
       revalidatePath("/plays");
+      revalidatePath("/sources");
     }
 
     return { success: true, result };
@@ -294,24 +301,4 @@ export async function runIntelligenceScan(options?: {
       error: error instanceof Error ? error.message : "Unknown error",
     };
   }
-}
-
-/**
- * Run scan for a specific workspace (admin/cron use)
- */
-export async function runWorkspaceScan(
-  workspaceId: string,
-  userId: string,
-  options?: {
-    lookbackHours?: number;
-    maxEmails?: number;
-    scanAll?: boolean;
-  }
-): Promise<DailyScanResult> {
-  return runDailyScan(workspaceId, userId, {
-    llmCall: createLlmCall(workspaceId, userId),
-    lookbackHours: options?.lookbackHours ?? 24,
-    maxEmails: options?.maxEmails ?? 100,
-    scanAll: options?.scanAll ?? false,
-  });
 }

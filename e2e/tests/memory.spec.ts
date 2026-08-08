@@ -25,26 +25,26 @@ test.describe("Memory Map surface", () => {
 });
 
 test.describe("Memory surface tabs", () => {
-  test("shows Map / Filter / Rules tab bar", async ({ page }) => {
+  test("shows Map / Activity / Rules tab bar", async ({ page }) => {
     await gotoAppRoute(page, "/memory");
 
     const sections = page.getByRole("navigation", { name: "Memory sections" });
     await expect(sections).toBeVisible({ timeout: 15000 });
     await expect(sections.getByRole("link", { name: "Map" })).toBeVisible();
-    await expect(sections.getByRole("link", { name: "Filter" })).toBeVisible();
+    await expect(sections.getByRole("link", { name: "Activity" })).toBeVisible();
     await expect(sections.getByRole("link", { name: "Rules" })).toBeVisible();
   });
 
-  test("Filter tab shows Watching / Handled pill (P11: Kept out moved to Sources)", async ({
+  test("Activity tab shows Watching / Handled pill (P11: Kept out moved to Sources)", async ({
     page,
   }) => {
-    await gotoAppRoute(page, "/memory?tab=filter");
+    await gotoAppRoute(page, "/memory?tab=activity");
 
     await expect(
-      page.getByRole("heading", { name: /^filter$/i, level: 2 }),
+      page.getByRole("heading", { name: /^activity$/i, level: 2 }),
     ).toBeVisible({ timeout: 15000 });
 
-    const views = page.getByRole("tablist", { name: "Filter views" });
+    const views = page.getByRole("tablist", { name: "Activity views" });
     await expect(views).toBeVisible();
     await expect(views.getByRole("tab", { name: /Watching/i })).toBeVisible();
     await expect(views.getByRole("tab", { name: /Handled/i })).toBeVisible();
@@ -64,10 +64,10 @@ test.describe("Memory surface tabs", () => {
     const sections = page.getByRole("navigation", { name: "Memory sections" });
     await expect(sections).toBeVisible({ timeout: 15000 });
 
-    await sections.getByRole("link", { name: "Filter" }).click();
-    await expect(page).toHaveURL(/\/memory\?tab=filter/);
+    await sections.getByRole("link", { name: "Activity" }).click();
+    await expect(page).toHaveURL(/\/memory\?tab=activity/);
     await expect(
-      page.getByRole("heading", { name: /^filter$/i, level: 2 }),
+      page.getByRole("heading", { name: /^activity$/i, level: 2 }),
     ).toBeVisible({ timeout: 15000 });
 
     await sections.getByRole("link", { name: "Rules" }).click();

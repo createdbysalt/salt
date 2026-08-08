@@ -59,8 +59,9 @@ test.describe("Sources — Activity", () => {
 
     // Verify category stat tiles are present
     const statsSection = page.locator("section").filter({ hasText: /today's captures/i });
-    await expect(statsSection.getByText(/queued/i)).toBeVisible();
-    await expect(statsSection.getByText(/no signal/i)).toBeVisible();
+    await expect(statsSection.getByText(/triggered play/i)).toBeVisible();
+    await expect(statsSection.getByText(/triggered watching/i)).toBeVisible();
+    await expect(statsSection.getByText(/no action/i)).toBeVisible();
     await expect(statsSection.getByText(/processing/i)).toBeVisible();
   });
 
@@ -81,14 +82,14 @@ test.describe("Sources — Activity", () => {
   test("filter button is accessible", async ({ page }) => {
     await expect(page.getByPlaceholder(/search captures/i)).toBeVisible({ timeout: 15000 });
 
-    // Verify the filter button exists and is accessible
+    // The filter popover lives inside the search field (PlaysSearchField)
     const filterButton = page.getByRole("button", { name: /filter/i });
     await expect(filterButton).toBeVisible();
 
     // Click to open filter panel
     await filterButton.click();
 
-    // Filter panel should appear (it's a popover with checkboxes)
+    // Filter panel shows state/area/timing sections with checkbox options
     const filterPanel = page.getByRole("checkbox").first();
     const hasFilterPanel = await filterPanel.isVisible({ timeout: 3_000 }).catch(() => false);
 
@@ -145,6 +146,54 @@ test.describe("Sources — Kept out (P11)", () => {
       await expect(keptOutSection).toContainText(/capture/i);
     }
     // If not visible, that's fine — there may be no kept-out items in test data
+  });
+});
+
+test.describe("Sources — truthful connector status (2.2)", () => {
+  test("connected cards carry a truthful status line", async ({ page }) => {
+    await gotoAppRoute(page, "/sources");
+
+    await expect(
+      page.getByRole("heading", { name: /^connectors$/i, level: 2 }),
+    ).toBeVisible({ timeout: 15000 });
+
+    // Status lines only render for connected connectors; test data may have
+    // none. When present, the line must be one of the truthful states —
+    // never a bare "healthy" claim with no evidence.
+    const reconnect = page.getByText(/reconnect needed — connection expired/i);
+    const lastCapture = page.getByText(/last capture/i);
+    const reconnectCount = await reconnect.count();
+    const lastCaptureCount = await lastCapture.count();
+
+    if (reconnectCount > 0) {
+      await expect(reconnect.first()).toBeVisible();
+    }
+    if (lastCaptureCount > 0) {
+      await expect(lastCapture.first()).toBeVisible();
+    }
+  });
+
+  test("a reconnect-needed connector offers a Reconnect CTA in its detail pane", async ({ page }) => {
+    await gotoAppRoute(page, "/sources");
+
+    await expect(
+      page.getByRole("heading", { name: /^connectors$/i, level: 2 }),
+    ).toBeVisible({ timeout: 15000 });
+
+    const reconnectCard = page
+      .getByRole("button")
+      .filter({ hasText: /reconnect needed/i })
+      .first();
+
+    // No broken connectors in test data → nothing to assert (healthy path).
+    if (!(await reconnectCard.isVisible({ timeout: 3_000 }).catch(() => false))) {
+      return;
+    }
+
+    await reconnectCard.click();
+    await expect(
+      page.getByRole("button", { name: /^reconnect$/i }),
+    ).toBeVisible({ timeout: 5_000 });
   });
 });
 

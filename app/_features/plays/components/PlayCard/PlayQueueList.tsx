@@ -145,8 +145,8 @@ export function PlayQueueList({
   const isBatchEligible = useCallback((vm: PlayCardViewModel) => {
     // email_draft is never batch-eligible — each email needs individual review
     if (vm.outputType === "email_draft" || vm.kind === "acting") return false;
-    // Only memory_update with per_entity or batch approval
-    return vm.approvalMode === "per_entity" || vm.approvalMode === "batch";
+    // Only gated (ask) outputs batch-review; auto outputs surface unreviewed.
+    return vm.approvalMode === "ask";
   }, []);
 
   const batchEligibleIds = useMemo(
@@ -176,6 +176,12 @@ export function PlayQueueList({
     setBatchAction("approve");
 
     const selectedVms = visible.filter((vm) => selected.has(vm.id));
+    // ActionResult (play_run path) and legacy { success } (finding path) both
+    // flow through here — normalize on read until findings standardize too.
+    const resultOk = (value: unknown): boolean =>
+      typeof value === "object" && value !== null &&
+      (("ok" in value && (value as { ok: boolean }).ok) ||
+        ("success" in value && (value as { success: boolean }).success));
     const results = await Promise.allSettled(
       selectedVms.map(async (vm) => {
         if (vm.provenance.source === "play_run") {
@@ -186,12 +192,12 @@ export function PlayQueueList({
           }
           return actOnFinding(vm.provenance.findingId);
         }
-        return { success: false };
+        return null;
       }),
     );
 
     const successful = results.filter(
-      (r) => r.status === "fulfilled" && r.value?.success,
+      (r) => r.status === "fulfilled" && resultOk(r.value),
     ).length;
     const failed = results.length - successful;
 
@@ -200,7 +206,7 @@ export function PlayQueueList({
         const next = { ...current };
         selectedVms.forEach((vm) => {
           const result = results[selectedVms.indexOf(vm)];
-          if (result.status === "fulfilled" && result.value?.success) {
+          if (result.status === "fulfilled" && resultOk(result.value)) {
             next[vm.id] = "acted";
           }
         });
@@ -315,11 +321,11 @@ export function PlayQueueList({
       void (async () => {
         const result = await applyMemoryCarePlayRun(playRunId);
         setRowPending(vm.id, false);
-        if (result.success) {
+        if (result.ok) {
           setStatuses((current) => ({ ...current, [vm.id]: "acted" }));
           toast(action.label);
         } else {
-          toast.error(result.error ?? "Could not apply");
+          toast.error(result.message ?? "Could not apply");
         }
       })();
       return;
@@ -383,11 +389,11 @@ export function PlayQueueList({
       void (async () => {
         const result = await answerMemoryCareQuestionPlayRun(playRunId, value);
         setRowPending(vm.id, false);
-        if (result.success) {
+        if (result.ok) {
           setStatuses((current) => ({ ...current, [vm.id]: "acted" }));
           toast(option ? `Saved ${option.label}` : "Saved");
         } else {
-          toast.error(result.error ?? "Couldn't save your answer");
+          toast.error(result.message ?? "Couldn't save your answer");
         }
       })();
       return;

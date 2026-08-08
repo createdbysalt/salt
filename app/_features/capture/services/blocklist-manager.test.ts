@@ -25,6 +25,7 @@ let insertCounter = 0;
 function createQueryBuilder() {
   const filters: Array<[string, unknown]> = [];
   let limitCount: number | undefined;
+  let rangeBounds: [number, number] | undefined;
   let deleteMode = false;
   let insertedRow: MockRow | null = null;
 
@@ -40,6 +41,9 @@ function createQueryBuilder() {
       return { data: null, error: null };
     }
     let out = mockRows.filter(matches);
+    if (rangeBounds !== undefined) {
+      out = out.slice(rangeBounds[0], rangeBounds[1] + 1);
+    }
     if (limitCount !== undefined) {
       out = out.slice(0, limitCount);
     }
@@ -59,6 +63,10 @@ function createQueryBuilder() {
     order: () => chain,
     limit: (n: number) => {
       limitCount = n;
+      return chain;
+    },
+    range: (from: number, to: number) => {
+      rangeBounds = [from, to];
       return chain;
     },
     insert: (row: Record<string, unknown>) => {
@@ -345,6 +353,39 @@ describe("Blocklist Manager", () => {
       });
 
       expect(result.blocked).toBe(true);
+    });
+
+    it("enforces sender patterns past the 100-row page boundary (2.10 pagination)", async () => {
+      // 149 non-matching patterns, the matching one is row #150 — a flat
+      // .limit(100) would silently never evaluate it.
+      for (let i = 0; i < 149; i++) {
+        mockRows.push({
+          id: `pat-${String(i).padStart(3, "0")}`,
+          workspace_id: "ws-1",
+          type: "sender_pattern",
+          value: `*no-match-${i}*`,
+          reason: null,
+          created_at: "2026-07-12T00:00:00Z",
+          created_by: null,
+        });
+      }
+      mockRows.push({
+        id: "pat-150",
+        workspace_id: "ws-1",
+        type: "sender_pattern",
+        value: "*newsletter*",
+        reason: null,
+        created_at: "2026-07-12T00:00:00Z",
+        created_by: null,
+      });
+      const { isBlocked } = await import("./blocklist-manager");
+
+      const result = await isBlocked("ws-1", {
+        senderName: "Weekly Newsletter Digest",
+      });
+
+      expect(result.blocked).toBe(true);
+      expect(result.matchedEntry?.id).toBe("pat-150");
     });
 
     it("fails open when the blocklist query itself errors", async () => {

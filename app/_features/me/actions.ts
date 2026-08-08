@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import type { TablesInsert, TablesUpdate } from "@/app/_lib/supabase/database.types";
 import type { ActionResult } from "@/app/_features/plays/actions";
 import type {
   OperatorFactCategory,
@@ -365,7 +366,7 @@ export async function updateOperatorGoal(input: {
     return { ok: false, errorCode: "UNAUTHORIZED", message: op.message };
   }
 
-  const patch: Record<string, unknown> = {};
+  const patch: TablesUpdate<"operator_goals"> = {};
   if (input.targetValue !== undefined) patch.target_value = input.targetValue;
   if (input.targetPeriod !== undefined) patch.target_period = input.targetPeriod;
   if (input.currentValue !== undefined) patch.current_value = input.currentValue;
@@ -428,7 +429,7 @@ export async function updateOperatorVoiceProfile(input: {
     return { ok: false, errorCode: "UNAUTHORIZED", message: op.message };
   }
 
-  const row: Record<string, unknown> = {
+  const row: TablesInsert<"operator_voice_profile"> = {
     workspace_id: op.workspace.id,
     user_id: op.userId,
     updated_at: new Date().toISOString(),

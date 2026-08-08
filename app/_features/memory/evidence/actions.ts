@@ -4,7 +4,12 @@
  * Evidence Actions
  *
  * Mutations for accumulating and managing pending evidence.
- * Creates plays in the approval queue when thresholds are reached.
+ *
+ * Threshold behavior (plays canon Phase 2): record proposals never write
+ * play_runs. Suggest-tier evidence carries status='suggested' and the
+ * Memory → Filter Watching lane renders it with one-tap Add to Memory.
+ * The auto tier (P6 + P7: calibrated AND relationship-grade) creates
+ * records directly.
  */
 
 import { createClient } from "@/app/_lib/supabase/server";
@@ -15,71 +20,17 @@ import {
   evaluateEvidence,
   logOddsToProbability,
 } from "@/app/_features/memory/care/intake";
-import { createIntakePlayRun } from "@/app/_features/plays/services/create-intake-play-run";
 import { autoCreateRecord } from "./auto-create-record";
+import {
+  extractedFieldPlainValues,
+  hasRelationshipGradeSignal,
+  mergeExtractedFields,
+} from "./route-intake-proposal";
 import type {
   AddSignalInput,
   AddSignalResult,
   ExtractedFieldValue,
 } from "./types";
-
-/**
- * P7: Relationship-grade signals indicate a real relationship worth tracking.
- * Records should only auto-create when there's evidence of actual relationship.
- *
- * Relationship-grade signals:
- * - Payment: invoice, payment, billing signals
- * - User reply: sent email to them (not just received)
- * - Calendar co-presence: meeting attendance
- * - Contract/proposal: formal business documents
- */
-const RELATIONSHIP_GRADE_SIGNALS = new Set([
-  // Payment signals
-  "invoice_attachment_detected",
-  "invoice_addressee_unknown",
-  "invoice_from_unknown_company",
-  "invoice_line_items_suggest_project",
-  "payment_notification_email",
-  "stripe_webhook_payment",
-  "receipt_attachment_detected",
-  "receipt_detected",
-  "email_mentions_amount_due",
-
-  // User reply signals (sent, not just received)
-  "email_to_unknown_address",
-
-  // Calendar co-presence
-  "meeting_attendee_unknown",
-  "calendar_event_created",
-  "calendar_invite_received",
-  "email_scheduling_discussion",
-  "zoom_invite_detected",
-
-  // Contract/proposal signals
-  "contract_detected",
-  "contract_mentions_company",
-  "msa_detected",
-  "nda_detected",
-  "signature_request_received",
-  "proposal_detected",
-  "proposal_or_sow_attached",
-  "sow_detected",
-  "brief_detected",
-
-  // Deliverables (implies active work relationship)
-  "deliverable_detected",
-  "asset_delivered",
-  "approval_detected",
-  "feedback_detected",
-]);
-
-/**
- * Check if a set of signals contains relationship-grade evidence.
- * P7: Worthiness (relevance) is separate from confidence (accuracy).
- */
-function hasRelationshipGradeSignal(signals: string[]): boolean {
-  return signals.some((signal) => RELATIONSHIP_GRADE_SIGNALS.has(signal));
-}
 
 /**
  * Add a signal to pending evidence.
@@ -150,7 +101,9 @@ export async function addSignalToEvidence(
       extracted_data: input.extractedData || {},
     });
 
-    // Handle threshold transitions
+    // Handle threshold transitions. Plays canon Phase 2: proposals never
+    // write play_runs — suggest-tier rows carry status='suggested' and the
+    // Memory → Filter Watching lane renders them directly.
     if (existing.status === "watching") {
       // Fetch all signals for this evidence (for count and worthiness check)
       const { data: signalRows } = await supabase
@@ -161,8 +114,11 @@ export async function addSignalToEvidence(
       const signalCount = (signalRows?.length ?? 0) + 1;
       const allSignals = [...(signalRows?.map((r) => r.signal as string) ?? []), input.signal];
       const isWorthy = hasRelationshipGradeSignal(allSignals);
+      // Files never auto-create from background paths: files.uploaded_by is
+      // NOT NULL and only the confirm path supplies an acting user.
+      const canAutoCreate = isWorthy && input.entityType !== "file";
 
-      if (action === "auto" && isWorthy) {
+      if (action === "auto" && canAutoCreate) {
         // P6 + P7: Auto-create only if relationship-grade worthy
         await autoCreateRecord({
           workspaceId: input.workspaceId,
@@ -172,31 +128,15 @@ export async function addSignalToEvidence(
           confidence: logOddsToProbability(newScore),
           extractedFields: mergedFields,
           signalCount,
+          captureId: input.captureId,
         });
-      } else if (action === "auto" && !isWorthy) {
-        // P7: Confidence passed but not relationship-grade — route to suggest
-        await createIntakePlayRun({
-          workspaceId: input.workspaceId,
-          evidenceId: existing.id,
-          entityType: input.entityType,
-          identifier: canonicalId,
-          confidence: logOddsToProbability(newScore),
-          extractedFields: mergedFields,
-          signalCount,
-          autoCreate: false,
-        });
-      } else if (action === "suggest") {
-        // Route to Plays Queue for user approval
-        await createIntakePlayRun({
-          workspaceId: input.workspaceId,
-          evidenceId: existing.id,
-          entityType: input.entityType,
-          identifier: canonicalId,
-          confidence: logOddsToProbability(newScore),
-          extractedFields: mergedFields,
-          signalCount,
-          autoCreate: false,
-        });
+      } else if (action === "auto") {
+        // P7: confidence passed but not relationship-grade (or the entity
+        // is confirm-only) — surface as a suggested candidate instead.
+        await supabase
+          .from("pending_evidence")
+          .update({ status: "suggested" })
+          .eq("id", existing.id);
       }
     }
 
@@ -261,11 +201,15 @@ export async function addSignalToEvidence(
       extracted_data: input.extractedData || {},
     });
 
-    // Handle immediate threshold crossing (e.g., very strong signal)
-    // P7: Check if the signal is relationship-grade
+    // Handle immediate threshold crossing (e.g., very strong signal).
+    // Plays canon Phase 2: proposals never write play_runs — the row was
+    // inserted with status='suggested' above when the suggest bar cleared,
+    // and the Memory → Filter Watching lane renders it directly.
     const isWorthy = hasRelationshipGradeSignal([input.signal]);
+    // Files never auto-create from background paths (see above).
+    const canAutoCreate = isWorthy && input.entityType !== "file";
 
-    if (action === "auto" && isWorthy) {
+    if (action === "auto" && canAutoCreate) {
       // P6 + P7: Auto-create only if relationship-grade worthy
       await autoCreateRecord({
         workspaceId: input.workspaceId,
@@ -275,31 +219,15 @@ export async function addSignalToEvidence(
         confidence: logOddsToProbability(newScore),
         extractedFields: initialFields,
         signalCount: 1,
+        captureId: input.captureId,
       });
-    } else if (action === "auto" && !isWorthy) {
-      // P7: Confidence passed but not relationship-grade — route to suggest
-      await createIntakePlayRun({
-        workspaceId: input.workspaceId,
-        evidenceId: newEvidence.id,
-        entityType: input.entityType,
-        identifier: canonicalId,
-        confidence: logOddsToProbability(newScore),
-        extractedFields: initialFields,
-        signalCount: 1,
-        autoCreate: false,
-      });
-    } else if (action === "suggest") {
-      // Route to Plays Queue for user approval
-      await createIntakePlayRun({
-        workspaceId: input.workspaceId,
-        evidenceId: newEvidence.id,
-        entityType: input.entityType,
-        identifier: canonicalId,
-        confidence: logOddsToProbability(newScore),
-        extractedFields: initialFields,
-        signalCount: 1,
-        autoCreate: false,
-      });
+    } else if (action === "auto") {
+      // P7: confidence passed but not relationship-grade (or the entity
+      // is confirm-only) — surface as a suggested candidate instead.
+      await supabase
+        .from("pending_evidence")
+        .update({ status: "suggested" })
+        .eq("id", newEvidence.id);
     }
 
     return {
@@ -364,44 +292,4 @@ export async function restoreEvidence(evidenceId: string): Promise<void> {
       dismissed_reason: null,
     })
     .eq("id", evidenceId);
-}
-
-/**
- * Merge extracted fields from a new signal into existing fields.
- */
-function mergeExtractedFields(
-  existing: Record<string, ExtractedFieldValue>,
-  newData: Record<string, string>,
-  captureId?: string
-): Record<string, ExtractedFieldValue> {
-  const merged = { ...existing };
-
-  for (const [key, value] of Object.entries(newData)) {
-    if (!value) continue;
-
-    if (merged[key]) {
-      // Field already exists - update if new value matches or has higher implied confidence
-      if (merged[key].value === value) {
-        // Same value - add source
-        if (captureId && !merged[key].sources.includes(captureId)) {
-          merged[key].sources.push(captureId);
-          // Increase confidence slightly with corroboration
-          merged[key].confidence = Math.min(99, merged[key].confidence + 2);
-        }
-      } else {
-        // Different value - only replace if we have more sources for the new one
-        // (This is a simplification; in production you'd want more sophisticated conflict resolution)
-        // For now, keep the existing value but note the conflict
-      }
-    } else {
-      // New field
-      merged[key] = {
-        value,
-        confidence: 80,
-        sources: captureId ? [captureId] : [],
-      };
-    }
-  }
-
-  return merged;
 }

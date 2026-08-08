@@ -36,10 +36,10 @@ steps:
   - step: draft
     id: recap
     prompt: |
-      Create a meeting recap for: {{meeting_details.title}}
+      Create a meeting recap.
 
-      Attendees: {{meeting_details.attendees}}
-      Notes: {{meeting_notes.content}}
+      Meeting details: {{meeting_details}}
+      Notes: {{meeting_notes}}
 
       Structure:
       1. Key decisions made

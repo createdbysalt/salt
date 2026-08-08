@@ -23,6 +23,11 @@ const PlaybookSectionSchema = z.enum([
   "communication",
 ]);
 
+// `learn` stays in the enum even though no shipped playbook uses it (as of
+// Phase 6 closeout, 2026-08-08): learn-layer Memory playbooks are Memory Care
+// capabilities now, but the schema still validates policy-based definitions
+// and `inferLayerFromV1Kind` maps legacy v1 profile playbooks onto it. The
+// plays detail surface assumes act-layer only.
 const PlaybookLayerSchema = z.enum(["learn", "act"]);
 
 const ConnectorCategorySchema = z.enum([
@@ -93,11 +98,16 @@ const PlaybookOutputTypeSchema = z.enum([
   "briefing",
 ]);
 
-const PlaybookApprovalModeSchema = z.enum([
-  "none",
-  "per_entity",
-  "batch",
-]);
+/**
+ * Output gate vocabulary. Canonical values are `auto` (surface without
+ * asking) and `ask` (queue for review); the legacy modes map onto them:
+ * none → auto, per_entity → ask, batch → ask.
+ */
+const PlaybookApprovalModeSchema = z
+  .enum(["auto", "ask", "none", "per_entity", "batch"])
+  .transform((mode) =>
+    mode === "none" ? "auto" : mode === "auto" ? "auto" : "ask"
+  );
 
 const PlaybookOutputSchema = z.object({
   type: PlaybookOutputTypeSchema,
@@ -203,63 +213,51 @@ const PlaybookDraftStepSchema = z.object({
   step: z.literal("draft"),
   id: z.string().min(1),
   prompt: z.string().min(1),
+  /**
+   * When set, the prompt runs once per item of the named source list and the
+   * step result is [{ item, draft }] — per-entity drafts (getting-started
+   * reply pack, batch re-engagements). `{{item.*}}` interpolates the current
+   * item inside the prompt.
+   */
+  forEach: z.string().optional(),
   max_tokens: z.number().int().positive().max(4096).optional(),
-});
-
-const PlaybookForEachStepSchema = z.object({
-  step: z.literal("forEach"),
-  id: z.string().min(1),
-  over: z.string().min(1),
-  steps: z.array(z.any()).optional(), // Nested steps - uses any to avoid circular ref
 });
 
 const PlaybookBranchStepSchema = z.object({
   step: z.literal("branch"),
   id: z.string().optional(),
   if: z.string().optional(),
-  switch: z.string().optional(),
-  cases: z.record(z.unknown()).optional(),
   steps: z.array(z.any()).optional(),
-  goto: z.string().optional(),
 });
 
-const PlaybookStepApprovalSchema = z.enum(["required"]);
+/**
+ * Per-step gate, canonical on every step type:
+ * - required: always pause for a human, never earned away (money sends,
+ *   destructive actions)
+ * - ask: pause until the workspace has earned autonomy for this playbook+tool
+ * - auto (default): workspace trust dial is the ceiling
+ *
+ * Gating is executable on action steps; on other step types it is declared
+ * intent consumed by the output gate and UI.
+ */
+const PlaybookStepApprovalSchema = z.enum(["auto", "ask", "required"]);
 
 const PlaybookActionStepSchema = z.object({
   step: z.literal("action"),
   id: z.string().optional(),
   tool: z.string().min(1),
   args: z.record(z.unknown()).optional(),
+  /** @deprecated Use `approval: "ask"` instead. */
   needsApproval: z.boolean().optional(),
   approval: PlaybookStepApprovalSchema.optional(),
-});
-
-const PlaybookComputeStepSchema = z.object({
-  step: z.literal("compute"),
-  id: z.string().min(1),
-  value: z.string().min(1),
-});
-
-const PlaybookGotoStepSchema = z.object({
-  step: z.literal("goto"),
-  target: z.string().min(1),
-});
-
-const PlaybookLabelStepSchema = z.object({
-  step: z.literal("label"),
-  id: z.string().min(1),
 });
 
 const PlaybookStepSchema = z.discriminatedUnion("step", [
   PlaybookFetchStepSchema,
   PlaybookClassifyStepSchema,
   PlaybookDraftStepSchema,
-  PlaybookForEachStepSchema,
   PlaybookBranchStepSchema,
   PlaybookActionStepSchema,
-  PlaybookComputeStepSchema,
-  PlaybookGotoStepSchema,
-  PlaybookLabelStepSchema,
 ]);
 
 const PlaybookExampleSchema = z.object({
@@ -304,6 +302,12 @@ export const PlaybookDefinitionV2Schema = z.object({
   voice: z.string().regex(/^[a-z0-9-]+$/).optional(),
   steps: z.array(PlaybookStepSchema).optional(),
   instructions: PlaybookActionInstructionsSchema,
+  /**
+   * Single-document canon: the tool allowlist lives in the definition, not a
+   * sibling tools.yaml. When present, every action step's tool must be listed
+   * here (validated below) — this is the declaration the consent UI renders.
+   */
+  tools: z.array(z.string().min(1)).optional(),
 }).refine(
   (data) => data.trigger || (data.triggers && data.triggers.length > 0),
   { message: "Playbook must have either 'trigger' or 'triggers' defined", path: ["trigger"] }
@@ -313,7 +317,36 @@ export const PlaybookDefinitionV2Schema = z.object({
 ).refine(
   (data) => data.layer !== "act" || data.steps?.length || data.instructions,
   { message: "Action playbooks must have steps or instructions", path: ["steps"] }
+).refine(
+  (data) => {
+    if (!data.tools || !data.steps) return true;
+    const allowed = new Set(data.tools);
+    const undeclared = collectActionTools(data.steps).filter(
+      (tool) => !allowed.has(tool)
+    );
+    return undeclared.length === 0;
+  },
+  {
+    message:
+      "Action step tools must be declared in the definition's `tools` allowlist",
+    path: ["tools"],
+  }
 );
+
+function collectActionTools(steps: unknown[]): string[] {
+  const tools: string[] = [];
+  for (const step of steps) {
+    if (typeof step !== "object" || step === null) continue;
+    const s = step as { step?: string; tool?: string; steps?: unknown[] };
+    if (s.step === "action" && typeof s.tool === "string") {
+      tools.push(s.tool);
+    }
+    if (Array.isArray(s.steps)) {
+      tools.push(...collectActionTools(s.steps));
+    }
+  }
+  return tools;
+}
 
 export type PlaybookDefinitionV2Input = z.input<typeof PlaybookDefinitionV2Schema>;
 export type PlaybookDefinitionV2Output = z.output<typeof PlaybookDefinitionV2Schema>;

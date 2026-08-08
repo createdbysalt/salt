@@ -21,7 +21,6 @@ export interface PlayApprovalContext {
 }
 
 export interface ComposioToolAllowOptions {
-  disabledTools?: readonly string[];
   /** Unattended contexts (background scans, scheduled jobs) may only run read tools. */
   unattended?: boolean;
   /** Present when executing inside a pre-approved play run. */
@@ -67,10 +66,6 @@ export function assertComposioToolAllowed(
         `Composio tool ${toolSlug} is not in this play's approved actions`,
       );
     }
-  }
-
-  if (options?.disabledTools?.includes(toolSlug)) {
-    throw new Error(`Composio tool disabled for this workspace: ${toolSlug}`);
   }
 
   return policy;

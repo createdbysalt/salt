@@ -156,7 +156,7 @@ export async function detectPlaybookFeedbackPatterns(
 
   const { data, error } = await admin
     .from("play_runs")
-    .select("id, metadata, user_feedback, user_feedback_at")
+    .select("id, source_context, metadata, user_feedback, user_feedback_at")
     .eq("workspace_id", workspaceId)
     .not("user_feedback", "is", null)
     .gte("user_feedback_at", since.toISOString());
@@ -174,8 +174,14 @@ export async function detectPlaybookFeedbackPatterns(
   }>();
 
   for (const play of data) {
+    // Canonical attribution is source_context.playbook_slug; metadata is a
+    // fallback for rows written by pre-canonicalization paths.
+    const sourceContext = play.source_context as Record<string, unknown> | null;
     const meta = play.metadata as Record<string, unknown> | null;
-    const playbookSlug = (meta?.playbook_slug as string) ?? "unknown";
+    const playbookSlug =
+      (sourceContext?.playbook_slug as string) ??
+      (meta?.playbook_slug as string) ??
+      "unknown";
     const playbookName = (meta?.playbook_name as string) ?? playbookSlug;
 
     let pattern = patterns.get(playbookSlug);
@@ -185,7 +191,7 @@ export async function detectPlaybookFeedbackPatterns(
     }
 
     pattern.total++;
-    if (play.user_feedback === "negative") {
+    if (play.user_feedback === "negative" && play.user_feedback_at) {
       pattern.negative++;
       if (!pattern.lastNegativeAt || play.user_feedback_at > pattern.lastNegativeAt) {
         pattern.lastNegativeAt = play.user_feedback_at;

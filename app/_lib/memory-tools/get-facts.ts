@@ -18,11 +18,12 @@
  */
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
-import type {
-  GetFactsInput,
-  GetFactsResult,
-  EntityFact,
-  LearningEntityType,
+import {
+  getMemoryEntityTable,
+  type GetFactsInput,
+  type GetFactsResult,
+  type EntityFact,
+  type LearningEntityType,
 } from "./types";
 
 /**
@@ -111,30 +112,28 @@ async function fetchEntityData(
   entityType: LearningEntityType,
   entityId: string
 ): Promise<Record<string, unknown> | null> {
-  const tableMap: Record<LearningEntityType, string> = {
-    person: "people",
-    organization: "organizations",
-    work: "work",
-    billing: "billing_records",
-    meeting: "meetings",
-    file: "files",
-    me: "profiles",
-  };
-
-  const table = tableMap[entityType];
-  if (!table) return null;
-
-  const query = admin.from(table).select("*").eq("id", entityId);
-
-  // Most tables have workspace_id, but profiles doesn't
-  if (entityType !== "me") {
-    query.eq("workspace_id", workspaceId);
+  // "me" reads from profiles, which has no workspace_id column
+  if (entityType === "me") {
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("*")
+      .eq("id", entityId)
+      .maybeSingle();
+    return profile ? { ...profile } : null;
   }
 
-  const { data } = await query.maybeSingle();
+  const table = getMemoryEntityTable(entityType);
+  if (!table) return null;
+
+  const { data } = await admin
+    .from(table)
+    .select("*")
+    .eq("id", entityId)
+    .eq("workspace_id", workspaceId)
+    .maybeSingle();
   if (!data) return null;
 
-  const record = data as Record<string, unknown>;
+  const record: Record<string, unknown> = { ...data };
 
   // org_link / key_contact live in the organization_people junction, not as
   // columns — hydrate them so facts and signals see the relationship.
@@ -257,6 +256,9 @@ async function computeSignals(
     case "organization":
       await computeOrgSignals(admin, workspaceId, entityId, entityData, signals);
       break;
+    case "work":
+      await computeWorkSignals(admin, workspaceId, entityId, entityData, signals);
+      break;
     case "billing":
       await computeBillingSignals(admin, workspaceId, entityId, entityData, signals);
       break;
@@ -333,14 +335,53 @@ async function computeOrgSignals(
 
   signals.org_has_invoice_sent = (invoiceCount ?? 0) > 0;
 
-  // Check for people in org
+  // Check for people in org — people has no organization_id column; the
+  // relationship lives in the organization_people junction.
   const { count: peopleCount } = await admin
-    .from("people")
+    .from("organization_people")
     .select("id", { count: "exact", head: true })
-    .eq("workspace_id", workspaceId)
     .eq("organization_id", orgId);
 
   signals.org_has_people = (peopleCount ?? 0) > 0;
+}
+
+/**
+ * DB-derivable work signals. Most work fill-rule signals are
+ * content-extraction signals set by the capture pipeline (proposal sent,
+ * contract signed, scope extracted) — those can't be recomputed here. This
+ * covers what the database itself proves, so the scheduled workspace scan
+ * has something real to evaluate.
+ */
+async function computeWorkSignals(
+  admin: ReturnType<typeof createAdminClient>,
+  workspaceId: string,
+  workId: string,
+  data: Record<string, unknown> | null,
+  signals: Record<string, boolean | number | string>
+): Promise<void> {
+  // Invoice linked to this work → the invoice's counterparty is the billing
+  // contact. Rule `work_invoice_created` sets billing contact from the
+  // signal's value ({{extracted}}), so the value must be the contact itself.
+  const { data: invoice } = await admin
+    .from("billing_records")
+    .select("person_id, people:person_id (name, email)")
+    .eq("workspace_id", workspaceId)
+    .eq("work_id", workId)
+    .is("deleted_at", null)
+    .not("person_id", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const contact = invoice?.people as { name: string | null; email: string | null } | null;
+  const contactLabel = contact?.name ?? contact?.email ?? null;
+  if (contactLabel) {
+    signals.work_invoice_created = contactLabel;
+  }
+
+  if (data?.deadline != null) {
+    signals.work_has_due_date = String(data.deadline);
+  }
 }
 
 async function computeBillingSignals(
@@ -375,7 +416,12 @@ async function computeMeetingSignals(
   const status = data.status as string | undefined;
   const externalId = data.external_id as string | undefined;
 
-  signals.meeting_synced_from_calendar = externalId != null;
-  signals.meeting_end_passed = endAt != null && new Date(endAt) < new Date();
+  const endPassed = endAt != null && new Date(endAt) < new Date();
+
+  // "Synced" fires the status→scheduled rule (confidence 95), so it must
+  // only hold while the meeting is still upcoming — otherwise a scan over
+  // past synced meetings would flip completed meetings back to scheduled.
+  signals.meeting_synced_from_calendar = externalId != null && !endPassed;
+  signals.meeting_end_passed = endPassed;
   signals.meeting_cancelled_by_calendar = status === "cancelled";
 }

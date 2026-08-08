@@ -68,11 +68,17 @@ export function PlaybookStepDots({
   dotClass,
   countClassName,
   className,
+  activeIndex = 0,
+  label,
 }: {
   stepCount: number;
   dotClass?: string;
   countClassName?: string;
   className?: string;
+  /** Which step is current (0-based). Defaults to the first. */
+  activeIndex?: number;
+  /** Overrides the "N steps" count text — e.g. "Step 2 of 3". */
+  label?: string;
 }) {
   return (
     <div className={cn("flex items-center gap-3", className)}>
@@ -82,9 +88,11 @@ export function PlaybookStepDots({
             key={idx}
             className={cn(
               "h-1.5 w-1.5 rounded-full transition-all",
-              idx === 0
+              idx === activeIndex
                 ? cn("w-4", dotClass ?? "bg-foreground")
-                : "bg-foreground/15 group-hover:bg-foreground/30"
+                : idx < activeIndex
+                  ? (dotClass ?? "bg-foreground")
+                  : "bg-foreground/15 group-hover:bg-foreground/30"
             )}
           />
         ))}
@@ -95,7 +103,7 @@ export function PlaybookStepDots({
           countClassName
         )}
       >
-        {stepCount} {stepCount === 1 ? "step" : "steps"}
+        {label ?? `${stepCount} ${stepCount === 1 ? "step" : "steps"}`}
       </span>
     </div>
   );

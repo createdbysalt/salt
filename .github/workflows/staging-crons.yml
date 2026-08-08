@@ -27,7 +27,6 @@ on:
     - cron: '30 */6 * * *' # capture-reconciliation (backfills + Cal.com polling)
     - cron: '0 3 * * *' # trigger-reconciliation (daily trigger repair) + purge-trash
     - cron: '0 4 * * *' # connector-catalog-sync (keeps connector_trigger_types fresh)
-    - cron: '0 5 * * *' # watch-cleanup
   workflow_dispatch:
     inputs:
       endpoint:
@@ -53,13 +52,12 @@ jobs:
             "30 */6 * * *") endpoints="capture-reconciliation" ;;
             "0 3 * * *")    endpoints="trigger-reconciliation purge-trash" ;;
             "0 4 * * *")    endpoints="connector-catalog-sync" ;;
-            "0 5 * * *")    endpoints="watch-cleanup" ;;
             "")
               # workflow_dispatch
               if [ -n "$DISPATCH_ENDPOINT" ] && [ "$DISPATCH_ENDPOINT" != "all" ]; then
                 endpoints="$DISPATCH_ENDPOINT"
               else
-                endpoints="capture-reconciliation trigger-reconciliation connector-catalog-sync purge-trash watch-cleanup"
+                endpoints="capture-reconciliation trigger-reconciliation connector-catalog-sync purge-trash"
               fi
               ;;
             *) echo "Unknown schedule: $SCHEDULE" && exit 1 ;;

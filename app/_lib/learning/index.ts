@@ -113,20 +113,3 @@ export {
   emitEntitySignalAsync,
   emitEntitySignals,
 } from "./emit-signal";
-
-// Entity watch system
-export type {
-  EntityWatch,
-  RegisterWatchInput,
-  RegisterWatchResult,
-} from "./watches";
-
-export {
-  registerEntityWatch,
-  removeWatch,
-  removeWatchesForEntity,
-  getActiveWatches,
-  processCaptureAgainstWatches,
-  expireOldWatches,
-  expireOverTriggeredWatches,
-} from "./watches";

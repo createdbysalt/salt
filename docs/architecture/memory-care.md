@@ -8,7 +8,7 @@ Canonical module: **`app/_features/memory/care/`**.
 
 ## Concept
 
-Salt maintains Memory in the background. Capabilities emit **proposals only**. A shared decision pipeline applies, watches, or refuses each proposal by tiered confidence bars. Users never approve Memory mutations up front — they correct wrong Handled writes from Filter. Approvals stay on the act layer (Plays Queue).
+Salt maintains Memory in the background. Capabilities emit **proposals only**. A shared decision pipeline applies, watches, or refuses each proposal by tiered confidence bars. Users never approve Memory mutations up front — they correct wrong Handled writes from Memory → Activity. Approvals stay on the act layer (Plays Queue).
 
 | Concern | Owner |
 |---------|--------|
@@ -16,7 +16,7 @@ Salt maintains Memory in the background. Capabilities emit **proposals only**. A
 | Apply / watch / refuse | Decision pipeline + field tiers |
 | Entity writes | `app/_lib/memory-tools` |
 | Configuration | Memory → Rules |
-| Transparency | Memory → Filter |
+| Transparency | Memory → Activity (`?tab=filter` is a legacy alias) |
 
 ---
 
@@ -80,7 +80,7 @@ Entry points:
 | Signal dispatch | `runCareForSignal` |
 | Sync & Scan | `runCareCapability` / `runRecordsForWorkspace` |
 
-Activity metadata uses `source: "memory-care"` only (no `player_slug`). Plays Activity excludes these rows — Care transparency lives on Memory → Filter and record Activity timelines.
+Activity metadata uses `source: "memory-care"` only (no `player_slug`). Plays Activity excludes these rows — Care transparency lives on Memory → Activity and record Activity timelines.
 
 **Ask Salt:** record creation uses `load_memory_intake` + `parse_intake` against `care/intake/`. It is not a playbook and must not call `propose_play`.
 
@@ -92,7 +92,7 @@ Capabilities **never write Memory directly**. They emit `CareProposal`s into `pr
 
 | Capability | Settings slug | Role |
 |------------|---------------|------|
-| `records` | `memory-records` | Keep people / org fields complete (v1: scheduled scan covers person/org only; work/billing enrichment via capture signals) |
+| `records` | `memory-records` | Keep people / org / work / billing / meeting fields complete (scheduled scan covers all five; files enrich event-driven only — classifier on ingest, signature webhooks — since no file signal is DB-derivable) |
 | `hygiene` | `memory-hygiene` | Merges, formatting, stale/orphan cleanup |
 | `connections` | `memory-connections` | Infer and strengthen entity links |
 | `notes` | `memory-notes` | Synthesize durable notes |
@@ -100,6 +100,21 @@ Capabilities **never write Memory directly**. They emit `CareProposal`s into `pr
 **Capabilities can be disabled.** Memory → Rules toggles persist in `profile_playbook_settings` (`blueprint_slug` = settings slug). Missing rows mean **enabled** (opt-out). Legacy `keeper-*` slugs are read as fallbacks in `care/settings.ts`.
 
 > Historical note: migration `20260711160000_playbook_enabled_flag.sql` commented that system playbooks cannot be disabled. That comment is obsolete. The live contract is Rules toggles + `isCareCapabilityEnabled`.
+
+---
+
+## Enrichment modes (founder-locked, 2026-08-08)
+
+Two modes, decided by **who initiated** (memory-vision W2):
+
+| Mode | When | Behavior |
+|------|------|----------|
+| **Active** | Record creation via Ask Salt | The intake procedure mandates `enrich_entity` (Composio search across connected providers) before every `memory_create_*`. `apply_enrichment` then routes each field through `memoryUpdateField` — confident fields apply, uncertain fields land in Watching. |
+| **Passive** | Everything ongoing | Salt learns only from captures as they arrive. Background scans (cron, Sync & Scan) evaluate **already-known** signals — they never search connected accounts. Gaps without inbound data stay gaps. |
+
+Rationale: proactive background searching feels invasive and burns connector API spend. A user asking Salt about an entity in chat may trigger enrichment — that is user-initiated, not proactive.
+
+Both modes end at the same gate: enrichment writes go through the protected memory tools (threshold, tiers, correction blocklist). Implementation: **`app/_lib/composio/enrichment/`** (search) and **`app/_lib/composio/enrichment/apply.ts`** (threshold routing).
 
 ---
 
@@ -111,7 +126,7 @@ Capabilities **never write Memory directly**. They emit `CareProposal`s into `pr
 |---------|------|--------|
 | `apply` | Aggregated confidence ≥ tier bar | Caller writes via memory-tools; pipeline records learning + Handled activity |
 | `watch` | Below bar | Evidence in `entity_evidence`; Watching activity; **no** `play_runs` |
-| `refuse` | Never-touch field | No write, no evidence, no queue |
+| `refuse` | Never-touch field, or value previously corrected by the user | No write, no evidence, no queue. The correction blocklist (**`app/_lib/learning/correction-blocklist.ts`**, 6-month TTL) is checked before anything accumulates; manual user writes bypass it |
 
 ### Tiered bars
 
@@ -178,22 +193,23 @@ Route: `/memory`
 | Tab | Role |
 |-----|------|
 | **Map** | Graph of records and relationships |
-| **Filter** | Transparency: **Watching** / **Handled** / **Kept out** |
-| **Rules** | Capability toggles + auto-apply threshold + blocklist |
+| **Activity** | Transparency: **Watching** / **Handled** (`?tab=filter` is a legacy alias) |
+| **Rules** | Capability toggles + auto-apply threshold |
 
-### Filter
+**Kept out** (admission noise/drop/held) and the admission **blocklist** live on **Sources → Activity**, not here — they describe what never entered Memory.
+
+### Activity
 
 - **Watching** — evidence below bar; optional nudges teach, never chore queues
 - **Handled** — auto-applied writes with why + **"That's wrong"** → rollback + correction → lesson
-- **Kept out** — admission noise/drop/held; "actually, let this in" moves to Watching
 
-Filter is a window into what Salt is doing, not a work queue. No nav/HQ badge counts for Watching.
+Activity is a window into what Salt is doing, not a work queue. No nav/HQ badge counts for Watching.
 
 ### Rules
 
 - Capability on/off (`getCareCapabilityStates` / Rules UI)
 - Workspace threshold slider → `workspaces.memory_care_auto_apply_threshold`
-- Blocklist for admission / learning exclusions
+- Blocklist management links out to Sources → Activity → Kept Out (where it lives)
 
 ---
 

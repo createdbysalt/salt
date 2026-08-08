@@ -221,6 +221,7 @@ async function createMemoryFactFromCorrection(
     .from("operator_memory_facts")
     .insert({
       workspace_id: workspaceId,
+      user_id: userId,
       category: "relationship",
       kind: "fact",
       scope_type: "person",

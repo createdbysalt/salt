@@ -2,10 +2,24 @@ import "server-only";
 
 import type { RelationshipStatus } from "@/app/_features/relationships/types";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import type { Json } from "@/app/_lib/supabase/database.types";
 import { logHealthChangeLifecycleEvent } from "@/app/_features/memory/health/log-health-lifecycle-event";
 import { gatherOrgHealthSignals } from "./gather-signals";
 import { scoreOrgHealth } from "./org-health";
-import type { OrgHealthResult } from "./types";
+import type { HealthFactor, OrgHealthResult } from "./types";
+
+/** HealthFactor is an interface (no implicit index signature); re-shape into
+ * fresh literals so the payload satisfies the jsonb column type without casts. */
+function healthFactorsToJson(factors: HealthFactor[]): Json {
+  return factors.map((factor) => ({
+    key: factor.key,
+    label: factor.label,
+    subScore: factor.subScore,
+    weight: factor.weight,
+    direction: factor.direction,
+    detail: factor.detail,
+  }));
+}
 
 function logRecomputeError(message: string, error: unknown, meta?: Record<string, string>): void {
   if (meta) {
@@ -61,7 +75,7 @@ export async function recomputeOrgHealth(orgId: string): Promise<OrgHealthResult
       relationship_health_score: result.score,
       relationship_health_band: result.band,
       relationship_health_archetype: result.archetype,
-      relationship_health_factors: result.factors,
+      relationship_health_factors: healthFactorsToJson(result.factors),
       relationship_health_version: result.version,
       relationship_health_updated_at: new Date().toISOString(),
     })

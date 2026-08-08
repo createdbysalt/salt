@@ -108,7 +108,7 @@ export function mapHandledFindingToCard(finding: FindingWithContext): PlayCardVi
     sectionLabel: getSectionLabel(section),
     layer: "learn",
     outputType: isMemoryCare ? "memory_update" : "notification",
-    approvalMode: "none", // Auto-handled = no approval needed
+    approvalMode: "auto", // Auto-handled = no approval needed
     autoApplyThreshold: null,
     confidenceExplanation: null,
     valueEstimate: null,

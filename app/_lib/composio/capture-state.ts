@@ -27,7 +27,7 @@ export async function setCaptureState(
   provider: string,
   enabled: boolean,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  if (!adapterForToolkit(provider)) {
+  if (!(await adapterForToolkit(provider))) {
     return { ok: false, error: "This connector doesn't support capture yet." };
   }
 

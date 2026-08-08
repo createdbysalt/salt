@@ -19,6 +19,6 @@ export async function disconnectGmail() {
     return result;
   }
 
-  revalidatePath("/plays");
+  revalidatePath("/sources");
   return { success: true as const };
 }

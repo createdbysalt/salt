@@ -108,6 +108,28 @@ describe("single-gate invariant (5.5.1)", () => {
    * paused-playbook resume path go through it, so the invariant is checked at
    * the shared helper and at every caller.
    */
+  /**
+   * Cost-metering invariant (companion plan 3.1): the gate records every
+   * successful non-play execution to the usage ledger. Because the repo-wide
+   * sweep above proves all Composio spend flows through actions.ts, metering
+   * inside the gate covers backfills, hydration, enrichment, and Ask Salt
+   * reads without any feature carrying billing code.
+   */
+  it("the gate meters successful executions at the spend primitive (3.1)", () => {
+    const gate = read("app/_lib/composio/actions.ts");
+    expect(gate).toContain(
+      'import { recordComposioActionCall } from "@/app/_lib/usage/record-composio-usage"',
+    );
+    // Recording happens in the success path — after the raw execute call.
+    const executeAt = gate.indexOf("getComposioClient().tools.execute(");
+    const recordAt = gate.indexOf("recordComposioActionCall({");
+    expect(executeAt).toBeGreaterThan(-1);
+    expect(recordAt).toBeGreaterThan(executeAt);
+    // Play runs are excluded: their Composio COGS is already estimated in the
+    // run's play_executed ledger row; recording both would double count.
+    expect(gate).toContain("options?.workspaceId && !options?.play");
+  });
+
   it("the shared play connector helper routes through the gate (5.5.1 parity)", () => {
     const helper = read("app/_features/plays/services/execute-connector-tool.ts");
     expect(helper).toContain(

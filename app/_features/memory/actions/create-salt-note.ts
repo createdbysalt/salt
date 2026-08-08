@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import type { TablesInsert } from "@/app/_lib/supabase/database.types";
 import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import type { NoteStatus } from "@/app/_features/memory/types/taxonomies";
@@ -80,7 +81,7 @@ export async function createSaltNote(
       const entityLabel = input.entityName ?? input.entityId;
 
       // Map entity type to the correct FK column
-      const findingInsert: Record<string, unknown> = {
+      const findingInsert: TablesInsert<"intelligence_findings"> = {
         workspace_id: workspaceId,
         finding_type: "note_suggestion",
         state: "needs_you",

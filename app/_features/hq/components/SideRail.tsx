@@ -283,7 +283,7 @@ export function SideRail({ data }: Props) {
             })}
           </ul>
           <Link
-            href="/memory?tab=filter"
+            href="/memory?tab=activity"
             className="mt-3 inline-flex items-center gap-1 text-[11px] font-medium text-foreground hover:underline"
           >
             View all in Memory

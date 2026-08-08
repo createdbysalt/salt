@@ -2,6 +2,7 @@
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { sendLlm, workspaceSpend } from "@/app/_lib/ai/gpt";
+import { getTenantContext } from "@/app/_lib/tenancy";
 
 /**
  * Voice Correction Capture
@@ -15,7 +16,6 @@ import { sendLlm, workspaceSpend } from "@/app/_lib/ai/gpt";
 
 export interface VoiceCorrectionInput {
   workspaceId: string;
-  userId: string;
   originalDraft: string;
   editedDraft: string;
   /** Play channel for context (Gmail, Slack, etc.) */
@@ -59,7 +59,20 @@ Respond with ONLY the pattern statement or NO_PATTERN, nothing else.`;
 export async function captureVoiceCorrection(
   input: VoiceCorrectionInput,
 ): Promise<VoiceCorrectionResult> {
-  const { workspaceId, userId, originalDraft, editedDraft, channel, playRunId } = input;
+  const { workspaceId, originalDraft, editedDraft, channel, playRunId } = input;
+
+  // INV-3: this action spends LLM tokens billed to a workspace, so both the
+  // workspace and the acting user must come from the session — a payload
+  // workspaceId/userId pair would let anyone burn another workspace's budget.
+  const { context } = await getTenantContext();
+  if (
+    context.actorType !== "workspaceMember" ||
+    !context.userId ||
+    context.workspace?.id !== workspaceId
+  ) {
+    return { captured: false, pattern: null, confidence: 0 };
+  }
+  const userId = context.userId;
 
   // Skip trivial changes
   if (!originalDraft || !editedDraft) {

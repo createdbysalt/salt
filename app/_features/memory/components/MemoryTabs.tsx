@@ -8,14 +8,14 @@ import { buildMemoryPath, type MemoryTab } from "../memory-tab-routing";
 /**
  * Memory Surface Tabs
  * - Map: what Salt knows (default)
- * - Filter: the rules applied (admission decisions)
  * - Rules: the rules themselves
+ * - Activity: what Salt is watching and has handled (admission decisions)
  */
 
 const tabs: { id: MemoryTab; label: string }[] = [
   { id: "map", label: "Map" },
-  { id: "filter", label: "Filter" },
   { id: "rules", label: "Rules" },
+  { id: "activity", label: "Activity" },
 ];
 
 export function MemoryTabs({ active }: { active: MemoryTab }) {

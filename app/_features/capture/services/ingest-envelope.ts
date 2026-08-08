@@ -75,6 +75,13 @@ export interface IngestEnvelopeOptions {
    * without enriched_metadata ("Processing" forever).
    */
   awaitEnrichment?: boolean;
+  /**
+   * Lane 1 discriminator: pay for a cold-inbound intent read so a genuine
+   * inquiry from an unknown sender is admitted in real time instead of held
+   * for the discovery cron. Real-time paths (webhook) only — backfills never
+   * set this.
+   */
+  coldIntentRead?: boolean;
 }
 
 export interface IngestEnvelopeResult {
@@ -98,6 +105,7 @@ export async function ingestEnvelope(
       workspaceId,
       userEmail: options.userEmail ?? null,
       envelope,
+      coldIntentRead: options.coldIntentRead ?? false,
     };
     gateResult = await runGatePipeline(gateInput);
 
@@ -122,6 +130,11 @@ export async function ingestEnvelope(
   // Daily capture budget (Phase 6): past the cap the row still lands, but is
   // stamped as noise — no enrichment fetch, no evidence, no LLM scan. Held
   // mail is already thin/unenriched and keeps its discovery semantics.
+  //
+  // This check is a racy peek (warning row + cheap pre-stamp); the
+  // capture_budget_enforcer DB trigger re-checks atomically at insert and is
+  // authoritative — the post-insert branch below reads the returned
+  // gate_action, so a row the trigger stamped is never enriched.
   const budget = await getCaptureBudgetStatus(workspaceId, admin);
   if (budget.exceeded) {
     await recordBudgetExceededWarning(workspaceId, budget, admin);
@@ -177,7 +190,7 @@ export async function ingestEnvelope(
         : (gateResult?.finalAction ?? null),
       gate_result: gateResultForRow,
     } as never)
-    .select("id")
+    .select("id, gate_action")
     .single();
 
   if (!error && data) {
@@ -187,7 +200,14 @@ export async function ingestEnvelope(
       return { outcome: "held", captureId: data.id, gateResult };
     }
 
-    if (!options.skipEvidence && !options.isBootstrap && !isNoise) {
+    // The DB trigger may have stamped the row noise (budget cap hit between
+    // the peek above and the insert — the TOCTOU the trigger exists to
+    // close). The returned row is truth: never enrich a stamped row.
+    const row = data as { id: string; gate_action: string | null };
+    const dbForcedNoise = !isNoise && row.gate_action === "noise";
+    const effectiveNoise = isNoise || dbForcedNoise;
+
+    if (!options.skipEvidence && !options.isBootstrap && !effectiveNoise) {
       const evidencePromise = processCaptureForEvidence(data.id).catch((err) => {
         console.warn(
           `[ingest-envelope] Evidence processing failed for ${data.id}:`,
@@ -251,12 +271,13 @@ export async function ingestEnvelope(
       }
     }
 
-    if (isNoise) {
+    if (effectiveNoise) {
       return {
         outcome: "noise",
-        noiseReason: forcedNoiseByBudget
-          ? `Daily capture budget exceeded (${budget.count}/${budget.limit} in 24h)`
-          : (gateResult?.gateResults.admission?.reason ?? "Low signal score"),
+        noiseReason:
+          forcedNoiseByBudget || dbForcedNoise
+            ? `Daily capture budget exceeded (${budget.count}/${budget.limit} in 24h)`
+            : (gateResult?.gateResults.admission?.reason ?? "Low signal score"),
         captureId: data.id,
         gateResult,
       };

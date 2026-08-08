@@ -1,5 +1,6 @@
+import { notFound } from "next/navigation";
 import { checkConnectionHealth } from "@/app/_lib/composio/connections";
-import { getAskSaltToolkits } from "@/app/_lib/composio/unified-connector-registry";
+import { listAskSaltToolkits } from "@/app/_lib/composio/connector-registry";
 import { createClient } from "@/app/_lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +21,10 @@ async function getWorkspaceId() {
 }
 
 export default async function ConnectionHealthPage() {
+  if (process.env.NODE_ENV === "production") {
+    notFound();
+  }
+
   const workspaceId = await getWorkspaceId();
 
   if (!workspaceId) {
@@ -31,8 +36,8 @@ export default async function ConnectionHealthPage() {
     );
   }
 
-  // Use the unified registry as source of truth for Ask Salt enabled connectors
-  const providers = getAskSaltToolkits();
+  // DB registry is the source of truth for Ask Salt enabled connectors
+  const providers = await listAskSaltToolkits();
 
   const healthChecks = await Promise.all(
     providers.map(async (provider) => {

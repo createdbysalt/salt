@@ -4,8 +4,8 @@
  * Orchestrates enrichment of capture events:
  * 1. Extract signals from envelope
  * 2. Match to Memory records
- * 3. Compute play-fit scores (TODO)
- * 4. Generate suggested actions (TODO)
+ * 3. Compute play-fit scores
+ * 4. Generate suggested actions
  * 5. Store in enriched_metadata column
  */
 
@@ -37,6 +37,7 @@ import {
 } from "./record-capture-criteria";
 import type { AdmissionSignal } from "../../types/gate-result";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import type { Json } from "@/app/_lib/supabase/database.types";
 import { loadSenderReputation } from "../sender-reputation";
 
 import type { CaptureSenderKind } from "../../types/sender-profiles";
@@ -463,11 +464,12 @@ export async function enrichAndPersist(
 
   const metadata = await enrichCapture(envelope, fullContext);
 
-  // Persist the enriched metadata
+  // Persist the enriched metadata (EnrichedMetadata is an interface, so it
+  // needs a boundary cast into the Json column)
   const supabase = createAdminClient();
   await supabase
     .from("capture_events")
-    .update({ enriched_metadata: metadata })
+    .update({ enriched_metadata: metadata as unknown as Json })
     .eq("id", captureEventId);
 
   // Email triage runs off the stored classification (post-enrichment hook —
@@ -574,6 +576,11 @@ export async function enrichAndPersist(
   return metadata;
 }
 
+/** Narrow a Json column value to the envelope's record shape. */
+function jsonToRecord(value: Json | null): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
 /**
  * Re-enrich an existing capture event (e.g., when new signals become available).
  */
@@ -600,8 +607,8 @@ export async function reenrichCapture(
     occurredAt: null,
     participants: [],
     threadId: null,
-    extracted: capture.extracted_data ?? {},
-    raw: capture.raw_payload ?? {},
+    extracted: jsonToRecord(capture.extracted_data),
+    raw: jsonToRecord(capture.raw_payload),
     noise: null,
   };
 

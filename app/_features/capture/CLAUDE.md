@@ -19,7 +19,7 @@ Composio Webhook → Category Adapter → Gate Pipeline → capture_events
 
 | Component | Location | Purpose |
 |-----------|----------|---------|
-| Category Adapters | `adapters/categories/` | Normalize payloads by category (email, calendar, billing, storage) |
+| Category Adapters | `adapters/categories/` | Normalize payloads by category — 9 adapters: email, calendar (incl. Cal.com + Calendly), billing, crm, meetings, documents, storage, project_management, communication |
 | Gate Pipeline | `services/gates/` | Filter noise, fast-track known entities, score candidates |
 | Watch Expressions | `services/watch-expressions.ts` | Track identifiers for continuous awareness |
 | Re-enrichment Bridge | `services/reenrichment-bridge.ts` | Trigger enrichment on entity match |
@@ -114,7 +114,7 @@ On match during ingest:
 ### capture_events
 ```sql
 -- Gate result columns (V2)
-gate_action TEXT,      -- 'drop' | 'signal' | 'candidate' | 'noise'
+gate_action TEXT,      -- 'drop' | 'signal' | 'candidate' | 'noise' | 'held' (GateAction in types/gate-result.ts)
 gate_result JSONB      -- Full gate result for debugging
 ```
 
@@ -153,11 +153,13 @@ Tests are co-located with services:
 
 | Test File | Coverage |
 |-----------|----------|
-| `services/gates/pre-ingest-gate.test.ts` | 16 tests for spam/noise detection |
-| `services/gates/known-entity-gate.test.ts` | Watch expression and entity matching |
+| `services/gates/pre-ingest-gate.test.ts` | 20 tests for spam/noise detection |
+| `services/gates/index.test.ts` | Gate pipeline orchestration, incl. known-entity/watch-expression matching |
 | `services/gates/admission-gate.test.ts` | Signal scoring and thresholds |
+| `services/gates/admission-signals.test.ts` | Admission signal derivation |
+| `services/gates/cold-intent.test.ts` | Cold-outreach intent detection |
 | `services/watch-expressions.test.ts` | 7 tests for watch lifecycle |
-| `services/blocklist-manager.test.ts` | 7 tests for workspace blocklist CRUD |
+| `services/blocklist-manager.test.ts` | 19 tests for workspace blocklist CRUD |
 
 Run tests:
 ```bash

@@ -7,6 +7,7 @@
  */
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import { getTenantContext } from "@/app/_lib/tenancy";
 
 interface CaptureContext {
   captureId: string;
@@ -36,11 +37,19 @@ interface GetCaptureContextResult {
 export async function getCaptureContextForAskSalt(
   captureId: string
 ): Promise<GetCaptureContextResult> {
+  // INV-3: captureId arrives from the client and the admin client bypasses
+  // RLS, so verify the capture belongs to the session workspace before
+  // returning any of its contents.
+  const { context } = await getTenantContext();
+  if (context.actorType !== "workspaceMember" || !context.workspace) {
+    return { success: false, error: "Not authorized" };
+  }
+
   const supabase = createAdminClient();
 
   const { data: capture, error } = await supabase
     .from("capture_events")
-    .select("id, source_type, title, extracted_data, enriched_metadata")
+    .select("id, workspace_id, source_type, title, extracted_data, enriched_metadata")
     .eq("id", captureId)
     .single();
 
@@ -49,6 +58,10 @@ export async function getCaptureContextForAskSalt(
       success: false,
       error: error?.message ?? "Capture not found",
     };
+  }
+
+  if (capture.workspace_id !== context.workspace.id) {
+    return { success: false, error: "Capture not found" };
   }
 
   const extracted = (capture.extracted_data as Record<string, unknown>) ?? {};

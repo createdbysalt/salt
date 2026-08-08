@@ -1,7 +1,9 @@
-export type MemoryTab = "map" | "filter" | "rules";
+export type MemoryTab = "map" | "activity" | "rules";
 
 export function parseMemoryTab(value: string | null | undefined): MemoryTab {
-  if (value === "filter" || value === "rules") return value;
+  if (value === "rules") return value;
+  // "filter" is the legacy id for the Activity tab.
+  if (value === "activity" || value === "filter") return "activity";
   return "map";
 }
 

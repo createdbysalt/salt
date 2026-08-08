@@ -1,15 +1,27 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { consolidateResults } from "./consolidator";
 import type { ExtractorResult } from "./types";
 
+// Category lookups are DB-backed in prod; pin them to the frozen fallback
+// snapshot so the suite stays hermetic.
+vi.mock("../capture-categories", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("../capture-categories")>();
+  return {
+    ...actual,
+    getCaptureCategoryMap: async () =>
+      new Map(Object.entries(actual.FALLBACK_PROVIDER_CATEGORIES)),
+  };
+});
+
 describe("consolidateResults", () => {
-  it("returns empty result when no extractors return data", () => {
+  it("returns empty result when no extractors return data", async () => {
     const results: ExtractorResult[] = [
       { source: "gmail", fields: {}, hasData: false },
       { source: "calendar", fields: {}, hasData: false },
     ];
 
-    const result = consolidateResults("person", results);
+    const result = await consolidateResults("person", results);
 
     expect(result.entityType).toBe("person");
     expect(result.fields).toEqual({});
@@ -17,7 +29,7 @@ describe("consolidateResults", () => {
     expect(result.sourcesWithData).toEqual([]);
   });
 
-  it("consolidates fields from multiple sources", () => {
+  it("consolidates fields from multiple sources", async () => {
     const results: ExtractorResult[] = [
       {
         source: "gmail",
@@ -37,7 +49,7 @@ describe("consolidateResults", () => {
       },
     ];
 
-    const result = consolidateResults("person", results);
+    const result = await consolidateResults("person", results);
 
     expect(result.fields.name).toEqual({
       value: "Jane Smith",
@@ -57,7 +69,7 @@ describe("consolidateResults", () => {
     expect(result.sourcesWithData).toEqual(["gmail", "stripe"]);
   });
 
-  it("higher confidence wins for the same field", () => {
+  it("higher confidence wins for the same field", async () => {
     const results: ExtractorResult[] = [
       {
         source: "gmail",
@@ -71,13 +83,13 @@ describe("consolidateResults", () => {
       },
     ];
 
-    const result = consolidateResults("person", results);
+    const result = await consolidateResults("person", results);
 
     expect(result.fields.title.value).toBe("VP of Marketing");
     expect(result.fields.title.source).toBe("gmail");
   });
 
-  it("deduplicates org connections by name or domain", () => {
+  it("deduplicates org connections by name or domain", async () => {
     const results: ExtractorResult[] = [
       {
         source: "gmail",
@@ -100,14 +112,14 @@ describe("consolidateResults", () => {
       },
     ];
 
-    const result = consolidateResults("person", results);
+    const result = await consolidateResults("person", results);
 
     expect(result.connections.orgs).toHaveLength(2);
     expect(result.connections.orgs?.[0].name).toBe("Acme Corp");
     expect(result.connections.orgs?.[1].name).toBe("Other Inc");
   });
 
-  it("aggregates notes from all sources", () => {
+  it("aggregates notes from all sources", async () => {
     const results: ExtractorResult[] = [
       {
         source: "gmail",
@@ -123,7 +135,7 @@ describe("consolidateResults", () => {
       },
     ];
 
-    const result = consolidateResults("person", results);
+    const result = await consolidateResults("person", results);
 
     expect(result.notes).toHaveLength(2);
     expect(result.notes[0].content).toBe("Email thread: Project discussion");

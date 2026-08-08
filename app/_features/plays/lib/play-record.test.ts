@@ -120,3 +120,59 @@ describe("createPlayRecord metering", () => {
     consoleError.mockRestore();
   });
 });
+
+/**
+ * Plays canon Phase 2 (P2-4): Ask Salt tool confirmations stay in chat —
+ * their play_runs rows exist ONLY for metering/idempotency and must never
+ * surface as approvable queue cards. Needs You renders state queued/draft;
+ * a chat-approved action must always land ran + auto_handled. If either
+ * assertion breaks, an executed external send becomes a ghost row invisible
+ * in both queue tabs (or worse, an approvable card for work already done).
+ */
+describe("createPlayRecord ask-salt queue isolation", () => {
+  beforeEach(() => {
+    recordPlayExecution.mockClear();
+    for (const key of Object.keys(insertedByTable)) delete insertedByTable[key];
+  });
+
+  it("chat-approved ask_salt actions always insert ran + auto_handled", async () => {
+    const result = await createPlayRecord({
+      workspaceId: "ws-1",
+      title: "Email Maya",
+      sourceContext: {
+        source: "ask_salt",
+        user_approved_at: new Date().toISOString(),
+      },
+      state: "ran",
+      useBudgetRouting: false,
+      executedToolSlugs: ["GMAIL_SEND_EMAIL"],
+    });
+
+    expect(result.queue).toBe("auto_handled");
+    expect(result.state).toBe("ran");
+
+    const row = insertedByTable["play_runs"]?.[0];
+    expect(row).toMatchObject({ queue: "auto_handled", state: "ran" });
+  });
+
+  it("approval short-circuits routing even when budget routing is left on", async () => {
+    // ask-salt-tools passes useBudgetRouting: false, but the approval
+    // short-circuit must hold on its own — a refactor dropping the option
+    // must not let an executed send route to needs_you.
+    const result = await createPlayRecord({
+      workspaceId: "ws-1",
+      title: "Email Maya",
+      sourceContext: {
+        source: "ask_salt",
+        user_approved_at: new Date().toISOString(),
+      },
+      state: "ran",
+      stakes: "high",
+      confidence: 95,
+      executedToolSlugs: ["GMAIL_SEND_EMAIL"],
+    });
+
+    expect(result.queue).toBe("auto_handled");
+    expect(result.state).toBe("ran");
+  });
+});

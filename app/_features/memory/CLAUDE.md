@@ -9,10 +9,10 @@ The Memory feature owns the `/memory` surface and the **Memory Care** background
 | Tab | Purpose |
 |-----|---------|
 | **Map** | Relationship graph (`connections` feature components) |
-| **Filter** | Transparency: Watching + Handled (P11: Kept out moved to Sources) |
+| **Activity** | Transparency: Watching + Handled (P11: Kept out moved to Sources) |
 | **Rules** | Care capability toggles, auto-apply threshold (P11: blocklist moved to Sources) |
 
-`/connections` redirects here. Legacy `/plays?filter=learning` redirects to `/memory?tab=filter`.
+`/connections` redirects here. Legacy `/plays?filter=learning` redirects to `/memory?tab=activity`; `?tab=filter` is a legacy alias for the Activity tab.
 
 ## Memory Care (`care/`)
 
@@ -30,7 +30,7 @@ Canonical architecture: **`docs/architecture/memory-care.md`**.
 
 ### Correction over approval
 
-Memory mutations auto-apply when confidence clears the tier bar. Users correct from Filter → Handled ("That's wrong") via rollback + `memoryRecordCorrection` / corrections actions. Approvals belong on the act layer (Plays Queue).
+Memory mutations auto-apply when confidence clears the tier bar. Users correct from Activity → Handled ("That's wrong") via rollback + `memoryRecordCorrection` / corrections actions. Approvals belong on the act layer (Plays Queue).
 
 ### Settings
 

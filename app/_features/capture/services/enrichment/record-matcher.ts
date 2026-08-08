@@ -133,17 +133,17 @@ async function matchByEmail(
   const supabase = createAdminClient();
   const { data: people } = await supabase
     .from("people")
-    .select("id, display_name, email")
+    .select("id, name, email")
     .eq("workspace_id", context.workspaceId)
     .in("email", emails)
     .limit(5);
 
   if (!people) return [];
 
-  return people.map((person: { id: string; display_name: string | null; email: string | null }) => ({
+  return people.map((person: { id: string; name: string | null; email: string | null }) => ({
     surface: "people" as MemorySurface,
     entity_id: person.id,
-    entity_label: person.display_name ?? person.email ?? "Unknown",
+    entity_label: person.name ?? person.email ?? "Unknown",
     match_type: "email" as const,
     confidence: 100,
   }));
@@ -189,50 +189,47 @@ async function matchByInvoiceNumber(
   const supabase = createAdminClient();
   const { data: billings } = await supabase
     .from("billing_records")
-    .select("id, number, description")
+    .select("id, number, vendor_label")
     .eq("workspace_id", context.workspaceId)
     .in("number", invoiceNumbers)
     .limit(3);
 
   if (!billings) return [];
 
-  return billings.map((billing: { id: string; number: string | null; description: string | null }) => ({
+  return billings.map((billing: { id: string; number: string | null; vendor_label: string | null }) => ({
     surface: "billing" as MemorySurface,
     entity_id: billing.id,
-    entity_label: billing.number ? `Invoice ${billing.number}` : (billing.description ?? "Unknown"),
+    entity_label: billing.number ? `Invoice ${billing.number}` : (billing.vendor_label ?? "Unknown"),
     match_type: "invoice_number" as const,
     confidence: 95,
   }));
 }
 
 /**
- * Match by existing routing decisions (already linked)
+ * Match by existing record links (already linked)
  */
 async function matchByExistingLinks(
   captureId: string,
-  context: MatchContext
+  workspaceId: string
 ): Promise<LinkedRecord[]> {
   const supabase = createAdminClient();
-  const { data: decisions } = await supabase
-    .from("capture_routing_decisions")
+  const { data: links } = await supabase
+    .from("capture_record_links")
     .select("target_surface, target_entity_id, confidence")
     .eq("capture_event_id", captureId)
-    .eq("workspace_id", context.workspaceId)
-    .in("status", ["approved", "auto_routed"])
+    .eq("workspace_id", workspaceId)
     .limit(5);
 
-  if (!decisions) return [];
+  if (!links) return [];
 
-  type DecisionRow = { target_surface: string; target_entity_id: string | null; confidence: number | null };
-  return decisions
-    .filter((d: DecisionRow) => d.target_entity_id)
-    .map((decision: DecisionRow) => ({
-      surface: decision.target_surface as MemorySurface,
-      entity_id: decision.target_entity_id!,
-      entity_label: "Linked record",
-      match_type: "existing_link" as const,
-      confidence: decision.confidence ?? 80,
-    }));
+  type LinkRow = { target_surface: string; target_entity_id: string; confidence: number };
+  return links.map((link: LinkRow) => ({
+    surface: link.target_surface as MemorySurface,
+    entity_id: link.target_entity_id,
+    entity_label: "Linked record",
+    match_type: "existing_link" as const,
+    confidence: link.confidence ?? 80,
+  }));
 }
 
 /**
@@ -310,7 +307,7 @@ async function matchByMeetingTitle(
       .from("meetings")
       .select("id, title")
       .eq("workspace_id", context.workspaceId)
-      .eq("external_id", calendarEventId)
+      .eq("external_event_id", calendarEventId)
       .is("deleted_at", null)
       .maybeSingle();
 
@@ -442,7 +439,7 @@ export async function findMatchingRecords(
     matchByMeetingTitle(identifiers.meetingTitle, identifiers.calendarEventId, context),
     matchByKeywords(identifiers.keywords, context),
     matchByFileName(identifiers.fileNames, context),
-    captureId ? matchByExistingLinks(captureId, context) : Promise.resolve([]),
+    captureId ? matchByExistingLinks(captureId, context.workspaceId) : Promise.resolve([]),
   ]);
 
   const allMatches = [

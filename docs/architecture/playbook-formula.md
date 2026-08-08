@@ -1,7 +1,9 @@
 # Playbook Formula
 
+> **⚠️ Superseded 2026-08-08.** The blueprint → adopt → compile architecture described here (`playbook_blueprints`, `play_templates`, `adoptPlaybookBlueprint`, `pnpm playbooks:compile`, `players`) was never built this way and the pieces that existed are retired. Current truth: playbooks are repo-discovered `definition.yaml` packages run by the v2 executor with per-step `auto|ask` gates — no compile step, no adoption layer. See **[playbooks.md](./playbooks.md)** and `.cursor/plans/2026-08-07-plays-canonical.md`. This doc is kept for design history only.
+
 **Date:** 2026-06-20  
-**Status:** Approved architecture  
+**Status:** ❌ Superseded (was: Approved architecture)  
 **Related:** [Plays Wave 2 acting engine](../../.cursor/plans/2026-06-12-plays-wave-2-acting-engine.md), [play-definition.ts](../../app/_features/plays/utils/play-definition.ts)
 
 ## Purpose
@@ -14,13 +16,13 @@ This document is the contract for authoring, compiling, adopting, running, and i
 
 ## Concepts (do not confuse)
 
-| Concept | What it is | Table / code |
-|---------|------------|----------------|
-| **System play** | Atomic Memory operation (create person, link org, …) | `system_plays`, `executeSystemPlay()` |
-| **Playbook blueprint** | Global, Salt-authored, versioned recipe | `playbook_blueprints` |
-| **Play template** | Workspace-adopted instance of a blueprint | `play_templates` |
-| **Play run** | One queue item / one approval boundary | `play_runs`, `executePlayRun()` |
-| **Player** | AI work role that owns/default-attributed playbooks | `players` |
+| Concept                | What it is                                           | Table / code                          |
+| ---------------------- | ---------------------------------------------------- | ------------------------------------- |
+| **System play**        | Atomic Memory operation (create person, link org, …) | `system_plays`, `executeSystemPlay()` |
+| **Playbook blueprint** | Global, Salt-authored, versioned recipe              | `playbook_blueprints`                 |
+| **Play template**      | Workspace-adopted instance of a blueprint            | `play_templates`                      |
+| **Play run**           | One queue item / one approval boundary               | `play_runs`, `executePlayRun()`       |
+| **Player**             | AI work role that owns/default-attributed playbooks  | `players`                             |
 
 **System plays** mutate Memory directly (no approval queue). **Playbooks** compose external actions (Gmail draft, Stripe read, …) through the acting engine with consent and approval.
 
@@ -28,13 +30,13 @@ This document is the contract for authoring, compiling, adopting, running, and i
 
 Every playbook has two layers — same pattern as a Claude skill (`SKILL.md` + bundled scripts):
 
-| Layer | Field | Audience | Purpose |
-|-------|-------|----------|---------|
-| **Identity** | slug, name, `player_slug`, description, `when_to_use`, trigger | Human + routing | When Salt should use this recipe |
-| **Procedure** | `procedure_md` | Human (default UI) | Plain-language steps and reasoning |
-| **Definition** | `definition` JSON | Machine | Compiled step DSL (`fetch` → `guard` → `render` → `llm` → `act`) |
-| **Consent** | `required_actions`, approval behavior | Trust | Which Composio slugs must be pre-approved |
-| **Value** | `value_model` | Metering | What outcome this play claims |
+| Layer          | Field                                                          | Audience           | Purpose                                                          |
+| -------------- | -------------------------------------------------------------- | ------------------ | ---------------------------------------------------------------- |
+| **Identity**   | slug, name, `player_slug`, description, `when_to_use`, trigger | Human + routing    | When Salt should use this recipe                                 |
+| **Procedure**  | `procedure_md`                                                 | Human (default UI) | Plain-language steps and reasoning                               |
+| **Definition** | `definition` JSON                                              | Machine            | Compiled step DSL (`fetch` → `guard` → `render` → `llm` → `act`) |
+| **Consent**    | `required_actions`, approval behavior                          | Trust              | Which Composio slugs must be pre-approved                        |
+| **Value**      | `value_model`                                                  | Metering           | What outcome this play claims                                    |
 
 Progressive disclosure in UI: **card metadata → readable steps → Advanced (definition JSON)**.
 
@@ -79,7 +81,7 @@ value:
 
 ### Body
 
-Markdown sections: **What this does**, **When it runs**, **Steps** (numbered, explain *why* not just *what*), **What you approve**.
+Markdown sections: **What this does**, **When it runs**, **Steps** (numbered, explain _why_ not just _what_), **What you approve**.
 
 Avoid rigid ALL-CAPS MUSTs; explain reasoning so personalization steps stay grounded.
 
@@ -185,17 +187,15 @@ Never auto-apply playbook changes without human approval.
 
 ## Files
 
-| Path | Role |
-|------|------|
-| `app/_features/plays/playbooks/` | Authoring source + evals |
-| `app/_features/plays/playbooks/types.ts` | Shared types |
-| `app/_features/plays/playbooks/parse-playbook.ts` | Parse `playbook.md` |
-| `app/_features/plays/playbooks/eval-runner.ts` | Mocked definition runner + assertions |
-| `app/_features/plays/playbooks/learning/` | Signal capture + proposal synthesis |
-| `scripts/compile-playbooks.ts` | Author → validated seed |
-| `scripts/bench-playbooks.ts` | Eval benchmark runner |
-| `supabase/migrations/*_playbook_blueprints.sql` | Registry + learning tables |
-| `app/_features/plays/playbooks/memory-monopoly.ts` | Memory-write constraint enforcement |
+| Path                                               | Role                                  |
+| -------------------------------------------------- | ------------------------------------- |
+| `app/_features/plays/playbooks/`                   | v2 playbook packages + services       |
+| `app/_features/plays/playbooks/types.ts`           | Shared types                          |
+| `app/_features/plays/playbooks/schema/v2/`         | v2 `definition.yaml` schema: discovery, parser, executor |
+| `supabase/migrations/*_playbook_blueprints.sql`    | Registry + learning tables            |
+| `app/_features/plays/playbooks/memory-monopoly.ts` | Memory-write constraint enforcement   |
+
+> Deleted with the v1 engine: `parse-playbook.ts`, `eval-runner.ts`, `learning/`, `scripts/compile-playbooks.ts`, `scripts/bench-playbooks.ts`.
 
 ## Two-Pipeline Reality (historical — superseded)
 
@@ -204,16 +204,16 @@ Never auto-apply playbook changes without human approval.
 > (`app/_features/memory/care/`). Playbooks are **act-layer only**. The text
 > below is kept for historical context of the old dual pipeline.
 
-### Compiled Playbooks (Acting) — still the act-layer path
+### Compiled Playbooks (Acting) — superseded by v2 packages
 
-Standard path for most playbooks:
+The old standard path (kept for history):
 
 1. Author `playbook.md` in `app/_features/plays/playbooks/<slug>/`
 2. Create `evals.json` with test cases
 3. Run `pnpm playbooks:compile` — validates definition, runs evals, emits seed migration
 4. Seed migration UPSERTS into `playbook_blueprints`
 
-**Discovered by:** `discoverPlaybookDirs()`.
+**Current path:** v2 `definition.yaml` packages discovered by `discoverV2Playbooks()` (`schema/v2/discovery.ts`); there is no compile/adoption layer (`compile-playbooks.ts` and `parse-playbook.ts` are deleted).
 
 ### Keeper Playbooks (retired)
 
@@ -223,7 +223,7 @@ Retired path for Memory record policies (do not author new ones):
 2. Policy and fill rules now live in Memory Care + the field registry
 3. See [Memory Care](memory-care.md) for the current system
 
-**Discovered by:** `discoverKeeperPlaybookDirs()` — includes only `keeper-*` prefixes.
+**Discovered by:** ~~`discoverKeeperPlaybookDirs()`~~ (deleted with the Keeper retirement).
 
 ### Why the Split?
 
@@ -244,24 +244,24 @@ Is your playbook for Memory record management?
 
 ## Memory-Monopoly Constraint
 
-**Invariant:** Only Keeper-player playbooks may mutate Memory records.
+**Invariant:** No playbook may mutate Memory records. Playbooks may READ memory (fetch steps); any act step with a memory-mutating slug is rejected. Memory mutations are owned by Memory Care (`app/_features/memory/care`) and the protected memory tools (`app/_lib/memory-tools`).
 
 ### Mutating Slugs (Denylist)
 
-These action slugs are reserved for Keeper playbooks only:
+These action slugs are forbidden in all playbooks:
 
-| Category | Slugs |
-|----------|-------|
-| Person | `memory_create_person`, `memory_update_person`, `memory_archive_person`, `memory_classify_person` |
-| Org | `memory_create_org`, `memory_update_org`, `memory_archive_org` |
-| Work | `memory_create_work`, `memory_update_work`, `memory_archive_work` |
-| Links | `memory_link_*`, `memory_unlink_*` (all variants) |
-| Notes/Meetings | `memory_create_note`, `memory_create_meeting` |
+| Category       | Slugs                                                                                             |
+| -------------- | ------------------------------------------------------------------------------------------------- |
+| Person         | `memory_create_person`, `memory_update_person`, `memory_archive_person`, `memory_classify_person` |
+| Org            | `memory_create_org`, `memory_update_org`, `memory_archive_org`                                    |
+| Work           | `memory_create_work`, `memory_update_work`, `memory_archive_work`                                 |
+| Links          | `memory_link_*`, `memory_unlink_*` (all variants)                                                 |
+| Notes/Meetings | `memory_create_note`, `memory_create_meeting`                                                     |
 
 ### Enforcement Layers
 
-1. **Parse-time** (`parse-playbook.ts`): Non-keeper playbooks with memory-mutating `act` slugs fail to parse
-2. **Runtime** (`run-play.ts`): Defense-in-depth backstop refuses execution even if a definition bypasses parse
+1. **Parse-time** (`playbooks/schema/v2/parser.ts`): any playbook with memory-mutating `act` slugs fails validation
+2. **Runtime** (`playbooks/schema/v2/executor.ts`): defense-in-depth backstop refuses execution even if a definition bypasses parse
 
 ### Exception
 
@@ -270,10 +270,12 @@ Ask SALT's chat `memory_*` system plays are the **human-in-chat path** — they 
 ### Rationale
 
 - Single records pipeline: provenance, admission rules, and consistency live in one place
-- Structural guardrail for user-created (General player) playbooks
-- Outcomes that should update records emit signals/captures for Keeper to process
+- Structural guardrail making user-created playbooks safe by construction
+- Outcomes that should update records emit signals/captures for Memory Care to process
 
-## Integration Contract (Playbooks × Connectors)
+## Integration Contract (Playbooks × Connectors) — v1, historical
+
+> **Historical (v1 engine):** `adoptPlaybookBlueprint()` and `executePlayRun()` are deleted with the v1 engine; `required_toolkits` survives only as a type. The v2 executor performs the equivalent toolkit-health gate (a run with a disconnected toolkit transitions to `blocked`). The mechanics below describe the v1 flow.
 
 Playbooks that execute Composio tools require their toolkits to be connected. The contract:
 
@@ -290,17 +292,17 @@ required_toolkits:
 # STRIPE_CREATE_INVOICE → stripe
 ```
 
-Derivation: `deriveToolkitSlugsFromActions()` in `parse-playbook.ts` splits action slugs at the first `_` to extract the toolkit prefix. Capability-based actions (`capability:*`) are skipped (resolved at runtime).
+Derivation (v1, historical): `deriveToolkitSlugsFromActions()` split action slugs at the first `_` to extract the toolkit prefix. Capability-based actions (`capability:*`) were skipped (resolved at runtime). The v2 schema declares required connectors in the package — see `schema/v2/CLAUDE.md`.
 
 ### Adoption
 
 `adoptPlaybookBlueprint()` checks all `required_toolkits` against `workspace_integrations`:
 
-| Status | Result |
-|--------|--------|
-| All connected | Adoption proceeds normally |
-| Some missing | Adoption succeeds but returns `missingToolkits[]` for UI to prompt connection |
-| Some expired | Same as missing; UI shows reconnect prompt |
+| Status        | Result                                                                        |
+| ------------- | ----------------------------------------------------------------------------- |
+| All connected | Adoption proceeds normally                                                    |
+| Some missing  | Adoption succeeds but returns `missingToolkits[]` for UI to prompt connection |
+| Some expired  | Same as missing; UI shows reconnect prompt                                    |
 
 The adoption-time check is advisory, not blocking — the user may want to adopt and then connect. The run-time check is hard.
 
@@ -308,16 +310,16 @@ The adoption-time check is advisory, not blocking — the user may want to adopt
 
 Before executing steps, `executePlayRun()` verifies all `required_toolkits` are healthy:
 
-| Status | Play State |
-|--------|------------|
-| All connected | Proceeds with execution |
+| Status                   | Play State                     |
+| ------------------------ | ------------------------------ |
+| All connected            | Proceeds with execution        |
 | Any disconnected/expired | Transitions to `blocked` state |
 
 **Blocked state behavior:**
 
 - Play pauses (does NOT fail permanently)
 - `metadata.blocked_toolkits` records which toolkits need attention
-- Activity log entry guides user: "Connect in Settings → Connections, then re-approve"
+- Activity log entry guides user: "Connect in Sources → Connectors, then re-approve"
 - User reconnects, then the play can be retried
 
 ### Consent Layer
@@ -334,49 +336,41 @@ PlayApprovalContext (execution gate)
 
 A playbook must pass both checks: connection for the toolkit, consent for the specific actions.
 
-## Player Capability Contract
+## Player Capability Contract (retired)
 
-Players are AI work roles that own playbooks. The capability registry (`app/_features/plays/players/capabilities.ts`) defines what each player can do — replacing scattered per-rule checks across the codebase.
+> **Retired (2026-08):** the Players system and its capability registry (`app/_features/plays/players/`) are deleted. The matrix below is design history. The live guardrails are the memory-monopoly (above) and the consent/approval layer in the v2 executor.
 
-### Capability Matrix
+### Capability Matrix (historical)
 
-| Player | Memory Writes | Destructive | Always Approval | Playbook Kinds | Domain Toolkits |
-|--------|---------------|-------------|-----------------|----------------|-----------------|
-| keeper | ✅ | ❌ | ❌ | profile | — |
-| billing | ❌ | ❌ | ❌ | acting | stripe, quickbooks |
-| follow-up | ❌ | ❌ | ❌ | acting | gmail, slack |
-| brief | ❌ | ❌ | ❌ | acting | googlecalendar, gmail, notion |
-| client-risk | ❌ | ❌ | ❌ | acting | — |
-| scope | ❌ | ❌ | ❌ | acting | notion, clickup, asana |
-| general* | ❌ | ❌ | ✅ | acting | — |
+| Player      | Memory Writes | Destructive | Always Approval | Playbook Kinds | Domain Toolkits               |
+| ----------- | ------------- | ----------- | --------------- | -------------- | ----------------------------- |
+| keeper      | ✅            | ❌          | ❌              | profile        | —                             |
+| billing     | ❌            | ❌          | ❌              | acting         | stripe, quickbooks            |
+| follow-up   | ❌            | ❌          | ❌              | acting         | gmail, slack                  |
+| brief       | ❌            | ❌          | ❌              | acting         | googlecalendar, gmail, notion |
+| client-risk | ❌            | ❌          | ❌              | acting         | —                             |
+| scope       | ❌            | ❌          | ❌              | acting         | notion, clickup, asana        |
+| general\*   | ❌            | ❌          | ✅              | acting         | —                             |
 
-*General player is Phase 3 (user-created playbooks).
-
-### Enforcement Layers
-
-The registry is the single source of truth consulted by:
-
-1. **Parse-time** (`parse-playbook.ts`): Validates playbook kind matches player's allowed kinds
-2. **Memory-monopoly** (`memory-monopoly.ts`): Checks `canWriteMemory` before allowing memory-mutating slugs
-3. **Run-time** (`run-play.ts`): Checks `alwaysRequiresApproval` for consent enforcement
+\*General player is Phase 3 (user-created playbooks).
 
 ### Player Context
 
 Per-workspace, per-player context stored in `player_context` table:
 
-| Field | Purpose |
-|-------|---------|
-| `domain_knowledge` | Industry terms, common entities, business rules |
-| `tone_preferences` | How this player should communicate |
-| `workflow_preferences` | Timing, channels, approval patterns |
-| `context_doc` | Raw context doc for LLM injection |
-| `context_budget` | Char limit for injection (default 1500) |
+| Field                  | Purpose                                         |
+| ---------------------- | ----------------------------------------------- |
+| `domain_knowledge`     | Industry terms, common entities, business rules |
+| `tone_preferences`     | How this player should communicate              |
+| `workflow_preferences` | Timing, channels, approval patterns             |
+| `context_doc`          | Raw context doc for LLM injection               |
+| `context_budget`       | Char limit for injection (default 1500)         |
 
-Context is injected into LLM steps via `assemblePlayerContext()`, fenced with `<player-context>` tags to prevent injection attacks.
+Context was injected into LLM steps fenced with `<player-context>` tags to prevent injection attacks. (`assemblePlayerContext()` is deleted; the `player_context` table remains, written by a settings action.)
 
 ### Heuristic: Player vs Playbook
 
 - **Playbook** = skill with a start and end (versioned, auditable procedure)
 - **Player** = agent role (owns playbooks, dispatch, shared context)
 - Repetition changes **trust level**, never location (earned autonomy)
-- Judgment about *when* to run → player; *what* to run → playbook
+- Judgment about _when_ to run → player; _what_ to run → playbook

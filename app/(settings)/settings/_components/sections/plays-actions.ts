@@ -54,3 +54,40 @@ export async function updateWorkspaceTrustLevel(
   revalidatePath("/memory");
   revalidatePath("/plays"); // Ask Salt tools depend on trust level
 }
+
+/* ── Earned autonomy grants ── */
+
+export interface AutonomyGrantItem {
+  playbookSlug: string;
+  toolSlug: string;
+  approvedCount: number;
+  grantedAt: string;
+}
+
+/**
+ * Active earned-autonomy grants for this workspace (Settings → Plays).
+ */
+export async function getAutonomyGrants(
+  workspaceId: string,
+): Promise<AutonomyGrantItem[]> {
+  const { listAutonomyGrants } = await import(
+    "@/app/_features/plays/services/earned-autonomy"
+  );
+  return listAutonomyGrants(workspaceId);
+}
+
+/**
+ * Revoke a grant — the step immediately returns to asking for approval.
+ */
+export async function revokeAutonomyGrant(
+  workspaceId: string,
+  playbookSlug: string,
+  toolSlug: string,
+): Promise<void> {
+  const { revokeAutonomy } = await import(
+    "@/app/_features/plays/services/earned-autonomy"
+  );
+  await revokeAutonomy(workspaceId, playbookSlug, toolSlug);
+  revalidatePath("/settings/plays");
+  revalidatePath("/plays");
+}

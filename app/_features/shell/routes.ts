@@ -45,7 +45,7 @@ export const billingRoutes = {
 // ============================================================================
 
 export const spacesRoutes = {
-  /** @deprecated Spaces retired — use memoryRoutes.work */
+  /** Spaces is a roadmap feature (not in the MVP) — URLs point at /work until it ships. */
   home: "/work",
   all: "/work",
   pinned: "/work",
@@ -67,7 +67,7 @@ export const sourcesRoutes = {
 
 export const memoryTabRoutes = {
   map: "/memory",
-  filter: "/memory?tab=filter",
+  activity: "/memory?tab=activity",
   rules: "/memory?tab=rules",
 } as const;
 

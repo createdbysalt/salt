@@ -20,7 +20,6 @@ import "server-only";
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import {
-  memoryAccumulateEvidence,
   memoryLinkEntities,
   type LearningEntityType,
 } from "@/app/_lib/memory-tools";
@@ -28,7 +27,7 @@ import {
   extractDomain,
   isPersonalDomain,
 } from "@/app/_features/capture/services/system-plays/person-signals";
-import { CARE_SETTINGS_SLUGS, type CareRunContext, type CareRunResult } from "../types";
+import type { CareRunContext, CareRunResult } from "../types";
 
 const STALE_WARNING_DAYS = 30;
 const STALE_CRITICAL_DAYS = 60;
@@ -246,8 +245,12 @@ async function linkBillingContact(
 // ============================================================================
 
 /**
- * Weekly relationship health scan: clients silent for 30+/60+ days get
- * at-risk evidence in Watching (30d = stale, 60d = critical).
+ * Weekly relationship health scan: clients silent for 30+/60+ days become
+ * `revenue_risk` findings in HQ Heads up (30d = stale, 60d = critical).
+ *
+ * Founder call 2026-08-08: at-risk clients are act-layer attention items,
+ * not Memory field proposals — they never belonged in Watching (which shows
+ * only concrete (field, value) proposals).
  */
 async function runHealthScan(workspaceId: string): Promise<CareRunResult> {
   const admin = createAdminClient();
@@ -279,24 +282,51 @@ async function runHealthScan(workspaceId: string): Promise<CareRunResult> {
     );
     const critical = daysSinceContact >= STALE_CRITICAL_DAYS;
 
-    const evidence = await memoryAccumulateEvidence({
-      workspaceId,
-      entityType: "person",
-      entityId: client.id,
-      field: "_relationship_at_risk",
-      value: {
-        healthStatus: critical ? "critical" : "stale",
-        daysSinceContact,
-        lastContactAt: client.last_contact_at,
-      },
-      confidence: critical ? 95 : 90,
-      evidenceType: "recency",
-      because: `Client ${client.name ?? ""} has had no contact in ${daysSinceContact} days`.trim(),
-      source: "care",
-      sourceDetails: { playbookSlug: CARE_SETTINGS_SLUGS.connections },
-    });
+    // Dedupe: one open at-risk finding per client — the weekly scan must not
+    // stack a new card every run while the client stays quiet.
+    const { data: existing } = await admin
+      .from("intelligence_findings")
+      .select("id")
+      .eq("workspace_id", workspaceId)
+      .eq("person_id", client.id)
+      .eq("finding_type", "revenue_risk")
+      .eq("state", "needs_you")
+      .limit(1)
+      .maybeSingle();
 
-    if (evidence.evidenceId) emitted++;
+    if (existing?.id) continue;
+
+    const clientName = client.name?.trim() || "A client";
+    const { data: finding, error: findingError } = await admin
+      .from("intelligence_findings")
+      .insert({
+        workspace_id: workspaceId,
+        person_id: client.id,
+        finding_type: "revenue_risk",
+        title: `${clientName} has gone quiet`,
+        content: `No contact in ${daysSinceContact} days — the relationship is ${critical ? "critically" : "getting"} stale.`,
+        confidence: critical ? 95 : 90,
+        state: "needs_you",
+        evidence: {
+          source_type: "memory-care",
+          capability: "connections",
+          health_status: critical ? "critical" : "stale",
+          days_since_contact: daysSinceContact,
+          last_contact_at: client.last_contact_at,
+        },
+      })
+      .select("id")
+      .single();
+
+    if (findingError) {
+      console.error(
+        `[memory-care:connections] Failed to create at-risk finding for ${client.id}:`,
+        findingError.message
+      );
+      continue;
+    }
+
+    if (finding?.id) emitted++;
   }
 
   return {

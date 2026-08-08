@@ -1,13 +1,13 @@
 import { cache } from "react";
 import { createClient } from "@/app/_lib/supabase/server";
 import type {
-  CaptureEvent,
-  CaptureRoutingDecision,
-  CaptureWithRouting,
-  PendingCaptureSummary,
   StreamCaptureSummary,
+  StreamPlayDispatch,
+  StreamWatchTrigger,
   CaptureState,
-  RoutingStatus,
+  CaptureEventType,
+  CaptureOrigin,
+  CaptureSourceType,
 } from "./types";
 import type { FindingEvidence } from "./types/intelligence-findings";
 import {
@@ -17,53 +17,86 @@ import {
   type CaptureFindingLink,
 } from "./services/intelligence/capture-intelligence-outcome";
 import { resolveCaptureSourceUrl } from "./utils/capture-source-url";
-import type { CaptureSourceType } from "./types";
+import { getTierCapacity } from "@/app/_lib/usage/tiers";
+import { nextDiscoveryDueAt } from "./services/discovery-cadence";
+
+/** Shape of the gate_result JSONB subset the stream reads. */
+interface StreamGateResult {
+  gateResults?: {
+    knownEntity?: {
+      target?: {
+        surface?: string;
+        entityId?: string;
+        matchType?: string;
+      };
+      reason?: string;
+    } | null;
+  };
+}
+
+function readKnownEntityWatch(
+  gateResult: unknown,
+): Omit<StreamWatchTrigger, "entity_label"> | null {
+  const target = (gateResult as StreamGateResult | null)?.gateResults?.knownEntity?.target;
+  if (!target?.entityId || !target.surface) return null;
+  const reason = (gateResult as StreamGateResult | null)?.gateResults?.knownEntity?.reason;
+  // Reason format from the known-entity gate: "Watch expression match: email = x@y.com"
+  const matchedValue = reason?.includes(" = ") ? reason.split(" = ").pop() ?? null : null;
+  return {
+    entity_id: target.entityId,
+    surface: target.surface,
+    match_type: target.matchType ?? "unknown",
+    matched_value: matchedValue,
+  };
+}
+
+function readPlaysDispatched(enrichedMetadata: unknown): StreamPlayDispatch[] {
+  const raw = (enrichedMetadata as { plays_dispatched?: unknown } | null)?.plays_dispatched;
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(
+    (d): d is StreamPlayDispatch =>
+      typeof d === "object" && d !== null &&
+      typeof (d as StreamPlayDispatch).play_run_id === "string" &&
+      typeof (d as StreamPlayDispatch).play_name === "string",
+  );
+}
 
 /**
- * Get pending captures for a workspace (the action queue).
+ * Resolve display labels for watch-matched entities (people + organizations)
+ * in two batched queries — never one per row.
  */
-export const getPendingCaptures = cache(async (
-  workspaceId: string,
-  options: { limit?: number } = {}
-): Promise<PendingCaptureSummary[]> => {
-  const { limit = 50 } = options;
+async function getWatchEntityLabels(
+  watches: Array<Omit<StreamWatchTrigger, "entity_label">>,
+): Promise<Map<string, string>> {
+  const labels = new Map<string, string>();
+  const personIds = [...new Set(watches.filter((w) => w.surface === "people").map((w) => w.entity_id))];
+  const orgIds = [...new Set(watches.filter((w) => w.surface === "organizations").map((w) => w.entity_id))];
+  if (personIds.length === 0 && orgIds.length === 0) return labels;
+
   const supabase = await createClient();
 
-  const { data, error } = await supabase
-    .from("capture_events")
-    .select(`
-      id,
-      title,
-      capture_type,
-      source_type,
-      origin,
-      overall_confidence,
-      created_at,
-      capture_routing_decisions(id)
-    `)
-    .eq("workspace_id", workspaceId)
-    .eq("state", "pending")
-    .order("created_at", { ascending: false })
-    .limit(limit);
-
-  if (error) {
-    console.error("[capture-queries] getPendingCaptures error:", error);
-    return [];
+  if (personIds.length > 0) {
+    const { data } = await supabase
+      .from("people")
+      .select("id, name, email")
+      .in("id", personIds);
+    for (const row of data ?? []) {
+      labels.set(row.id, row.name ?? row.email ?? "Unknown person");
+    }
   }
 
-  return (data ?? []).map((row) => ({
-    capture_id: row.id,
-    title: row.title,
-    capture_type: row.capture_type,
-    source_type: row.source_type,
-    origin: row.origin,
-    overall_confidence: row.overall_confidence,
-    created_at: row.created_at,
-    routing_count: Array.isArray(row.capture_routing_decisions)
-      ? row.capture_routing_decisions.length
-      : 0,
-  }));
-});
+  if (orgIds.length > 0) {
+    const { data } = await supabase
+      .from("organizations")
+      .select("id, name, domain")
+      .in("id", orgIds);
+    for (const row of data ?? []) {
+      labels.set(row.id, row.name ?? row.domain ?? "Unknown organization");
+    }
+  }
+
+  return labels;
+}
 
 function buildFindingLinkMap(
   rows: Array<{
@@ -133,6 +166,143 @@ async function getFindingLinksByCaptureIds(
   return buildFindingLinkMap(scopedRows);
 }
 
+const STREAM_SELECT = `
+  id,
+  workspace_id,
+  title,
+  capture_type,
+  source_type,
+  source_external_id,
+  origin,
+  state,
+  overall_confidence,
+  created_at,
+  processed_at,
+  extracted_data,
+  enriched_metadata,
+  gate_action,
+  gate_result,
+  is_bootstrap
+`;
+
+/** Deciding gate's reason — the "why not" for dropped/held/noise rows. */
+function extractGateReason(gateResult: unknown): string | null {
+  if (!gateResult || typeof gateResult !== "object") return null;
+  const results = (gateResult as { gateResults?: Record<string, { reason?: unknown }> })
+    .gateResults;
+  if (!results) return null;
+  for (const key of ["preIngest", "blocklist", "admission"] as const) {
+    const reason = results[key]?.reason;
+    if (typeof reason === "string" && reason) return reason;
+  }
+  return null;
+}
+
+type StreamRow = {
+  id: string;
+  workspace_id: string;
+  title: string | null;
+  capture_type: string;
+  source_type: string;
+  source_external_id: string | null;
+  origin: string;
+  state: string;
+  overall_confidence: number | null;
+  created_at: string;
+  processed_at: string | null;
+  extracted_data: unknown;
+  enriched_metadata: unknown;
+  gate_action: string | null;
+  gate_result: unknown;
+  is_bootstrap: boolean | null;
+};
+
+async function mapStreamRows(
+  workspaceId: string,
+  rows: StreamRow[],
+): Promise<StreamCaptureSummary[]> {
+  const captureIds = rows.map((row) => row.id);
+  const findingLinks = await getFindingLinksByCaptureIds(workspaceId, captureIds);
+
+  // Watch matches (known-entity gate) live in gate_result; resolve their
+  // entity labels in two batched lookups instead of one query per row.
+  const watchByRow = new Map(
+    rows
+      .map((row) => [row.id, readKnownEntityWatch(row.gate_result)] as const)
+      .filter(
+        (entry): entry is [string, Omit<StreamWatchTrigger, "entity_label">] =>
+          entry[1] !== null,
+      ),
+  );
+  const watchLabels = await getWatchEntityLabels([...watchByRow.values()]);
+
+  return rows.map((row) => {
+    const findingLink = findingLinks.get(row.id) ?? null;
+    const intelligenceMeta = readIntelligenceMeta(row.extracted_data);
+    const intelligence_outcome = resolveCaptureIntelligenceOutcome({
+      intelligenceMeta,
+      findingLink,
+      routingState: row.state as CaptureState,
+    });
+
+    const watch = watchByRow.get(row.id);
+    const watchesTriggered: StreamWatchTrigger[] = watch
+      ? [
+          {
+            ...watch,
+            entity_label:
+              watchLabels.get(watch.entity_id) ?? watch.matched_value ?? "Watched record",
+          },
+        ]
+      : [];
+
+    // Extract sender and preview from extracted_data
+    const extracted = row.extracted_data as {
+      from_name?: string;
+      from_email?: string;
+      body_text?: string;
+      snippet?: string;
+    } | null;
+    const fromLabel = extracted?.from_name?.trim() || extracted?.from_email || null;
+    const bodyPreview = extracted?.snippet || extracted?.body_text?.slice(0, 200) || null;
+
+    return {
+      capture_id: row.id,
+      workspace_id: row.workspace_id,
+      title: row.title,
+      capture_type: row.capture_type as CaptureEventType,
+      source_type: row.source_type,
+      origin: row.origin as CaptureOrigin,
+      state: row.state as CaptureState,
+      overall_confidence: row.overall_confidence,
+      created_at: row.created_at,
+      processed_at: row.processed_at,
+      intelligence_outcome,
+      finding_id:
+        findingLink?.finding_id ?? intelligenceMeta?.finding_id ?? null,
+      source_url:
+        // Prefer deep_link from enriched_metadata (populated during enrichment)
+        (row.enriched_metadata as { deep_link?: string | null } | null)?.deep_link ??
+        // Fall back to resolved URL (e.g., Gmail thread link)
+        resolveCaptureSourceUrl({
+          sourceType: row.source_type,
+          sourceExternalId: row.source_external_id,
+          extractedData: row.extracted_data,
+        }),
+      from_label: fromLabel,
+      body_preview: bodyPreview,
+      extracted_data: row.extracted_data as Record<string, unknown> | null,
+      enriched_metadata:
+        (row.enriched_metadata as StreamCaptureSummary["enriched_metadata"]) ?? null,
+      is_bootstrap: row.is_bootstrap ?? false,
+      gate_action: row.gate_action ?? null,
+      gate_reason: extractGateReason(row.gate_result),
+      plays_dispatched: readPlaysDispatched(row.enriched_metadata),
+      watches_triggered: watchesTriggered,
+    };
+  });
+}
+
 export const getCaptureStream = cache(async (
   workspaceId: string,
   options: {
@@ -150,23 +320,7 @@ export const getCaptureStream = cache(async (
 
   let query = supabase
     .from("capture_events")
-    .select(`
-      id,
-      workspace_id,
-      title,
-      capture_type,
-      source_type,
-      source_external_id,
-      origin,
-      state,
-      overall_confidence,
-      created_at,
-      processed_at,
-      extracted_data,
-      enriched_metadata,
-      gate_action,
-      is_bootstrap
-    `)
+    .select(STREAM_SELECT)
     .eq("workspace_id", workspaceId)
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
@@ -197,185 +351,50 @@ export const getCaptureStream = cache(async (
     return [];
   }
 
-  const captureIds = (data ?? []).map((row) => row.id);
-  const findingLinks = await getFindingLinksByCaptureIds(workspaceId, captureIds);
-
-  return (data ?? []).map((row) => {
-    const findingLink = findingLinks.get(row.id) ?? null;
-    const intelligenceMeta = readIntelligenceMeta(row.extracted_data);
-    const intelligence_outcome = resolveCaptureIntelligenceOutcome({
-      intelligenceMeta,
-      findingLink,
-      routingState: row.state as CaptureState,
-    });
-
-    // Extract sender and preview from extracted_data
-    const extracted = row.extracted_data as {
-      from_name?: string;
-      from_email?: string;
-      body_text?: string;
-      snippet?: string;
-    } | null;
-    const fromLabel = extracted?.from_name?.trim() || extracted?.from_email || null;
-    const bodyPreview = extracted?.snippet || extracted?.body_text?.slice(0, 200) || null;
-
-    return {
-      capture_id: row.id,
-      workspace_id: row.workspace_id,
-      title: row.title,
-      capture_type: row.capture_type,
-      source_type: row.source_type,
-      origin: row.origin,
-      state: row.state,
-      overall_confidence: row.overall_confidence,
-      created_at: row.created_at,
-      processed_at: row.processed_at,
-      intelligence_outcome,
-      finding_id:
-        findingLink?.finding_id ?? intelligenceMeta?.finding_id ?? null,
-      source_url:
-        // Prefer deep_link from enriched_metadata (populated during enrichment)
-        (row.enriched_metadata as { deep_link?: string | null } | null)?.deep_link ??
-        // Fall back to resolved URL (e.g., Gmail thread link)
-        resolveCaptureSourceUrl({
-          sourceType: row.source_type as CaptureSourceType,
-          sourceExternalId: row.source_external_id,
-          extractedData: row.extracted_data,
-        }),
-      from_label: fromLabel,
-      body_preview: bodyPreview,
-      extracted_data: row.extracted_data as Record<string, unknown> | null,
-      enriched_metadata: row.enriched_metadata as StreamCaptureSummary["enriched_metadata"] ?? null,
-      is_bootstrap: row.is_bootstrap ?? false,
-      gate_action: row.gate_action ?? null,
-    };
-  });
+  return mapStreamRows(workspaceId, (data ?? []) as StreamRow[]);
 });
 
 /**
- * Get a single capture with all its routing decisions.
+ * Activity-as-diagnostic (Sources plan 2.9): search ALL capture history —
+ * including dropped/held rows the stream hides — by title, sender, or
+ * subject. Each result carries its gate_action + gate_reason so the user can
+ * answer "did Salt see X, and what did it do with it?" without guessing.
  */
-export const getCaptureWithRouting = cache(async (
-  captureId: string
-): Promise<CaptureWithRouting | null> => {
-  const supabase = await createClient();
-
-  const { data: capture, error: captureError } = await supabase
-    .from("capture_events")
-    .select("*")
-    .eq("id", captureId)
-    .single();
-
-  if (captureError || !capture) {
-    console.error("[capture-queries] getCaptureWithRouting error:", captureError);
-    return null;
-  }
-
-  const { data: decisions, error: decisionsError } = await supabase
-    .from("capture_routing_decisions")
-    .select("*")
-    .eq("capture_event_id", captureId)
-    .order("confidence", { ascending: false });
-
-  if (decisionsError) {
-    console.error("[capture-queries] getCaptureWithRouting decisions error:", decisionsError);
-  }
-
-  const routingDecisions = (decisions ?? []) as CaptureRoutingDecision[];
-  const pendingCount = routingDecisions.filter((d) => d.status === "pending").length;
-
-  return {
-    ...(capture as CaptureEvent),
-    routing_decisions: routingDecisions,
-    pending_decisions_count: pendingCount,
-  };
-});
-
-/**
- * Get routing decisions that need review for a workspace.
- */
-export const getPendingRoutingDecisions = cache(async (
+export async function searchCaptureHistory(
   workspaceId: string,
-  options: { limit?: number } = {}
-): Promise<(CaptureRoutingDecision & { capture: CaptureEvent })[]> => {
+  options: { query: string; limit?: number },
+): Promise<StreamCaptureSummary[]> {
   const { limit = 50 } = options;
-  const supabase = await createClient();
+  // Strip PostgREST or()-delimiters and ILIKE wildcards from the raw term.
+  const term = options.query.replace(/[%_,()"]/g, " ").replace(/\s+/g, " ").trim();
+  if (term.length < 2) return [];
 
+  const supabase = await createClient();
+  const like = `%${term}%`;
   const { data, error } = await supabase
-    .from("capture_routing_decisions")
-    .select(`
-      *,
-      capture_events!inner(*)
-    `)
-    .eq("capture_events.workspace_id", workspaceId)
-    .eq("status", "pending")
+    .from("capture_events")
+    .select(STREAM_SELECT)
+    .eq("workspace_id", workspaceId)
+    .or(
+      [
+        `title.ilike.${like}`,
+        `extracted_data->>from_email.ilike.${like}`,
+        `extracted_data->>from_name.ilike.${like}`,
+        `extracted_data->>sender_email.ilike.${like}`,
+        `extracted_data->>sender_name.ilike.${like}`,
+        `extracted_data->>subject.ilike.${like}`,
+      ].join(","),
+    )
     .order("created_at", { ascending: false })
     .limit(limit);
 
   if (error) {
-    console.error("[capture-queries] getPendingRoutingDecisions error:", error);
+    console.error("[capture-queries] searchCaptureHistory error:", error.message, error.code);
     return [];
   }
 
-  return (data ?? []).map((row) => ({
-    ...row,
-    capture: row.capture_events as CaptureEvent,
-  }));
-});
-
-/**
- * Get capture statistics for a workspace.
- */
-export const getCaptureStats = cache(async (
-  workspaceId: string,
-  options: { since?: Date } = {}
-): Promise<{
-  total: number;
-  pending: number;
-  routed: number;
-  dismissed: number;
-  added: number;
-  found: number;
-  autoRouted: number;
-}> => {
-  const { since } = options;
-  const supabase = await createClient();
-
-  let query = supabase
-    .from("capture_events")
-    .select("state, origin", { count: "exact" })
-    .eq("workspace_id", workspaceId);
-
-  if (since) {
-    query = query.gte("created_at", since.toISOString());
-  }
-
-  const { data, count, error } = await query;
-
-  if (error) {
-    console.error("[capture-queries] getCaptureStats error:", error);
-    return {
-      total: 0,
-      pending: 0,
-      routed: 0,
-      dismissed: 0,
-      added: 0,
-      found: 0,
-      autoRouted: 0,
-    };
-  }
-
-  const rows = data ?? [];
-  return {
-    total: count ?? 0,
-    pending: rows.filter((r) => r.state === "pending").length,
-    routed: rows.filter((r) => r.state === "routed").length,
-    dismissed: rows.filter((r) => r.state === "dismissed").length,
-    added: rows.filter((r) => r.origin === "added").length,
-    found: rows.filter((r) => r.origin === "found").length,
-    autoRouted: 0, // Would need to count from routing_decisions
-  };
-});
+  return mapStreamRows(workspaceId, (data ?? []) as StreamRow[]);
+}
 
 /**
  * Get today's capture statistics for a workspace.
@@ -425,14 +444,14 @@ export const getTodayCaptureStats = cache(async (
   const captureIds = (captures ?? []).map((c) => c.id);
   const findingLinks = await getFindingLinksByCaptureIds(workspaceId, captureIds);
 
-  // Count auto-routed decisions (legacy)
+  // Count auto-linked captures (legacy routing engine wrote these)
   let autoRouted = 0;
   if (captureIds.length > 0) {
     const { count } = await supabase
-      .from("capture_routing_decisions")
+      .from("capture_record_links")
       .select("id", { count: "exact", head: true })
       .in("capture_event_id", captureIds)
-      .eq("status", "auto_routed");
+      .eq("link_source", "auto");
     autoRouted = count ?? 0;
   }
 
@@ -504,4 +523,72 @@ export const hasCaptures = cache(async (workspaceId: string): Promise<boolean> =
   }
 
   return (count ?? 0) > 0;
+});
+
+/**
+ * Discovery status for the Sources surface (Sources plan 4.4): the workspace's
+ * plan tier and the last relationship-discovery stamp, with the next due time
+ * derived from the same cadence math the cron gates on.
+ *
+ * Null when discovery is not scheduled work for this workspace (no
+ * capture-enabled active integration — the cron's own eligibility rule) or on
+ * query error: the UI shows nothing rather than something wrong.
+ */
+export interface CaptureDiscoveryStatus {
+  tier: string;
+  tierLabel: string;
+  lastRunAt: string | null;
+  /** ISO due time; at/before now means the next cron tick picks it up. */
+  nextRunAt: string;
+}
+
+export const getDiscoveryStatus = cache(async (
+  workspaceId: string,
+): Promise<CaptureDiscoveryStatus | null> => {
+  const supabase = await createClient();
+
+  const [integrationsRes, subscriptionRes, settingsRes] = await Promise.all([
+    supabase
+      .from("workspace_integrations")
+      .select("id", { count: "exact", head: true })
+      .eq("workspace_id", workspaceId)
+      .eq("capture_enabled", true)
+      .eq("is_active", true),
+    supabase
+      .from("workspace_subscriptions")
+      .select("tier, pricing_version")
+      .eq("workspace_id", workspaceId)
+      .maybeSingle(),
+    supabase
+      .from("workspace_capture_settings")
+      .select("last_discovery_at")
+      .eq("workspace_id", workspaceId)
+      .maybeSingle(),
+  ]);
+
+  if (integrationsRes.error) {
+    console.error("[capture-queries] getDiscoveryStatus integrations error:", integrationsRes.error);
+    return null;
+  }
+  if (subscriptionRes.error) {
+    console.error("[capture-queries] getDiscoveryStatus subscription error:", subscriptionRes.error);
+    return null;
+  }
+  if (settingsRes.error) {
+    console.error("[capture-queries] getDiscoveryStatus settings error:", settingsRes.error);
+    return null;
+  }
+
+  if ((integrationsRes.count ?? 0) === 0) return null;
+
+  const tier = subscriptionRes.data?.tier ?? null;
+  const capacity = getTierCapacity(tier, subscriptionRes.data?.pricing_version);
+  const lastRunAt = settingsRes.data?.last_discovery_at ?? null;
+
+  return {
+    tier: capacity.tier,
+    tierLabel: capacity.label,
+    lastRunAt,
+    nextRunAt: new Date(nextDiscoveryDueAt(tier, lastRunAt)).toISOString(),
+  };
 });

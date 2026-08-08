@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import { applyScopeToSpecs, readCaptureScope } from "./capture-scope";
 import { getComposioClient } from "./client";
 import {
   createCaptureTriggerInstance,
@@ -60,13 +61,6 @@ interface TriggersApi {
 
 function triggersApi(): TriggersApi {
   return getComposioClient().triggers as unknown as TriggersApi;
-}
-
-interface TriggerStatus {
-  triggerId: string;
-  exists: boolean;
-  status?: string;
-  error?: string;
 }
 
 interface ReconciliationResult {
@@ -189,7 +183,13 @@ export async function runTriggerReconciliation(): Promise<ReconciliationResult> 
 
     result.connectionsSeen++;
 
-    const enabledSpecs = await getCaptureTriggerSpecs(row.provider);
+    // 4.5: re-created subscriptions carry the workspace's scope, not just
+    // the global filters — healing must not widen delivery.
+    const enabledSpecs = applyScopeToSpecs(
+      row.provider,
+      await getCaptureTriggerSpecs(row.provider),
+      readCaptureScope(row.config),
+    );
     const live = liveByConnection.get(row.composio_connection_id) ?? [];
     const liveSlugs = new Set(live.map((i) => i.triggerName.toUpperCase()));
 
@@ -252,77 +252,4 @@ export async function runTriggerReconciliation(): Promise<ReconciliationResult> 
   }
 
   return result;
-}
-
-async function verifyTrigger(triggerId: string): Promise<TriggerStatus> {
-  try {
-    const response = await triggersApi().listActive({
-      triggerIds: [triggerId],
-    });
-
-    const found = (response.items ?? []).find((t) => t.id === triggerId);
-
-    if (found) {
-      return {
-        triggerId,
-        exists: true,
-        status: found.status || "active",
-      };
-    }
-
-    return {
-      triggerId,
-      exists: false,
-      error: "Trigger not found in active triggers list",
-    };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return {
-      triggerId,
-      exists: false,
-      error: message,
-    };
-  }
-}
-
-/**
- * Check trigger health for a single connection.
- * Useful for debugging or on-demand verification.
- */
-export async function checkConnectionTriggers(
-  workspaceId: string,
-  provider: string,
-): Promise<{
-  ok: boolean;
-  triggers: TriggerStatus[];
-  needsRepair: boolean;
-}> {
-  const admin = createAdminClient();
-
-  const { data: conn } = await admin
-    .from("workspace_integrations")
-    .select("config")
-    .eq("workspace_id", workspaceId)
-    .eq("provider", provider)
-    .maybeSingle();
-
-  if (!conn) {
-    return { ok: false, triggers: [], needsRepair: false };
-  }
-
-  const config = conn.config as Record<string, unknown> | null;
-  const triggerIds = Array.isArray(config?.captureTriggerIds)
-    ? (config.captureTriggerIds as unknown[]).filter(
-        (id): id is string => typeof id === "string",
-      )
-    : [];
-
-  const triggers: TriggerStatus[] = [];
-  for (const triggerId of triggerIds) {
-    triggers.push(await verifyTrigger(triggerId));
-  }
-
-  const needsRepair = triggers.some((t) => !t.exists);
-
-  return { ok: true, triggers, needsRepair };
 }

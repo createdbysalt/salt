@@ -26,7 +26,6 @@ export function validatePlayCard(vm: PlayCardViewModel): PlayCardValidationResul
 
   if (!vm.id) errors.push("missing id");
   if (!vm.subject?.trim()) errors.push("missing subject");
-  if (!vm.playerSlug) errors.push("missing playerSlug");
 
   if (vm.mode === "handled" && !vm.handled?.outcomeLabel?.trim()) {
     errors.push("handled card requires handled.outcomeLabel");

@@ -1,19 +1,44 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
+let budgetConfig: { daily_limit: number; window_hours: number } | null = {
+  daily_limit: 500,
+  window_hours: 24,
+};
+let budgetConfigError: { message: string } | null = null;
 let captureCount = 0;
 let captureCountError: { message: string } | null = null;
 let recentWarnings: Array<{ id: string }> = [];
 const warningInserts: Array<Record<string, unknown>> = [];
+const countFilters: string[] = [];
 
 vi.mock("@/app/_lib/supabase/admin", () => ({
   createAdminClient: () => ({
     from: (table: string) => {
+      if (table === "capture_budget_config") {
+        return {
+          select: () => ({
+            maybeSingle: () =>
+              Promise.resolve({ data: budgetConfig, error: budgetConfigError }),
+          }),
+        };
+      }
       if (table === "capture_events") {
         return {
           select: () => ({
             eq: () => ({
-              gte: () =>
-                Promise.resolve({ count: captureCount, error: captureCountError }),
+              eq: () => ({
+                not: () => ({
+                  gte: () => ({
+                    or: (filter: string) => {
+                      countFilters.push(filter);
+                      return Promise.resolve({
+                        count: captureCount,
+                        error: captureCountError,
+                      });
+                    },
+                  }),
+                }),
+              }),
             }),
           }),
         };
@@ -43,63 +68,55 @@ vi.mock("@/app/_lib/supabase/admin", () => ({
 import {
   DEFAULT_DAILY_CAPTURE_BUDGET,
   getCaptureBudgetStatus,
-  getDailyCaptureBudgetLimit,
   recordBudgetExceededWarning,
 } from "./capture-budget";
 
 beforeEach(() => {
+  budgetConfig = { daily_limit: 500, window_hours: 24 };
+  budgetConfigError = null;
   captureCount = 0;
   captureCountError = null;
   recentWarnings = [];
   warningInserts.length = 0;
-  delete process.env.CAPTURE_DAILY_CAPTURE_BUDGET;
-});
-
-afterEach(() => {
-  delete process.env.CAPTURE_DAILY_CAPTURE_BUDGET;
-});
-
-describe("getDailyCaptureBudgetLimit", () => {
-  it("defaults to the global budget", () => {
-    expect(getDailyCaptureBudgetLimit()).toBe(DEFAULT_DAILY_CAPTURE_BUDGET);
-  });
-
-  it("honors the env override when it is a positive integer", () => {
-    process.env.CAPTURE_DAILY_CAPTURE_BUDGET = "25";
-    expect(getDailyCaptureBudgetLimit()).toBe(25);
-  });
-
-  it("ignores malformed env values", () => {
-    process.env.CAPTURE_DAILY_CAPTURE_BUDGET = "not-a-number";
-    expect(getDailyCaptureBudgetLimit()).toBe(DEFAULT_DAILY_CAPTURE_BUDGET);
-    process.env.CAPTURE_DAILY_CAPTURE_BUDGET = "-5";
-    expect(getDailyCaptureBudgetLimit()).toBe(DEFAULT_DAILY_CAPTURE_BUDGET);
-  });
+  countFilters.length = 0;
 });
 
 describe("getCaptureBudgetStatus", () => {
   it("reports within-budget when the 24h count is below the limit", async () => {
     captureCount = 10;
     const status = await getCaptureBudgetStatus("ws-1");
-    expect(status).toEqual({
-      limit: DEFAULT_DAILY_CAPTURE_BUDGET,
-      count: 10,
-      exceeded: false,
-    });
+    expect(status).toEqual({ limit: 500, count: 10, exceeded: false });
   });
 
-  it("reports exceeded when the 24h count reaches the limit", async () => {
-    process.env.CAPTURE_DAILY_CAPTURE_BUDGET = "3";
+  it("reports exceeded when the 24h count reaches the DB-configured limit", async () => {
+    budgetConfig = { daily_limit: 3, window_hours: 24 };
     captureCount = 3;
     const status = await getCaptureBudgetStatus("ws-1");
     expect(status.exceeded).toBe(true);
     expect(status.count).toBe(3);
+    expect(status.limit).toBe(3);
+  });
+
+  it("falls back to the default limit when the config row is unreadable", async () => {
+    budgetConfig = null;
+    budgetConfigError = { message: "permission denied" };
+    captureCount = 10;
+    const status = await getCaptureBudgetStatus("ws-1");
+    expect(status.limit).toBe(DEFAULT_DAILY_CAPTURE_BUDGET);
+    expect(status.exceeded).toBe(false);
   });
 
   it("fails open when the count query errors", async () => {
     captureCountError = { message: "db down" };
     const status = await getCaptureBudgetStatus("ws-1");
     expect(status.exceeded).toBe(false);
+  });
+
+  it("counts only budget-consuming rows — noise/drop/held excluded, NULL-gate legacy rows kept", async () => {
+    await getCaptureBudgetStatus("ws-1");
+    expect(countFilters).toEqual([
+      "gate_action.is.null,gate_action.not.in.(noise,drop,held)",
+    ]);
   });
 });
 

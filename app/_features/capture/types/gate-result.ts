@@ -64,9 +64,25 @@ export interface AdmissionSignal {
     | "bidirectional"
     | "calendar_meeting"
     | "payment_customer"
-    | "shared_file";
+    | "shared_file"
+    | "intent_inquiry";
   weight: number;
   evidence?: string;
+}
+
+/**
+ * Cold-inbound intent read (Sources Lane 1 discriminator). Recorded on the
+ * gate result whether or not it changed the outcome, so Activity can answer
+ * "why didn't Salt catch this email?" and the miss rate is queryable —
+ * failure mode #1's early-warning instrumentation.
+ */
+export interface ColdIntentResult {
+  /** False when the read was skipped (no content, spend refused, no key). */
+  checked: boolean;
+  genuineInquiry: boolean;
+  /** Model confidence 0–1; admission requires genuineInquiry AND ≥ threshold. */
+  confidence: number;
+  reason: string;
 }
 
 export interface GatePipelineResult {
@@ -80,6 +96,7 @@ export interface GatePipelineResult {
   passedGates: ("pre-ingest" | "blocklist" | "known-entity" | "admission")[];
   shouldIngest: boolean;
   targetEntity?: EntityRef;
+  coldIntent?: ColdIntentResult;
 }
 
 export interface PreIngestGateInput {

@@ -3,7 +3,6 @@ import "server-only";
 import { stepCountIs, streamText, type StreamTextResult, type ToolSet } from "ai";
 import { getAskSaltLanguageModel } from "@/app/_lib/ai/ask-salt-model";
 import { loadAskSaltComposioTools } from "./load-ask-salt-tools";
-import { ASK_SALT_COMPOSIO_TOOLKITS } from "./ask-salt-tools";
 
 export interface ComposioAgentStreamParams {
   /** Composio user id — Salt uses the workspace id. */
@@ -30,5 +29,3 @@ export async function streamComposioAgent(
     tools,
   });
 }
-
-export { ASK_SALT_COMPOSIO_TOOLKITS };

@@ -123,7 +123,6 @@ High-stakes **act** actions (email, invoice) still require Plays approval regard
 | Ask Salt | Tool execution attribution |
 | Memory → Filter | Watching / Handled surfaces |
 | Entity CRUD actions | Inline signal emission |
-| Watch system | Cross-entity reactive signals |
 
 ## Signal Emission
 
@@ -140,24 +139,6 @@ emitEntitySignal({
   signal: "person_created",
   entityLabel: person.name,
   evidence: { source: "manual_create" },
-});
-```
-
-## Entity Watch System
-
-"When X happens, start watching for Y" - enables reactive cross-entity signals:
-
-```typescript
-import { registerEntityWatch } from "@/app/_lib/learning";
-
-// When a person is created, watch for emails from them
-await registerEntityWatch({
-  workspaceId,
-  watchedEntity: { type: "person", id: person.id },
-  watchForSignals: ["capture_email_received"],
-  filterCriteria: { from_email: person.email },
-  onMatch: { signal: "person_email_received" },
-  expiresInDays: 90,
 });
 ```
 

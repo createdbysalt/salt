@@ -35,7 +35,7 @@ export function syncPlaysUrl(
  * Resolve pre-reorg (2026-08-06) Plays URLs to their new homes:
  * - Customize → Connectors moved to Sources (/sources)
  * - Activity → Captures moved to Sources → Activity (/sources?tab=activity)
- * - Queue → Watching (learning) moved to Memory → Filter (/memory?tab=filter)
+ * - Queue → Watching (learning) moved to Memory → Activity (/memory?tab=activity)
  * - tab=customize renamed to tab=playbooks
  *
  * Returns the redirect target, or null when the URL is already canonical.
@@ -65,7 +65,7 @@ export function resolvePlaysLegacyRedirect(params: {
   }
 
   if (params.filter === "learning") {
-    return "/memory?tab=filter";
+    return "/memory?tab=activity";
   }
 
   return null;

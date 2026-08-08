@@ -8,7 +8,9 @@ import { PlaysSectionHeader } from "@/app/_features/plays/components/PlaysSectio
 import { SourcesTabs } from "./SourcesTabs";
 import { SourcesPageSkeleton } from "./SourcesPageSkeleton";
 import { KeptOutSection } from "./KeptOutSection";
+import { DiscoveryStatusCard } from "./DiscoveryStatusCard";
 import { useSourcesTabCache } from "../hooks/useSourcesTabCache";
+import { useCaptureStreamRealtime } from "../hooks/useCaptureStreamRealtime";
 import {
   buildSourcesPath,
   syncSourcesUrl,
@@ -30,11 +32,19 @@ export function SourcesPage({
   initialTab: SourcesTab;
   initialData: SourcesTabData;
 }) {
-  const { tab, activeData, isTabLoading, handleTabChange } =
+  const { tab, activeData, isTabLoading, handleTabChange, invalidateActiveTab } =
     useSourcesTabCache({ tab: initialTab, data: initialData });
 
-  const { connectors, streamCaptures, captureStats, hasCaptureData, keptOut, workspaceId } =
+  const { connectors, streamCaptures, captureStats, hasCaptureData, keptOut, workspaceId, discovery } =
     activeData ?? initialData;
+
+  // Keep the stream honest: new captures (webhook or backfill) revalidate the
+  // active tab — debounced inside the hook so bursts collapse to one refresh.
+  useCaptureStreamRealtime({
+    workspaceId: workspaceId ?? null,
+    enabled: tab === "activity",
+    onChange: invalidateActiveTab,
+  });
 
   const buildConnectorUrl = useCallback(
     (connector: ConnectorCatalogId | null) =>
@@ -51,8 +61,6 @@ export function SourcesPage({
 
   return (
     <div className="relative min-h-full">
-      <div aria-hidden className="salt-ambient-wash" />
-
       <div className="mx-auto w-full max-w-[1400px] space-y-8">
         {/* Tab Bar */}
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -104,6 +112,8 @@ export function SourcesPage({
                   realStats={captureStats}
                   hasRealData={hasCaptureData}
                 />
+                {/* 4.4: discovery cadence is explicit where the stream lives */}
+                {discovery && <DiscoveryStatusCard discovery={discovery} />}
                 {/* P11: Kept out moved from Memory Filter to Sources Activity */}
                 {keptOut && workspaceId && (
                   <KeptOutSection

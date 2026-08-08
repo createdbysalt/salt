@@ -149,13 +149,18 @@ export async function runRecordsCapability(
 
   for (const rule of rules) {
     if (!evaluateCondition(rule.when, signals)) continue;
-    rulesMatched++;
 
     const resolvedValue = resolveTemplateValue(
       rule.set.value,
       signals,
       rule.when.signal
     );
+
+    // Empty resolution = the rule matched but there is no concrete value to
+    // propose (extraction template against a boolean/absent signal). The
+    // Watching contract bans value-less proposals — skip, don't emit.
+    if (!resolvedValue.trim()) continue;
+    rulesMatched++;
 
     // Tiered bar: sensitive/destructive fields raise the floor; never-touch
     // fields are refused outright (the tool enforces this too).
@@ -244,9 +249,9 @@ export interface RecordsWorkspaceRunResult {
 }
 
 /**
- * Run fill rules across recently active people and organizations in a
- * workspace. Used by scheduled and on-demand (Sync & Scan) runs where no
- * single triggering entity exists.
+ * Run fill rules across recently active people, organizations, work,
+ * billing, and non-terminal meetings in a workspace. Used by scheduled and
+ * on-demand (Sync & Scan) runs where no single triggering entity exists.
  */
 export async function runRecordsForWorkspace(input: {
   workspaceId: string;
@@ -257,22 +262,51 @@ export async function runRecordsForWorkspace(input: {
   const limit = input.entityLimit ?? 50;
   const signal = input.signal ?? "scheduled_scan";
 
-  const [peopleResult, orgsResult] = await Promise.all([
-    admin
-      .from("people")
-      .select("id, name")
-      .eq("workspace_id", input.workspaceId)
-      .is("deleted_at", null)
-      .order("updated_at", { ascending: false })
-      .limit(limit),
-    admin
-      .from("organizations")
-      .select("id, name")
-      .eq("workspace_id", input.workspaceId)
-      .is("deleted_at", null)
-      .order("updated_at", { ascending: false })
-      .limit(limit),
-  ]);
+  const [peopleResult, orgsResult, workResult, billingResult, meetingsResult] =
+    await Promise.all([
+      admin
+        .from("people")
+        .select("id, name")
+        .eq("workspace_id", input.workspaceId)
+        .is("deleted_at", null)
+        .order("updated_at", { ascending: false })
+        .limit(limit),
+      admin
+        .from("organizations")
+        .select("id, name")
+        .eq("workspace_id", input.workspaceId)
+        .is("deleted_at", null)
+        .order("updated_at", { ascending: false })
+        .limit(limit),
+      admin
+        .from("work")
+        .select("id, name")
+        .eq("workspace_id", input.workspaceId)
+        .is("deleted_at", null)
+        .order("updated_at", { ascending: false })
+        .limit(limit),
+      admin
+        .from("billing_records")
+        .select("id, number")
+        .eq("workspace_id", input.workspaceId)
+        .is("deleted_at", null)
+        .order("updated_at", { ascending: false })
+        .limit(limit),
+      // Meetings: the scan flips lifecycle status from DB-derivable signals
+      // (end time passed → completed, calendar-cancelled → cancelled).
+      // Skip already-terminal meetings — nothing left to derive.
+      admin
+        .from("meetings")
+        .select("id, title")
+        .eq("workspace_id", input.workspaceId)
+        .is("deleted_at", null)
+        .not("status", "in", "(completed,cancelled)")
+        .order("updated_at", { ascending: false })
+        .limit(limit),
+    ]);
+    // Files are intentionally NOT scanned: every file fill-rule signal is
+    // extraction- or webhook-driven (classifier on ingest, signature events),
+    // so a scheduled scan has nothing DB-derivable to evaluate.
 
   const targets: Array<{
     entityType: LearningEntityType;
@@ -288,6 +322,21 @@ export async function runRecordsForWorkspace(input: {
       entityType: "organization" as const,
       entityId: o.id,
       entityLabel: o.name ?? o.id,
+    })),
+    ...(workResult.data ?? []).map((w) => ({
+      entityType: "work" as const,
+      entityId: w.id,
+      entityLabel: w.name ?? w.id,
+    })),
+    ...(billingResult.data ?? []).map((b) => ({
+      entityType: "billing" as const,
+      entityId: b.id,
+      entityLabel: b.number ?? b.id,
+    })),
+    ...(meetingsResult.data ?? []).map((m) => ({
+      entityType: "meeting" as const,
+      entityId: m.id,
+      entityLabel: m.title ?? m.id,
     })),
   ];
 
@@ -351,13 +400,18 @@ function resolveTemplateValue(
   signals: Record<string, boolean | number | string>,
   triggerSignal: string
 ): string {
-  // "{{extracted}}" means use the triggering signal's own value.
+  // "{{extracted}}" means use the triggering signal's own value. A boolean
+  // signal carries no extractable content — presence is not a value. Without
+  // this guard a scan-computed boolean (e.g. meeting_synced_from_calendar)
+  // would write the literal string "true" into start_time / meeting_url / …
   if (template === "{{extracted}}") {
     const extracted = signals[triggerSignal];
-    return extracted != null ? String(extracted) : "";
+    if (extracted == null || typeof extracted === "boolean") return "";
+    return String(extracted);
   }
   return template.replace(/\{\{(\w+)\}\}/g, (_match, key) => {
     const value = signals[key];
-    return value != null ? String(value) : "";
+    if (value == null || typeof value === "boolean") return "";
+    return String(value);
   });
 }

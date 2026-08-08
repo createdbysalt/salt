@@ -132,7 +132,6 @@ export function WorkDetailPage({ workId, detailData = null, linkableEntities = [
   if (!work) {
     return (
       <div className="relative min-h-full">
-        <div aria-hidden className="salt-ambient-wash" />
         <div className={memoryDetailShellClass}>
           <Link
             href="/work"
@@ -152,8 +151,6 @@ export function WorkDetailPage({ workId, detailData = null, linkableEntities = [
 
   return (
     <div className="relative min-h-full">
-      <div aria-hidden className="salt-ambient-wash" />
-
       <div className={memoryDetailShellClass}>
         <Link
           href="/work"

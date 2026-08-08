@@ -13,7 +13,7 @@
 
 import type { LucideIcon } from "lucide-react";
 import type { CaptureIntelligenceOutcome } from "./services/intelligence/capture-intelligence-outcome";
-import type { EnrichedMetadata, SuggestedAction } from "./services/enrichment/types";
+import type { EnrichedMetadata } from "./services/enrichment/types";
 
 /** Re-export enriched metadata types for external consumption. */
 export type { EnrichedMetadata as EnrichedCaptureMetadata, SuggestedAction } from "./services/enrichment/types";
@@ -23,10 +23,14 @@ export type { EnrichedMetadata as EnrichedCaptureMetadata, SuggestedAction } fro
 // ============================================================================
 
 /**
- * Connector/source that produced the capture.
- * Maps to capture_source_type enum in database.
+ * Source types with curated taxonomy metadata (SOURCE_TAXONOMY).
+ *
+ * `capture_events.source_type` is TEXT (Sources plan 5.2 — the enum froze at
+ * ~40 values while the connector registry seeds providers outside it), so any
+ * registry provider key is valid at runtime. This union exists for
+ * autocomplete and curated display metadata, not validation.
  */
-export type CaptureSourceType =
+export type KnownCaptureSourceType =
   // Communication
   | "gmail"
   | "outlook"
@@ -79,6 +83,13 @@ export type CaptureSourceType =
   | "ask_salt";
 
 /**
+ * Connector/source that produced the capture. Known sources autocomplete;
+ * any connector-registry provider key is accepted (loose-autocomplete
+ * pattern — `string & {}` keeps the known literals in IDE suggestions).
+ */
+export type CaptureSourceType = KnownCaptureSourceType | (string & {});
+
+/**
  * What kind of thing was captured.
  * Maps to capture_event_type enum in database.
  */
@@ -122,23 +133,6 @@ export type MemorySurface =
   | "teams"
   | "me";
 
-/**
- * Routing decision status.
- * Maps to routing_status enum in database.
- */
-export type RoutingStatus =
-  | "auto_routed"
-  | "pending"
-  | "approved"
-  | "dismissed"
-  | "corrected";
-
-/**
- * What action was taken on the target entity.
- * Maps to routing_action enum in database.
- */
-export type RoutingAction = "created" | "updated" | "linked";
-
 // ============================================================================
 // Database Row Types
 // ============================================================================
@@ -164,29 +158,6 @@ export interface CaptureEvent {
   created_at: string;
   updated_at: string;
   processed_at: string | null;
-}
-
-/**
- * A routing decision as stored in the database.
- */
-export interface CaptureRoutingDecision {
-  id: string;
-  capture_event_id: string;
-  target_surface: MemorySurface;
-  target_entity_id: string | null;
-  target_entity_type: string | null;
-  action: RoutingAction | null;
-  confidence: number;
-  status: RoutingStatus;
-  reason: string | null;
-  evidence: EvidenceItem[];
-  routed_at: string | null;
-  reviewed_by: string | null;
-  reviewed_at: string | null;
-  original_target_entity_id: string | null;
-  correction_notes: string | null;
-  created_at: string;
-  updated_at: string;
 }
 
 // ============================================================================
@@ -310,46 +281,32 @@ export interface GenericExtractedData {
   metadata?: Record<string, unknown>;
 }
 
-/**
- * Evidence item for routing decisions.
- */
-export interface EvidenceItem {
-  type: "email_match" | "name_match" | "context_match" | "recency" | "frequency" | "llm_inference";
-  source: string;
-  value: string;
-  weight: number;
-}
-
 // ============================================================================
 // UI-Facing Types
 // ============================================================================
 
 /**
- * A capture with its routing decisions, ready for UI display.
- */
-export interface CaptureWithRouting extends CaptureEvent {
-  routing_decisions: CaptureRoutingDecision[];
-  pending_decisions_count: number;
-}
-
-/**
- * Summary for the Pending queue.
- */
-export interface PendingCaptureSummary {
-  capture_id: string;
-  title: string | null;
-  capture_type: CaptureEventType;
-  source_type: CaptureSourceType;
-  origin: CaptureOrigin;
-  overall_confidence: number | null;
-  created_at: string;
-  routing_count: number;
-}
-
-/**
  * Summary for the Stream (audit log).
  */
 export type { CaptureIntelligenceOutcome };
+
+/** A play a capture's signals dispatched (persisted on enriched_metadata). */
+export interface StreamPlayDispatch {
+  play_slug: string;
+  play_name: string;
+  play_run_id: string;
+  state: string;
+  dispatched_at: string;
+}
+
+/** A known-entity watch the capture matched at the gate (from gate_result). */
+export interface StreamWatchTrigger {
+  entity_id: string;
+  entity_label: string;
+  surface: string;
+  match_type: string;
+  matched_value: string | null;
+}
 
 export interface StreamCaptureSummary {
   capture_id: string;
@@ -379,7 +336,48 @@ export interface StreamCaptureSummary {
   is_bootstrap?: boolean;
   /** Gate pipeline outcome (noise rows render demoted in the stream). */
   gate_action?: string | null;
+  /** Deciding gate's reason ("why not" for dropped/held/noise rows). */
+  gate_reason?: string | null;
+  /** Plays this capture's signals dispatched (empty when none). */
+  plays_dispatched?: StreamPlayDispatch[];
+  /** Known-entity watches this capture matched (empty when none). */
+  watches_triggered?: StreamWatchTrigger[];
 }
+
+/**
+ * Stream row status — the UI vocabulary CaptureStreamTab renders.
+ */
+export type CaptureStatus = "pending" | "auto-routed" | "confirmed" | "dismissed";
+
+/**
+ * A capture stream entry as rendered by CaptureStreamTab. Lives here (not in
+ * _lib/demo/capture-demo-data) so the live stream has no dependency on the
+ * demo-data module; the demo file imports it back for its mock stream.
+ */
+export type StreamEntry = {
+  id: string;
+  dayGroup: "Today" | "Yesterday" | "Earlier this week";
+  time: string;
+  source: CaptureOrigin;
+  origin: CaptureSourceType;
+  status: CaptureStatus;
+  snippet: string;
+  routedTo: string;
+  trigger?: string;
+  sources?: string[];
+  learned?: string;
+  extractedData?: Record<string, unknown>;
+  enrichedMetadata?: {
+    signals_matched: string[];
+    linked_records: Array<{ surface: string; entity_id: string; entity_label: string; confidence: number }>;
+    play_fit: Record<string, { score: number; reason: string; matched_signals?: string[]; threshold?: number; meets_threshold?: boolean }>;
+    plays_dispatched?: Array<{ play_slug: string; play_name: string; play_run_id: string; state: string; dispatched_at: string }>;
+    watches_triggered?: Array<{ entity_id: string; entity_label: string; surface: string; match_type: string; matched_value: string }>;
+  };
+  from?: string;
+  sourceUrl?: string;
+  isBootstrap?: boolean;
+};
 
 // ============================================================================
 // Source Taxonomy — Maps connectors to their typical capture types
@@ -405,23 +403,13 @@ export type SourceCategory =
   | "productivity"
   | "social"
   | "marketing"
-  | "manual";
+  | "manual"
+  /** Fallback bucket for registry providers without curated taxonomy meta. */
+  | "other";
 
 // ============================================================================
 // Confidence Thresholds
 // ============================================================================
-
-/**
- * Confidence thresholds for routing decisions.
- * These can be adjusted per-workspace as corrections accumulate.
- */
-export const CONFIDENCE_THRESHOLDS = {
-  /** Above this: auto-route without user review */
-  AUTO_ROUTE: 85,
-  /** Above this but below AUTO_ROUTE: auto-route with "Salt inferred" flag */
-  INFERRED: 50,
-  /** Below INFERRED: goes to Pending queue */
-} as const;
 
 /**
  * Bootstrap limits for first-run experience.
@@ -434,43 +422,3 @@ export const BOOTSTRAP_LIMITS = {
   /** Minimum interactions to be considered high-signal */
   MIN_INTERACTIONS: 3,
 } as const;
-
-// ============================================================================
-// Action Input Types
-// ============================================================================
-
-/**
- * Input for creating a manual capture.
- */
-export interface CreateCaptureInput {
-  title?: string;
-  content: string;
-  capture_type: CaptureEventType;
-  /** Routing hints from user */
-  suggested_surfaces?: MemorySurface[];
-  /** Entity links from user */
-  entity_links?: Array<{
-    surface: MemorySurface;
-    entity_id: string;
-  }>;
-}
-
-/**
- * Input for approving/correcting a routing decision.
- */
-export interface ReviewRoutingInput {
-  routing_id: string;
-  action: "approve" | "dismiss" | "correct";
-  /** When correcting, the new target entity */
-  new_entity_id?: string;
-  /** Optional notes about the correction */
-  notes?: string;
-}
-
-/**
- * Input for bulk actions on captures.
- */
-export interface BulkCaptureActionInput {
-  capture_ids: string[];
-  action: "approve_all" | "dismiss_all";
-}

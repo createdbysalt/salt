@@ -8,14 +8,16 @@
  */
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import type { Json } from "@/app/_lib/supabase/database.types";
 
-export interface QueueBudgetSettings {
+// Type alias (not interface) so it satisfies Json's implicit index signature.
+export type QueueBudgetSettings = {
   dailyNeedsYouBudget: number;
   quietHoursStart: number | null;
   quietHoursEnd: number | null;
   quietHoursTimezone: string;
   autoOverflowToAutoHandled: boolean;
-}
+};
 
 export const DEFAULT_QUEUE_BUDGET: QueueBudgetSettings = {
   dailyNeedsYouBudget: 10,
@@ -34,6 +36,19 @@ export interface QueueBudgetStatus {
   nextNonQuietTime: string | null;
 }
 
+/**
+ * Queue budget lives under workspaces.settings.queue_budget — there is no
+ * dedicated column. The settings bag holds other keys too, so writes must
+ * merge, never replace.
+ */
+function asJsonObject(
+  value: Json | null | undefined
+): { [key: string]: Json | undefined } | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value
+    : null;
+}
+
 export async function getQueueBudgetSettings(
   workspaceId: string
 ): Promise<QueueBudgetSettings> {
@@ -41,18 +56,17 @@ export async function getQueueBudgetSettings(
 
   const { data } = await admin
     .from("workspaces")
-    .select("queue_budget_settings")
+    .select("settings")
     .eq("id", workspaceId)
     .single();
 
-  if (!data?.queue_budget_settings) {
-    return DEFAULT_QUEUE_BUDGET;
-  }
+  const stored = asJsonObject(
+    asJsonObject(data?.settings)?.queue_budget
+  ) as Partial<QueueBudgetSettings> | null;
 
-  const settings = data.queue_budget_settings as Partial<QueueBudgetSettings>;
   return {
     ...DEFAULT_QUEUE_BUDGET,
-    ...settings,
+    ...stored,
   };
 }
 
@@ -62,12 +76,19 @@ export async function updateQueueBudgetSettings(
 ): Promise<{ success: boolean; error?: string }> {
   const admin = createAdminClient();
 
-  const current = await getQueueBudgetSettings(workspaceId);
-  const updated = { ...current, ...settings };
+  const { data } = await admin
+    .from("workspaces")
+    .select("settings")
+    .eq("id", workspaceId)
+    .single();
+
+  const bag = asJsonObject(data?.settings) ?? {};
+  const current = asJsonObject(bag.queue_budget) as Partial<QueueBudgetSettings> | null;
+  const updated = { ...DEFAULT_QUEUE_BUDGET, ...current, ...settings };
 
   const { error } = await admin
     .from("workspaces")
-    .update({ queue_budget_settings: updated })
+    .update({ settings: { ...bag, queue_budget: updated } })
     .eq("id", workspaceId);
 
   if (error) {

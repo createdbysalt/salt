@@ -463,36 +463,6 @@
       transform 350ms cubic-bezier(0.32, 0.72, 0, 1);
   }
 
-  .salt-ambient-wash {
-    pointer-events: none;
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-  }
-
-  .salt-ambient-wash::before,
-  .salt-ambient-wash::after {
-    content: "";
-    position: absolute;
-    border-radius: 9999px;
-    filter: blur(120px);
-  }
-
-  .salt-ambient-wash::before {
-    top: 0;
-    left: 25%;
-    width: 600px;
-    height: 600px;
-    background: color-mix(in oklab, var(--sky) 20%, transparent);
-  }
-
-  .salt-ambient-wash::after {
-    top: 33%;
-    right: 0;
-    width: 500px;
-    height: 500px;
-    background: color-mix(in oklab, var(--flame) 15%, transparent);
-  }
 }
 
 @keyframes queue-aurora-drift {

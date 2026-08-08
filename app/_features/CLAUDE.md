@@ -53,7 +53,7 @@ _features/[feature]/
 | `hq` | Daily operating home, inbox, insights, dashboard analytics actions |
 | `plays` | Approval outbox (Queue / Playbooks / Activity) — act-layer only |
 | `sources` | Sources surface shell — Connectors + Activity (capture stream) tabs at `/sources` |
-| `memory` | Memory surface (`/memory` tabs: Map / Filter / Rules) + Memory Care module (`care/`) |
+| `memory` | Memory surface (`/memory` tabs: Map / Activity / Rules) + Memory Care module (`care/`) |
 | `people` | People CRUD, profile fields, activity |
 | `connections` | Memory Map graph (`/memory`) + per-record Connections tabs |
 | `spaces` | Role-aware shared workspaces |

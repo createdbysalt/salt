@@ -13,6 +13,7 @@ import {
   parseConsentCookie,
 } from "@/app/_lib/consent/cookie-consent";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import type { Json } from "@/app/_lib/supabase/database.types";
 import {
   checkRateLimit,
   createRateLimitKey,
@@ -58,7 +59,7 @@ async function recordFunnelEvent(
   const { error } = await supabase.from("marketing_funnel_events").insert({
     event,
     path,
-    metadata,
+    metadata: metadata as Json,
   });
 
   if (error) {

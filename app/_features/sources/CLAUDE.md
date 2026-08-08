@@ -42,5 +42,5 @@ sources/
 
 ## Boundaries
 
-- **Admission decisions are not here.** What the gate let in / kept out is Memory → Filter (`/memory?tab=filter`). The Activity tab is an event-centric operational log; Filter is record-centric decisions — cross-linked, not duplicated.
+- **Admission decisions are not here.** What the gate let in / kept out is Memory → Activity (`/memory?tab=activity`). The Sources Activity tab is an event-centric operational log; Memory Activity is record-centric decisions — cross-linked, not duplicated.
 - **Connector logic is not here.** Lifecycle, adapters, and health live in `app/_features/connectors/` and `app/_features/capture/` — read `docs/architecture/connector-system.md` before modifying connectors.

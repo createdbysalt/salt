@@ -27,7 +27,7 @@ row?).
 - Money fields are **decimal dollars (major units)** plus a `currency` ISO
   code — see Phase A of the capture quality repair; adapters convert minor
   units (Stripe cents) at ingest, the UI never divides.
-- `deep_link` is the canonical "open in provider" URL key.
+- The "open in provider" URL key is `deep_link` for email/calendar/meetings/storage, but `url` for documents/project-management; billing, communication, and CRM envelopes carry no link key today. (Not canonical — read the per-category table.)
 - When a trigger payload is pointer-only (HubSpot, Outlook events), the
   envelope carries `needs_hydration: true` and the card must show the
   hydration state honestly instead of empty rows.
@@ -84,7 +84,6 @@ Graph event resource and must reach Google parity.
 | `customer_name` / `customer_email` | yes | at least one |
 | `invoice_number` | when present | |
 | `due_date` | when present | |
-| `deep_link` | when present | hosted invoice / dashboard URL |
 | `amount_paid` / `amount_due` | compat | keep for older readers |
 
 Card renders: Amount + currency + status, Customer, Invoice #, Due date.
@@ -153,7 +152,7 @@ Card renders: Duration, Participants, Summary, Action items.
 | `title` | yes | |
 | `editor_email` / `editor_name` | when available | who changed it |
 | `change_type` | when available | created/updated |
-| `deep_link` | yes | |
+| `url` | yes | open-in-provider link (NOT `deep_link` in this category) |
 
 ### Project management — Linear, Asana, Jira (`project-management.ts`)
 
@@ -165,6 +164,7 @@ Card renders: Duration, Participants, Summary, Action items.
 | `priority` | when present | |
 | `assignee` | when present | |
 | `description` | when present | |
+| `url` | when present | issue/task link (`record.url` ?? `record.permalink`) |
 
 ## Enforcement
 

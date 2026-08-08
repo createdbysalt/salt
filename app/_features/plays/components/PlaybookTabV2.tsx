@@ -206,11 +206,13 @@ export function PlaybookTabV2({ playbooks, counts: _counts }: PlaybookTabV2Props
               name={pb.name}
               description={pb.description}
               section={pb.section}
-              layer={pb.layer}
-              voice={pb.voice}
               origin={pb.origin}
               steps={pb.steps}
               stepCount={pb.stepCount}
+              connectorIds={pb.connectorIds}
+              minutesSavedPerRun={pb.minutesSavedPerRun}
+              approvalMode={pb.approvalMode}
+              triggerType={pb.triggerType}
               enabled={pb.enabled}
               runnable={pb.runnable}
               onClick={() => handleCardClick(pb.slug)}

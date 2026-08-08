@@ -186,6 +186,90 @@ export interface ActivityEntryRow {
   source_url?: string | null;
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Plays → Activity (run-centric)
+ *
+ * The Activity tab is the act-layer audit trail: one card per play run.
+ * Categories derive from play_runs.state — never from activity_entries.action
+ * strings (those drift; see parked/failed actions outside the CHECK constraint).
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+export const PLAY_ACTIVITY_CATEGORIES = [
+  "completed",
+  "in-progress",
+  "needs-attention",
+  "decided",
+] as const;
+
+export type PlayActivityCategory = (typeof PLAY_ACTIVITY_CATEGORIES)[number];
+
+export type PlayActivityActor = "salt" | "you";
+
+export type PlayActivityDayGroup = "Today" | "Yesterday" | "Earlier this week";
+
+/** Evidence snippet attached to a run (play_run_sources). */
+export interface PlayRunSourceSnippet {
+  label: string | null;
+  excerpt: string | null;
+  external_url: string | null;
+  source_type: string | null;
+}
+
+/** play_runs row enriched server-side for the Activity tab. */
+export interface PlayActivityRunRow extends PlayRunRow {
+  /** Resolved from the playbook registry via source_context.playbook_slug. */
+  playbookName?: string | null;
+  /** Playbook section — drives the activity row's icon and accent color. */
+  playbookSection?: PlaybookSection | null;
+  sources?: PlayRunSourceSnippet[];
+  /** activity_entries for this run, newest first — timeline + undo lookup. */
+  events?: ActivityEntryRow[];
+}
+
+/** UI-facing activity card view model. */
+export interface PlayActivityItem {
+  id: string;
+  time: string;
+  dayGroup: PlayActivityDayGroup;
+  /** ISO timestamp used for display + grouping (ran_at ?? dismissed_at ?? updated_at). */
+  sortIso: string;
+  title: string;
+  target: string;
+  category: PlayActivityCategory;
+  actor: PlayActivityActor;
+  /** Row badge text, e.g. "Salt acted", "You approved", "Blocked". */
+  badgeLabel: string;
+  state: PlayRunState;
+  playbookName: string | null;
+  playbookHref: string | null;
+  outcome: string | null;
+  valueLabel: string | null;
+  /** True when value_basis is not "actual" — UI must label estimates. */
+  valueEstimated: boolean;
+  triggerLabel: string | null;
+  sources: { label: string; url: string | null }[];
+  durationMs: number | null;
+  /** Failure or blocked reason, in plain language. */
+  errorLabel: string | null;
+  /** Raw last_error for troubleshooting, when it differs from errorLabel. */
+  errorDetail: string | null;
+  /** Real next step from approval_context / scheduling, never hardcoded. */
+  nextStepLabel: string | null;
+  etaLabel: string | null;
+  pausedForApproval: boolean;
+  decisionLabel: string | null;
+  /** How the run was authorized: Ask Salt, Queue, or autonomous. */
+  approvalLabel: string | null;
+  /** App the run acted in (Gmail, Stripe, …). */
+  channelLabel: string | null;
+  /** Playbook section — row avatar icon + accent when the run has a playbook. */
+  playbookSection: PlaybookSection | null;
+  timeline: { id: string; time: string; title: string; detail: string | null }[];
+  /** Activity entry id that undoAutoAppliedAction accepts, when reversible. */
+  undoEntryId: string | null;
+  sourceUrl: string | null;
+}
+
 /** UI-facing queue item aligned with plays-demo-data QueuePlay */
 export interface QueuePlayView {
   id: string;

@@ -58,7 +58,7 @@ pnpm add <package>   # Add package
 app/
 ├── _features/       # Domain modules (hq, sources, memory, people, plays, marketing, etc.)
 ├── _lib/            # Shared utilities (supabase, stripe, security, hooks)
-├── (product)/       # Authenticated product routes (HQ, Sources, Memory, People, Plays, Spaces, etc.)
+├── (product)/       # Authenticated product routes (HQ, Sources, Memory, People, Plays, Work, etc.)
 ├── (settings)/      # Full-page settings routes
 ├── (public)/        # Marketing and legal pages
 ├── (sandbox)/       # Dev utilities (dev-login only)

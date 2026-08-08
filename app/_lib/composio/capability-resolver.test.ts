@@ -48,11 +48,6 @@ vi.mock("./classification-store", () => ({
       : null,
 }));
 
-let disabledTools: string[] = [];
-vi.mock("@/app/_features/connectors/queries", () => ({
-  getWorkspaceDisabledTools: async () => disabledTools,
-}));
-
 import { resolveCapabilityTool } from "./capability-resolver";
 
 const WS = "ws-1";
@@ -69,7 +64,6 @@ beforeEach(() => {
     GMAIL_SEND_EMAIL: { risk: "mutating", requiresHumanConfirmation: true },
     OUTLOOK_SEND_EMAIL: { risk: "mutating", requiresHumanConfirmation: true },
   };
-  disabledTools = [];
 });
 
 describe("resolveCapabilityTool", () => {
@@ -89,16 +83,6 @@ describe("resolveCapabilityTool", () => {
     const result = await resolveCapabilityTool("send_message", WS);
     expect(result?.toolSlug).toBe("OUTLOOK_SEND_EMAIL");
     expect(result?.provider).toBe("outlook");
-  });
-
-  it("skips a connected tool that the user disabled", async () => {
-    connected = {
-      gmail: { connected: true, connectionId: "ca_gmail" },
-      outlook: { connected: true, connectionId: "ca_outlook" },
-    };
-    disabledTools = ["GMAIL_SEND_EMAIL"];
-    const result = await resolveCapabilityTool("send_message", WS);
-    expect(result?.toolSlug).toBe("OUTLOOK_SEND_EMAIL");
   });
 
   it("skips a connected tool that has no approved classification (fail-closed)", async () => {

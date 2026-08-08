@@ -9,6 +9,8 @@ export async function GET() {
   return NextResponse.json({
     totalPlaybooks: result.allPlaybooks.length,
     totalErrors: result.errors.length,
+    totalSkipped: result.skipped.length,
+    skipped: result.skipped,
     communicationSection: communication
       ? {
           metadata: communication.metadata,

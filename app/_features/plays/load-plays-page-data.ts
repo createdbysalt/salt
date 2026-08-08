@@ -1,7 +1,7 @@
 import "server-only";
 
 import {
-  listActivityEntries,
+  listPlayActivityRuns,
   listQueuedPlayRuns,
   listAutoHandledPlayRuns,
   countPlaysRanToday,
@@ -11,7 +11,7 @@ import {
   listQueueFindings,
   countFindingsByState,
 } from "@/app/_features/capture/queries/intelligence-findings";
-import type { ActivityEntryRow } from "@/app/_features/plays/types";
+import type { PlayActivityRunRow } from "@/app/_features/plays/types";
 import type { FindingWithContext } from "@/app/_features/capture/types/intelligence-findings";
 import type { PlayRunRow } from "@/app/_features/plays/types";
 
@@ -19,7 +19,7 @@ export type PlaysTab = "queue" | "playbooks" | "activity";
 
 export type PlaysPageData = {
   initialQueue: PlayRunRow[];
-  initialActivity: ActivityEntryRow[];
+  initialActivity: PlayActivityRunRow[];
   activityTotalCount: number;
   initialFindings: FindingWithContext[];
   autoHandledFindings: FindingWithContext[];
@@ -107,10 +107,10 @@ export async function loadPlaysPageData(options: {
     };
   }
 
-  const { entries: activityRows, totalCount: activityTotalCount } = await listActivityEntries(0, 50);
+  const { runs: activityRuns, totalCount: activityTotalCount } = await listPlayActivityRuns(0, 50);
   return {
     ...base,
-    initialActivity: activityRows,
+    initialActivity: activityRuns,
     activityTotalCount,
   };
 }

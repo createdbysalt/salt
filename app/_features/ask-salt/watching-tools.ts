@@ -2,164 +2,87 @@ import "server-only";
 
 import { tool, type ToolSet } from "ai";
 import { z } from "zod";
-import { registerEntityWatch } from "@/app/_lib/learning/watches";
-import type { SignalSurface } from "@/app/_lib/learning/types";
+import { registerWatchExpressions } from "@/app/_features/capture/services/watch-expressions";
 
 export interface BuildWatchingToolsOptions {
   workspaceId: string;
   userId?: string;
 }
 
-const entityTypeSchema = z
-  .enum(["person", "organization", "work", "billing", "file", "meeting"])
-  .describe("Type of Memory entity to watch");
-
-const watchCriteriaSchema = z.object({
-  entity_type: entityTypeSchema,
+const watchInputSchema = z.object({
+  entity_type: z
+    .enum(["person", "organization"])
+    .describe("Type of Memory entity to watch"),
   entity_id: z.string().uuid().describe("The ID of the entity to watch"),
-  entity_name: z.string().optional().describe("Display name of the entity (for context)"),
-  missing_fields: z
-    .array(z.string())
-    .describe("Fields that are missing and need to be filled (e.g., 'email', 'phone', 'deadline')"),
-  watch_for: z
+  entity_name: z.string().describe("Display name of the entity (for context)"),
+  emails: z
     .array(z.string())
     .optional()
-    .describe("Specific signals to watch for (optional, defaults based on entity type)"),
+    .describe("Known email addresses for the entity"),
+  domains: z
+    .array(z.string())
+    .optional()
+    .describe("Known domains for the entity (e.g. company website)"),
+  phones: z
+    .array(z.string())
+    .optional()
+    .describe("Known phone numbers for the entity"),
+  missing_fields: z
+    .array(z.string())
+    .describe("Fields that are missing and need to be filled (e.g., 'email', 'phone')"),
   reason: z.string().describe("Why this watch was registered (for user context)"),
 });
 
-type WatchCriteriaInput = z.infer<typeof watchCriteriaSchema>;
-
-const DEFAULT_WATCH_SIGNALS: Record<string, string[]> = {
-  person: [
-    "capture_email_received",
-    "capture_email_sent",
-    "capture_meeting_completed",
-    "person_email_extracted",
-    "person_phone_extracted",
-  ],
-  organization: [
-    "capture_email_received",
-    "org_billing_email_found",
-    "org_domain_detected",
-    "org_website_found",
-  ],
-  work: [
-    "capture_email_received",
-    "work_deadline_mentioned",
-    "work_contract_value_found",
-    "work_blocker_detected",
-  ],
-  billing: [
-    "capture_email_received",
-    "billing_due_date_found",
-    "billing_amount_confirmed",
-    "billing_payment_received",
-  ],
-  file: [
-    "file_category_detected",
-    "file_linked_entity_found",
-    "file_description_extracted",
-  ],
-  meeting: [
-    "meeting_attendee_confirmed",
-    "meeting_location_found",
-    "meeting_work_linked",
-    "capture_meeting_completed",
-  ],
-};
+type WatchInput = z.infer<typeof watchInputSchema>;
 
 export function buildWatchingTools(options: BuildWatchingToolsOptions): ToolSet {
   const { workspaceId } = options;
 
   return {
     add_to_watching: tool({
-      description: `Register a watch for a Memory entity when critical fields are missing. The watch system monitors for signals from connected apps (email, calendar, etc.) that could fill the missing data. When a matching signal arrives, Salt will automatically update the entity or notify the user.
+      description: `Watch a Memory entity (person or organization) so future captures that mention them fast-track into re-enrichment. Use this AFTER creating an entity when critical fields are missing (e.g. person missing email or phone, organization missing domain or website) — when a matching capture arrives, Salt re-enriches the record and Memory Care fills what it can.
 
-Use this AFTER creating an entity when:
-- Person: missing email, phone, or org link
-- Organization: missing domain, website, or billing_email
-- Work: missing deadline, linked_org, or contract_value
-- Billing: missing due_at, linked_work, or amount
-- File: missing category, linked entity, or description
-- Meeting: missing attendee confirmation, location, or linked_work
+Requires at least one known identifier (email, domain, or phone) so incoming captures can be recognized as belonging to this entity. If the entity has no known identifier yet, do NOT register a watch — tell the user Salt will start learning once the person or organization shows up in a connected source.`,
+      inputSchema: watchInputSchema,
+      execute: async (input: WatchInput) => {
+        const hasIdentifier =
+          (input.emails?.length ?? 0) > 0 ||
+          (input.domains?.length ?? 0) > 0 ||
+          (input.phones?.length ?? 0) > 0;
 
-The watch expires after 90 days or after 10 successful triggers.`,
-      inputSchema: watchCriteriaSchema,
-      execute: async (input: WatchCriteriaInput) => {
-        const entityType = input.entity_type as SignalSurface;
-        const watchSignals = input.watch_for ?? DEFAULT_WATCH_SIGNALS[entityType] ?? [];
-
-        if (watchSignals.length === 0) {
+        if (!hasIdentifier) {
           return {
             success: false,
-            message: `No default watch signals defined for entity type "${entityType}". Provide watch_for explicitly.`,
+            message: `Salt can't watch ${input.entity_name} yet — there's no email, domain, or phone on the record to recognize them by. Once they show up in a connected source, Salt will start learning automatically.`,
           };
         }
 
-        const results: Array<{ field: string; watchId?: string; error?: string }> = [];
+        const targetSurface =
+          input.entity_type === "person" ? "people" : "organizations";
 
-        for (const field of input.missing_fields) {
-          const result = await registerEntityWatch({
-            workspaceId,
-            watchedEntity: {
-              type: entityType,
-              id: input.entity_id,
-            },
-            watchForSignals: watchSignals,
-            filterCriteria: {
-              entity_id: input.entity_id,
-            },
-            onMatch: {
-              signal: `${entityType}_field_${field}_enriched`,
-              extraEvidence: {
-                missing_field: field,
-                watch_reason: input.reason,
-              },
-            },
-            expiresInDays: 90,
-          });
+        const result = await registerWatchExpressions({
+          workspaceId,
+          targetSurface,
+          targetEntityId: input.entity_id,
+          emails: input.emails,
+          domains: input.domains,
+          phones: input.phones,
+        });
 
-          if (result.success) {
-            results.push({
-              field,
-              watchId: result.watchId,
-            });
-          } else {
-            results.push({
-              field,
-              error: result.error ?? "Unknown error",
-            });
-          }
-        }
-
-        const successCount = results.filter((r) => !r.error).length;
-        const failCount = results.filter((r) => r.error).length;
-
-        if (successCount === 0 && failCount > 0) {
+        if (result.registered === 0) {
           return {
             success: false,
-            message: `Failed to register watches for missing fields.`,
-            results,
+            message: `Couldn't register a watch for ${input.entity_name} — the identifiers provided weren't usable.`,
           };
         }
-
-        const entityLabel = input.entity_name ?? input.entity_id;
-        const fieldsWatched = results
-          .filter((r) => !r.error)
-          .map((r) => r.field)
-          .join(", ");
 
         return {
           success: true,
-          message: `Watching ${entityLabel} for: ${fieldsWatched}. Salt will notify when signals arrive that can fill these fields.`,
-          watchCount: successCount,
-          entityType,
+          message: `Watching ${input.entity_name}. When a capture matches their known identifiers, Salt fast-tracks it and re-enriches the record — ${input.missing_fields.join(", ")} will fill in as signals arrive.`,
+          watchCount: result.registered,
+          entityType: input.entity_type,
           entityId: input.entity_id,
-          fieldsWatched: input.missing_fields.filter(
-            (f) => !results.find((r) => r.field === f && r.error)
-          ),
-          expiresInDays: 90,
+          fieldsWatched: input.missing_fields,
         };
       },
     }),

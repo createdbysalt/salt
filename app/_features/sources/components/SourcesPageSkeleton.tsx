@@ -10,7 +10,6 @@ export function SourcesPageSkeleton({
 }) {
   return (
     <div className="relative min-h-full">
-      <div aria-hidden className="salt-ambient-wash" />
       <div className="mx-auto w-full max-w-[1400px] space-y-8">
         <SourcesTabBarSkeleton />
         {tab === "activity" ? <SourcesActivitySkeleton /> : <SourcesConnectorsSkeleton />}

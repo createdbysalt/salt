@@ -3,15 +3,14 @@ import "server-only";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { getConnectionStatus } from "./connections";
 import { getApprovedToolClassification } from "./classification-store";
-import { getWorkspaceDisabledTools } from "@/app/_features/connectors/queries";
 
 /**
  * Capability / intent resolver (plan 2026-07-07 WS3.3).
  *
  * A playbook step can declare an intent ("send_message") instead of a concrete
  * tool slug. This resolves the intent to the best tool the workspace can
- * actually run right now: connected provider + approved classification + not
- * disabled, highest priority wins. Fail-closed — returns null when nothing
+ * actually run right now: connected provider + approved classification,
+ * highest priority wins. Fail-closed — returns null when nothing
  * qualifies, and the caller no-ops with a clear activity note (never an error).
  *
  * Adding a second provider for a capability is a `tool_capabilities` row, not a
@@ -55,9 +54,6 @@ export async function resolveCapabilityTool(
     return null;
   }
 
-  // Disabled-tool set is workspace-global; fetch once.
-  const disabled = new Set(await getWorkspaceDisabledTools(workspaceId));
-
   // Cache connection lookups per provider across candidates.
   const connectionByProvider = new Map<
     string,
@@ -65,10 +61,6 @@ export async function resolveCapabilityTool(
   >();
 
   for (const row of rows as CapabilityRow[]) {
-    if (disabled.has(row.tool_slug)) {
-      continue;
-    }
-
     let connection = connectionByProvider.get(row.provider_key);
     if (!connection) {
       const status = await getConnectionStatus(row.provider_key, workspaceId);

@@ -394,7 +394,7 @@ export async function POST(request: Request) {
   // model's "installed skills" — indexed in the prompt, loaded on demand.
   // Disabled playbooks are shown so the model can offer to enable them.
   const [capabilities, playbooks, operatorContext] = await Promise.all([
-    resolveAskSaltCapabilities(workspace.id, userId),
+    resolveAskSaltCapabilities(workspace.id, userId, conversationId),
     resolveAskSaltPlaybooks(workspace.id),
     assembleOperatorMemoryContext({ workspaceId: workspace.id, userId }).catch(() => ""),
   ]);
@@ -449,7 +449,6 @@ You are reviewing a specific capture. The user clicked "Review with Salt" on thi
 ${formatCaptureContextForPrompt(captureContext)}
 
 ### Available Actions
-- Use \`trigger_play_for_capture\` to run a specific play for this capture
 - Use \`add_sender_to_watching\` to watch for future emails from this sender
 - Use \`link_capture_to_record\` to link this capture to a Person, Org, or Work
 - Use \`recategorize_capture\` to correct Salt's categorization

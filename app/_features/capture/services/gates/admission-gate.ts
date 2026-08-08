@@ -15,12 +15,34 @@ import "server-only";
  */
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import { getAdapterForCategory, listCategoryAdapters } from "../../adapters/categories";
+import type { CaptureSourceType } from "../../types";
 import type {
   AdmissionGateInput,
   GateResultCandidate,
   GateResultNoise,
   AdmissionSignal,
 } from "../../types/gate-result";
+
+/**
+ * DB source types for a capture category (Sources plan 2.5). Relationship
+ * signals used to hardcode gmail/googlecalendar/stripe/googledrive, so an
+ * Outlook/Cal/QuickBooks/Dropbox user never earned bidirectional, calendar,
+ * payment, or shared-file signals — the discriminator was blind for them.
+ *
+ * Providers translate through the category adapters (Composio key → capture
+ * source type, e.g. cal → calcom). capture_events.source_type is TEXT (plan
+ * 5.2), so any adapter-derived value is safe in a Postgres .in() — the old
+ * enum filter (the yahoo_mail 22P02 lesson) is gone.
+ */
+export function sourceTypesForCategory(category: string): CaptureSourceType[] {
+  const entry = listCategoryAdapters().find((e) => e.category === category);
+  if (!entry) return [];
+  const types = entry.providers.map(
+    (provider) => getAdapterForCategory(entry.category, provider).sourceType,
+  );
+  return [...new Set(types)];
+}
 
 const ADMISSION_THRESHOLD = 30;
 const HIGH_CONFIDENCE_THRESHOLD = 70;
@@ -130,7 +152,7 @@ async function checkBidirectionalThread(
     .from("capture_events")
     .select("extracted_data")
     .eq("workspace_id", workspaceId)
-    .eq("source_type", "gmail")
+    .in("source_type", sourceTypesForCategory("email"))
     .contains("extracted_data", { thread_id: threadId })
     .limit(10);
 
@@ -172,7 +194,7 @@ export async function checkCalendarRelationship(
     .from("capture_events")
     .select("id")
     .eq("workspace_id", workspaceId)
-    .eq("source_type", "googlecalendar")
+    .in("source_type", sourceTypesForCategory("calendar"))
     .contains("extracted_data", { attendee_emails: [email.toLowerCase()] })
     .limit(1)
     .maybeSingle();
@@ -190,7 +212,7 @@ export async function checkPaymentRelationship(
     .from("capture_events")
     .select("id")
     .eq("workspace_id", workspaceId)
-    .eq("source_type", "stripe")
+    .in("source_type", sourceTypesForCategory("billing"))
     .contains("extracted_data", { customer_email: email.toLowerCase() })
     .limit(1)
     .maybeSingle();
@@ -208,7 +230,7 @@ export async function checkFileSharing(
     .from("capture_events")
     .select("id")
     .eq("workspace_id", workspaceId)
-    .eq("source_type", "googledrive")
+    .in("source_type", sourceTypesForCategory("storage"))
     .contains("extracted_data", { shared_with_emails: [email.toLowerCase()] })
     .limit(1)
     .maybeSingle();

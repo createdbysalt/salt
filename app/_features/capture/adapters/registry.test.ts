@@ -1,40 +1,52 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { adapterForToolkit, adapterForTriggerSlug, listCaptureAdapters } from "./registry";
+
+// Category lookups are DB-backed in prod; tests pin them to the frozen
+// fallback snapshot so the suite stays hermetic.
+vi.mock("@/app/_lib/composio/capture-categories", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/app/_lib/composio/capture-categories")>();
+  return {
+    ...actual,
+    getCaptureCategory: async (provider: string) =>
+      actual.FALLBACK_PROVIDER_CATEGORIES[provider.toLowerCase()] ?? null,
+  };
+});
 
 describe("capture adapter registry", () => {
   describe("adapterForToolkit", () => {
-    it("returns adapter for gmail via category", () => {
-      const adapter = adapterForToolkit("gmail");
+    it("returns adapter for gmail via category", async () => {
+      const adapter = await adapterForToolkit("gmail");
       expect(adapter).not.toBeNull();
       expect(adapter?.sourceType).toBe("gmail");
     });
 
-    it("returns adapter for outlook via category", () => {
-      const adapter = adapterForToolkit("outlook");
+    it("returns adapter for outlook via category", async () => {
+      const adapter = await adapterForToolkit("outlook");
       expect(adapter).not.toBeNull();
       expect(adapter?.sourceType).toBe("outlook");
     });
 
-    it("returns adapter for stripe via category", () => {
-      const adapter = adapterForToolkit("stripe");
+    it("returns adapter for stripe via category", async () => {
+      const adapter = await adapterForToolkit("stripe");
       expect(adapter).not.toBeNull();
       expect(adapter?.sourceType).toBe("stripe");
     });
 
-    it("returns adapter for googlecalendar via category", () => {
-      const adapter = adapterForToolkit("googlecalendar");
+    it("returns adapter for googlecalendar via category", async () => {
+      const adapter = await adapterForToolkit("googlecalendar");
       expect(adapter).not.toBeNull();
       expect(adapter?.sourceType).toBe("googlecalendar");
     });
 
-    it("returns adapter for googledrive via category", () => {
-      const adapter = adapterForToolkit("googledrive");
+    it("returns adapter for googledrive via category", async () => {
+      const adapter = await adapterForToolkit("googledrive");
       expect(adapter).not.toBeNull();
       expect(adapter?.sourceType).toBe("googledrive");
     });
 
-    it("returns null for unknown toolkit", () => {
-      const adapter = adapterForToolkit("unknown_toolkit");
+    it("returns null for unknown toolkit", async () => {
+      const adapter = await adapterForToolkit("unknown_toolkit");
       expect(adapter).toBeNull();
     });
   });

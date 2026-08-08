@@ -26,6 +26,11 @@ requirements:
     required:
       - email
 
+# Tool allowlist (single-document canon — replaces tools.yaml). Every action
+# step's tool must be declared here; parse-time validation enforces it.
+tools:
+  - GMAIL_MODIFY_MESSAGE_LABELS
+
 steps:
   # Step 1: Get the classification result from the capture
   - step: fetch
@@ -42,7 +47,7 @@ steps:
       message_id: $capture.gmail_message_id
       add_labels:
         - "Salt/{{classification.category}}"
-    needsApproval: false
+    approval: auto
 
   # Step 3: Archive if triage action is silent_archive
   - step: branch
@@ -58,7 +63,7 @@ steps:
             - INBOX
           add_labels:
             - "Salt/Archived"
-        needsApproval: true
+        approval: ask
 
 output:
   type: finding

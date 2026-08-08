@@ -69,6 +69,7 @@ export async function submitCaptureFeedback(
   }
 
   revalidatePath("/plays");
+  revalidatePath("/sources");
   return { success: true };
 }
 
@@ -113,6 +114,6 @@ export async function neverCaptureSender(
   }
 
   revalidatePath("/plays");
-  revalidatePath("/settings/captures");
+  revalidatePath("/sources");
   return { success: true };
 }

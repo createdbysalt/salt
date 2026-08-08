@@ -13,7 +13,9 @@ import {
 import { Button, Label, Slider } from "@repo/ui";
 import { PlaysSectionHeader } from "@/app/_features/plays/components/PlaysSectionHeader";
 import { CareCapabilityToggle } from "./CareCapabilityToggle";
+import { LearnedWeightsSection } from "./LearnedWeightsSection";
 import { updateMemoryCareThreshold } from "../care/actions";
+import type { SignalSourceWeight } from "../care/reflection";
 import type { CareCapability } from "../care/types";
 
 /**
@@ -101,12 +103,14 @@ interface RulesTabProps {
   workspaceId: string;
   capabilities: CareCapabilityState[];
   initialThreshold: number;
+  learnedWeights: SignalSourceWeight[];
 }
 
 export function RulesTab({
   workspaceId,
   capabilities,
   initialThreshold,
+  learnedWeights,
 }: RulesTabProps) {
   const [threshold, setThreshold] = useState(initialThreshold);
   const [savedThreshold, setSavedThreshold] = useState(initialThreshold);
@@ -241,6 +245,12 @@ export function RulesTab({
           , alongside kept-out items.
         </p>
       </section>
+
+      {/* P8: LEARNED WEIGHTS */}
+      <LearnedWeightsSection
+        workspaceId={workspaceId}
+        initialWeights={learnedWeights}
+      />
     </div>
   );
 }

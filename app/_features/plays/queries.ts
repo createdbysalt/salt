@@ -5,17 +5,17 @@ import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { listQueueFindings } from "@/app/_features/capture/queries/intelligence-findings";
-import { fetchCaptureSourceUrlMap } from "@/app/_features/capture/utils/fetch-capture-source-urls";
-import { buildGmailInboxUrl } from "@/app/_features/capture/utils/capture-source-url";
 import { mapFindingToCard } from "./play-card/map-finding-to-card";
 import { mapHandledFindingToCard } from "./play-card/map-handled-finding-to-card";
-import { mapPlayRunToCard } from "./play-card/map-play-run-to-card";
+import { mapPlayRunToCardClient } from "./play-card/map-play-run-to-card-client";
 import { validatePlayCard } from "./play-card/validate-play-card";
 import type { PlayCardViewModel } from "./play-card/types";
 import type {
   ActivityEntryRow,
   HqQueuePlayView,
   OpportunityGapRow,
+  PlayActivityRunRow,
+  PlayRunSourceSnippet,
   PlaybookBlueprintView,
   PlayChannel,
   PlayerSlug,
@@ -24,17 +24,33 @@ import type {
   QueuePlayView,
 } from "./types";
 import type { PlaybookBlueprintRow } from "./playbooks/types";
-import { isMemoryCareActivityMetadata } from "./utils/plays-activity-filter";
+import { isActLayerPlayRun } from "./utils/plays-activity-filter";
+
+interface PlayRunSourceRow {
+  play_run_id: string;
+  label: string | null;
+  excerpt: string | null;
+  external_url: string | null;
+  source_type: string | null;
+}
 // v1 authored playbooks removed - v2 playbooks are filesystem-based
 import { normalizePlaybookTrigger } from "./utils/playbook-display";
 import type {
   ProfileFillRulesDocument,
   ProfilePlaybookSettings,
-  ProfileProvenanceFeedItem,
-  ProfileProvenanceStats,
 } from "./playbooks/records-engine/types";
 import { getPlaybookBySlug } from "./playbooks/schema/v2/discovery";
-import { getConnectorRegistry } from "@/app/_lib/composio/connector-registry";
+import { discoverV2Playbooks } from "./playbooks/schema/v2/discovery";
+import type { PlaybookSection } from "./playbooks/schema/v2/types";
+import { getCaptureCategoryMap } from "@/app/_lib/composio/capture-categories";
+import {
+  computePlaybookRunStats,
+  computeWorkspaceRunStats,
+  estimatePlaybookRunDurationMs,
+  type CompletedRunRow,
+  type PlaybookRunStats,
+  type WorkspaceRunStats,
+} from "./run-stats";
 
 const DEFAULT_PLAYER_SLUG: PlayerSlug = "follow-up";
 
@@ -122,7 +138,9 @@ export async function listQueuedPlayRuns(): Promise<PlayRunRow[]> {
     .from("play_runs")
     .select("*")
     .eq("workspace_id", workspaceId)
-    .in("state", ["queued", "draft"])
+    // "blocked" runs are parked on connector failures and must stay visible —
+    // the queue is the notification that a reconnect is needed.
+    .in("state", ["queued", "draft", "blocked"])
     .order("created_at", { ascending: true })
     .limit(50);
 
@@ -164,6 +182,12 @@ export async function listHqQueuePlays(): Promise<HqQueuePlayView[]> {
 /**
  * Validated Needs You cards — same source as Plays → Queue → Needs You.
  * Cached per request so HQ briefing counts and the stack share one fetch.
+ *
+ * Maps play runs with the CLIENT mapper on purpose: Plays counts and renders
+ * client-mapped cards, so HQ must run the identical pipeline or the briefing
+ * "Need you" number drifts from the Plays badge. The filesystem mapper can
+ * fail playbook resolution (`notFound` → profile kind → invalid card) for a
+ * run the client mapper resolves fine from metadata, silently dropping it here.
  */
 const buildHqNeedsYouCards = cache(async (): Promise<PlayCardViewModel[]> => {
   const [playRuns, findings] = await Promise.all([
@@ -173,7 +197,7 @@ const buildHqNeedsYouCards = cache(async (): Promise<PlayCardViewModel[]> => {
 
   return [
     ...findings.map(mapFindingToCard),
-    ...playRuns.map(mapPlayRunToCard),
+    ...playRuns.map(mapPlayRunToCardClient),
   ].filter((vm) => validatePlayCard(vm).ok);
 });
 
@@ -226,110 +250,129 @@ function mapPlayCardToHqView(vm: PlayCardViewModel): HqQueuePlayView {
   };
 }
 
-export async function listActivityEntries(
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Plays → Activity (run-centric)
+ *
+ * One card per play run. draft/queued stay in the Queue tab; Activity shows
+ * everything in flight or finished: executing/scheduled/approved (in progress),
+ * ran (completed), failed/blocked (needs attention), dismissed (decided).
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+export const PLAY_ACTIVITY_VISIBLE_STATES = [
+  "executing",
+  "scheduled",
+  "approved",
+  "ran",
+  "failed",
+  "blocked",
+  "dismissed",
+] as const;
+
+export async function listPlayActivityRuns(
   offset = 0,
   limit = 50,
-): Promise<{ entries: ActivityEntryRow[]; totalCount: number }> {
+): Promise<{ runs: PlayActivityRunRow[]; totalCount: number }> {
   const workspaceId = await getWorkspaceId();
   const supabase = await createClient();
 
-  // Oversample so post-filter still fills the page after dropping Care rows.
+  // Oversample so post-filter still fills the page after dropping Care runs.
   const fetchLimit = Math.min(Math.max(limit * 3, limit + 50), 200);
 
   const { data, error } = await supabase
-    .from("activity_entries")
-    .select(
-      "id, workspace_id, play_run_id, actor_user_id, action, title, detail, metadata, created_at",
-    )
+    .from("play_runs")
+    .select("*")
     .eq("workspace_id", workspaceId)
-    .order("created_at", { ascending: false })
+    .in("state", [...PLAY_ACTIVITY_VISIBLE_STATES])
+    // updated_at tracks the interesting moment: ran_at/dismissed_at/last
+    // transition all bump it, so it is a safe recency proxy.
+    .order("updated_at", { ascending: false })
     .range(0, fetchLimit - 1);
 
   if (error) throw error;
 
-  const filtered = ((data ?? []) as ActivityEntryRow[]).filter(
-    (row) => !isMemoryCareActivityMetadata(row.metadata),
+  // Allowlist: only Ask Salt / manual actions and runs attributed to a live
+  // act-layer YAML playbook. Retired Care slugs, legacy keeper-* runs, and
+  // unattributed historical rows are learn-layer audit history — they belong
+  // on Memory surfaces, not here.
+  const layerForSlug = (slug: string): "learn" | "act" | null =>
+    getPlaybookBySlug(slug)?.definition.layer ?? null;
+  const filtered = ((data ?? []) as PlayRunRow[]).filter((row) =>
+    isActLayerPlayRun(row, layerForSlug),
   );
   const page = filtered.slice(offset, offset + limit);
-  const enriched = await enrichActivitySourceUrls(page, workspaceId, supabase);
+  const runIds = page.map((row) => row.id);
 
-  // Count is approximate when Care rows are dense; oversample keeps the page full.
-  return {
-    entries: enriched,
-    totalCount: filtered.length,
-  };
-}
-
-function readMetadataString(
-  metadata: Record<string, unknown> | null,
-  key: string
-): string | null {
-  const value = metadata?.[key];
-  return typeof value === "string" && value.trim() ? value.trim() : null;
-}
-
-async function enrichActivitySourceUrls(
-  entries: ActivityEntryRow[],
-  workspaceId: string,
-  supabase: Awaited<ReturnType<typeof createClient>>
-): Promise<ActivityEntryRow[]> {
-  if (entries.length === 0) return entries;
-
-  const playRunIds = [
-    ...new Set(
-      entries
-        .map((entry) => entry.play_run_id)
-        .filter((id): id is string => Boolean(id))
-    ),
-  ];
-
-  const captureIds = [
-    ...new Set(
-      entries
-        .map((entry) => readMetadataString(entry.metadata, "capture_id"))
-        .filter((id): id is string => Boolean(id))
-    ),
-  ];
-
-  const [playRunSourcesResult, captureUrlMap] = await Promise.all([
-    playRunIds.length > 0
+  const [sourcesResult, entriesResult] = await Promise.all([
+    runIds.length > 0
       ? supabase
           .from("play_run_sources")
-          .select("play_run_id, external_url")
+          .select("play_run_id, label, excerpt, external_url, source_type")
           .eq("workspace_id", workspaceId)
-          .in("play_run_id", playRunIds)
-          .not("external_url", "is", null)
-      : Promise.resolve({ data: [] as { play_run_id: string; external_url: string }[] }),
-    fetchCaptureSourceUrlMap(supabase, workspaceId, captureIds),
+          .in("play_run_id", runIds)
+      : Promise.resolve({ data: [] as PlayRunSourceRow[] }),
+    runIds.length > 0
+      ? supabase
+          .from("activity_entries")
+          .select(
+            "id, workspace_id, play_run_id, actor_user_id, action, title, detail, metadata, created_at",
+          )
+          .eq("workspace_id", workspaceId)
+          .in("play_run_id", runIds)
+          .order("created_at", { ascending: false })
+      : Promise.resolve({ data: [] as ActivityEntryRow[] }),
   ]);
 
-  const urlByPlayRunId = new Map<string, string>();
-  for (const row of playRunSourcesResult.data ?? []) {
-    if (!urlByPlayRunId.has(row.play_run_id) && row.external_url) {
-      urlByPlayRunId.set(row.play_run_id, row.external_url);
+  const sourcesByRunId = new Map<string, PlayRunSourceSnippet[]>();
+  for (const row of sourcesResult.data ?? []) {
+    const list = sourcesByRunId.get(row.play_run_id) ?? [];
+    list.push({
+      label: row.label,
+      excerpt: row.excerpt,
+      external_url: row.external_url,
+      source_type: row.source_type,
+    });
+    sourcesByRunId.set(row.play_run_id, list);
+  }
+
+  const eventsByRunId = new Map<string, ActivityEntryRow[]>();
+  for (const entry of (entriesResult.data ?? []) as ActivityEntryRow[]) {
+    if (!entry.play_run_id) continue;
+    const list = eventsByRunId.get(entry.play_run_id) ?? [];
+    list.push(entry);
+    eventsByRunId.set(entry.play_run_id, list);
+  }
+
+  const defBySlug = new Map<
+    string,
+    { name: string; section: PlaybookSection }
+  >();
+  for (const row of page) {
+    const slug = row.source_context?.playbook_slug;
+    if (slug && !defBySlug.has(slug)) {
+      const definition = getPlaybookBySlug(slug)?.definition;
+      if (definition) {
+        defBySlug.set(slug, {
+          name: definition.name,
+          section: definition.section,
+        });
+      }
     }
   }
 
-  return entries.map((entry) => {
-    const metaUrl =
-      readMetadataString(entry.metadata, "source_url") ??
-      buildGmailInboxUrl({
-        threadId: readMetadataString(entry.metadata, "gmail_thread_id"),
-        messageId: readMetadataString(entry.metadata, "gmail_message_id"),
-      });
-
-    const captureId = readMetadataString(entry.metadata, "capture_id");
-    const captureUrl = captureId ? captureUrlMap.get(captureId) ?? null : null;
-
-    const playRunUrl = entry.play_run_id
-      ? urlByPlayRunId.get(entry.play_run_id) ?? null
-      : null;
-
+  const runs: PlayActivityRunRow[] = page.map((row) => {
+    const slug = row.source_context?.playbook_slug;
+    const def = slug ? defBySlug.get(slug) : undefined;
     return {
-      ...entry,
-      source_url: metaUrl ?? captureUrl ?? playRunUrl,
+      ...row,
+      playbookName: def?.name ?? null,
+      playbookSection: def?.section ?? null,
+      sources: sourcesByRunId.get(row.id) ?? [],
+      events: eventsByRunId.get(row.id) ?? [],
     };
   });
+
+  // Count is approximate when Care runs are dense; oversample keeps the page full.
+  return { runs, totalCount: filtered.length };
 }
 
 export async function getPrimaryOpportunityGap(): Promise<OpportunityGapRow | null> {
@@ -431,104 +474,146 @@ export async function getProfileBlueprintDetail(
   return null;
 }
 
-export async function getProfileProvenanceStats(
-  blueprintSlug: string,
-): Promise<ProfileProvenanceStats> {
-  const workspaceId = await getWorkspaceId();
-  const supabase = await createClient();
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Run statistics (Phase 5b)
+ *
+ * One source of truth for "Runs this week" / "Runtime" / "Time saved": the
+ * billing unit is a completed playbook run (state = ran), attribution reads
+ * source_context.playbook_slug (Phase 1), runtime is the executor's recorded
+ * duration_ms in activity_entries, and minutes saved = the playbook's
+ * declared value.estimate × runs. Hero cards and the HQ Today widget both
+ * read through here so the surfaces can never disagree.
+ * ──────────────────────────────────────────────────────────────────────────── */
 
-  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+const RUN_STATS_WINDOW_DAYS = 14;
 
-  const [appliedResult, pendingResult, weekResult] = await Promise.all([
-    supabase
-      .from("profile_field_provenance")
-      .select("id", { count: "exact", head: true })
-      .eq("workspace_id", workspaceId)
-      .eq("blueprint_slug", blueprintSlug)
-      .eq("status", "applied"),
-    supabase
-      .from("profile_field_provenance")
-      .select("id", { count: "exact", head: true })
-      .eq("workspace_id", workspaceId)
-      .eq("blueprint_slug", blueprintSlug)
-      .eq("status", "pending"),
-    supabase
-      .from("profile_field_provenance")
-      .select("id", { count: "exact", head: true })
-      .eq("workspace_id", workspaceId)
-      .eq("blueprint_slug", blueprintSlug)
-      .eq("status", "applied")
-      .gte("set_at", weekAgo),
-  ]);
-
+function toCompletedRunRow(row: {
+  ran_at: string | null;
+  approved_at: string | null;
+  created_at: string;
+  source_context: unknown;
+}): CompletedRunRow {
+  const sourceContext = row.source_context as { playbook_slug?: string } | null;
   return {
-    applied: appliedResult.count ?? 0,
-    pending: pendingResult.count ?? 0,
-    appliedThisWeek: weekResult.count ?? 0,
+    playbookSlug: sourceContext?.playbook_slug ?? null,
+    ranAt: row.ran_at,
+    approvedAt: row.approved_at,
+    createdAt: row.created_at,
   };
 }
 
-export async function listRecentProfileProvenance(
-  blueprintSlug: string,
-  limit = 8,
-): Promise<ProfileProvenanceFeedItem[]> {
+/** Per-playbook stats for the detail-page hero (act layer). */
+export async function getPlaybookRunStats(
+  playbookSlug: string,
+): Promise<PlaybookRunStats> {
   const workspaceId = await getWorkspaceId();
   const supabase = await createClient();
+  const windowStart = new Date(
+    Date.now() - RUN_STATS_WINDOW_DAYS * 24 * 60 * 60 * 1000
+  ).toISOString();
 
-  const { data } = await supabase
-    .from("profile_field_provenance")
-    .select("id, entity_type, entity_id, field, value, source, status, evidence, set_at")
-    .eq("workspace_id", workspaceId)
-    .eq("blueprint_slug", blueprintSlug)
-    .order("set_at", { ascending: false })
-    .limit(limit);
-
-  if (!data?.length) return [];
-
-  const personIds = [
-    ...new Set(
-      data
-        .filter((row) => row.entity_type === "person")
-        .map((row) => row.entity_id as string),
-    ),
-  ];
-
-  const nameByPersonId = new Map<string, string>();
-  if (personIds.length > 0) {
-    const { data: people } = await supabase
-      .from("people")
-      .select("id, name")
+  const [runsResult, durationsResult] = await Promise.all([
+    // All-time completed runs for this playbook (runs this week is a filter
+    // over the same rows — one query, two counts).
+    supabase
+      .from("play_runs")
+      .select("ran_at, approved_at, created_at, source_context")
       .eq("workspace_id", workspaceId)
-      .in("id", personIds);
+      .eq("source_context->>playbook_slug", playbookSlug)
+      .eq("state", "ran"),
+    // Runtime: the executor's recorded durations, most recent first.
+    supabase
+      .from("activity_entries")
+      .select("metadata")
+      .eq("workspace_id", workspaceId)
+      .eq("metadata->>playbook_slug", playbookSlug)
+      .eq("metadata->>success", "true")
+      .gte("created_at", windowStart)
+      .order("created_at", { ascending: false })
+      .limit(100),
+  ]);
 
-    for (const person of people ?? []) {
-      nameByPersonId.set(person.id as string, person.name as string);
+  const rows = (runsResult.data ?? []).map(toCompletedRunRow);
+  const durationsMs = (durationsResult.data ?? [])
+    .map((row) => {
+      const metadata = row.metadata as { duration_ms?: unknown } | null;
+      const value = Number(metadata?.duration_ms);
+      return Number.isFinite(value) && value > 0 ? value : null;
+    })
+    .filter((value): value is number => value !== null);
+
+  const definition = getPlaybookBySlug(playbookSlug)?.definition;
+  const estimate = definition?.value?.estimate ?? null;
+
+  return computePlaybookRunStats(
+    rows,
+    durationsMs,
+    estimate,
+    new Date(),
+    estimatePlaybookRunDurationMs(definition?.steps)
+  );
+}
+
+/** Workspace-wide stats for the HQ Today time-saved widget. */
+export async function getWorkspaceRunStats(): Promise<WorkspaceRunStats> {
+  const workspaceId = await getWorkspaceId();
+  const supabase = await createClient();
+  const windowStart = new Date(
+    Date.now() - RUN_STATS_WINDOW_DAYS * 24 * 60 * 60 * 1000
+  ).toISOString();
+
+  const [runsResult, anyRunResult] = await Promise.all([
+    supabase
+      .from("play_runs")
+      .select("ran_at, approved_at, created_at, source_context")
+      .eq("workspace_id", workspaceId)
+      .eq("state", "ran")
+      .gte("created_at", windowStart),
+    // hasActivity must not depend on the 14-day math window.
+    supabase
+      .from("play_runs")
+      .select("id", { count: "exact", head: true })
+      .eq("workspace_id", workspaceId)
+      .eq("state", "ran"),
+  ]);
+
+  const estimateBySlug = new Map<string, number>();
+  for (const parsed of discoverV2Playbooks().allPlaybooks) {
+    const estimate = parsed.definition.value?.estimate;
+    if (typeof estimate === "number") {
+      estimateBySlug.set(parsed.definition.slug, estimate);
     }
   }
 
-  return data.map((row) => {
-    const entityId = row.entity_id as string;
-    const entityType = row.entity_type as string;
-    const valueObj = row.value as { text?: string } | null;
-    const evidence =
-      typeof row.evidence === "object" && row.evidence
-        ? (row.evidence as { because?: string })
-        : null;
+  const rows = (runsResult.data ?? []).map(toCompletedRunRow);
+  const stats = computeWorkspaceRunStats(rows, estimateBySlug);
 
-    return {
-      id: row.id as string,
-      entityId,
-      entityName:
-        entityType === "person" ? nameByPersonId.get(entityId) ?? null : null,
-      entityHref: entityType === "person" ? `/people/${entityId}` : null,
-      field: row.field as ProfileProvenanceFeedItem["field"],
-      value: valueObj?.text ?? null,
-      source: row.source as ProfileProvenanceFeedItem["source"],
-      status: row.status as ProfileProvenanceFeedItem["status"],
-      because: evidence?.because ?? null,
-      setAt: row.set_at as string,
-    };
-  });
+  return { ...stats, hasActivity: (anyRunResult.count ?? 0) > 0 };
+}
+
+/**
+ * Count non-manual profile fields applied in the trailing window. Used by the
+ * Trust dashboard accuracy metric. Goes through the RLS-scoped client like
+ * the other provenance queries — the workspace filter is belt-and-braces.
+ */
+export async function countAutoAppliedProfileFields(
+  workspaceId: string,
+  days = 30,
+): Promise<number> {
+  const supabase = await createClient();
+  const windowStart = new Date(
+    Date.now() - days * 24 * 60 * 60 * 1000
+  ).toISOString();
+
+  const { count } = await supabase
+    .from("profile_field_provenance")
+    .select("id", { count: "exact", head: true })
+    .eq("workspace_id", workspaceId)
+    .eq("status", "applied")
+    .neq("source", "manual")
+    .gte("set_at", windowStart);
+
+  return count ?? 0;
 }
 
 export async function getProfilePlaybookSettings(
@@ -563,7 +648,10 @@ export async function listPlayers(): Promise<PlayerView[]> {
 }
 
 export interface PlaybookConnectorStats {
+  /** Connected apps (active integrations) serving one of this playbook's categories. */
   connected: number;
+  /** Required categories covered by at least one connected app. */
+  requiredCovered: number;
   required: number;
   optional: number;
 }
@@ -571,21 +659,21 @@ export interface PlaybookConnectorStats {
 export async function getPlaybookConnectorStats(
   playbookSlug: string
 ): Promise<PlaybookConnectorStats> {
+  const empty = { connected: 0, requiredCovered: 0, required: 0, optional: 0 };
   const parsed = getPlaybookBySlug(playbookSlug);
   if (!parsed?.definition?.requirements?.categories) {
-    return { connected: 0, required: 0, optional: 0 };
+    return empty;
   }
 
   const { required = [], optional = [] } = parsed.definition.requirements.categories;
   const allCategories = new Set<string>([...required, ...optional]);
 
   if (allCategories.size === 0) {
-    return { connected: 0, required: required.length, optional: optional.length };
+    return { ...empty, required: required.length, optional: optional.length };
   }
 
   const workspaceId = await getWorkspaceId();
   const supabase = await createClient();
-  const registry = await getConnectorRegistry();
 
   const { data: integrations } = await supabase
     .from("workspace_integrations")
@@ -594,17 +682,24 @@ export async function getPlaybookConnectorStats(
     .eq("is_active", true)
     .not("composio_connection_id", "is", null);
 
-  const connectedCategories = new Set<string>();
+  // Playbook requirement categories use Salt's taxonomy ("email", "billing"),
+  // while connector_catalog.category is Composio's ("communication", "files").
+  // Map provider → Salt category via the DB capture taxonomy (same mapping the
+  // executor's category-fetcher uses) or the two never intersect.
+  const providerCategories = await getCaptureCategoryMap();
+  let connected = 0;
+  const coveredRequired = new Set<string>(required);
+  const covered = new Set<string>();
   for (const integration of integrations ?? []) {
-    const provider = integration.provider as string;
-    const entry = registry.get(provider);
-    if (entry && allCategories.has(entry.category)) {
-      connectedCategories.add(entry.category);
-    }
+    const category = providerCategories.get(integration.provider as string);
+    if (!category || !allCategories.has(category)) continue;
+    connected += 1;
+    if (coveredRequired.has(category)) covered.add(category);
   }
 
   return {
-    connected: connectedCategories.size,
+    connected,
+    requiredCovered: covered.size,
     required: required.length,
     optional: optional.length,
   };

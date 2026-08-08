@@ -14,7 +14,7 @@ interface MemoryGraphPageProps {
 
 /**
  * Memory → Map tab content. Rendered inside the Memory page shell, which
- * provides the outer wrapper and the Map / Filter / Rules tab bar.
+ * provides the outer wrapper and the Map / Activity / Rules tab bar.
  */
 export function MemoryGraphPage({ initialGraphData }: MemoryGraphPageProps) {
   return (

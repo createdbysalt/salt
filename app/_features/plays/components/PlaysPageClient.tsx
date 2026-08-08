@@ -1,6 +1,6 @@
 "use client";
 
-import type { ActivityEntryRow, HqBriefingData, PlayRunRow } from "@/app/_features/plays/types";
+import type { HqBriefingData, PlayActivityRunRow, PlayRunRow } from "@/app/_features/plays/types";
 import type { FindingWithContext } from "@/app/_features/capture/types/intelligence-findings";
 import type { PlaysTab } from "@/app/_features/plays/load-plays-page-data";
 import type { PlaybookV2QueryResult } from "@/app/_features/plays/playbooks/queries-v2";
@@ -11,7 +11,7 @@ import { PlaysPageSkeleton } from "./PlaysPageSkeleton";
 type Props = {
   initialTab: PlaysTab;
   initialQueue: PlayRunRow[];
-  initialActivity: ActivityEntryRow[];
+  initialActivity: PlayActivityRunRow[];
   activityTotalCount?: number;
   initialFindings: FindingWithContext[];
   autoHandledFindings: FindingWithContext[];

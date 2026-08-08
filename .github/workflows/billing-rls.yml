@@ -1,0 +1,48 @@
+name: Billing RLS guard
+
+# Sources plan 6.1 (INV-1): the six metering tables must stay
+# service-role-write-only. Unit tests mock the database and cannot catch a
+# migration that opens an authenticated write hole (or revokes a
+# service_role grant — the Aug 2026 void-write incident). Only a live
+# credential can, so this runs scripts/verify-billing-rls.mjs against
+# staging daily.
+#
+# Required secrets (values in the 1Password salt-software-development
+# vault, staging env):
+#   STAGING_SUPABASE_URL              = NEXT_PUBLIC_SUPABASE_URL
+#   STAGING_SUPABASE_SERVICE_ROLE_KEY = SUPABASE_SERVICE_ROLE_KEY
+
+permissions:
+  contents: read
+
+on:
+  schedule:
+    - cron: '15 4 * * *' # daily, after connector-catalog-sync
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Verify billing RLS posture
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.STAGING_SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          if [ -z "$NEXT_PUBLIC_SUPABASE_URL" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "::error::Missing STAGING_SUPABASE_URL / STAGING_SUPABASE_SERVICE_ROLE_KEY secrets."
+            echo "Add them from the 1Password salt-software-development vault (staging env),"
+            echo "or run locally: op run --env-file=.env.staging.1password -- node scripts/verify-billing-rls.mjs"
+            exit 1
+          fi
+          node scripts/verify-billing-rls.mjs
+
+      - name: Verify usage ledger is append-only
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.STAGING_SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/verify-ledger-immutable.mjs

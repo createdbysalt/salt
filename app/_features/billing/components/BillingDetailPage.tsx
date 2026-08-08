@@ -103,7 +103,6 @@ export function BillingDetailPage({ billingRecordId, detailData = null }: Billin
   if (!billing) {
     return (
       <div className="relative min-h-full">
-        <div aria-hidden className="salt-ambient-wash" />
         <div className={memoryDetailShellClass}>
           <BackToBillingLink />
           <MockContentEmptyState
@@ -117,8 +116,6 @@ export function BillingDetailPage({ billingRecordId, detailData = null }: Billin
 
   return (
     <div className="relative min-h-full">
-      <div aria-hidden className="salt-ambient-wash" />
-
       <div className={memoryDetailShellClass}>
         <BackToBillingLink />
         <BillingDetailHero

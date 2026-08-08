@@ -42,8 +42,6 @@ function BillingTableSkeleton() {
 export function BillingMemoryPageSkeleton() {
   return (
     <div className="relative min-h-full">
-      <div aria-hidden className="salt-ambient-wash" />
-
       <div className={memoryListShellClass}>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0 space-y-2">

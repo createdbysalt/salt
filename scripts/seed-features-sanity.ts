@@ -56,7 +56,7 @@ const FEATURE_CARDS: FeatureCardSeed[] = [
     _id: 'feature-capture-memory',
     key: 'capture-memory',
     title: 'Catch context as it happens. Salt files it for you.',
-    label: 'Capture & Memory',
+    label: 'Sources & Memory',
     visualKey: 'capture-memory',
     sortOrder: 1,
   },

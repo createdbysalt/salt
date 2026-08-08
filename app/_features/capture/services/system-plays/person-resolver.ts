@@ -335,7 +335,8 @@ async function applyPersonEnrichment(
         .maybeSingle();
 
       if (person) {
-        const updates: Record<string, string> = {};
+        const updates: { first_contact_at?: string; last_contact_at?: string } =
+          {};
         if (!person.first_contact_at || enrichment.contactAt < person.first_contact_at) {
           updates.first_contact_at = enrichment.contactAt;
         }

@@ -11,7 +11,6 @@
  */
 
 import { createClient } from "@/app/_lib/supabase/server";
-import { createAdminClient } from "@/app/_lib/supabase/admin";
 import {
   normalizeTagSlug,
   normalizeTagLabel,
@@ -537,61 +536,6 @@ export async function unassignTag(
   }
 
   return { success: true };
-}
-
-// ============================================================================
-// AUTO-ARCHIVE (Run periodically to clean up unused tags)
-// ============================================================================
-
-export async function archiveUnusedTags(daysUnused: number = 90): Promise<{
-  success: boolean;
-  archivedCount: number;
-  error?: string;
-}> {
-  const admin = createAdminClient();
-
-  const cutoffDate = new Date();
-  cutoffDate.setDate(cutoffDate.getDate() - daysUnused);
-
-  const { data: unusedTags, error: fetchError } = await admin
-    .from("workspace_tags")
-    .select(`
-      id,
-      created_at,
-      entity_tag_assignments(id)
-    `)
-    .eq("is_system", false)
-    .eq("is_archived", false)
-    .lt("created_at", cutoffDate.toISOString());
-
-  if (fetchError) {
-    console.error("archiveUnusedTags fetch error:", fetchError);
-    return { success: false, archivedCount: 0, error: "Failed to fetch tags" };
-  }
-
-  const tagsToArchive = (unusedTags ?? []).filter(
-    (t: { id: string; created_at: string; entity_tag_assignments: { id: string }[] | null }) =>
-      !t.entity_tag_assignments || t.entity_tag_assignments.length === 0
-  );
-
-  if (tagsToArchive.length === 0) {
-    return { success: true, archivedCount: 0 };
-  }
-
-  const { error: updateError } = await admin
-    .from("workspace_tags")
-    .update({ is_archived: true })
-    .in(
-      "id",
-      tagsToArchive.map((t: { id: string }) => t.id)
-    );
-
-  if (updateError) {
-    console.error("archiveUnusedTags update error:", updateError);
-    return { success: false, archivedCount: 0, error: "Failed to archive tags" };
-  }
-
-  return { success: true, archivedCount: tagsToArchive.length };
 }
 
 // ============================================================================

@@ -17,7 +17,7 @@ export const LANDING_CAPABILITY_FALLBACK: LandingCapabilityCard[] = [
     _type: "featurePage",
     key: "capture-memory",
     title: "Catch context as it happens. Salt files it for you.",
-    label: "Capture & Memory",
+    label: "Sources & Memory",
     visualKey: "capture-memory",
     sortOrder: 1,
     showOnLanding: true,

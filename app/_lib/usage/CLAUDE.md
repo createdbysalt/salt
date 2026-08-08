@@ -111,7 +111,7 @@ Shadow metering of *bundle sizes* is still deliberate (pricing §4: observe 60�
 
 `sendLlm` takes an `LlmSpendContext` and both gates and meters itself — never call `canSpend` or `recordLlmCall` around it from a feature. Attribution must stay required: `AsyncLocalStorage` and user→workspace lookup were both investigated and rejected, so see the architecture doc before reopening either.
 
-`createAdminClient()` has no `Database` generic, so `supabase.rpc(...)` compiles whether or not the function exists and whether or not the parameter names match. `scripts/verify-cogs-aggregate.mjs` probes the real database; run it after touching `workspace_cogs_micros`.
+`createAdminClient()` carries the `Database` generic (since 2026-08-07), so `supabase.rpc(...)` typechecks the function name and parameter names against the generated types — but the types are only as fresh as the last regen. `scripts/verify-cogs-aggregate.mjs` probes the real database; still run it after touching `workspace_cogs_micros`.
 
 `llm_call` rows are always `billable: false` and are the highest-cardinality type in the ledger. Keep them out of the `billable = true` partial index.
 

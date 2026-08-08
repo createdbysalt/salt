@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   categoryFromEnrichment,
+  mapOutcomeToCategory,
   mergeIntelligenceMeta,
   readIntelligenceMeta,
   resolveCaptureIntelligenceOutcome,
@@ -109,6 +110,47 @@ describe("capture-intelligence-outcome", () => {
         { rescan: true }
       )
     ).toBe(true);
+  });
+
+  describe("signal_unrouted (Plays canon Phase 2 — route-signal eviction)", () => {
+    const scannedAt = "2026-08-08T12:00:00.000Z";
+
+    it("round-trips through extracted_data meta", () => {
+      const merged = mergeIntelligenceMeta(
+        { type: "message", subject: "Hello" },
+        { outcome: "signal_unrouted", scanned_at: scannedAt }
+      );
+      expect(readIntelligenceMeta(merged)).toEqual({
+        outcome: "signal_unrouted",
+        scanned_at: scannedAt,
+      });
+    });
+
+    it("is terminal for the scan loop — the LLM got its one look", () => {
+      expect(
+        shouldReanalyzeCapture({ outcome: "signal_unrouted", scanned_at: scannedAt })
+      ).toBe(false);
+      expect(
+        shouldReanalyzeCapture(
+          { outcome: "signal_unrouted", scanned_at: scannedAt },
+          { rescan: true }
+        )
+      ).toBe(true);
+    });
+
+    it("resolves honestly without any finding link", () => {
+      expect(
+        resolveCaptureIntelligenceOutcome({
+          intelligenceMeta: { outcome: "signal_unrouted", scanned_at: scannedAt },
+          findingLink: null,
+          routingState: "pending",
+        })
+      ).toBe("signal_unrouted");
+    });
+
+    it("maps to the no-signal category — nothing was queued for the user", () => {
+      expect(mapOutcomeToCategory("signal_unrouted")).toBe("no-signal");
+    });
   });
 
   it("defaults to awaiting_scan for pending gmail captures", () => {

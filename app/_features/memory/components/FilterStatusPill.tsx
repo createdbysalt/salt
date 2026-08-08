@@ -1,12 +1,14 @@
 "use client";
 
-import { CheckCircle2, Eye } from "lucide-react";
+import { motion } from "framer-motion";
 import { cn } from "@repo/utils";
 
 /**
- * Memory → Filter status pill — switches between the two transparency
+ * Memory → Activity status pill — switches between the two transparency
  * views: what Salt is still gathering confidence on (Watching) and what it
  * already handled (Handled).
+ *
+ * Visuals mirror the Plays QueueToggle (sliding pill, count badges).
  *
  * P11: Kept out moved to Sources → Activity (it's intake policy, not Memory).
  */
@@ -19,13 +21,9 @@ interface FilterStatusPillProps {
   counts: Record<FilterStatus, number>;
 }
 
-const OPTIONS: Array<{
-  value: FilterStatus;
-  label: string;
-  icon: typeof Eye;
-}> = [
-  { value: "watching", label: "Watching", icon: Eye },
-  { value: "handled", label: "Handled", icon: CheckCircle2 },
+const OPTIONS: Array<{ value: FilterStatus; label: string }> = [
+  { value: "watching", label: "Watching" },
+  { value: "handled", label: "Handled" },
 ];
 
 export function FilterStatusPill({
@@ -36,11 +34,10 @@ export function FilterStatusPill({
   return (
     <div
       role="tablist"
-      aria-label="Filter views"
-      className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-muted/40 p-1"
+      aria-label="Activity views"
+      className="inline-flex items-center rounded-full border border-border/60 bg-muted/50 p-1"
     >
       {OPTIONS.map((option) => {
-        const Icon = option.icon;
         const isActive = active === option.value;
         return (
           <button
@@ -50,18 +47,26 @@ export function FilterStatusPill({
             aria-selected={isActive}
             onClick={() => onChange(option.value)}
             className={cn(
-              "inline-flex h-8 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium transition-all",
+              "relative flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition-colors",
               isActive
-                ? "bg-card text-foreground shadow-sm"
+                ? "font-medium text-foreground"
                 : "text-muted-foreground hover:text-foreground",
             )}
           >
-            <Icon className="size-3.5" strokeWidth={1.75} />
-            {option.label}
+            {isActive && (
+              <motion.span
+                layoutId="filter-status-pill"
+                className="absolute inset-0 rounded-full bg-card shadow-sm ring-1 ring-black/[0.04]"
+                transition={{ type: "spring", stiffness: 500, damping: 35 }}
+              />
+            )}
+            <span className="relative">{option.label}</span>
             <span
               className={cn(
-                "text-[11px] tabular-nums",
-                isActive ? "text-muted-foreground" : "text-muted-foreground/60",
+                "relative min-w-[1.25rem] rounded-full px-1.5 py-0.5 text-center text-xs font-medium tabular-nums",
+                isActive
+                  ? "bg-foreground/10 text-foreground"
+                  : "bg-muted text-muted-foreground",
               )}
             >
               {counts[option.value]}

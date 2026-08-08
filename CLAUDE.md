@@ -93,7 +93,7 @@ Primary app routes:
 | `app.usesalt.io/hq` | `localhost:3000/hq` | HQ |
 | `app.usesalt.io/sources` | `localhost:3000/sources` | Sources (Connectors + Activity) |
 | `app.usesalt.io/plays` | `localhost:3000/plays` | Plays (Queue / Playbooks / Activity) |
-| `app.usesalt.io/spaces` | `localhost:3000/spaces` | Spaces |
+| `app.usesalt.io/spaces` | `localhost:3000/spaces` | Spaces — roadmap, not in MVP (redirects to `/work` until it ships) |
 | `app.usesalt.io/memory` | `localhost:3000/memory` | Memory Map (`/connections` redirects here) |
 | `app.usesalt.io/people` | `localhost:3000/people` | People |
 | `app.usesalt.io/work` | `localhost:3000/work` | Work |
@@ -103,7 +103,7 @@ Primary app routes:
 | `app.usesalt.io/billing` | `localhost:3000/billing` | Billing |
 | `app.usesalt.io/settings` | `localhost:3000/settings` | Settings (`app/(settings)/`) |
 
-**Legacy redirects:** `/capture` → Sources Activity (`/sources?tab=activity`); `/notes` → `/me`; `/connections` → `/memory`; `/roundtables` and `/tables` → `/spaces`. Pre-reorg Plays URLs (`tab=customize`, `view=captures`, `filter=learning`) redirect to `/sources`, `/sources?tab=activity`, and `/memory?tab=filter` respectively.
+**Legacy redirects:** `/capture` → Sources Activity (`/sources?tab=activity`); `/notes` → `/me`; `/connections` → `/memory`; `/roundtables` and `/tables` → `/work`; `/spaces` → `/work` until the roadmap Spaces surface ships (middleware redirects before any route render). Pre-reorg Plays URLs (`tab=customize`, `view=captures`, `filter=learning`) redirect to `/sources`, `/sources?tab=activity`, and `/memory?tab=activity` respectively. `/memory?tab=filter` is a legacy alias for Memory → Activity.
 
 Use `localhost:3000/*` for normal development. Only use subdomain-style local testing if a task specifically touches host-based routing.
 
@@ -438,7 +438,7 @@ Core utilities and integrations used across the app:
 | `permissions/` | RLS helpers and permission checks |
 | `tenancy/` | Multi-tenant context and guards |
 | `email/` | Resend integration for transactional emails |
-| `hooks/` | Shared React hooks (realtime, unread counts) |
+| `hooks/` | Shared React hooks (body scroll lock, client-mounted, mobile, reduced-motion, shell nav breakpoint) |
 | `theme/` | Theme resolution and accent presets |
 | `ai/` | GPT integration |
 | `rate-limit/` | API rate limiting |

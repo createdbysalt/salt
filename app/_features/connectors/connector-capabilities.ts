@@ -1130,7 +1130,7 @@ export function getComposioProviderForToolSlug(toolSlug: string): string | null 
   return null;
 }
 
-/** Providers with per-tool toggles and trust-ladder settings. */
+/** Providers whose trust level + email mode are tracked per workspace. */
 export function getToolPreferenceProviders(): readonly string[] {
   return [
     "gmail",
@@ -1151,31 +1151,4 @@ export function getToolPreferenceProviders(): readonly string[] {
     "calcom",
     "calendly",
   ];
-}
-
-/** @deprecated Use getToolPreferenceProviders — the list is no longer Google-only. */
-export const getGoogleToolPreferenceProviders = getToolPreferenceProviders;
-
-const TOOL_PREFERENCE_CATALOG_IDS: readonly ConnectorCatalogId[] = [
-  "google",
-  "google-calendar",
-  "google-drive",
-  "google-docs",
-  "google-sheets",
-  "google-slides",
-  "stripe",
-  "outlook",
-  "slack",
-  "hubspot",
-  "quickbooks",
-  "dropbox",
-  "notion",
-  "fireflies",
-  "zoom",
-  "calcom",
-  "calendly",
-];
-
-export function supportsToolPreferences(catalogId: ConnectorCatalogId): boolean {
-  return TOOL_PREFERENCE_CATALOG_IDS.includes(catalogId);
 }

@@ -37,14 +37,70 @@ const FIELD_LABELS: Record<string, string> = {
   linkedin: "LinkedIn",
 };
 
+/**
+ * Provenance display contract: every `source_type` that can land on an
+ * evidence row maps to a plain-English label. Two families:
+ *
+ * 1. Tool sources (who was acting) — `care`, `enrichment`, `ask_salt`, ...
+ * 2. Connected accounts (where the signal came from) — capture source types
+ *    (`gmail`, `googlecalendar`, ...; TEXT column since Sources plan 5.2).
+ *
+ * Unknown values fall back to title-cased words — never a raw slug.
+ */
 const SOURCE_LABELS: Record<string, string> = {
-  email: "Email",
-  calendar: "Calendar",
-  stripe: "Stripe",
-  slack: "Slack",
-  manual: "Manual",
+  // Tool sources
+  care: "Memory Care",
+  cron: "Memory Care",
+  memory_care: "Memory Care",
+  // Legacy Keeper/playbook sources — read as Memory Care
+  playbook: "Memory Care",
+  keeper: "Memory Care",
+  enrichment: "Enrichment",
+  manual: "You set this",
+  ask_salt: "You told me",
+  unknown: "A connected source",
   llm_inference: "AI",
+  // Connected accounts (capture source types + legacy generics)
+  email: "Email",
+  gmail: "Gmail",
+  outlook: "Outlook",
+  slack: "Slack",
+  whatsapp: "WhatsApp",
+  discord: "Discord",
+  telegram: "Telegram",
+  calendar: "Calendar",
+  googlecalendar: "Google Calendar",
+  outlook_calendar: "Outlook Calendar",
+  calendly: "Calendly",
+  calcom: "Cal.com",
+  fireflies: "Fireflies",
+  granola: "Granola",
+  zoom: "Zoom",
+  googledrive: "Google Drive",
+  googledocs: "Google Docs",
+  googlesheets: "Google Sheets",
+  googleslides: "Google Slides",
+  onedrive: "OneDrive",
+  dropbox: "Dropbox",
+  stripe: "Stripe",
+  quickbooks: "QuickBooks",
+  square: "Square",
+  mercury: "Mercury",
+  hubspot: "HubSpot",
+  salesforce: "Salesforce",
+  pipedrive: "Pipedrive",
+  notion: "Notion",
+  linear: "Linear",
+  asana: "Asana",
+  clickup: "ClickUp",
+  trello: "Trello",
+  airtable: "Airtable",
+  instagram: "Instagram",
   linkedin: "LinkedIn",
+  facebook: "Facebook",
+  youtube: "YouTube",
+  mailchimp: "Mailchimp",
+  kit: "Kit",
 };
 
 export function formatFieldLabel(fieldPath: string): string {
@@ -55,7 +111,14 @@ export function formatFieldLabel(fieldPath: string): string {
 }
 
 export function formatSourceLabel(source: string): string {
-  return SOURCE_LABELS[source] ?? source.replace(/_/g, " ");
+  const known = SOURCE_LABELS[source];
+  if (known) return known;
+  // Never show a raw slug: title-case the words.
+  return source
+    .split(/[_-]+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
 }
 
 interface NameForms {
@@ -153,9 +216,10 @@ function metaSentence(
     case "archive":
       return `I haven't seen any activity around ${entityLabel} in a while.`;
     case "link":
-      return targetName
-        ? `I think ${entityLabel} works at ${targetName}.`
-        : `I'm gathering evidence to connect ${entityLabel} to an organization.`;
+      // No-target link candidates are filtered out at the query
+      // (isNoTargetLinkCandidate) and never emitted (hygiene requires a
+      // resolved target), so targetName is always present in practice.
+      return `I think ${entityLabel} works at ${targetName ?? "an organization"}.`;
   }
 }
 

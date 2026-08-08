@@ -30,7 +30,10 @@ import {
   getCategoryCapabilities,
 } from "@/app/_lib/composio/category-fetcher";
 import { fetchCaptureSource, isCaptureFetchCategory } from "./capture-fetch";
+import { fetchMemorySource, isMemoryFetchCategory } from "./memory-fetch";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import type { Json } from "@/app/_lib/supabase/database.types";
+import { buildPlaybookSourceContext } from "@/app/_features/plays/lib/play-record";
 
 function getStepId(step: PlaybookStep, fallback: string): string {
   return "id" in step && typeof step.id === "string" ? step.id : fallback;
@@ -62,6 +65,7 @@ export interface ExecutionContextV2 {
     signalKey?: string;
     entityId?: string;
     entitySurface?: string;
+    entityLabel?: string;
   };
   connectedCategories: Set<string>;
   connectedCapabilities: Set<string>;
@@ -81,6 +85,12 @@ export interface StepResult {
     toolSlug: string;
     args: Record<string, unknown>;
     stepIndex: number;
+    /**
+     * Set when the pause is a park, not a gate: the connector is unavailable
+     * (disconnected / expired grant). The run is stored as state "blocked"
+     * and approving it after a reconnect resumes the exact pending call.
+     */
+    blocked?: { reason: string; provider?: string };
   };
 }
 
@@ -98,6 +108,8 @@ export interface ExecutionResultV2 {
     toolSlug: string;
     args: Record<string, unknown>;
     playRunId?: string;
+    /** Present when the pause is a connector park, not an approval gate. */
+    blocked?: { reason: string; provider?: string };
   };
 }
 
@@ -129,8 +141,36 @@ export async function buildExecutionContextV2(
     connectedCategories,
     connectedCapabilities: capabilities,
     voice,
+    trustLevel: await loadWorkspaceTrustLevel(workspaceId),
     captureContext,
   };
+}
+
+/**
+ * The workspace trust dial (Settings → Plays) is the ceiling for step gates:
+ * in read_only / act_with_approval every action step pauses for approval;
+ * only trust mode lets declared-auto steps run. Unset or unreadable rows
+ * resolve to the safe default (read_only).
+ */
+async function loadWorkspaceTrustLevel(
+  workspaceId: string
+): Promise<WorkspaceTrustLevel> {
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from("workspaces")
+      .select("trust_level")
+      .eq("id", workspaceId)
+      .maybeSingle();
+
+    return data?.trust_level === "act_with_approval" ||
+      data?.trust_level === "trust"
+      ? data.trust_level
+      : "read_only";
+  } catch (error) {
+    console.error("[executor] failed to load workspace trust level", error);
+    return "read_only";
+  }
 }
 
 async function resolveVoice(
@@ -153,7 +193,7 @@ async function resolveVoice(
       type: data.type as "salt" | "custom",
       tone: data.tone,
       instructions: data.instructions,
-      sign_off: data.sign_off,
+      sign_off: data.sign_off ?? undefined,
       workspace_id: data.workspace_id,
     };
   }
@@ -201,18 +241,29 @@ export async function executePlaybookV2(
       stepResults.push(result);
 
       if (result.status === "paused" && result.pausedForApproval) {
+        const stepHistory = playbook.steps
+          .slice(0, index + 1)
+          .map((s, i) => ({
+            id: getStepId(s, `${playbook.slug}-step-${i}`),
+            kind: s.step,
+            status: stepResults[i]?.status ?? "success",
+          }));
         const playRunId = await createPausedPlayRun(
           playbook,
           context,
           index,
           result.pausedForApproval,
-          stepData
+          stepData,
+          stepHistory
         );
+        const blocked = result.pausedForApproval.blocked;
         return {
           status: "paused",
           playbookSlug: playbook.slug,
           layer: playbook.layer,
-          reason: `Paused at step "${stepId}" for approval`,
+          reason: blocked
+            ? `Parked at step "${stepId}": ${blocked.reason}`
+            : `Paused at step "${stepId}" for approval`,
           stepResults,
           durationMs: Date.now() - startTime,
           pausedAt: {
@@ -220,6 +271,7 @@ export async function executePlaybookV2(
             toolSlug: result.pausedForApproval.toolSlug,
             args: result.pausedForApproval.args,
             playRunId,
+            blocked,
           },
         };
       }
@@ -307,6 +359,21 @@ async function executeFetchStep(
       return { stepId: step.id, status: "success", data };
     }
 
+    // "memory" reads Salt's own Memory tables (people, work) — likewise not a
+    // connector category. Entity-scoped capabilities resolve from the trigger.
+    if (isMemoryFetchCategory(category)) {
+      const data = await fetchMemorySource(
+        context.workspaceId,
+        capability,
+        where,
+        {
+          entityId: context.triggeredBy.entityId,
+          entitySurface: context.triggeredBy.entitySurface,
+        }
+      );
+      return { stepId: step.id, status: "success", data };
+    }
+
     if (!context.connectedCategories.has(category)) {
       if (step.optional) {
         return { stepId: step.id, status: "skipped", data: [] };
@@ -371,15 +438,23 @@ function executeClassifyStep(
 
   const sourceData = stepData.get(sourceKey);
 
-  if (!Array.isArray(sourceData)) {
+  // A single-object source (e.g. memory.person_context for one signaled
+  // entity) classifies as a one-item list.
+  const sourceList = Array.isArray(sourceData)
+    ? sourceData
+    : sourceData !== null && typeof sourceData === "object"
+      ? [sourceData]
+      : null;
+
+  if (!sourceList) {
     return {
       stepId: step.id,
       status: "error",
-      error: `Source "${step.forEach}" is not an array`,
+      error: `Source "${sourceKey}" is not an array or object`,
     };
   }
 
-  const classified = sourceData.map((entity) => {
+  const classified = sourceList.map((entity) => {
     for (const rule of step.rules) {
       if (evaluateCondition(rule.if, entity)) {
         return { entity, tag: rule.then };
@@ -463,6 +538,44 @@ async function executeDraftStep(
   context: ExecutionContextV2,
   stepData: Map<string, unknown>
 ): Promise<StepResult> {
+  // forEach drafts once per item of the named source list; {{item.*}} in the
+  // prompt resolves to the current item. Result pairs each item with its draft.
+  if (step.forEach) {
+    const source = stepData.get(step.forEach);
+    const sourceList = Array.isArray(source)
+      ? source
+      : source !== null && typeof source === "object"
+        ? [source]
+        : null;
+
+    if (!sourceList) {
+      return {
+        stepId: step.id,
+        status: "error",
+        error: `forEach source "${step.forEach}" is not an array or object`,
+      };
+    }
+
+    const drafts: Array<{ item: unknown; draft: string }> = [];
+    for (const item of sourceList) {
+      const scoped = new Map(stepData);
+      scoped.set("item", item);
+      const result = await runDraftPrompt(step, context, scoped);
+      if (result.status === "error") return result;
+      drafts.push({ item, draft: typeof result.data === "string" ? result.data : "" });
+    }
+
+    return { stepId: step.id, status: "success", data: drafts };
+  }
+
+  return runDraftPrompt(step, context, stepData);
+}
+
+async function runDraftPrompt(
+  step: PlaybookDraftStep,
+  context: ExecutionContextV2,
+  stepData: Map<string, unknown>
+): Promise<StepResult> {
   const prompt = interpolatePrompt(step.prompt, stepData, context);
   const systemPrompt = buildSystemPrompt(context.voice);
 
@@ -509,6 +622,19 @@ async function executeActionStep(
   const args = step.args ?? {};
   const interpolatedArgs = interpolateArgs(args, stepData, context);
 
+  // Memory monopoly, runtime layer: parse-time rejection in parser.ts is the
+  // first guard; this catches definitions that bypass parsing (DB-stored
+  // definitions, future authoring paths). Never pause for approval — the
+  // answer is always no.
+  const { isMemoryMutatingSlug } = await import("../../memory-monopoly");
+  if (isMemoryMutatingSlug(step.tool)) {
+    return {
+      stepId,
+      status: "error",
+      error: `Memory-mutating tool "${step.tool}" is not allowed in playbooks — Memory Care owns Memory writes`,
+    };
+  }
+
   const needsApproval = await checkStepNeedsApproval(
     step,
     context,
@@ -551,6 +677,26 @@ async function executeActionStep(
       },
     };
   } catch (error) {
+    const { ConnectorUnavailableError } = await import(
+      "@/app/_features/plays/services/execute-connector-tool"
+    );
+
+    // Park-and-resume: the connector is the problem, the run is recoverable.
+    // Surface as a blocked pause so the queue shows it immediately and the
+    // approve path resumes the exact pending call after a reconnect.
+    if (error instanceof ConnectorUnavailableError) {
+      return {
+        stepId,
+        status: "paused",
+        pausedForApproval: {
+          toolSlug: step.tool,
+          args: interpolatedArgs,
+          stepIndex,
+          blocked: { reason: error.message, provider: error.provider },
+        },
+      };
+    }
+
     return {
       stepId,
       status: "error",
@@ -630,7 +776,8 @@ async function checkStepNeedsApproval(
 
   // Soft gate (GROW): pause for approval until the workspace has approved
   // this playbook+tool combination enough times, then act silently.
-  if (step.needsApproval) {
+  // `needsApproval` is the pre-2026-08 spelling of `approval: "ask"`.
+  if (step.approval === "ask" || step.needsApproval) {
     const { hasEarnedAutonomy } = await import(
       "@/app/_features/plays/services/earned-autonomy"
     );
@@ -644,7 +791,11 @@ async function checkStepNeedsApproval(
     }
   }
 
-  if (context.trustLevel === "act_with_approval") {
+  // The workspace dial is the ceiling: outside trust mode every action asks.
+  if (
+    context.trustLevel === "act_with_approval" ||
+    context.trustLevel === "read_only"
+  ) {
     return true;
   }
 
@@ -693,6 +844,24 @@ function interpolateValue(
   return value;
 }
 
+/**
+ * Entity target for signal-triggered runs — stamps play_runs.target_* so the
+ * queue card and dispatch dedup can key on the entity that fired the signal.
+ */
+function signalTriggerTarget(context: ExecutionContextV2): {
+  target_type?: string;
+  target_id?: string;
+  target_label?: string;
+} {
+  const t = context.triggeredBy;
+  if (t.type !== "signal" || !t.entityId || !t.entitySurface) return {};
+  return {
+    target_type: t.entitySurface,
+    target_id: t.entityId,
+    target_label: t.entityLabel ?? t.entityId,
+  };
+}
+
 async function createPausedPlayRun(
   playbook: PlaybookDefinitionV2,
   context: ExecutionContextV2,
@@ -700,35 +869,56 @@ async function createPausedPlayRun(
   pauseInfo: {
     toolSlug: string;
     args: Record<string, unknown>;
+    blocked?: { reason: string; provider?: string };
   },
-  stepData: Map<string, unknown>
+  stepData: Map<string, unknown>,
+  stepHistory?: Array<{ id: string; kind: string; status: string }>
 ): Promise<string | undefined> {
   const admin = createAdminClient();
+  const blocked = pauseInfo.blocked;
 
-  const stepDataObj: Record<string, unknown> = {};
+  // Step results are arbitrary fetched/drafted payloads; the boundary cast
+  // lets them into the context_inputs Json column.
+  const stepDataObj: Record<string, Json> = {};
   for (const [k, v] of stepData) {
-    stepDataObj[k] = v;
+    stepDataObj[k] = v as Json;
   }
 
   const { data: run, error } = await admin
     .from("play_runs")
     .insert({
       workspace_id: context.workspaceId,
-      state: "queued",
-      title: `${playbook.name} — Approval Required`,
-      preview: `Waiting for approval to execute ${pauseInfo.toolSlug}`,
+      state: blocked ? "blocked" : "queued",
+      title: blocked
+        ? `${playbook.name} — ${blocked.provider ?? "connector"} needs attention`
+        : `${playbook.name} — Approval Required`,
+      preview: blocked
+        ? `Parked: ${blocked.reason}. Reconnect, then approve to resume.`
+        : `Waiting for approval to execute ${pauseInfo.toolSlug}`,
+      last_error: blocked?.reason ?? null,
       trigger_source: context.triggeredBy.type,
+      ...signalTriggerTarget(context),
+      source_context: buildPlaybookSourceContext({
+        playbookSlug: playbook.slug,
+        triggerSignal: context.triggeredBy.signalKey,
+      }),
       trigger_evidence: {
-        playbook_slug: playbook.slug,
+        signal_key: context.triggeredBy.signalKey,
         triggered_by: context.triggeredBy,
         voice: context.voice?.slug,
+        ...(blocked ? { blocked: blocked as unknown as Json } : {}),
       },
       context_inputs: stepDataObj,
+      // Compact trace of what ran before the pause so the queue card can
+      // show the chain (steps auto-ran → pending action).
+      ...(stepHistory && stepHistory.length > 0
+        ? { metadata: { step_history: stepHistory as unknown as Json } }
+        : {}),
       paused_at_step: stepIndex,
       paused_for_approval: true,
       approval_context: {
         tool_slug: pauseInfo.toolSlug,
-        args: pauseInfo.args,
+        args: pauseInfo.args as Json,
         step_index: stepIndex,
       },
     })
@@ -738,6 +928,32 @@ async function createPausedPlayRun(
   if (error) {
     console.error("Failed to create paused play run:", error);
     return undefined;
+  }
+
+  // Immediate notification for parked runs: the queue is Salt's notification
+  // surface, so the blocked card IS the alert — this activity entry is the
+  // audit trail and the feed line for it.
+  if (blocked && run) {
+    try {
+      await admin.from("activity_entries").insert({
+        workspace_id: context.workspaceId,
+        play_run_id: run.id as string,
+        action: "parked",
+        title: `${playbook.name} parked — connector needs attention`,
+        detail: blocked.reason,
+        metadata: {
+          playbook_slug: playbook.slug,
+          tool_slug: pauseInfo.toolSlug,
+          provider: blocked.provider ?? null,
+          step_index: stepIndex,
+        },
+      });
+    } catch (activityError) {
+      console.error(
+        "[executor] failed to record parked notification:",
+        activityError
+      );
+    }
   }
 
   return run?.id as string | undefined;
@@ -856,20 +1072,25 @@ async function generateOutputV2(
           .from("play_runs")
           .insert({
             workspace_id: context.workspaceId,
-            state: playbook.output.approval === "none" ? "executing" : "queued",
+            state: playbook.output.approval === "auto" ? "executing" : "queued",
             title: `${playbook.name} — ${classified.tag}`,
             preview: typeof draftContent === "string" ? draftContent.slice(0, 200) : playbook.description,
             trigger_source: context.triggeredBy.type,
+            ...signalTriggerTarget(context),
+            source_context: buildPlaybookSourceContext({
+              playbookSlug: playbook.slug,
+              triggerSignal: context.triggeredBy.signalKey,
+            }),
             trigger_evidence: {
-              playbook_slug: playbook.slug,
+              signal_key: context.triggeredBy.signalKey,
               classification_tag: classified.tag,
               triggered_by: context.triggeredBy,
               voice: context.voice?.slug,
             },
             context_inputs: {
-              entity: classified.entity,
+              entity: classified.entity as Json,
               tag: classified.tag,
-              draft: draftContent,
+              draft: draftContent as Json,
             },
           })
           .select("id")
@@ -884,17 +1105,22 @@ async function generateOutputV2(
         .from("play_runs")
         .insert({
           workspace_id: context.workspaceId,
-          state: playbook.output.approval === "none" ? "executing" : "queued",
+          state: playbook.output.approval === "auto" ? "executing" : "queued",
           title: playbook.name,
           preview: typeof draftContent === "string" ? draftContent.slice(0, 200) : playbook.description,
           trigger_source: context.triggeredBy.type,
+          ...signalTriggerTarget(context),
+          source_context: buildPlaybookSourceContext({
+            playbookSlug: playbook.slug,
+            triggerSignal: context.triggeredBy.signalKey,
+          }),
           trigger_evidence: {
-            playbook_slug: playbook.slug,
+            signal_key: context.triggeredBy.signalKey,
             triggered_by: context.triggeredBy,
             voice: context.voice?.slug,
           },
           context_inputs: {
-            draft: draftContent,
+            draft: draftContent as Json,
           },
         })
         .select("id")
@@ -913,12 +1139,56 @@ async function generateOutputV2(
         title: playbook.name,
         preview: typeof draftContent === "string" ? draftContent.slice(0, 200) : playbook.description,
         trigger_source: context.triggeredBy.type,
+        ...signalTriggerTarget(context),
+        source_context: buildPlaybookSourceContext({
+          playbookSlug: playbook.slug,
+          triggerSignal: context.triggeredBy.signalKey,
+        }),
         trigger_evidence: {
-          playbook_slug: playbook.slug,
+          signal_key: context.triggeredBy.signalKey,
           triggered_by: context.triggeredBy,
         },
         context_inputs: {
-          briefing: draftContent,
+          briefing: draftContent as Json,
+        },
+      })
+      .select("id")
+      .single();
+
+    if (!error && run) {
+      playRunIds.push(run.id as string);
+    }
+  } else if (
+    (playbook.output.type === "notification" ||
+      playbook.output.type === "finding") &&
+    draftContent
+  ) {
+    // Informational outputs surface in Activity: approval none → auto_handled;
+    // per_entity/batch → queued so the user reviews before it's filed.
+    const { data: run, error } = await admin
+      .from("play_runs")
+      .insert({
+        workspace_id: context.workspaceId,
+        state:
+          !playbook.output.approval || playbook.output.approval === "auto"
+            ? "auto_handled"
+            : "queued",
+        title: playbook.name,
+        preview: typeof draftContent === "string" ? draftContent.slice(0, 200) : playbook.description,
+        trigger_source: context.triggeredBy.type,
+        ...signalTriggerTarget(context),
+        source_context: buildPlaybookSourceContext({
+          playbookSlug: playbook.slug,
+          triggerSignal: context.triggeredBy.signalKey,
+        }),
+        trigger_evidence: {
+          signal_key: context.triggeredBy.signalKey,
+          output_type: playbook.output.type,
+          triggered_by: context.triggeredBy,
+          voice: context.voice?.slug,
+        },
+        context_inputs: {
+          [playbook.output.type]: draftContent as Json,
         },
       })
       .select("id")

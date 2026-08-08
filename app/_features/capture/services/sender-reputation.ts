@@ -18,6 +18,7 @@ import "server-only";
  */
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import type { TablesUpdate } from "@/app/_lib/supabase/database.types";
 import type { SenderReputation } from "./email-classification";
 
 const REPLY_REPUTATION_DELTA = 5;
@@ -105,7 +106,7 @@ export async function recordOutboundReplies(
     if (existing) {
       const repliedCount = (existing.user_replied_count ?? 0) + 1;
       const captureCount = existing.capture_count ?? 0;
-      const updates: Record<string, unknown> = {
+      const updates: TablesUpdate<"capture_sender_profiles"> = {
         user_replied_count: repliedCount,
         reputation_score: clampScore(
           (existing.reputation_score ?? 50) + REPLY_REPUTATION_DELTA

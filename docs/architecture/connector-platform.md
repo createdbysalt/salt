@@ -27,9 +27,70 @@ paginated backfill fetch ─┘        (noise gate → capture_events insert, de
   (`/api/webhooks/composio`, routed by trigger slug); history and gap-repair
   arrive via paginated backfills (`gmail-backfill.ts`,
   `connector-backfills.ts`) and the reconciliation cron
-  (`/api/cron/capture-reconciliation`, every 6h over capture-enabled
-  connections). All three converge on `ingestEnvelope`, so dedupe makes
-  overlap idempotent.
+  (`/api/cron/capture-reconciliation` — tiered cadence per plan: Starter
+  1×/day, paid 4×/day, skipped for trigger-covered providers with proven
+  healthy webhook delivery, Sources plan 3.3). All three converge on
+  `ingestEnvelope`, so dedupe makes overlap idempotent.
+
+## Two-lane delivery model (decided 2026-08-08, Sources plan 4.1)
+
+Every connector is mapped to one or both delivery lanes:
+
+- **Lane A — real-time triggers.** Events that matter _now_: Memory-known
+  senders, payments, calendar changes. One Composio trigger instance per
+  (connection, slug), created at capture-enable time
+  (`trigger-subscriptions.ts`), ingress via `/api/webhooks/composio`.
+  Upstream filters (`capture_trigger_config`) keep noise from ever firing a
+  billed delivery; where the provider exposes no filters (Outlook, Stripe,
+  Slack DMs), gating is code-side at the pre-ingest gate instead.
+- **Lane B — tiered discovery crons.** Finding _new_ leads/records at
+  plan-based cadence via the reconciliation backfills above, plus
+  relationship-discovery (held-sender promotion) inside the
+  capture-intelligence cron, gated by the same plan cadence — Starter 1×/day,
+  paid 4×/day, stamped on `workspace_capture_settings.last_discovery_at`
+  (`discovery-cadence.ts`, Sources plan 4.4). Sources → Activity shows the
+  workspace's cadence and next due run (`getDiscoveryStatus`), so the
+  discovery lane is an explicit product surface rather than a hidden cron.
+
+| Connector       | Lane A (triggers)                     | Lane B (backfill) | Notes                                                |
+| --------------- | ------------------------------------- | ----------------- | ---------------------------------------------------- |
+| Gmail           | ✓ new message (category-query filter) | ✓                 | Inline transient-body analysis at backfill (3.4)     |
+| Outlook         | ✓ received + sent                     | ✓                 | No upstream filters exist — code-side gating         |
+| Google Calendar | ✓ event created                       | ✓                 |                                                      |
+| Google Drive    | ✓ file created                        | ✓                 |                                                      |
+| Stripe          | ✓ charges / invoices / subscriptions  | ✓                 | Payment rail; no upstream filters — code-side gating |
+| Slack           | ✓ channel + DM (bot filter)           | —                 | Per-connection channel scoping (4.5)                 |
+| Google Docs     | ✓ created + updated                   | —                 |                                                      |
+| Google Sheets   | ✓ new spreadsheet                     | —                 |                                                      |
+| Notion          | ✓ page created + updated              | —                 |                                                      |
+| Cal.com         | —                                     | ✓                 | Lane-B-only by construction (no trigger type)        |
+| Calendly        | —                                     | ✓                 | Lane-B-only by construction                          |
+| Dropbox         | —                                     | ✓                 | Lane-B-only by construction                          |
+| QuickBooks      | —                                     | ✓                 | Lane-B-only by construction                          |
+
+Trigger configs evolve **in place** via the upsert wrapper
+(`upsertCaptureTriggerConfig`, Sources plan 4.2) — never delete+recreate, so
+filters can tighten without a delivery gap.
+
+### Per-connection scoping (Sources plan 4.5)
+
+On top of the global filters, each connection can carry its own upstream
+scope, chosen on the connector's detail pane ("What Salt watches", under
+Memory capture — deliberately no separate Rules tab):
+
+| Connector | Control | Trigger config key |
+| --------- | ------- | ------------------ |
+| Slack | One channel (default: every channel; DMs always come through) | `SLACK_CHANNEL_MESSAGE_RECEIVED.channel_id` |
+| Google Calendar | One calendar (default: primary) | `…EVENT_CREATED_TRIGGER.calendarId` |
+| Google Drive | One folder (default: whole Drive) | `GOOGLEDRIVE_FILE_CREATED_TRIGGER.folder_id` |
+| Gmail | Category toggles (default: all four excluded) | `GMAIL_NEW_GMAIL_MESSAGE.query` `-category:*` clause |
+
+The choice persists on `workspace_integrations.config.captureScope` and is
+merged into the trigger spec by every subscribe path — capture enable,
+trigger reconciliation re-create, and the 4.2 upsert — so scoping survives
+re-subscribes (`capture-scope.ts`). Picker options load through metered
+read tools; each scoped event is an upstream event that never bills a
+delivery.
 
 ## Retention stance (decided 2026-07-03)
 
@@ -44,6 +105,11 @@ account.**
   (intelligence scan, entity resolution) needs it. The fetched body feeds the
   analysis and is discarded; what persists is the analysis outcome with
   provenance.
+- The one place the body arrives without a dedicated fetch is the Gmail
+  backfill: pages are fetched with `include_payload` and admitted captures
+  are analyzed **inline on the transient body** (`backfill-inline-scan.ts`,
+  Sources plan 3.4). Only the thin envelope is persisted — outcome metadata
+  merges into the stored row by id, so the body never reaches the database.
 - Hydration is bounded per scan run — it is an assist, not a sync.
 - **"Reprocess history against a new playbook" = a paginated Composio
   backfill job**, not a local replay. There is no local archive to replay;

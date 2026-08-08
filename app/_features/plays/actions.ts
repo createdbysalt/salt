@@ -5,11 +5,9 @@ import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { nextStateForAction } from "./utils/play-state-machine";
-import { applyIntakePlayRun } from "./services/create-intake-play-run";
 import { meterInternalPlay } from "./services/meter-play";
 import { resumePausedPlaybook as resumePausedPlaybookService } from "./services/resume-paused-playbook";
 import { createResumePausedPlaybookDeps } from "./services/resume-paused-playbook-deps";
-import { dismissEvidence } from "@/app/_features/memory/evidence/actions";
 import { captureVoiceCorrection } from "@/app/_features/me/actions/capture-voice-correction";
 import type { PlayRunRow, PlayRunState } from "./types";
 import type { ProfileFillRulesDocument, ProfilePlaybookSettings } from "./playbooks/records-engine/types";
@@ -183,6 +181,40 @@ export async function approvePlayRun(id: string): Promise<ActionResult<PlayRunRo
     title: run.title,
   });
 
+  // Earned-autonomy offer: approving grants autonomy for the playbook+tool;
+  // nothing executes beyond the grant itself.
+  const offerEvidence = run.trigger_evidence as {
+    kind?: string;
+    tool_slug?: string;
+  } | null;
+  const offerSlug = (run.source_context as { playbook_slug?: string } | null)
+    ?.playbook_slug;
+  if (
+    offerEvidence?.kind === "autonomy_offer" &&
+    offerSlug &&
+    offerEvidence.tool_slug
+  ) {
+    const { grantAutonomy } = await import("./services/earned-autonomy");
+    await grantAutonomy(workspace.id, offerSlug, offerEvidence.tool_slug);
+    const { data: updatedRun } = await supabase
+      .from("play_runs")
+      .update({ state: "ran", ran_at: now, updated_at: now })
+      .eq("id", id)
+      .select("*")
+      .single();
+    await logActivity({
+      workspaceId: workspace.id,
+      playRunId: id,
+      userId,
+      action: "autonomy_granted",
+      title: run.title,
+      detail: `Autonomy granted: ${offerSlug} / ${offerEvidence.tool_slug}`,
+    });
+    revalidatePath("/hq");
+    revalidatePath("/plays");
+    return { ok: true, data: updatedRun as PlayRunRow };
+  }
+
   // Paused playbook path: resume execution from the approval gate
   if (run.paused_for_approval && run.approval_context) {
     const resumeResult = await resumePausedPlaybook(id, workspace.id, userId);
@@ -191,15 +223,20 @@ export async function approvePlayRun(id: string): Promise<ActionResult<PlayRunRo
     if (resumeResult.ok) {
       // Earned autonomy (GROW): count the executed approval toward this
       // playbook+tool combination so the step eventually runs silently.
+      // Attribution canonically lives in source_context.playbook_slug;
+      // trigger_evidence is a fallback for paused runs written before
+      // 2026-08-07 that are still in flight.
+      const sourceContext = run.source_context as { playbook_slug?: string } | null;
       const evidence = run.trigger_evidence as { playbook_slug?: string } | null;
+      const playbookSlug = sourceContext?.playbook_slug ?? evidence?.playbook_slug;
       const approvalContext = run.approval_context as { tool_slug?: string } | null;
-      if (evidence?.playbook_slug && approvalContext?.tool_slug) {
+      if (playbookSlug && approvalContext?.tool_slug) {
         const { recordActionApproval } = await import(
           "./services/earned-autonomy"
         );
         await recordActionApproval(
           workspace.id,
-          evidence.playbook_slug,
+          playbookSlug,
           approvalContext.tool_slug
         ).catch((err) => {
           console.warn(
@@ -222,47 +259,12 @@ export async function approvePlayRun(id: string): Promise<ActionResult<PlayRunRo
     };
   }
 
-  // Legacy template runs (template_id set) fall through to the log-only /
-  // intake paths below — the v1 template executor was retired with the
-  // play_templates table.
-
-  // Intake record path: create the Memory record from accumulated evidence
-  const metadata = run.metadata as { intake_record?: boolean } | null;
-  if (metadata?.intake_record) {
-    const intakeResult = await applyIntakePlayRun(id);
-    if (!intakeResult.ok) {
-      return {
-        ok: false,
-        errorCode: "INTAKE_FAILED",
-        message: intakeResult.error,
-      };
-    }
-
-    await logActivity({
-      workspaceId: workspace.id,
-      playRunId: id,
-      userId,
-      action: "ran",
-      title: run.title,
-      detail: `Created record: ${intakeResult.recordId}`,
-    });
-
-    await meterInternalPlay(workspace.id, id);
-
-    revalidatePath("/hq");
-    revalidatePath("/plays");
-    revalidatePath("/people");
-    revalidatePath("/work");
-
-    // Reload the updated play run
-    const { data: updatedRun } = await supabase
-      .from("play_runs")
-      .select("*")
-      .eq("id", id)
-      .single();
-
-    return { ok: true, data: updatedRun as PlayRunRow };
-  }
+  // Legacy template runs (template_id set) fall through to the log-only
+  // path below — the v1 template executor was retired with the
+  // play_templates table. (The intake-record approve path was retired
+  // 2026-08-08 with plays canon Phase 2: record proposals live in Memory →
+  // Filter Watching, never the queue; historical intake rows were dismissed
+  // by migration 20260808040000.)
 
   // Log-only completion (no compiled definition on this run's template).
   const { data, error } = await supabase
@@ -324,19 +326,32 @@ export async function dismissPlayRun(
   id: string,
   reason?: string,
 ): Promise<ActionResult<PlayRunRow>> {
-  const { context } = await getTenantContext();
-  const workspace = requireWorkspaceMember(context);
+  // Dismissing an autonomy offer declines it — the gate keeps asking and the
+  // offer re-appears after another threshold of approvals.
   const existing = await loadPlayRun(id);
   const result = await transitionPlayRun(id, "dismiss", { dismiss_reason: reason });
 
   if (result.ok && existing) {
-    // Dismiss underlying evidence for intake plays so it doesn't resurface
-    const metadata = existing.metadata as { intake_record?: boolean } | null;
-    if (metadata?.intake_record && existing.evidence_ids?.length) {
-      const evidenceId = existing.evidence_ids[0];
-      if (evidenceId) {
-        await dismissEvidence(evidenceId, reason ?? "Dismissed from Plays queue");
-      }
+    const evidence = existing.trigger_evidence as {
+      kind?: string;
+      tool_slug?: string;
+    } | null;
+    const slug = (existing.source_context as { playbook_slug?: string } | null)
+      ?.playbook_slug;
+    if (evidence?.kind === "autonomy_offer" && slug && evidence.tool_slug) {
+      const { context } = await getTenantContext();
+      const workspace = requireWorkspaceMember(context);
+      const { declineAutonomyOffer } = await import(
+        "./services/earned-autonomy"
+      );
+      await declineAutonomyOffer(workspace.id, slug, evidence.tool_slug).catch(
+        (err) => {
+          console.warn(
+            "[plays] failed to record autonomy-offer decline:",
+            err instanceof Error ? err.message : err
+          );
+        }
+      );
     }
   }
 
@@ -401,7 +416,6 @@ export async function editPlayRun(
   if (existing.draft_body) {
     void captureVoiceCorrection({
       workspaceId: workspace.id,
-      userId,
       originalDraft: existing.draft_body,
       editedDraft: draftBody,
       channel: existing.channel,
@@ -462,12 +476,12 @@ export async function fetchProfileBlueprintDetail(blueprintSlug: string): Promis
  */
 export async function applyMemoryCarePlayRun(
   playRunId: string
-): Promise<{ success: boolean; error?: string }> {
+): Promise<ActionResult<void>> {
   const { context } = await getTenantContext();
   const workspace = requireWorkspaceMember(context);
   const userId = context.userId;
   if (!userId) {
-    return { success: false, error: "Sign in required" };
+    return { ok: false, errorCode: "unauthorized", message: "Sign in required" };
   }
 
   const supabase = await createClient();
@@ -480,23 +494,23 @@ export async function applyMemoryCarePlayRun(
     .single();
 
   if (fetchError || !run) {
-    return { success: false, error: fetchError?.message ?? "Play not found" };
+    return { ok: false, errorCode: "not_found", message: fetchError?.message ?? "Play not found" };
   }
 
   const meta = run.metadata as Record<string, unknown> | null;
   // Accepts the retired `keeper_profile` metadata key as a legacy fallback.
   if (!meta?.memory_care_profile && !meta?.keeper_profile) {
-    return { success: false, error: "Not a Memory profile play" };
+    return { ok: false, errorCode: "wrong_play_kind", message: "Not a Memory profile play" };
   }
 
   const personId = run.target_id as string | null;
   if (!personId) {
-    return { success: false, error: "Play is not attached to a person" };
+    return { ok: false, errorCode: "missing_target", message: "Play is not attached to a person" };
   }
 
   const field = meta.profile_field as string | undefined;
   if (!field) {
-    return { success: false, error: "Missing profile field in metadata" };
+    return { ok: false, errorCode: "invalid_metadata", message: "Missing profile field in metadata" };
   }
 
   // Import dynamically to avoid circular deps
@@ -510,7 +524,7 @@ export async function applyMemoryCarePlayRun(
   });
 
   if (!applyResult.ok) {
-    return { success: false, error: applyResult.message };
+    return { ok: false, errorCode: "apply_failed", message: applyResult.message };
   }
 
   const now = new Date().toISOString();
@@ -521,7 +535,7 @@ export async function applyMemoryCarePlayRun(
     .eq("workspace_id", workspace.id);
 
   if (updateError) {
-    return { success: false, error: updateError.message };
+    return { ok: false, errorCode: "update_failed", message: updateError.message };
   }
 
   await logActivity({
@@ -539,7 +553,7 @@ export async function applyMemoryCarePlayRun(
   revalidatePath("/hq");
   revalidatePath(`/people/${personId}`);
 
-  return { success: true };
+  return { ok: true, data: undefined };
 }
 
 /**
@@ -548,12 +562,12 @@ export async function applyMemoryCarePlayRun(
 export async function answerMemoryCareQuestionPlayRun(
   playRunId: string,
   answer: string
-): Promise<{ success: boolean; error?: string }> {
+): Promise<ActionResult<void>> {
   const { context } = await getTenantContext();
   const workspace = requireWorkspaceMember(context);
   const userId = context.userId;
   if (!userId) {
-    return { success: false, error: "Sign in required" };
+    return { ok: false, errorCode: "unauthorized", message: "Sign in required" };
   }
 
   const supabase = await createClient();
@@ -566,23 +580,23 @@ export async function answerMemoryCareQuestionPlayRun(
     .single();
 
   if (fetchError || !run) {
-    return { success: false, error: fetchError?.message ?? "Play not found" };
+    return { ok: false, errorCode: "not_found", message: fetchError?.message ?? "Play not found" };
   }
 
   const meta = run.metadata as Record<string, unknown> | null;
   // Accepts the retired `keeper_question` metadata key as a legacy fallback.
   if (!meta?.memory_care_question && !meta?.keeper_question) {
-    return { success: false, error: "Not a Memory question play" };
+    return { ok: false, errorCode: "wrong_play_kind", message: "Not a Memory question play" };
   }
 
   const personId = run.target_id as string | null;
   if (!personId) {
-    return { success: false, error: "Play is not attached to a person" };
+    return { ok: false, errorCode: "missing_target", message: "Play is not attached to a person" };
   }
 
   const field = meta.question_field as string | undefined;
   if (!field) {
-    return { success: false, error: "Missing question field in metadata" };
+    return { ok: false, errorCode: "invalid_metadata", message: "Missing question field in metadata" };
   }
 
   // Import dynamically to avoid circular deps
@@ -597,7 +611,7 @@ export async function answerMemoryCareQuestionPlayRun(
   });
 
   if (!applyResult.ok) {
-    return { success: false, error: applyResult.message };
+    return { ok: false, errorCode: "apply_failed", message: applyResult.message };
   }
 
   const now = new Date().toISOString();
@@ -614,7 +628,7 @@ export async function answerMemoryCareQuestionPlayRun(
     .eq("workspace_id", workspace.id);
 
   if (updateError) {
-    return { success: false, error: updateError.message };
+    return { ok: false, errorCode: "update_failed", message: updateError.message };
   }
 
   await logActivity({
@@ -632,185 +646,14 @@ export async function answerMemoryCareQuestionPlayRun(
   revalidatePath("/hq");
   revalidatePath(`/people/${personId}`);
 
-  return { success: true };
+  return { ok: true, data: undefined };
 }
 
-// ---------------------------------------------------------------------------
-// Risk and Routing play_run actions (Phase 3)
-// ---------------------------------------------------------------------------
-
-/**
- * Acknowledge a risk play_run — marks as reviewed without taking further action.
- *
- * The user has seen the risk signal and decided no immediate action is needed.
- */
-export async function acknowledgeRiskPlayRun(
-  playRunId: string
-): Promise<{ success: boolean; error?: string }> {
-  const { context } = await getTenantContext();
-  const workspace = requireWorkspaceMember(context);
-  const userId = context.userId;
-  if (!userId) {
-    return { success: false, error: "Sign in required" };
-  }
-
-  const supabase = await createClient();
-
-  const { data: run, error: fetchError } = await supabase
-    .from("play_runs")
-    .select("id, metadata, state, title")
-    .eq("id", playRunId)
-    .eq("workspace_id", workspace.id)
-    .single();
-
-  if (fetchError || !run) {
-    return { success: false, error: fetchError?.message ?? "Play not found" };
-  }
-
-  const meta = run.metadata as Record<string, unknown> | null;
-  if (meta?.play_card_kind !== "risk") {
-    return { success: false, error: "Not a risk play" };
-  }
-
-  const now = new Date().toISOString();
-  const { error: updateError } = await supabase
-    .from("play_runs")
-    .update({ state: "ran", ran_at: now, approved_at: now, updated_at: now })
-    .eq("id", playRunId)
-    .eq("workspace_id", workspace.id);
-
-  if (updateError) {
-    return { success: false, error: updateError.message };
-  }
-
-  await logActivity({
-    workspaceId: workspace.id,
-    playRunId,
-    userId,
-    action: "acknowledged",
-    title: run.title as string,
-    detail: "Risk acknowledged — no immediate action taken",
-  });
-
-  await meterInternalPlay(workspace.id, playRunId);
-
-  revalidatePath("/plays");
-  revalidatePath("/hq");
-
-  return { success: true };
-}
-
-/**
- * Route a routing play_run to a specific person or org.
- *
- * Creates the person/org if needed, then marks the routing play as resolved.
- */
-export async function routePlayRunToProfile(
-  playRunId: string,
-  target: { type: "person" | "org"; id?: string; createName?: string }
-): Promise<{ success: boolean; error?: string; targetId?: string }> {
-  const { context } = await getTenantContext();
-  const workspace = requireWorkspaceMember(context);
-  const userId = context.userId;
-  if (!userId) {
-    return { success: false, error: "Sign in required" };
-  }
-
-  const supabase = await createClient();
-
-  const { data: run, error: fetchError } = await supabase
-    .from("play_runs")
-    .select("id, metadata, state, title, target_label")
-    .eq("id", playRunId)
-    .eq("workspace_id", workspace.id)
-    .single();
-
-  if (fetchError || !run) {
-    return { success: false, error: fetchError?.message ?? "Play not found" };
-  }
-
-  const meta = run.metadata as Record<string, unknown> | null;
-  if (meta?.play_card_kind !== "routing") {
-    return { success: false, error: "Not a routing play" };
-  }
-
-  let targetId = target.id;
-
-  // Create new person/org if needed
-  if (!targetId && target.createName) {
-    if (target.type === "person") {
-      const fromEmail = meta?.from_email as string | undefined;
-      const { data: person, error: createError } = await supabase
-        .from("people")
-        .insert({
-          workspace_id: workspace.id,
-          name: target.createName,
-          email: fromEmail ?? null,
-        })
-        .select("id")
-        .single();
-
-      if (createError || !person) {
-        return { success: false, error: createError?.message ?? "Could not create person" };
-      }
-      targetId = person.id as string;
-    } else {
-      const { data: org, error: createError } = await supabase
-        .from("organizations")
-        .insert({
-          workspace_id: workspace.id,
-          name: target.createName,
-        })
-        .select("id")
-        .single();
-
-      if (createError || !org) {
-        return { success: false, error: createError?.message ?? "Could not create organization" };
-      }
-      targetId = org.id as string;
-    }
-  }
-
-  if (!targetId) {
-    return { success: false, error: "No target specified" };
-  }
-
-  const now = new Date().toISOString();
-  const { error: updateError } = await supabase
-    .from("play_runs")
-    .update({
-      state: "ran",
-      ran_at: now,
-      approved_at: now,
-      updated_at: now,
-      target_type: target.type,
-      target_id: targetId,
-      metadata: { ...meta, routed_to: targetId },
-    })
-    .eq("id", playRunId)
-    .eq("workspace_id", workspace.id);
-
-  if (updateError) {
-    return { success: false, error: updateError.message };
-  }
-
-  await logActivity({
-    workspaceId: workspace.id,
-    playRunId,
-    userId,
-    action: "routed",
-    title: run.title as string,
-    detail: `Routed to ${target.type}: ${target.createName ?? targetId}`,
-  });
-
-  await meterInternalPlay(workspace.id, playRunId);
-
-  revalidatePath("/plays");
-  revalidatePath("/hq");
-  revalidatePath(`/${target.type === "person" ? "people" : "orgs"}/${targetId}`);
-
-  return { success: true, targetId };
-}
+// acknowledgeRiskPlayRun / routePlayRunToProfile were removed 2026-08-08
+// (plays canon Phase 2): they served the retired client-risk / route-signal
+// play_runs, were never wired to any UI, and their creators are gone —
+// risk findings live in intelligence_findings, routing lives in the
+// capture admission pipeline.
 
 // ---------------------------------------------------------------------------
 // Auto-handled watermark (Phase 3)
@@ -822,7 +665,7 @@ export async function routePlayRunToProfile(
  * Items handled after this timestamp are considered "unreviewed" and will
  * appear in the Auto-handled view. Items before are considered reviewed.
  */
-export async function markAutoHandledSeen(): Promise<{ success: boolean; error?: string }> {
+export async function markAutoHandledSeen(): Promise<ActionResult<void>> {
   const { context } = await getTenantContext();
   const workspace = requireWorkspaceMember(context);
 
@@ -835,11 +678,11 @@ export async function markAutoHandledSeen(): Promise<{ success: boolean; error?:
     .eq("id", workspace.id);
 
   if (error) {
-    return { success: false, error: error.message };
+    return { ok: false, errorCode: "update_failed", message: error.message };
   }
 
   revalidatePath("/plays");
-  return { success: true };
+  return { ok: true, data: undefined };
 }
 
 // ---------------------------------------------------------------------------

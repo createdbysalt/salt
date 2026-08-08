@@ -1,4 +1,6 @@
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 // Re-implement the normalizer for testing (extracted from route.ts)
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -184,5 +186,39 @@ describe("normalizeWebhookEvent", () => {
 
     expect(result.kind).toBe("unknown");
     expect(result.triggerSlug).toBeNull();
+  });
+});
+
+// Wiring invariant (Sources plan 3.1): Composio bills trigger events at
+// delivery, so EVERY ingress path — main trigger, resource signal, and both
+// lifecycle events — must record a composio_trigger_event ledger row. A path
+// that early-returns before metering is invisible COGS. Source assertions,
+// same pattern as app/_lib/composio/single-gate.test.ts.
+describe("ingress metering (3.1)", () => {
+  const source = readFileSync(join(__dirname, "route.ts"), "utf8");
+
+  it("meters the main trigger path before any early return", () => {
+    const recordAt = source.indexOf("await recordComposioTriggerEvent({");
+    const inactiveAt = source.indexOf('handled: "inactive_integration"');
+    const disabledAt = source.indexOf('handled: "capture_disabled"');
+    expect(recordAt).toBeGreaterThan(-1);
+    expect(recordAt).toBeLessThan(inactiveAt);
+    expect(recordAt).toBeLessThan(disabledAt);
+  });
+
+  it("meters the resource-signal path", () => {
+    const resourceAt = source.indexOf("routeResourceWebhook({");
+    expect(resourceAt).toBeGreaterThan(-1);
+    const after = source.slice(resourceAt);
+    expect(after).toContain("resourceResult.workspaceId");
+    expect(after).toContain("recordComposioTriggerEvent");
+  });
+
+  it("meters both lifecycle events", () => {
+    expect(source).toContain('"connected_account.expired"');
+    expect(source).toContain('"trigger.disabled"');
+    // Both lifecycle branches call the metering helper.
+    const helperCalls = source.match(/await meterLifecycleDelivery\(/g) ?? [];
+    expect(helperCalls.length).toBeGreaterThanOrEqual(2);
   });
 });

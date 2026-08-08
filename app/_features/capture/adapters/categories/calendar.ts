@@ -130,7 +130,7 @@ function normalizeGoogleCalendar(payload: unknown): CaptureEnvelope | null {
     (record.hangoutLink as string) ?? ((videoEntry?.uri as string) || null);
 
   return {
-    sourceType: "googlecalendar" as CaptureSourceType,
+    sourceType: "googlecalendar",
     captureType: "meeting",
     externalId,
     title: summary,
@@ -179,7 +179,7 @@ function normalizeOutlookCalendar(payload: unknown): CaptureEnvelope | null {
   // Pointer-only trigger payload — no event details until hydration.
   if (!subject && !start) {
     return {
-      sourceType: "outlook_calendar" as CaptureSourceType,
+      sourceType: "outlook_calendar",
       captureType: "meeting",
       externalId,
       title: null,
@@ -236,7 +236,7 @@ function normalizeOutlookCalendar(payload: unknown): CaptureEnvelope | null {
   const meetingLink = (onlineMeeting?.joinUrl as string) ?? null;
 
   return {
-    sourceType: "outlook_calendar" as CaptureSourceType,
+    sourceType: "outlook_calendar",
     captureType: "meeting",
     externalId,
     title: subject,
@@ -293,9 +293,8 @@ function normalizeCal(payload: unknown): CaptureEnvelope | null {
   }
 
   return {
-    // Capture/DB-layer key: the capture_source_type enum and SOURCE_TAXONOMY
-    // use 'calcom'; 'cal' is only the Composio toolkit/provider key. Emitting
-    // 'cal' here made every Cal.com capture fail the enum on insert.
+    // Capture/DB-layer key: SOURCE_TAXONOMY and capture rows use 'calcom';
+    // 'cal' is only the Composio toolkit/provider key.
     sourceType: "calcom",
     captureType: "meeting",
     externalId,
@@ -375,7 +374,7 @@ function normalizeCalendly(payload: unknown): CaptureEnvelope | null {
   const inviteesCounter = record.invitees_counter as Record<string, unknown> | undefined;
 
   return {
-    sourceType: "calendly" as CaptureSourceType,
+    sourceType: "calendly",
     captureType: "meeting",
     externalId,
     title,
@@ -471,7 +470,7 @@ export function createCalendarCategoryAdapter(provider: string): CaptureAdapter 
   return {
     sourceType:
       CAPTURE_SOURCE_TYPE_BY_PROVIDER[provider] ??
-      (provider as CaptureSourceType),
+      (provider),
     toolkit: provider,
     triggerSlugs,
     deriveSignals: deriveCalendarSignals,
@@ -489,7 +488,7 @@ export function createCalendarCategoryAdapter(provider: string): CaptureAdapter 
           return normalizeCalendly(payload);
         default:
           // Any unknown calendar provider gets generic extraction
-          return normalizeGenericCalendar(payload, provider as CaptureSourceType);
+          return normalizeGenericCalendar(payload, provider);
       }
     },
   };

@@ -14,6 +14,9 @@ import { SettingsCard } from "../SettingsCard";
 import {
   getWorkspaceTrustLevel,
   updateWorkspaceTrustLevel,
+  getAutonomyGrants,
+  revokeAutonomyGrant,
+  type AutonomyGrantItem,
   type WorkspaceTrustLevel,
 } from "./plays-actions";
 import {
@@ -57,30 +60,65 @@ export function PlaysSection({ workspaceId, initialThreshold, initialTrustLevel 
   const [threshold, setThreshold] = useState(initialThreshold ?? 85);
   const [savedThreshold, setSavedThreshold] = useState(initialThreshold ?? 85);
   const [trustLevel, setTrustLevel] = useState<WorkspaceTrustLevel>(initialTrustLevel ?? "read_only");
+  const [grants, setGrants] = useState<AutonomyGrantItem[]>([]);
   const [isLoading, setIsLoading] = useState(!initialThreshold);
   const [isPending, startTransition] = useTransition();
   const [isTrustPending, startTrustTransition] = useTransition();
+  const [revokingKey, setRevokingKey] = useState<string | null>(null);
 
   useEffect(() => {
     if (!initialThreshold) {
       loadSettings();
+    } else {
+      loadGrants();
     }
   }, [initialThreshold]);
 
   async function loadSettings() {
     try {
-      const [careSettings, trustValue] = await Promise.all([
+      const [careSettings, trustValue, grantItems] = await Promise.all([
         getMemoryCareSettings(workspaceId),
         getWorkspaceTrustLevel(workspaceId),
+        getAutonomyGrants(workspaceId),
       ]);
       setThreshold(careSettings.threshold);
       setSavedThreshold(careSettings.threshold);
       setTrustLevel(trustValue);
+      setGrants(grantItems);
     } catch {
       toast.error("Failed to load settings");
     } finally {
       setIsLoading(false);
     }
+  }
+
+  async function loadGrants() {
+    try {
+      setGrants(await getAutonomyGrants(workspaceId));
+    } catch {
+      // Grants are informational — leave the list empty on failure.
+    }
+  }
+
+  function handleRevoke(grant: AutonomyGrantItem) {
+    const key = `${grant.playbookSlug}/${grant.toolSlug}`;
+    setRevokingKey(key);
+    startTransition(async () => {
+      try {
+        await revokeAutonomyGrant(workspaceId, grant.playbookSlug, grant.toolSlug);
+        setGrants((current) =>
+          current.filter(
+            (g) =>
+              !(g.playbookSlug === grant.playbookSlug && g.toolSlug === grant.toolSlug)
+          )
+        );
+        toast.success("Autonomy revoked — Salt will ask again");
+      } catch {
+        toast.error("Failed to revoke autonomy");
+      } finally {
+        setRevokingKey(null);
+      }
+    });
   }
 
   function handleTrustChange(newLevel: WorkspaceTrustLevel) {
@@ -291,25 +329,51 @@ export function PlaysSection({ workspaceId, initialThreshold, initialTrustLevel 
       </SettingsSection>
 
       <SettingsSection
-        title="Coming soon"
-        description="Additional plays settings are being developed."
+        title="Earned Autonomy"
+        description="Steps you've let Salt run on its own. Revoking one makes Salt ask for approval again."
       >
         <SettingsCard>
-          <div className="space-y-3 p-4">
-            <ul className="space-y-2 text-sm text-muted-foreground">
-              <li className="flex gap-2">
-                <span className="mt-2 size-1.5 rounded-full bg-muted-foreground/50" />
-                <span>Approval defaults for specific playbooks</span>
-              </li>
-              <li className="flex gap-2">
-                <span className="mt-2 size-1.5 rounded-full bg-muted-foreground/50" />
-                <span>Custom playbook run preferences</span>
-              </li>
-              <li className="flex gap-2">
-                <span className="mt-2 size-1.5 rounded-full bg-muted-foreground/50" />
-                <span>Field-level trust settings</span>
-              </li>
-            </ul>
+          <div className="space-y-3 p-6">
+            {grants.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No earned autonomy yet. After you approve the same step{" "}
+                consistently, Salt will offer to handle it automatically — you
+                decide, and you can turn it off here anytime.
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {grants.map((grant) => {
+                  const key = `${grant.playbookSlug}/${grant.toolSlug}`;
+                  return (
+                    <li
+                      key={key}
+                      className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-muted/30 px-3 py-2"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">
+                          {grant.playbookSlug.replace(/-/g, " ")}
+                        </p>
+                        <p className="text-xs text-muted-foreground font-mono truncate">
+                          {grant.toolSlug} · approved {grant.approvedCount}×
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleRevoke(grant)}
+                        disabled={revokingKey === key}
+                      >
+                        {revokingKey === key ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          "Revoke"
+                        )}
+                      </Button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </div>
         </SettingsCard>
       </SettingsSection>

@@ -164,6 +164,42 @@ export async function memoryGetStaleRecords(
     }
   }
 
+  if (!entityType || entityType === "billing") {
+    // Stale billing = still awaiting payment with no movement past the
+    // cutoff. Paid/voided records age out naturally and are never stale.
+    const { data: billing } = await supabase
+      .from("billing_records")
+      .select("id, number, status, updated_at, created_at")
+      .eq("workspace_id", workspaceId)
+      .is("deleted_at", null)
+      .is("archived_at", null)
+      .in("status", ["draft", "due", "overdue", "partial"])
+      .or(`updated_at.lt.${cutoff},updated_at.is.null`)
+      .order("updated_at", { ascending: true, nullsFirst: true })
+      .limit(limit);
+
+    if (billing) {
+      for (const record of billing) {
+        const lastActivity = record.updated_at || record.created_at;
+        const daysSince = lastActivity
+          ? Math.floor((Date.now() - new Date(lastActivity).getTime()) / (1000 * 60 * 60 * 24))
+          : 999;
+
+        records.push({
+          id: record.id,
+          entityType: "billing",
+          name: record.number || "Billing Record",
+          lastActivityAt: lastActivity,
+          daysSinceActivity: daysSince,
+          hasBillingHistory: true,
+          signal: "billing_stale_unpaid",
+          severity: 70,
+          suggestedAction: "Follow up or void",
+        });
+      }
+    }
+  }
+
   records.sort((a, b) => b.severity - a.severity || b.daysSinceActivity - a.daysSinceActivity);
 
   return {

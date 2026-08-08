@@ -118,6 +118,8 @@ function ConnectorLinkCard({
       <div className="flex w-8 shrink-0 items-center justify-end">
         {definition.comingSoon ? (
           <span className="text-[11px] font-medium text-muted-foreground">Soon</span>
+        ) : definition.tier === "catalog_only" ? (
+          <span className="text-[11px] font-medium text-muted-foreground">Browse-only</span>
         ) : (
           <ChevronRight
             className={cn(
@@ -263,7 +265,13 @@ export function ConnectorsBrowsePane({
       }
       const isConnected = Boolean(runtime.connected) && !definition.comingSoon;
       if (status === "connected" && !isConnected) return false;
-      if (status === "available" && isConnected) return false;
+      // Available = connectable; browse-only (catalog_only) is neither.
+      if (
+        status === "available" &&
+        (isConnected || definition.tier === "catalog_only")
+      ) {
+        return false;
+      }
       if (
         normalized &&
         !definition.name.toLowerCase().includes(normalized) &&

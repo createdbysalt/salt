@@ -1,9 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { FindingWithContext } from "@/app/_features/capture/types/intelligence-findings";
-import type { QueuePlay } from "@/app/_lib/demo/plays-demo-data";
 import type { PlayRunRow } from "../types";
 import { validatePlayCard } from "./validate-play-card";
-import { mapQueuePlayToCard } from "./map-queue-play-to-card";
 import { mapFindingToCard } from "./map-finding-to-card";
 import { mapHandledFindingToCard } from "./map-handled-finding-to-card";
 import { mapPlayRunToCard } from "./map-play-run-to-card";
@@ -83,34 +81,6 @@ describe("validatePlayCard", () => {
     );
     expect(result.ok).toBe(false);
     expect(result.errors).toContain("handled card requires handled.outcomeLabel");
-  });
-});
-
-describe("mapQueuePlayToCard", () => {
-  const play: QueuePlay = {
-    id: "p-1",
-    playerId: "billing",
-    state: "approval",
-    source: "From overdue invoice",
-    ageMinutes: 75,
-    recipient: "Priya Shah",
-    channel: "Email",
-    subject: "Brightline payment reminder",
-    summary: "Invoice is 6 days past due.",
-    draftBody: ["Hi Priya"],
-    reasoning: [],
-    context: [],
-    playbook: "Project closeout",
-    confidence: 96,
-  };
-
-  it("produces a valid acting card with To prefix and approve_send", () => {
-    const vm = mapQueuePlayToCard(play);
-    expect(vm.kind).toBe("acting");
-    expect(vm.targetPrefix).toBe("To");
-    expect(vm.primaryAction).toEqual({ label: "Approve & send", kind: "approve_send" });
-    expect(vm.provenance).toEqual({ source: "play_run", playRunId: "p-1" });
-    expect(validatePlayCard(vm).ok).toBe(true);
   });
 });
 

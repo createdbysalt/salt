@@ -99,6 +99,73 @@ async function recordWebhookOutcome(
   }
 }
 
+/**
+ * Lifecycle deliveries (account expired, trigger disabled) are billed by
+ * Composio at delivery like any trigger event, so they meter too — the
+ * workspace is resolved from the connection id. Unattributable deliveries
+ * (no integration row) skip recording rather than failing the ack.
+ */
+async function meterLifecycleDelivery(
+  admin: ReturnType<typeof createAdminClient>,
+  connectedAccountId: string | null,
+  triggerSlug: string,
+  webhookDeliveryId: string | null,
+): Promise<void> {
+  if (!connectedAccountId) return;
+  try {
+    const { data } = await admin
+      .from("workspace_integrations")
+      .select("workspace_id")
+      .eq("composio_connection_id", connectedAccountId)
+      .maybeSingle();
+    if (!data?.workspace_id) return;
+    await recordComposioTriggerEvent({
+      workspaceId: data.workspace_id,
+      triggerSlug,
+      webhookDeliveryId,
+    });
+  } catch (error) {
+    console.error("[composio-webhook] failed to meter lifecycle delivery", {
+      triggerSlug,
+      error,
+    });
+  }
+}
+
+/** One delivery-health stamp per connection per hour is plenty (3.3). */
+const DELIVERY_STAMP_INTERVAL_MS = 60 * 60 * 1000;
+
+async function stampWebhookDelivery(
+  admin: ReturnType<typeof createAdminClient>,
+  integrationId: string,
+  config: unknown,
+): Promise<void> {
+  const current = isRecord(config) ? config : {};
+  const last =
+    typeof current.lastWebhookDeliveryAt === "string"
+      ? Date.parse(current.lastWebhookDeliveryAt)
+      : NaN;
+  if (Number.isFinite(last) && Date.now() - last < DELIVERY_STAMP_INTERVAL_MS) {
+    return;
+  }
+  try {
+    // Read-modify-write on the config JSONB can theoretically lose a
+    // concurrent lastReconciledAt stamp; both are advisory throttle
+    // markers, so a lost stamp costs at most one extra backfill.
+    await admin
+      .from("workspace_integrations")
+      .update({
+        config: {
+          ...current,
+          lastWebhookDeliveryAt: new Date().toISOString(),
+        } as never,
+      })
+      .eq("id", integrationId);
+  } catch (error) {
+    console.error("[composio-webhook] failed to stamp delivery health", error);
+  }
+}
+
 /** Normalize V1/V2/V3/V4 webhook envelopes to one shape (spellings vary). */
 function normalizeWebhookEvent(body: unknown): NormalizedTriggerEvent {
   if (!isRecord(body)) {
@@ -208,6 +275,12 @@ export async function POST(req: NextRequest) {
       console.warn(
         `[composio-webhook] connected account expired: ${event.connectedAccountId}`,
       );
+      await meterLifecycleDelivery(
+        admin,
+        event.connectedAccountId,
+        "connected_account.expired",
+        req.headers.get("webhook-id"),
+      );
     }
     return NextResponse.json({ ok: true, handled: "connected_account_expired" });
   }
@@ -229,6 +302,12 @@ export async function POST(req: NextRequest) {
       triggerSlug: event.triggerSlug,
       connectedAccountId: event.connectedAccountId,
     });
+    await meterLifecycleDelivery(
+      admin,
+      event.connectedAccountId,
+      event.triggerSlug ?? "trigger.disabled",
+      req.headers.get("webhook-id"),
+    );
     return NextResponse.json({ ok: true, handled: "trigger_disabled" });
   }
 
@@ -258,6 +337,16 @@ export async function POST(req: NextRequest) {
         resourceType: str(triggerConfig.resourceType) ?? undefined,
       },
     });
+
+    // Billed at delivery like any trigger event — meter once the router
+    // resolved the workspace from the resource.
+    if (resourceResult.workspaceId) {
+      await recordComposioTriggerEvent({
+        workspaceId: resourceResult.workspaceId,
+        triggerSlug: event.triggerSlug,
+        webhookDeliveryId: req.headers.get("webhook-id"),
+      });
+    }
 
     return NextResponse.json({
       ok: true,
@@ -300,9 +389,7 @@ export async function POST(req: NextRequest) {
   if (integration) {
     // Composio bills trigger events at DELIVERY — this cost is real even when
     // the integration is inactive or capture-disabled below, so record before
-    // any early return. Non-fatal and idempotent on the delivery id; the
-    // remaining ingress paths (resource signals, lifecycle events) are
-    // metered in Sources plan Phase 3.1.
+    // any early return. Non-fatal and idempotent on the delivery id.
     await recordComposioTriggerEvent({
       workspaceId: integration.workspace_id,
       triggerSlug: event.triggerSlug,
@@ -330,6 +417,12 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json({ ok: true, handled: "capture_disabled" });
   }
+
+  // Stamp delivery health (Sources plan 3.3): the reconciliation cron skips
+  // its repair backfill for connections with proven delivery in the window.
+  // Throttled to one write per connection per hour — delivery volume can be
+  // hundreds/day, the stamp only needs to be fresh.
+  await stampWebhookDelivery(admin, integration.id, integration.config);
 
   // Normalize BEFORE enrichment (Phase 6): pointer-only payloads (Outlook
   // sends just a message ID) used to pay for a Composio fetch before any
@@ -458,6 +551,9 @@ export async function POST(req: NextRequest) {
       // after the response. Composio retries on slow acks are harmless —
       // the envelope dedupe key makes replays idempotent.
       awaitEnrichment: true,
+      // Lane 1: webhook arrival is the real-time path — a genuine inquiry
+      // from an unknown sender earns immediate admission via the intent read.
+      coldIntentRead: true,
     },
   );
 

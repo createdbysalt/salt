@@ -2,20 +2,25 @@ import "server-only";
 
 import type { ToolSet } from "ai";
 import { getWorkspaceConnectorPolicy } from "@/app/_features/connectors/queries";
+import { createClient } from "@/app/_lib/supabase/server";
 import { getComposioAgentClient } from "./client";
 import { getConnectionStatus, checkConnectionHealth } from "./connections";
 import {
-  isRegisteredProvider,
-  getAuthConfigId,
-} from "./unified-connector-registry";
-import {
-  wrapComposioToolsForAskSalt,
-  ASK_SALT_COMPOSIO_TOOLKITS,
-} from "./ask-salt-tools";
+  getCachedConnectionHealth,
+  setCachedConnectionHealth,
+} from "./health-check-cache";
+import { listAskSaltEntries } from "./connector-registry";
+import { wrapComposioToolsForAskSalt } from "./ask-salt-tools";
 
 export interface AskSaltToolLoadContext {
   /** Auth user chatting with Ask Salt, recorded in the execution audit log. */
   userId?: string;
+  /**
+   * Ask Salt conversation id. When present, the Tool Router session is
+   * reused across messages in the conversation (stored on the conversation
+   * row) instead of creating a fresh session per message (plan 3.6).
+   */
+  conversationId?: string;
 }
 
 export interface AskSaltComposioToolLoad {
@@ -43,21 +48,25 @@ interface ConnectedToolkitStatus {
 async function getConnectedToolkitStatuses(
   workspaceId: string,
 ): Promise<ConnectedToolkitStatus> {
+  const askSaltEntries = await listAskSaltEntries();
   const statuses = await Promise.all(
-    ASK_SALT_COMPOSIO_TOOLKITS.filter((toolkit) => isRegisteredProvider(toolkit)).map(
-      async (toolkit) => ({
-        toolkit,
-        status: await getConnectionStatus(toolkit, workspaceId),
-      }),
-    ),
+    askSaltEntries.map(async (entry) => ({
+      toolkit: entry.toolkitSlug,
+      status: await getConnectionStatus(entry.toolkitSlug, workspaceId),
+    })),
   );
   const connected = statuses.filter(({ status }) => status.connected);
 
-  // Run health checks on connected toolkits (logs diagnostics, syncs expired status)
+  // Run health checks on connected toolkits (logs diagnostics, syncs expired
+  // status). Verdicts are cached ~10 min (plan 3.6) so a chat conversation
+  // doesn't pay a live connectedAccounts.get per toolkit per message.
   if (connected.length > 0) {
     const healthChecks = await Promise.all(
       connected.map(async ({ toolkit }) => {
+        const cached = getCachedConnectionHealth(workspaceId, toolkit);
+        if (cached) return { toolkit, health: cached };
         const health = await checkConnectionHealth(toolkit, workspaceId, { syncStatus: true });
+        setCachedConnectionHealth(workspaceId, toolkit, health);
         return { toolkit, health };
       }),
     );
@@ -104,6 +113,72 @@ export async function getConnectedAskSaltToolkits(workspaceId: string): Promise<
   return connectedToolkits;
 }
 
+interface StoredComposioSession {
+  sessionId: string;
+  /** Sorted priority-toolkit set the session was created with. */
+  toolkitsKey: string;
+  createdAt: string;
+}
+
+function parseStoredSession(context: unknown): StoredComposioSession | null {
+  if (!context || typeof context !== "object") return null;
+  const raw = (context as Record<string, unknown>).composioSession;
+  if (!raw || typeof raw !== "object") return null;
+  const session = raw as Record<string, unknown>;
+  if (
+    typeof session.sessionId !== "string" ||
+    typeof session.toolkitsKey !== "string" ||
+    typeof session.createdAt !== "string"
+  ) {
+    return null;
+  }
+  return {
+    sessionId: session.sessionId,
+    toolkitsKey: session.toolkitsKey,
+    createdAt: session.createdAt,
+  };
+}
+
+async function readStoredSession(
+  conversationId: string,
+): Promise<StoredComposioSession | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("ask_salt_conversations")
+    .select("context")
+    .eq("id", conversationId)
+    .maybeSingle();
+  if (error) {
+    console.warn("[ask-salt] failed to read stored session:", error.message);
+    return null;
+  }
+  return parseStoredSession(data?.context);
+}
+
+async function persistSession(
+  conversationId: string,
+  session: StoredComposioSession,
+): Promise<void> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("ask_salt_conversations")
+    .select("context")
+    .eq("id", conversationId)
+    .maybeSingle();
+  const existing =
+    data?.context && typeof data.context === "object"
+      ? (data.context as Record<string, unknown>)
+      : {};
+  const { error } = await supabase
+    .from("ask_salt_conversations")
+    .update({ context: { ...existing, composioSession: session } })
+    .eq("id", conversationId);
+  if (error) {
+    // Non-fatal: worst case the next message creates a fresh session.
+    console.warn("[ask-salt] failed to persist session:", error.message);
+  }
+}
+
 /**
  * Detailed loader for Ask Salt's Composio tools. Returns the connected
  * toolkits, the slugs that survived policy, and any load error so callers can
@@ -130,7 +205,6 @@ export async function loadAskSaltComposioToolsDetailed(
   }
 
   const policyOptions = {
-    disabledTools: connectorPolicy.disabledTools,
     trustByProvider: connectorPolicy.trustByProvider,
     emailModeByProvider: connectorPolicy.emailModeByProvider,
   };
@@ -138,15 +212,20 @@ export async function loadAskSaltComposioToolsDetailed(
   // No preload whitelist - load ALL tools from connected toolkits.
   // Filtering happens at wrap time via isAskSaltSlugAllowed() which checks:
   // - Tool classification (read/mutating/destructive)
-  // - User-disabled tools
   // - Trust level per provider
   // - Email mode restrictions
 
   try {
     const composio = getComposioAgentClient();
+    const authConfigByToolkit = new Map(
+      (await listAskSaltEntries()).map((entry) => [
+        entry.toolkitSlug,
+        entry.authConfigId,
+      ]),
+    );
     const authConfigs = Object.fromEntries(
       connectedToolkits
-        .map((toolkit) => [toolkit, getAuthConfigId(toolkit)] as const)
+        .map((toolkit) => [toolkit, authConfigByToolkit.get(toolkit) ?? ""] as const)
         .filter(([, authConfigId]) => authConfigId !== ""),
     );
 
@@ -179,15 +258,47 @@ export async function loadAskSaltComposioToolsDetailed(
           .filter(([, id]) => id),
       );
 
-      const session = await composio.create(workspaceId, {
-        toolkits: priorityToolkits,
-        authConfigs: priorityAuthConfigs,
-        preload: { tools: "all" },
-      });
+      // Plan 3.6: reuse the Tool Router session across a conversation.
+      // Session creation is the expensive/billed step; `use()` reattaches to
+      // the existing session by id. A stale/expired stored session falls back
+      // to a fresh create. The toolkit set is part of the key so connecting a
+      // new app mid-conversation mints a new session.
+      const toolkitsKey = [...priorityToolkits].sort().join(",");
+      const stored = context.conversationId
+        ? await readStoredSession(context.conversationId)
+        : null;
+
+      let session = null;
+      if (stored && stored.toolkitsKey === toolkitsKey) {
+        try {
+          session = await composio.use(stored.sessionId);
+        } catch (reuseError) {
+          console.warn("[ask-salt] stored session unusable, creating fresh:", {
+            conversationId: context.conversationId,
+            error:
+              reuseError instanceof Error ? reuseError.message : reuseError,
+          });
+        }
+      }
+      if (!session) {
+        session = await composio.create(workspaceId, {
+          toolkits: priorityToolkits,
+          authConfigs: priorityAuthConfigs,
+          preload: { tools: "all" },
+        });
+        if (context.conversationId) {
+          await persistSession(context.conversationId, {
+            sessionId: session.sessionId,
+            toolkitsKey,
+            createdAt: new Date().toISOString(),
+          });
+        }
+      }
 
       tools = await session.tools();
       console.log("[ask-salt] priority tools loaded", {
         toolCount: Object.keys(tools).length,
+        sessionReused: stored?.toolkitsKey === toolkitsKey,
       });
     }
     const wrapped = wrapComposioToolsForAskSalt(tools, {

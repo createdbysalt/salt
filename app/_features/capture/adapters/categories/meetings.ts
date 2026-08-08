@@ -143,7 +143,7 @@ function normalizeFireflies(payload: unknown): CaptureEnvelope | null {
     typeof duration === "number" ? Math.round(duration) : null;
 
   return {
-    sourceType: "fireflies" as CaptureSourceType,
+    sourceType: "fireflies",
     captureType: "meeting",
     externalId,
     title,
@@ -244,7 +244,7 @@ export function createMeetingsCategoryAdapter(provider: string): CaptureAdapter 
     : []; // Unknown providers: triggers come from DB
 
   return {
-    sourceType: provider as CaptureSourceType,
+    sourceType: provider,
     toolkit: provider,
     triggerSlugs,
     deriveSignals: deriveMeetingsSignals,
@@ -254,7 +254,7 @@ export function createMeetingsCategoryAdapter(provider: string): CaptureAdapter 
         case "fireflies":
           return normalizeFireflies(payload);
         default:
-          return normalizeGenericMeetings(payload, provider as CaptureSourceType);
+          return normalizeGenericMeetings(payload, provider);
       }
     },
   };

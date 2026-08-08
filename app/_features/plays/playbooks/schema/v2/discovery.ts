@@ -43,16 +43,68 @@ export interface DiscoveredSection {
   playbooks: ParsedPlaybookV2[];
 }
 
+/**
+ * A package or section that discovery could not load for a structural
+ * reason (as opposed to a validation error, which lands in `errors`).
+ * Silent skips are how six shipped playbooks went invisible for weeks —
+ * every skip must be reported here, never dropped.
+ */
+export interface SkippedPackage {
+  path: string;
+  reason: string;
+  filesPresent: string[];
+}
+
 export interface DiscoveryResult {
   sections: Map<PlaybookSection, DiscoveredSection>;
   allPlaybooks: ParsedPlaybookV2[];
   errors: Array<{ file: string; errors: string[] }>;
+  skipped: SkippedPackage[];
+}
+
+/** Once-per-process dedup so per-request discovery doesn't spam the log. */
+const warnedSkips = new Set<string>();
+
+function reportSkip(skipped: SkippedPackage[], skip: SkippedPackage): void {
+  skipped.push(skip);
+  if (!warnedSkips.has(skip.path)) {
+    warnedSkips.add(skip.path);
+    console.warn(
+      `[playbook-discovery] SKIPPED ${skip.path}: ${skip.reason}` +
+        (skip.filesPresent.length > 0
+          ? ` (files present: ${skip.filesPresent.join(", ")})`
+          : "")
+    );
+  }
+}
+
+function listDirSafe(dirPath: string): string[] {
+  try {
+    return readdirSync(dirPath);
+  } catch {
+    return [];
+  }
 }
 
 export function discoverV2Playbooks(): DiscoveryResult {
   const sections = new Map<PlaybookSection, DiscoveredSection>();
   const allPlaybooks: ParsedPlaybookV2[] = [];
   const errors: Array<{ file: string; errors: string[] }> = [];
+  const skipped: SkippedPackage[] = [];
+
+  // Section dirs on disk that are not in the SECTIONS registry never get
+  // scanned — report them instead of silently ignoring their playbooks.
+  for (const entry of listDirSafe(V2_PLAYBOOKS_DIR)) {
+    const entryPath = join(V2_PLAYBOOKS_DIR, entry);
+    if (!statSync(entryPath).isDirectory()) continue;
+    if (!(SECTIONS as string[]).includes(entry)) {
+      reportSkip(skipped, {
+        path: `${entry}/`,
+        reason: `section directory not in the SECTIONS registry (discovery.ts) — nothing inside it will ever load`,
+        filesPresent: listDirSafe(entryPath),
+      });
+    }
+  }
 
   for (const section of SECTIONS) {
     const sectionDir = join(V2_PLAYBOOKS_DIR, section);
@@ -75,6 +127,12 @@ export function discoverV2Playbooks(): DiscoveryResult {
       } else if (result.section) {
         metadata = result.section;
       }
+    } else {
+      reportSkip(skipped, {
+        path: `${section}/`,
+        reason: "section has no _section.yaml — the whole section and every playbook in it is dropped",
+        filesPresent: listDirSafe(sectionDir),
+      });
     }
 
     if (!metadata) {
@@ -108,13 +166,16 @@ export function discoverV2Playbooks(): DiscoveryResult {
           allPlaybooks.push(result);
         }
       } else if (stat.isDirectory()) {
-        // Package directory - look for definition.yaml or PLAYBOOK.md
+        // Package directory - look for definition.yaml
         const packageResult = discoverPlaybookPackage(section, entry, entryPath);
         if (packageResult.errors.length > 0) {
           errors.push({
             file: `${section}/${entry}/`,
             errors: packageResult.errors,
           });
+        }
+        if (packageResult.skip) {
+          reportSkip(skipped, packageResult.skip);
         }
         if (packageResult.playbook) {
           sectionPlaybooks.push(packageResult.playbook);
@@ -129,19 +190,23 @@ export function discoverV2Playbooks(): DiscoveryResult {
     });
   }
 
-  return { sections, allPlaybooks, errors };
+  return { sections, allPlaybooks, errors, skipped };
 }
 
 /**
  * Discover a playbook from a package directory.
- * Looks for definition.yaml or PLAYBOOK.md.
+ * Only definition.yaml is loaded; anything else (playbook.yaml, a bare
+ * PLAYBOOK.md) is a loud skip, never a silent one.
  */
 function discoverPlaybookPackage(
   section: string,
   dirName: string,
   dirPath: string
-): { playbook: ParsedPlaybookV2 | null; errors: string[] } {
-  // Priority: definition.yaml > PLAYBOOK.md frontmatter
+): {
+  playbook: ParsedPlaybookV2 | null;
+  errors: string[];
+  skip: SkippedPackage | null;
+} {
   const definitionPath = join(dirPath, "definition.yaml");
   const playbookMdPath = join(dirPath, "PLAYBOOK.md");
 
@@ -156,6 +221,7 @@ function discoverPlaybookPackage(
       return {
         playbook: null,
         errors: result.validationErrors.map((e) => `${e.path}: ${e.message}`),
+        skip: null,
       };
     }
 
@@ -166,11 +232,22 @@ function discoverPlaybookPackage(
       result.hasPlaybookMd = existsSync(playbookMdPath);
     }
 
-    return { playbook: result, errors: [] };
+    return { playbook: result, errors: [], skip: null };
   }
 
-  // No definition.yaml - skip for now (PLAYBOOK.md parsing would require frontmatter parser)
-  return { playbook: null, errors: [] };
+  const filesPresent = listDirSafe(dirPath);
+  const hasPlaybookYaml = filesPresent.includes("playbook.yaml");
+  return {
+    playbook: null,
+    errors: [],
+    skip: {
+      path: `${section}/${dirName}/`,
+      reason: hasPlaybookYaml
+        ? "has playbook.yaml but discovery only reads definition.yaml — rename it to definition.yaml"
+        : "no definition.yaml in package directory",
+      filesPresent,
+    },
+  };
 }
 
 export function getPlaybookBySlug(slug: string): ParsedPlaybookV2 | null {
@@ -197,13 +274,15 @@ export function validateAllPlaybooks(): {
   total: number;
   passed: number;
   errors: Array<{ file: string; errors: string[] }>;
+  skipped: SkippedPackage[];
 } {
   const result = discoverV2Playbooks();
   return {
-    valid: result.errors.length === 0,
+    valid: result.errors.length === 0 && result.skipped.length === 0,
     total: result.allPlaybooks.length + result.errors.length,
     passed: result.allPlaybooks.length,
     errors: result.errors,
+    skipped: result.skipped,
   };
 }
 
