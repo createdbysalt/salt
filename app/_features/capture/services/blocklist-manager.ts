@@ -189,8 +189,18 @@ export async function getBlocklistStats(
   };
 }
 
+// Sender identifiers are attacker-controlled (they arrive on inbound mail).
+// They must never reach a PostgREST filter-expression string, and values
+// containing filter metacharacters (`,`, `(`, `)`, quotes, whitespace) are
+// treated as hostile and fail closed.
+const SAFE_DOMAIN_PATTERN = /^[\p{L}\p{N}][\p{L}\p{N}._-]*$/u;
+const SAFE_EMAIL_PATTERN = /^[^\s,()"'@]+@[\p{L}\p{N}][\p{L}\p{N}._-]*$/u;
+
 /**
  * Check if a value is blocked by the workspace blocklist.
+ *
+ * Lookups are exact type+value pairs via parameterized `.eq()` filters —
+ * never string-built `.or()` expressions (PostgREST filter injection).
  */
 export async function isBlocked(
   workspaceId: string,
@@ -200,41 +210,56 @@ export async function isBlocked(
     senderName?: string;
   }
 ): Promise<{ blocked: boolean; reason?: string; matchedEntry?: BlocklistEntry }> {
-  const admin = createAdminClient();
-
-  const conditions: string[] = [];
+  const lookups: Array<{ type: "domain" | "email"; value: string }> = [];
 
   if (checks.domain) {
-    conditions.push(`and(type.eq.domain,value.eq.${checks.domain.toLowerCase()})`);
+    const domain = checks.domain.trim().toLowerCase();
+    if (!SAFE_DOMAIN_PATTERN.test(domain)) {
+      return { blocked: true, reason: "Sender identifiers failed validation" };
+    }
+    lookups.push({ type: "domain", value: domain });
   }
 
   if (checks.email) {
-    conditions.push(`and(type.eq.email,value.eq.${checks.email.toLowerCase()})`);
+    const email = checks.email.trim().toLowerCase();
+    if (!SAFE_EMAIL_PATTERN.test(email)) {
+      return { blocked: true, reason: "Sender identifiers failed validation" };
+    }
+    lookups.push({ type: "email", value: email });
   }
 
-  if (conditions.length === 0) {
-    return { blocked: false };
-  }
+  const admin = createAdminClient();
 
-  const { data, error } = await admin
-    .from("capture_blocklist")
-    .select("*")
-    .eq("workspace_id", workspaceId)
-    .or(conditions.join(","))
-    .limit(1)
-    .maybeSingle();
+  if (lookups.length > 0) {
+    const results = await Promise.all(
+      lookups.map((lookup) =>
+        admin
+          .from("capture_blocklist")
+          .select("*")
+          .eq("workspace_id", workspaceId)
+          .eq("type", lookup.type)
+          .eq("value", lookup.value)
+          .limit(1)
+          .maybeSingle()
+      )
+    );
 
-  if (error) {
-    console.error("[blocklist-manager] isBlocked error:", error);
-    return { blocked: false };
-  }
-
-  if (data) {
-    return {
-      blocked: true,
-      reason: data.reason ?? `Blocked by ${data.type} blocklist`,
-      matchedEntry: mapBlocklistEntry(data),
-    };
+    for (const { data, error } of results) {
+      if (error) {
+        // Fail open on infra errors: a blocklist outage must not drop ALL
+        // inbound mail. Hostile input never reaches this path — it fails
+        // closed at validation above.
+        console.error("[blocklist-manager] isBlocked error:", error);
+        continue;
+      }
+      if (data) {
+        return {
+          blocked: true,
+          reason: data.reason ?? `Blocked by ${data.type} blocklist`,
+          matchedEntry: mapBlocklistEntry(data),
+        };
+      }
+    }
   }
 
   if (checks.senderName) {

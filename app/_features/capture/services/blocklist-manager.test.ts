@@ -2,81 +2,134 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-let selectCallCount = 0;
+type MockRow = {
+  id: string;
+  workspace_id: string;
+  type: string;
+  value: string;
+  reason: string | null;
+  created_at: string;
+  created_by: string | null;
+};
 
-function createChainableSelect(): unknown {
-  const chainable: Record<string, unknown> = {
-    eq: () => chainable,
-    order: () => chainable,
-    limit: () => chainable,
-    or: () => chainable,
-    maybeSingle: () => {
-      return Promise.resolve({ data: null, error: null });
-    },
-    then: (cb: (val: unknown) => unknown) => {
-      selectCallCount++;
-      if (selectCallCount === 1) {
-        return cb({
-          data: [
-            {
-              id: "entry-1",
-              workspace_id: "ws-1",
-              type: "domain",
-              value: "spam.com",
-              reason: "Known spam domain",
-              created_at: "2026-07-12T00:00:00Z",
-              created_by: "user-1",
-            },
-          ],
-          error: null,
-        });
-      }
-      return cb({ data: [], error: null });
-    },
+let mockRows: MockRow[] = [];
+let mockQueryError: { message: string } | null = null;
+let mockOrCalls: string[] = [];
+let insertCounter = 0;
+
+/**
+ * In-memory capture_blocklist simulation: filters accumulate via eq() and are
+ * applied against mockRows at resolution, so tests exercise real query
+ * semantics (exact type+value pairs) instead of canned responses.
+ */
+function createQueryBuilder() {
+  const filters: Array<[string, unknown]> = [];
+  let limitCount: number | undefined;
+  let deleteMode = false;
+  let insertedRow: MockRow | null = null;
+
+  const matches = (row: MockRow) =>
+    filters.every(([col, val]) => row[col as keyof MockRow] === val);
+
+  const resolveRows = () => {
+    if (mockQueryError) {
+      return { data: null, error: mockQueryError };
+    }
+    if (deleteMode) {
+      mockRows = mockRows.filter((row) => !matches(row));
+      return { data: null, error: null };
+    }
+    let out = mockRows.filter(matches);
+    if (limitCount !== undefined) {
+      out = out.slice(0, limitCount);
+    }
+    return { data: out, error: null };
   };
-  return chainable;
+
+  const chain = {
+    select: () => chain,
+    eq: (col: string, val: unknown) => {
+      filters.push([col, val]);
+      return chain;
+    },
+    or: (expr: string) => {
+      mockOrCalls.push(expr);
+      return chain;
+    },
+    order: () => chain,
+    limit: (n: number) => {
+      limitCount = n;
+      return chain;
+    },
+    insert: (row: Record<string, unknown>) => {
+      insertCounter++;
+      insertedRow = {
+        id: `inserted-${insertCounter}`,
+        workspace_id: row.workspace_id as string,
+        type: row.type as string,
+        value: row.value as string,
+        reason: (row.reason as string | null) ?? null,
+        created_at: "2026-08-07T00:00:00Z",
+        created_by: (row.created_by as string | null) ?? null,
+      };
+      mockRows.push(insertedRow);
+      return chain;
+    },
+    delete: () => {
+      deleteMode = true;
+      return chain;
+    },
+    maybeSingle: () => {
+      const { data, error } = resolveRows();
+      return Promise.resolve({
+        data: error ? null : ((data as MockRow[] | null)?.[0] ?? null),
+        error,
+      });
+    },
+    single: () => {
+      if (insertedRow) {
+        return Promise.resolve({ data: insertedRow, error: null });
+      }
+      const { data, error } = resolveRows();
+      return Promise.resolve({
+        data: (data as MockRow[] | null)?.[0] ?? null,
+        error,
+      });
+    },
+    then: (
+      onFulfilled: (value: unknown) => unknown,
+      onRejected?: (reason: unknown) => unknown
+    ) => Promise.resolve(resolveRows()).then(onFulfilled, onRejected),
+  };
+
+  return chain;
 }
 
 vi.mock("@/app/_lib/supabase/admin", () => ({
   createAdminClient: vi.fn(() => ({
-    from: vi.fn((table: string) => {
-      if (table === "capture_blocklist") {
-        return {
-          select: vi.fn(() => createChainableSelect()),
-          insert: vi.fn(() => ({
-            select: vi.fn(() => ({
-              single: vi.fn(() =>
-                Promise.resolve({
-                  data: {
-                    id: "new-entry",
-                    workspace_id: "ws-1",
-                    type: "domain",
-                    value: "blocked.com",
-                    reason: null,
-                    created_at: "2026-07-12T00:00:00Z",
-                    created_by: null,
-                  },
-                  error: null,
-                })
-              ),
-            })),
-          })),
-          delete: vi.fn(() => ({
-            eq: vi.fn(() => ({
-              eq: vi.fn(() => Promise.resolve({ error: null })),
-            })),
-          })),
-        };
-      }
-      return {};
-    }),
+    from: vi.fn((table: string) =>
+      table === "capture_blocklist" ? createQueryBuilder() : {}
+    ),
   })),
 }));
+
+const SEED_ENTRY: MockRow = {
+  id: "entry-1",
+  workspace_id: "ws-1",
+  type: "domain",
+  value: "spam.com",
+  reason: "Known spam domain",
+  created_at: "2026-07-12T00:00:00Z",
+  created_by: "user-1",
+};
 
 describe("Blocklist Manager", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    selectCallCount = 0;
+    mockRows = [{ ...SEED_ENTRY }];
+    mockQueryError = null;
+    mockOrCalls = [];
+    insertCounter = 0;
   });
 
   describe("normalizeBlocklistValue (via addBlocklistEntry)", () => {
@@ -169,6 +222,140 @@ describe("Blocklist Manager", () => {
       const result = await removeBlocklistEntry("ws-1", "entry-1");
 
       expect(result.success).toBe(true);
+    });
+  });
+
+  describe("isBlocked", () => {
+    it("blocks senders whose domain is on the blocklist", async () => {
+      const { isBlocked } = await import("./blocklist-manager");
+
+      const result = await isBlocked("ws-1", { domain: "SPAM.com" });
+
+      expect(result.blocked).toBe(true);
+      expect(result.matchedEntry?.value).toBe("spam.com");
+    });
+
+    it("blocks senders whose email is on the blocklist", async () => {
+      mockRows.push({
+        id: "entry-2",
+        workspace_id: "ws-1",
+        type: "email",
+        value: "bad@evil.com",
+        reason: null,
+        created_at: "2026-07-12T00:00:00Z",
+        created_by: null,
+      });
+      const { isBlocked } = await import("./blocklist-manager");
+
+      const result = await isBlocked("ws-1", { email: "Bad@Evil.com" });
+
+      expect(result.blocked).toBe(true);
+      expect(result.matchedEntry?.value).toBe("bad@evil.com");
+    });
+
+    it("returns not-blocked for a clean sender", async () => {
+      const { isBlocked } = await import("./blocklist-manager");
+
+      const result = await isBlocked("ws-1", {
+        domain: "good.com",
+        email: "someone@good.com",
+      });
+
+      expect(result.blocked).toBe(false);
+    });
+
+    it("does not cross-match values across entry types", async () => {
+      // A sender_pattern row must only apply to senderName matching — a
+      // domain check for the same string must not hit it.
+      mockRows.push({
+        id: "entry-4",
+        workspace_id: "ws-1",
+        type: "sender_pattern",
+        value: "promo.net",
+        reason: null,
+        created_at: "2026-07-12T00:00:00Z",
+        created_by: null,
+      });
+      const { isBlocked } = await import("./blocklist-manager");
+
+      const result = await isBlocked("ws-1", { domain: "promo.net" });
+
+      expect(result.blocked).toBe(false);
+    });
+
+    it("fails closed when the email is not email-shaped", async () => {
+      const { isBlocked } = await import("./blocklist-manager");
+
+      const result = await isBlocked("ws-1", { email: "spam.com" });
+
+      expect(result.blocked).toBe(true);
+      expect(result.reason).toMatch(/validation/i);
+    });
+
+    it("never passes sender input through a raw or() filter", async () => {
+      const { isBlocked } = await import("./blocklist-manager");
+
+      await isBlocked("ws-1", {
+        domain: "good.com",
+        email: "someone@good.com",
+      });
+
+      expect(mockOrCalls).toHaveLength(0);
+    });
+
+    it("fails closed when the email carries PostgREST filter syntax", async () => {
+      const { isBlocked } = await import("./blocklist-manager");
+
+      const result = await isBlocked("ws-1", {
+        email: "x@evil.com,value.neq.zzz",
+      });
+
+      expect(result.blocked).toBe(true);
+      expect(result.reason).toMatch(/validation/i);
+      expect(result.matchedEntry).toBeUndefined();
+      expect(mockOrCalls).toHaveLength(0);
+    });
+
+    it("fails closed on parenthesis injection in the domain", async () => {
+      const { isBlocked } = await import("./blocklist-manager");
+
+      const result = await isBlocked("ws-1", {
+        domain: "evil.com),and(type.eq.x",
+      });
+
+      expect(result.blocked).toBe(true);
+      expect(result.reason).toMatch(/validation/i);
+      expect(mockOrCalls).toHaveLength(0);
+    });
+
+    it("still enforces sender-name glob patterns", async () => {
+      mockRows.push({
+        id: "entry-3",
+        workspace_id: "ws-1",
+        type: "sender_pattern",
+        value: "*newsletter*",
+        reason: null,
+        created_at: "2026-07-12T00:00:00Z",
+        created_by: null,
+      });
+      const { isBlocked } = await import("./blocklist-manager");
+
+      const result = await isBlocked("ws-1", {
+        senderName: "Weekly Newsletter Digest",
+      });
+
+      expect(result.blocked).toBe(true);
+    });
+
+    it("fails open when the blocklist query itself errors", async () => {
+      // An infra failure on this table must not drop ALL inbound mail;
+      // hostile input never reaches the query — it fails closed above.
+      mockQueryError = { message: "connection refused" };
+      const { isBlocked } = await import("./blocklist-manager");
+
+      const result = await isBlocked("ws-1", { domain: "good.com" });
+
+      expect(result.blocked).toBe(false);
     });
   });
 });
