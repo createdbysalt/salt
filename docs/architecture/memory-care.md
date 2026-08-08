@@ -55,7 +55,7 @@ app/_features/memory/care/
 ├── index.ts                 # Public API
 ├── types.ts                 # Capabilities, proposals, decisions
 ├── settings.ts              # Threshold + enablement accessors
-├── decision-pipeline.ts     # apply / watch / refuse
+├── decision-pipeline.ts     # apply / watch / refuse + P8 weight lookup
 ├── scheduler.ts             # Cron + signal + on-demand entry points
 ├── actions.ts               # Server actions for Rules UI
 ├── capabilities/
@@ -63,6 +63,12 @@ app/_features/memory/care/
 │   ├── hygiene.ts
 │   ├── connections.ts
 │   └── notes.ts
+├── reflection/              # P8 pattern-level learning
+│   ├── types.ts             # ReflectionTrigger, SignalSourceWeight
+│   ├── triggers.ts          # incrementReflectionTrigger
+│   ├── weights.ts           # getSignalSourceWeight
+│   ├── reflection-pass.ts   # runReflectionPass, weekly scan
+│   └── index.ts
 └── intake/                  # Ask Salt intake for records (chat.yaml + PLAYBOOK.md)
 ```
 
@@ -119,6 +125,43 @@ Capabilities **never write Memory directly**. They emit `CareProposal`s into `pr
 Low-risk observation fields (names, emails, `last_contacted_at`, …) bypass gating (`isAlwaysAutoField`).
 
 There is **no** `approval_required` path in the learn layer. Correction replaces approval.
+
+### P8 Reflection Pass (Pattern-Level Learning)
+
+When corrections cluster on a signal source + field type (e.g., "email signature role extractions"), Salt learns to be more cautious without blocking the source entirely.
+
+```
+correction_events (with signal_source)
+        ↓
+  reflection_triggers (workspace, category, count)
+        ↓ threshold=5
+  reflection_pass.ts → compute weight adjustment
+        ↓
+  signal_source_weights (workspace, source, field, weight)
+        ↓
+  decision-pipeline.ts reads weight, applies to confidence
+```
+
+**Weight formula:** `weight = max(0.5, 1 - (correction_count * 0.1))`
+
+- Floor of **0.5** — source stays useful, just more cautious
+- 5 corrections trigger reflection; 3+ in a cluster to adjust
+
+**Trigger conditions:**
+1. **Threshold-based:** 5 corrections on a category triggers immediate reflection
+2. **Weekly batch:** Sunday 4am cron catches low-activity workspaces
+
+**Module:** `app/_features/memory/care/reflection/`
+
+| File | Role |
+|------|------|
+| `types.ts` | `ReflectionTrigger`, `SignalSourceWeight`, config constants |
+| `triggers.ts` | `incrementReflectionTrigger` — called from corrections |
+| `weights.ts` | `getSignalSourceWeight` — called from decision pipeline |
+| `reflection-pass.ts` | `runReflectionPass`, `runPendingReflections`, `runFullReflectionScan` |
+| `index.ts` | Re-exports |
+
+**Cron:** `/api/cron/memory-reflection` — weekly full scan
 
 ---
 

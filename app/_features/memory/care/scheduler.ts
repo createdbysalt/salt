@@ -27,6 +27,7 @@ import {
   type CareRunContext,
   type CareRunResult,
 } from "./types";
+import { runPendingReflections, runFullReflectionScan } from "./reflection";
 
 // =============================================================================
 // Schedules (ported from the retired _meta playbook definitions)
@@ -299,4 +300,80 @@ export async function runDueCareCapabilities(now: Date): Promise<{
   }
 
   return { due: due.map((d) => d.capability), runs, failures, skipped };
+}
+
+// =============================================================================
+// P8 Reflection Pass Integration
+// =============================================================================
+
+/**
+ * Run pending reflection passes for a workspace.
+ * Called after correction events are recorded to process any triggers
+ * that have crossed the threshold.
+ */
+export async function runPendingReflectionsForWorkspace(
+  workspaceId: string
+): Promise<{ triggersProcessed: number; weightsAdjusted: number }> {
+  try {
+    const result = await runPendingReflections(workspaceId);
+    return {
+      triggersProcessed: result.triggersProcessed,
+      weightsAdjusted: result.totalWeightsAdjusted,
+    };
+  } catch (error) {
+    console.error(`[memory-care] Reflection pass failed for ${workspaceId}:`, error);
+    return { triggersProcessed: 0, weightsAdjusted: 0 };
+  }
+}
+
+/**
+ * Cron entry: run weekly reflection scan across all active workspaces.
+ * This catches low-activity workspaces that may not hit the trigger threshold
+ * but have accumulated corrections over time.
+ *
+ * Runs: Sunday 4am (between hygiene at 3am and connections on Monday 6am)
+ */
+export async function runWeeklyReflectionScan(): Promise<{
+  workspacesScanned: number;
+  categoriesAnalyzed: number;
+  weightsAdjusted: number;
+}> {
+  const admin = createAdminClient();
+  const { data: workspaces, error } = await admin
+    .from("workspaces")
+    .select("id")
+    .is("deleted_at", null)
+    .limit(100);
+
+  if (error || !workspaces) {
+    console.error(`[memory-care] Failed to list workspaces for reflection: ${error?.message}`);
+    return { workspacesScanned: 0, categoriesAnalyzed: 0, weightsAdjusted: 0 };
+  }
+
+  let totalCategories = 0;
+  let totalWeights = 0;
+
+  for (const workspace of workspaces) {
+    try {
+      const result = await runFullReflectionScan(workspace.id);
+      totalCategories += result.categoriesAnalyzed;
+      totalWeights += result.weightsAdjusted;
+    } catch (error) {
+      console.error(
+        `[memory-care] Reflection scan failed for workspace ${workspace.id}:`,
+        error
+      );
+    }
+  }
+
+  console.log(
+    `[memory-care] Weekly reflection scan: ${workspaces.length} workspaces, ` +
+      `${totalCategories} categories, ${totalWeights} weights adjusted`
+  );
+
+  return {
+    workspacesScanned: workspaces.length,
+    categoriesAnalyzed: totalCategories,
+    weightsAdjusted: totalWeights,
+  };
 }

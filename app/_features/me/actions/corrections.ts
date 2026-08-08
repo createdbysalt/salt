@@ -14,6 +14,7 @@ import { createClient } from "@/app/_lib/supabase/server";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { getTenantContext } from "@/app/_features/auth/queries";
 import { resolveEvidence, type LearningEntityType } from "@/app/_lib/learning";
+import { incrementReflectionTrigger } from "@/app/_features/memory/care/reflection/triggers";
 
 // ============================================================================
 // Types
@@ -60,6 +61,8 @@ export interface RecordCorrectionInput {
   correctionType: CorrectionType;
   correctionReason?: CorrectionReason;
   userExplanation?: string;
+  /** Signal source that produced the wrong value (for P8 reflection learning) */
+  signalSource?: string;
 }
 
 // ============================================================================
@@ -114,6 +117,59 @@ export async function calculateConfidencePenalty(
 }
 
 // ============================================================================
+// Signal Source Lookup
+// ============================================================================
+
+/**
+ * Look up the signal source from a learning's evidence.
+ * Uses the evidence_ids to find the most common source_type.
+ */
+async function lookupSignalSourceFromLearning(
+  admin: ReturnType<typeof createAdminClient>,
+  learningId: string
+): Promise<string | undefined> {
+  // Get the learning's evidence IDs
+  const { data: learning } = await admin
+    .from("salt_learnings")
+    .select("evidence_ids")
+    .eq("id", learningId)
+    .single();
+
+  if (!learning?.evidence_ids || learning.evidence_ids.length === 0) {
+    return undefined;
+  }
+
+  // Get the source types from the evidence
+  const { data: evidence } = await admin
+    .from("entity_evidence")
+    .select("source_type")
+    .in("id", learning.evidence_ids);
+
+  if (!evidence || evidence.length === 0) {
+    return undefined;
+  }
+
+  // Return the most common source type
+  const sourceCounts = new Map<string, number>();
+  for (const e of evidence) {
+    if (e.source_type) {
+      sourceCounts.set(e.source_type, (sourceCounts.get(e.source_type) ?? 0) + 1);
+    }
+  }
+
+  let mostCommon: string | undefined;
+  let maxCount = 0;
+  for (const [source, count] of sourceCounts) {
+    if (count > maxCount) {
+      maxCount = count;
+      mostCommon = source;
+    }
+  }
+
+  return mostCommon;
+}
+
+// ============================================================================
 // Record Correction
 // ============================================================================
 
@@ -140,6 +196,12 @@ export async function recordCorrection(
     input.correctionType,
   );
 
+  // Resolve signal source: prefer explicit, fall back to evidence lookup
+  let signalSource = input.signalSource;
+  if (!signalSource && input.learningId) {
+    signalSource = await lookupSignalSourceFromLearning(admin, input.learningId);
+  }
+
   // Insert correction event
   const { data: correction, error: insertError } = await admin
     .from("correction_events")
@@ -156,6 +218,7 @@ export async function recordCorrection(
       user_explanation: input.userExplanation ?? null,
       confidence_penalty: penalty,
       created_by: context.userId,
+      signal_source: signalSource ?? null,
     })
     .select("id")
     .single();
@@ -191,6 +254,25 @@ export async function recordCorrection(
     input.fieldPath,
     penalty,
   );
+
+  // P8: Increment reflection trigger for pattern-level learning
+  // This tracks corrections by signal_source+field_type to enable
+  // "Salt learned to be more careful about X for Y" adjustments
+  if (signalSource) {
+    const triggerResult = await incrementReflectionTrigger({
+      workspaceId: input.workspaceId,
+      signalSource,
+      fieldType: input.fieldPath,
+    });
+
+    // Log when threshold is crossed (reflection pass should run)
+    if (triggerResult.thresholdCrossed) {
+      console.log(
+        `[corrections] Reflection trigger crossed for ${triggerResult.category} ` +
+          `(${triggerResult.newCount} corrections)`
+      );
+    }
+  }
 
   revalidatePath("/me");
 

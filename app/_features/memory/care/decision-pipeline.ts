@@ -47,6 +47,7 @@ import {
   recordSaltLearning,
 } from "@/app/_features/me/actions/salt-learnings";
 import { getCareThreshold } from "./settings";
+import { getSignalSourceWeight } from "./reflection";
 import type { CareDecision, CareProposal } from "./types";
 
 /**
@@ -242,7 +243,7 @@ export async function processCareProposal(
   const bar = tierBar(tier, workspaceThreshold);
 
   // Accumulate evidence first — the audit trail exists regardless of outcome.
-  const { evidenceId, aggregatedConfidence } = await accumulateEvidence({
+  const { evidenceId, aggregatedConfidence: rawAggregatedConfidence } = await accumulateEvidence({
     workspaceId: proposal.workspaceId,
     entityType,
     entityId: proposal.entityId,
@@ -260,6 +261,18 @@ export async function processCareProposal(
     sourceCaptureId: proposal.sourceCaptureId,
     playbookSlug: proposal.capability,
   });
+
+  // P8 pattern-level learning: apply signal source weight adjustment.
+  // If corrections have clustered on this source+field, confidence is reduced.
+  const sourceWeight = await getSignalSourceWeight(
+    proposal.workspaceId,
+    proposal.sourceType,
+    proposal.field
+  );
+  const aggregatedConfidence =
+    sourceWeight < 1
+      ? Math.round(rawAggregatedConfidence * sourceWeight)
+      : rawAggregatedConfidence;
 
   const { decision } = decideTierOutcome(tier, aggregatedConfidence, workspaceThreshold);
 
