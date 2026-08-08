@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -54,6 +54,52 @@ describe("single-gate invariant (5.5.1)", () => {
   it("only actions.ts touches the raw execute API in the composio lib", () => {
     const gate = read("app/_lib/composio/actions.ts");
     expect(gate).toContain("getComposioClient().tools.execute(");
+  });
+
+  it("webhook enrichment executes through the metered gate", () => {
+    const enrichment = read("app/_lib/composio/webhook-enrichment.ts");
+    expect(enrichment).toContain("executeComposioAction");
+    expect(enrichment.includes(".tools.execute(")).toBe(false);
+    expect(enrichment.includes("getComposioClient()")).toBe(false);
+  });
+
+  /**
+   * Repo-wide sweep (6.2): no module anywhere in the app — background jobs,
+   * webhooks, API routes, features — may call the raw Composio execute API.
+   * actions.ts is the single gate; everything else goes through it so
+   * canSpend admission, rate limits, classification, and the audit log
+   * cannot be bypassed by a new call site.
+   */
+  it("no module outside actions.ts calls the raw execute API anywhere", () => {
+    const SCAN_DIRS = ["app/_lib/composio", "app/_features", "app/api"];
+    const ALLOWED = new Set(["app/_lib/composio/actions.ts"]);
+    const offenders: string[] = [];
+
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(join(ROOT, dir), { withFileTypes: true })) {
+        const rel = `${dir}/${entry.name}`;
+        if (entry.isDirectory()) {
+          walk(rel);
+          continue;
+        }
+        if (!/\.(ts|tsx)$/.test(entry.name)) continue;
+        if (/\.test\.(ts|tsx)$/.test(entry.name)) continue;
+        if (ALLOWED.has(rel)) continue;
+        const source = read(rel);
+        if (
+          source.includes(".tools.execute(") ||
+          source.includes(".proxyExecute(")
+        ) {
+          offenders.push(rel);
+        }
+      }
+    };
+
+    for (const dir of SCAN_DIRS) {
+      walk(dir);
+    }
+
+    expect(offenders).toEqual([]);
   });
 
   /**

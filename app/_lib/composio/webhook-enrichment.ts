@@ -11,7 +11,7 @@
 
 import "server-only";
 
-import { getComposioClient } from "./client";
+import { executeComposioAction } from "./actions";
 import { COMPOSIO_TOOL_SLUGS } from "./tool-slugs";
 
 interface EnrichmentSpec {
@@ -53,18 +53,7 @@ const ENRICHMENT_REGISTRY: Record<string, EnrichmentSpec> = {
       );
     },
     buildInput: (messageId) => ({ message_id: messageId, user_id: "me" }),
-    extractResult: (result) => {
-      if (!isRecord(result)) return result;
-      // Composio returns { data: { response_data: {...} }, successful: bool }
-      if (isRecord(result.data) && isRecord(result.data.response_data)) {
-        return result.data.response_data;
-      }
-      // Fallback: unwrap data wrapper
-      if (isRecord(result.data)) {
-        return result.data;
-      }
-      return result;
-    },
+    extractResult: unwrapOutlookMessage,
   },
   OUTLOOK_SENT_MESSAGE_TRIGGER: {
     toolSlug: COMPOSIO_TOOL_SLUGS.OUTLOOK_OUTLOOK_GET_MESSAGE,
@@ -78,18 +67,28 @@ const ENRICHMENT_REGISTRY: Record<string, EnrichmentSpec> = {
       );
     },
     buildInput: (messageId) => ({ message_id: messageId, user_id: "me" }),
-    extractResult: (result) => {
-      if (!isRecord(result)) return result;
-      if (isRecord(result.data) && isRecord(result.data.response_data)) {
-        return result.data.response_data;
-      }
-      if (isRecord(result.data)) {
-        return result.data;
-      }
-      return result;
-    },
+    extractResult: unwrapOutlookMessage,
   },
 };
+
+/**
+ * The gate (executeComposioAction) already unwraps Composio's outer `data`
+ * wrapper, so the usual shape here is { response_data: {...} } — but stay
+ * tolerant of the fully-wrapped and fully-unwrapped shapes too.
+ */
+function unwrapOutlookMessage(result: unknown): unknown {
+  if (!isRecord(result)) return result;
+  if (isRecord(result.response_data)) {
+    return result.response_data;
+  }
+  if (isRecord(result.data) && isRecord(result.data.response_data)) {
+    return result.data.response_data;
+  }
+  if (isRecord(result.data)) {
+    return result.data;
+  }
+  return result;
+}
 
 /**
  * Check if a payload needs enrichment (minimal data only).
@@ -172,15 +171,24 @@ export async function enrichWebhookPayload(
       toolSlug: spec.toolSlug,
     });
 
-    const composio = getComposioClient();
     const input = spec.buildInput(messageId);
 
-    const result = await composio.tools.execute(spec.toolSlug, {
-      userId: workspaceId, // Composio entity = workspace ID
+    // Through the single gate: canSpend admission, read-class rate limit,
+    // classification policy, and the audit log all apply to this spend.
+    // skipAuthCheck: webhooks carry no user session — tenancy was already
+    // established upstream by signature verification + the connected-account
+    // lookup that produced workspaceId. unattended: read-class tools only.
+    const result = await executeComposioAction<Record<string, unknown>, unknown>(
+      spec.toolSlug,
+      input,
       connectedAccountId,
-      arguments: input,
-      dangerouslySkipVersionCheck: true,
-    });
+      workspaceId, // Composio entity = workspace ID
+      {
+        skipAuthCheck: true,
+        unattended: true,
+        workspaceId,
+      },
+    );
 
     const enrichedPayload = spec.extractResult(result);
 
