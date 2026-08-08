@@ -154,19 +154,34 @@ describe("buildLearningStory", () => {
     expect(story.reason).toBe("No activity in 210 days");
   });
 
-  it("renders link candidates as connection copy", () => {
+  it("renders link candidates with target as connection proposal", () => {
     const story = buildLearningStory(
       makeEvidence([
         makeField({
           fieldPath: "_link_candidate",
-          proposedValue: '{"reason":"orphan","suggestedAction":"connect_org"}',
+          proposedValue:
+            '{"targetId":"org-123","targetName":"Meridian Corp","reason":"domain_match"}',
+          metaCandidate: { kind: "link", targetId: "org-123", targetName: "Meridian Corp" },
+        }),
+      ]),
+    );
+    expect(story.kind).toBe("link");
+    expect(story.primarySentence).toBe("I think Jane Example works at Meridian Corp.");
+  });
+
+  it("renders link candidates without target as gathering evidence (defensive)", () => {
+    const story = buildLearningStory(
+      makeEvidence([
+        makeField({
+          fieldPath: "_link_candidate",
+          proposedValue: '{"reason":"orphan"}',
           metaCandidate: { kind: "link" },
         }),
       ]),
     );
     expect(story.kind).toBe("link");
     expect(story.primarySentence).toBe(
-      "I couldn't connect Jane Example to an organization yet.",
+      "I'm gathering evidence to connect Jane Example to an organization.",
     );
   });
 

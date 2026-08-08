@@ -16,11 +16,70 @@ import {
   logOddsToProbability,
 } from "@/app/_features/memory/care/intake";
 import { createIntakePlayRun } from "@/app/_features/plays/services/create-intake-play-run";
+import { autoCreateRecord } from "./auto-create-record";
 import type {
   AddSignalInput,
   AddSignalResult,
   ExtractedFieldValue,
 } from "./types";
+
+/**
+ * P7: Relationship-grade signals indicate a real relationship worth tracking.
+ * Records should only auto-create when there's evidence of actual relationship.
+ *
+ * Relationship-grade signals:
+ * - Payment: invoice, payment, billing signals
+ * - User reply: sent email to them (not just received)
+ * - Calendar co-presence: meeting attendance
+ * - Contract/proposal: formal business documents
+ */
+const RELATIONSHIP_GRADE_SIGNALS = new Set([
+  // Payment signals
+  "invoice_attachment_detected",
+  "invoice_addressee_unknown",
+  "invoice_from_unknown_company",
+  "invoice_line_items_suggest_project",
+  "payment_notification_email",
+  "stripe_webhook_payment",
+  "receipt_attachment_detected",
+  "receipt_detected",
+  "email_mentions_amount_due",
+
+  // User reply signals (sent, not just received)
+  "email_to_unknown_address",
+
+  // Calendar co-presence
+  "meeting_attendee_unknown",
+  "calendar_event_created",
+  "calendar_invite_received",
+  "email_scheduling_discussion",
+  "zoom_invite_detected",
+
+  // Contract/proposal signals
+  "contract_detected",
+  "contract_mentions_company",
+  "msa_detected",
+  "nda_detected",
+  "signature_request_received",
+  "proposal_detected",
+  "proposal_or_sow_attached",
+  "sow_detected",
+  "brief_detected",
+
+  // Deliverables (implies active work relationship)
+  "deliverable_detected",
+  "asset_delivered",
+  "approval_detected",
+  "feedback_detected",
+]);
+
+/**
+ * Check if a set of signals contains relationship-grade evidence.
+ * P7: Worthiness (relevance) is separate from confidence (accuracy).
+ */
+function hasRelationshipGradeSignal(signals: string[]): boolean {
+  return signals.some((signal) => RELATIONSHIP_GRADE_SIGNALS.has(signal));
+}
 
 /**
  * Add a signal to pending evidence.
@@ -91,27 +150,54 @@ export async function addSignalToEvidence(
       extracted_data: input.extractedData || {},
     });
 
-    // Create play when transitioning to suggested or auto
-    if (
-      (action === "suggest" || action === "auto") &&
-      existing.status === "watching"
-    ) {
-      // Count signals for this evidence
-      const { count } = await supabase
+    // Handle threshold transitions
+    if (existing.status === "watching") {
+      // Fetch all signals for this evidence (for count and worthiness check)
+      const { data: signalRows } = await supabase
         .from("pending_evidence_signals")
-        .select("*", { count: "exact", head: true })
+        .select("signal")
         .eq("evidence_id", existing.id);
 
-      await createIntakePlayRun({
-        workspaceId: input.workspaceId,
-        evidenceId: existing.id,
-        entityType: input.entityType,
-        identifier: canonicalId,
-        confidence: logOddsToProbability(newScore),
-        extractedFields: mergedFields,
-        signalCount: (count ?? 0) + 1,
-        autoCreate: action === "auto",
-      });
+      const signalCount = (signalRows?.length ?? 0) + 1;
+      const allSignals = [...(signalRows?.map((r) => r.signal as string) ?? []), input.signal];
+      const isWorthy = hasRelationshipGradeSignal(allSignals);
+
+      if (action === "auto" && isWorthy) {
+        // P6 + P7: Auto-create only if relationship-grade worthy
+        await autoCreateRecord({
+          workspaceId: input.workspaceId,
+          evidenceId: existing.id,
+          entityType: input.entityType,
+          identifier: canonicalId,
+          confidence: logOddsToProbability(newScore),
+          extractedFields: mergedFields,
+          signalCount,
+        });
+      } else if (action === "auto" && !isWorthy) {
+        // P7: Confidence passed but not relationship-grade — route to suggest
+        await createIntakePlayRun({
+          workspaceId: input.workspaceId,
+          evidenceId: existing.id,
+          entityType: input.entityType,
+          identifier: canonicalId,
+          confidence: logOddsToProbability(newScore),
+          extractedFields: mergedFields,
+          signalCount,
+          autoCreate: false,
+        });
+      } else if (action === "suggest") {
+        // Route to Plays Queue for user approval
+        await createIntakePlayRun({
+          workspaceId: input.workspaceId,
+          evidenceId: existing.id,
+          entityType: input.entityType,
+          identifier: canonicalId,
+          confidence: logOddsToProbability(newScore),
+          extractedFields: mergedFields,
+          signalCount,
+          autoCreate: false,
+        });
+      }
     }
 
     return {
@@ -175,8 +261,23 @@ export async function addSignalToEvidence(
       extracted_data: input.extractedData || {},
     });
 
-    // Create play if immediately crosses threshold (e.g., very strong signal)
-    if (action === "suggest" || action === "auto") {
+    // Handle immediate threshold crossing (e.g., very strong signal)
+    // P7: Check if the signal is relationship-grade
+    const isWorthy = hasRelationshipGradeSignal([input.signal]);
+
+    if (action === "auto" && isWorthy) {
+      // P6 + P7: Auto-create only if relationship-grade worthy
+      await autoCreateRecord({
+        workspaceId: input.workspaceId,
+        evidenceId: newEvidence.id,
+        entityType: input.entityType,
+        identifier: canonicalId,
+        confidence: logOddsToProbability(newScore),
+        extractedFields: initialFields,
+        signalCount: 1,
+      });
+    } else if (action === "auto" && !isWorthy) {
+      // P7: Confidence passed but not relationship-grade — route to suggest
       await createIntakePlayRun({
         workspaceId: input.workspaceId,
         evidenceId: newEvidence.id,
@@ -185,7 +286,19 @@ export async function addSignalToEvidence(
         confidence: logOddsToProbability(newScore),
         extractedFields: initialFields,
         signalCount: 1,
-        autoCreate: action === "auto",
+        autoCreate: false,
+      });
+    } else if (action === "suggest") {
+      // Route to Plays Queue for user approval
+      await createIntakePlayRun({
+        workspaceId: input.workspaceId,
+        evidenceId: newEvidence.id,
+        entityType: input.entityType,
+        identifier: canonicalId,
+        confidence: logOddsToProbability(newScore),
+        extractedFields: initialFields,
+        signalCount: 1,
+        autoCreate: false,
       });
     }
 

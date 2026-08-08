@@ -322,10 +322,17 @@ export const getLearningEvidence = cache(
       );
     }
 
+    function isNoTargetLinkCandidate(e: LearningEvidenceRow): boolean {
+      if (e.field_path !== "_link_candidate") return false;
+      if (!e.proposed_value || typeof e.proposed_value !== "object") return true;
+      const targetId = (e.proposed_value as Record<string, unknown>).targetId;
+      return typeof targetId !== "string" || !targetId;
+    }
+
     const grouped = new Map<string, GroupedLearningEvidence>();
 
     for (const e of evidence) {
-      if (isInactiveMergeTarget(e)) {
+      if (isInactiveMergeTarget(e) || isNoTargetLinkCandidate(e)) {
         continue;
       }
 
@@ -377,9 +384,10 @@ export const getLearningEvidence = cache(
           evidenceIds: [],
           items: [],
           topReason: null,
-          bar:
-            metaCandidate || isAlwaysAutoField(e.entity_type, e.field_path)
-              ? null
+          bar: isAlwaysAutoField(e.entity_type, e.field_path)
+            ? null
+            : metaCandidate
+              ? tierBar("sensitive", workspaceThreshold)
               : tierBar(
                   classifyFieldTier(
                     e.entity_type,

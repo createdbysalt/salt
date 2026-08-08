@@ -14,6 +14,12 @@
  * - refuse → never-touch field (money). Hard rule: no write, no evidence,
  *            no queue.
  *
+ * P3/P8 — Correction read-forward: before auto-applying, the pipeline checks
+ * `correction_events` for this entity+field. If the proposed value was
+ * previously corrected as wrong, it is pinned against re-inference. The user
+ * can still manually apply from Watching, but Salt won't auto-apply a known
+ * mistake.
+ *
  * Protection invariant: the actual entity write still goes through
  * `app/_lib/memory-tools` (or the records-engine field writers, which record
  * provenance). This pipeline decides; the tools write.
@@ -42,6 +48,44 @@ import {
 } from "@/app/_features/me/actions/salt-learnings";
 import { getCareThreshold } from "./settings";
 import type { CareDecision, CareProposal } from "./types";
+
+/**
+ * P8 re-application guard: check if this exact proposed value was previously
+ * corrected as wrong for this entity+field. If so, Salt should not auto-apply
+ * it again — the user explicitly said "that's wrong."
+ *
+ * Returns the correction ID if found, null otherwise.
+ */
+async function hasCorrectedValue(
+  workspaceId: string,
+  entityType: string,
+  entityId: string,
+  fieldPath: string,
+  proposedValue: unknown
+): Promise<string | null> {
+  const admin = createAdminClient();
+
+  const { data: correction } = await admin
+    .from("correction_events")
+    .select("id, wrong_value")
+    .eq("workspace_id", workspaceId)
+    .eq("entity_type", entityType)
+    .eq("entity_id", entityId)
+    .eq("field_path", fieldPath)
+    .order("created_at", { ascending: false })
+    .limit(10);
+
+  if (!correction || correction.length === 0) return null;
+
+  const proposedStr = JSON.stringify(proposedValue);
+  for (const c of correction) {
+    if (JSON.stringify(c.wrong_value) === proposedStr) {
+      return c.id;
+    }
+  }
+
+  return null;
+}
 
 export interface CareFieldBar {
   tier: MemoryFieldTier;
@@ -164,8 +208,21 @@ export async function processCareProposal(
     };
   }
 
-  // Low-risk observation fields bypass gating entirely.
-  if (isAlwaysAutoField(entityType, proposal.field)) {
+  // P8 re-application guard: if this exact value was previously corrected,
+  // don't auto-apply it again. The user explicitly said "that's wrong."
+  // Evidence still accumulates (for transparency), but the pipeline returns
+  // "watch" instead of "apply". The user can still manually apply from
+  // Watching if they change their mind.
+  const correctionId = await hasCorrectedValue(
+    proposal.workspaceId,
+    entityType,
+    proposal.entityId,
+    proposal.field,
+    proposal.proposedValue
+  );
+
+  // Low-risk observation fields bypass gating entirely — unless corrected.
+  if (isAlwaysAutoField(entityType, proposal.field) && !correctionId) {
     return {
       action: "apply",
       tier: "standard",
@@ -205,6 +262,29 @@ export async function processCareProposal(
   });
 
   const { decision } = decideTierOutcome(tier, aggregatedConfidence, workspaceThreshold);
+
+  // P8 re-application guard: if this value was previously corrected, demote
+  // "apply" to "watch". The user can still manually apply from Watching.
+  if (correctionId && decision === "apply") {
+    await logCareActivity(proposal, {
+      action: "accumulated",
+      title: `Watching: ${fieldLabel} for ${entityLabel}`,
+      detail: `Previously corrected — waiting for user confirmation`,
+      confidence: aggregatedConfidence,
+      bar,
+      evidenceId,
+    });
+
+    return {
+      action: "watch",
+      tier,
+      aggregatedConfidence,
+      bar,
+      reason: `Previously corrected (correction ${correctionId}) — requires manual confirmation`,
+      evidenceId,
+      correctionGuardTriggered: true,
+    };
+  }
 
   if (decision === "apply") {
     const allEvidence = await getAggregatedConfidence(

@@ -4,7 +4,11 @@ import "server-only";
  * Ask Salt Correction Tools
  *
  * Enables conversational corrections: "Jane isn't a client, she's my accountant"
- * Extracts patterns and creates memory facts from explanations.
+ * Extracts patterns, creates memory facts, AND writes corrections back to Memory.
+ *
+ * P3 contract: Correction flows through the artifact and always fixes the cause.
+ * A correction that only patches the draft is a bug — we must also update the
+ * Memory record so future plays see the correct value.
  */
 
 import { z } from "zod";
@@ -16,7 +20,10 @@ import {
   recordConversationalCorrection,
   type CorrectionReason,
 } from "@/app/_features/me/actions/corrections";
-import type { LearningEntityType } from "@/app/_lib/learning";
+import {
+  memoryUpdateField,
+  type LearningEntityType,
+} from "@/app/_lib/memory-tools";
 
 export interface BuildCorrectionToolsOptions {
   workspaceId: string;
@@ -338,6 +345,7 @@ export function buildCorrectionTools({
           );
 
           // Record the correction
+          const finalCorrectValue = correctValue ?? patterns.find((p) => p.correctValue)?.correctValue;
           const result = await recordConversationalCorrection({
             workspaceId,
             learningId,
@@ -345,11 +353,32 @@ export function buildCorrectionTools({
             entityId,
             fieldPath,
             wrongValue,
-            correctValue: correctValue ?? patterns.find((p) => p.correctValue)?.correctValue,
+            correctValue: finalCorrectValue,
             userExplanation: explanation,
             extractedPatterns: patterns,
             resultingFactId: factId ?? undefined,
           });
+
+          // P3: Also update the Memory record so future plays see the correct value.
+          // The user explicitly told us the correct value, so apply at 100% confidence.
+          let fieldUpdated = false;
+          if (finalCorrectValue && fieldPath) {
+            try {
+              const updateResult = await memoryUpdateField({
+                workspaceId,
+                entityType,
+                entityId,
+                field: fieldPath,
+                value: finalCorrectValue,
+                confidence: 100,
+                because: `Corrected by user: "${explanation}"`,
+                source: "ask_salt",
+              });
+              fieldUpdated = updateResult.action === "applied";
+            } catch (updateError) {
+              console.error("[correction-tools] Field update failed:", updateError);
+            }
+          }
 
           void logToolExecution({
             workspaceId,
@@ -361,10 +390,11 @@ export function buildCorrectionTools({
             args: {
               entityName,
               explanation,
-              correctValue,
+              correctValue: finalCorrectValue,
               correctionId: result.id,
               patternsFound: patterns.length,
               factCreated: !!factId,
+              fieldUpdated,
               penaltyApplied: result.penaltyApplied,
             },
           });
@@ -372,7 +402,11 @@ export function buildCorrectionTools({
           // Build response
           let response = `Got it! I've recorded your correction about ${entityName}.`;
 
-          if (patterns.length > 0) {
+          if (fieldUpdated) {
+            response += ` I've updated the record to "${finalCorrectValue}".`;
+          }
+
+          if (patterns.length > 0 && !fieldUpdated) {
             const patternTypes = patterns.map((p) => p.type).join(", ");
             response += ` I understood this as: ${patternTypes.replace(/_/g, " ")}.`;
           }
@@ -389,6 +423,7 @@ export function buildCorrectionTools({
             correctionId: result.id,
             patternsExtracted: patterns.length,
             factCreated: !!factId,
+            fieldUpdated,
           };
         } catch (error) {
           void logToolExecution({

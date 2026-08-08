@@ -117,6 +117,8 @@ export interface CareDecision {
   reason: string;
   evidenceId?: string;
   learningId?: string;
+  /** P8: true if auto-apply was blocked because this value was previously corrected. */
+  correctionGuardTriggered?: boolean;
 }
 
 /** Context passed to a capability run (signal-triggered or scheduled). */

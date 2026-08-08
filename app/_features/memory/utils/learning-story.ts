@@ -153,7 +153,9 @@ function metaSentence(
     case "archive":
       return `I haven't seen any activity around ${entityLabel} in a while.`;
     case "link":
-      return `I couldn't connect ${entityLabel} to an organization yet.`;
+      return targetName
+        ? `I think ${entityLabel} works at ${targetName}.`
+        : `I'm gathering evidence to connect ${entityLabel} to an organization.`;
   }
 }
 

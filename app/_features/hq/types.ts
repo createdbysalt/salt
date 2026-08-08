@@ -39,10 +39,24 @@ export type HqConnectorHealthData = {
   items: HqConnectorHealthItem[];
 };
 
+/** Auto-created record from evidence accumulation (P6: births without queues). */
+export type HqCreatedTodayItem = {
+  id: string;
+  entityType: "person" | "organization" | "work" | "billing" | "file" | "meeting";
+  name: string;
+  href: string;
+  signalCount: number;
+};
+
+export type HqCreatedTodayData = {
+  items: HqCreatedTodayItem[];
+};
+
 export type HqSideRailData = {
   timeSaved: HqTimeSavedData;
   schedule: HqScheduleItem[];
   headsUp: HqHeadsUpItem[];
+  createdToday: HqCreatedTodayData;
   scheduleContext: {
     hasCalendarConnected: boolean;
   };

@@ -28,6 +28,7 @@ import type {
   HqAutomation,
   HqCalendarEvent,
   HqClientPulse,
+  HqCreatedTodayItem,
   HqDashboardData,
   HqEventTone,
   HqHeadsUpItem,
@@ -144,13 +145,69 @@ async function loadHeadsUp(): Promise<HqHeadsUpItem[]> {
   }));
 }
 
+const ENTITY_TYPE_ROUTES: Record<string, string> = {
+  person: "/people",
+  organization: "/people", // orgs are shown on people surface
+  work: "/work",
+  billing: "/billing",
+  file: "/work", // files are part of work
+  meeting: "/meetings",
+};
+
+async function loadCreatedToday(workspaceId: string): Promise<HqCreatedTodayItem[]> {
+  const { supabase } = await getWorkspaceContext();
+  const todayStart = startOfDay(new Date()).toISOString();
+
+  const { data } = await supabase
+    .from("pending_evidence")
+    .select("id, entity_type, identifier, extracted_fields, created_record_id, created_at")
+    .eq("workspace_id", workspaceId)
+    .eq("status", "created")
+    .gte("created_at", todayStart)
+    .order("created_at", { ascending: false })
+    .limit(5);
+
+  if (!data || data.length === 0) return [];
+
+  const items: HqCreatedTodayItem[] = [];
+
+  for (const row of data) {
+    const entityType = row.entity_type as HqCreatedTodayItem["entityType"];
+    const recordId = row.created_record_id as string | null;
+    if (!recordId) continue;
+
+    const fields = row.extracted_fields as Record<string, { value: string; sources: string[] }> | null;
+    const name =
+      fields?.name?.value ??
+      fields?.email?.value ??
+      fields?.title?.value ??
+      (row.identifier as string);
+
+    const route = ENTITY_TYPE_ROUTES[entityType] ?? "/memory";
+    const signalCount = fields
+      ? Object.values(fields).reduce((sum, f) => sum + (f.sources?.length ?? 0), 0)
+      : 1;
+
+    items.push({
+      id: row.id as string,
+      entityType,
+      name,
+      href: `${route}/${recordId}`,
+      signalCount: Math.max(1, signalCount),
+    });
+  }
+
+  return items;
+}
+
 export const loadHqSideRailData = cache(async (): Promise<HqSideRailData> => {
   const { studio } = await getWorkspaceContext();
-  const [timeSaved, schedule, headsUp, calendarStatus, reconnectNeeded] =
+  const [timeSaved, schedule, headsUp, createdToday, calendarStatus, reconnectNeeded] =
     await Promise.all([
       loadTimeSaved(studio.id),
       loadTodaySchedule(),
       loadHeadsUp(),
+      loadCreatedToday(studio.id),
       getConnectionStatus("googlecalendar", studio.id),
       listReconnectNeeded(studio.id),
     ]);
@@ -159,6 +216,7 @@ export const loadHqSideRailData = cache(async (): Promise<HqSideRailData> => {
     timeSaved,
     schedule,
     headsUp,
+    createdToday: { items: createdToday },
     scheduleContext: {
       hasCalendarConnected: calendarStatus.connected,
     },

@@ -2,10 +2,14 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/app/_lib/supabase/admin", () => ({
   createAdminClient: vi.fn(() => ({
-    from: vi.fn(() => ({
+    from: vi.fn((table: string) => ({
       insert: vi.fn().mockResolvedValue({ error: null }),
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
+      order: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockResolvedValue({
+        data: table === "correction_events" ? [] : null,
+      }),
       maybeSingle: vi.fn().mockResolvedValue({
         data: { memory_care_auto_apply_threshold: 85 },
       }),
