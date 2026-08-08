@@ -9,7 +9,6 @@ import type { PlayCardViewModel } from "../../play-card/types";
 import { ConnectorIcon } from "@/app/_features/connectors/components/connector-icons";
 import type { ConnectorCatalogId } from "@/app/_features/connectors/types";
 import {
-  approveButtonClass,
   resolveCta,
   resolveSectionVisual,
   SECTION_GRADIENT_LEFT,
@@ -110,8 +109,6 @@ export interface PlayCardDetailModalProps {
   /** Renders the step rail (chain of auto-run steps → pending action) */
   renderSteps?: () => React.ReactNode;
   isPending?: boolean;
-  /** Primary CTA color: section gradient (default) or the aurora surface (HQ). */
-  ctaStyle?: "section" | "aurora";
   onPrimary?: (source: HTMLElement) => void;
   onDismiss?: () => void;
   onEditWithSalt?: () => void;
@@ -152,7 +149,6 @@ export function PlayCardDetailModal({
   renderBody,
   renderSteps,
   isPending = false,
-  ctaStyle = "section",
   onPrimary,
   onDismiss,
   onEditWithSalt,
@@ -597,7 +593,7 @@ export function PlayCardDetailModal({
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.97 }}
                     className={cn(
-                      ctaStyle === "aurora" ? "surface-aurora" : approveButtonClass(vm.section),
+                      "surface-aurora",
                       "relative ml-1 inline-flex h-9 items-center gap-1.5 overflow-hidden rounded-xl px-4 text-[13px] font-semibold text-white shadow-[var(--shadow-lift)] transition disabled:opacity-60"
                     )}
                   >

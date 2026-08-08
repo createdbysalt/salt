@@ -41,7 +41,7 @@ const SPRING = { type: "spring" as const, stiffness: 380, damping: 32, mass: 0.8
 const SOFT_SPRING = { type: "spring" as const, stiffness: 260, damping: 28, mass: 0.9 };
 const STACK_PEEK_Y = 6;
 const STACK_MAX_VISIBLE = 4;
-/** Approximate face height so the stack container reserves space. */
+/** Fallback face height until the top card has been measured. */
 const STACK_CARD_HEIGHT = 260;
 
 type Status = "idle" | "approved" | "skipped";
@@ -250,7 +250,27 @@ export function PlayQueue({ initialCards, timeSavedLabel = null }: PlayQueueProp
   const totalDone = Object.keys(statuses).length;
   const stackedCards = visible.slice(0, STACK_MAX_VISIBLE);
   const stackDepth = Math.max(0, stackedCards.length - 1);
-  const stackMinHeight = STACK_CARD_HEIGHT + stackDepth * STACK_PEEK_Y;
+
+  // Measure the top card's real height so the silhouettes behind it and the
+  // container reserve exactly that — otherwise behind-cards peek out below
+  // (or get swallowed) whenever the top card deviates from the estimate.
+  const [topCardHeight, setTopCardHeight] = useState<number>(STACK_CARD_HEIGHT);
+  const topCardMeasureRef = useRef<HTMLDivElement | null>(null);
+  const topCardId = stackedCards[0]?.id;
+
+  useEffect(() => {
+    const el = topCardMeasureRef.current;
+    if (!el) return;
+    const update = () => {
+      if (el.offsetHeight > 0) setTopCardHeight(el.offsetHeight);
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [topCardId]);
+
+  const stackMinHeight = topCardHeight + stackDepth * STACK_PEEK_Y;
 
   const emptyVariants: Variants = reduceMotion
     ? { initial: { opacity: 1 }, animate: { opacity: 1 } }
@@ -387,32 +407,33 @@ export function PlayQueue({ initialCards, timeSavedLabel = null }: PlayQueueProp
                 aria-hidden={!isTop}
               >
                 {isTop ? (
-                  <PlayCard
-                    vm={card}
-                    draft={cardDraft}
-                    isEditing={editingId === card.id}
-                    isPending={false}
-                    flagged={false}
-                    ctaStyle="aurora"
-                    onStartEdit={() => setEditingId(card.id)}
-                    onStopEdit={() => setEditingId(null)}
-                    onDraftChange={(text) =>
-                      setDrafts((current) => ({ ...current, [card.id]: text }))
-                    }
-                    onPrimary={(source) => act(card, "approved", source)}
-                    onDismiss={() => act(card, "skipped")}
-                    onFlag={() => {}}
-                    onSchedule={() => {}}
-                    onEditWithSalt={() => openAskSaltEdit(card)}
-                    onAnswer={() => {}}
-                  />
+                  <div ref={topCardMeasureRef}>
+                    <PlayCard
+                      vm={card}
+                      draft={cardDraft}
+                      isEditing={editingId === card.id}
+                      isPending={false}
+                      flagged={false}
+                      onStartEdit={() => setEditingId(card.id)}
+                      onStopEdit={() => setEditingId(null)}
+                      onDraftChange={(text) =>
+                        setDrafts((current) => ({ ...current, [card.id]: text }))
+                      }
+                      onPrimary={(source) => act(card, "approved", source)}
+                      onDismiss={() => act(card, "skipped")}
+                      onFlag={() => {}}
+                      onSchedule={() => {}}
+                      onEditWithSalt={() => openAskSaltEdit(card)}
+                      onAnswer={() => {}}
+                    />
+                  </div>
                 ) : (
                   /* Deck shell — cards behind the top render as an empty card
-                     silhouette so their content never bleeds past the top
-                     card (heights vary per play). */
+                     silhouette matched to the top card's measured height so
+                     the deck peeks evenly and no content bleeds past it. */
                   <div
                     className="rounded-[24px] border border-border/50 bg-card"
-                    style={{ height: STACK_CARD_HEIGHT }}
+                    style={{ height: topCardHeight }}
                   />
                 )}
               </motion.div>

@@ -155,7 +155,6 @@ export function PlaysPage({
     initialFindings,
     autoHandledFindings,
     autoHandledRuns,
-    playsRanToday,
     playbooksV2,
     workspaceId,
   } = activeData ?? initialData;
@@ -358,17 +357,21 @@ export function PlaysPage({
     [initialFindings, initialQueue]
   );
 
+  // Same contract as needsYouCount: the badge counts what the list can
+  // actually render (validated mapped cards), so the number on the toggle
+  // always matches the cards below it.
   const autoHandledCount = useMemo(
     () =>
-      autoHandledFindings
-        .map(mapHandledFindingToCard)
-        .filter((vm) => validatePlayCard(vm).ok).length,
-    [autoHandledFindings]
+      [
+        ...autoHandledFindings.map(mapHandledFindingToCard),
+        ...autoHandledRuns.map(mapAutoHandledRunToCard),
+      ].filter((vm) => validatePlayCard(vm).ok).length,
+    [autoHandledFindings, autoHandledRuns]
   );
 
   const queueCounts = {
     needs_you: needsYouCount,
-    auto_handled: playsRanToday ?? autoHandledCount,
+    auto_handled: autoHandledCount,
   };
 
   return (

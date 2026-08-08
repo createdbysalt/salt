@@ -83,33 +83,9 @@ const SECTION_GRADIENT_LEFT: Record<PlaybookSection, string | null> = {
 };
 
 /**
- * Approve button in the section color — literal gradient classes so
- * Tailwind v4 emits them. Falls back to the aurora surface when the play
- * has no section.
+ * Primary CTA uses the aurora surface everywhere (queue card, detail modal,
+ * HQ rail) — the signature Salt gradient, per DESIGN.md.
  */
-const SECTION_APPROVE_CLASS: Record<PlaybookSection, string | null> = {
-  meetings:
-    "bg-[linear-gradient(135deg,var(--flame)_0%,color-mix(in_oklab,var(--flame)_72%,#b03a10)_100%)]",
-  relationships:
-    "bg-[linear-gradient(135deg,var(--violet)_0%,color-mix(in_oklab,var(--violet)_72%,#3c2a6e)_100%)]",
-  work: "bg-[linear-gradient(135deg,var(--sky)_0%,color-mix(in_oklab,var(--sky)_72%,#0c4a6e)_100%)]",
-  billing:
-    "bg-[linear-gradient(135deg,rgb(16_185_129)_0%,color-mix(in_oklab,rgb(16_185_129)_72%,#064e3b)_100%)]",
-  files:
-    "bg-[linear-gradient(135deg,rgb(245_158_11)_0%,color-mix(in_oklab,rgb(245_158_11)_72%,#78350f)_100%)]",
-  communication:
-    "bg-[linear-gradient(135deg,rgb(6_182_212)_0%,color-mix(in_oklab,rgb(6_182_212)_72%,#164e63)_100%)]",
-  me: "bg-[linear-gradient(135deg,rgb(244_63_94)_0%,color-mix(in_oklab,rgb(244_63_94)_72%,#4c0519)_100%)]",
-  connections:
-    "bg-[linear-gradient(135deg,rgb(20_184_166)_0%,color-mix(in_oklab,rgb(20_184_166)_72%,#042f2e)_100%)]",
-  notes:
-    "bg-[linear-gradient(135deg,rgb(99_102_241)_0%,color-mix(in_oklab,rgb(99_102_241)_72%,#1e1b4b)_100%)]",
-  all: null,
-};
-
-export function approveButtonClass(section: PlayCardViewModel["section"]): string {
-  return (section && SECTION_APPROVE_CLASS[section]) ?? "surface-aurora";
-}
 
 /** Playbook-card shell: section gradient + ring, shared by queue + handled cards. */
 function playCardShellClass(
@@ -215,8 +191,6 @@ export interface PlayCardProps {
   isEditing: boolean;
   isPending: boolean;
   flagged: boolean;
-  /** Primary CTA color: section gradient (default) or the aurora surface (HQ). */
-  ctaStyle?: "section" | "aurora";
   onStartEdit: () => void;
   onStopEdit: () => void;
   onDraftChange: (text: string) => void;
@@ -242,7 +216,6 @@ export function PlayCard({
   isEditing,
   isPending,
   flagged,
-  ctaStyle = "section",
   onStartEdit,
   onStopEdit,
   onDraftChange,
@@ -418,7 +391,7 @@ export function PlayCard({
                 whileTap={{ scale: 0.97 }}
                 transition={SPRING}
                 className={cn(
-                  ctaStyle === "aurora" ? "surface-aurora" : approveButtonClass(vm.section),
+                  "surface-aurora",
                   "relative ml-1 inline-flex h-9 items-center gap-1.5 overflow-hidden rounded-xl px-4 text-[13px] font-semibold text-white shadow-[var(--shadow-lift)] transition disabled:opacity-60"
                 )}
               >
@@ -442,7 +415,6 @@ export function PlayCard({
         open={isDetailOpen}
         onClose={() => setIsDetailOpen(false)}
         isPending={isPending}
-        ctaStyle={ctaStyle}
         onPrimary={(source) => {
           setIsDetailOpen(false);
           onPrimary(source);
