@@ -29,6 +29,7 @@ import {
   recordBudgetExceededWarning,
 } from "@/app/_features/capture/services/capture-budget";
 import { routeResourceWebhook } from "@/app/_lib/resources/live/signal-router";
+import { recordComposioTriggerEvent } from "@/app/_lib/usage/record-trigger-usage";
 
 export const maxDuration = 60;
 
@@ -295,6 +296,19 @@ export async function POST(req: NextRequest) {
     .select("id, workspace_id, is_active, capture_enabled, config")
     .eq("composio_connection_id", event.connectedAccountId)
     .maybeSingle();
+
+  if (integration) {
+    // Composio bills trigger events at DELIVERY — this cost is real even when
+    // the integration is inactive or capture-disabled below, so record before
+    // any early return. Non-fatal and idempotent on the delivery id; the
+    // remaining ingress paths (resource signals, lifecycle events) are
+    // metered in Sources plan Phase 3.1.
+    await recordComposioTriggerEvent({
+      workspaceId: integration.workspace_id,
+      triggerSlug: event.triggerSlug,
+      webhookDeliveryId: req.headers.get("webhook-id"),
+    });
+  }
 
   if (!integration?.is_active) {
     // Distinguish "no row" (orphaned trigger firing at a stale connection)

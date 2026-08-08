@@ -19,7 +19,14 @@ export type UsageEventType =
    * the cost underneath other outcomes, not an outcome itself. Highest
    * cardinality type in the ledger — one row per model call.
    */
-  | "llm_call";
+  | "llm_call"
+  /**
+   * One Composio trigger event, billed by the vendor at delivery (egress) —
+   * $0.001/event under the Aug 15 2026 pricing. Always non-billable: pure
+   * COGS visibility for the margin monitor. Recorded at webhook ingress,
+   * idempotent on the Standard-Webhooks delivery id.
+   */
+  | "composio_trigger_event";
 
 export type UsageReversalReason =
   | "play_failed"
