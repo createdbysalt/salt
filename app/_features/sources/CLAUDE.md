@@ -9,7 +9,7 @@ Sources is the intake surface at `/sources` — where Salt learns from. It answe
 | Tab | URL | Content |
 |-----|-----|---------|
 | **Connectors** (default) | `/sources` | The pipes: connector rail/browse/detail panes, marketplace, OAuth + API-key flows, `ReconnectBanner`, `?connector=<id>` deep-linking |
-| **Activity** | `/sources?tab=activity` | The capture stream: day-grouped intake firehose with stats header, source icons, signal badges, gate outcomes, and forward links to triggered plays |
+| **Activity** | `/sources?tab=activity` | The capture stream: day-grouped intake firehose with stats header, source icons, signal badges, gate outcomes, forward links to triggered plays, **plus Kept Out section + BlocklistManager** (P11 move from Memory) |
 
 `?tab=stream` is a pre-rename (2026-08-06) alias for Activity — keep the alias working in `sources-tab-routing.ts`.
 

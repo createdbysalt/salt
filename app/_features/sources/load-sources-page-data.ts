@@ -6,6 +6,7 @@ import {
   getTodayCaptureStats,
   hasCaptures,
 } from "@/app/_features/capture/queries";
+import { getAdmissionDecisions } from "@/app/_features/memory/queries/admission-decisions";
 import { CAPTURE_STREAM_INITIAL_LIMIT } from "@/app/_features/capture/stream-constants";
 import {
   parseSourcesTab,
@@ -28,6 +29,7 @@ export function emptySourcesPageData(): SourcesPageData {
     captureStats: null,
     hasCaptureData: false,
     workspaceId: null,
+    keptOut: null,
   };
 }
 
@@ -51,10 +53,11 @@ export async function loadSourcesPageData(options: {
   }
 
   if (workspaceId) {
-    const [streamCaptures, captureStats, hasCaptureData] = await Promise.all([
+    const [streamCaptures, captureStats, hasCaptureData, admissions] = await Promise.all([
       getCaptureStream(workspaceId, { limit: CAPTURE_STREAM_INITIAL_LIMIT }),
       getTodayCaptureStats(workspaceId),
       hasCaptures(workspaceId),
+      getAdmissionDecisions(workspaceId),
     ]);
 
     return {
@@ -63,6 +66,10 @@ export async function loadSourcesPageData(options: {
       captureStats,
       hasCaptureData,
       workspaceId,
+      keptOut: {
+        count: admissions.keptOutCount,
+        sample: admissions.keptOutSample,
+      },
     };
   }
 

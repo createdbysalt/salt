@@ -34,8 +34,8 @@ flowchart LR
     end
     subgraph memory [Memory]
         Map["Map"]
-        Filter["Filter — Watching / Handled / Kept out"]
-        Rules["Rules — capabilities on/off + threshold + blocklist"]
+        Filter["Filter — Watching / Handled (P11: Kept out in Sources)"]
+        Rules["Rules — capabilities on/off + threshold (blocklist in Sources)"]
     end
     Stream -->|"evidence"| Caps
     Gate -->|"confidence >= bar"| Handled["Auto-applied - reversible - Handled"]
@@ -86,7 +86,7 @@ Capabilities **never write Memory directly**. They emit `CareProposal`s into `pr
 
 | Capability | Settings slug | Role |
 |------------|---------------|------|
-| `records` | `memory-records` | Keep people / org / work / billing fields complete |
+| `records` | `memory-records` | Keep people / org fields complete (v1: scheduled scan covers person/org only; work/billing enrichment via capture signals) |
 | `hygiene` | `memory-hygiene` | Merges, formatting, stale/orphan cleanup |
 | `connections` | `memory-connections` | Infer and strengthen entity links |
 | `notes` | `memory-notes` | Synthesize durable notes |

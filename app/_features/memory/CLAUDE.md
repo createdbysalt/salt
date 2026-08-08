@@ -9,8 +9,8 @@ The Memory feature owns the `/memory` surface and the **Memory Care** background
 | Tab | Purpose |
 |-----|---------|
 | **Map** | Relationship graph (`connections` feature components) |
-| **Filter** | Transparency: Watching / Handled / Kept out |
-| **Rules** | Care capability toggles, auto-apply threshold, blocklist |
+| **Filter** | Transparency: Watching + Handled (P11: Kept out moved to Sources) |
+| **Rules** | Care capability toggles, auto-apply threshold (P11: blocklist moved to Sources) |
 
 `/connections` redirects here. Legacy `/plays?filter=learning` redirects to `/memory?tab=filter`.
 

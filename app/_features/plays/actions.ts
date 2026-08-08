@@ -10,10 +10,6 @@ import { meterInternalPlay } from "./services/meter-play";
 import { resumePausedPlaybook as resumePausedPlaybookService } from "./services/resume-paused-playbook";
 import { createResumePausedPlaybookDeps } from "./services/resume-paused-playbook-deps";
 import { dismissEvidence } from "@/app/_features/memory/evidence/actions";
-import {
-  approvePlaybookImprovementProposal,
-  synthesizePlaybookImprovementProposal,
-} from "./playbooks/learning/approve-proposal";
 import { captureVoiceCorrection } from "@/app/_features/me/actions/capture-voice-correction";
 import type { PlayRunRow, PlayRunState } from "./types";
 import type { ProfileFillRulesDocument, ProfilePlaybookSettings } from "./playbooks/records-engine/types";
@@ -415,57 +411,6 @@ export async function editPlayRun(
 
   revalidatePath("/plays");
   return { ok: true, data: data as PlayRunRow };
-}
-
-export async function proposePlaybookImprovement(
-  blueprintSlug: string,
-): Promise<ActionResult<{ proposalId: string }>> {
-  const { context } = await getTenantContext();
-  requireWorkspaceMember(context);
-
-  try {
-    const result = await synthesizePlaybookImprovementProposal(blueprintSlug);
-    if (!result) {
-      return {
-        ok: false,
-        errorCode: "NO_PROPOSAL",
-        message: "Not enough learning signals to propose an improvement yet",
-      };
-    }
-    return { ok: true, data: result };
-  } catch (error) {
-    return {
-      ok: false,
-      errorCode: "PROPOSAL_FAILED",
-      message: error instanceof Error ? error.message : "Could not synthesize proposal",
-    };
-  }
-}
-
-export async function approvePlaybookImprovement(
-  proposalId: string,
-): Promise<ActionResult<{ blueprintSlug: string; version: number }>> {
-  const { context } = await getTenantContext();
-  requireWorkspaceMember(context);
-  const userId = context.userId;
-  if (!userId) {
-    return { ok: false, errorCode: "UNAUTHORIZED", message: "Sign in required" };
-  }
-
-  try {
-    const result = await approvePlaybookImprovementProposal({
-      proposalId,
-      reviewerUserId: userId,
-    });
-    revalidatePath("/plays");
-    return { ok: true, data: result };
-  } catch (error) {
-    return {
-      ok: false,
-      errorCode: "APPROVE_FAILED",
-      message: error instanceof Error ? error.message : "Could not approve improvement",
-    };
-  }
 }
 
 export async function fetchProfileBlueprintDetail(blueprintSlug: string): Promise<

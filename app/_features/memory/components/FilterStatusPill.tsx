@@ -1,15 +1,17 @@
 "use client";
 
-import { CheckCircle2, Eye, ShieldX } from "lucide-react";
+import { CheckCircle2, Eye } from "lucide-react";
 import { cn } from "@repo/utils";
 
 /**
- * Memory → Filter status pill — switches between the three transparency
- * views: what Salt is still gathering confidence on (Watching), what it
- * already handled (Handled), and what it kept out (Kept out).
+ * Memory → Filter status pill — switches between the two transparency
+ * views: what Salt is still gathering confidence on (Watching) and what it
+ * already handled (Handled).
+ *
+ * P11: Kept out moved to Sources → Activity (it's intake policy, not Memory).
  */
 
-export type FilterStatus = "watching" | "handled" | "kept_out";
+export type FilterStatus = "watching" | "handled";
 
 interface FilterStatusPillProps {
   active: FilterStatus;
@@ -24,7 +26,6 @@ const OPTIONS: Array<{
 }> = [
   { value: "watching", label: "Watching", icon: Eye },
   { value: "handled", label: "Handled", icon: CheckCircle2 },
-  { value: "kept_out", label: "Kept out", icon: ShieldX },
 ];
 
 export function FilterStatusPill({

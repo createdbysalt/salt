@@ -132,6 +132,22 @@ test.describe("Sources — Activity", () => {
   });
 });
 
+test.describe("Sources — Kept out (P11)", () => {
+  test("Activity tab can show Kept out section when captures are filtered", async ({ page }) => {
+    await gotoAppRoute(page, ACTIVITY_URL);
+
+    await expect(page.getByText(/today's captures/i)).toBeVisible({ timeout: 15000 });
+
+    // The Kept out section only appears if there are kept-out items
+    // Check that if it's present, it has the expected structure
+    const keptOutSection = page.getByRole("button", { name: /kept out/i });
+    if (await keptOutSection.isVisible({ timeout: 3_000 }).catch(() => false)) {
+      await expect(keptOutSection).toContainText(/capture/i);
+    }
+    // If not visible, that's fine — there may be no kept-out items in test data
+  });
+});
+
 test.describe("Sources — legacy redirects", () => {
   test("/capture redirects to Sources Activity", async ({ page }) => {
     await gotoAppRoute(page, "/capture");

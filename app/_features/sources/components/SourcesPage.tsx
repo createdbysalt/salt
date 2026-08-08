@@ -7,6 +7,7 @@ import { CaptureStreamTab } from "@/app/_features/capture/components/CaptureStre
 import { PlaysSectionHeader } from "@/app/_features/plays/components/PlaysSectionHeader";
 import { SourcesTabs } from "./SourcesTabs";
 import { SourcesPageSkeleton } from "./SourcesPageSkeleton";
+import { KeptOutSection } from "./KeptOutSection";
 import { useSourcesTabCache } from "../hooks/useSourcesTabCache";
 import {
   buildSourcesPath,
@@ -32,7 +33,7 @@ export function SourcesPage({
   const { tab, activeData, isTabLoading, handleTabChange } =
     useSourcesTabCache({ tab: initialTab, data: initialData });
 
-  const { connectors, streamCaptures, captureStats, hasCaptureData } =
+  const { connectors, streamCaptures, captureStats, hasCaptureData, keptOut, workspaceId } =
     activeData ?? initialData;
 
   const buildConnectorUrl = useCallback(
@@ -103,6 +104,14 @@ export function SourcesPage({
                   realStats={captureStats}
                   hasRealData={hasCaptureData}
                 />
+                {/* P11: Kept out moved from Memory Filter to Sources Activity */}
+                {keptOut && workspaceId && (
+                  <KeptOutSection
+                    keptOutCount={keptOut.count}
+                    keptOutSample={keptOut.sample}
+                    workspaceId={workspaceId}
+                  />
+                )}
               </motion.div>
             )}
           </AnimatePresence>

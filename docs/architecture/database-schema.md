@@ -195,6 +195,30 @@ Memory Care (`app/_features/memory/care/`) replaced the retired Keeper "system p
 
 Activity provenance: care scheduler writes activity entries with source `memory-care`; historical rows carry `player_slug: "keeper"`.
 
+### Admission pipeline (capture → Memory)
+
+The capture gate pipeline decides what enters Memory. Three tables form the path:
+
+| Table | Purpose |
+|-------|---------|
+| `capture_events` | Raw events from connectors. `gate_action` = `drop` / `noise` / `candidate` / `signal` after gate evaluation. `gate_result` JSON captures the decision details (blocklist match, admission score, watch hit). |
+| `capture_routing_decisions` | (Optional) Higher-level routing outcomes for capture-to-play routing. |
+| `entity_evidence` | When a capture passes admission and contains learnable signals, proposals land here in `pending` resolution. |
+
+P11 boundary (2026-08-07): "Kept out" (gate_action IN `drop`, `noise`, `held`) is displayed at **Sources → Activity**, not Memory → Filter. Memory Filter shows only Watching + Handled.
+
+### Correction events (2026-08-07)
+
+`correction_events` logs every user correction ("That's wrong" on a Handled item). Read by `care/decision-pipeline.ts:hasCorrectedValue` to prevent re-inference of corrected entity+field+value triplets.
+
+| Column | Purpose |
+|--------|---------|
+| `entity_type`, `entity_id`, `field_path`, `corrected_value` | The corrected cell |
+| `previous_value`, `correction_source` | Provenance |
+| `created_at`, `created_by` | Audit trail |
+
+Corrections inform the decision pipeline but do not yet generalize to pattern-level learning (Phase 5 research).
+
 ### Explicit edges: `entity_links` (converged 2026-07-03)
 
 `entity_links` is **the one explicit-edge store**. `20260703120000_entity_links_convergence.sql` added `relation_type` (`employment | payment | attachment | mention | related`) plus provenance columns (`source`, `confidence`, `because`), copied every `entity_relations` row in, and `20260703130000` **dropped `entity_relations`** (and the unused `get_entity_backlinks()` function).

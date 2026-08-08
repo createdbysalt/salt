@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 import { Button, Label, Slider } from "@repo/ui";
 import { PlaysSectionHeader } from "@/app/_features/plays/components/PlaysSectionHeader";
-import { BlocklistManager } from "@/app/_features/capture/components/BlocklistManager";
 import { CareCapabilityToggle } from "./CareCapabilityToggle";
 import { updateMemoryCareThreshold } from "../care/actions";
 import type { CareCapability } from "../care/types";
@@ -233,16 +232,14 @@ export function RulesTab({
           </div>
         </div>
 
-        <div className="rounded-2xl border border-border/60 bg-card p-6">
-          <div className="mb-4">
-            <h3 className="text-sm font-medium text-foreground">Blocklist</h3>
-            <p className="text-[13px] text-muted-foreground">
-              Domains, emails, and sender patterns Salt never lets into your
-              Memory.
-            </p>
-          </div>
-          <BlocklistManager />
-        </div>
+        {/* P11: Blocklist moved to Sources → Activity → Kept Out */}
+        <p className="text-[13px] text-muted-foreground">
+          Blocklist settings are now in{" "}
+          <a href="/sources?tab=activity" className="text-primary hover:underline">
+            Sources → Activity
+          </a>
+          , alongside kept-out items.
+        </p>
       </section>
     </div>
   );

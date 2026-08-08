@@ -35,7 +35,7 @@ test.describe("Memory surface tabs", () => {
     await expect(sections.getByRole("link", { name: "Rules" })).toBeVisible();
   });
 
-  test("Filter tab shows Watching / Handled / Kept out pill", async ({
+  test("Filter tab shows Watching / Handled pill (P11: Kept out moved to Sources)", async ({
     page,
   }) => {
     await gotoAppRoute(page, "/memory?tab=filter");
@@ -48,7 +48,6 @@ test.describe("Memory surface tabs", () => {
     await expect(views).toBeVisible();
     await expect(views.getByRole("tab", { name: /Watching/i })).toBeVisible();
     await expect(views.getByRole("tab", { name: /Handled/i })).toBeVisible();
-    await expect(views.getByRole("tab", { name: /Kept out/i })).toBeVisible();
   });
 
   test("Rules tab shows care capabilities and admission policy", async ({ page }) => {
