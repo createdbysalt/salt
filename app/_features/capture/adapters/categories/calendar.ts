@@ -293,7 +293,10 @@ function normalizeCal(payload: unknown): CaptureEnvelope | null {
   }
 
   return {
-    sourceType: "cal" as CaptureSourceType,
+    // Capture/DB-layer key: the capture_source_type enum and SOURCE_TAXONOMY
+    // use 'calcom'; 'cal' is only the Composio toolkit/provider key. Emitting
+    // 'cal' here made every Cal.com capture fail the enum on insert.
+    sourceType: "calcom",
     captureType: "meeting",
     externalId,
     title,
@@ -447,6 +450,16 @@ function normalizeGenericCalendar(
 }
 
 /**
+ * Providers whose Composio toolkit key differs from the capture-layer
+ * source type ('cal' toolkit → 'calcom' captures). adapter.sourceType must
+ * match what normalize() emits — connector-health queries capture_events
+ * by it, and the conformance suite enforces the equality.
+ */
+const CAPTURE_SOURCE_TYPE_BY_PROVIDER: Record<string, CaptureSourceType> = {
+  cal: "calcom",
+};
+
+/**
  * Create a calendar adapter for ANY provider.
  * Known providers get specific parsing; unknown get generic extraction.
  */
@@ -456,7 +469,9 @@ export function createCalendarCategoryAdapter(provider: string): CaptureAdapter 
     : []; // Unknown providers: triggers come from DB
 
   return {
-    sourceType: provider as CaptureSourceType,
+    sourceType:
+      CAPTURE_SOURCE_TYPE_BY_PROVIDER[provider] ??
+      (provider as CaptureSourceType),
     toolkit: provider,
     triggerSlugs,
     deriveSignals: deriveCalendarSignals,

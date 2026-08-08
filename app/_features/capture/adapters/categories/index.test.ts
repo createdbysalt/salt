@@ -27,7 +27,8 @@ describe("category adapter registry", () => {
     it("returns calendar adapter for cal", () => {
       const adapter = getCategoryAdapter("cal");
       expect(adapter).not.toBeNull();
-      expect(adapter?.sourceType).toBe("cal");
+      // Toolkit key 'cal' resolves the adapter; captures are typed 'calcom'.
+      expect(adapter?.sourceType).toBe("calcom");
     });
 
     it("returns billing adapter for stripe", () => {

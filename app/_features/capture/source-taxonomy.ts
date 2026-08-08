@@ -367,10 +367,25 @@ export const SOURCE_TAXONOMY: Record<CaptureSourceType, SourceMeta> = {
 };
 
 /**
- * Get source metadata for a given source type.
+ * Composio provider keys that differ from the capture-layer source type.
+ * Runtime lookups sometimes arrive with the provider key (connector-keyed
+ * code paths); alias instead of returning undefined.
  */
-export function getSourceMeta(sourceType: CaptureSourceType): SourceMeta {
-  return SOURCE_TAXONOMY[sourceType];
+const SOURCE_TYPE_ALIASES: Record<string, CaptureSourceType> = {
+  cal: "calcom",
+};
+
+/**
+ * Get source metadata for a given source type.
+ *
+ * Accepts provider-key aliases (see SOURCE_TYPE_ALIASES). Still returns
+ * undefined for genuinely unknown providers — the generic fallback meta is
+ * Sources plan Phase 5.3.
+ */
+export function getSourceMeta(sourceType: CaptureSourceType | string): SourceMeta {
+  const canonical =
+    SOURCE_TYPE_ALIASES[sourceType] ?? (sourceType as CaptureSourceType);
+  return SOURCE_TAXONOMY[canonical];
 }
 
 /**

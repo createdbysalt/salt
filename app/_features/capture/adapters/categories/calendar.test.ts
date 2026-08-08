@@ -10,10 +10,12 @@ describe("calendar category adapter", () => {
       expect(adapter?.sourceType).toBe("googlecalendar");
     });
 
-    it("returns adapter for cal", () => {
+    it("returns adapter for cal with the calcom capture source type", () => {
       const adapter = getCalendarAdapter("cal");
       expect(adapter).not.toBeNull();
-      expect(adapter?.sourceType).toBe("cal");
+      // Toolkit key stays 'cal'; captures are typed 'calcom' (DB enum key).
+      expect(adapter?.sourceType).toBe("calcom");
+      expect(adapter?.toolkit).toBe("cal");
     });
 
     it("returns adapter with generic extraction for unknown provider", () => {
@@ -226,7 +228,9 @@ describe("calendar category adapter", () => {
       const envelope = adapter.normalize(payload);
 
       expect(envelope).not.toBeNull();
-      expect(envelope?.sourceType).toBe("cal");
+      // Envelope sourceType is the capture/DB-layer key ('calcom' — matches
+      // the capture_source_type enum); 'cal' stays the Composio provider key.
+      expect(envelope?.sourceType).toBe("calcom");
       expect(envelope?.captureType).toBe("meeting");
       expect(envelope?.externalId).toBe("booking-123");
       expect(envelope?.title).toBe("Discovery call");
