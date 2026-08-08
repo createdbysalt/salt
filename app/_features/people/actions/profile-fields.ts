@@ -5,7 +5,6 @@ import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { scheduleRelationshipHealthRecompute } from "@/app/_features/people/health/recompute";
-import { capturePlaybookLearningSignal } from "@/app/_features/plays/playbooks/learning/capture-signals";
 import { writeProfileFieldProvenance } from "@/app/_features/plays/playbooks/records-engine/write-provenance";
 import { PEOPLE_PROFILE_SLUG } from "@/app/_features/plays/playbooks/records-engine/apply-person-profile";
 import type { PersonProfileFieldKey } from "@/app/_features/plays/playbooks/records-engine/types";
@@ -179,18 +178,6 @@ export async function correctPersonProfileField(input: {
     blueprintSlug: PEOPLE_PROFILE_SLUG,
     blueprintVersion: 1,
     status: "applied",
-  });
-
-  await capturePlaybookLearningSignal({
-    workspaceId: workspace.id,
-    blueprintSlug: PEOPLE_PROFILE_SLUG,
-    templateId: null,
-    playRunId: null,
-    signalType: "edited",
-    delta: {
-      field: input.field,
-      value: input.value,
-    },
   });
 
   revalidatePath(`/people/${input.personId}`);

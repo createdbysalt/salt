@@ -10,6 +10,12 @@ import {
   isMemoryCareIntakeId,
   loadMemoryCareIntake,
 } from "./memory-care-intake";
+import {
+  discoverV2Playbooks,
+  getPlaybookBySlug,
+} from "@/app/_features/plays/playbooks/schema/v2/discovery";
+import { readPlaybookMd } from "@/app/_features/plays/playbooks/read-playbook-md";
+import type { PlaybookDefinitionV2 } from "@/app/_features/plays/playbooks/schema/v2/types";
 
 /** Retired Care capability settings slugs — not act-layer playbooks. */
 const MEMORY_CARE_BLUEPRINT_SLUGS = new Set([
@@ -21,18 +27,20 @@ const MEMORY_CARE_BLUEPRINT_SLUGS = new Set([
 ]);
 
 /**
- * A workspace-adopted playbook as Ask Salt sees it — the lightweight "skill
- * index" entry the model uses to decide whether a playbook fits the request,
- * before loading its full procedure with load_playbook.
+ * An enabled playbook as Ask Salt sees it — the lightweight "skill index"
+ * entry the model uses to decide whether a playbook fits the request, before
+ * loading its full procedure with load_playbook.
+ *
+ * Playbooks are filesystem v2 packages; per-workspace enable state lives in
+ * profile_playbook_settings (default enabled).
  */
 export interface AskSaltPlaybook {
-  templateId: string;
   slug: string;
   name: string;
   description: string | null;
   whenToUse: string | null;
   requiredActions: string[];
-  playerSlug: string | null;
+  voice: string | null;
 }
 
 /**
@@ -47,88 +55,99 @@ export interface AskSaltPlaybookDetail extends AskSaltPlaybook {
   chatContract: PlaybookChatContract | null;
 }
 
-interface TemplateRow {
-  id: string;
+/** A playbook that exists but is currently disabled for this workspace. */
+export interface AskSaltBlueprint {
   slug: string;
   name: string;
   description: string | null;
-  required_actions: string[] | null;
-  blueprint_slug: string | null;
-  players: { slug?: string | null } | { slug?: string | null }[] | null;
+  whenToUse: string | null;
+  requiredActions: string[];
+  voice: string | null;
 }
 
-function playerSlugOf(row: TemplateRow): string | null {
-  const players = row.players;
-  if (Array.isArray(players)) return players[0]?.slug ?? null;
-  return players?.slug ?? null;
+function isAskSaltEligible(definition: PlaybookDefinitionV2): boolean {
+  return (
+    definition.layer === "act" &&
+    (definition.steps?.length ?? 0) > 0 &&
+    !MEMORY_CARE_BLUEPRINT_SLUGS.has(definition.slug) &&
+    !isMemoryCareIntakeId(definition.slug)
+  );
+}
+
+function requiredActionsOf(definition: PlaybookDefinitionV2): string[] {
+  const tools = (definition.steps ?? [])
+    .filter((step) => step.step === "action")
+    .map((step) => step.tool);
+  return [...new Set(tools)];
+}
+
+function hasActingSteps(definition: PlaybookDefinitionV2): boolean {
+  return (definition.steps ?? []).some((step) => step.step === "action");
+}
+
+function toAskSaltPlaybook(
+  definition: PlaybookDefinitionV2,
+): AskSaltPlaybook {
+  const chatContract = resolvePlaybookChatContract(definition.slug);
+  return {
+    slug: definition.slug,
+    name: definition.name,
+    description: definition.description ?? null,
+    whenToUse: chatContract?.whenToUse ?? null,
+    requiredActions: requiredActionsOf(definition),
+    voice: definition.voice ?? null,
+  };
 }
 
 /**
- * Adopted, active playbooks for the workspace, joined to blueprint frontmatter
- * (when_to_use) so the model can route. Only `play_templates` the workspace has
- * turned on are returned — Salt only uses what is "installed".
+ * Per-workspace enable states for the given playbook slugs. Default is
+ * enabled — a row exists only once the workspace has toggled one.
+ */
+async function getEnabledStates(
+  workspaceId: string,
+  slugs: string[],
+): Promise<Record<string, boolean>> {
+  const map = Object.fromEntries(slugs.map((slug) => [slug, true]));
+  if (slugs.length === 0) return map;
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("profile_playbook_settings")
+    .select("blueprint_slug, enabled")
+    .eq("workspace_id", workspaceId)
+    .in("blueprint_slug", slugs);
+
+  for (const row of data ?? []) {
+    map[row.blueprint_slug as string] = Boolean(row.enabled);
+  }
+  return map;
+}
+
+/**
+ * Enabled act-layer playbooks for the workspace — Salt's "installed skills".
+ * Only enabled playbooks are returned; Salt only uses what is turned on.
  */
 export async function resolveAskSaltPlaybooks(
   workspaceId: string,
 ): Promise<AskSaltPlaybook[]> {
-  const supabase = await createClient();
+  const definitions = discoverV2Playbooks()
+    .allPlaybooks.map((p) => p.definition)
+    .filter(isAskSaltEligible);
 
-  const { data: templates, error } = await supabase
-    .from("play_templates")
-    .select(
-      "id, slug, name, description, required_actions, blueprint_slug, players:player_id ( slug )",
-    )
-    .eq("workspace_id", workspaceId)
-    .eq("is_active", true)
-    .order("name");
+  const enabled = await getEnabledStates(
+    workspaceId,
+    definitions.map((d) => d.slug),
+  );
 
-  if (error || !templates || templates.length === 0) {
-    return [];
-  }
-
-  const rows = (templates as unknown as TemplateRow[]).filter((row) => {
-    const slug = row.blueprint_slug ?? row.slug;
-    return !MEMORY_CARE_BLUEPRINT_SLUGS.has(slug) && !isMemoryCareIntakeId(row.slug);
-  });
-  const blueprintSlugs = [
-    ...new Set(rows.map((r) => r.blueprint_slug).filter((s): s is string => Boolean(s))),
-  ];
-
-  const whenToUseBySlug = new Map<string, string | null>();
-  if (blueprintSlugs.length > 0) {
-    const { data: blueprints } = await supabase
-      .from("playbook_blueprints")
-      .select("slug, when_to_use")
-      .in("slug", blueprintSlugs);
-    for (const b of blueprints ?? []) {
-      whenToUseBySlug.set(b.slug as string, (b.when_to_use as string | null) ?? null);
-    }
-  }
-
-  return rows.map((row) => {
-    const chatContract = row.blueprint_slug
-      ? resolvePlaybookChatContract(row.blueprint_slug)
-      : resolvePlaybookChatContract(row.slug);
-    const blueprintWhenToUse = row.blueprint_slug
-      ? whenToUseBySlug.get(row.blueprint_slug) ?? null
-      : null;
-
-    return {
-      templateId: row.id,
-      slug: row.slug,
-      name: row.name,
-      description: row.description ?? null,
-      whenToUse: blueprintWhenToUse ?? chatContract?.whenToUse ?? null,
-      requiredActions: row.required_actions ?? [],
-      playerSlug: playerSlugOf(row),
-    };
-  });
+  return definitions
+    .filter((d) => enabled[d.slug] !== false)
+    .map(toAskSaltPlaybook);
 }
 
 /**
- * Load one adopted playbook's full instructions (procedure_md + approval
- * boundary). Returns null when the slug is not an adopted, active template in
- * this workspace.
+ * Load one enabled playbook's full instructions (procedure + approval
+ * boundary). Returns null when the slug is not an enabled act-layer playbook
+ * in this workspace.
  */
 export async function loadAskSaltPlaybook(
   workspaceId: string,
@@ -139,13 +158,12 @@ export async function loadAskSaltPlaybook(
     const intake = loadMemoryCareIntake();
     if (!intake) return null;
     return {
-      templateId: "memory-care-intake",
       slug: intake.id,
       name: intake.name,
       description: intake.description,
       whenToUse: intake.whenToUse,
       requiredActions: [],
-      playerSlug: null,
+      voice: null,
       procedureMd: intake.procedureMd,
       approvalRequired: false,
       hasActingSteps: false,
@@ -153,46 +171,20 @@ export async function loadAskSaltPlaybook(
     };
   }
 
-  const supabase = await createClient();
+  const parsed = getPlaybookBySlug(slug);
+  if (!parsed || !isAskSaltEligible(parsed.definition)) return null;
 
-  const { data: row, error } = await supabase
-    .from("play_templates")
-    .select(
-      "id, slug, name, description, required_actions, blueprint_slug, procedure_md, definition, players:player_id ( slug )",
-    )
-    .eq("workspace_id", workspaceId)
-    .eq("slug", slug)
-    .eq("is_active", true)
-    .maybeSingle();
+  const enabled = await getEnabledStates(workspaceId, [slug]);
+  if (enabled[slug] === false) return null;
 
-  if (error || !row) return null;
-
-  const template = row as unknown as TemplateRow & {
-    procedure_md: string | null;
-    definition: unknown;
-  };
-
-  let whenToUse: string | null = null;
-  let approvalRequired = template.required_actions != null && template.required_actions.length > 0;
-
-  if (template.blueprint_slug) {
-    const { data: blueprint } = await supabase
-      .from("playbook_blueprints")
-      .select("when_to_use")
-      .eq("slug", template.blueprint_slug)
-      .maybeSingle();
-    whenToUse = (blueprint?.when_to_use as string | null) ?? null;
-  }
-
-  const hasActingSteps = definitionHasActSteps(template.definition);
-  // Any mutating action means the run pauses for approval on /plays.
-  approvalRequired = approvalRequired || hasActingSteps;
-
+  const { definition } = parsed;
   const chatContract = resolvePlaybookChatContract(slug);
-  const effectiveWhenToUse =
-    whenToUse ?? chatContract?.whenToUse ?? null;
+  const acting = hasActingSteps(definition);
 
-  let procedureMd = template.procedure_md ?? null;
+  let procedureMd: string | null = null;
+  if (parsed.packagePath) {
+    procedureMd = readPlaybookMd(parsed.packagePath)?.body ?? null;
+  }
   if (
     chatContract &&
     (!procedureMd || procedureMd.length < 120) &&
@@ -204,89 +196,38 @@ export async function loadAskSaltPlaybook(
   }
 
   return {
-    templateId: template.id,
-    slug: template.slug,
-    name: template.name,
-    description: template.description ?? null,
-    whenToUse: effectiveWhenToUse,
-    requiredActions: template.required_actions ?? [],
-    playerSlug: playerSlugOf(template),
+    ...toAskSaltPlaybook(definition),
     procedureMd,
-    approvalRequired,
-    hasActingSteps,
+    // Any action step means external effects run only after in-chat approval.
+    approvalRequired: acting,
+    hasActingSteps: acting,
     chatContract,
   };
 }
 
-function definitionHasActSteps(definition: unknown): boolean {
-  if (!definition || typeof definition !== "object") return false;
-  const steps = (definition as { steps?: unknown }).steps;
-  if (!Array.isArray(steps)) return false;
-  return steps.some(
-    (step) => typeof step === "object" && step !== null && (step as { kind?: string }).kind === "act",
-  );
-}
-
 /**
- * An available (not-adopted) playbook the workspace could enable — shown to
- * the model as "available but not installed" for adopt_playbook offers.
- */
-export interface AskSaltBlueprint {
-  slug: string;
-  name: string;
-  description: string | null;
-  whenToUse: string | null;
-  requiredActions: string[];
-  playerSlug: string | null;
-}
-
-/**
- * Active blueprints NOT already adopted by this workspace. The model can
- * offer to adopt these when a request matches but no adopted playbook fits.
+ * Act-layer playbooks currently disabled for this workspace — shown to the
+ * model as "available but not enabled" for enable_playbook offers.
  */
 export async function resolveAskSaltBlueprints(
   workspaceId: string,
-  adoptedSlugs: string[],
 ): Promise<AskSaltBlueprint[]> {
-  const supabase = await createClient();
+  const definitions = discoverV2Playbooks()
+    .allPlaybooks.map((p) => p.definition)
+    .filter(isAskSaltEligible);
 
-  const query = supabase
-    .from("playbook_blueprints")
-    .select("slug, name, description, when_to_use, required_actions, player_slug")
-    .eq("status", "active");
+  const enabled = await getEnabledStates(
+    workspaceId,
+    definitions.map((d) => d.slug),
+  );
 
-  if (adoptedSlugs.length > 0) {
-    query.not("slug", "in", `(${adoptedSlugs.join(",")})`);
-  }
-
-  const { data: blueprints, error } = await query.order("name");
-
-  if (error || !blueprints) return [];
-
-  return blueprints
-    .filter(
-      (b) =>
-        // Retired Keeper blueprints and Memory Care capabilities are not
-        // adoptable act-layer playbooks.
-        !String(b.slug).startsWith("keeper-") &&
-        !MEMORY_CARE_BLUEPRINT_SLUGS.has(String(b.slug)),
-    )
-    .map((b) => {
-      const chatContract = resolvePlaybookChatContract(b.slug as string);
-      return {
-        slug: b.slug as string,
-        name: b.name as string,
-        description: (b.description as string | null) ?? null,
-        whenToUse:
-          (b.when_to_use as string | null) ?? chatContract?.whenToUse ?? null,
-        requiredActions: (b.required_actions as string[] | null) ?? [],
-        playerSlug: (b.player_slug as string | null) ?? null,
-      };
-    });
+  return definitions
+    .filter((d) => enabled[d.slug] === false)
+    .map(toAskSaltPlaybook);
 }
 
 /**
- * Render the adopted-playbook index as a model-facing system-prompt block —
+ * Render the enabled-playbook index as a model-facing system-prompt block —
  * the "available skills" list. Names + when_to_use only; full procedure is
  * pulled on demand via load_playbook. Empty list renders nothing.
  */
@@ -297,7 +238,7 @@ export function buildAskSaltPlaybookIndexBlock(
   const lines: string[] = [];
 
   if (playbooks.length > 0) {
-    lines.push("Adopted playbooks (enabled — ready to use):");
+    lines.push("Enabled playbooks (ready to use):");
     for (const playbook of playbooks) {
       const when = playbook.whenToUse ? ` — use when: ${playbook.whenToUse}` : "";
       const apps =
@@ -310,7 +251,7 @@ export function buildAskSaltPlaybookIndexBlock(
 
   if (blueprints.length > 0) {
     lines.push("");
-    lines.push("Available playbooks (not enabled — offer to enable with adopt_playbook):");
+    lines.push("Available playbooks (disabled — offer to enable with enable_playbook):");
     for (const blueprint of blueprints) {
       const when = blueprint.whenToUse ? ` — use when: ${blueprint.whenToUse}` : "";
       lines.push(`- ${blueprint.name} [slug: ${blueprint.slug}] [enable]${when}`);
@@ -321,7 +262,7 @@ export function buildAskSaltPlaybookIndexBlock(
 
   lines.push("");
   lines.push(
-    "ROUTING: For adding Memory records, call load_memory_intake (not a playbook) → parse_intake → enrich_entity → memory_create_* → add_to_watching. When a request matches an act playbook's 'use when' above, call load_playbook FIRST, then propose_play for external actions — never use propose_play for Memory creates.",
+    "ROUTING: For adding Memory records, call load_memory_intake (not a playbook) → parse_intake → enrich_entity → memory_create_* → add_to_watching. When a request matches a playbook's 'use when' above, call load_playbook FIRST and follow its procedure — external actions run through the connector tools with in-chat approval, never silently.",
   );
 
   return lines.join("\n");

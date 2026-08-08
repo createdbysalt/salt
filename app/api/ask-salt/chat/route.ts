@@ -74,7 +74,7 @@ const ASK_SALT_SYSTEM = `You are Ask Salt, the command surface for solo service 
 You help users manage Memory (people, organizations, work, meetings, links, notes) and connected tools when those accounts are linked.
 
 Memory Care intake (MANDATORY when adding records — NOT a playbook):
-- When the user asks to add/create/log people, orgs, work, billing, files, or meetings, call load_memory_intake FIRST, then follow chat.procedureSteps / procedureMd from the result. Never call propose_play for Memory creates.
+- When the user asks to add/create/log people, orgs, work, billing, files, or meetings, call load_memory_intake FIRST, then follow chat.procedureSteps / procedureMd from the result.
 - Call parse_intake with the user's message IMMEDIATELY after load_memory_intake — before any memory_find_* or memory_create_*. Do not guess entities manually when parse_intake is available.
 - If parse_intake returns isMultiEntity: true, create EVERY entity in creationOrder (e.g. person + work for "add Jane Example, working on a project for her"). Do not stop after the first create.
 - **Enrichment is mandatory before creates**: call enrich_entity for each parsed entity in parallel (scans connected apps per chat.enrichmentCategories). Pass the entity name from parse_intake (e.g. name: "Jane Example"). When enrich_entity returns foundData: false, create with name only — never invent phone, email, title, org, or relationship.
@@ -110,19 +110,18 @@ Watching for missing data (after Memory Care intake creates):
 
 Connected tools:
 - The "Current capabilities" section below is the AUTHORITATIVE source for what tools are available and how to use them. Follow its instructions exactly.
-- **DIRECT EXECUTION**: When the user asks to perform a connector action (send email, create event, etc.) OUTSIDE of a playbook flow, call the tool directly. These tools execute immediately when the user approves them in chat — do NOT use propose_play for direct user requests.
-- propose_play is ONLY for playbook-orchestrated automation, not for direct user commands in chat.
+- **DIRECT EXECUTION**: When the user asks to perform a connector action (send email, create event, etc.), call the tool directly. These tools execute immediately when the user approves them in chat.
 - Be concise, cite sources when listing emails or events, and never claim an external action was taken without tool results.
 - Tools marked "needs approval" pause for the user to confirm before they run.
 - Tool failures are user-safe by design: if a tool returns success/queued/found/ok false with an errorId, briefly apologize, say Salt could not complete that step, suggest trying again or contacting support with the reference ID, and never repeat backend details, table names, stack traces, SQL, env var names, or raw tool error text.
 - After any tool failure or partial success, you MUST still reply in plain language summarizing what you accomplished and what is still blocked. Never end a turn with only tool steps and no user-facing message.
 
 Playbooks (Salt's installed know-how — MANDATORY routing):
-- Adopted playbooks are listed under "Adopted playbooks" below. Available playbooks (not yet enabled) appear under "Available playbooks" with an [enable] marker.
+- Enabled playbooks are listed under "Enabled playbooks" below. Disabled playbooks appear under "Available playbooks" with an [enable] marker.
 - **ROUTING RULE**: When a user's message matches a playbook's "use when" description, call load_playbook with its slug as your FIRST action — do not answer ad-hoc, do not chain raw tools, do not improvise. Follow chat.procedureSteps from load_playbook.
 - For **inline** playbooks (chat.execution: inline): run parse_intake → enrich_entity → memory writes in chat per procedure.
-- For **queue** playbooks (chat.execution: queue): enrich and draft in chat, then call propose_play for external actions (email send, calendar, payments).
-- If only an available (not-adopted) playbook matches, explain it exists and offer to enable it with adopt_playbook. Do not improvise when a playbook covers the request.
+- External actions a playbook calls for (email send, calendar, payments) run through the connector tools with in-chat approval — there is no background queue handoff.
+- If only a disabled playbook matches, explain it exists and offer to enable it with enable_playbook. Do not improvise when a playbook covers the request.
 - Use get_play_run_status to check on queued or recent play runs when the user asks "did that send?" or "what happened with X?"
 
 Billing Memory:
@@ -391,9 +390,9 @@ export async function POST(request: Request) {
 
   // Single source of truth: connection state + loaded tools + per-provider
   // diagnostics. The capability block makes this authoritative for the model,
-  // so it can never contradict the connector UI. Adopted playbooks are the
+  // so it can never contradict the connector UI. Enabled playbooks are the
   // model's "installed skills" — indexed in the prompt, loaded on demand.
-  // Non-adopted blueprints are shown so the model can offer adoption.
+  // Disabled playbooks are shown so the model can offer to enable them.
   const [capabilities, playbooks, operatorContext] = await Promise.all([
     resolveAskSaltCapabilities(workspace.id, userId),
     resolveAskSaltPlaybooks(workspace.id),
@@ -401,8 +400,7 @@ export async function POST(request: Request) {
   ]);
   void logAskSaltCapabilityGaps(workspace.id, capabilities, userId);
 
-  const adoptedSlugs = playbooks.map((p) => p.slug);
-  const blueprints = await resolveAskSaltBlueprints(workspace.id, adoptedSlugs);
+  const blueprints = await resolveAskSaltBlueprints(workspace.id);
 
   const systemTools = buildSystemPlayTools({ workspaceId: workspace.id, userId });
   const playbookTools = buildPlaybookTools({ workspaceId: workspace.id, userId });

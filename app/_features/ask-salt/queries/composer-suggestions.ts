@@ -3,6 +3,7 @@ import "server-only";
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
+import { resolveAskSaltPlaybooks } from "../playbook-index";
 import {
   buildCreatePlaySuggestions,
   buildRunPlaySuggestions,
@@ -29,7 +30,7 @@ export async function getComposerSuggestions(
   const supabase = await createClient();
   const workspaceId = workspace.id;
 
-  const [peopleResult, orgsResult, workResult, templatesResult, queuedResult] =
+  const [peopleResult, orgsResult, workResult, enabledPlaybooks, queuedResult] =
     await Promise.all([
       supabase
         .from("people")
@@ -54,13 +55,7 @@ export async function getComposerSuggestions(
         .is("deleted_at", null)
         .order("updated_at", { ascending: false })
         .limit(5),
-      supabase
-        .from("play_templates")
-        .select("name")
-        .eq("workspace_id", workspaceId)
-        .eq("is_active", true)
-        .order("name")
-        .limit(8),
+      resolveAskSaltPlaybooks(workspaceId),
       supabase
         .from("play_runs")
         .select("title")
@@ -71,9 +66,9 @@ export async function getComposerSuggestions(
     ]);
 
   const people = peopleResult.data ?? [];
-  const playNames = (templatesResult.data ?? [])
-    .map((row) => row.name)
-    .filter((name): name is string => Boolean(name?.trim()));
+  const playNames = enabledPlaybooks
+    .map((playbook) => playbook.name)
+    .filter((name) => Boolean(name?.trim()));
 
   const quietPeople = [...people]
     .map((person) => ({

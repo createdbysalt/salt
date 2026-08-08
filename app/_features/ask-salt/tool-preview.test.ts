@@ -33,7 +33,7 @@ describe("generic executor previews (5.5.3)", () => {
     expect(formatToolStepLabel("load_playbook", { slug: "reengage" })).toBe(
       "Load Reengage playbook",
     );
-    expect(formatToolStepLabel("adopt_playbook", { slug: "reengage" })).toBe(
+    expect(formatToolStepLabel("enable_playbook", { slug: "reengage" })).toBe(
       "Enable Reengage playbook",
     );
     expect(formatToolStepLabel("parse_intake", { slug: "memory-care" })).toBe(
@@ -42,12 +42,6 @@ describe("generic executor previews (5.5.3)", () => {
     expect(formatToolStepLabel("parse_intake", { slug: "memory-records" })).toBe(
       "Parse intake (Memory Care)",
     );
-    expect(
-      formatToolStepLabel("propose_play", {
-        slug: "reengage",
-        title: "Follow up with Dana",
-      }),
-    ).toBe("Queue play: Follow up with Dana");
     expect(formatToolStepLabel("enrich_entity", { entity_type: "person", name: "Jane Example" })).toBe(
       "Enrich Jane Example from connected apps",
     );

@@ -274,10 +274,9 @@ export async function createPlayRecord(
   });
 
   if (state === "ran") {
-    // Second metering point (pricing §1). `executePlayRun` covers plays that
-    // run through the executor; this covers the ones that land here already
-    // finished — Ask Salt's approved-in-chat actions above all, which are
-    // external sends and therefore billable.
+    // Second metering point (pricing §1). This covers plays that land here
+    // already finished — Ask Salt's approved-in-chat actions above all, which
+    // are external sends and therefore billable.
     //
     // Never allowed to fail the caller: the work is already done, and refusing
     // to return a play id because a ledger insert failed would be worse than

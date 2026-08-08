@@ -21,12 +21,9 @@ import type {
   PlayerSlug,
   PlayerView,
   PlayRunRow,
-  PlayTemplateView,
   QueuePlayView,
 } from "./types";
 import type { PlaybookBlueprintRow } from "./playbooks/types";
-import type { PlayDefinition } from "./utils/play-definition";
-import type { PlayTemplateRow } from "./types";
 import { isMemoryCareActivityMetadata } from "./utils/plays-activity-filter";
 // v1 authored playbooks removed - v2 playbooks are filesystem-based
 import { normalizePlaybookTrigger } from "./utils/playbook-display";
@@ -397,20 +394,6 @@ export async function getPlayRunById(id: string): Promise<PlayRunRow | null> {
   return (data as PlayRunRow | null) ?? null;
 }
 
-function mapTemplateRow(row: PlayTemplateRow): PlayTemplateView {
-  return {
-    id: row.id,
-    slug: row.slug,
-    name: row.name,
-    description: row.description,
-    playerSlug: row.player_id ? mapPlayerSlug(row.slug) : null,
-    blueprintSlug: row.blueprint_slug,
-    blueprintVersion: row.blueprint_version,
-    isActive: row.is_active,
-    upgradeAvailable: false,
-  };
-}
-
 function mapBlueprintRow(row: PlaybookBlueprintRow): PlaybookBlueprintView {
   const definition = row.definition as { steps?: unknown[] } | null;
   const fillRules = row.fill_rules as { rules?: unknown[] } | null;
@@ -445,23 +428,6 @@ export async function listPlaybookBlueprints(): Promise<PlaybookBlueprintView[]>
 export async function getProfileBlueprintDetail(
   _slug: string,
 ): Promise<(PlaybookBlueprintView & { fillRules: ProfileFillRulesDocument | null }) | null> {
-  return null;
-}
-
-export interface ActingBlueprintDetail extends PlaybookBlueprintView {
-  definition: PlayDefinition;
-  procedureMd: string;
-  requiredToolkits: string[];
-  /** Template for this blueprint in this workspace, if adopted. */
-  template: PlayTemplateView | null;
-}
-
-/**
- * @deprecated v1 playbooks retired. Returns null.
- */
-export async function getActingBlueprintDetail(
-  _slug: string,
-): Promise<ActingBlueprintDetail | null> {
   return null;
 }
 
@@ -586,13 +552,6 @@ export async function getProfilePlaybookSettings(
     fillRulesOverride: (data.fill_rules_override as ProfileFillRulesDocument | null) ?? null,
     activeSections: (data.active_sections as ProfilePlaybookSettings["activeSections"]) ?? [],
   };
-}
-
-/**
- * @deprecated v1 playbooks retired. Returns empty array.
- */
-export async function listPlayTemplates(): Promise<PlayTemplateView[]> {
-  return [];
 }
 
 /**

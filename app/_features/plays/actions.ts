@@ -5,8 +5,6 @@ import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { nextStateForAction } from "./utils/play-state-machine";
-import { executePlayRun } from "./services/run-play";
-import { createRunPlayDeps } from "./services/run-play-deps";
 import { applyIntakePlayRun } from "./services/create-intake-play-run";
 import { meterInternalPlay } from "./services/meter-play";
 import { resumePausedPlaybook as resumePausedPlaybookService } from "./services/resume-paused-playbook";
@@ -16,10 +14,6 @@ import {
   approvePlaybookImprovementProposal,
   synthesizePlaybookImprovementProposal,
 } from "./playbooks/learning/approve-proposal";
-import {
-  capturePlaybookLearningSignal,
-  loadTemplateBlueprintMeta,
-} from "./playbooks/learning/capture-signals";
 import { captureVoiceCorrection } from "@/app/_features/me/actions/capture-voice-correction";
 import type { PlayRunRow, PlayRunState } from "./types";
 import type { ProfileFillRulesDocument, ProfilePlaybookSettings } from "./playbooks/records-engine/types";
@@ -232,31 +226,9 @@ export async function approvePlayRun(id: string): Promise<ActionResult<PlayRunRo
     };
   }
 
-  // Acting path: a template with a compiled definition and recorded consent
-  // executes for real; everything else stays the log-only draft-acceptance
-  // path until Phase 2 consent UX ships.
-  if (run.template_id) {
-    const { data: template } = await supabase
-      .from("play_templates")
-      .select("definition, approved_actions, actions_approved_by, is_active")
-      .eq("id", run.template_id)
-      .eq("workspace_id", workspace.id)
-      .maybeSingle();
-
-    if (template?.definition) {
-      const result = await executePlayRun(id, workspace.id, createRunPlayDeps());
-      revalidatePath("/hq");
-      revalidatePath("/plays");
-      if (result.ok) {
-        return { ok: true, data: result.run };
-      }
-      return {
-        ok: false,
-        errorCode: result.code,
-        message: result.message,
-      };
-    }
-  }
+  // Legacy template runs (template_id set) fall through to the log-only /
+  // intake paths below — the v1 template executor was retired with the
+  // play_templates table.
 
   // Intake record path: create the Memory record from accumulated evidence
   const metadata = run.metadata as { intake_record?: boolean } | null;
@@ -362,13 +334,6 @@ export async function dismissPlayRun(
   const result = await transitionPlayRun(id, "dismiss", { dismiss_reason: reason });
 
   if (result.ok && existing) {
-    await recordPlaybookSignalForRun({
-      workspaceId: workspace.id,
-      playRun: existing,
-      signalType: "dismissed",
-      delta: { dismiss_reason: reason ?? null },
-    });
-
     // Dismiss underlying evidence for intake plays so it doesn't resurface
     const metadata = existing.metadata as { intake_record?: boolean } | null;
     if (metadata?.intake_record && existing.evidence_ids?.length) {
@@ -436,18 +401,6 @@ export async function editPlayRun(
     },
   });
 
-  await recordPlaybookSignalForRun({
-    workspaceId: workspace.id,
-    playRun: existing,
-    signalType: "edited",
-    delta: {
-      previous_body: existing.draft_body,
-      new_body: draftBody,
-      previous_length: existing.draft_body?.length ?? 0,
-      new_length: draftBody.length,
-    },
-  });
-
   // Capture voice corrections to learn the user's writing preferences
   if (existing.draft_body) {
     void captureVoiceCorrection({
@@ -462,30 +415,6 @@ export async function editPlayRun(
 
   revalidatePath("/plays");
   return { ok: true, data: data as PlayRunRow };
-}
-
-async function recordPlaybookSignalForRun(input: {
-  workspaceId: string;
-  playRun: PlayRunRow;
-  signalType: "edited" | "dismissed";
-  delta: Record<string, unknown>;
-}) {
-  if (!input.playRun.template_id) return;
-
-  const meta = await loadTemplateBlueprintMeta(
-    input.playRun.template_id,
-    input.workspaceId,
-  );
-  if (!meta?.blueprint_slug) return;
-
-  await capturePlaybookLearningSignal({
-    workspaceId: input.workspaceId,
-    blueprintSlug: meta.blueprint_slug,
-    templateId: input.playRun.template_id,
-    playRunId: input.playRun.id,
-    signalType: input.signalType,
-    delta: input.delta,
-  });
 }
 
 export async function proposePlaybookImprovement(

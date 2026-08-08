@@ -148,7 +148,7 @@ export function buildIntakeTools(): ToolSet {
             enrichmentCategories: intake.chatContract.enrichmentCategories,
           },
           approvalRequired: false,
-          note: "Memory Care learn-layer intake — not a playbook. Do not call propose_play.",
+          note: "Memory Care learn-layer intake — not a playbook.",
         };
       },
     }),

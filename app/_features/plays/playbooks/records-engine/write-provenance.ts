@@ -101,29 +101,6 @@ export async function writeProfileFieldProvenance(input: {
     return (data?.id as string | undefined) ?? null;
   }
 
-  // blueprint_slug is provenance metadata with an FK to playbook_blueprints
-  // (ON DELETE SET NULL). On environments where the blueprint seeds haven't
-  // run, the FK violation must not silently drop the Activity entry — retry
-  // without the slug so the provenance row (and its timeline entry) survives.
-  if (
-    error.code === "23503" &&
-    error.message.includes("profile_field_provenance_blueprint_slug_fkey")
-  ) {
-    console.error(
-      `writeProfileFieldProvenance: blueprint "${input.blueprintSlug}" missing from playbook_blueprints; retrying without slug`,
-    );
-    const retry = await admin
-      .from("profile_field_provenance")
-      .insert({ ...row, blueprint_slug: null })
-      .select("id")
-      .single();
-    if (retry.error) {
-      console.error("writeProfileFieldProvenance retry failed:", retry.error);
-      return null;
-    }
-    return (retry.data?.id as string | undefined) ?? null;
-  }
-
   console.error("writeProfileFieldProvenance insert failed:", error);
   return null;
 }

@@ -117,28 +117,29 @@ describe("injection evals (5.5.7)", () => {
   });
 
   describe("playbook tool injection guards", () => {
-    it("adopt_playbook tool requires explicit user confirmation", () => {
+    it("enable_playbook tool requires explicit user confirmation", () => {
       const route = readFileSync(
         join(process.cwd(), "app/api/ask-salt/chat/route.ts"),
         "utf-8",
       );
-      expect(route).toContain("adopt_playbook");
+      expect(route).toContain("enable_playbook");
 
       const tools = readFileSync(
         join(process.cwd(), "app/_features/ask-salt/playbook-tools.ts"),
         "utf-8",
       );
-      expect(tools).toMatch(/const adoptPlaybook = tool\(/);
-      expect(tools).toMatch(/logToolExecution\([\s\S]*?toolSlug:.*adopt_playbook/);
+      expect(tools).toMatch(/const enablePlaybook = tool\(/);
+      expect(tools).toMatch(/logToolExecution\([\s\S]*?toolSlug:.*enable_playbook/);
     });
 
-    it("propose_play tool requires explicit user confirmation", () => {
+    it("the retired propose_play and adopt_playbook tools stay removed", () => {
       const tools = readFileSync(
         join(process.cwd(), "app/_features/ask-salt/playbook-tools.ts"),
         "utf-8",
       );
-      expect(tools).toMatch(/const proposePlay = tool\(/);
-      expect(tools).toMatch(/logToolExecution\([\s\S]*?toolSlug:.*propose_play/);
+      expect(tools).not.toContain("propose_play");
+      expect(tools).not.toContain("adopt_playbook");
+      expect(tools).not.toMatch(/from\("play_templates"\)/);
     });
 
     it("routing rule only applies to direct user requests, not embedded content", () => {
@@ -152,18 +153,10 @@ describe("injection evals (5.5.7)", () => {
     });
 
     it("playbook tool arguments are visible in the approval flow", () => {
-      const adoptPreview = formatToolArguments("adopt_playbook", {
+      const enablePreview = formatToolArguments("enable_playbook", {
         slug: "malicious-playbook",
       });
-      expect(adoptPreview).toContain("malicious-playbook");
-
-      const proposePreview = formatToolArguments("propose_play", {
-        slug: "send-money",
-        title: "Urgent transfer",
-        personName: "Attacker",
-      });
-      expect(proposePreview).toContain("send-money");
-      expect(proposePreview).toContain("Urgent transfer");
+      expect(enablePreview).toContain("malicious-playbook");
     });
   });
 
@@ -236,13 +229,13 @@ describe("injection evals (5.5.7)", () => {
       // Trigger is parsed from YAML definition, not from user input
       expect(v2Parser).toContain("trigger");
 
-      // The adopt-blueprint flow does not accept trigger as input
-      const adoptBlueprint = readFileSync(
-        join(process.cwd(), "app/_features/plays/playbooks/adopt-blueprint.ts"),
+      // Playbook enablement goes through the settings toggle, which only
+      // accepts a slug + boolean — no trigger input path exists.
+      const settings = readFileSync(
+        join(process.cwd(), "app/_features/plays/actions/playbook-settings.ts"),
         "utf-8",
       );
-      // Adoption reads from the blueprint, doesn't accept arbitrary triggers
-      expect(adoptBlueprint).not.toMatch(/trigger.*input/i);
+      expect(settings).not.toMatch(/trigger/i);
     });
   });
 });

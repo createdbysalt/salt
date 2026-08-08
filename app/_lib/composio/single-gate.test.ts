@@ -74,7 +74,6 @@ describe("single-gate invariant (5.5.1)", () => {
 
   it("every play execution path delegates to that helper", () => {
     const callers = [
-      "app/_features/plays/services/run-play-deps.ts",
       "app/_features/plays/services/resume-paused-playbook-deps.ts",
     ];
 

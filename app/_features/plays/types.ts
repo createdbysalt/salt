@@ -137,29 +137,6 @@ export interface PlayRunRow {
   trigger_evidence?: Record<string, unknown> | null;
 }
 
-export interface PlayTemplateRow {
-  id: string;
-  workspace_id: string;
-  player_id: string | null;
-  slug: string;
-  name: string;
-  description: string | null;
-  default_channel: string | null;
-  is_active: boolean;
-  required_actions: string[];
-  approved_actions: string[];
-  actions_approved_by: string | null;
-  actions_approved_at: string | null;
-  /** Compiled step list (see utils/play-definition.ts). Null = draft-only template. */
-  definition: unknown | null;
-  /** Human-readable procedure — the MD authoring layer the GROW loop patches. */
-  procedure_md: string | null;
-  blueprint_slug: string | null;
-  blueprint_version: number | null;
-  created_at: string;
-  updated_at: string;
-}
-
 export type PlayRunAssignmentRole = "owner" | "executor" | "reviewer" | "approver" | "watcher";
 export type PlayRunAssignmentStatus = "assigned" | "in_progress" | "completed" | "dismissed";
 
@@ -267,18 +244,6 @@ export interface PlaybookBlueprintView {
   procedureMd: string | null;
   /** 'salt' = system, 'user' = user-created. */
   origin: PlaybookOrigin;
-}
-
-export interface PlayTemplateView {
-  id: string;
-  slug: string;
-  name: string;
-  description: string | null;
-  playerSlug: PlayerSlug | null;
-  blueprintSlug: string | null;
-  blueprintVersion: number | null;
-  isActive: boolean;
-  upgradeAvailable: boolean;
 }
 
 export interface PlayerView {

@@ -15,7 +15,7 @@ import { PLAY_VALUE_KINDS } from "../types";
  * an `llm` step; tool slugs are FIXED at compile time and validated against
  * tool-policy here — the runtime LLM never chooses which action runs.
  *
- * The human-readable counterpart lives in `play_templates.procedure_md`.
+ * The human-readable counterpart lives in each v2 package's PLAYBOOK.md.
  */
 
 const BIND_NAME = /^[a-z][a-zA-Z0-9_]*$/;
