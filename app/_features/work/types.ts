@@ -130,7 +130,7 @@ export interface WorkProfileFieldsView {
 export type WorkActivityEvent = {
   id: string;
   at: string;
-  kind: "keeper" | "ai" | "user" | "system";
+  kind: "salt" | "ai" | "user" | "system";
   label: string;
   detail: string | null;
   field: string;

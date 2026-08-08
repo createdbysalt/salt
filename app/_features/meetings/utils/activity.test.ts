@@ -170,7 +170,7 @@ describe("mapConnectionToActivityEntry", () => {
 });
 
 describe("mapNoteToActivityEntry", () => {
-  it("maps Salt-captured notes to keeper entries", () => {
+  it("maps Salt-captured notes to Salt entries", () => {
     const note: EntityNoteWithProvenance = {
       id: "note-1",
       title: null,
@@ -198,7 +198,7 @@ describe("mapNoteToActivityEntry", () => {
 
     const entry = mapNoteToActivityEntry(note);
 
-    expect(entry.kind).toBe("keeper");
+    expect(entry.kind).toBe("salt");
     expect(entry.label).toBe("Salt captured a note");
     expect(entry.detail).toContain("Client asked to postpone");
   });

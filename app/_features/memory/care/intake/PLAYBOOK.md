@@ -128,7 +128,7 @@ import {
   parseIntakeRequest,
   getCreationOrder,
   getMissingFieldsToWatch,
-} from "@/app/_features/plays/playbooks/v2/_meta/memory-records/scripts";
+} from "@/app/_features/memory/care/intake";
 
 const parsed = parseIntakeRequest("Add Acme Studio and Liam as contact");
 // parsed.entities = [{ type: "organization", name: "Acme Studio", tier: 1 }, ...]
@@ -201,7 +201,7 @@ import {
   evaluateEvidence,
   logOddsToProbability,
   SIGNAL_WEIGHTS,
-} from "@/app/_features/plays/playbooks/v2/_meta/memory-records/scripts";
+} from "@/app/_features/memory/care/intake";
 
 // Start with score of 0
 let score = 0;
@@ -271,92 +271,92 @@ No  → Evidence accumulated, returns { action: "accumulated" }
 
 | Field | Type | Fill Rules | Write Policy |
 |-------|------|------------|-------------|
-| name | text | 1 | keeper_ask |
-| email | email | 1 | keeper_ask |
-| billingEmail | email | 1 | keeper_ask |
-| phone | phone | 1 | keeper_ask |
-| timezone | timezone | 1 | keeper_ask |
-| title | text | 1 | keeper_ask |
-| relationshipType | select | 6 | keeper_ask |
-| addressLine1 | text | 1 | keeper_ask |
-| addressLine2 | text | 1 | keeper_ask |
-| city | text | 1 | keeper_ask |
-| state | text | 1 | keeper_ask |
-| postalCode | text | 1 | keeper_ask |
-| country | country | 2 | keeper_ask |
-| recordStatus | select | 2 | keeper_auto |
-| lastContactedAt | datetime | 3 | keeper_auto |
+| name | text | 1 | care_ask |
+| email | email | 1 | care_ask |
+| billingEmail | email | 1 | care_ask |
+| phone | phone | 1 | care_ask |
+| timezone | timezone | 1 | care_ask |
+| title | text | 1 | care_ask |
+| relationshipType | select | 6 | care_ask |
+| addressLine1 | text | 1 | care_ask |
+| addressLine2 | text | 1 | care_ask |
+| city | text | 1 | care_ask |
+| state | text | 1 | care_ask |
+| postalCode | text | 1 | care_ask |
+| country | country | 2 | care_ask |
+| recordStatus | select | 2 | care_auto |
+| lastContactedAt | datetime | 3 | care_auto |
 
 ### Organizations (16 fields, 20 rules)
 
 | Field | Type | Fill Rules | Write Policy |
 |-------|------|------------|-------------|
-| name | text | 1 | keeper_ask |
-| billingEmail | email | 1 | keeper_ask |
-| industryParent | select | 1 | keeper_ask |
-| industryChild | select | 1 | keeper_ask |
-| relationshipType | select | 4 | keeper_ask |
-| primaryContact | reference | 1 | keeper_ask |
-| addressLine1 | text | 1 | keeper_ask |
-| addressLine2 | text | 1 | keeper_ask |
-| city | text | 1 | keeper_ask |
-| state | text | 1 | keeper_ask |
-| postalCode | text | 1 | keeper_ask |
-| country | country | 1 | keeper_ask |
-| taxId | text | 1 | keeper_ask |
-| website | url | 1 | keeper_ask |
-| recordStatus | select | 2 | keeper_auto |
-| lastContactedAt | datetime | 1 | keeper_auto |
+| name | text | 1 | care_ask |
+| billingEmail | email | 1 | care_ask |
+| industryParent | select | 1 | care_ask |
+| industryChild | select | 1 | care_ask |
+| relationshipType | select | 4 | care_ask |
+| primaryContact | reference | 1 | care_ask |
+| addressLine1 | text | 1 | care_ask |
+| addressLine2 | text | 1 | care_ask |
+| city | text | 1 | care_ask |
+| state | text | 1 | care_ask |
+| postalCode | text | 1 | care_ask |
+| country | country | 1 | care_ask |
+| taxId | text | 1 | care_ask |
+| website | url | 1 | care_ask |
+| recordStatus | select | 2 | care_auto |
+| lastContactedAt | datetime | 1 | care_auto |
 
 ### Work (25 fields, 32 rules)
 
 | Field | Type | Fill Rules | Write Policy |
 |-------|------|------------|-------------|
-| name | text | 1 | keeper_ask |
-| status | select | 6 | keeper_ask |
-| workType | select | 1 | keeper_ask |
-| stage | select | 1 | keeper_ask |
-| serviceId | reference | 1 | keeper_ask |
-| billingContactId | reference | 1 | keeper_ask |
-| contractValueCents | money | 1 | keeper_ask |
-| finalPriceCents | money | 1 | keeper_ask |
-| scopeItems | json | 1 | keeper_ask |
-| currency | select | 1 | keeper_ask |
-| paymentTerms | select | 1 | keeper_ask |
-| paymentType | select | 1 | keeper_ask |
-| hourlyRateCents | money | 1 | keeper_ask |
-| hoursEstimate | number | 1 | keeper_ask |
-| retainerMrrCents | money | 1 | keeper_ask |
-| renewalDate | date | 1 | keeper_ask |
-| billingCycle | select | 1 | keeper_ask |
-| decisionDate | date | 1 | keeper_ask |
-| startDate | date | 2 | keeper_ask |
-| deadline | date | 2 | keeper_ask |
-| poNumber | text | 1 | keeper_ask |
-| estimatedTimeline | text | 1 | keeper_ask |
-| discountPercent | percent | 1 | keeper_ask |
-| discountAmountCents | money | 1 | keeper_ask |
-| discountReason | text | 1 | keeper_ask |
+| name | text | 1 | care_ask |
+| status | select | 6 | care_ask |
+| workType | select | 1 | care_ask |
+| stage | select | 1 | care_ask |
+| serviceId | reference | 1 | care_ask |
+| billingContactId | reference | 1 | care_ask |
+| contractValueCents | money | 1 | care_ask |
+| finalPriceCents | money | 1 | care_ask |
+| scopeItems | json | 1 | care_ask |
+| currency | select | 1 | care_ask |
+| paymentTerms | select | 1 | care_ask |
+| paymentType | select | 1 | care_ask |
+| hourlyRateCents | money | 1 | care_ask |
+| hoursEstimate | number | 1 | care_ask |
+| retainerMrrCents | money | 1 | care_ask |
+| renewalDate | date | 1 | care_ask |
+| billingCycle | select | 1 | care_ask |
+| decisionDate | date | 1 | care_ask |
+| startDate | date | 2 | care_ask |
+| deadline | date | 2 | care_ask |
+| poNumber | text | 1 | care_ask |
+| estimatedTimeline | text | 1 | care_ask |
+| discountPercent | percent | 1 | care_ask |
+| discountAmountCents | money | 1 | care_ask |
+| discountReason | text | 1 | care_ask |
 
 ### Billing (15 fields, 23 rules)
 
 | Field | Type | Fill Rules | Write Policy |
 |-------|------|------------|-------------|
-| number | text | 2 | keeper_ask |
-| status | select | 3 | keeper_auto |
+| number | text | 2 | care_ask |
+| status | select | 3 | care_auto |
 | direction | select | 0 | user_only |
-| category | select | 1 | keeper_ask |
-| organization | reference | 1 | keeper_ask |
-| billingContact | reference | 1 | keeper_ask |
-| linkedWork | reference | 1 | keeper_ask |
-| vendorLabel | text | 1 | keeper_ask |
-| amountCents | money | 2 | keeper_ask |
-| amountPaidCents | money | 2 | keeper_auto |
-| currency | select | 2 | keeper_ask |
-| issuedAt | date | 2 | keeper_ask |
-| dueAt | date | 2 | keeper_ask |
-| paidAt | date | 2 | keeper_auto |
-| appUrl | url | 1 | keeper_auto |
+| category | select | 1 | care_ask |
+| organization | reference | 1 | care_ask |
+| billingContact | reference | 1 | care_ask |
+| linkedWork | reference | 1 | care_ask |
+| vendorLabel | text | 1 | care_ask |
+| amountCents | money | 2 | care_ask |
+| amountPaidCents | money | 2 | care_auto |
+| currency | select | 2 | care_ask |
+| issuedAt | date | 2 | care_ask |
+| dueAt | date | 2 | care_ask |
+| paidAt | date | 2 | care_auto |
+| appUrl | url | 1 | care_auto |
 
 ### Files (14 fields, 14 rules)
 
@@ -364,16 +364,16 @@ No  → Evidence accumulated, returns { action: "accumulated" }
 |-------|------|------------|-------------|
 | title | text | 0 | user_only |
 | url | url | 0 | user_only |
-| category | select | 1 | keeper_auto |
-| documentType | select | 1 | keeper_auto |
-| description | text | 1 | keeper_ask |
-| lifecycleStatus | select | 4 | keeper_auto |
-| totalAmountCents | money | 1 | keeper_auto |
-| currency | select | 1 | keeper_ask |
-| dueDate | date | 1 | keeper_auto |
-| expiryDate | date | 2 | keeper_auto |
-| signedDate | date | 1 | keeper_auto |
-| followUpDate | date | 1 | keeper_ask |
+| category | select | 1 | care_auto |
+| documentType | select | 1 | care_auto |
+| description | text | 1 | care_ask |
+| lifecycleStatus | select | 4 | care_auto |
+| totalAmountCents | money | 1 | care_auto |
+| currency | select | 1 | care_ask |
+| dueDate | date | 1 | care_auto |
+| expiryDate | date | 2 | care_auto |
+| signedDate | date | 1 | care_auto |
+| followUpDate | date | 1 | care_ask |
 | sharedWithClient | boolean | 0 | user_only |
 | isOperatorAsset | boolean | 0 | user_only |
 
@@ -382,18 +382,18 @@ No  → Evidence accumulated, returns { action: "accumulated" }
 | Field | Type | Fill Rules | Write Policy |
 |-------|------|------------|-------------|
 | title | text | 0 | user_only |
-| meetingType | select | 1 | keeper_ask |
-| status | select | 4 | keeper_auto |
-| startTime | datetime | 1 | keeper_auto |
-| endTime | datetime | 1 | keeper_auto |
-| locationType | select | 1 | keeper_auto |
-| meetingUrl | url | 1 | keeper_auto |
-| address | text | 1 | keeper_ask |
-| phoneNumber | phone | 1 | keeper_ask |
-| description | text | 1 | keeper_ask |
+| meetingType | select | 1 | care_ask |
+| status | select | 4 | care_auto |
+| startTime | datetime | 1 | care_auto |
+| endTime | datetime | 1 | care_auto |
+| locationType | select | 1 | care_auto |
+| meetingUrl | url | 1 | care_auto |
+| address | text | 1 | care_ask |
+| phoneNumber | phone | 1 | care_ask |
+| description | text | 1 | care_ask |
 | notes | text | 0 | user_only |
 | visibility | select | 0 | user_only |
-| attendees | json | 1 | keeper_auto |
+| attendees | json | 1 | care_auto |
 
 ### Me Identity (15 fields, 16 rules)
 

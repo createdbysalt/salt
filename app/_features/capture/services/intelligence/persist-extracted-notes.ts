@@ -1,8 +1,9 @@
 /**
  * Persist Extracted Notes — Create Salt notes from extraction results
  *
- * Takes note extraction output and creates notes via the keeper-entity-notes
- * playbook, applying all classification, routing, and pinning rules.
+ * Takes note extraction output and creates notes via the Memory Care
+ * entity-notes pipeline, applying all classification, routing, and pinning
+ * rules.
  */
 
 import { createSaltNote } from "@/app/_features/memory/actions/create-salt-note";

@@ -14,13 +14,11 @@ import type { PlaybookV2QueryResult } from "@/app/_features/plays/playbooks/quer
 interface PlaybooksTabProps {
   playbooksV2: PlaybookV2QueryResult | null;
   workspaceId: string;
-  keeperUnseenCount?: number;
 }
 
 export function PlaybooksTab({
   playbooksV2,
   workspaceId: _workspaceId,
-  keeperUnseenCount: _keeperUnseenCount,
 }: PlaybooksTabProps) {
   return (
     <div className="space-y-6">

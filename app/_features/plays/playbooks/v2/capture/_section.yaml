@@ -14,4 +14,4 @@ signals:
   - capture_form_submitted
 
 templates:
-  - keeper
+  - memory

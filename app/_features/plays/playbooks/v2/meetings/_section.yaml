@@ -13,6 +13,6 @@ signals:
   - meeting_has_attendance_evidence
 
 templates:
-  - keeper
+  - memory
   - prep
   - recap

@@ -215,7 +215,7 @@ describe("Trigger Dispatch", () => {
       mockDiscoverV2Playbooks.mockReturnValue({
         sections: new Map(),
         allPlaybooks: [
-          makeV2Playbook("keeper-entity-notes", "capture_email_received", "learn"),
+          makeV2Playbook("memory-entity-notes", "capture_email_received", "learn"),
           makeV2Playbook("meeting-follow-up", "meeting_end_passed", "act"),
         ],
         errors: [],
@@ -233,7 +233,7 @@ describe("Trigger Dispatch", () => {
       mockDiscoverV2Playbooks.mockReturnValue({
         sections: new Map(),
         allPlaybooks: [
-          makeV2Playbook("keeper-notes", "has_payment_received", "learn"),
+          makeV2Playbook("memory-notes", "has_payment_received", "learn"),
           makeV2Playbook("payment-followup", "has_payment_received", "act"),
         ],
         errors: [],

@@ -5,7 +5,7 @@ import "server-only";
  *
  * Write-through from enrichment results to Memory records using the
  * confidence-gated memory tools. Per AD-1/AD-2:
- * - Uses getWorkspaceThreshold() from execution-router (same as Keeper)
+ * - Uses getWorkspaceThreshold() from execution-router (same as Memory Care)
  * - High-confidence fields → memoryUpdateField (may auto-apply)
  * - Low-confidence fields → memoryAccumulateEvidence (gather more signal)
  *

@@ -21,7 +21,6 @@ function toPlaysTabData(data: PlaysPageData): PlaysTabData {
     playsRanToday: data.playsRanToday ?? 0,
     playbooksV2: data.playbooksV2 ?? null,
     workspaceId: data.workspaceId ?? null,
-    keeperUnseenCount: data.keeperUnseenCount ?? 0,
   };
 }
 

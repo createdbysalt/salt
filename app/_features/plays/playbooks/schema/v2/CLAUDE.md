@@ -8,9 +8,11 @@ Section-based, YAML-only playbook definitions.
 
 | Concept | Description | Example |
 |---------|-------------|---------|
-| **Section** | Where the playbook lives | `billing`, `relationships`, `_meta` |
-| **Layer** | What it does | `learn` (memory), `act` (action) |
+| **Section** | Where the playbook lives | `billing`, `relationships` |
+| **Layer** | What it does | `act` (action); `learn` remains in the schema but is unused — see below |
 | **Voice** | How it sounds | `billing`, `follow-up`, `brief` |
+
+> **Playbooks are act-layer only.** The `_meta` section and its four learn-layer "system playbooks" (memory-records, memory-hygiene, connections, notes) were retired on 2026-08-06 and replaced by the **Memory Care** module (`app/_features/memory/care/`). Learn-layer enrichment is not a playbook concern — see `docs/architecture/memory-care.md`. The `learn` enum value remains in the schema for backward compatibility, but no shipped playbook uses it.
 
 ## Directory Structure
 
@@ -18,20 +20,19 @@ Section-based, YAML-only playbook definitions.
 playbooks/v2/
 ├── relationships/              # People + Orgs
 │   ├── _section.yaml          # Section metadata
-│   ├── memory.yaml            # LEARN: enriches records
-│   └── health.yaml            # ACT: relationship health alerts
+│   ├── follow-up/             # ACT: follow-up drafts
+│   └── health/                # ACT: relationship health alerts
 │
 ├── billing/                    # Cash flow
 │   ├── _section.yaml
-│   ├── memory.yaml            # LEARN: billing enrichment
-│   ├── invoice-reminder.yaml  # ACT: payment reminders
-│   └── cash-runway.yaml       # ACT: weekly cash alert
+│   ├── invoice-reminder/      # ACT: payment reminders
+│   └── cash-runway/           # ACT: weekly cash alert
 │
-├── _meta/                      # Memory-wide operations
+├── me/                         # Operator
 │   ├── _section.yaml
-│   └── daily-briefing.yaml    # ACT: morning summary
+│   └── daily-briefing/        # ACT: morning summary (moved from retired _meta)
 │
-└── ... (work, files, meetings, convos, me, connections)
+└── ... (work, files, meetings, communication, connections, capture)
 ```
 
 ## YAML Schema
@@ -43,9 +44,9 @@ slug: invoice-reminder          # auto-inferred from name if omitted
 version: 1.0.0
 description: Drafts payment reminders for overdue invoices
 
-section: billing                # relationships|work|billing|files|meetings|convos|me|connections|_meta
-layer: act                      # learn (memory) | act (action)
-voice: billing                  # required for act-layer, forbidden for learn-layer
+section: billing                # relationships|work|billing|files|meetings|communication|me|connections|capture
+layer: act                      # act (action) — learn is retired to Memory Care
+voice: billing                  # required for act-layer
 
 trigger:
   type: signal                  # signal | schedule | manual
@@ -125,7 +126,7 @@ instructions:
 
 1. **Slug**: Auto-inferred from name if not provided
 2. **Signal**: Must exist in the signal registry
-3. **Voice**: Required for `act` layer, forbidden for `learn` layer
+3. **Voice**: Required for `act` layer (all current playbooks)
 4. **Step IDs**: Must be unique within a playbook
 5. **Step references**: `forEach` must reference an existing fetch step
 6. **value.estimate**: Must be >= 0 (not negative)

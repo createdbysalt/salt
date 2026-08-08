@@ -1166,7 +1166,7 @@ export async function undoAutoAppliedAction(
       return { success: false, error: updateError.message };
     }
 
-    // If this was a keeper profile update, mark provenance as reverted
+    // If this was a Memory Care profile update, mark provenance as reverted
     if (meta?.field && meta?.entity_id) {
       const { createAdminClient } = await import("@/app/_lib/supabase/admin");
       const admin = createAdminClient();

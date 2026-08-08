@@ -18,7 +18,7 @@ signals:
   - entity_learning_extracted
 
 templates:
-  - keeper
+  - memory
   - health
   - follow-up
   - reply-draft

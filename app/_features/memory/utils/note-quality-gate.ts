@@ -2,8 +2,8 @@
  * Note Quality Gate — Prevent note bloat by filtering low-value extractions
  *
  * Implements the "Six Months Test" and disqualification rules from the
- * keeper-entity-notes playbook. Ensures only durable, actionable notes
- * are created.
+ * Memory Care entity-notes capability. Ensures only durable, actionable
+ * notes are created.
  */
 
 import type { EntityType } from "@/app/_features/memory/queries/entity-notes";

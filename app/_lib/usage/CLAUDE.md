@@ -12,7 +12,7 @@ Salt SaaS metering: what customers owe us, and what serving them costs. **Not** 
 Before (feature-level):
   executePlayRun  → meters
   Ask Salt        → forgot → real emails billed as free
-  Keeper          → forgot
+  Memory Care     → forgot (back when it was Keeper "system playbooks")
   Playbooks       → will forget when they ship
 
 After (primitive-level):

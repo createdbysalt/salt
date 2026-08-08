@@ -2,8 +2,8 @@
  * Learning Infrastructure
  *
  * Shared infrastructure for evidence accumulation and signal registry.
- * Used across Keeper playbooks, enrichment layer, Ask Salt, and the
- * upcoming LEARN → ACT → GROW loop.
+ * Used across Memory Care, the enrichment layer, Ask Salt, and the
+ * LEARN → ACT → GROW loop.
  *
  * @example
  * ```ts

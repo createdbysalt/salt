@@ -7,7 +7,7 @@ import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import type { NoteStatus } from "@/app/_features/memory/types/taxonomies";
 import { ENTITY_NOTE_KIND_LABELS } from "@/app/_features/memory/types/taxonomies";
 import {
-  KEEPER_ENTITY_NOTES_SLUG,
+  ENTITY_NOTES_BLUEPRINT_SLUG,
   type CreateSaltNoteInput,
   type CreateSaltNoteResult,
   type ConfirmSaltNoteInput,
@@ -23,7 +23,7 @@ async function loadNoteSettings(workspaceId: string): Promise<{ autoApplyThresho
     .from("profile_playbook_settings")
     .select("auto_apply_threshold")
     .eq("workspace_id", workspaceId)
-    .eq("blueprint_slug", KEEPER_ENTITY_NOTES_SLUG)
+    .eq("blueprint_slug", ENTITY_NOTES_BLUEPRINT_SLUG)
     .maybeSingle();
 
   return {

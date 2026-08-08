@@ -29,12 +29,13 @@ app/
 │   ├── relationships/    # Shared components/actions (not routes)
 │   ├── spaces/           # Spaces UI shell
 │   ├── hq/               # HQ Today view, inbox, insights
-│   ├── plays/            # Plays approval outbox, capture stream in Activity
-│   ├── capture/          # Capture stream components (used inside Plays)
+│   ├── plays/            # Plays approval outbox (Queue / Playbooks / Activity)
+│   ├── sources/          # Sources surface shell (/sources: Connectors + Activity tabs)
+│   ├── capture/          # Capture intake pipeline; stream UI renders inside Sources → Activity
 │   ├── connections/      # Relationship and context graph
 │   ├── meetings/         # Meeting intelligence
 │   ├── work/             # Work and project memory
-│   ├── memory/           # Memory infra: taxonomy registry, edge store (lib/), entity types
+│   ├── memory/           # Memory surface (/memory tabs: Map/Filter/Rules), Memory Care module (care/), taxonomy registry, edge store
 │   ├── me/               # Operator profile, goals, voice (utils/ for activity + voice helpers)
 │   ├── shell/            # App shell, navigation, layout
 │   ├── marketing/        # Landing pages, lead capture
@@ -65,7 +66,8 @@ app/
 │   ├── people/           # People & relationships (canonical)
 │   ├── spaces/           # Shared workspaces
 │   ├── plays/            # Plays approval outbox
-│   ├── memory/           # Memory Map graph surface
+│   ├── sources/          # Sources intake surface (Connectors + Activity)
+│   ├── memory/           # Memory Map graph surface (Map / Filter / Rules tabs)
 │   ├── work/             # Work surface
 │   ├── billing/          # Billing surface
 │   └── ...               # orgs, teams, meetings, me, files, trash, setup

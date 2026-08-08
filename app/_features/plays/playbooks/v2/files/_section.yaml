@@ -26,4 +26,4 @@ signals:
   - resource_activity
 
 templates:
-  - keeper
+  - memory

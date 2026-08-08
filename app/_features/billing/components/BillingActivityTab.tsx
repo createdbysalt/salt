@@ -46,7 +46,7 @@ export function BillingActivityTab({
     <ProfileActivityTimeline
       entries={entries}
       emptyTitle="No activity yet"
-      emptyDescription="Payments, tags, connections, notes, status changes, and keeper suggestions will show up here as they happen."
+      emptyDescription="Payments, tags, connections, notes, status changes, and Salt suggestions will show up here as they happen."
       getDiscussPrompt={(entry) => buildBillingActivityAskSaltPrompt(entry, partyLabel)}
     />
   );

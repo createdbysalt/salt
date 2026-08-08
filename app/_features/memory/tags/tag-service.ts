@@ -12,7 +12,13 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
-import { normalizeTagSlug, normalizeTagLabel, slugToLabel } from "./normalize";
+import {
+  normalizeTagSlug,
+  normalizeTagLabel,
+  normalizeTagSource,
+  slugToLabel,
+  type TagSource,
+} from "./normalize";
 import { checkForDuplicate, type ExistingTag } from "./dedupe";
 import type { VocabularyScope } from "../taxonomy/registry";
 import { fromUnitInterval } from "@/app/_features/memory/lib/confidence";
@@ -23,7 +29,6 @@ import { fromUnitInterval } from "@/app/_features/memory/lib/confidence";
 
 export type TagScope = "person" | "org" | "work" | "billing" | "file" | "all";
 export type TagCategory = "segment" | "signal" | "priority" | "custom";
-export type TagSource = "manual" | "keeper" | "system";
 
 export interface WorkspaceTag {
   id: string;
@@ -620,7 +625,7 @@ function mapAssignmentRow(row: Record<string, unknown>): TagAssignment {
     entityId: row.entity_id as string,
     tagId: row.tag_id as string,
     tag: tagData ? mapTagRow(tagData) : undefined,
-    source: row.source as TagSource,
+    source: normalizeTagSource(row.source as string),
     confidence: (row.confidence as number | null) ?? null,
     because: (row.because as string | null) ?? null,
     sourceRef: (row.source_ref as string | null) ?? null,

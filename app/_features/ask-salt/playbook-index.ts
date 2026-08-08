@@ -266,6 +266,8 @@ export async function resolveAskSaltBlueprints(
   return blueprints
     .filter(
       (b) =>
+        // Retired Keeper blueprints and Memory Care capabilities are not
+        // adoptable act-layer playbooks.
         !String(b.slug).startsWith("keeper-") &&
         !MEMORY_CARE_BLUEPRINT_SLUGS.has(String(b.slug)),
     )

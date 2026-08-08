@@ -68,7 +68,7 @@ test.describe("Plays surface", () => {
 
     // Header should have player attribution (not just a category chip)
     await expect(
-      firstCard.getByText(/billing|keeper|follow-up|client-risk|brief/i).first()
+      firstCard.getByText(/billing|memory-care|follow-up|client-risk|brief/i).first()
     ).toBeVisible();
 
     // Footer should have consistent actions

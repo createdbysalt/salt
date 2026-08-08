@@ -595,41 +595,6 @@ export async function listPlayTemplates(): Promise<PlayTemplateView[]> {
   return [];
 }
 
-export async function listKeeperActivityEntries(
-  offset = 0,
-  limit = 50,
-): Promise<{ entries: ActivityEntryRow[]; totalCount: number }> {
-  const workspaceId = await getWorkspaceId();
-  const supabase = await createClient();
-
-  const [{ data, error }, { count }] = await Promise.all([
-    supabase
-      .from("activity_entries")
-      .select(
-        "id, workspace_id, play_run_id, actor_user_id, action, title, detail, metadata, created_at"
-      )
-      .eq("workspace_id", workspaceId)
-      .or("metadata->>player_slug.eq.keeper,metadata->>playbook_slug.ilike.keeper-%")
-      .order("created_at", { ascending: false })
-      .range(offset, offset + limit - 1),
-    supabase
-      .from("activity_entries")
-      .select("id", { count: "exact", head: true })
-      .eq("workspace_id", workspaceId)
-      .or("metadata->>player_slug.eq.keeper,metadata->>playbook_slug.ilike.keeper-%"),
-  ]);
-
-  if (error) throw error;
-
-  const rows = (data ?? []) as ActivityEntryRow[];
-  const enriched = await enrichActivitySourceUrls(rows, workspaceId, supabase);
-
-  return {
-    entries: enriched,
-    totalCount: count ?? 0,
-  };
-}
-
 /**
  * @deprecated Players retired 2026-07-13. Returns empty array.
  * Use playbook sections instead.

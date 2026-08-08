@@ -266,7 +266,7 @@ export function mapOperatorProvenanceToActivityEntry(
   return {
     id: `me-profile-${provenance.entityType}-${provenance.field}-${provenance.setAt}`,
     at: provenance.setAt,
-    kind: provenance.source === "manual" ? "user" : "keeper",
+    kind: provenance.source === "manual" ? "user" : "salt",
     label,
     detail: detailParts.join(" · "),
     source: provenance.source,

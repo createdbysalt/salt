@@ -3,7 +3,7 @@
  *
  * Unified interface for creating play records from any source:
  * - Ask Salt tool execution
- * - Keeper playbook execution
+ * - Memory Care profile writes
  * - Action playbook execution
  * - Manual user actions
  *

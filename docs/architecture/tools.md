@@ -26,7 +26,7 @@ Every tool MUST declare:
 | Class | Execution Model | Protection | Examples |
 |-------|----------------|------------|----------|
 | `read` | Auto-execute always | None needed | `get_person`, `list_invoices`, `get_voice_profile` |
-| `mutating` | Confidence-gated OR approval-required | Threshold check, ask-first fields | `memory_update_field`, `draft_email`, `enrich_entity` |
+| `mutating` | Confidence-gated (tiered bars) for internal state; approval-required for external effects | Threshold check, sensitive-tier bar, never-touch fields | `memory_update_field`, `draft_email`, `enrich_entity` |
 | `destructive` | Never executed by Salt | Blocked at tool layer | `delete_customer`, `void_invoice`, `remove_permission` |
 
 **Destructive tools are unreachable.** They're defined in the policy registry but Salt cannot execute them. Users must perform destructive actions in the source application (Stripe, Gmail, etc.).
@@ -73,7 +73,7 @@ interface UpdateFieldInput {
   value: string;
   confidence: number;          // 0-100
   because: string;             // Human-readable reason
-  source: "playbook" | "ask_salt" | "manual" | "enrichment";
+  source: "care" | "playbook" | "ask_salt" | "manual" | "enrichment";
   evidenceChain?: EvidenceChainItem[];
 }
 
@@ -86,11 +86,13 @@ interface UpdateFieldResult {
 }
 ```
 
-**Protection:**
-- Checks `confidence >= workspaceThreshold` (default 85%)
-- Ask-first fields always require approval
-- First-time classifications require approval
-- Destructive value changes require approval
+**Protection (tiered bars — approvals are retired from the learn layer):**
+- Standard fields: `confidence >= workspaceThreshold` (`workspaces.memory_care_auto_apply_threshold`, default 85)
+- Sensitive classifications (industry, relationship type, first-time classifications): higher bar (95)
+- Destructive value changes: highest bar + pre-operation snapshot for rollback
+- Never-touch fields (billing `total`/`amount_paid`, money fields): never auto-written at any confidence — hard rule, not a queue
+
+See [Memory Care](./memory-care.md) for the full decision-pipeline model.
 
 **Audit:**
 - Creates provenance record with evidence chain

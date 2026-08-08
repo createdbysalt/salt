@@ -48,6 +48,6 @@ export async function createProject(data: ProjectInput) {
 
 Use `/hq`, `/people`, `/spaces`, `/sources`, `/plays`, `/memory` — not `/studio`, `/clients`, `/bridge`, `/table`, or `/connections` for new work.
 
-Connectors and the capture stream live at `/sources` (tabs: Connectors / Stream). Plays is slimmed to Queue / Playbooks / Activity; Memory has Map / Filter / Rules tabs.
+Connectors and the capture stream live at `/sources` (tabs: Connectors / Activity — `?tab=stream` is a legacy alias). Plays is slimmed to Queue / Playbooks / Activity; Memory has Map / Filter / Rules tabs.
 
-Legacy paths redirect in `middleware.ts` and `app/_features/plays/plays-tab-routing.ts`. See `docs/architecture/legacy-naming.md`.
+Legacy paths redirect in `middleware.ts` and `app/_features/plays/plays-tab-routing.ts`. See `docs/architecture/legacy-naming.md`. Learn-layer memory enrichment is Memory Care (`app/_features/memory/care/`), not playbooks — see `docs/architecture/memory-care.md`.

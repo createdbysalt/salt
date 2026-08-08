@@ -3,7 +3,7 @@
 /**
  * Salt Learnings Actions
  *
- * Records and retrieves auto-executed keeper mutations for the digest.
+ * Records and retrieves auto-applied Memory Care mutations for the digest.
  * Users see transparency about what Salt did and can undo.
  */
 
@@ -140,25 +140,6 @@ export async function getSaltLearningsDigest(
   const older = rows.filter((l) => new Date(l.created_at) < twoWeeksAgo);
 
   return { unseenCount, thisWeek, lastWeek, older };
-}
-
-/**
- * Get unseen count for badge display.
- */
-export async function getUnseenLearningsCount(
-  workspaceId: string,
-): Promise<number> {
-  const supabase = await createClient();
-
-  const { count, error } = await supabase
-    .from("salt_learnings")
-    .select("*", { count: "exact", head: true })
-    .eq("workspace_id", workspaceId)
-    .is("seen_at", null)
-    .is("undone_at", null);
-
-  if (error) throw error;
-  return count ?? 0;
 }
 
 /**

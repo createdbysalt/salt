@@ -21,6 +21,8 @@ import { splitFullName } from "@/app/_features/me/utils/profile-name";
 import { writeProfileFieldProvenance } from "@/app/_features/plays/playbooks/records-engine/write-provenance";
 import type { OperatorProfileFieldKey } from "@/app/_features/plays/playbooks/records-engine/types";
 
+// Legacy blueprint slug stored on existing rows — do not rename without a
+// data migration.
 const ME_BLUEPRINT_SLUG = "keeper-me";
 
 /** Provenance parity (keeper-field-contracts 6.5): one applied row per changed field. */

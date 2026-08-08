@@ -2,7 +2,7 @@
 
 > **Source of truth:** `supabase/migrations/` + generated types. **Do not guess table names.**
 
-**Last updated:** 2026-07-03 — verified against `supabase/migrations/` through `20260703190000` (clients table drop, entity_links convergence, currency canon, provenance widening)
+**Last updated:** 2026-08-07 — verified against `supabase/migrations/` through `20260807000000`, including `20260806051000` (`workspaces.keeper_auto_execute_threshold` → `memory_care_auto_apply_threshold`; Memory Care replaces Keeper system playbooks)
 
 > **Naming canon + rename roadmap:** [docs/plans/2026-07-02-schema-modernization.md](../plans/2026-07-02-schema-modernization.md). Several live tables carry legacy names until the rename waves land: `client_meetings` = the Meetings record table, `projects` = Work, `project_files` = Files, `client_emails` = synced email messages.
 
@@ -43,6 +43,7 @@ Workspace container and primary tenant boundary. `studios` is a deprecated compa
 | `id` | uuid | PK |
 | `name` | text | Display name |
 | `slug` | text | Unique subdomain slug |
+| `memory_care_auto_apply_threshold` | int | Memory Care standard-tier auto-apply bar (50–100, default 85). Renamed from `keeper_auto_execute_threshold` (`20260806051000`). Read via `app/_lib/memory-tools/get-threshold.ts`; managed by the Rules tab slider. |
 
 ### `workspace_members`
 
@@ -180,6 +181,19 @@ DB constraints are aligned with `app/_features/memory/taxonomy/registry.ts` (sin
 | Meeting type (8 values) | `client_meetings` + `meeting_templates` CHECKs |
 | File category (11 values) | `file_category` enum gained `invoice, proposal, reference, media, notes, process` |
 | Currency (10 values, uppercase ISO-4217: `USD, EUR, GBP, CAD, AUD, CHF, JPY, SGD, NZD, INR`) | `20260703180000_currency_uppercase_canon.sql` — CHECKs on `billing_records`, `billing_payments`, `meeting_types`, `proposals`, `projects.currency`, `workspaces.default_currency`; lowercase data uppercased |
+
+### Memory Care tables (2026-08-06)
+
+Memory Care (`app/_features/memory/care/`) replaced the retired Keeper "system playbooks". Its persistence surface:
+
+| Table | Purpose |
+|-------|---------|
+| `entity_evidence` | Evidence accumulation ("Watching"). Unresolved proposals below the bar: `field_path`, `proposed_value`, `confidence`, `evidence_type` (enum still named `keeper_evidence_type` — rename pending), `resolution` / `resolved_at`, `source_capture_id`, `undo_*` columns for rollback. Historical `playbook_slug` values (`keeper-*`) are provenance only — display mapping in `records-engine/memory-care-display.ts`. |
+| `salt_learnings` | Lessons from user corrections ("That's wrong" → `memoryRecordCorrection`). Historical `playbook_slug` provenance as above. |
+| `profile_playbook_settings` | Per-capability on/off + config rows for the four care capabilities (same rows carried over from the playbook era; read via `care/settings.ts`). |
+| `profile_field_provenance` | Every care write records provenance with `previous_value` for rollback (see Provenance & lifecycle below). Destructive-tier ops also write pre-operation snapshots so Handled "That's wrong" can undo. |
+
+Activity provenance: care scheduler writes activity entries with source `memory-care`; historical rows carry `player_slug: "keeper"`.
 
 ### Explicit edges: `entity_links` (converged 2026-07-03)
 

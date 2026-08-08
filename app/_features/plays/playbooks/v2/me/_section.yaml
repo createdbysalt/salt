@@ -10,4 +10,4 @@ memory_types:
 signals: []
 
 templates:
-  - keeper
+  - memory

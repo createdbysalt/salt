@@ -117,6 +117,6 @@ Without 1Password CLI, use `.env.local` (copy from `.env.example`). The dev serv
 > **Legacy / non-primary routes:**
 > - `/studio` and `/dashboard/*` are legacy URLs handled by `middleware.ts` — they redirect to the current root-level routes (`/hq`, `/people`, etc.).
 > - `/clients` and `/relationships` redirect to `/people`. `/people` is the canonical surface.
-> - `/capture` redirects to `/sources?tab=activity`. `/notes` redirects to `/me`.
+> - `/capture` redirects to `/sources?tab=activity`. `/notes` redirects to `/me`. `/connections` redirects to `/memory`. `/roundtables` and `/tables` redirect to `/spaces`.
 > - Pre-reorg Plays URLs: `/plays?tab=customize` → `/plays?tab=playbooks` (or `/sources` for connectors), `/plays?tab=activity&view=captures` → `/sources?tab=activity`, `/plays?filter=learning` → `/memory?tab=filter`.
 > - On the `app.usesalt.io` (and `app.lvh.me`) subdomain, `/` redirects to `/hq`.

@@ -1871,7 +1871,7 @@ async function assignTagToEntity(
       entity_type: input.entity_type,
       entity_id: input.entity_id,
       tag_id: tag.id,
-      source: "keeper",
+      source: "care",
       because: input.because ?? null,
       source_ref: actorUserId ? `ask_salt:${actorUserId}` : null,
     })

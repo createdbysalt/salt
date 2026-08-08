@@ -78,7 +78,7 @@ describe("createPlayRecord metering", () => {
     await createPlayRecord({
       workspaceId: "ws-1",
       title: "Updated industry for Acme",
-      sourceContext: { source: "playbook", playbook_slug: "records-keeper" },
+      sourceContext: { source: "playbook", playbook_slug: "memory-records" },
       state: "ran",
       useBudgetRouting: false,
     });

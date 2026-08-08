@@ -9,7 +9,7 @@
  *
  * v2 introduces section-based organization:
  * - Section: Where the playbook lives (relationships, work, billing, etc.)
- * - Layer: What it does (learn = keeper, act = action)
+ * - Layer: What it does (learn = Memory Care, act = action)
  * - Voice: How it sounds (references voice profiles in /me)
  */
 

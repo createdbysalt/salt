@@ -34,18 +34,18 @@ ALTER TABLE projects
   REFERENCES workspaces(id) ON DELETE CASCADE;  -- Explicit behavior
 ```
 
-### Environment Truth (verified 2026-07-02)
+### Environment Truth (updated 2026-08-07)
 
-Two Supabase projects exist and they are NOT in sync:
+Two Supabase projects exist, both now receiving migrations:
 
 | Project | State | Who points at it |
 |---------|-------|------------------|
 | `<project-ref>` | **Schema-current.** Receives all `supabase db push` migrations (CLI link in `supabase/.temp/project-ref`). Generate types from THIS project. | `pnpm dev:staging:op` (1Password item `supabase-staging`) |
-| `<project-ref>` | **Stale** — stopped receiving migrations ~2026-06-10 (no address/AI/ICP columns; Bridge-era tables). | Vercel production + preview AND default `pnpm dev:op` (1Password item `supabase`) |
+| `<project-ref>` | **Near-current** — caught up through `20260807000000` on 2026-08-07 (threshold rename + capture repair migrations). Runs an older PostgREST (14.1 vs 14.5), so generated types differ slightly. | Vercel production + preview AND default `pnpm dev:op` (1Password item `supabase`) |
 
-Consequences until the consolidation decision (Pre-0.2 in `docs/plans/2026-07-02-schema-modernization.md`) is made:
-- **Staging-first policy (2026-07-02):** all schema work — including destructive drops (Bridge tables 2026-07-02; `clients` + `entity_relations` 2026-07-03) — lands on the CLI-linked project; production cuts over later from the migration set. Destructive migrations still require explicit founder authorization per migration.
-- **Ledger lies:** `supabase migration list` showed a migration as applied whose DDL never ran (hit 2026-07-02 with the industry taxonomy). After pushing, verify the schema actually changed (`gen types` and grep, or information_schema).
+Standing rules:
+- **Staging-first policy (2026-07-02):** schema work lands on the CLI-linked (staging) project first; production catches up via deliberate `db push`. Destructive migrations still require explicit founder authorization per migration.
+- **Ledger lies:** `supabase migration list` showed a migration as applied whose DDL never ran (hit 2026-07-02 with the industry taxonomy; again 2026-08-07 — the threshold rename sat unapplied on BOTH projects for a day while runtime code read the new column). After pushing, verify the schema actually changed (`gen types` and grep, or information_schema).
 - Both projects hold test data only.
 
 ---

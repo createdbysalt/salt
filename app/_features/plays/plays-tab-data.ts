@@ -13,5 +13,4 @@ export type PlaysTabData = {
   playsRanToday: number;
   playbooksV2: PlaybookV2QueryResult | null;
   workspaceId: string | null;
-  keeperUnseenCount: number;
 };

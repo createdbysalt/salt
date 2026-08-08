@@ -32,8 +32,9 @@ export interface LearningSignalResult {
 
 /**
  * Emit the entity_learning_extracted signal for a set of extracted learnings.
- * The playbook trigger dispatch system routes this to keeper-entity-notes
- * (if adopted and active in the workspace).
+ * The trigger dispatch system routes this to the Memory Care entity-notes
+ * capability (blueprint slug `keeper-entity-notes` — legacy value) when
+ * enabled for the workspace.
  */
 export async function emitLearningSignal(
   input: LearningSignalInput

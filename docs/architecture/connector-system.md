@@ -1,6 +1,6 @@
 # Connector System Architecture
 
-**Last Updated:** 2026-07-13
+**Last Updated:** 2026-08-07
 
 Salt's connector system enables users to connect third-party services (Gmail, Stripe, Slack, etc.) for data capture, AI-assisted actions, and enrichment. This document covers the architecture and how to add new connectors with velocity.
 
@@ -66,6 +66,7 @@ Salt's connector system enables users to connect third-party services (Gmail, St
 | `app/_lib/composio/trigger-subscriptions.ts` | Create/delete Composio triggers |
 | `app/_features/capture/adapters/registry.ts` | Route triggers to adapters |
 | `app/_features/capture/adapters/categories/` | Category-based capture adapters |
+| `app/_features/sources/` | Sources surface shell — hosts the connector UI at `/sources` |
 | `app/_lib/composio/enrichment/registry.ts` | Category → field mapping |
 | `app/_features/connectors/` | UI components and queries |
 

@@ -410,7 +410,7 @@ export async function removeMemoryConnection(
     a: { type: input.recordKind, id: input.recordId },
     b: { type: input.connectionType, id: input.connectionId },
     // Mentions belong to the note that made them and re-sync from its content
-    // — only manual/keeper edges are removable here.
+    // — only manual/care edges are removable here.
     relationType: "related",
   });
 

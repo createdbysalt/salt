@@ -314,7 +314,7 @@ export async function getConnectionsGraphData(
     addEdge(nid("person", link.person_id), nid("org", link.organization_id), "employment");
   }
 
-  // Explicit edges (manual/keeper links + note mentions) from entity_links
+  // Explicit edges (manual/care links + note mentions) from entity_links
   for (const link of entityLinks) {
     addEdge(
       nid(link.source_type as NodeType, link.source_id),

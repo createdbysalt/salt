@@ -21,7 +21,6 @@ type Props = {
   playbooksV2: PlaybookV2QueryResult | null;
   initialQueueFilter: "needs_you" | "auto_handled";
   workspaceId: string | null;
-  keeperUnseenCount?: number;
   sideRail?: HqSideRailData;
   briefing?: HqBriefingData;
 };
@@ -42,7 +41,6 @@ export function PlaysPageClient(props: Props) {
         playsRanToday: props.playsRanToday ?? 0,
         playbooksV2: props.playbooksV2,
         workspaceId: props.workspaceId ?? null,
-        keeperUnseenCount: props.keeperUnseenCount ?? 0,
       }}
       sideRail={props.sideRail}
       briefing={props.briefing}

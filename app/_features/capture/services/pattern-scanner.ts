@@ -195,7 +195,7 @@ const SCAN_PATTERNS: ScanPattern[] = [
     id: "missing_entity_notes",
     name: "Missing Entity Notes",
     description: "People or orgs with 5+ interactions but no notes — Salt could learn more",
-    playerSlug: "keeper",
+    playerSlug: "memory-care",
     scanQuery: async (workspaceId: string): Promise<PatternMatch[]> => {
       const admin = createAdminClient();
 

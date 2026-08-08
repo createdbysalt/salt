@@ -60,7 +60,7 @@ export function OrgActivityTab({
     <ProfileActivityTimeline
       entries={entries}
       emptyTitle="No activity yet"
-      emptyDescription="Keeper updates, your corrections, and profile fills will show up here as they happen."
+      emptyDescription="Salt updates, your corrections, and profile fills will show up here as they happen."
       getDiscussPrompt={(entry) => {
         if (entry.field && entry.source && entry.status) {
           return buildOrgActivityAskSaltPrompt(entry as OrgActivityEvent, orgName);

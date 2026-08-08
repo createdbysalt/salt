@@ -64,7 +64,6 @@ async function PlaysPageWithData({
       playsRanToday={data.playsRanToday}
       playbooksV2={data.playbooksV2}
       workspaceId={data.workspaceId}
-      keeperUnseenCount={data.keeperUnseenCount}
       sideRail={sideRail}
       briefing={briefing}
     />

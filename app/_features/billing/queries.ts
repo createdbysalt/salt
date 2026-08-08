@@ -9,6 +9,7 @@ import {
   mapConnectionToActivityEntry,
   mapTagAssignmentToActivityEntry,
 } from "@/app/_features/work/utils/activity";
+import { normalizeTagSource } from "@/app/_features/memory/tags/normalize";
 import {
   buildConnectionEntityNameMap,
   resolveConnectionEntityFromMap,
@@ -202,7 +203,7 @@ export const getBillingSupplementalActivity = cache(
         mapTagAssignmentToActivityEntry({
           id: record.id as string,
           tagLabel,
-          source: record.source as "manual" | "keeper" | "system",
+          source: normalizeTagSource(record.source as string),
           because: (record.because as string | null) ?? null,
           confidence: (record.confidence as number | null) ?? null,
           createdAt: record.created_at as string,

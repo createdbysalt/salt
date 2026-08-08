@@ -11,7 +11,6 @@ import {
   listQueueFindings,
   countFindingsByState,
 } from "@/app/_features/capture/queries/intelligence-findings";
-import { getUnseenLearningsCount } from "@/app/_features/me/actions/salt-learnings";
 import type { ActivityEntryRow } from "@/app/_features/plays/types";
 import type { FindingWithContext } from "@/app/_features/capture/types/intelligence-findings";
 import type { PlayRunRow } from "@/app/_features/plays/types";
@@ -29,7 +28,6 @@ export type PlaysPageData = {
   playsRanToday: number;
   playbooksV2: PlaybookV2QueryResult | null;
   workspaceId: string | null;
-  keeperUnseenCount: number;
 };
 
 const EMPTY_FINDING_COUNTS = { needs_you: 0, auto_handled: 0 };
@@ -60,7 +58,6 @@ export function emptyPlaysPageData(): PlaysPageData {
     playsRanToday: 0,
     playbooksV2: null,
     workspaceId: null,
-    keeperUnseenCount: 0,
   };
 }
 
@@ -101,16 +98,12 @@ export async function loadPlaysPageData(options: {
   }
 
   if (tab === "playbooks") {
-    const [playbooksV2, keeperUnseenCount] = await Promise.all([
-      getPlaybooksV2ForWorkspace(),
-      workspaceId ? getUnseenLearningsCount(workspaceId) : Promise.resolve(0),
-    ]);
+    const playbooksV2 = await getPlaybooksV2ForWorkspace();
 
     return {
       ...base,
       playbooksV2,
       workspaceId: workspaceId ?? null,
-      keeperUnseenCount,
     };
   }
 

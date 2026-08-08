@@ -1,8 +1,8 @@
 /**
  * Unified explicit-edge store helpers (keeper-field-contracts Phase 4).
  *
- * `entity_links` is THE table for explicit graph edges — user links, Keeper
- * links, and note [[wikilink]] mentions. Structured edges (real FKs like
+ * `entity_links` is THE table for explicit graph edges — user links, Memory
+ * Care links, and note [[wikilink]] mentions. Structured edges (real FKs like
  * organization_people or billing_records.person_id) stay in their domain
  * tables and are PROJECTED at query time; they never write here.
  *
@@ -31,7 +31,7 @@ export type EdgeRelationType =
   | "mention"
   | "related";
 
-export type EdgeProvenanceSource = "manual" | "keeper" | "system";
+export type EdgeProvenanceSource = "manual" | "care" | "system";
 
 export type EdgeRef = { type: EdgeEntityType; id: string };
 

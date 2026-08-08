@@ -107,7 +107,7 @@ export type ResourceCategory =
 
 export type ResourceSource =
   | "manual"
-  | "keeper"
+  | "care"
   | "enrichment"
   | "ask_salt"
   | "capture";

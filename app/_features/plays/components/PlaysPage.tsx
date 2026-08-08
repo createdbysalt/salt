@@ -161,7 +161,6 @@ export function PlaysPage({
     playsRanToday,
     playbooksV2,
     workspaceId,
-    keeperUnseenCount,
   } = activeData ?? initialData;
 
   // Real-time subscription for play_runs changes
@@ -581,7 +580,6 @@ export function PlaysPage({
               <PlaybooksTab
                 playbooksV2={playbooksV2}
                 workspaceId={workspaceId ?? ""}
-                keeperUnseenCount={keeperUnseenCount}
               />
             </motion.div>
           )}

@@ -26,7 +26,7 @@ function toTimelineEntry(entry: ActivityEntry): ProfileActivityTimelineEntry {
   return {
     id: entry.id,
     at: entry.at,
-    kind: entry.kind in { ai: 1, keeper: 1, salt: 1, user: 1, system: 1 } ? entry.kind : "keeper",
+    kind: entry.kind in { ai: 1, salt: 1, user: 1, system: 1 } ? entry.kind : "salt",
     label: entry.label,
     detail: entry.detail ?? null,
   };
@@ -56,7 +56,7 @@ export function PersonActivityTab({
     <ProfileActivityTimeline
       entries={entries}
       emptyTitle="No activity yet"
-      emptyDescription="Keeper updates, your corrections, and profile fills will show up here as they happen."
+      emptyDescription="Salt updates, your corrections, and profile fills will show up here as they happen."
       getDiscussPrompt={(entry) => {
         if (entry.field && entry.source && entry.status) {
           return buildPersonActivityAskSaltPrompt(

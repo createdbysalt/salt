@@ -4,7 +4,7 @@
  * Single source of truth for all signals that can trigger playbooks.
  * Every signal is registry-bounded with a description for the model
  * (anti-hallucination). Used by:
- * - Records engine (keeper playbooks)
+ * - Records engine (Memory Care profile rules)
  * - Trigger dispatch (acting playbooks)
  * - Frontmatter validation (compile-time)
  * - Ask SALT routing (chat-time)

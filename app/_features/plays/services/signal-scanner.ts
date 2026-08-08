@@ -6,7 +6,7 @@
  *
  * Phase 2.7: This bridges the records-engine signal definitions with the
  * trigger-dispatch system. Signals are detected here and dispatched to
- * both keeper playbooks (profile rules) and acting playbooks (proposals).
+ * both Memory Care profile rules and acting playbooks (proposals).
  */
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";

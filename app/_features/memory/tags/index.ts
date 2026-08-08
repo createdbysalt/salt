@@ -4,7 +4,7 @@
  * Exports for the workspace tags and entity tag assignments system.
  */
 
-export { normalizeTagSlug, normalizeTagLabel, isValidTagSlug, slugToLabel } from "./normalize";
+export { normalizeTagSlug, normalizeTagLabel, isValidTagSlug, slugToLabel, normalizeTagSource, type TagSource } from "./normalize";
 export { checkForDuplicate, findMergeCandidates, type ExistingTag, type DedupeResult } from "./dedupe";
 export {
   getTags,
@@ -21,7 +21,6 @@ export {
   archiveUnusedTags,
   type TagScope,
   type TagCategory,
-  type TagSource,
   type WorkspaceTag,
   type TagAssignment,
   type CreateTagResult,

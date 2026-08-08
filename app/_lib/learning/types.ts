@@ -2,7 +2,7 @@
  * Learning Infrastructure Types
  *
  * Shared types for the evidence accumulation and signal registry systems.
- * Used across Keeper playbooks, enrichment layer, and Ask Salt.
+ * Used across Memory Care, the enrichment layer, and Ask Salt.
  */
 
 export type LearningEntityType =

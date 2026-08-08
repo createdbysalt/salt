@@ -2,6 +2,8 @@
 
 **Context:** The capture system is Salt's intake funnel — it observes connected accounts, discovers People/Orgs/Work worth tracking, and accumulates signals over time.
 
+**Surface placement (post-2026-08-06 reorg):** the capture stream UI lives at **Sources → Activity** (`/sources?tab=activity`; `/capture` redirects there). Gate outcomes feed **Memory → Filter**: candidates and unresolved evidence appear under **Watching**, dropped/noise items under **Kept out**. Blocklists are managed in **Memory → Rules** (admission policy), not Settings.
+
 ## Architecture Overview
 
 ```
@@ -68,7 +70,7 @@ After pre-ingest but before entity lookup, checks workspace-specific blocklists:
 - **Email blocks**: Block a specific email address
 - **Sender pattern blocks**: Block senders matching a regex pattern
 
-Users manage blocklists via Settings → Capture → Blocklist.
+Users manage blocklists via Memory → Rules (admission policy section). Settings → Capture still exists but only carries connector health and calibration.
 
 ### Gate 2: Known-Entity Gate (`gates/known-entity-gate.ts`)
 Fast-tracks captures from known contacts:

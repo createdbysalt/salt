@@ -11,6 +11,8 @@ import {
 import { writeProfileFieldProvenance } from "@/app/_features/plays/playbooks/records-engine/write-provenance";
 import type { WorkspaceProfileFieldKey } from "@/app/_features/plays/playbooks/records-engine/types";
 
+// Legacy blueprint slug stored on existing rows — do not rename without a
+// data migration.
 const ME_BLUEPRINT_SLUG = "keeper-me";
 
 function provenanceValue(value: unknown): string | null {
