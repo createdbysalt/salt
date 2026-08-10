@@ -53,7 +53,18 @@ function normalizeNewProvider(payload: unknown): CaptureEnvelope | null {
 
 ## Gate Pipeline
 
-The three-gate model filters noise before creating captures:
+The gate model filters noise before creating captures. **Connector Rules & Learning (2026-08-10):** user rules now run FIRST, before every heuristic — explicit deny > explicit allow > heuristics.
+
+### Gate 0: Connector Rules (`services/rules-manager.ts`)
+First check in `runGatePipeline`, before pre-ingest:
+- **Explicit deny** (`rule_type = 'deny'`) matching the capture's feedback entity → drop immediately
+- **Explicit allow** (`rule_type = 'allow'`) → `signal`, bypasses the memory-first hold and every heuristic
+- Rules are scoped: a provider-scoped row beats a workspace-wide (`provider NULL`) row; deny beats allow at the same scope
+- The feedback entity (`{ type, key }` — e.g. `sender_email`, `organizer`, `channel`) is extracted ONCE per capture by the category adapter's `extractFeedbackEntity()` (`adapters/feedback-entity.ts` dispatch) and shared by rules, corrections, and learned profiles
+- `sender_pattern` rules glob-match against explicit pattern candidates (e.g. the sender display name), never the entity key
+- Storage: `connector_rules` table (migration `20260810120000_connector_rules.sql`); legacy `capture_blocklist` rows were backfilled in as workspace-wide deny rules
+- **`blocklist-manager.ts` is now a facade** over rules-manager — exported API unchanged, workspace-wide denies only. Do not add new features to it; extend rules-manager instead
+- User-facing copy is "Always let in" / "Keep out" (connector Customize tab, `connectors/actions/rules.ts`); engineering vocabulary stays "rules"
 
 ### Gate 1: Pre-Ingest Gate (`gates/pre-ingest-gate.ts`)
 Blocks obvious spam/marketing:
@@ -63,14 +74,6 @@ Blocks obvious spam/marketing:
 - Marketing platform domain blocklist
 - Gmail promotional label detection
 - Noreply/automated sender detection
-
-### Gate 1.5: Workspace Blocklist (`services/blocklist-manager.ts`)
-After pre-ingest but before entity lookup, checks workspace-specific blocklists:
-- **Domain blocks**: Block all emails from a specific domain
-- **Email blocks**: Block a specific email address
-- **Sender pattern blocks**: Block senders matching a regex pattern
-
-Users manage blocklists via Memory → Rules (admission policy section). Settings → Capture still exists but only carries connector health and calibration.
 
 ### Gate 2: Known-Entity Gate (`gates/known-entity-gate.ts`)
 Fast-tracks captures from known contacts:
@@ -86,7 +89,17 @@ Scores unknown senders for candidacy:
 - Calendar meeting: +35 points
 - Payment relationship: +40 points
 - Shared file: +20 points
+- **Esteemed entity: +20** when the capture's feedback entity has a learned reputation ≥70; **−20** when ≤30 (`entity_reputation` signal — see Learned Entity Profiles below)
 - **Threshold:** ≥30 = candidate, <30 = noise
+
+## Learned Entity Profiles (P6)
+
+Workspace-keyed reputation for the same feedback entities rules match on:
+
+- `entity-profiles.ts` dispatches by entity: `sender_email` delegates to the email-specific `capture_sender_profiles`; every other entity type uses the generalized `connector_entity_profiles` table (migration `20260810130000_connector_entity_profiles.sql`, keyed on workspace + provider + category + entity type + key)
+- **Writers (implicit feedback):** Kept-Out corrections (`capture/actions/corrections.ts` — always-allow +10, remove-block +5) and Watching/Kept-Out capture decisions (`memory/actions/admission-decisions.ts` — signal +5, noise −5)
+- **Reader:** the gate pipeline loads the entity's reputation after extraction and feeds it to the admission gate as the `entity_reputation` signal
+- Reputation scores clamp to 0–100, default 50, and never live in `connector_overrides` (global catalog) — workspace tables only
 
 ## Watch Expressions (Continuous Awareness)
 
@@ -133,17 +146,38 @@ CREATE TABLE entity_watch_expressions (
 );
 ```
 
-### capture_blocklist
+### connector_rules
 ```sql
-CREATE TABLE capture_blocklist (
+CREATE TABLE connector_rules (
   id UUID PRIMARY KEY,
   workspace_id UUID NOT NULL,
-  type capture_blocklist_type,  -- domain, email, sender_pattern
-  value TEXT NOT NULL,
+  provider TEXT,              -- NULL = workspace-wide
+  rule_type TEXT,             -- 'allow' | 'deny'
+  entity_type TEXT,           -- category-defined vocabulary (sender_email, domain, organizer, channel, ...)
+  entity_key TEXT,
   reason TEXT,
-  created_at TIMESTAMPTZ,
+  source TEXT,                -- 'user' | 'suggested'
   created_by UUID,
-  UNIQUE (workspace_id, type, value)
+  created_at TIMESTAMPTZ,
+  UNIQUE NULLS NOT DISTINCT (workspace_id, provider, rule_type, entity_type, entity_key)
+);
+-- capture_blocklist rows were backfilled in as provider-NULL deny rules (2026-08-10).
+```
+
+### connector_entity_profiles
+```sql
+CREATE TABLE connector_entity_profiles (
+  id UUID PRIMARY KEY,
+  workspace_id UUID NOT NULL,
+  provider TEXT,
+  category TEXT,              -- capture category (billing, documents, ...)
+  entity_type TEXT,
+  entity_key TEXT,
+  reputation_score INTEGER,   -- 0..100, default 50
+  observation_count INTEGER,
+  last_observation_at TIMESTAMPTZ,
+  stats JSONB,
+  UNIQUE NULLS NOT DISTINCT (workspace_id, provider, category, entity_type, entity_key)
 );
 ```
 
@@ -154,12 +188,15 @@ Tests are co-located with services:
 | Test File | Coverage |
 |-----------|----------|
 | `services/gates/pre-ingest-gate.test.ts` | 20 tests for spam/noise detection |
-| `services/gates/index.test.ts` | Gate pipeline orchestration, incl. known-entity/watch-expression matching |
-| `services/gates/admission-gate.test.ts` | Signal scoring and thresholds |
+| `services/gates/index.test.ts` | Gate pipeline orchestration, incl. rules precedence and known-entity/watch-expression matching |
+| `services/gates/admission-gate.test.ts` | Signal scoring and thresholds, incl. `entity_reputation` |
 | `services/gates/admission-signals.test.ts` | Admission signal derivation |
 | `services/gates/cold-intent.test.ts` | Cold-outreach intent detection |
 | `services/watch-expressions.test.ts` | 7 tests for watch lifecycle |
-| `services/blocklist-manager.test.ts` | 19 tests for workspace blocklist CRUD |
+| `services/rules-manager.test.ts` | connector_rules CRUD, normalization, and checkRules precedence |
+| `services/blocklist-manager.test.ts` | Facade parity over rules-manager (API unchanged) |
+| `services/entity-profiles.test.ts` | Category-dispatch profile load/observe |
+| `adapters/feedback-entity.test.ts` | Per-category feedback entity extraction |
 
 Run tests:
 ```bash
@@ -204,11 +241,18 @@ WHERE workspace_id = ?
 ORDER BY last_matched_at DESC;
 ```
 
-### Check blocklist entries
+### Check rules
 ```sql
-SELECT * FROM capture_blocklist
+SELECT * FROM connector_rules
 WHERE workspace_id = ?
 ORDER BY created_at DESC;
+```
+
+### Check learned entity profiles
+```sql
+SELECT * FROM connector_entity_profiles
+WHERE workspace_id = ?
+ORDER BY reputation_score DESC;
 ```
 
 ### Connector health

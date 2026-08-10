@@ -13,6 +13,26 @@ Sources is the intake surface at `/sources` — where Salt learns from. It answe
 
 `?tab=stream` is a pre-rename (2026-08-06) alias for Activity — keep the alias working in `sources-tab-routing.ts`.
 
+## Kept Out corrections (Connector Rules & Learning, P4)
+
+The Kept Out section is **cause-aware**: each item's `cause` derives from
+its `capture_events.gate_result` (`memory/queries/admission-gate-result.ts`)
+— `"rule"` when an explicit user rule dropped it, `"heuristic"` otherwise.
+Actions differ by cause (`capture/actions/corrections.ts`):
+
+- **Rule-caused** → "Remove keep-out rule" (deletes the matching
+  `connector_rules` row) — the rule is the reason, so the fix is the rule
+- **Heuristic-caused** → "Let this in" (one capture), "Always let this in"
+  (adds an allow rule so future events from the same entity skip the hold),
+  "Add to People"
+
+Watching accept/dismiss and Kept-Out let-in/keep-out also write
+`approved`/`rejected` outcomes back to `record_capture_decisions`
+(`recordDecisionOutcomeForCapture` in
+`capture/services/intelligence/record-capture-outcome.ts`) — without those
+writes the auto-apply calibration earn loop could never trigger from real
+feedback.
+
 ## Architecture
 
 This is a **thin composition feature** — it owns the page shell, tab routing, and data loading, but renders components owned by other features:

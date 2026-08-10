@@ -81,6 +81,8 @@ Salt's connector system enables users to connect third-party services (Gmail, St
 | `tool_classifications` | Risk class, approval requirements |
 | `workspace_integrations` | User connections per workspace |
 | `workspace_tool_preferences` | Per-tool approval overrides (Trust mode) |
+| `connector_rules` | Workspace allow/deny rules ("Always let in" / "Keep out") — see Capture Rules below |
+| `connector_entity_profiles` | Workspace-learned entity reputation (P6) |
 
 ---
 
@@ -653,6 +655,58 @@ interface CaptureEnvelope {
 | **Backfill** | Cron job polls API for recent items | Minutes to hours |
 
 Connectors without Composio triggers (Calendly, Dropbox, QuickBooks) are backfill-only.
+
+---
+
+## Capture Rules & Learning (2026-08-10)
+
+User-managed intake policy lives in two layers, both workspace-keyed (never
+in `connector_overrides` — that's the global Salt catalog):
+
+### Rules primitive (`connector_rules`)
+
+`app/_features/capture/services/rules-manager.ts` owns CRUD + evaluation
+over `connector_rules`: rows are `(workspace, provider|NULL, rule_type,
+entity_type, entity_key)` with `rule_type ∈ {allow, deny}`. `entity_type` is
+a **category-defined vocabulary** (`sender_email`, `domain`, `organizer`,
+`channel`, …) — each capture-category adapter implements
+`extractFeedbackEntity(envelope)` once, and the gate, corrections, and
+learned profiles all consume that single extraction
+(`adapters/feedback-entity.ts`).
+
+**Gate order:** rules run FIRST in the gate pipeline, before every
+heuristic — explicit deny > explicit allow > heuristics. A deny match drops
+the capture; an allow match signals it at full prominence, bypassing the
+memory-first hold. Provider-scoped rows beat workspace-wide (`provider
+NULL`) rows; deny beats allow at the same scope. `sender_pattern` rules
+glob-match against pattern candidates (e.g. sender display name), never
+the entity key.
+
+The legacy workspace blocklist is preserved as a **facade**:
+`blocklist-manager.ts` keeps its exported API but delegates to
+rules-manager over workspace-wide deny rows; `capture_blocklist` was
+backfilled into `connector_rules` by migration
+`20260810120000_connector_rules.sql`.
+
+User-facing copy is "Always let in" / "Keep out" on the connector detail
+pane's **Customize** tab (`connectors/actions/rules.ts`); engineering
+vocabulary stays "rules".
+
+### Learned entity profiles (P6)
+
+Implicit feedback (Kept-Out corrections, Watching/Kept-Out decisions)
+adjusts a per-entity reputation via
+`app/_features/capture/services/entity-profiles.ts`: `sender_email`
+delegates to `capture_sender_profiles`; every other entity type uses
+`connector_entity_profiles`. The admission gate reads the reputation as an
+`entity_reputation` signal (+20 at ≥70, −20 at ≤30). See
+`app/_features/capture/CLAUDE.md`.
+
+### Trigger selection (P7)
+
+For multi-slug providers whose triggers take zero config, per-connection
+scoping is the subscribed-slug set itself — see "Per-connection scoping" in
+`docs/architecture/connector-platform.md`.
 
 ---
 

@@ -75,8 +75,8 @@ filters can tighten without a delivery gap.
 ### Per-connection scoping (Sources plan 4.5)
 
 On top of the global filters, each connection can carry its own upstream
-scope, chosen on the connector's detail pane ("What Salt watches", under
-Memory capture — deliberately no separate Rules tab):
+scope, chosen on the connector's detail pane (Customize tab → "What Salt
+watches" — deliberately no separate Rules tab):
 
 | Connector | Control | Trigger config key |
 | --------- | ------- | ------------------ |
@@ -84,6 +84,7 @@ Memory capture — deliberately no separate Rules tab):
 | Google Calendar | One calendar (default: primary) | `…EVENT_CREATED_TRIGGER.calendarId` |
 | Google Drive | One folder (default: whole Drive) | `GOOGLEDRIVE_FILE_CREATED_TRIGGER.folder_id` |
 | Gmail | Category toggles (default: all four excluded) | `GMAIL_NEW_GMAIL_MESSAGE.query` `-category:*` clause |
+| Stripe, Outlook, Google Docs, Notion | Trigger selection — which event slugs subscribe (default: all) | none (subscribed-slug set, `trigger_selection` scope kind, P7) |
 
 The choice persists on `workspace_integrations.config.captureScope` and is
 merged into the trigger spec by every subscribe path — capture enable,
@@ -91,6 +92,30 @@ trigger reconciliation re-create, and the 4.2 upsert — so scoping survives
 re-subscribes (`capture-scope.ts`). Picker options load through metered
 read tools; each scoped event is an upstream event that never bills a
 delivery.
+
+**Trigger selection (Connector Rules & Learning, P7):** for providers whose
+capture triggers are all zero-config and multi-slug (live-audited
+2026-08-10: Stripe's 5 event slugs, Outlook received/sent, Docs
+created/updated, Notion created/updated), the only upstream filter
+available is WHICH slugs subscribe. The scope is a slug set, not a config
+merge: `applyScopeToSpecs` filters the spec list, and the Customize tab
+writes changes live through `syncCaptureTriggerSelection` (selected slugs
+upsert first; a failure aborts before anything is torn down; deselected
+slugs are deleted after). An empty or fully-stale selection reads as
+unscoped — capture is never silently killed by a malformed or drifted
+scope. Providers without any upstream filter (Sheets, Fireflies, …) say so
+honestly in the UI instead of rendering a dead control.
+
+### Workspace rules ("Always let in" / "Keep out")
+
+Connector Rules & Learning (2026-08-10) added a user-facing rules layer on
+top of scoping. Scope decides which upstream events ever fire; **rules
+decide what the gate does with the captures that arrive** — explicit deny >
+explicit allow > heuristics, enforced as Gate 0 of the capture pipeline
+(`app/_features/capture/services/rules-manager.ts`, `connector_rules`
+table). Managed per-connector in the Customize tab and workspace-wide from
+Sources → Activity. See `app/_features/capture/CLAUDE.md` for the gate
+contract.
 
 ## Retention stance (decided 2026-07-03)
 
