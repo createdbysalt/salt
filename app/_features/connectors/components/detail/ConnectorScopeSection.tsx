@@ -34,7 +34,7 @@ const GMAIL_CATEGORY_LABELS: Record<GmailCategory, string> = {
 };
 
 const SELECT_COPY: Record<
-  Exclude<CaptureScope["kind"], "gmail_categories">,
+  Exclude<CaptureScope["kind"], "gmail_categories" | "trigger_selection">,
   { allLabel: string; pickerLabel: string; blurb: string }
 > = {
   slack_channel: {
@@ -65,19 +65,169 @@ export function ConnectorScopeSection({
   onChanged: () => void;
 }) {
   const kind = scopeKindForProvider(provider);
-  if (!kind) return null;
+
+  // Capture-capable but no upstream filter exists for this connector — say
+  // so honestly instead of rendering nothing (P7).
+  if (!kind) {
+    return (
+      <section className="space-y-2.5">
+        <h3 className="text-sm font-semibold text-foreground">What Salt watches</h3>
+        <p className="max-w-xl text-xs leading-snug text-muted-foreground">
+          Salt watches everything this connector emits — there&apos;s no
+          upstream filter to narrow yet. Rules below still shape what reaches
+          you.
+        </p>
+      </section>
+    );
+  }
 
   return (
     <section className="space-y-2.5">
       <h3 className="text-sm font-semibold text-foreground">What Salt watches</h3>
       {kind === "gmail_categories" ? (
         <GmailCategoryScope provider={provider} scope={scope} onChanged={onChanged} />
+      ) : kind === "trigger_selection" ? (
+        <TriggerSelectionScope provider={provider} scope={scope} onChanged={onChanged} />
       ) : (
         <ScopeSelect provider={provider} kind={kind} scope={scope} onChanged={onChanged} />
       )}
     </section>
   );
 }
+
+/**
+ * Trigger selection (P7): for multi-slug providers whose triggers take no
+ * config (Stripe, Outlook, Docs, Notion), the upstream filter IS the
+ * subscribed-slug set. Null scope = everything on. Toggling one off writes
+ * the remaining set; toggling the last one off is refused — an empty
+ * selection would silently kill the connection's capture.
+ */
+function TriggerSelectionScope({
+  provider,
+  scope,
+  onChanged,
+}: {
+  provider: string;
+  scope: CaptureScope | null;
+  onChanged: () => void;
+}) {
+  const [options, setOptions] = React.useState<CaptureScopeOption[] | null>(null);
+  const [loadFailed, setLoadFailed] = React.useState(false);
+  const [savingSlug, setSavingSlug] = React.useState<string | null>(null);
+
+  // DB read only (no metered provider call), so load on mount — unlike the
+  // single-value pickers there is no popover to gate behind.
+  React.useEffect(() => {
+    let cancelled = false;
+    void listCaptureScopeOptions({ provider }).then((result) => {
+      if (cancelled) return;
+      if (result.success) {
+        setOptions(result.options);
+      } else {
+        setLoadFailed(true);
+        toast.error(result.error);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [provider]);
+
+  const activeSlugs = (
+    optionList: readonly CaptureScopeOption[],
+  ): readonly string[] =>
+    scope?.kind === "trigger_selection"
+      ? optionList
+          .map((option) => option.id)
+          .filter((id) => scope.kind === "trigger_selection" && scope.slugs.includes(id))
+      : optionList.map((option) => option.id);
+
+  const toggle = async (slug: string) => {
+    if (!options) return;
+    const active = activeSlugs(options);
+    const nextSlugs = active.includes(slug)
+      ? active.filter((id) => id !== slug)
+      : options.map((option) => option.id).filter((id) => active.includes(id) || id === slug);
+
+    if (nextSlugs.length === 0) {
+      toast.error("Keep at least one event on — otherwise nothing reaches Salt.");
+      return;
+    }
+
+    // Full set selected again: drop the scope back to the default (null).
+    const next: CaptureScope | null =
+      nextSlugs.length === options.length
+        ? null
+        : { kind: "trigger_selection", slugs: nextSlugs };
+
+    setSavingSlug(slug);
+    const result = await updateConnectorCaptureScope({ provider, scope: next });
+    setSavingSlug(null);
+    if (result.success) {
+      onChanged();
+    } else {
+      toast.error(result.error);
+    }
+  };
+
+  if (loadFailed) return null;
+
+  return (
+    <div className="space-y-1.5">
+      {options === null ? (
+        <p className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="size-3.5 animate-spin" />
+          Loading…
+        </p>
+      ) : options.length === 0 ? (
+        <p className="text-xs leading-snug text-muted-foreground">
+          Salt watches everything this connector emits — there&apos;s no
+          upstream filter to narrow yet.
+        </p>
+      ) : (
+        <>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {options.map((option) => {
+              const active = activeSlugs(options);
+              const included = active.includes(option.id);
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  role="switch"
+                  aria-checked={included}
+                  aria-label={option.label}
+                  disabled={savingSlug !== null}
+                  onClick={() => void toggle(option.id)}
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50",
+                    included
+                      ? "border-foreground/20 bg-muted text-foreground"
+                      : "border-border/60 text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+            {savingSlug !== null ? (
+              <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+            ) : null}
+          </div>
+          <p className="text-xs leading-snug text-muted-foreground">
+            Choose which events reach Salt. Anything turned off never leaves
+            the provider — and never bills a delivery.
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+
+type SingleValueScopeKind = Exclude<
+  CaptureScope["kind"],
+  "gmail_categories" | "trigger_selection"
+>;
 
 function ScopeSelect({
   provider,
@@ -86,7 +236,7 @@ function ScopeSelect({
   onChanged,
 }: {
   provider: string;
-  kind: Exclude<CaptureScope["kind"], "gmail_categories">;
+  kind: SingleValueScopeKind;
   scope: CaptureScope | null;
   onChanged: () => void;
 }) {

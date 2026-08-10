@@ -98,6 +98,8 @@ import {
   getCaptureTriggerSpecs,
   getCaptureTriggerSlugs,
   refreshCaptureTriggerConfigs,
+  syncCaptureTriggerSelection,
+  unsubscribeCaptureTriggerSlug,
   upsertCaptureTriggerConfig,
 } from "./trigger-subscriptions";
 
@@ -475,6 +477,170 @@ describe("upsertCaptureTriggerConfig (4.2)", () => {
     expect(result.error).toBe("socket hangup");
     expect(mockDeleteTrigger).not.toHaveBeenCalled();
     expect(configUpdates).toHaveLength(0);
+  });
+});
+
+describe("unsubscribeCaptureTriggerSlug (P7)", () => {
+  function liveInstance(id: string, triggerName: string) {
+    return { id, connectedAccountId: "conn-1", triggerName };
+  }
+
+  it("deletes live instances for the slug and drops them from stored ids", async () => {
+    integrationRow = {
+      id: "int-1",
+      composio_connection_id: "conn-1",
+      config: { captureTriggerIds: ["t-inv", "t-cf"] },
+    };
+    mockListActive.mockResolvedValue({
+      items: [
+        liveInstance("t-inv", "STRIPE_INVOICE_PAYMENT_SUCCEEDED_TRIGGER"),
+        liveInstance("t-cf", "STRIPE_CHARGE_FAILED_TRIGGER"),
+      ],
+      nextCursor: null,
+    });
+
+    const result = await unsubscribeCaptureTriggerSlug(
+      "ws-1",
+      "stripe",
+      "STRIPE_INVOICE_PAYMENT_SUCCEEDED_TRIGGER",
+    );
+
+    expect(result.ok).toBe(true);
+    expect(mockDeleteTrigger).toHaveBeenCalledTimes(1);
+    expect(mockDeleteTrigger).toHaveBeenCalledWith("t-inv");
+    expect(configUpdates.at(-1)).toEqual({
+      config: { captureTriggerIds: ["t-cf"] },
+    });
+  });
+
+  it("keeps the stored id when the delete fails so disable can retry", async () => {
+    integrationRow = {
+      id: "int-1",
+      composio_connection_id: "conn-1",
+      config: { captureTriggerIds: ["t-inv"] },
+    };
+    mockListActive.mockResolvedValue({
+      items: [liveInstance("t-inv", "STRIPE_INVOICE_PAYMENT_SUCCEEDED_TRIGGER")],
+      nextCursor: null,
+    });
+    mockDeleteTrigger.mockRejectedValueOnce(new Error("delete failed"));
+
+    const result = await unsubscribeCaptureTriggerSlug(
+      "ws-1",
+      "stripe",
+      "STRIPE_INVOICE_PAYMENT_SUCCEEDED_TRIGGER",
+    );
+
+    expect(result.ok).toBe(true);
+    expect(configUpdates).toHaveLength(0);
+  });
+
+  it("is a no-op when nothing live matches the slug", async () => {
+    integrationRow = {
+      id: "int-1",
+      composio_connection_id: "conn-1",
+      config: { captureTriggerIds: ["t-cf"] },
+    };
+    mockListActive.mockResolvedValue({ items: [], nextCursor: null });
+
+    const result = await unsubscribeCaptureTriggerSlug(
+      "ws-1",
+      "stripe",
+      "STRIPE_INVOICE_PAYMENT_SUCCEEDED_TRIGGER",
+    );
+
+    expect(result.ok).toBe(true);
+    expect(mockDeleteTrigger).not.toHaveBeenCalled();
+    expect(configUpdates).toHaveLength(0);
+  });
+});
+
+describe("syncCaptureTriggerSelection (P7)", () => {
+  function liveInstance(id: string, triggerName: string) {
+    return { id, connectedAccountId: "conn-1", triggerName };
+  }
+
+  const stripeRows = [
+    { trigger_slug: "STRIPE_CHARGE_FAILED_TRIGGER", capture_trigger_config: null },
+    {
+      trigger_slug: "STRIPE_INVOICE_PAYMENT_SUCCEEDED_TRIGGER",
+      capture_trigger_config: null,
+    },
+  ];
+
+  beforeEach(() => {
+    triggerTypeRows = stripeRows;
+    adapterForToolkitMock.mockReturnValue({
+      sourceType: "stripe",
+      triggerSlugs: [
+        "STRIPE_CHARGE_FAILED_TRIGGER",
+        "STRIPE_INVOICE_PAYMENT_SUCCEEDED_TRIGGER",
+      ],
+    });
+    integrationRow = {
+      id: "int-1",
+      composio_connection_id: "conn-1",
+      config: { captureTriggerIds: ["t-cf", "t-inv"] },
+    };
+  });
+
+  it("subscribes the selected slug and unsubscribes the deselected one", async () => {
+    mockCreateTrigger.mockResolvedValue({ triggerId: "t-cf-new" });
+    mockListActive.mockResolvedValue({
+      items: [
+        liveInstance("t-cf", "STRIPE_CHARGE_FAILED_TRIGGER"),
+        liveInstance("t-inv", "STRIPE_INVOICE_PAYMENT_SUCCEEDED_TRIGGER"),
+      ],
+      nextCursor: null,
+    });
+
+    const result = await syncCaptureTriggerSelection("ws-1", "stripe", {
+      kind: "trigger_selection",
+      slugs: ["STRIPE_CHARGE_FAILED_TRIGGER"],
+    });
+
+    expect(result.ok).toBe(true);
+    // Only the selected slug is (re-)created…
+    expect(mockCreateTrigger).toHaveBeenCalledTimes(1);
+    expect(mockCreateTrigger).toHaveBeenCalledWith(
+      "ws-1",
+      "STRIPE_CHARGE_FAILED_TRIGGER",
+      expect.objectContaining({ connectedAccountId: "conn-1" }),
+    );
+    // …the deselected slug's live instance is deleted…
+    expect(mockDeleteTrigger).toHaveBeenCalledWith("t-inv");
+    // …and the final stored ids hold only the selected slug's instance.
+    const finalIds = (
+      configUpdates.at(-1) as { config: { captureTriggerIds: string[] } }
+    ).config.captureTriggerIds;
+    expect(finalIds).toEqual(["t-cf-new"]);
+  });
+
+  it("with a null scope subscribes everything and tears nothing down", async () => {
+    mockCreateTrigger
+      .mockResolvedValueOnce({ triggerId: "t-1" })
+      .mockResolvedValueOnce({ triggerId: "t-2" });
+
+    const result = await syncCaptureTriggerSelection("ws-1", "stripe", null);
+
+    expect(result.ok).toBe(true);
+    expect(mockCreateTrigger).toHaveBeenCalledTimes(2);
+    expect(mockDeleteTrigger).not.toHaveBeenCalled();
+  });
+
+  it("aborts before tearing anything down when a selected upsert fails", async () => {
+    mockCreateTrigger.mockRejectedValueOnce(new Error("socket hangup"));
+
+    const result = await syncCaptureTriggerSelection("ws-1", "stripe", {
+      kind: "trigger_selection",
+      slugs: ["STRIPE_CHARGE_FAILED_TRIGGER"],
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe("socket hangup");
+    // The deselected slug is left subscribed — a failed apply must not shrink
+    // delivery while the stored scope still claims the old selection.
+    expect(mockDeleteTrigger).not.toHaveBeenCalled();
   });
 });
 

@@ -4,6 +4,7 @@ import {
   buildGmailCategoryQuery,
   readCaptureScope,
   scopableProvider,
+  scopeKindForProvider,
   withCaptureScope,
   GMAIL_CATEGORY_QUERY_BASE,
   type CaptureScope,
@@ -75,10 +76,29 @@ describe("scopableProvider", () => {
     expect(scopableProvider("gmail")).toBe(true);
   });
 
+  it("recognizes the audited trigger-selection providers", () => {
+    // Live-audited 2026-08-10 against staging connector_trigger_types:
+    // multi-slug, every capture trigger zero-config.
+    expect(scopableProvider("stripe")).toBe(true);
+    expect(scopableProvider("outlook")).toBe(true);
+    expect(scopableProvider("googledocs")).toBe(true);
+    expect(scopableProvider("notion")).toBe(true);
+  });
+
   it("rejects everything else", () => {
-    expect(scopableProvider("notion")).toBe(false);
-    expect(scopableProvider("outlook")).toBe(false);
+    // Slack has two slugs but its own channel scope; sheets has one slug.
+    expect(scopableProvider("googlesheets")).toBe(false);
+    expect(scopableProvider("fireflies")).toBe(false);
     expect(scopableProvider("")).toBe(false);
+  });
+
+  it("maps trigger-selection providers to the trigger_selection kind", () => {
+    expect(scopeKindForProvider("stripe")).toBe("trigger_selection");
+    expect(scopeKindForProvider("outlook")).toBe("trigger_selection");
+    expect(scopeKindForProvider("googledocs")).toBe("trigger_selection");
+    expect(scopeKindForProvider("notion")).toBe("trigger_selection");
+    expect(scopeKindForProvider("slack")).toBe("slack_channel");
+    expect(scopeKindForProvider("googlesheets")).toBeNull();
   });
 });
 
@@ -122,6 +142,39 @@ describe("readCaptureScope", () => {
       readCaptureScope({ captureScope: { kind: "nope" } }),
     ).toBeNull();
     expect(readCaptureScope({ captureScope: "slack" })).toBeNull();
+  });
+
+  it("round-trips a trigger selection scope", () => {
+    const scope: CaptureScope = {
+      kind: "trigger_selection",
+      slugs: ["STRIPE_CHARGE_FAILED_TRIGGER", "STRIPE_INVOICE_PAYMENT_SUCCEEDED_TRIGGER"],
+    };
+    expect(readCaptureScope({ captureScope: scope })).toEqual(scope);
+  });
+
+  it("dedupes selection slugs and drops empties", () => {
+    expect(
+      readCaptureScope({
+        captureScope: {
+          kind: "trigger_selection",
+          slugs: ["OUTLOOK_MESSAGE_TRIGGER", "OUTLOOK_MESSAGE_TRIGGER", ""],
+        },
+      }),
+    ).toEqual({
+      kind: "trigger_selection",
+      slugs: ["OUTLOOK_MESSAGE_TRIGGER"],
+    });
+  });
+
+  it("reads an empty selection as unscoped instead of killing capture", () => {
+    expect(
+      readCaptureScope({ captureScope: { kind: "trigger_selection", slugs: [] } }),
+    ).toBeNull();
+    expect(
+      readCaptureScope({
+        captureScope: { kind: "trigger_selection", slugs: ["", 42] },
+      }),
+    ).toBeNull();
   });
 });
 
@@ -257,5 +310,44 @@ describe("applyScopeToSpecs", () => {
       label: "#x",
     });
     expect(specs[0].config).toEqual({ is_bot_message: false });
+  });
+
+  const stripeSpecs: CaptureTriggerSpec[] = [
+    { slug: "STRIPE_CHARGE_FAILED_TRIGGER", config: null },
+    { slug: "STRIPE_CHECKOUT_SESSION_COMPLETED_TRIGGER", config: null },
+    { slug: "STRIPE_INVOICE_PAYMENT_SUCCEEDED_TRIGGER", config: null },
+    { slug: "STRIPE_SUBSCRIPTION_ADDED_TRIGGER", config: null },
+    { slug: "STRIPE_SUBSCRIPTION_DELETED_TRIGGER", config: null },
+  ];
+
+  it("filters the spec list to the selected trigger slugs", () => {
+    const next = applyScopeToSpecs("stripe", stripeSpecs, {
+      kind: "trigger_selection",
+      slugs: [
+        "STRIPE_INVOICE_PAYMENT_SUCCEEDED_TRIGGER",
+        "STRIPE_CHARGE_FAILED_TRIGGER",
+      ],
+    });
+    expect(next).toEqual([
+      { slug: "STRIPE_CHARGE_FAILED_TRIGGER", config: null },
+      { slug: "STRIPE_INVOICE_PAYMENT_SUCCEEDED_TRIGGER", config: null },
+    ]);
+  });
+
+  it("ignores a trigger selection on a provider that doesn't offer one", () => {
+    expect(
+      applyScopeToSpecs("slack", slackSpecs, {
+        kind: "trigger_selection",
+        slugs: ["SLACK_DIRECT_MESSAGE_RECEIVED"],
+      }),
+    ).toEqual(slackSpecs);
+  });
+
+  it("reads a selection matching no live slug as unscoped (never silently kills capture)", () => {
+    const next = applyScopeToSpecs("stripe", stripeSpecs, {
+      kind: "trigger_selection",
+      slugs: ["STRIPE_LONG_DEPRECATED_TRIGGER"],
+    });
+    expect(next).toEqual(stripeSpecs);
   });
 });

@@ -29,7 +29,8 @@ export type CaptureScope =
   | { kind: "slack_channel"; channelId: string; label: string }
   | { kind: "calendar"; calendarId: string; label: string }
   | { kind: "drive_folder"; folderId: string; label: string }
-  | { kind: "gmail_categories"; excluded: GmailCategory[] };
+  | { kind: "gmail_categories"; excluded: GmailCategory[] }
+  | { kind: "trigger_selection"; slugs: string[] };
 
 /** One pickable scope target (channel, calendar, folder) for the UI. */
 export interface CaptureScopeOption {
@@ -52,15 +53,41 @@ const SCOPE_TARGETS: Record<string, { kind: CaptureScope["kind"]; slug: string }
   gmail: { kind: "gmail_categories", slug: "GMAIL_NEW_GMAIL_MESSAGE" },
 };
 
+/**
+ * Providers whose capture triggers are ALL zero-config and multi-slug, so
+ * the only upstream filter available is WHICH slugs subscribe (Connector
+ * Rules & Learning, P7). Live-audited against staging
+ * connector_trigger_types on 2026-08-10: stripe (5 event slugs), outlook
+ * (received/sent), googledocs (created/updated), notion (created/updated).
+ * Slack is deliberately absent — its channel trigger carries a config and
+ * it already has the slack_channel scope kind. If a provider's triggers
+ * gain config later, remove it here; a stale entry is safe (the selection
+ * just filters the spec list) but the UI would promise filtering that a
+ * configured sibling no longer gets.
+ */
+const TRIGGER_SELECTION_PROVIDERS: ReadonlySet<string> = new Set([
+  "stripe",
+  "outlook",
+  "googledocs",
+  "notion",
+]);
+
+export function triggerSelectionProvider(provider: string): boolean {
+  return TRIGGER_SELECTION_PROVIDERS.has(provider);
+}
+
 export function scopableProvider(provider: string): boolean {
-  return provider in SCOPE_TARGETS;
+  return provider in SCOPE_TARGETS || TRIGGER_SELECTION_PROVIDERS.has(provider);
 }
 
 /** The scope kind a provider accepts, or null when it isn't scopable. */
 export function scopeKindForProvider(
   provider: string,
 ): CaptureScope["kind"] | null {
-  return SCOPE_TARGETS[provider]?.kind ?? null;
+  return (
+    SCOPE_TARGETS[provider]?.kind ??
+    (TRIGGER_SELECTION_PROVIDERS.has(provider) ? "trigger_selection" : null)
+  );
 }
 
 /** The capture trigger a provider's scope applies to. */
@@ -115,6 +142,22 @@ export function readCaptureScope(config: unknown): CaptureScope | null {
         ? scope.excluded.filter(isGmailCategory)
         : [];
       return { kind: "gmail_categories", excluded };
+    }
+    case "trigger_selection": {
+      if (!Array.isArray(scope.slugs)) return null;
+      const slugs = [
+        ...new Set(
+          scope.slugs.filter(
+            (slug): slug is string =>
+              typeof slug === "string" && slug.length > 0,
+          ),
+        ),
+      ];
+      // An empty selection can only come from a malformed or drifted write —
+      // reading it as unscoped keeps capture alive rather than silently
+      // unsubscribing every slug.
+      if (slugs.length === 0) return null;
+      return { kind: "trigger_selection", slugs };
     }
     default:
       return null;
@@ -173,6 +216,17 @@ export function applyScopeToSpecs(
   specs: readonly CaptureTriggerSpec[],
   scope: CaptureScope | null,
 ): CaptureTriggerSpec[] {
+  // Trigger selection filters WHICH slugs subscribe instead of writing
+  // config onto one (all eligible triggers are zero-config).
+  if (scope?.kind === "trigger_selection") {
+    if (!TRIGGER_SELECTION_PROVIDERS.has(provider)) return [...specs];
+    const selected = new Set(scope.slugs);
+    const filtered = specs.filter((spec) => selected.has(spec.slug));
+    // A selection that matches nothing live means the DB slug list drifted —
+    // fall back to unscoped rather than silently killing capture.
+    return filtered.length > 0 ? filtered : [...specs];
+  }
+
   const target = SCOPE_TARGETS[provider];
   if (!target || !scope || scope.kind !== target.kind) {
     return [...specs];

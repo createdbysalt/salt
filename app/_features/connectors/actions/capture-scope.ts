@@ -10,6 +10,7 @@ import {
   scopableProvider,
   scopeKindForProvider,
   scopeTargetSlug,
+  triggerSelectionProvider,
   withCaptureScope,
   GMAIL_CATEGORIES,
   type CaptureScope,
@@ -17,6 +18,7 @@ import {
 } from "@/app/_lib/composio/capture-scope";
 import {
   getCaptureTriggerSpecs,
+  syncCaptureTriggerSelection,
   upsertCaptureTriggerConfig,
 } from "@/app/_lib/composio/trigger-subscriptions";
 
@@ -49,6 +51,10 @@ const ScopeSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("gmail_categories"),
     excluded: z.array(z.enum(GMAIL_CATEGORIES)),
+  }),
+  z.object({
+    kind: z.literal("trigger_selection"),
+    slugs: z.array(z.string().min(1)).min(1),
   }),
 ]);
 
@@ -100,31 +106,62 @@ export async function updateConnectorCaptureScope(input: {
   // Scope null upserts the global spec, which is exactly how a removed
   // filter comes off the live subscription.
   if (integration.capture_enabled === true) {
-    const scopedSpecs = applyScopeToSpecs(
-      provider,
-      await getCaptureTriggerSpecs(provider),
-      scope,
-    );
-    const targetSlug = scopeTargetSlug(provider);
-    const target = scopedSpecs.find((spec) => spec.slug === targetSlug);
-    if (target) {
-      const upserted = await upsertCaptureTriggerConfig(
+    if (scopeKindForProvider(provider) === "trigger_selection") {
+      // Slug-set scope: subscribe the selected slugs, unsubscribe the rest
+      // (P7). A null scope means "everything" — subscribe all.
+      const synced = await syncCaptureTriggerSelection(
         member.workspaceId,
         provider,
-        target,
+        scope,
       );
-      if (!upserted.ok) {
+      if (!synced.ok) {
         return {
           success: false,
-          error: upserted.error ?? "Could not apply the filter.",
+          error: synced.error ?? "Could not apply the filter.",
         };
       }
+    } else {
+      const scopedSpecs = applyScopeToSpecs(
+        provider,
+        await getCaptureTriggerSpecs(provider),
+        scope,
+      );
+      const targetSlug = scopeTargetSlug(provider);
+      const target = scopedSpecs.find((spec) => spec.slug === targetSlug);
+      if (target) {
+        const upserted = await upsertCaptureTriggerConfig(
+          member.workspaceId,
+          provider,
+          target,
+        );
+        if (!upserted.ok) {
+          return {
+            success: false,
+            error: upserted.error ?? "Could not apply the filter.",
+          };
+        }
+      }
+    }
+  }
+
+  // Re-read config before persisting: the live re-subscribe above
+  // (4.2 upsert / P7 selection sync) reconciles captureTriggerIds, and
+  // writing the stale snapshot would clobber that reconciliation.
+  let configToWrite = config;
+  if (integration.capture_enabled === true) {
+    const { data: refreshed } = await admin
+      .from("workspace_integrations")
+      .select("config")
+      .eq("id", integration.id)
+      .maybeSingle();
+    if (refreshed) {
+      configToWrite = (refreshed.config ?? {}) as Record<string, unknown>;
     }
   }
 
   const { error } = await admin
     .from("workspace_integrations")
-    .update({ config: withCaptureScope(config, scope) as never })
+    .update({ config: withCaptureScope(configToWrite, scope) as never })
     .eq("id", integration.id);
 
   if (error) {
@@ -208,6 +245,37 @@ export async function listCaptureScopeOptions(input: {
   }
 
   const admin = createAdminClient();
+
+  // Trigger selection (P7): options are the provider's capture trigger
+  // types, straight from the synced catalog — never a hardcoded slug list.
+  // The trigger slug is the option id; the label is its human name.
+  if (triggerSelectionProvider(provider.data)) {
+    const { data, error } = await admin
+      .from("connector_trigger_types")
+      .select("trigger_slug, name")
+      .eq("toolkit_slug", provider.data)
+      .eq("enabled_for_capture", true)
+      .eq("sync_status", "active")
+      .order("trigger_slug", { ascending: true });
+
+    if (error) {
+      console.error("[capture-scope] trigger option listing failed:", provider.data, error);
+      return { success: false, error: "Could not load options for this connector." };
+    }
+
+    const options = (data ?? [])
+      .filter(
+        (row): row is { trigger_slug: string; name: string } =>
+          typeof row.trigger_slug === "string" && typeof row.name === "string",
+      )
+      .map((row) => ({
+        id: row.trigger_slug,
+        // Catalog names carry a redundant suffix ("Charge Failed Trigger").
+        label: row.name.replace(/\s+trigger$/i, "").trim() || row.trigger_slug,
+      }));
+    return { success: true, options };
+  }
+
   const { data: integration } = await admin
     .from("workspace_integrations")
     .select("id, is_active, composio_connection_id")

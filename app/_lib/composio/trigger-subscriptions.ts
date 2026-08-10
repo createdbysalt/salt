@@ -2,7 +2,7 @@ import "server-only";
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { adapterForToolkit } from "@/app/_features/capture/adapters/registry";
-import { applyScopeToSpecs, readCaptureScope } from "./capture-scope";
+import { applyScopeToSpecs, readCaptureScope, type CaptureScope } from "./capture-scope";
 import { getComposioClient } from "./client";
 
 /**
@@ -518,6 +518,104 @@ export async function upsertCaptureTriggerConfig(
 export interface RefreshTriggerConfigsResult {
   ok: boolean;
   results: Array<{ slug: string; triggerId?: string; error?: string }>;
+}
+
+// ============================================================================
+// Trigger selection (Connector Rules & Learning, P7)
+// ============================================================================
+
+/**
+ * Delete every live instance of one slug on this connection and drop the
+ * deleted ids from config.captureTriggerIds. Best effort like disable:
+ * ids whose delete fails stay stored so disable/reconciliation can retry.
+ */
+export async function unsubscribeCaptureTriggerSlug(
+  workspaceId: string,
+  provider: string,
+  slug: string
+): Promise<{ ok: boolean; error?: string }> {
+  const admin = createAdminClient();
+  const { data: integration } = await admin
+    .from("workspace_integrations")
+    .select("id, composio_connection_id, config")
+    .eq("workspace_id", workspaceId)
+    .eq("provider", provider)
+    .maybeSingle();
+
+  if (!integration?.composio_connection_id) {
+    return { ok: true };
+  }
+
+  let liveIds: string[] = [];
+  try {
+    liveIds = await listLiveInstancesForSlug(integration.composio_connection_id, slug);
+  } catch (error) {
+    // Can't tell what's live — leave stored ids alone so a later
+    // disable/reconciliation can retry instead of leaking a subscription.
+    console.warn(`[capture-triggers] listActive failed during unsubscribe for ${slug}:`, error);
+    return { ok: true };
+  }
+
+  const triggers = triggersApi();
+  const removedIds: string[] = [];
+  for (const id of liveIds) {
+    try {
+      await triggers.delete(id);
+      removedIds.push(id);
+    } catch (error) {
+      console.warn(`[capture-triggers] unsubscribe delete failed for ${id}:`, error);
+    }
+  }
+
+  if (removedIds.length > 0) {
+    const config = (integration.config ?? {}) as Record<string, unknown>;
+    const storedIds = Array.isArray(config.captureTriggerIds)
+      ? (config.captureTriggerIds as unknown[]).filter((id): id is string => typeof id === "string")
+      : [];
+    const nextIds = storedIds.filter((id) => !removedIds.includes(id));
+    if (nextIds.length !== storedIds.length) {
+      await admin
+        .from("workspace_integrations")
+        .update({ config: { ...config, captureTriggerIds: nextIds } as never })
+        .eq("id", integration.id);
+    }
+  }
+
+  return { ok: true };
+}
+
+/**
+ * Apply a trigger_selection scope to a live connection: subscribe the
+ * selected slugs (in-place upsert, so already-subscribed ones keep their
+ * config) and unsubscribe the rest. Selected slugs land FIRST and a
+ * failure aborts before anything is torn down — a failed apply must not
+ * shrink delivery while the stored scope still claims the old selection.
+ * Deselection deletes are best effort after the selected set is live.
+ */
+export async function syncCaptureTriggerSelection(
+  workspaceId: string,
+  provider: string,
+  scope: CaptureScope | null
+): Promise<CaptureTriggerResult> {
+  const specs = await getCaptureTriggerSpecs(provider);
+  const scoped = applyScopeToSpecs(provider, specs, scope);
+  const scopedSlugs = new Set(scoped.map((spec) => spec.slug));
+
+  const created: string[] = [];
+  for (const spec of scoped) {
+    const upserted = await upsertCaptureTriggerConfig(workspaceId, provider, spec);
+    if (!upserted.ok) {
+      return { ok: false, error: upserted.error ?? "Trigger upsert failed" };
+    }
+    if (upserted.triggerId) created.push(upserted.triggerId);
+  }
+
+  for (const spec of specs) {
+    if (scopedSlugs.has(spec.slug)) continue;
+    await unsubscribeCaptureTriggerSlug(workspaceId, provider, spec.slug);
+  }
+
+  return { ok: true, created };
 }
 
 /**
