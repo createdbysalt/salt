@@ -14,9 +14,88 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
+import { getCategoryForConnector } from "@/app/_lib/composio/enrichment/registry";
 import { recordDecisionOutcomeForCapture } from "@/app/_features/capture/services/intelligence/record-capture-outcome";
+import { extractFeedbackEntityForEnvelope } from "@/app/_features/capture/adapters/feedback-entity";
+import { recordEntityObservation } from "@/app/_features/capture/services/entity-profiles";
+import type { CaptureEnvelope } from "@/app/_features/capture/adapters/types";
+import type {
+  CaptureEventType,
+  CaptureSourceType,
+} from "@/app/_features/capture/types";
 
 type AdmissionOutcome = "signal" | "noise" | "candidate";
+
+interface CaptureEntityRow {
+  source_type: string;
+  capture_type: string;
+  title: string | null;
+  source_external_id: string | null;
+  extracted_data: unknown;
+  raw_payload: unknown;
+}
+
+/**
+ * P6 implicit writer: admission outcomes teach entity reputation across ALL
+ * categories (let-in +5, keep-out −5; back-to-Watching is not a verdict).
+ * Keys come from the P2 adapter extraction. Never throws — learning must
+ * not fail the user's action.
+ */
+async function recordAdmissionObservation(
+  workspaceId: string,
+  captureId: string,
+  gateAction: AdmissionOutcome,
+): Promise<void> {
+  if (gateAction === "candidate") return;
+
+  try {
+    const supabase = await createClient();
+    const { data: capture } = await supabase
+      .from("capture_events")
+      .select(
+        "source_type, capture_type, title, source_external_id, extracted_data, raw_payload",
+      )
+      .eq("id", captureId)
+      .eq("workspace_id", workspaceId)
+      .maybeSingle();
+    if (!capture) return;
+
+    const row = capture as CaptureEntityRow;
+    const envelope: CaptureEnvelope = {
+      sourceType: row.source_type as CaptureSourceType,
+      captureType: row.capture_type as CaptureEventType,
+      externalId: row.source_external_id ?? captureId,
+      title: row.title,
+      occurredAt: null,
+      participants: [],
+      threadId: null,
+      extracted:
+        row.extracted_data && typeof row.extracted_data === "object"
+          ? (row.extracted_data as Record<string, unknown>)
+          : {},
+      raw:
+        row.raw_payload && typeof row.raw_payload === "object"
+          ? (row.raw_payload as Record<string, unknown>)
+          : {},
+      noise: null,
+    };
+
+    const entity = await extractFeedbackEntityForEnvelope(envelope);
+    if (!entity) return;
+
+    const category = await getCategoryForConnector(row.source_type);
+    if (!category) return;
+
+    await recordEntityObservation(workspaceId, {
+      provider: row.source_type,
+      category,
+      entity,
+      delta: gateAction === "signal" ? 5 : -5,
+    });
+  } catch (error) {
+    console.error("[admission-decisions] entity observation failed:", error);
+  }
+}
 
 async function setCaptureGateAction(
   captureId: string,
@@ -58,6 +137,7 @@ async function setCaptureGateAction(
       gateAction === "signal" ? "approved" : "rejected",
       context.userId,
     );
+    await recordAdmissionObservation(workspace.id, captureId, gateAction);
   }
 
   revalidatePath("/memory");

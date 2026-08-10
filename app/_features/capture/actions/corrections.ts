@@ -22,11 +22,14 @@ import { revalidatePath } from "next/cache";
 import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { createClient } from "@/app/_lib/supabase/server";
+import { getCategoryForConnector } from "@/app/_lib/composio/enrichment/registry";
 import { extractFeedbackEntityForEnvelope } from "../adapters/feedback-entity";
 import { addRule, checkRules, removeRule } from "../services/rules-manager";
+import { recordEntityObservation } from "../services/entity-profiles";
 import { recordFeedback } from "../services/training-feedback";
 import { recordDecisionOutcomeForCapture } from "../services/intelligence/record-capture-outcome";
 import type { CaptureEnvelope } from "../adapters/types";
+import type { FeedbackEntity } from "../adapters/types";
 import type {
   CaptureEventType,
   CaptureSourceType,
@@ -87,6 +90,33 @@ function envelopeForCaptureRow(row: CaptureRowForCorrection): CaptureEnvelope {
         : {},
     noise: null,
   };
+}
+
+/**
+ * P6 implicit writer: a user correction is the strongest learning signal.
+ * Records ±10 reputation on the capture's entity — category-dispatched, so
+ * email senders accrue on capture_sender_profiles and everything else on
+ * connector_entity_profiles. Never throws: learning must not fail the
+ * correction itself.
+ */
+async function recordCorrectionObservation(
+  workspaceId: string,
+  provider: string,
+  entity: FeedbackEntity,
+  delta: number,
+): Promise<void> {
+  try {
+    const category = await getCategoryForConnector(provider);
+    if (!category) return;
+    await recordEntityObservation(workspaceId, {
+      provider,
+      category,
+      entity,
+      delta,
+    });
+  } catch (error) {
+    console.error("[corrections] entity observation failed:", error);
+  }
 }
 
 async function setGateAction(
@@ -164,6 +194,12 @@ export async function alwaysAllowEntity(
     "approved",
     context.userId ?? undefined,
   );
+  await recordCorrectionObservation(
+    workspace.id,
+    capture.source_type,
+    entity,
+    10,
+  );
 
   revalidatePath("/sources");
   revalidatePath("/memory");
@@ -214,6 +250,10 @@ export async function removeBlockRuleForCapture(
   if (gateError) {
     return { success: false, error: gateError };
   }
+
+  // Removing a keep-out rule says the entity was wrongly denied — a
+  // positive observation, weaker than an explicit always-allow.
+  await recordCorrectionObservation(workspace.id, capture.source_type, entity, 5);
 
   revalidatePath("/sources");
   revalidatePath("/memory");

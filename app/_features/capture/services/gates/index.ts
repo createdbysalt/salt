@@ -33,6 +33,8 @@ import {
 } from "./admission-gate";
 import { checkRules } from "../rules-manager";
 import { extractFeedbackEntityForEnvelope } from "../../adapters/feedback-entity";
+import { loadEntityReputation } from "../entity-profiles";
+import { getCategoryForConnector } from "@/app/_lib/composio/enrichment/registry";
 import { extractAdmissionSignals } from "./admission-signals";
 import { classifyColdInboundIntent, intentEarnsAdmission } from "./cold-intent";
 import { EMAIL_SCAN_SOURCE_TYPES } from "../../adapters/categories/email";
@@ -155,6 +157,26 @@ export async function runGatePipeline(input: GatePipelineInput): Promise<GatePip
     envelope.extracted as Record<string, unknown>
   );
 
+  // Learned reputation for the capture's entity (P6): corrections and
+  // admission outcomes accrue here, and this read repairs the dead end
+  // where reputation_score was written but never read by any decision path.
+  let entityReputation: number | null = null;
+  if (feedbackEntity) {
+    try {
+      const category = await getCategoryForConnector(envelope.sourceType);
+      if (category) {
+        const reputation = await loadEntityReputation(workspaceId, {
+          provider: envelope.sourceType,
+          category,
+          entity: feedbackEntity,
+        });
+        entityReputation = reputation?.score ?? null;
+      }
+    } catch (error) {
+      console.error("[gate-pipeline] entity reputation lookup failed:", error);
+    }
+  }
+
   let hasCalendarMeeting = false;
   let hasPayment = false;
   let hasSharedFile = false;
@@ -180,6 +202,7 @@ export async function runGatePipeline(input: GatePipelineInput): Promise<GatePip
     hasCalendarMeeting,
     hasPayment,
     hasSharedFile,
+    entityReputation,
   };
 
   const admissionResult = await runAdmissionGate(admissionInput);

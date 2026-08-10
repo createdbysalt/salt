@@ -78,7 +78,8 @@ export interface AdmissionSignal {
     | "calendar_meeting"
     | "payment_customer"
     | "shared_file"
-    | "intent_inquiry";
+    | "intent_inquiry"
+    | "entity_reputation";
   weight: number;
   evidence?: string;
 }
@@ -148,4 +149,12 @@ export interface AdmissionGateInput {
   hasCalendarMeeting: boolean;
   hasPayment: boolean;
   hasSharedFile: boolean;
+  /**
+   * Learned entity reputation 0-100 (P6) — the capture's feedbackEntity
+   * looked up in the workspace's profiles. Null when no history exists.
+   * Esteemed entities (≥70) earn admission weight; burned ones (≤30) count
+   * against. This is the read side that repairs the reputation dead end:
+   * corrections/admission feedback was written but never previously read.
+   */
+  entityReputation?: number | null;
 }

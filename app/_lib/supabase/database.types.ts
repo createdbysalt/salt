@@ -1333,6 +1333,66 @@ export type Database = {
         }
         Relationships: []
       }
+      connector_entity_profiles: {
+        Row: {
+          category: string
+          created_at: string
+          entity_key: string
+          entity_type: string
+          id: string
+          last_observation_at: string | null
+          observation_count: number
+          provider: string | null
+          reputation_score: number
+          stats: Json
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          entity_key: string
+          entity_type: string
+          id?: string
+          last_observation_at?: string | null
+          observation_count?: number
+          provider?: string | null
+          reputation_score?: number
+          stats?: Json
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          entity_key?: string
+          entity_type?: string
+          id?: string
+          last_observation_at?: string | null
+          observation_count?: number
+          provider?: string | null
+          reputation_score?: number
+          stats?: Json
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "connector_entity_profiles_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "studios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "connector_entity_profiles_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       connector_overrides: {
         Row: {
           api_key_field_name: string | null

@@ -5,7 +5,8 @@ vi.mock("@/app/_lib/supabase/admin", () => ({
   createAdminClient: () => ({}),
 }));
 
-import { sourceTypesForCategory } from "./admission-gate";
+import { sourceTypesForCategory, runAdmissionGate } from "./admission-gate";
+import type { AdmissionGateInput } from "../../types/gate-result";
 
 /**
  * Relationship signals derive their source-type filters from category
@@ -50,5 +51,69 @@ describe("sourceTypesForCategory", () => {
 
   it("unknown categories return an empty list, not a throw", () => {
     expect(sourceTypesForCategory("nonexistent")).toEqual([]);
+  });
+});
+
+/**
+ * Entity reputation signal (Connector Rules & Learning, P6): the read side
+ * of learned profiles. Esteemed entities earn weight, burned ones lose it —
+ * bounded at ±20 so reputation nudges but never outvotes relationship
+ * signals.
+ */
+describe("runAdmissionGate — entity_reputation signal (P6)", () => {
+  const base: AdmissionGateInput = {
+    workspaceId: "ws-1",
+    userEmail: "me@example.com",
+    senderEmail: "sam@example.com",
+    threadId: null,
+    isReply: false,
+    youInitiated: false,
+    hasCalendarMeeting: false,
+    hasPayment: false,
+    hasSharedFile: false,
+  };
+
+  it("esteemed entities (≥70) earn +20 — enough to admit an otherwise-cold contact partway", async () => {
+    const result = await runAdmissionGate({ ...base, entityReputation: 80 });
+    expect(result.action).toBe("noise"); // 20 < 30 threshold, but the signal is recorded
+    if (result.action === "noise") {
+      expect(result.category).toBe("low_signal");
+    }
+  });
+
+  it("esteemed reputation tips a borderline candidate over the bar", async () => {
+    // shared_file (20) alone is below the 30 threshold; +20 reputation clears it.
+    const result = await runAdmissionGate({
+      ...base,
+      hasSharedFile: true,
+      entityReputation: 75,
+    });
+    expect(result.action).toBe("candidate");
+    if (result.action === "candidate") {
+      expect(result.confidence).toBe(40);
+      expect(result.signals.map((s) => s.type)).toContain("entity_reputation");
+    }
+  });
+
+  it("burned entities (≤30) lose 20 — a weak relationship no longer clears the bar", async () => {
+    const result = await runAdmissionGate({
+      ...base,
+      hasSharedFile: true,
+      entityReputation: 20,
+    });
+    expect(result.action).toBe("noise");
+  });
+
+  it("mid-range reputation adds no signal", async () => {
+    const result = await runAdmissionGate({ ...base, entityReputation: 50 });
+    expect(result.action).toBe("noise");
+    if (result.action === "noise") {
+      expect(result.category).toBe("cold_inbound");
+    }
+  });
+
+  it("no history (null) behaves exactly as before", async () => {
+    const result = await runAdmissionGate({ ...base, entityReputation: null });
+    expect(result.action).toBe("noise");
   });
 });

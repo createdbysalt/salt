@@ -115,7 +115,30 @@ export async function runAdmissionGate(
     totalScore += 20;
   }
 
-  const confidence = Math.min(100, totalScore);
+  // Learned entity reputation (Connector Rules & Learning, P6): corrections
+  // and admission outcomes accrue per-entity reputation; this is the read
+  // side. Esteemed entities earn weight; burned entities lose it. Bounded
+  // (±20) so a learned profile nudges the bar but never outvotes the
+  // relationship signals above.
+  if (typeof input.entityReputation === "number") {
+    if (input.entityReputation >= 70) {
+      signals.push({
+        type: "entity_reputation",
+        weight: 20,
+        evidence: "You've positively engaged with them before",
+      });
+      totalScore += 20;
+    } else if (input.entityReputation <= 30) {
+      signals.push({
+        type: "entity_reputation",
+        weight: -20,
+        evidence: "You've kept their items out before",
+      });
+      totalScore -= 20;
+    }
+  }
+
+  const confidence = Math.max(0, Math.min(100, totalScore));
 
   if (confidence >= ADMISSION_THRESHOLD) {
     return {
