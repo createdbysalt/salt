@@ -68,7 +68,7 @@ export const sourcesRoutes = {
 export const memoryTabRoutes = {
   map: "/memory",
   activity: "/memory?tab=activity",
-  rules: "/memory?tab=rules",
+  customize: "/memory?tab=customize",
 } as const;
 
 export const memoryRoutes = {

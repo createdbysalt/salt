@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildMemoryPath, parseMemoryTab } from "./memory-tab-routing";
+import {
+  buildMemoryPath,
+  parseCustomizeType,
+  parseMemoryTab,
+} from "./memory-tab-routing";
 
 describe("memory tab routing helpers", () => {
   it("defaults to map tab", () => {
@@ -9,18 +13,54 @@ describe("memory tab routing helpers", () => {
     expect(parseMemoryTab("something-else")).toBe("map");
   });
 
-  it("parses activity and rules tabs", () => {
+  it("parses activity and customize tabs", () => {
     expect(parseMemoryTab("activity")).toBe("activity");
-    expect(parseMemoryTab("rules")).toBe("rules");
+    expect(parseMemoryTab("customize")).toBe("customize");
   });
 
   it("treats filter as a legacy alias for activity", () => {
     expect(parseMemoryTab("filter")).toBe("activity");
   });
 
+  it("treats rules as a legacy alias for customize", () => {
+    expect(parseMemoryTab("rules")).toBe("customize");
+  });
+
   it("builds shareable memory URLs", () => {
     expect(buildMemoryPath("map")).toBe("/memory");
     expect(buildMemoryPath("activity")).toBe("/memory?tab=activity");
-    expect(buildMemoryPath("rules")).toBe("/memory?tab=rules");
+    expect(buildMemoryPath("customize")).toBe("/memory?tab=customize");
+  });
+});
+
+describe("customize type param", () => {
+  it("defaults to person", () => {
+    expect(parseCustomizeType(null)).toBe("person");
+    expect(parseCustomizeType(undefined)).toBe("person");
+    expect(parseCustomizeType("nonsense")).toBe("person");
+  });
+
+  it("parses each v1 record type", () => {
+    expect(parseCustomizeType("person")).toBe("person");
+    expect(parseCustomizeType("org")).toBe("org");
+    expect(parseCustomizeType("work")).toBe("work");
+    expect(parseCustomizeType("resource")).toBe("resource");
+    expect(parseCustomizeType("meeting")).toBe("meeting");
+  });
+
+  it("round-trips through buildMemoryPath", () => {
+    expect(buildMemoryPath("customize", "org")).toBe(
+      "/memory?tab=customize&type=org",
+    );
+    expect(buildMemoryPath("customize", "meeting")).toBe(
+      "/memory?tab=customize&type=meeting",
+    );
+    // The default type is omitted from the URL.
+    expect(buildMemoryPath("customize", "person")).toBe(
+      "/memory?tab=customize",
+    );
+    // The type param only applies to the customize tab.
+    expect(buildMemoryPath("activity", "org")).toBe("/memory?tab=activity");
+    expect(buildMemoryPath("map", "org")).toBe("/memory");
   });
 });
