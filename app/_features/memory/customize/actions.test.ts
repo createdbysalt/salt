@@ -195,6 +195,23 @@ describe("addCustomizeEntry", () => {
     });
   });
 
+  it("is idempotent — the same sentence twice stays one line", async () => {
+    const input = {
+      entityType: "person",
+      body: "Accountants are not clients",
+      source: "user",
+    };
+    const first = await addCustomizeEntry(input);
+    const second = await addCustomizeEntry(input);
+
+    expect(first.success).toBe(true);
+    expect(second.success).toBe(true);
+    expect(h.db.rows).toHaveLength(1);
+    if (first.success && second.success) {
+      expect(second.data.id).toBe(first.data.id);
+    }
+  });
+
   it("rejects a body over 500 characters", async () => {
     const result = await addCustomizeEntry({
       entityType: "person",

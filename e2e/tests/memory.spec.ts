@@ -107,9 +107,9 @@ test.describe("Memory — Customize tab", () => {
     ).toBeVisible({ timeout: 15000 });
 
     const pills = page.getByRole("group", { name: "Record type" });
-    await expect(pills.getByRole("button", { name: "People" })).toBeVisible();
+    await expect(pills.getByRole("link", { name: "People" })).toBeVisible();
 
-    await pills.getByRole("button", { name: "Work" }).click();
+    await pills.getByRole("link", { name: "Work" }).click();
     await expect(page).toHaveURL(/\/memory\?tab=customize&type=work/);
 
     // Deep link lands on the same doc directly.
@@ -140,7 +140,7 @@ test.describe("Memory — Customize tab", () => {
     const box = page.getByRole("textbox", { name: /tell salt what to look for/i });
     await expect(box).toBeVisible();
 
-    const probe = "e2e probe: prefer morning meetings";
+    const probe = `e2e probe: prefer morning meetings ${Date.now()}`;
     await box.fill(probe);
     await page.getByRole("button", { name: /remember this/i }).click();
 

@@ -179,17 +179,20 @@ function CustomizationsZone({
   const router = useRouter();
   const [value, setValue] = React.useState("");
   const [busy, setBusy] = React.useState(false);
+  const busyRef = React.useRef(false);
   const [revertingId, setRevertingId] = React.useState<string | null>(null);
 
   const submit = async () => {
     const body = value.trim();
-    if (!body) return;
+    if (!body || busyRef.current) return;
+    busyRef.current = true;
     setBusy(true);
     const result = await addCustomizeEntry({
       entityType,
       body,
       source: "user",
     });
+    busyRef.current = false;
     setBusy(false);
     if (result.success) {
       setValue("");

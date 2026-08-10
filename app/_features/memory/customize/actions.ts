@@ -70,6 +70,41 @@ export async function addCustomizeEntry(input: {
     };
   }
 
+  // Idempotency: the same sentence twice is one line, not twins — a
+  // double-submit (impatient click, retried request) must not duplicate.
+  const admin = createAdminClient();
+  const { data: existing } = await admin
+    .from("memory_customize_entries")
+    .select("id, entity_type, body, source, status, created_at")
+    .eq("workspace_id", member.workspaceId)
+    .eq("entity_type", parsed.data.entityType)
+    .eq("body", parsed.data.body)
+    .eq("status", "active")
+    .maybeSingle();
+
+  if (existing) {
+    const row = existing as {
+      id: string;
+      entity_type: string;
+      body: string;
+      source: string;
+      status: string;
+      created_at: string;
+    };
+    return {
+      success: true,
+      data: {
+        id: row.id,
+        entityType: row.entity_type as CustomizeEntry["entityType"],
+        body: row.body,
+        source: row.source as CustomizeEntry["source"],
+        status: row.status as CustomizeEntry["status"],
+        createdAt: row.created_at,
+      },
+      enforcement: detectHardExclusion(row.body) ? "enforced" : "advisory",
+    };
+  }
+
   // Track B: a hard exclusion with a parseable target compiles to a
   // workspace deny rule BEFORE the entry is stored — an enforced line
   // without its rule would be a lie.
@@ -94,7 +129,6 @@ export async function addCustomizeEntry(input: {
     }
   }
 
-  const admin = createAdminClient();
   const { data, error } = await admin
     .from("memory_customize_entries")
     .insert({
