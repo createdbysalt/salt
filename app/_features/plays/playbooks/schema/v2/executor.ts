@@ -973,58 +973,117 @@ function stringifyTemplateValue(value: unknown): string {
   return String(value);
 }
 
+function isTemplateIdentifierChar(char: string): boolean {
+  return /[a-zA-Z0-9_]/.test(char);
+}
+
+function resolveTemplateVarPath(
+  varPath: string,
+  stepData: Map<string, unknown>,
+  context: ExecutionContextV2
+): unknown {
+  if (varPath.startsWith("context.")) {
+    return getNestedValue(context as unknown as Record<string, unknown>, varPath.slice(8));
+  }
+
+  if (varPath === "capture" || varPath.startsWith("capture.")) {
+    return varPath === "capture"
+      ? context.captureContext
+      : getNestedValue(
+          (context.captureContext ?? {}) as unknown as Record<string, unknown>,
+          varPath.slice(8)
+        );
+  }
+
+  const [stepId, ...rest] = varPath.split(".");
+  const stepResult = stepData.get(stepId);
+  if (rest.length > 0 && stepResult != null) {
+    return getNestedValue(stepResult as Record<string, unknown>, rest.join("."));
+  }
+  return stepResult;
+}
+
+/** Avoid regex on playbook templates (CodeQL js/polynomial-redos). */
+function replaceCapturePlaceholders(
+  input: string,
+  context: ExecutionContextV2
+): string {
+  const marker = "$capture.";
+  let result = "";
+  let cursor = 0;
+
+  while (cursor < input.length) {
+    const start = input.indexOf(marker, cursor);
+    if (start === -1) {
+      result += input.slice(cursor);
+      break;
+    }
+
+    result += input.slice(cursor, start);
+    let fieldEnd = start + marker.length;
+    while (fieldEnd < input.length && isTemplateIdentifierChar(input[fieldEnd]!)) {
+      fieldEnd += 1;
+    }
+
+    if (fieldEnd === start + marker.length) {
+      result += input[start]!;
+      cursor = start + 1;
+      continue;
+    }
+
+    const field = input.slice(start + marker.length, fieldEnd);
+    const capture = context.captureContext;
+    if (!capture) {
+      result += input.slice(start, fieldEnd);
+    } else {
+      const value = (capture as unknown as Record<string, unknown>)[field];
+      result += stringifyTemplateValue(value);
+    }
+    cursor = fieldEnd;
+  }
+
+  return result;
+}
+
+/** Avoid regex on interpolated output (CodeQL js/polynomial-redos). */
+function replaceDoubleBracePlaceholders(
+  input: string,
+  stepData: Map<string, unknown>,
+  context: ExecutionContextV2
+): string {
+  let result = "";
+  let cursor = 0;
+
+  while (cursor < input.length) {
+    const open = input.indexOf("{{", cursor);
+    if (open === -1) {
+      result += input.slice(cursor);
+      break;
+    }
+
+    result += input.slice(cursor, open);
+    const close = input.indexOf("}}", open + 2);
+    if (close === -1) {
+      result += input.slice(open);
+      break;
+    }
+
+    const varPath = input.slice(open + 2, close).trim();
+    const value = resolveTemplateVarPath(varPath, stepData, context);
+    result += stringifyTemplateValue(value);
+    cursor = close + 2;
+  }
+
+  return result;
+}
+
 function interpolatePrompt(
   template: string,
   stepData: Map<string, unknown>,
   context: ExecutionContextV2
 ): string {
-  let result = template;
-
-  // $capture.<field> — capture-scoped context (email-triage style definitions).
-  const capturePattern = /\$capture\.([a-zA-Z0-9_]+)/g;
-  result = result.replace(capturePattern, (token, field: string) => {
-    const capture = context.captureContext;
-    if (!capture) return token;
-    const value = (capture as unknown as Record<string, unknown>)[field];
-    return stringifyTemplateValue(value);
-  });
-
-  const varPattern = /\{\{([^}]+)\}\}/g;
-  let match;
-
-  while ((match = varPattern.exec(result)) !== null) {
-    const varPath = match[1].trim();
-    let value: unknown;
-
-    if (varPath.startsWith("context.")) {
-      value = getNestedValue(context as unknown as Record<string, unknown>, varPath.slice(8));
-    } else if (varPath === "capture" || varPath.startsWith("capture.")) {
-      value = varPath === "capture"
-        ? context.captureContext
-        : getNestedValue(
-            (context.captureContext ?? {}) as unknown as Record<string, unknown>,
-            varPath.slice(8)
-          );
-    } else {
-      const [stepId, ...rest] = varPath.split(".");
-      const stepResult = stepData.get(stepId);
-      if (rest.length > 0 && stepResult != null) {
-        value = getNestedValue(stepResult as Record<string, unknown>, rest.join("."));
-      } else {
-        value = stepResult;
-      }
-    }
-
-    const replacement = stringifyTemplateValue(value);
-    result =
-      result.slice(0, match.index) +
-      replacement +
-      result.slice(match.index + match[0].length);
-    // Resume matching after the replacement to keep indices consistent.
-    varPattern.lastIndex = match.index + replacement.length;
-  }
-
-  return result;
+  const withCapture = replaceCapturePlaceholders(template, context);
+  return replaceDoubleBracePlaceholders(withCapture, stepData, context);
 }
 
 function buildSystemPrompt(voice?: VoiceProfile): string {

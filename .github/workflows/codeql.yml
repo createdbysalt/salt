@@ -46,13 +46,7 @@ jobs:
       uses: github/codeql-action/analyze@v3
       with:
         category: "/language:${{matrix.language}}"
-        # IMPORTANT:
-        # This repository currently has CodeQL "Default setup" enabled.
-        # GitHub rejects SARIF uploads from "advanced" (workflow) CodeQL analyses on PRs in that mode:
-        # "CodeQL analyses from advanced configurations cannot be processed when the default setup is enabled"
-        #
-        # Default CodeQL setup is enabled on this repo — GitHub rejects SARIF from
-        # advanced workflow uploads on both PRs and push. Run analysis here; let
-        # default setup own uploads to the Security tab.
-        upload: false
+        # Upload SARIF to the Security tab. Requires CodeQL Default setup disabled
+        # in GitHub repo settings (Settings → Code security → Code scanning).
+        upload: true
 

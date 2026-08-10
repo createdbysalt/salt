@@ -69,7 +69,8 @@ async function resolveWorkspaceOwnerId(
 
   if (error) {
     console.error(
-      `[backfill-inline-scan] Failed to resolve owner for ${workspaceId}:`,
+      "[backfill-inline-scan] Failed to resolve owner for workspace:",
+      workspaceId,
       error.message
     );
     return null;

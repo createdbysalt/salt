@@ -434,7 +434,8 @@ export async function backfillGmailCaptures(
       debug.inlineScanned = inline.scanned;
       if (inline.errors.length > 0) {
         console.warn(
-          `[gmail-backfill] Inline scan warnings for ${workspaceId}:`,
+          "[gmail-backfill] Inline scan warnings for workspace:",
+          workspaceId,
           inline.errors.slice(0, 3).join(" | ")
         );
       }
