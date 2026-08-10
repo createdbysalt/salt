@@ -318,6 +318,37 @@ test.describe("Sources — Customize tab (intake policy)", () => {
     ).toHaveCount(0, { timeout: 10_000 });
   });
 
+  test("email area shows gate choices and a Check for new items button", async ({ page }) => {
+    await gotoAppRoute(page, "/sources?tab=customize&category=email");
+
+    await expect(
+      page.getByRole("heading", { name: /^customize$/i, level: 2 }),
+    ).toBeVisible({ timeout: 15000 });
+
+    // Requires a connected email account in test data.
+    const doing = page.getByRole("heading", { name: /what i'm doing/i });
+    if (!(await doing.isVisible({ timeout: 5_000 }).catch(() => false))) {
+      return;
+    }
+
+    // Gate choices are real controls, not copy — both choices render their
+    // option groups.
+    await expect(
+      page.getByRole("group", { name: /automated senders/i }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("group", { name: /people you don't know/i }),
+    ).toBeVisible();
+
+    // "Check for new items" runs the workspace reconcile+scan; the copy
+    // must never say "sync" (banned word).
+    const checkButton = page.getByRole("button", {
+      name: /check for new items/i,
+    }).first();
+    await expect(checkButton).toBeVisible();
+    await expect(checkButton).toBeEnabled();
+  });
+
   test("detail pane Activity header deep-links to Customize", async ({ page }) => {
     await gotoAppRoute(page, "/sources");
 

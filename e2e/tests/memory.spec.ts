@@ -25,14 +25,14 @@ test.describe("Memory Map surface", () => {
 });
 
 test.describe("Memory surface tabs", () => {
-  test("shows Map / Activity / Rules tab bar", async ({ page }) => {
+  test("shows Map / Activity / Customize tab bar", async ({ page }) => {
     await gotoAppRoute(page, "/memory");
 
     const sections = page.getByRole("navigation", { name: "Memory sections" });
     await expect(sections).toBeVisible({ timeout: 15000 });
     await expect(sections.getByRole("link", { name: "Map" })).toBeVisible();
     await expect(sections.getByRole("link", { name: "Activity" })).toBeVisible();
-    await expect(sections.getByRole("link", { name: "Rules" })).toBeVisible();
+    await expect(sections.getByRole("link", { name: "Customize" })).toBeVisible();
   });
 
   test("Activity tab shows Watching / Handled pill (P11: Kept out moved to Sources)", async ({
@@ -64,14 +64,6 @@ test.describe("Memory surface tabs", () => {
     await page.keyboard.press("Escape");
   });
 
-  test("Rules tab shows care capabilities and admission policy", async ({ page }) => {
-    await gotoAppRoute(page, "/memory?tab=rules");
-
-    await expect(
-      page.getByRole("heading", { name: /^rules$/i, level: 2 }),
-    ).toBeVisible({ timeout: 15000 });
-  });
-
   test("tab links navigate between sections", async ({ page }) => {
     await gotoAppRoute(page, "/memory");
 
@@ -84,10 +76,10 @@ test.describe("Memory surface tabs", () => {
       page.getByRole("heading", { name: /^activity$/i, level: 2 }),
     ).toBeVisible({ timeout: 15000 });
 
-    await sections.getByRole("link", { name: "Rules" }).click();
-    await expect(page).toHaveURL(/\/memory\?tab=rules/);
+    await sections.getByRole("link", { name: "Customize" }).click();
+    await expect(page).toHaveURL(/\/memory\?tab=customize/);
     await expect(
-      page.getByRole("heading", { name: /^rules$/i, level: 2 }),
+      page.getByRole("heading", { name: /^customize$/i, level: 2 }),
     ).toBeVisible({ timeout: 15000 });
 
     await sections.getByRole("link", { name: "Map" }).click();
@@ -95,5 +87,71 @@ test.describe("Memory surface tabs", () => {
     await expect(page.getByRole("heading", { name: /^memory map$/i })).toBeVisible({
       timeout: 15000,
     });
+  });
+});
+
+test.describe("Memory — Customize tab", () => {
+  test("?tab=rules legacy alias resolves to Customize", async ({ page }) => {
+    await gotoAppRoute(page, "/memory?tab=rules");
+
+    await expect(
+      page.getByRole("heading", { name: /^customize$/i, level: 2 }),
+    ).toBeVisible({ timeout: 15000 });
+  });
+
+  test("record-type pills switch docs and deep-link via ?type=", async ({ page }) => {
+    await gotoAppRoute(page, "/memory?tab=customize");
+
+    await expect(
+      page.getByRole("heading", { name: /^customize$/i, level: 2 }),
+    ).toBeVisible({ timeout: 15000 });
+
+    const pills = page.getByRole("group", { name: "Record type" });
+    await expect(pills.getByRole("button", { name: "People" })).toBeVisible();
+
+    await pills.getByRole("button", { name: "Work" }).click();
+    await expect(page).toHaveURL(/\/memory\?tab=customize&type=work/);
+
+    // Deep link lands on the same doc directly.
+    await gotoAppRoute(page, "/memory?tab=customize&type=meeting");
+    await expect(
+      page.getByRole("heading", { name: /^customize$/i, level: 2 }),
+    ).toBeVisible({ timeout: 15000 });
+  });
+
+  test("the read-only defaults zone renders above the writable doc", async ({ page }) => {
+    await gotoAppRoute(page, "/memory?tab=customize");
+
+    await expect(
+      page.getByRole("heading", { name: /what i look for/i }),
+    ).toBeVisible({ timeout: 15000 });
+    await expect(
+      page.getByRole("heading", { name: /your customizations/i }),
+    ).toBeVisible();
+  });
+
+  test("add and revert a customization entry", async ({ page }) => {
+    await gotoAppRoute(page, "/memory?tab=customize&type=work");
+
+    await expect(
+      page.getByRole("heading", { name: /^customize$/i, level: 2 }),
+    ).toBeVisible({ timeout: 15000 });
+
+    const box = page.getByRole("textbox", { name: /tell salt what to look for/i });
+    await expect(box).toBeVisible();
+
+    const probe = "e2e probe: prefer morning meetings";
+    await box.fill(probe);
+    await page.getByRole("button", { name: /remember this/i }).click();
+
+    // The line lands attributed — "You added this" — with its honesty note.
+    const row = page.locator("li").filter({ hasText: probe });
+    await expect(row).toBeVisible({ timeout: 10_000 });
+    await expect(row.getByText(/you added this/i)).toBeVisible();
+
+    await row
+      .getByRole("button", { name: /revert this customization/i })
+      .click();
+    await expect(page.getByText(probe)).toHaveCount(0, { timeout: 10_000 });
   });
 });

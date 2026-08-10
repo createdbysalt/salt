@@ -16,11 +16,11 @@ Sources is the intake surface at `/sources` — where Salt learns from. It answe
 
 ## Customize = intake policy
 
-Sources → Customize is the **intake policy** surface (what reaches the stream). Memory → Rules is **care capabilities** (what Salt does for existing memories) — same word family, different layer; don't merge them.
+Sources → Customize is the **intake policy** surface (what reaches the stream — the plumbing). Memory → Customize is **semantic steering** (what Salt looks for in records) — same word family, different layer; don't merge them.
 
 - Areas are the user-facing projection of the engineering `ConnectorCategory` enum: `CATEGORY_TO_AREA` / `AREA_CATEGORIES` / `AREA_LABELS` in `capture/adapters/rule-entities.ts` are the single source (the Activity area filter derives its labels there too). `documents` folds into Storage, `communication` → Messaging, `project_management` → Projects.
 - Transparency layer is read-only and honest: seeded upstream filters render live from `connector_trigger_types.capture_trigger_config` via `capture/adapters/default-policy.ts` + the `PROVIDER_ARG_TRANSLATORS` registry (`connectors/utils/activity-format.ts`) — never hardcode filter copy that can drift from the DB. Static curated bullets stay few and categorical.
-- The smart parse box (`components/RuleInputBox.tsx` + `capture/adapters/parse-rule-input.ts`) never guesses — ambiguous input rejects with a hint. The zero-typing path stays Kept Out corrections.
+- The Tell Salt box (`components/TellSaltBox.tsx` + `capture/adapters/parse-rule-input.ts`) never guesses — ambiguous deterministic input rejects with a hint; natural-language sentences go through the metered compile route with a confirm step. The zero-typing path stays Kept Out corrections.
 - Rules are provider-scoped or workspace-wide (`provider NULL`, editable under "All connectors") — **no category- or area-scoped rules in v1**, no `connector_rules` migration. Server-side write validation still uses the provider's own category vocabulary (`ruleEntityOptionsForCategory`).
 
 ## Kept Out corrections (Connector Rules & Learning, P4)

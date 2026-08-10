@@ -194,7 +194,7 @@ Route: `/memory`
 |-----|------|
 | **Map** | Graph of records and relationships |
 | **Activity** | Transparency: **Watching** / **Handled** (`?tab=filter` is a legacy alias) |
-| **Rules** | Capability toggles + auto-apply threshold |
+| **Customize** | Semantic steering: per-record-type docs + trust threshold + learned weights (`?tab=rules` is a legacy alias) |
 
 **Kept out** (admission noise/drop/held) and the admission **blocklist** live on **Sources → Activity**, not here — they describe what never entered Memory.
 
@@ -205,11 +205,15 @@ Route: `/memory`
 
 Activity is a window into what Salt is doing, not a work queue. No nav/HQ badge counts for Watching.
 
-### Rules
+### Customize (2026-08-10)
 
-- Capability on/off (`getCareCapabilityStates` / Rules UI)
-- Workspace threshold slider → `workspaces.memory_care_auto_apply_threshold`
-- Blocklist management links out to Sources → Activity → Kept Out (where it lives)
+Semantic steering — what Salt looks for, per record type. Two-zone doc: Salt's read-only defaults rendered live from the field registry, and the user's writable `memory_customize_entries` (attributed, revertible). Care is always on — no capability toggles on the surface.
+
+Consumption (Phase M4):
+- **Track A (advisory)** — active entries are formatted into a capped, fenced prompt block (`customize/prompt-block.ts`) and injected at the existing metered LLM reads: cold-intent classification, the email analyzer, the generic signal extractor, and Ask Salt's system sections.
+- **Track B (enforced)** — entries that parse as hard exclusions with a concrete target compile to workspace-scope `connector_rules` deny rules; write-time validation refuses instructions targeting `user_only` fields. The UI badges each line "enforced" vs "advisory" using the same detector, so the promise never exceeds the mechanism.
+
+The doors (Phase M5): corrections ("Want me to remember this?" after a dismissal) and Ask Salt's `remember_customization` tool share one classifier (`customize/correction-routing.ts`) that routes entity-expressible exclusions to Sources rules and generalizations to the right record-type doc, deep-linking to where the instruction landed.
 
 ---
 
