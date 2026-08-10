@@ -222,7 +222,7 @@ export function PlayCardDetailModal({
             <div className="relative flex items-start gap-4 px-6 py-5">
               <PlayCardIconTile visual={visual} />
               <div className="min-w-0 flex-1">
-                <p
+                <div
                   className={cn(
                     "flex min-w-0 items-center gap-2.5 text-[10px] font-bold uppercase tracking-[0.14em]",
                     visual.styles?.text ?? "text-muted-foreground"
@@ -243,7 +243,7 @@ export function PlayCardDetailModal({
                       className="shrink-0 normal-case tracking-normal"
                     />
                   ) : null}
-                </p>
+                </div>
                 <div className="mt-1 flex items-center gap-3">
                   <h2 className="min-w-0 font-display text-[19px] leading-snug tracking-tight text-foreground">
                     {isHandled ? vm.handled!.outcomeLabel : (vm.headline ?? vm.subject)}

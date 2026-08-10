@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -22,25 +22,51 @@ import {
   History,
   ArrowRight,
 } from "lucide-react";
-import { Badge, Checkbox } from "@repo/ui";
-import type {
-  PlayActivityCategory,
-  PlayActivityItem,
-  PlayActivityRunRow,
+import {
+  Badge,
+  Checkbox,
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  getPaginationRange,
+  toIsoDate,
+} from "@repo/ui";
+import { toast } from "sonner";
+import {
+  ACTIVITY_PAGE_SIZES,
+  DEFAULT_ACTIVITY_PAGE_SIZE,
+  type ActivityPageSize,
+  type PlayActivityCategory,
+  type PlayActivityCounts,
+  type PlayActivityItem,
+  type PlayActivityRunRow,
 } from "@/app/_features/plays/types";
 import { mapPlayRunToActivity } from "@/app/_features/plays/utils/map-play-run-to-activity";
 import { SourceExternalLink } from "@/app/_features/capture/components/SourceExternalLink";
-import { loadMoreActivityRuns } from "@/app/_features/plays/actions/load-more-activity";
+import { getActivityPage } from "@/app/_features/plays/actions/get-activity-page";
 import { undoAutoAppliedAction } from "@/app/_features/plays/actions";
 import { cn } from "@repo/utils";
 import { PlaysSearchField } from "./PlaysSearchField";
+import {
+  ActivityDateRangeFilter,
+  formatActivityDateRange,
+  type ActivityDateRange,
+} from "./ActivityDateRangeFilter";
 import {
   getSectionColorStyles,
   getSectionIcon,
 } from "./PlaybookSectionNav";
 
 const APPLE_EASE = [0.32, 0.72, 0, 1] as const;
-const PAGE_SIZE = 50;
 
 const CATEGORY_STYLES: Record<
   PlayActivityCategory,
@@ -68,8 +94,6 @@ const CATEGORY_STYLES: Record<
   },
 };
 
-type DateFilter = "Today" | "Yesterday" | "Earlier this week";
-
 const CATEGORY_OPTIONS: { id: PlayActivityCategory; label: string }[] = [
   { id: "completed", label: "Completed" },
   { id: "in-progress", label: "In Progress" },
@@ -77,19 +101,20 @@ const CATEGORY_OPTIONS: { id: PlayActivityCategory; label: string }[] = [
   { id: "decided", label: "Decided" },
 ];
 
-const DATE_OPTIONS: { id: DateFilter; label: string }[] = [
-  { id: "Today", label: "Today" },
-  { id: "Yesterday", label: "Yesterday" },
-  { id: "Earlier this week", label: "Earlier this week" },
-];
-
 export type ActivityFiltersState = {
   categories: PlayActivityCategory[];
-  dates: DateFilter[];
+  dateRange: ActivityDateRange | null;
+};
+
+const EMPTY_ACTIVITY_COUNTS: PlayActivityCounts = {
+  completed: 0,
+  decided: 0,
+  inProgress: 0,
+  needsAttention: 0,
 };
 
 function countActivityFilters(state: ActivityFiltersState): number {
-  return state.categories.length + state.dates.length;
+  return state.categories.length + (state.dateRange ? 1 : 0);
 }
 
 function toggleValue<T extends string>(values: T[], value: T, checked: boolean): T[] {
@@ -97,6 +122,15 @@ function toggleValue<T extends string>(values: T[], value: T, checked: boolean):
     return values.includes(value) ? values : [...values, value];
   }
   return values.filter((item) => item !== value);
+}
+
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(id);
+  }, [value, delayMs]);
+  return debounced;
 }
 
 function formatDuration(ms: number): string {
@@ -111,25 +145,82 @@ function formatDuration(ms: number): string {
 export function ActivityTab({
   initialActivity,
   initialTotalCount = 0,
+  initialCounts,
 }: {
   initialActivity: PlayActivityRunRow[];
   initialTotalCount?: number;
+  initialCounts?: PlayActivityCounts;
 }) {
   const [activityRuns, setActivityRuns] = useState(initialActivity);
   const [totalCount, setTotalCount] = useState(initialTotalCount);
+  const [counts, setCounts] = useState<PlayActivityCounts>(
+    initialCounts ?? EMPTY_ACTIVITY_COUNTS,
+  );
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<ActivityPageSize>(
+    DEFAULT_ACTIVITY_PAGE_SIZE,
+  );
+  const [q, setQ] = useState("");
+  const debouncedQ = useDebouncedValue(q, 300);
+  const [filters, setFilters] = useState<ActivityFiltersState>({
+    categories: [],
+    dateRange: null,
+  });
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [undoingId, setUndoingId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const activitySource = useMemo(
     () => activityRuns.map(mapPlayRunToActivity),
     [activityRuns],
   );
-  const [q, setQ] = useState("");
-  const [filters, setFilters] = useState<ActivityFiltersState>({
-    categories: [],
-    dates: [],
-  });
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [undoingId, setUndoingId] = useState<string | null>(null);
+
+  // Filtering, search, and pagination all happen server-side. The first
+  // page arrives as props, so skip fetching until an input actually changes.
+  const lastRequestKey = useRef<string | null>(null);
+  useEffect(() => {
+    const dateFrom = filters.dateRange
+      ? toIsoDate(filters.dateRange.from)
+      : undefined;
+    const dateTo = filters.dateRange
+      ? toIsoDate(filters.dateRange.to)
+      : undefined;
+    const key = JSON.stringify({
+      page,
+      pageSize,
+      q: debouncedQ.trim(),
+      categories: filters.categories,
+      dateFrom,
+      dateTo,
+    });
+    if (lastRequestKey.current === null || lastRequestKey.current === key) {
+      lastRequestKey.current = key;
+      return;
+    }
+    lastRequestKey.current = key;
+
+    startTransition(async () => {
+      try {
+        const result = await getActivityPage({
+          page,
+          pageSize,
+          search: debouncedQ.trim() || undefined,
+          categories:
+            filters.categories.length > 0 ? filters.categories : undefined,
+          dateFrom,
+          dateTo,
+        });
+        setActivityRuns(result.runs);
+        setTotalCount(result.totalCount);
+        setCounts(result.counts);
+        // The query clamps out-of-range pages (e.g. after undos shrink the
+        // feed) — sync the control with the page actually served.
+        setPage(result.page);
+      } catch {
+        toast.error("Couldn't load activity. Try again.");
+      }
+    });
+  }, [page, pageSize, debouncedQ, filters]);
 
   const toggleExpand = (id: string) =>
     setExpanded((prev) => {
@@ -151,57 +242,36 @@ export function ActivityTab({
     });
   }, []);
 
-  const entries = useMemo(() => {
-    const term = q.trim().toLowerCase();
-    return activitySource
-      .filter((e) =>
-        filters.categories.length === 0 ? true : filters.categories.includes(e.category),
-      )
-      .filter((e) =>
-        filters.dates.length === 0 ? true : filters.dates.includes(e.dayGroup as DateFilter),
-      )
-      .filter((e) =>
-        !term
-          ? true
-          : e.title.toLowerCase().includes(term) ||
-            e.target.toLowerCase().includes(term) ||
-            (e.playbookName?.toLowerCase().includes(term) ?? false),
-      );
-  }, [q, filters, activitySource]);
+  // Any filter/search/page-size change restarts at the first page.
+  const updateFilters = useCallback((next: ActivityFiltersState) => {
+    setFilters(next);
+    setPage(1);
+  }, []);
+
+  const updateSearch = useCallback((value: string) => {
+    setQ(value);
+    setPage(1);
+  }, []);
+
+  const updatePageSize = useCallback((value: string) => {
+    setPageSize(Number(value) as ActivityPageSize);
+    setPage(1);
+  }, []);
 
   const grouped = useMemo(() => {
     const map = new Map<string, PlayActivityItem[]>();
-    entries.forEach((e) => {
+    activitySource.forEach((e) => {
       const arr = map.get(e.dayGroup) ?? [];
       arr.push(e);
       map.set(e.dayGroup, arr);
     });
     return Array.from(map.entries());
-  }, [entries]);
-
-  // Completed + Decided count what happened today; In Progress and Needs
-  // Attention are live counts — they describe "now", not a day window.
-  const counts = useMemo(() => {
-    const today = activitySource.filter((e) => e.dayGroup === "Today");
-    return {
-      completed: today.filter((e) => e.category === "completed").length,
-      decided: today.filter((e) => e.category === "decided").length,
-      inProgress: activitySource.filter((e) => e.category === "in-progress").length,
-      needsAttention: activitySource.filter((e) => e.category === "needs-attention").length,
-    };
   }, [activitySource]);
 
-  const actionsToday = counts.completed + counts.decided;
+  const totalActions = counts.completed + counts.decided;
   const activeFilterCount = countActivityFilters(filters);
-  const hasMore = activityRuns.length < totalCount;
-
-  const handleLoadMore = useCallback(() => {
-    startTransition(async () => {
-      const result = await loadMoreActivityRuns(activityRuns.length, PAGE_SIZE);
-      setActivityRuns((prev) => [...prev, ...result.runs]);
-      setTotalCount(result.totalCount);
-    });
-  }, [activityRuns.length]);
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const paginationRange = getPaginationRange(page, totalPages);
 
   return (
     <motion.div
@@ -215,15 +285,12 @@ export function ActivityTab({
         <header className="flex items-center justify-between mb-4">
           <div>
             <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground font-semibold">
-              Today's activity
+              All activity
             </p>
             <h3 className="font-display text-lg tracking-tight mt-0.5">
-              {actionsToday} actions today
+              {totalActions} actions
             </h3>
           </div>
-          <p className="text-[11px] text-muted-foreground max-w-[280px] text-right hidden md:block">
-            In Progress and Needs Attention show everything in flight right now.
-          </p>
         </header>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
           <CountTile label="Completed" value={counts.completed} tone="emerald" />
@@ -237,22 +304,28 @@ export function ActivityTab({
       <div className="space-y-3">
         <PlaysSearchField
           value={q}
-          onChange={setQ}
+          onChange={updateSearch}
           placeholder="Search activity…"
           filterActive={activeFilterCount > 0}
           filterActiveCount={activeFilterCount}
           filterTitle=""
           filterContentClassName="w-72 gap-0 overflow-hidden rounded-2xl border-border/60 p-0"
           filterContent={
-            <ActivityFilterPanel state={filters} onChange={setFilters} />
+            <ActivityFilterPanel state={filters} onChange={updateFilters} />
+          }
+          trailingAction={
+            <ActivityDateRangeFilter
+              value={filters.dateRange}
+              onChange={(dateRange) => updateFilters({ ...filters, dateRange })}
+            />
           }
         />
 
-        <ActivityActiveFilterBadges state={filters} onChange={setFilters} />
+        <ActivityActiveFilterBadges state={filters} onChange={updateFilters} />
       </div>
 
       {/* Day-grouped timeline */}
-      {grouped.length === 0 ? (
+      {grouped.length === 0 && !isPending ? (
         <div className="glass-card rounded-3xl p-10 text-center">
           <p className="font-display text-2xl tracking-tight">No matching activity</p>
           <p className="text-sm text-muted-foreground mt-1">
@@ -260,7 +333,13 @@ export function ActivityTab({
           </p>
         </div>
       ) : (
-        <div className="space-y-5">
+        <div
+          className={cn(
+            "space-y-5 transition-opacity",
+            isPending && "opacity-60",
+          )}
+          aria-busy={isPending}
+        >
           {grouped.map(([day, items]) => (
             <section key={day} className="space-y-2">
               <header className="px-2 flex items-center gap-3">
@@ -287,24 +366,85 @@ export function ActivityTab({
             </section>
           ))}
 
-          {/* Load more */}
-          {hasMore && (
-            <div className="flex justify-center pt-2">
-              <button
-                type="button"
-                onClick={handleLoadMore}
-                disabled={isPending}
-                className="inline-flex items-center gap-2 h-10 px-5 rounded-full border border-border/60 bg-card text-sm font-medium text-foreground/80 hover:border-border hover:text-foreground transition disabled:opacity-60"
-              >
-                {isPending ? (
-                  <>
-                    <Loader2 className="size-4 animate-spin" />
-                    Loading…
-                  </>
-                ) : (
-                  <>Load more ({totalCount - activityRuns.length} remaining)</>
+          {/* Numbered pagination */}
+          {totalCount > 0 && (
+            <div className="flex flex-col items-center gap-3 pt-2 sm:flex-row sm:justify-between">
+              <p className="text-[11px] text-muted-foreground tabular-nums">
+                Page {page} of {totalPages} · {totalCount}{" "}
+                {totalCount === 1 ? "action" : "actions"}
+              </p>
+              <div className="flex flex-col items-center gap-3 sm:flex-row">
+                <Select
+                  value={String(pageSize)}
+                  onValueChange={updatePageSize}
+                >
+                  <SelectTrigger
+                    aria-label="Rows per page"
+                    className="h-8 w-[104px] rounded-full border-border/60 text-xs"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ACTIVITY_PAGE_SIZES.map((size) => (
+                      <SelectItem key={size} value={String(size)}>
+                        {size} / page
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {totalPages > 1 && (
+                  <Pagination className="mx-0 w-auto">
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          href="#"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            if (page > 1) setPage(page - 1);
+                          }}
+                          aria-disabled={page <= 1}
+                          className={cn(
+                            page <= 1 && "pointer-events-none opacity-50",
+                          )}
+                        />
+                      </PaginationItem>
+                      {paginationRange.map((item, index) =>
+                        typeof item === "number" ? (
+                          <PaginationItem key={item}>
+                            <PaginationLink
+                              href="#"
+                              isActive={item === page}
+                              onClick={(event) => {
+                                event.preventDefault();
+                                setPage(item);
+                              }}
+                            >
+                              {item}
+                            </PaginationLink>
+                          </PaginationItem>
+                        ) : (
+                          <PaginationItem key={`${item}-${index}`}>
+                            <PaginationEllipsis />
+                          </PaginationItem>
+                        ),
+                      )}
+                      <PaginationItem>
+                        <PaginationNext
+                          href="#"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            if (page < totalPages) setPage(page + 1);
+                          }}
+                          aria-disabled={page >= totalPages}
+                          className={cn(
+                            page >= totalPages && "pointer-events-none opacity-50",
+                          )}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
                 )}
-              </button>
+              </div>
             </div>
           )}
         </div>
@@ -725,7 +865,7 @@ function ActivityFilterPanel({
   state: ActivityFiltersState;
   onChange: (state: ActivityFiltersState) => void;
 }) {
-  const activeCount = countActivityFilters(state);
+  const activeCount = state.categories.length;
 
   function updateCategories(category: PlayActivityCategory, checked: boolean) {
     onChange({
@@ -734,15 +874,8 @@ function ActivityFilterPanel({
     });
   }
 
-  function updateDates(date: DateFilter, checked: boolean) {
-    onChange({
-      ...state,
-      dates: toggleValue(state.dates, date, checked),
-    });
-  }
-
-  function clearAll() {
-    onChange({ categories: [], dates: [] });
+  function clearCategories() {
+    onChange({ ...state, categories: [] });
   }
 
   return (
@@ -754,7 +887,7 @@ function ActivityFilterPanel({
           </p>
           <button
             type="button"
-            onClick={clearAll}
+            onClick={clearCategories}
             className="text-xs font-medium text-foreground/80 hover:text-foreground transition"
           >
             Clear all
@@ -764,13 +897,13 @@ function ActivityFilterPanel({
         <div className="border-b border-border/60 px-3 py-2.5">
           <p className="text-xs font-medium text-foreground">Filter activity</p>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            Combine category and date filters
+            Narrow by category — dates live in the Date range picker
           </p>
         </div>
       )}
 
       <div className="max-h-[min(52vh,420px)] overflow-y-auto">
-        <div className="border-b border-border/60 p-2">
+        <div className="p-2">
           <p className="px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
             Category
           </p>
@@ -792,30 +925,6 @@ function ActivityFilterPanel({
                     {option.label}
                     <catStyle.icon className="size-3 text-muted-foreground" />
                   </span>
-                </label>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="p-2">
-          <p className="px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-            Date
-          </p>
-          <div className="mt-1 space-y-0.5">
-            {DATE_OPTIONS.map((option) => {
-              const checked = state.dates.includes(option.id);
-              return (
-                <label
-                  key={option.id}
-                  className="flex items-center gap-2.5 rounded-lg px-2 py-2 hover:bg-muted/60 cursor-pointer text-sm"
-                >
-                  <Checkbox
-                    className="rounded-[4px]"
-                    checked={checked}
-                    onCheckedChange={(value) => updateDates(option.id, value === true)}
-                  />
-                  <span className="min-w-0 flex-1">{option.label}</span>
                 </label>
               );
             })}
@@ -843,15 +952,8 @@ function ActivityActiveFilterBadges({
     });
   }
 
-  function removeDate(date: DateFilter) {
-    onChange({
-      ...state,
-      dates: state.dates.filter((item) => item !== date),
-    });
-  }
-
   function clearAll() {
-    onChange({ categories: [], dates: [] });
+    onChange({ categories: [], dateRange: null });
   }
 
   return (
@@ -868,17 +970,16 @@ function ActivityActiveFilterBadges({
         </Badge>
       ))}
 
-      {state.dates.map((date) => (
+      {state.dateRange ? (
         <Badge
-          key={`date-${date}`}
           variant="secondary"
           className="h-7 gap-1 rounded-full px-2.5 text-xs font-medium cursor-pointer hover:bg-secondary/80"
-          onClick={() => removeDate(date)}
+          onClick={() => onChange({ ...state, dateRange: null })}
         >
-          {date}
+          {formatActivityDateRange(state.dateRange)}
           <X className="size-3" />
         </Badge>
-      ))}
+      ) : null}
 
       <button
         type="button"

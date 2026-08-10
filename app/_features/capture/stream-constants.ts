@@ -1,7 +1,8 @@
 /**
  * Capture stream pagination constants, shared between the server loader
- * (`load-plays-page-data.ts`), the load-more server action, and the
- * `CaptureStreamTab` client (which infers "has more" from the initial limit).
+ * (`load-sources-page-data.ts`), the `get-capture-stream-page` server action,
+ * and the `CaptureStreamTab` client.
  */
-export const CAPTURE_STREAM_INITIAL_LIMIT = 100;
-export const CAPTURE_STREAM_PAGE_SIZE = 50;
+export const CAPTURE_STREAM_PAGE_SIZES = [25, 50, 100] as const;
+export type CaptureStreamPageSize = (typeof CAPTURE_STREAM_PAGE_SIZES)[number];
+export const DEFAULT_CAPTURE_STREAM_PAGE_SIZE: CaptureStreamPageSize = 50;

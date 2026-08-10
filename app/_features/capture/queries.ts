@@ -7,15 +7,24 @@ import type {
   CaptureState,
   CaptureEventType,
   CaptureOrigin,
-  CaptureSourceType,
 } from "./types";
 import type { FindingEvidence } from "./types/intelligence-findings";
 import {
   readIntelligenceMeta,
   resolveCaptureIntelligenceOutcome,
-  categoryFromEnrichment,
+  ACTIVE_LEDGER_FINDING_STATES,
   type CaptureFindingLink,
 } from "./services/intelligence/capture-intelligence-outcome";
+import {
+  computeCaptureStreamCounts,
+  filterCaptureScanRows,
+  isStreamVisibleGateAction,
+  paginateCaptureScanRows,
+  type CaptureScanRow,
+  type CaptureStreamCounts,
+  type CaptureStreamPageFilter,
+  type ResolveScanFindingLink,
+} from "./utils/capture-stream-page-filter";
 import { resolveCaptureSourceUrl } from "./utils/capture-source-url";
 import { getTierCapacity } from "@/app/_lib/usage/tiers";
 import { nextDiscoveryDueAt } from "./services/discovery-cadence";
@@ -303,207 +312,193 @@ async function mapStreamRows(
   });
 }
 
-export const getCaptureStream = cache(async (
-  workspaceId: string,
-  options: {
-    limit?: number;
-    offset?: number;
-    /** Cursor: only return captures created strictly before this ISO timestamp. */
-    before?: string;
-    state?: CaptureState;
-    origin?: "added" | "found";
-    includeDropped?: boolean;
-  } = {}
-): Promise<StreamCaptureSummary[]> => {
-  const { limit = 50, offset = 0, before, state, origin, includeDropped = false } = options;
-  const supabase = await createClient();
-
-  let query = supabase
-    .from("capture_events")
-    .select(STREAM_SELECT)
-    .eq("workspace_id", workspaceId)
-    .order("created_at", { ascending: false })
-    .range(offset, offset + limit - 1);
-
-  if (before) {
-    query = query.lt("created_at", before);
-  }
-  if (state) {
-    query = query.eq("state", state);
-  }
-  if (origin) {
-    query = query.eq("origin", origin);
-  }
-  if (!includeDropped) {
-    // Memory-first: held rows (unknown-sender email awaiting discovery) are
-    // hidden from the stream along with drops — the stream shows
-    // Memory-matched and admitted captures only.
-    query = query.or("gate_action.is.null,gate_action.not.in.(drop,held)");
-  }
-
-  const { data, error } = await query;
-
-  if (error) {
-    console.error("[capture-queries] getCaptureStream error:", JSON.stringify(error, null, 2));
-    console.error("[capture-queries] workspaceId:", workspaceId);
-    console.error("[capture-queries] error.message:", error.message);
-    console.error("[capture-queries] error.code:", error.code);
-    return [];
-  }
-
-  return mapStreamRows(workspaceId, (data ?? []) as StreamRow[]);
-});
-
 /**
- * Activity-as-diagnostic (Sources plan 2.9): search ALL capture history —
- * including dropped/held rows the stream hides — by title, sender, or
- * subject. Each result carries its gate_action + gate_reason so the user can
- * answer "did Salt see X, and what did it do with it?" without guessing.
+ * Phase-1 scan projection: JSON-projected minimal columns, so the scan stays
+ * light even though extracted_data carries full email bodies. Category
+ * derivation needs only these subfields.
  */
-export async function searchCaptureHistory(
+const STREAM_SCAN_SELECT = `
+  id,
+  created_at,
+  state,
+  source_type,
+  is_bootstrap,
+  gate_action,
+  title,
+  intelligence:extracted_data->intelligence,
+  known_entity_target:gate_result->gateResults->knownEntity->target,
+  enriched_at:enriched_metadata->>enriched_at,
+  signals_matched:enriched_metadata->signals_matched,
+  plays_dispatched:enriched_metadata->plays_dispatched,
+  from_email:extracted_data->>from_email,
+  from_name:extracted_data->>from_name,
+  sender_email:extracted_data->>sender_email,
+  sender_name:extracted_data->>sender_name,
+  subject:extracted_data->>subject
+`;
+
+/** PostgREST caps a response (default 1000 rows) — chunk past it. */
+const STREAM_SCAN_CHUNK = 1000;
+
+async function scanCaptureStreamRows(
   workspaceId: string,
-  options: { query: string; limit?: number },
-): Promise<StreamCaptureSummary[]> {
-  const { limit = 50 } = options;
-  // Strip PostgREST or()-delimiters and ILIKE wildcards from the raw term.
-  const term = options.query.replace(/[%_,()"]/g, " ").replace(/\s+/g, " ").trim();
-  if (term.length < 2) return [];
-
+  includeDropped: boolean,
+): Promise<CaptureScanRow[]> {
   const supabase = await createClient();
-  const like = `%${term}%`;
-  const { data, error } = await supabase
-    .from("capture_events")
-    .select(STREAM_SELECT)
-    .eq("workspace_id", workspaceId)
-    .or(
-      [
-        `title.ilike.${like}`,
-        `extracted_data->>from_email.ilike.${like}`,
-        `extracted_data->>from_name.ilike.${like}`,
-        `extracted_data->>sender_email.ilike.${like}`,
-        `extracted_data->>sender_name.ilike.${like}`,
-        `extracted_data->>subject.ilike.${like}`,
-      ].join(","),
-    )
-    .order("created_at", { ascending: false })
-    .limit(limit);
+  const rows: CaptureScanRow[] = [];
 
-  if (error) {
-    console.error("[capture-queries] searchCaptureHistory error:", error.message, error.code);
-    return [];
+  for (let offset = 0; ; offset += STREAM_SCAN_CHUNK) {
+    let query = supabase
+      .from("capture_events")
+      .select(STREAM_SCAN_SELECT)
+      .eq("workspace_id", workspaceId)
+      .order("created_at", { ascending: false })
+      .range(offset, offset + STREAM_SCAN_CHUNK - 1);
+
+    if (!includeDropped) {
+      // Memory-first: held rows (unknown-sender email awaiting discovery) are
+      // hidden from the stream along with drops — the stream shows
+      // Memory-matched and admitted captures only.
+      query = query.or("gate_action.is.null,gate_action.not.in.(drop,held)");
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      console.error("[capture-queries] scanCaptureStreamRows error:", error.message, error.code);
+      throw new Error(error.message);
+    }
+
+    const chunk = (data ?? []) as unknown as CaptureScanRow[];
+    rows.push(...chunk);
+    if (chunk.length < STREAM_SCAN_CHUNK) break;
   }
 
-  return mapStreamRows(workspaceId, (data ?? []) as StreamRow[]);
+  return rows;
 }
 
 /**
- * Get today's capture statistics for a workspace.
+ * Active-ledger finding IDs out of the candidates the scan rows reference.
+ * Legacy (pre-enrichment) rows only count as "Triggered Play" when their
+ * finding is still live — one batched lookup, never one per row.
  */
-export const getTodayCaptureStats = cache(async (
-  workspaceId: string
-): Promise<{
-  total: number;
-  added: number;
-  found: number;
-  autoRouted: number;
-  pending: number;
-  findingCreated: number;
-  noSignal: number;
-  awaitingScan: number;
-  scanError: number;
-}> => {
+async function getActiveFindingIds(
+  workspaceId: string,
+  candidateIds: string[],
+): Promise<Set<string>> {
+  const active = new Set<string>();
+  if (candidateIds.length === 0) return active;
+
   const supabase = await createClient();
+  const chunkSize = 200;
+  for (let index = 0; index < candidateIds.length; index += chunkSize) {
+    const chunk = candidateIds.slice(index, index + chunkSize);
+    const { data, error } = await supabase
+      .from("intelligence_findings")
+      .select("id, state")
+      .eq("workspace_id", workspaceId)
+      .in("id", chunk)
+      .in("state", [...ACTIVE_LEDGER_FINDING_STATES]);
 
-  // Start of today in UTC
-  const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
-
-  // Mirror the stream's drop filter so the summary matches what the stream shows
-  const { data: captures, error: captureError } = await supabase
-    .from("capture_events")
-    .select("id, origin, state, extracted_data, enriched_metadata")
-    .eq("workspace_id", workspaceId)
-    .gte("created_at", today.toISOString())
-    .or("gate_action.is.null,gate_action.not.in.(drop,held)");
-
-  if (captureError) {
-    console.error("[capture-queries] getTodayCaptureStats error:", captureError);
-    return {
-      total: 0,
-      added: 0,
-      found: 0,
-      autoRouted: 0,
-      pending: 0,
-      findingCreated: 0,
-      noSignal: 0,
-      awaitingScan: 0,
-      scanError: 0,
-    };
-  }
-
-  const captureIds = (captures ?? []).map((c) => c.id);
-  const findingLinks = await getFindingLinksByCaptureIds(workspaceId, captureIds);
-
-  // Count auto-linked captures (legacy routing engine wrote these)
-  let autoRouted = 0;
-  if (captureIds.length > 0) {
-    const { count } = await supabase
-      .from("capture_record_links")
-      .select("id", { count: "exact", head: true })
-      .in("capture_event_id", captureIds)
-      .eq("link_source", "auto");
-    autoRouted = count ?? 0;
-  }
-
-  const rows = captures ?? [];
-  let findingCreated = 0;
-  let noSignal = 0;
-  let awaitingScan = 0;
-  let scanError = 0;
-
-  for (const row of rows) {
-    const outcome = resolveCaptureIntelligenceOutcome({
-      intelligenceMeta: readIntelligenceMeta(row.extracted_data),
-      findingLink: findingLinks.get(row.id) ?? null,
-      routingState: row.state as CaptureState,
-    });
-    const category = categoryFromEnrichment(
-      row.enriched_metadata as {
-        enriched_at?: string | null;
-        signals_matched?: string[];
-        linked_records?: unknown[];
-      } | null,
-      outcome
-    );
-
-    switch (category) {
-      case "queued":
-        findingCreated++;
-        break;
-      case "no-signal":
-        noSignal++;
-        break;
-      case "processing":
-        awaitingScan++;
-        break;
-      case "error":
-        scanError++;
-        break;
+    if (error) {
+      console.error("[capture-queries] getActiveFindingIds error:", error.message, error.code);
+      continue;
     }
+    for (const row of data ?? []) active.add(row.id);
+  }
+  return active;
+}
+
+export interface CaptureStreamPageParams extends CaptureStreamPageFilter {
+  page: number;
+  pageSize: number;
+}
+
+export interface CaptureStreamPage {
+  captures: StreamCaptureSummary[];
+  totalCount: number;
+  /** Requested page, clamped into the valid range. */
+  page: number;
+  pageSize: number;
+  counts: CaptureStreamCounts;
+}
+
+/**
+ * One page of the Sources → Activity stream, filtered and counted exactly.
+ *
+ * Phase 1 scans JSON-projected minimal columns for every stream row:
+ * category derivation reads enrichment/intelligence JSONB, so it cannot be
+ * pushed into SQL. Scanning cheap projections keeps the total count exact
+ * (numbered pagination needs it) without fetching full email bodies.
+ * Phase 2 fetches full rows + finding links + watch labels for just the
+ * page's ids (the existing mapStreamRows enrichment).
+ *
+ * Search is the activity-as-diagnostic path (Sources plan 2.9): a
+ * specific-enough term (2+ chars) spans ALL capture history — including
+ * dropped/held rows the stream hides — so the user can answer "did Salt see
+ * X, and what did it do with it?". Header counts always reflect the
+ * stream-visible rows only.
+ */
+export async function getCaptureStreamPage(
+  workspaceId: string,
+  params: CaptureStreamPageParams,
+): Promise<CaptureStreamPage> {
+  const pageSize = Math.min(Math.max(1, Math.floor(params.pageSize)), 100);
+  const search = params.search?.trim() ?? "";
+  const fullHistory = search.length >= 2;
+
+  const scanned = await scanCaptureStreamRows(workspaceId, fullHistory);
+  const streamRows = fullHistory
+    ? scanned.filter((row) => isStreamVisibleGateAction(row.gate_action))
+    : scanned;
+
+  const candidateFindingIds = [
+    ...new Set(
+      scanned
+        .map((row) => readIntelligenceMeta({ intelligence: row.intelligence })?.finding_id)
+        .filter((id): id is string => typeof id === "string"),
+    ),
+  ];
+  const activeFindingIds = await getActiveFindingIds(workspaceId, candidateFindingIds);
+  const resolveFindingLink: ResolveScanFindingLink = (row) => {
+    const findingId = readIntelligenceMeta({ intelligence: row.intelligence })?.finding_id;
+    return findingId && activeFindingIds.has(findingId)
+      ? { finding_id: findingId, finding_type: "", finding_state: "needs_you" }
+      : null;
+  };
+
+  const counts = computeCaptureStreamCounts(streamRows, resolveFindingLink);
+  const filtered = filterCaptureScanRows(
+    fullHistory ? scanned : streamRows,
+    { ...params, search },
+    resolveFindingLink,
+  );
+  const slice = paginateCaptureScanRows(filtered, params.page, pageSize);
+  const pageIds = slice.pageRows.map((row) => row.id);
+
+  if (pageIds.length === 0) {
+    return { captures: [], totalCount: slice.totalCount, page: slice.page, pageSize, counts };
   }
 
-  return {
-    total: rows.length,
-    added: rows.filter((r) => r.origin === "added").length,
-    found: rows.filter((r) => r.origin === "found").length,
-    autoRouted,
-    pending: rows.filter((r) => r.state === "pending").length,
-    findingCreated,
-    noSignal,
-    awaitingScan,
-    scanError,
-  };
-});
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("capture_events")
+    .select(STREAM_SELECT)
+    .in("id", pageIds);
+
+  if (error) {
+    console.error("[capture-queries] getCaptureStreamPage error:", error.message, error.code);
+    throw new Error(error.message);
+  }
+
+  // `.in()` does not preserve order — restore the filtered page order.
+  const orderById = new Map(pageIds.map((id, index) => [id, index]));
+  const pageRows = ((data ?? []) as StreamRow[]).sort(
+    (a, b) => (orderById.get(a.id) ?? 0) - (orderById.get(b.id) ?? 0),
+  );
+
+  const captures = await mapStreamRows(workspaceId, pageRows);
+  return { captures, totalCount: slice.totalCount, page: slice.page, pageSize, counts };
+}
 
 /**
  * Check if a workspace has any captures.

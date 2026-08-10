@@ -49,24 +49,23 @@ test.describe("Sources — Activity", () => {
     await expect(
       page.getByRole("heading", { name: /^activity$/i, level: 2 }),
     ).toBeVisible({ timeout: 15000 });
-    await expect(page.getByText(/today's captures/i)).toBeVisible();
+    await expect(page.getByText(/all captures/i)).toBeVisible();
     await expect(page.getByPlaceholder(/search captures/i)).toBeVisible();
   });
 
   test("displays capture category stats", async ({ page }) => {
     // Wait for the stats section to load
-    await expect(page.getByText(/today's captures/i)).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(/all captures/i)).toBeVisible({ timeout: 15000 });
 
     // Verify category stat tiles are present
-    const statsSection = page.locator("section").filter({ hasText: /today's captures/i });
+    const statsSection = page.locator("section").filter({ hasText: /all captures/i });
     await expect(statsSection.getByText(/triggered play/i)).toBeVisible();
-    await expect(statsSection.getByText(/triggered watching/i)).toBeVisible();
     await expect(statsSection.getByText(/no action/i)).toBeVisible();
     await expect(statsSection.getByText(/processing/i)).toBeVisible();
   });
 
   test("capture list shows day groups", async ({ page }) => {
-    await expect(page.getByText(/today's captures/i)).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(/all captures/i)).toBeVisible({ timeout: 15000 });
 
     // Day groups should be visible if there are captures
     // The page shows "Today", "Yesterday", "Earlier this week" sections
@@ -79,28 +78,28 @@ test.describe("Sources — Activity", () => {
     }
   });
 
-  test("filter button is accessible", async ({ page }) => {
+  test("area filter and date range are accessible", async ({ page }) => {
     await expect(page.getByPlaceholder(/search captures/i)).toBeVisible({ timeout: 15000 });
 
-    // The filter popover lives inside the search field (PlaysSearchField)
-    const filterButton = page.getByRole("button", { name: /filter/i });
-    await expect(filterButton).toBeVisible();
+    // Area filter is a toolbar dropdown next to the date-range picker
+    const areaFilter = page.getByRole("combobox", { name: /filter by area/i });
+    await expect(areaFilter).toBeVisible();
+    await areaFilter.click();
+    await expect(page.getByRole("option", { name: "Email" })).toBeVisible();
+    await page.keyboard.press("Escape");
 
-    // Click to open filter panel
-    await filterButton.click();
-
-    // Filter panel shows state/area/timing sections with checkbox options
-    const filterPanel = page.getByRole("checkbox").first();
-    const hasFilterPanel = await filterPanel.isVisible({ timeout: 3_000 }).catch(() => false);
-
-    // If filter panel opened, close it by clicking elsewhere
-    if (hasFilterPanel) {
-      await page.keyboard.press("Escape");
-    }
+    // Date range picker opens calendar presets
+    const dateFilter = page.getByRole("button", { name: /date range/i });
+    await expect(dateFilter).toBeVisible();
+    await dateFilter.click();
+    await expect(
+      page.getByRole("button", { name: "Today", exact: true }),
+    ).toBeVisible();
+    await page.keyboard.press("Escape");
   });
 
   test("capture detail expands on click", async ({ page }) => {
-    await expect(page.getByText(/today's captures/i)).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(/all captures/i)).toBeVisible({ timeout: 15000 });
 
     // Find a capture row and click to expand
     const captureList = page.locator("ul").filter({ hasText: /today|yesterday/i }).first();
@@ -120,7 +119,7 @@ test.describe("Sources — Activity", () => {
   });
 
   test("capture list excludes dropped/spam items", async ({ page }) => {
-    await expect(page.getByText(/today's captures/i)).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(/all captures/i)).toBeVisible({ timeout: 15000 });
 
     const spamIndicators = page.getByText(/spam|blocked|dropped/i);
     const spamCount = await spamIndicators.count();
@@ -137,7 +136,7 @@ test.describe("Sources — Kept out (P11)", () => {
   test("Activity tab can show Kept out section when captures are filtered", async ({ page }) => {
     await gotoAppRoute(page, ACTIVITY_URL);
 
-    await expect(page.getByText(/today's captures/i)).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(/all captures/i)).toBeVisible({ timeout: 15000 });
 
     // The Kept out section only appears if there are kept-out items
     // Check that if it's present, it has the expected structure

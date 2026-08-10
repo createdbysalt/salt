@@ -304,7 +304,7 @@ export function PlayCard({
           onClick={openDetail}
           className="flex min-w-0 flex-1 flex-col items-start gap-1.5 text-left"
         >
-          <p
+          <div
             className={cn(
               "flex w-full min-w-0 items-center gap-2.5 text-[10px] uppercase tracking-[0.14em] font-bold",
               visual.styles?.text ?? "text-muted-foreground"
@@ -320,7 +320,7 @@ export function PlayCard({
                 className="shrink-0 normal-case tracking-normal"
               />
             ) : null}
-          </p>
+          </div>
 
           <div className="flex w-full min-w-0 items-center gap-3">
             <h3 className="line-clamp-2 min-w-0 font-display text-[20px] leading-snug tracking-tight text-foreground">

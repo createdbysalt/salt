@@ -35,7 +35,7 @@ export function SourcesPage({
   const { tab, activeData, isTabLoading, handleTabChange, invalidateActiveTab } =
     useSourcesTabCache({ tab: initialTab, data: initialData });
 
-  const { connectors, streamCaptures, captureStats, hasCaptureData, keptOut, workspaceId, discovery } =
+  const { connectors, streamCaptures, streamTotalCount, streamCounts, hasCaptureData, keptOut, workspaceId, discovery } =
     activeData ?? initialData;
 
   // Keep the stream honest: new captures (webhook or backfill) revalidate the
@@ -108,8 +108,9 @@ export function SourcesPage({
                   description="Everything Salt saw from connected apps — what arrived and what it caused."
                 />
                 <CaptureStreamTab
-                  realStreamCaptures={streamCaptures}
-                  realStats={captureStats}
+                  initialCaptures={streamCaptures}
+                  initialTotalCount={streamTotalCount}
+                  initialCounts={streamCounts}
                   hasRealData={hasCaptureData}
                 />
                 {/* 4.4: discovery cadence is explicit where the stream lives */}

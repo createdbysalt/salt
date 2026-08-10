@@ -14,6 +14,7 @@ function toPlaysTabData(data: PlaysPageData): PlaysTabData {
     initialQueue: data.initialQueue,
     initialActivity: data.initialActivity,
     activityTotalCount: data.activityTotalCount ?? 0,
+    activityCounts: data.activityCounts,
     initialFindings: data.initialFindings,
     autoHandledFindings: data.autoHandledFindings,
     autoHandledRuns: data.autoHandledRuns,

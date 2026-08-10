@@ -57,6 +57,7 @@ async function PlaysPageWithData({
       initialQueue={data.initialQueue}
       initialActivity={data.initialActivity}
       activityTotalCount={data.activityTotalCount}
+      activityCounts={data.activityCounts}
       initialFindings={data.initialFindings}
       autoHandledFindings={data.autoHandledFindings}
       autoHandledRuns={data.autoHandledRuns}

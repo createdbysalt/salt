@@ -22,7 +22,8 @@ type PlaysSearchFieldProps = {
   filterActiveCount?: number;
   filterAriaLabel?: string;
   filterTitle?: string;
-  filterContent: ReactNode;
+  /** When omitted, no filter button/popover is rendered. */
+  filterContent?: ReactNode;
   filterContentClassName?: string;
   displayContent?: ReactNode;
   displayContentClassName?: string;
@@ -52,7 +53,7 @@ export function PlaysSearchField({
   const useToolbarActions = layout === "toolbar-actions";
   const activeCount = filterActiveCount ?? (filterActive ? 1 : 0);
 
-  const filterPopover = (
+  const filterPopover = filterContent ? (
     <Popover>
       <PopoverTrigger asChild>
         {useToolbarActions ? (
@@ -87,7 +88,7 @@ export function PlaysSearchField({
         <div className="space-y-2">{filterContent}</div>
       </PopoverContent>
     </Popover>
-  );
+  ) : null;
 
   const displayButton = (
     <button type="button" className={playsToolbarMenuButtonClass}>
@@ -123,7 +124,10 @@ export function PlaysSearchField({
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         aria-label={ariaLabel ?? placeholder}
-        className={cn(searchInputClassName, useToolbarActions ? "pr-4" : "pr-11")}
+        className={cn(
+          searchInputClassName,
+          useToolbarActions || !filterContent ? "pr-4" : "pr-11",
+        )}
       />
       {!useToolbarActions ? filterPopover : null}
     </div>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ActivityEntryRow, PlayActivityRunRow } from "../types";
-import { mapPlayRunToActivity } from "./map-play-run-to-activity";
+import { dayGroupFromIso, mapPlayRunToActivity } from "./map-play-run-to-activity";
 
 const NOW = Date.now();
 const HOUR = 3_600_000;
@@ -371,7 +371,8 @@ describe("mapPlayRunToActivity", () => {
     it("prefers ran_at for the display time", () => {
       const item = mapPlayRunToActivity(run());
       expect(item.sortIso).toBe(new Date(NOW - HOUR).toISOString());
-      expect(item.dayGroup).toBe("Today");
+      // Day-group labels are covered deterministically in dayGroupFromIso.
+      expect(item.dayGroup).toBe(dayGroupFromIso(item.sortIso));
     });
 
     it("uses dismissed_at for dismissed runs", () => {
@@ -383,15 +384,49 @@ describe("mapPlayRunToActivity", () => {
       expect(item.dayGroup).toBe("Yesterday");
     });
 
-    it("falls back to updated_at and groups older runs", () => {
+    it("falls back to updated_at for the sort timestamp", () => {
+      const updatedAt = new Date(NOW - 3 * DAY).toISOString();
       const item = mapPlayRunToActivity(
         run({
           state: "failed",
           ran_at: null,
-          updated_at: new Date(NOW - 3 * DAY).toISOString(),
+          updated_at: updatedAt,
         }),
       );
-      expect(item.dayGroup).toBe("Earlier this week");
+      expect(item.sortIso).toBe(updatedAt);
     });
+  });
+});
+
+describe("dayGroupFromIso", () => {
+  // Friday, Aug 14 2026, 3pm local — the week starts Monday Aug 10.
+  const REF = new Date(2026, 7, 14, 15, 0, 0);
+
+  it("labels today and yesterday", () => {
+    expect(dayGroupFromIso(new Date(2026, 7, 14, 9).toISOString(), REF)).toBe("Today");
+    expect(dayGroupFromIso(new Date(2026, 7, 13, 23).toISOString(), REF)).toBe("Yesterday");
+  });
+
+  it("labels earlier days of the same week", () => {
+    expect(dayGroupFromIso(new Date(2026, 7, 11).toISOString(), REF)).toBe(
+      "Earlier this week",
+    );
+    expect(dayGroupFromIso(new Date(2026, 7, 10).toISOString(), REF)).toBe(
+      "Earlier this week",
+    );
+  });
+
+  it("labels the previous week", () => {
+    expect(dayGroupFromIso(new Date(2026, 7, 9).toISOString(), REF)).toBe("Last week");
+    expect(dayGroupFromIso(new Date(2026, 7, 3).toISOString(), REF)).toBe("Last week");
+  });
+
+  it("uses explicit date labels beyond last week", () => {
+    expect(dayGroupFromIso(new Date(2026, 7, 2).toISOString(), REF)).toBe("Aug 2");
+    expect(dayGroupFromIso(new Date(2026, 0, 15).toISOString(), REF)).toBe("Jan 15");
+  });
+
+  it("includes the year for dates in a different year", () => {
+    expect(dayGroupFromIso(new Date(2025, 7, 2).toISOString(), REF)).toBe("Aug 2, 2025");
   });
 });

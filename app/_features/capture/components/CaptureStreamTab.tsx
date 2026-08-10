@@ -3,11 +3,13 @@
 import { useEffect, useMemo, useRef, useState, useTransition, useCallback, type MouseEvent, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { retryCaptureIntelligence } from "../actions/retry-capture";
-import { loadMoreStreamCaptures } from "../actions/load-more-captures";
-import { searchCaptureHistoryAction } from "../actions/search-capture-history";
+import { getCaptureStreamPageAction } from "../actions/get-capture-stream-page";
 import { submitCaptureFeedback, neverCaptureSender } from "../actions/capture-feedback";
-import { syncAndScanCaptures } from "../actions/run-intelligence-scan";
-import { CAPTURE_STREAM_INITIAL_LIMIT } from "../stream-constants";
+import {
+  CAPTURE_STREAM_PAGE_SIZES,
+  DEFAULT_CAPTURE_STREAM_PAGE_SIZE,
+  type CaptureStreamPageSize,
+} from "../stream-constants";
 import {
   CheckCircle2,
   Clock,
@@ -29,7 +31,6 @@ import {
   ExternalLink,
   Play,
   Eye,
-  Loader2,
   ThumbsUp,
   ThumbsDown,
   Ban,
@@ -54,32 +55,46 @@ import { ConnectorIcon } from "@/app/_features/connectors/components/connector-i
 import { connectorForToolkit } from "@/app/_features/connectors/utils/toolkit-connector";
 import { SignalBadges } from "./SignalBadges";
 import {
-  CaptureFilterContent,
-  countCaptureFilters,
-  ORIGIN_TO_AREA,
+  STREAM_AREA_OPTIONS,
   type StreamStateFilter,
   type StreamAreaFilter,
-  type StreamTimingFilter,
-} from "./CaptureFilterPopover";
+} from "../stream-filters";
+import {
+  EMPTY_CAPTURE_STREAM_COUNTS,
+  type CaptureStreamCounts,
+} from "../utils/capture-stream-page-filter";
 import { PlaysSearchField } from "@/app/_features/plays/components/PlaysSearchField";
-import { Button } from "@repo/ui";
+import {
+  ActivityDateRangeFilter,
+  type ActivityDateRange,
+} from "@/app/_features/plays/components/ActivityDateRangeFilter";
+import { dayGroupFromIso } from "@/app/_features/plays/utils/map-play-run-to-activity";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  getPaginationRange,
+  toIsoDate,
+} from "@repo/ui";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
 import { cn } from "@repo/utils";
 
 interface CaptureStreamTabProps {
-  realStreamCaptures?: StreamCaptureSummary[];
-  realStats?: {
-    total: number;
-    added: number;
-    found: number;
-    autoRouted: number;
-    pending: number;
-    findingCreated?: number;
-    noSignal?: number;
-    awaitingScan?: number;
-    scanError?: number;
-  } | null;
+  /** First page of the stream (page 1, default page size), server-rendered. */
+  initialCaptures?: StreamCaptureSummary[];
+  /** Exact stream-wide row count for numbered pagination. */
+  initialTotalCount?: number;
+  /** All-time stat-tile counts for the header strip. */
+  initialCounts?: CaptureStreamCounts | null;
   hasRealData?: boolean;
 }
 
@@ -99,8 +114,8 @@ type WatchTriggerEntry = {
   matched_value: string | null;
 };
 
-// dayGroup widened beyond the demo union: older captures group under month
-// labels ("July 2026") once pagination reaches past the current week.
+// dayGroup widened beyond the demo union: older captures group under
+// explicit date labels ("Aug 3") once pagination reaches past last week.
 type RealStreamEntry = Omit<StreamEntry, "dayGroup"> & {
   dayGroup: string;
   intelligenceOutcome?: CaptureIntelligenceOutcome;
@@ -132,22 +147,10 @@ function isNoiseEntry(entry: RealStreamEntry): boolean {
 
 /** Map a capture summary (stream page or full-history search hit) to a row. */
 function toRealStreamEntry(c: StreamCaptureSummary): RealStreamEntry {
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
-  const weekStart = new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000);
-
+  // Shared with Plays Activity: recent days bucket into Today / Yesterday /
+  // Earlier this week / Last week; older rows get explicit date labels.
+  const dayGroup = dayGroupFromIso(c.created_at);
   const createdAt = new Date(c.created_at);
-  let dayGroup: string;
-  if (createdAt >= today) dayGroup = "Today";
-  else if (createdAt >= yesterday) dayGroup = "Yesterday";
-  else if (createdAt >= weekStart) dayGroup = "Earlier this week";
-  else {
-    dayGroup = createdAt.toLocaleDateString("en-US", {
-      month: "long",
-      year: "numeric",
-    });
-  }
 
   const sourceMeta = getSourceMeta(c.source_type);
   const outcome = c.intelligence_outcome;
@@ -164,7 +167,7 @@ function toRealStreamEntry(c: StreamCaptureSummary): RealStreamEntry {
     dayGroup,
     // Clock time is meaningless in multi-day groups — show the date there
     time:
-      createdAt >= yesterday
+      dayGroup === "Today" || dayGroup === "Yesterday"
         ? createdAt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
         : createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
     source: c.origin as "added" | "found",
@@ -196,6 +199,15 @@ function toRealStreamEntry(c: StreamCaptureSummary): RealStreamEntry {
 
 const APPLE_EASE = [0.32, 0.72, 0, 1] as const;
 
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(id);
+  }, [value, delayMs]);
+  return debounced;
+}
+
 const STATUS_TO_INTELLIGENCE_OUTCOME: Record<CaptureStatus, CaptureIntelligenceOutcome> = {
   "auto-routed": "no_signal",
   pending: "awaiting_scan",
@@ -214,12 +226,11 @@ function resolveStreamEntryCategory(
 }
 
 const CATEGORY_COUNT_TILES: {
-  id: CaptureCategory | "watching";
+  id: CaptureCategory;
   label: string;
   tone: "emerald" | "flame" | "muted" | "destructive" | "sky";
 }[] = [
   { id: "queued", label: CAPTURE_CATEGORY_LABELS.queued, tone: "emerald" },
-  { id: "watching", label: "Triggered Watching", tone: "sky" },
   { id: "no-signal", label: CAPTURE_CATEGORY_LABELS["no-signal"], tone: "muted" },
   { id: "processing", label: CAPTURE_CATEGORY_LABELS.processing, tone: "flame" },
   { id: "error", label: CAPTURE_CATEGORY_LABELS.error, tone: "destructive" },
@@ -418,139 +429,116 @@ const STATUS_STYLES: Record<
 };
 
 export function CaptureStreamTab({
-  realStreamCaptures = [],
-  realStats = null,
+  initialCaptures = [],
+  initialTotalCount = 0,
+  initialCounts = null,
   hasRealData = false,
 }: CaptureStreamTabProps = {}) {
-  // Older pages fetched on demand via "Load older captures"
-  const [olderCaptures, setOlderCaptures] = useState<StreamCaptureSummary[]>([]);
-  const [exhausted, setExhausted] = useState(false);
-  const [isLoadingMore, startLoadMoreTransition] = useTransition();
-
-  // Merge the server-rendered first page with loaded pages, deduped by id
-  // (a background refresh of the first page can overlap already-loaded rows)
-  const allCaptures = useMemo(() => {
-    const seen = new Set<string>();
-    const merged: StreamCaptureSummary[] = [];
-    for (const c of [...realStreamCaptures, ...olderCaptures]) {
-      if (seen.has(c.capture_id)) continue;
-      seen.add(c.capture_id);
-      merged.push(c);
-    }
-    return merged;
-  }, [realStreamCaptures, olderCaptures]);
-
-  // If the first page came back full, assume more exist until a page runs dry
-  const hasMore = !exhausted && allCaptures.length >= CAPTURE_STREAM_INITIAL_LIMIT;
-
-  const handleLoadMore = useCallback(() => {
-    const oldest = allCaptures[allCaptures.length - 1];
-    if (!oldest) return;
-    startLoadMoreTransition(async () => {
-      const result = await loadMoreStreamCaptures({ before: oldest.created_at });
-      if (!result.success) {
-        console.error("[CaptureStreamTab] Load more failed:", result.error);
-        return;
-      }
-      setOlderCaptures((prev) => [...prev, ...result.captures]);
-      if (!result.hasMore) setExhausted(true);
-    });
-  }, [allCaptures]);
-
-  // Convert real captures to stream entries format with new categories
-  const realStreamEntries: RealStreamEntry[] = useMemo(() => {
-    if (!hasRealData || allCaptures.length === 0) return [];
-    return allCaptures.map(toRealStreamEntry);
-  }, [allCaptures, hasRealData]);
-
-  // Use real capture data only
-  const stream = realStreamEntries;
-
+  const [captures, setCaptures] = useState(initialCaptures);
+  const [totalCount, setTotalCount] = useState(initialTotalCount);
+  const [counts, setCounts] = useState<CaptureStreamCounts>(
+    initialCounts ?? EMPTY_CAPTURE_STREAM_COUNTS,
+  );
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<CaptureStreamPageSize>(
+    DEFAULT_CAPTURE_STREAM_PAGE_SIZE,
+  );
   const [q, setQ] = useState("");
+  const debouncedQ = useDebouncedValue(q, 300);
   const [state, setState] = useState<StreamStateFilter>("all");
   const [area, setArea] = useState<StreamAreaFilter>("all");
-  const [timing, setTiming] = useState<StreamTimingFilter>("all");
+  const [dateRange, setDateRange] = useState<ActivityDateRange | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [retryingId, setRetryingId] = useState<string | null>(null);
-  const [, startTransition] = useTransition();
+  const [isPending, startTransition] = useTransition();
+  const [, startRetryTransition] = useTransition();
+  const [refreshTick, setRefreshTick] = useState(0);
 
-  // Dev-only manual intake trigger: sync connected apps, then scan the
-  // lookback window for intelligence findings. The automated equivalent is
-  // the capture-intelligence cron.
-  const router = useRouter();
-  const [isSyncPending, startSyncTransition] = useTransition();
+  // Convert real captures to stream entries format with new categories
+  const stream: RealStreamEntry[] = useMemo(() => {
+    if (!hasRealData || captures.length === 0) return [];
+    return captures.map(toRealStreamEntry);
+  }, [captures, hasRealData]);
 
-  const handleSyncAndScan = () => {
-    startSyncTransition(async () => {
-      const result = await syncAndScanCaptures({ lookbackDays: 7 });
-      if (result.success && result.scan) {
-        const syncNote = result.sync
-          ? `Synced ${result.sync.capturesCreated} new captures. `
-          : "";
-        const firstWarning = result.scan.errors[0];
-        const errorNote =
-          result.scan.errors.length > 0
-            ? firstWarning
-              ? ` ${firstWarning}`
-              : ` (${result.scan.errors.length} warnings)`
-            : "";
-        const vendorDismissed = result.scan.findingsDismissedAsVendor ?? 0;
-        const vendorRepaired = result.scan.findingsMemoryRepaired ?? 0;
-        const vendorNote =
-          vendorDismissed > 0 || vendorRepaired > 0
-            ? ` Cleared ${vendorDismissed} subscription/vendor item(s) from the queue${vendorRepaired > 0 ? `, repaired ${vendorRepaired} finding(s)` : ""}.`
-            : "";
-        const scanNote =
-          result.scan.findingsCreated > 0
-            ? `Scanned ${result.scan.emailsProcessed} captures, ${result.scan.findingsCreated} new or updated findings.${vendorNote}`
-            : result.scan.emailsProcessed > 0 || vendorDismissed > 0 || vendorRepaired > 0
-              ? `Re-scanned ${result.scan.emailsProcessed} captures.${vendorNote || " No new findings yet."}`
-              : "No captures in the lookback window needed scanning. Sync Gmail first if the stream is empty.";
-        const success =
-          result.scan.errors.length === 0 || result.scan.emailsProcessed > 0;
-        const message = `${syncNote}${scanNote}${errorNote}`;
-        if (success) {
-          toast.success(message);
-        } else {
-          toast.error(message);
-        }
-        router.refresh();
-      } else {
-        toast.error(result.error || "Sync and scan failed");
-      }
-    });
-  };
-
-  // Full-history search (Sources plan 2.9): once the query is specific
-  // enough, search ALL capture history server-side — including dropped/held
-  // rows the stream hides — so the tab answers "did Salt see this, and what
-  // did it do with it?". `null` = history search inactive (client filter).
-  const [historyResults, setHistoryResults] = useState<RealStreamEntry[] | null>(null);
-  const [historySearching, setHistorySearching] = useState(false);
-  const historyTermRef = useRef("");
-
+  // Filtering, search, and pagination all happen server-side. The first
+  // page arrives as props, so skip fetching until an input actually changes.
+  const lastRequestKey = useRef<string | null>(null);
   useEffect(() => {
-    const term = q.trim();
-    historyTermRef.current = term;
-    if (term.length < 2) {
-      setHistoryResults(null);
-      setHistorySearching(false);
+    const dateFrom = dateRange ? toIsoDate(dateRange.from) : undefined;
+    const dateTo = dateRange ? toIsoDate(dateRange.to) : undefined;
+    const key = JSON.stringify({
+      page,
+      pageSize,
+      q: debouncedQ.trim(),
+      state,
+      area,
+      dateFrom,
+      dateTo,
+      refreshTick,
+    });
+    if (lastRequestKey.current === null || lastRequestKey.current === key) {
+      lastRequestKey.current = key;
       return;
     }
-    setHistorySearching(true);
-    const timer = setTimeout(() => {
-      void searchCaptureHistoryAction({ query: term }).then((result) => {
-        if (historyTermRef.current !== term) return; // superseded by a newer term
-        setHistorySearching(false);
-        setHistoryResults(result.success ? result.results.map(toRealStreamEntry) : []);
-      });
-    }, 350);
-    return () => clearTimeout(timer);
-  }, [q]);
+    lastRequestKey.current = key;
+
+    startTransition(async () => {
+      try {
+        const result = await getCaptureStreamPageAction({
+          page,
+          pageSize,
+          search: debouncedQ.trim() || undefined,
+          state,
+          area,
+          dateFrom,
+          dateTo,
+        });
+        setCaptures(result.captures);
+        setTotalCount(result.totalCount);
+        setCounts(result.counts);
+        // The query clamps out-of-range pages (e.g. after filters shrink the
+        // feed) — sync the control with the page actually served.
+        setPage(result.page);
+      } catch {
+        toast.error("Couldn't load captures. Try again.");
+      }
+    });
+  }, [page, pageSize, debouncedQ, state, area, dateRange, refreshTick]);
+
+  // Realtime invalidation refetches page-1 data through the sources tab
+  // cache. Adopt it when the user is on the unfiltered first page; otherwise
+  // re-request the page they're actually viewing.
+  const prevInitialCaptures = useRef(initialCaptures);
+  useEffect(() => {
+    if (prevInitialCaptures.current === initialCaptures) return;
+    prevInitialCaptures.current = initialCaptures;
+    const unfilteredFirstPage =
+      page === 1 &&
+      !q.trim() &&
+      state === "all" &&
+      area === "all" &&
+      !dateRange;
+    if (unfilteredFirstPage) {
+      setCaptures(initialCaptures);
+      setTotalCount(initialTotalCount);
+      setCounts(initialCounts ?? EMPTY_CAPTURE_STREAM_COUNTS);
+    } else {
+      setRefreshTick((tick) => tick + 1);
+    }
+  }, [
+    initialCaptures,
+    initialTotalCount,
+    initialCounts,
+    page,
+    q,
+    state,
+    area,
+    dateRange,
+  ]);
 
   const handleRetry = useCallback((captureId: string) => {
     setRetryingId(captureId);
-    startTransition(async () => {
+    startRetryTransition(async () => {
       const result = await retryCaptureIntelligence(captureId);
       setRetryingId(null);
       if (!result.success) {
@@ -561,7 +549,7 @@ export function CaptureStreamTab({
 
   const handleAskSalt = useCallback(
     (captureId: string, promptHint: string) => {
-      const capture = (historyResults ?? stream).find((e) => e.id === captureId);
+      const capture = stream.find((e) => e.id === captureId);
       if (!capture) return;
 
       const sourceMeta = capture.origin in SOURCE_TAXONOMY ? getSourceMeta(capture.origin as CaptureSourceType) : null;
@@ -583,7 +571,7 @@ export function CaptureStreamTab({
         })
       );
     },
-    [stream, historyResults]
+    [stream]
   );
 
   const toggleExpand = (id: string) =>
@@ -594,107 +582,59 @@ export function CaptureStreamTab({
       return next;
     });
 
-  const entries = useMemo(() => {
-    const term = q.trim().toLowerCase();
-    // History search active → server already matched the term across ALL
-    // capture history; only the facet filters apply client-side.
-    const base = historyResults ?? stream;
-    return base
-      // State filter (Triggered Play, Triggered Watching, No Action, Processing, Error)
-      .filter((e) => {
-        if (state === "all") return true;
-        if (state === "watching") return (e.watchesTriggered?.length ?? 0) > 0;
-        return e.category === state;
-      })
-      // Area filter (Email, Calendar, Billing, etc.)
-      .filter((e) => {
-        if (area === "all") return true;
-        const captureArea = ORIGIN_TO_AREA[e.origin] ?? "all";
-        return captureArea === area;
-      })
-      // Timing filter (Just happened, Synced from history, Today, etc.)
-      .filter((e) => {
-        if (timing === "all") return true;
-        if (timing === "just-happened") return e.isBootstrap === false;
-        if (timing === "synced-history") return e.isBootstrap === true;
-        if (timing === "today") return e.dayGroup === "Today";
-        if (timing === "yesterday") return e.dayGroup === "Yesterday";
-        if (timing === "this-week") return e.dayGroup === "Earlier this week";
-        return true;
-      })
-      // Search filter — matches title, outcome, sender, subject, and app
-      // (both the label "Gmail" and the raw source type "gmail")
-      .filter((e) => {
-        if (!term || historyResults) return true;
-        const haystack = [
-          e.snippet,
-          e.routedTo,
-          e.from,
-          e.subject,
-          e.origin,
-          ...(e.sources ?? []),
-        ];
-        return haystack.some((value) => value?.toLowerCase().includes(term));
-      });
-  }, [q, state, area, timing, stream, historyResults]);
-
   const grouped = useMemo(() => {
     const map = new Map<string, RealStreamEntry[]>();
-    entries.forEach((e) => {
+    stream.forEach((e) => {
       const arr = map.get(e.dayGroup) ?? [];
       arr.push(e);
       map.set(e.dayGroup, arr);
     });
     return Array.from(map.entries());
-  }, [entries]);
+  }, [stream]);
 
-  const counts = useMemo(() => {
-    const today = stream.filter((e) => e.dayGroup === "Today");
-    const watching = today.filter((e) => (e.watchesTriggered?.length ?? 0) > 0).length;
-
-    // Prefer server-side today stats — the loaded stream is capped, so client
-    // counts undercount on days with more captures than the page size
-    if (realStats) {
-      return {
-        queued: realStats.findingCreated ?? 0,
-        watching,
-        "no-signal": realStats.noSignal ?? 0,
-        processing: realStats.awaitingScan ?? 0,
-        error: realStats.scanError ?? 0,
-        noSignal: realStats.noSignal ?? 0,
-        total: realStats.total,
-      };
-    }
-
-    const byCategory = {
-      queued: today.filter((e) => e.category === "queued").length,
-      watching,
-      "no-signal": today.filter((e) => e.category === "no-signal").length,
-      processing: today.filter((e) => e.category === "processing").length,
-      error: today.filter((e) => e.category === "error").length,
-    };
-    return {
-      ...byCategory,
-      noSignal: byCategory["no-signal"],
-      total: today.length,
-    };
-  }, [stream, realStats]);
-
-  const handleCountTileClick = useCallback((id: CaptureCategory | "watching") => {
-    setState((prev) => (prev === id ? "all" : id));
+  // Any filter/search/page-size change restarts at the first page.
+  const updateSearch = useCallback((value: string) => {
+    setQ(value);
+    setPage(1);
   }, []);
 
-  const activeFilterCount = countCaptureFilters({
-    state,
-    onState: setState,
-    area,
-    onArea: setArea,
-    timing,
-    onTiming: setTiming,
-  });
+  const updateArea = useCallback((value: StreamAreaFilter) => {
+    setArea(value);
+    setPage(1);
+  }, []);
 
+  const updateDateRange = useCallback((range: ActivityDateRange | null) => {
+    setDateRange(range);
+    setPage(1);
+  }, []);
+
+  const updatePageSize = useCallback((value: string) => {
+    setPageSize(Number(value) as CaptureStreamPageSize);
+    setPage(1);
+  }, []);
+
+  const handleCountTileClick = useCallback((id: CaptureCategory) => {
+    setState((prev) => (prev === id ? "all" : id));
+    setPage(1);
+  }, []);
+
+  const activeFilterCount =
+    (state !== "all" ? 1 : 0) + (area !== "all" ? 1 : 0) + (dateRange ? 1 : 0);
+
+  const tileValues: Record<CaptureCategory, number> = {
+    queued: counts.queued,
+    "no-signal": counts.noSignal,
+    processing: counts.processing,
+    error: counts.error,
+  };
+
+  // A specific-enough search spans ALL capture history — including
+  // dropped/held rows the stream normally hides (Sources plan 2.9).
+  const fullHistorySearch = debouncedQ.trim().length >= 2;
   const hasActiveSearchOrFilter = q.trim().length > 0 || activeFilterCount > 0;
-  const isEmptyDataset = stream.length === 0;
+  const isEmptyDataset = totalCount === 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const paginationRange = getPaginationRange(page, totalPages);
 
   return (
     <motion.div
@@ -704,25 +644,20 @@ export function CaptureStreamTab({
       className="space-y-5"
     >
       <section className="glass-card rounded-3xl p-5">
-        <header className="mb-4 flex items-center justify-between">
-          <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              Today&apos;s captures
-            </p>
-            <h3 className="mt-0.5 font-display text-lg tracking-tight">
-              {counts.total} captures today
-            </h3>
-          </div>
-          <p className="hidden max-w-[280px] text-right text-[11px] text-muted-foreground md:block">
-            Everything Salt saw from connected apps.
+        <header className="mb-4">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            All captures
           </p>
+          <h3 className="mt-0.5 font-display text-lg tracking-tight">
+            {counts.total} captures
+          </h3>
         </header>
-        <div className="grid grid-cols-2 gap-2.5 md:grid-cols-5">
+        <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
           {CATEGORY_COUNT_TILES.map(({ id, label, tone }) => (
             <CountTile
               key={id}
               label={label}
-              value={id === "watching" ? counts.watching : counts[id]}
+              value={tileValues[id]}
               tone={tone}
               active={state === id}
               onClick={() => handleCountTileClick(id)}
@@ -733,52 +668,45 @@ export function CaptureStreamTab({
 
       <PlaysSearchField
         value={q}
-        onChange={setQ}
+        onChange={updateSearch}
         placeholder="Search captures…"
-        filterActive={activeFilterCount > 0}
-        filterActiveCount={activeFilterCount}
-        filterTitle=""
-        filterContentClassName="w-72 gap-0 overflow-hidden rounded-2xl border-border/60 p-0"
-        filterContent={
-          <CaptureFilterContent
-            state={state}
-            onState={setState}
-            area={area}
-            onArea={setArea}
-            timing={timing}
-            onTiming={setTiming}
-          />
-        }
         trailingAction={
-          process.env.NODE_ENV === "development" ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleSyncAndScan}
-              disabled={isSyncPending}
-              className="h-9 shrink-0 rounded-full border-border/60 bg-card px-3.5 gap-1.5 text-sm font-medium text-foreground shadow-none hover:border-border hover:bg-muted/40"
+          <div className="flex shrink-0 items-center gap-2">
+            <Select
+              value={area}
+              onValueChange={(value) => updateArea(value as StreamAreaFilter)}
             >
-              {isSyncPending ? (
-                <Loader2 className="size-3.5 animate-spin" strokeWidth={2.25} />
-              ) : (
-                <Zap className="size-3.5" strokeWidth={2.25} />
-              )}
-              {isSyncPending ? "Syncing…" : "Sync & Scan"}
-            </Button>
-          ) : undefined
+              <SelectTrigger
+                aria-label="Filter by area"
+                className={cn(
+                  "h-9 w-auto gap-1.5 rounded-full border-border/60 bg-card px-3.5 text-sm font-medium text-foreground/80 shadow-none hover:border-border",
+                  area !== "all" && "border-border bg-muted/70 text-foreground",
+                )}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent align="end" className="rounded-2xl border-border/60">
+                {STREAM_AREA_OPTIONS.map((option) => (
+                  <SelectItem key={option.id} value={option.id}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <ActivityDateRangeFilter value={dateRange} onChange={updateDateRange} />
+          </div>
         }
       />
 
-      {historyResults !== null && (
+      {fullHistorySearch && (
         <p className="px-2 text-[11px] text-muted-foreground">
-          {historySearching
+          {isPending
             ? "Searching full history…"
             : "Full history — includes kept-out and dropped mail with Salt's verdict on each."}
         </p>
       )}
 
-      {grouped.length === 0 ? (
+      {grouped.length === 0 && !isPending ? (
         <div className="glass-card rounded-3xl p-10 text-center">
           <p className="font-display text-2xl tracking-tight">
             {isEmptyDataset && !hasActiveSearchOrFilter
@@ -788,13 +716,16 @@ export function CaptureStreamTab({
           <p className="mt-1 text-sm text-muted-foreground">
             {isEmptyDataset && !hasActiveSearchOrFilter
               ? "Connect Gmail or another tool to start capturing context automatically."
-              : historyResults !== null && !historySearching
+              : fullHistorySearch
                 ? "Salt never saw it — nothing in your full capture history matches."
                 : "Adjust the filters or search."}
           </p>
         </div>
       ) : (
-        <div className="space-y-5">
+        <div
+          className={cn("space-y-5 transition-opacity", isPending && "opacity-60")}
+          aria-busy={isPending}
+        >
           {grouped.map(([day, items]) => (
             <section key={day} className="space-y-2">
               <header className="flex items-center gap-3 px-2">
@@ -821,20 +752,83 @@ export function CaptureStreamTab({
               </ul>
             </section>
           ))}
-        </div>
-      )}
 
-      {!isEmptyDataset && hasMore && (
-        <div className="flex justify-center pt-1">
-          <button
-            type="button"
-            onClick={handleLoadMore}
-            disabled={isLoadingMore}
-            className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/80 px-4 py-2 text-[12px] font-medium text-foreground/80 shadow-sm transition hover:border-border hover:text-foreground disabled:opacity-60"
-          >
-            {isLoadingMore && <Loader2 className="size-3.5 animate-spin" strokeWidth={2} />}
-            {isLoadingMore ? "Loading older captures…" : "Load older captures"}
-          </button>
+          {/* Numbered pagination */}
+          {totalCount > 0 && (
+            <div className="flex flex-col items-center gap-3 pt-2 sm:flex-row sm:justify-between">
+              <p className="text-[11px] tabular-nums text-muted-foreground">
+                Page {page} of {totalPages} · {totalCount}{" "}
+                {totalCount === 1 ? "capture" : "captures"}
+              </p>
+              <div className="flex flex-col items-center gap-3 sm:flex-row">
+                <Select value={String(pageSize)} onValueChange={updatePageSize}>
+                  <SelectTrigger
+                    aria-label="Rows per page"
+                    className="h-8 w-[104px] rounded-full border-border/60 text-xs"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CAPTURE_STREAM_PAGE_SIZES.map((size) => (
+                      <SelectItem key={size} value={String(size)}>
+                        {size} / page
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {totalPages > 1 && (
+                  <Pagination className="mx-0 w-auto">
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          href="#"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            if (page > 1) setPage(page - 1);
+                          }}
+                          aria-disabled={page <= 1}
+                          className={cn(page <= 1 && "pointer-events-none opacity-50")}
+                        />
+                      </PaginationItem>
+                      {paginationRange.map((item, index) =>
+                        typeof item === "number" ? (
+                          <PaginationItem key={item}>
+                            <PaginationLink
+                              href="#"
+                              isActive={item === page}
+                              onClick={(event) => {
+                                event.preventDefault();
+                                setPage(item);
+                              }}
+                            >
+                              {item}
+                            </PaginationLink>
+                          </PaginationItem>
+                        ) : (
+                          <PaginationItem key={`${item}-${index}`}>
+                            <PaginationEllipsis />
+                          </PaginationItem>
+                        ),
+                      )}
+                      <PaginationItem>
+                        <PaginationNext
+                          href="#"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            if (page < totalPages) setPage(page + 1);
+                          }}
+                          aria-disabled={page >= totalPages}
+                          className={cn(
+                            page >= totalPages && "pointer-events-none opacity-50",
+                          )}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </motion.div>
@@ -1984,7 +1978,7 @@ function CountTile({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "rounded-2xl p-3.5 flex flex-col items-start gap-1 text-left transition",
+        "rounded-2xl p-3.5 flex items-baseline justify-between gap-2 text-left transition",
         cls,
         onClick && "cursor-pointer hover:opacity-90",
         active && "ring-2 ring-foreground/25 ring-offset-2 ring-offset-background"

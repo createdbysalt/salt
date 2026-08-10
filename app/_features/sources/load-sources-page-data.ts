@@ -2,13 +2,12 @@ import "server-only";
 
 import { getConnectorsPageData } from "@/app/_features/connectors/queries";
 import {
-  getCaptureStream,
+  getCaptureStreamPage,
   getDiscoveryStatus,
-  getTodayCaptureStats,
   hasCaptures,
 } from "@/app/_features/capture/queries";
 import { getAdmissionDecisions } from "@/app/_features/memory/queries/admission-decisions";
-import { CAPTURE_STREAM_INITIAL_LIMIT } from "@/app/_features/capture/stream-constants";
+import { DEFAULT_CAPTURE_STREAM_PAGE_SIZE } from "@/app/_features/capture/stream-constants";
 import {
   parseSourcesTab,
   type SourcesTab,
@@ -27,7 +26,8 @@ export function emptySourcesPageData(): SourcesPageData {
   return {
     connectors: EMPTY_CONNECTORS,
     streamCaptures: [],
-    captureStats: null,
+    streamTotalCount: 0,
+    streamCounts: null,
     hasCaptureData: false,
     workspaceId: null,
     keptOut: null,
@@ -55,10 +55,12 @@ export async function loadSourcesPageData(options: {
   }
 
   if (workspaceId) {
-    const [streamCaptures, captureStats, hasCaptureData, admissions, discovery] =
+    const [streamPage, hasCaptureData, admissions, discovery] =
       await Promise.all([
-        getCaptureStream(workspaceId, { limit: CAPTURE_STREAM_INITIAL_LIMIT }),
-        getTodayCaptureStats(workspaceId),
+        getCaptureStreamPage(workspaceId, {
+          page: 1,
+          pageSize: DEFAULT_CAPTURE_STREAM_PAGE_SIZE,
+        }),
         hasCaptures(workspaceId),
         getAdmissionDecisions(workspaceId),
         getDiscoveryStatus(workspaceId),
@@ -66,8 +68,9 @@ export async function loadSourcesPageData(options: {
 
     return {
       ...base,
-      streamCaptures,
-      captureStats,
+      streamCaptures: streamPage.captures,
+      streamTotalCount: streamPage.totalCount,
+      streamCounts: streamPage.counts,
       hasCaptureData,
       workspaceId,
       keptOut: {

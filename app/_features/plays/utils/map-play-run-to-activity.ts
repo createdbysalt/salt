@@ -27,6 +27,13 @@ const CATEGORY_BY_STATE: Record<PlayRunState, PlayActivityCategory | null> = {
   queued: null,
 };
 
+/** State → Activity category. Single source of truth for the tab's filters. */
+export function activityCategoryForState(
+  state: PlayRunState,
+): PlayActivityCategory | null {
+  return CATEGORY_BY_STATE[state] ?? null;
+}
+
 const VALUE_KIND_LABELS: Record<PlayValueKind, string> = {
   invoice_collected: "collected",
   invoice_sent: "invoiced",
@@ -42,18 +49,46 @@ function formatTime(iso: string): string {
   }).format(new Date(iso));
 }
 
-function dayGroupFromIso(iso: string): PlayActivityDayGroup {
-  const date = new Date(iso);
-  const today = new Date();
+/** Monday-first start of the week containing `day`. */
+function startOfWeek(day: Date): Date {
+  const start = new Date(day);
+  const daysSinceMonday = (start.getDay() + 6) % 7;
+  start.setDate(start.getDate() - daysSinceMonday);
+  return start;
+}
+
+/**
+ * Recent runs bucket into "Today" / "Yesterday" / "Earlier this week" /
+ * "Last week"; anything older gets an explicit date label so pages deep in
+ * the history don't collapse into one meaningless group.
+ */
+export function dayGroupFromIso(
+  iso: string,
+  now: Date = new Date(),
+): PlayActivityDayGroup {
+  const today = new Date(now);
   today.setHours(0, 0, 0, 0);
-  const entryDay = new Date(date);
+  const entryDay = new Date(iso);
   entryDay.setHours(0, 0, 0, 0);
   const diffDays = Math.round(
     (today.getTime() - entryDay.getTime()) / 86_400_000,
   );
   if (diffDays <= 0) return "Today";
   if (diffDays === 1) return "Yesterday";
-  return "Earlier this week";
+
+  const weekStart = startOfWeek(today);
+  if (entryDay.getTime() >= weekStart.getTime()) return "Earlier this week";
+  const lastWeekStart = new Date(weekStart);
+  lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+  if (entryDay.getTime() >= lastWeekStart.getTime()) return "Last week";
+
+  const sameYear = entryDay.getFullYear() === today.getFullYear();
+  return new Intl.DateTimeFormat(
+    "en-US",
+    sameYear
+      ? { month: "short", day: "numeric" }
+      : { month: "short", day: "numeric", year: "numeric" },
+  ).format(entryDay);
 }
 
 function humanizeSlug(slug: string): string {

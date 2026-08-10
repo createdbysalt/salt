@@ -17,11 +17,6 @@ test.describe("Plays surface", () => {
     await expect(page.getByRole("heading", { name: /needs you/i })).toBeVisible();
     await expect(page.getByRole("button", { name: /needs you/i })).toBeVisible();
     await expect(page.getByRole("button", { name: /auto-handled/i })).toBeVisible();
-
-    // Development queue action
-    await expect(
-      page.getByRole("button", { name: /sync & scan/i })
-    ).toBeVisible();
   });
 
   test("Plays tabs switch sections", async ({ page }) => {
@@ -33,8 +28,8 @@ test.describe("Plays surface", () => {
     await sections.getByRole("button", { name: "Activity" }).click();
     await expect(page.getByRole("heading", { name: /^activity$/i })).toBeVisible();
 
-    // Run-centric stat tiles (Completed / Decided count today; the others live)
-    await expect(page.getByText(/today's activity/i)).toBeVisible();
+    // Run-centric stat tiles (Completed / Decided are all-time; the others live)
+    await expect(page.getByText(/all activity/i)).toBeVisible();
     await expect(page.getByText("Completed", { exact: true })).toBeVisible();
     await expect(page.getByText("Needs Attention", { exact: true })).toBeVisible();
     await expect(page.getByText("In Progress", { exact: true })).toBeVisible();

@@ -166,6 +166,17 @@ export {
 
 // Navigation
 export {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+  getPaginationRange,
+} from './primitives/pagination'
+export type { PaginationRangeItem } from './primitives/pagination'
+export {
   Breadcrumb,
   BreadcrumbList,
   BreadcrumbItem,

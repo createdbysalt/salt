@@ -1,6 +1,7 @@
 import type { ConnectorsPageData } from "@/app/_features/connectors";
 import type { StreamCaptureSummary } from "@/app/_features/capture/types";
 import type { CaptureDiscoveryStatus } from "@/app/_features/capture/queries";
+import type { CaptureStreamCounts } from "@/app/_features/capture/utils/capture-stream-page-filter";
 import type { AdmissionItem } from "@/app/_features/memory/queries/admission-decisions";
 
 export const EMPTY_CONNECTORS: ConnectorsPageData = {
@@ -11,18 +12,6 @@ export const EMPTY_CONNECTORS: ConnectorsPageData = {
   captureByConnector: {},
 };
 
-export type CaptureStats = {
-  total: number;
-  added: number;
-  found: number;
-  autoRouted: number;
-  pending: number;
-  findingCreated?: number;
-  noSignal?: number;
-  awaitingScan?: number;
-  scanError?: number;
-};
-
 export type KeptOutData = {
   count: number;
   sample: AdmissionItem[];
@@ -30,8 +19,12 @@ export type KeptOutData = {
 
 export type SourcesTabData = {
   connectors: ConnectorsPageData;
+  /** First page of the capture stream (page 1, default page size). */
   streamCaptures: StreamCaptureSummary[];
-  captureStats: CaptureStats | null;
+  /** Exact stream-wide row count for numbered pagination. */
+  streamTotalCount: number;
+  /** All-time stat-tile counts for the stream header strip. */
+  streamCounts: CaptureStreamCounts | null;
   hasCaptureData: boolean;
   workspaceId: string | null;
   /** P11: Kept out moved from Memory Filter to Sources Activity. */

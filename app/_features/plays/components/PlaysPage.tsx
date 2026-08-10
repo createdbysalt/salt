@@ -152,6 +152,7 @@ export function PlaysPage({
     initialQueue,
     initialActivity,
     activityTotalCount,
+    activityCounts,
     initialFindings,
     autoHandledFindings,
     autoHandledRuns,
@@ -514,6 +515,7 @@ export function PlaysPage({
               <ActivityTab
                 initialActivity={initialActivity}
                 initialTotalCount={activityTotalCount}
+                initialCounts={activityCounts}
               />
             </motion.div>
           )}

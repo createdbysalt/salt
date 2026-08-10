@@ -1,6 +1,6 @@
 "use client";
 
-import type { HqBriefingData, PlayActivityRunRow, PlayRunRow } from "@/app/_features/plays/types";
+import type { HqBriefingData, PlayActivityCounts, PlayActivityRunRow, PlayRunRow } from "@/app/_features/plays/types";
 import type { FindingWithContext } from "@/app/_features/capture/types/intelligence-findings";
 import type { PlaysTab } from "@/app/_features/plays/load-plays-page-data";
 import type { PlaybookV2QueryResult } from "@/app/_features/plays/playbooks/queries-v2";
@@ -13,6 +13,7 @@ type Props = {
   initialQueue: PlayRunRow[];
   initialActivity: PlayActivityRunRow[];
   activityTotalCount?: number;
+  activityCounts?: PlayActivityCounts;
   initialFindings: FindingWithContext[];
   autoHandledFindings: FindingWithContext[];
   autoHandledRuns: PlayRunRow[];
@@ -34,6 +35,12 @@ export function PlaysPageClient(props: Props) {
         initialQueue: props.initialQueue,
         initialActivity: props.initialActivity,
         activityTotalCount: props.activityTotalCount ?? 0,
+        activityCounts: props.activityCounts ?? {
+          completed: 0,
+          decided: 0,
+          inProgress: 0,
+          needsAttention: 0,
+        },
         initialFindings: props.initialFindings,
         autoHandledFindings: props.autoHandledFindings,
         autoHandledRuns: props.autoHandledRuns,

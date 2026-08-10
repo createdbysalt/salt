@@ -205,7 +205,27 @@ export type PlayActivityCategory = (typeof PLAY_ACTIVITY_CATEGORIES)[number];
 
 export type PlayActivityActor = "salt" | "you";
 
-export type PlayActivityDayGroup = "Today" | "Yesterday" | "Earlier this week";
+/**
+ * Bucket label for the Activity timeline. Fixed labels for recent history
+ * ("Today" / "Yesterday" / "Earlier this week" / "Last week"); older runs
+ * get an explicit date label like "Aug 3" ("Aug 3, 2025" across years) so
+ * paginated deep history stays distinguishable.
+ */
+export type PlayActivityDayGroup = string;
+
+/** Page-size options for the Activity tab's numbered pagination. */
+export const ACTIVITY_PAGE_SIZES = [25, 50, 100] as const;
+export type ActivityPageSize = (typeof ACTIVITY_PAGE_SIZES)[number];
+export const DEFAULT_ACTIVITY_PAGE_SIZE: ActivityPageSize = 50;
+
+/** Stat-tile counts for the Activity tab header strip. */
+export interface PlayActivityCounts {
+  /** Completed + Decided are all-time; In Progress + Needs Attention are live. */
+  completed: number;
+  decided: number;
+  inProgress: number;
+  needsAttention: number;
+}
 
 /** Evidence snippet attached to a run (play_run_sources). */
 export interface PlayRunSourceSnippet {

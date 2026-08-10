@@ -1,7 +1,7 @@
 import "server-only";
 
 import {
-  listPlayActivityRuns,
+  getPlayActivityPage,
   listQueuedPlayRuns,
   listAutoHandledPlayRuns,
   countPlaysRanToday,
@@ -11,7 +11,8 @@ import {
   listQueueFindings,
   countFindingsByState,
 } from "@/app/_features/capture/queries/intelligence-findings";
-import type { PlayActivityRunRow } from "@/app/_features/plays/types";
+import { DEFAULT_ACTIVITY_PAGE_SIZE } from "@/app/_features/plays/types";
+import type { PlayActivityCounts, PlayActivityRunRow } from "@/app/_features/plays/types";
 import type { FindingWithContext } from "@/app/_features/capture/types/intelligence-findings";
 import type { PlayRunRow } from "@/app/_features/plays/types";
 
@@ -21,6 +22,7 @@ export type PlaysPageData = {
   initialQueue: PlayRunRow[];
   initialActivity: PlayActivityRunRow[];
   activityTotalCount: number;
+  activityCounts: PlayActivityCounts;
   initialFindings: FindingWithContext[];
   autoHandledFindings: FindingWithContext[];
   autoHandledRuns: PlayRunRow[];
@@ -31,6 +33,12 @@ export type PlaysPageData = {
 };
 
 const EMPTY_FINDING_COUNTS = { needs_you: 0, auto_handled: 0 };
+const EMPTY_ACTIVITY_COUNTS: PlayActivityCounts = {
+  completed: 0,
+  decided: 0,
+  inProgress: 0,
+  needsAttention: 0,
+};
 export const AUTO_HANDLED_RECENT_DAYS = 7;
 
 function recentAutoHandledSince(): Date {
@@ -51,6 +59,7 @@ export function emptyPlaysPageData(): PlaysPageData {
     initialQueue: [],
     initialActivity: [],
     activityTotalCount: 0,
+    activityCounts: EMPTY_ACTIVITY_COUNTS,
     initialFindings: [],
     autoHandledFindings: [],
     autoHandledRuns: [],
@@ -107,10 +116,14 @@ export async function loadPlaysPageData(options: {
     };
   }
 
-  const { runs: activityRuns, totalCount: activityTotalCount } = await listPlayActivityRuns(0, 50);
+  const activityPage = await getPlayActivityPage({
+    page: 1,
+    pageSize: DEFAULT_ACTIVITY_PAGE_SIZE,
+  });
   return {
     ...base,
-    initialActivity: activityRuns,
-    activityTotalCount,
+    initialActivity: activityPage.runs,
+    activityTotalCount: activityPage.totalCount,
+    activityCounts: activityPage.counts,
   };
 }

@@ -14,6 +14,7 @@ import type {
   ActivityEntryRow,
   HqQueuePlayView,
   OpportunityGapRow,
+  PlayActivityCounts,
   PlayActivityRunRow,
   PlayRunSourceSnippet,
   PlaybookBlueprintView,
@@ -21,10 +22,18 @@ import type {
   PlayerSlug,
   PlayerView,
   PlayRunRow,
+  PlayRunState,
   QueuePlayView,
 } from "./types";
 import type { PlaybookBlueprintRow } from "./playbooks/types";
 import { isActLayerPlayRun } from "./utils/plays-activity-filter";
+import { activityCategoryForState } from "./utils/map-play-run-to-activity";
+import {
+  filterActivityScanRows,
+  paginateActivityRows,
+  type ActivityPageFilter,
+  type ActivityScanRow,
+} from "./utils/activity-page-filter";
 
 interface PlayRunSourceRow {
   play_run_id: string;
@@ -268,25 +277,61 @@ export const PLAY_ACTIVITY_VISIBLE_STATES = [
   "dismissed",
 ] as const;
 
-export async function listPlayActivityRuns(
-  offset = 0,
-  limit = 50,
-): Promise<{ runs: PlayActivityRunRow[]; totalCount: number }> {
+export interface PlayActivityPageParams extends ActivityPageFilter {
+  page: number;
+  pageSize: number;
+}
+
+export interface PlayActivityPage {
+  runs: PlayActivityRunRow[];
+  totalCount: number;
+  /** Requested page, clamped into the valid range. */
+  page: number;
+  pageSize: number;
+  counts: PlayActivityCounts;
+}
+
+function computeActivityCounts(rows: ActivityScanRow[]): PlayActivityCounts {
+  const counts: PlayActivityCounts = {
+    completed: 0,
+    decided: 0,
+    inProgress: 0,
+    needsAttention: 0,
+  };
+  for (const row of rows) {
+    const category = activityCategoryForState(row.state);
+    if (category === "in-progress") counts.inProgress += 1;
+    if (category === "needs-attention") counts.needsAttention += 1;
+    if (category === "completed") counts.completed += 1;
+    if (category === "decided") counts.decided += 1;
+  }
+  return counts;
+}
+
+/**
+ * One page of the Activity feed, filtered and counted exactly.
+ *
+ * Phase 1 scans minimal columns for every visible run: the act-layer
+ * allowlist depends on the filesystem playbook registry, so it cannot be
+ * pushed into SQL. Scanning cheap columns keeps the total count exact
+ * (numbered pagination needs it) without a schema change. Phase 2 then
+ * fetches full rows + sources + timeline events for just the page's ids.
+ */
+export async function getPlayActivityPage(
+  params: PlayActivityPageParams,
+): Promise<PlayActivityPage> {
   const workspaceId = await getWorkspaceId();
   const supabase = await createClient();
-
-  // Oversample so post-filter still fills the page after dropping Care runs.
-  const fetchLimit = Math.min(Math.max(limit * 3, limit + 50), 200);
+  const pageSize = Math.min(Math.max(1, Math.floor(params.pageSize)), 100);
 
   const { data, error } = await supabase
     .from("play_runs")
-    .select("*")
+    .select(
+      "id, state, title, target_label, recipient_label, ran_at, dismissed_at, updated_at, source_context",
+    )
     .eq("workspace_id", workspaceId)
     .in("state", [...PLAY_ACTIVITY_VISIBLE_STATES])
-    // updated_at tracks the interesting moment: ran_at/dismissed_at/last
-    // transition all bump it, so it is a safe recency proxy.
-    .order("updated_at", { ascending: false })
-    .range(0, fetchLimit - 1);
+    .order("updated_at", { ascending: false });
 
   if (error) throw error;
 
@@ -296,34 +341,65 @@ export async function listPlayActivityRuns(
   // on Memory surfaces, not here.
   const layerForSlug = (slug: string): "learn" | "act" | null =>
     getPlaybookBySlug(slug)?.definition.layer ?? null;
-  const filtered = ((data ?? []) as PlayRunRow[]).filter((row) =>
-    isActLayerPlayRun(row, layerForSlug),
-  );
-  const page = filtered.slice(offset, offset + limit);
-  const runIds = page.map((row) => row.id);
+  const nameForSlug = (slug: string): string | null =>
+    getPlaybookBySlug(slug)?.definition.name ?? null;
 
-  const [sourcesResult, entriesResult] = await Promise.all([
-    runIds.length > 0
-      ? supabase
-          .from("play_run_sources")
-          .select("play_run_id, label, excerpt, external_url, source_type")
-          .eq("workspace_id", workspaceId)
-          .in("play_run_id", runIds)
-      : Promise.resolve({ data: [] as PlayRunSourceRow[] }),
-    runIds.length > 0
-      ? supabase
-          .from("activity_entries")
-          .select(
-            "id, workspace_id, play_run_id, actor_user_id, action, title, detail, metadata, created_at",
-          )
-          .eq("workspace_id", workspaceId)
-          .in("play_run_id", runIds)
-          .order("created_at", { ascending: false })
-      : Promise.resolve({ data: [] as ActivityEntryRow[] }),
+  const scanRows: ActivityScanRow[] = (data ?? []).map((row) => ({
+    id: row.id,
+    state: row.state as PlayRunState,
+    title: row.title,
+    target_label: row.target_label,
+    recipient_label: row.recipient_label,
+    ran_at: row.ran_at,
+    dismissed_at: row.dismissed_at,
+    updated_at: row.updated_at,
+    source_context:
+      row.source_context as ActivityScanRow["source_context"],
+  }));
+
+  const actRows = scanRows.filter((row) => isActLayerPlayRun(row, layerForSlug));
+  const counts = computeActivityCounts(actRows);
+  const filtered = filterActivityScanRows(actRows, params, nameForSlug);
+  const slice = paginateActivityRows(filtered, params.page, pageSize);
+  const runIds = slice.pageRows.map((row) => row.id);
+
+  if (runIds.length === 0) {
+    return {
+      runs: [],
+      totalCount: slice.totalCount,
+      page: slice.page,
+      pageSize,
+      counts,
+    };
+  }
+
+  const [runsResult, sourcesResult, entriesResult] = await Promise.all([
+    supabase.from("play_runs").select("*").in("id", runIds),
+    supabase
+      .from("play_run_sources")
+      .select("play_run_id, label, excerpt, external_url, source_type")
+      .eq("workspace_id", workspaceId)
+      .in("play_run_id", runIds),
+    supabase
+      .from("activity_entries")
+      .select(
+        "id, workspace_id, play_run_id, actor_user_id, action, title, detail, metadata, created_at",
+      )
+      .eq("workspace_id", workspaceId)
+      .in("play_run_id", runIds)
+      .order("created_at", { ascending: false }),
   ]);
 
+  if (runsResult.error) throw runsResult.error;
+
+  // `.in()` does not preserve order — restore the filtered page order.
+  const orderById = new Map(runIds.map((id, index) => [id, index]));
+  const pageRows = ((runsResult.data ?? []) as PlayRunRow[]).sort(
+    (a, b) => (orderById.get(a.id) ?? 0) - (orderById.get(b.id) ?? 0),
+  );
+
   const sourcesByRunId = new Map<string, PlayRunSourceSnippet[]>();
-  for (const row of sourcesResult.data ?? []) {
+  for (const row of (sourcesResult.data ?? []) as PlayRunSourceRow[]) {
     const list = sourcesByRunId.get(row.play_run_id) ?? [];
     list.push({
       label: row.label,
@@ -346,7 +422,7 @@ export async function listPlayActivityRuns(
     string,
     { name: string; section: PlaybookSection }
   >();
-  for (const row of page) {
+  for (const row of pageRows) {
     const slug = row.source_context?.playbook_slug;
     if (slug && !defBySlug.has(slug)) {
       const definition = getPlaybookBySlug(slug)?.definition;
@@ -359,7 +435,7 @@ export async function listPlayActivityRuns(
     }
   }
 
-  const runs: PlayActivityRunRow[] = page.map((row) => {
+  const runs: PlayActivityRunRow[] = pageRows.map((row) => {
     const slug = row.source_context?.playbook_slug;
     const def = slug ? defBySlug.get(slug) : undefined;
     return {
@@ -371,8 +447,7 @@ export async function listPlayActivityRuns(
     };
   });
 
-  // Count is approximate when Care runs are dense; oversample keeps the page full.
-  return { runs, totalCount: filtered.length };
+  return { runs, totalCount: slice.totalCount, page: slice.page, pageSize, counts };
 }
 
 export async function getPrimaryOpportunityGap(): Promise<OpportunityGapRow | null> {

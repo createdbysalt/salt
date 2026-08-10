@@ -1,11 +1,12 @@
 import type { FindingWithContext } from "@/app/_features/capture/types/intelligence-findings";
-import type { PlayActivityRunRow, PlayRunRow } from "@/app/_features/plays/types";
+import type { PlayActivityCounts, PlayActivityRunRow, PlayRunRow } from "@/app/_features/plays/types";
 import type { PlaybookV2QueryResult } from "@/app/_features/plays/playbooks/queries-v2";
 
 export type PlaysTabData = {
   initialQueue: PlayRunRow[];
   initialActivity: PlayActivityRunRow[];
   activityTotalCount: number;
+  activityCounts: PlayActivityCounts;
   initialFindings: FindingWithContext[];
   autoHandledFindings: FindingWithContext[];
   autoHandledRuns: PlayRunRow[];
