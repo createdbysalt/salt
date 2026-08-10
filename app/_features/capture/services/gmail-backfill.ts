@@ -24,6 +24,7 @@ import { getCategoryAdapter } from "../adapters/categories";
 import type { CaptureEnvelope, EnvelopeParticipant } from "../adapters/types";
 import { BOOTSTRAP_LIMITS } from "../types";
 import { ingestEnvelope } from "./ingest-envelope";
+import { logBackfillSummaryExecution } from "./backfill-summary";
 import { runInlineBackfillScan, type AdmittedBackfillCapture } from "./backfill-inline-scan";
 import {
   scoreContactSignal,
@@ -447,6 +448,14 @@ export async function backfillGmailCaptures(
   console.log(
     `[gmail-backfill] Done: created=${created}, fetched=${debug.messagesFetched}, pages=${debug.pagesFetched}, noise=${debug.skippedNoise}, held=${debug.held}, dropped=${debug.dropped}, dupes=${debug.duplicates}, errors=${debug.insertErrors}, contacts=${contactsCreated}, inlineScanned=${debug.inlineScanned}`
   );
+
+  // P5: one summary row per run so the connector Activity tab reads
+  // "Checked for new email — 34 found · 8 added · 2 kept out".
+  await logBackfillSummaryExecution(workspaceId, "gmail", {
+    found: debug.messagesFetched,
+    added: created,
+    keptOut: debug.skippedNoise + debug.dropped,
+  });
 
   return {
     success: true,

@@ -27,6 +27,11 @@ export interface ToolExecutionLogParams {
   approvedBy?: string | null;
   args?: unknown;
   error?: string | null;
+  /**
+   * Explicit provider override for synthetic slugs (e.g. capture_backfill:gmail)
+   * that the TOOLKIT_ACTION prefix map can't derive. Omit for real Composio slugs.
+   */
+  provider?: string | null;
 }
 
 /**
@@ -92,7 +97,8 @@ async function appendActivityEntry(
     detail: SOURCE_PROVENANCE[params.source],
     metadata: {
       tool_slug: params.toolSlug,
-      provider: getComposioProviderForToolSlug(params.toolSlug),
+      provider:
+        params.provider ?? getComposioProviderForToolSlug(params.toolSlug),
       risk: params.risk,
       source: params.source,
       approved_by: params.approvedBy ?? null,
@@ -115,7 +121,8 @@ export async function logToolExecution(params: ToolExecutionLogParams): Promise<
       user_id: params.userId ?? null,
       approved_by: params.approvedBy ?? null,
       tool_slug: params.toolSlug,
-      provider: getComposioProviderForToolSlug(params.toolSlug),
+      provider:
+        params.provider ?? getComposioProviderForToolSlug(params.toolSlug),
       risk: params.risk,
       source: params.source,
       status: params.status,

@@ -273,3 +273,71 @@ test.describe("Connector detail — Customize tab (rules)", () => {
     ).toHaveCount(0, { timeout: 10_000 });
   });
 });
+
+test.describe("Sources — cause-aware Kept Out corrections (P4)", () => {
+  test("kept-out rows carry a correction action keyed off the cause", async ({ page }) => {
+    await gotoAppRoute(page, ACTIVITY_URL);
+    await expect(page.getByText(/all captures/i)).toBeVisible({ timeout: 15000 });
+
+    const keptOutToggle = page.getByRole("button", { name: /kept out/i });
+    if (!(await keptOutToggle.isVisible({ timeout: 3_000 }).catch(() => false))) {
+      // No kept-out captures in test data — nothing to correct.
+      return;
+    }
+    await keptOutToggle.click();
+
+    // Every kept-out row must offer a cause-aware correction: rule-caused
+    // rows offer rule removal; heuristic-caused rows offer let-in +
+    // always-allow. Email rows also offer the Add to People escalation.
+    const correction = page
+      .getByRole("button", {
+        name: /remove keep-out rule|let this in|always let this/i,
+      })
+      .first();
+    if (await correction.isVisible({ timeout: 3_000 }).catch(() => false)) {
+      await expect(correction).toBeEnabled();
+    }
+  });
+});
+
+test.describe("Connector detail — Activity tab (P5)", () => {
+  test("activity entries read plainly and kept-out report renders when present", async ({ page }) => {
+    await gotoAppRoute(page, "/sources");
+    await expect(
+      page.getByRole("heading", { name: /^connectors$/i, level: 2 }),
+    ).toBeVisible({ timeout: 15000 });
+
+    const connectedCard = page
+      .getByRole("button")
+      .filter({ hasText: /^connected$/i })
+      .first();
+    if (!(await connectedCard.isVisible({ timeout: 5_000 }).catch(() => false))) {
+      return;
+    }
+    await connectedCard.click();
+
+    const activityTab = page.getByRole("tab", { name: /^activity$/i });
+    await expect(activityTab).toBeVisible({ timeout: 10_000 });
+    await activityTab.click();
+
+    // Plain-language contract: raw Gmail operator syntax must never render.
+    // Entries appear only when the connector has logged executions.
+    await page.waitForTimeout(1_000);
+    await expect(
+      page.getByText(/in:inbox|category:promotions|label:sent/i),
+    ).toHaveCount(0);
+
+    // Kept-out report card only renders when this connector kept items out
+    // in the trailing 30 days; when present, its correction actions work.
+    const keptOutCard = page.getByText(/kept out in the last 30 days/i);
+    if (await keptOutCard.isVisible({ timeout: 3_000 }).catch(() => false)) {
+      await expect(
+        page
+          .getByRole("button", {
+            name: /remove keep-out rule|always let this/i,
+          })
+          .first(),
+      ).toBeEnabled();
+    }
+  });
+});

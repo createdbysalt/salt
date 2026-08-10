@@ -93,6 +93,12 @@ function daysAgo(days: number): string {
   return since.toISOString();
 }
 
+function mapRowsToItems(rows: CaptureGateRow[] | null): AdmissionItem[] {
+  return (rows ?? [])
+    .map(mapRow)
+    .filter((item): item is AdmissionItem => item !== null);
+}
+
 export const getAdmissionDecisions = cache(
   async (workspaceId: string): Promise<AdmissionDecisions> => {
     const supabase = await createClient();
@@ -143,16 +149,69 @@ export const getAdmissionDecisions = cache(
       }
     }
 
-    const mapRows = (rows: CaptureGateRow[] | null): AdmissionItem[] =>
-      (rows ?? [])
-        .map(mapRow)
-        .filter((item): item is AdmissionItem => item !== null);
-
     return {
-      candidates: mapRows(candidatesRes.data as CaptureGateRow[] | null),
-      letIn: mapRows(letInRes.data as CaptureGateRow[] | null),
+      candidates: mapRowsToItems(candidatesRes.data as CaptureGateRow[] | null),
+      letIn: mapRowsToItems(letInRes.data as CaptureGateRow[] | null),
       keptOutCount: keptOutCountRes.count ?? 0,
-      keptOutSample: mapRows(keptOutSampleRes.data as CaptureGateRow[] | null),
+      keptOutSample: mapRowsToItems(
+        keptOutSampleRes.data as CaptureGateRow[] | null,
+      ),
     };
   },
 );
+
+// ============================================================================
+// Per-connector kept-out report (Connector Rules & Learning, P5)
+// ============================================================================
+
+export interface ConnectorKeptOutReport {
+  /** Kept-out captures from this provider, trailing 30 days. */
+  total: number;
+  /** Dropped by an explicit workspace/connector rule (removable). */
+  ruleCaused: number;
+  /** Kept out by heuristics/scores (correctable with always-allow). */
+  heuristicCaused: number;
+  /** Most recent kept-out items, carrying the P4 correction actions. */
+  sample: AdmissionItem[];
+}
+
+/**
+ * Kept-out report for a single connector, for the detail pane's Activity tab.
+ * `sourceType` is the capture-layer source type matching the connector's
+ * provider (capture source types ARE provider keys; aliases like cal → calcom
+ * resolve upstream via the source taxonomy).
+ */
+export async function getConnectorKeptOutReport(
+  workspaceId: string,
+  sourceType: string,
+): Promise<ConnectorKeptOutReport> {
+  const supabase = await createClient();
+  const thirtyDaysAgo = daysAgo(30);
+
+  const { data: rows, error } = await supabase
+    .from("capture_events")
+    .select(GATE_SELECT)
+    .eq("workspace_id", workspaceId)
+    .eq("source_type", sourceType)
+    .in("gate_action", ["noise", "drop", "held"])
+    .gte("created_at", thirtyDaysAgo)
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  if (error) {
+    console.error(
+      "[admission-decisions] kept-out report query error:",
+      error.message,
+      error.code,
+    );
+    return { total: 0, ruleCaused: 0, heuristicCaused: 0, sample: [] };
+  }
+
+  const items = mapRowsToItems(rows as CaptureGateRow[] | null);
+  return {
+    total: items.length,
+    ruleCaused: items.filter((item) => item.cause === "rule").length,
+    heuristicCaused: items.filter((item) => item.cause === "heuristic").length,
+    sample: items.slice(0, 3),
+  };
+}

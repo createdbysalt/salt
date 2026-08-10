@@ -126,3 +126,152 @@ describe("activityDetailText", () => {
     expect(activityDetailText({ q: "" })).toBeNull();
   });
 });
+
+describe("Gmail query translator (P5)", () => {
+  const gmail = { provider: "gmail" as const };
+
+  it("translates the background sync query to intent", () => {
+    // The offender from the plan: raw operator syntax quoted verbatim.
+    expect(
+      activityDetailText(
+        {
+          q: "in:inbox after:2026/08/07 -category:promotions -category:social -from:noreply -from:no-reply",
+        },
+        gmail,
+      ),
+    ).toBe("your inbox");
+  });
+
+  it("translates sent-mail and combined mailbox scopes", () => {
+    expect(
+      activityDetailText({ q: "in:sent after:2026/08/07" }, gmail),
+    ).toBe("your sent mail");
+    expect(
+      activityDetailText(
+        { q: "{label:inbox label:sent} after:2026/08/07" },
+        gmail,
+      ),
+    ).toBe("your inbox and sent mail");
+  });
+
+  it("generalizes other operator queries to 'your mail'", () => {
+    expect(
+      activityDetailText({ q: "from:news@example.com has:attachment" }, gmail),
+    ).toBe("your mail");
+  });
+
+  it("passes plain-English searches through untouched", () => {
+    // A real Ask Salt search must not be mangled by the translator.
+    expect(activityDetailText({ q: "Liam Gilles" }, gmail)).toBe("“Liam Gilles”");
+    expect(
+      activityDetailText({ q: "invoice from last week" }, gmail),
+    ).toBe("“invoice from last week”");
+  });
+
+  it("does not translate operator syntax for providers without a translator", () => {
+    expect(
+      activityDetailText({ q: "in:inbox after:2026/08/07" }, { provider: "slack" }),
+    ).toBe("“in:inbox after:2026/08/07”");
+    expect(
+      activityDetailText({ q: "in:inbox after:2026/08/07" }),
+    ).toBe("“in:inbox after:2026/08/07”");
+  });
+});
+
+describe("source-aware action copy (P5)", () => {
+  it("reads background syncs as checks, not reads", () => {
+    expect(
+      activityActionLabel({
+        toolSlug: "GMAIL_FETCH_EMAILS",
+        provider: "gmail",
+        summary: null,
+        source: "background",
+      }),
+    ).toBe("Checked for new email");
+    expect(
+      activityActionLabel({
+        toolSlug: "GMAIL_LIST_THREADS",
+        provider: "gmail",
+        summary: null,
+        source: "background",
+      }),
+    ).toBe("Checked for new email");
+  });
+
+  it("keeps interactive copy for user-triggered reads", () => {
+    expect(
+      activityActionLabel({
+        toolSlug: "GMAIL_FETCH_EMAILS",
+        provider: "gmail",
+        summary: null,
+        source: "ask_salt",
+      }),
+    ).toBe("Read your email");
+    // Entries without a source (older rows, tests) keep interactive copy.
+    expect(
+      activityActionLabel({
+        toolSlug: "GMAIL_FETCH_EMAILS",
+        provider: "gmail",
+        summary: null,
+      }),
+    ).toBe("Read your email");
+  });
+
+  it("covers other high-frequency background slugs", () => {
+    expect(
+      activityActionLabel({
+        toolSlug: "GOOGLECALENDAR_EVENTS_LIST",
+        provider: "googlecalendar",
+        summary: null,
+        source: "background",
+      }),
+    ).toBe("Checked for new events");
+    expect(
+      activityActionLabel({
+        toolSlug: "STRIPE_LIST_INVOICES",
+        provider: "stripe",
+        summary: null,
+        source: "background",
+      }),
+    ).toBe("Checked for new invoices");
+    expect(
+      activityActionLabel({
+        toolSlug: "STRIPE_LIST_PAYMENT_INTENTS",
+        provider: "stripe",
+        summary: null,
+        source: "background",
+      }),
+    ).toBe("Checked for new payments");
+    expect(
+      activityActionLabel({
+        toolSlug: "GOOGLEDRIVE_LIST_FILES",
+        provider: "googledrive",
+        summary: null,
+        source: "background",
+      }),
+    ).toBe("Checked for new files");
+  });
+});
+
+describe("sync summary result lines (P5)", () => {
+  it("renders found / added / kept out counts", () => {
+    expect(
+      activityDetailText({ result: { found: 34, added: 8, keptOut: 2 } }),
+    ).toBe("34 found · 8 added · 2 kept out");
+  });
+
+  it("omits zero counts", () => {
+    expect(
+      activityDetailText({ result: { found: 5, added: 0, keptOut: 0 } }),
+    ).toBe("5 found");
+    expect(
+      activityDetailText({ result: { found: 3, added: 0, keptOut: 1 } }),
+    ).toBe("3 found · 1 kept out");
+  });
+
+  it("reads plainly when nothing came in", () => {
+    expect(
+      activityDetailText({ result: { found: 0, added: 0, keptOut: 0 } }),
+    ).toBe("nothing new");
+  });
+});

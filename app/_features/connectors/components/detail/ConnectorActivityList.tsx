@@ -8,6 +8,7 @@ import {
   activityDetailText,
   activityFriendlyError,
 } from "@/app/_features/connectors/utils/activity-format";
+import { collapseConnectorActivity } from "@/app/_features/connectors/utils/activity-collapse";
 import { ConnectorActivityListSkeleton } from "./ConnectorDetailPaneSkeleton";
 
 const ACTIVITY_SOURCE_LABELS: Record<ConnectorActivityEntry["source"], string> = {
@@ -58,7 +59,7 @@ export function filterConnectorActivity(
       ACTIVITY_SOURCE_LABELS[entry.source],
       entry.status,
       entry.error ?? "",
-      activityDetailText(entry.argsSummary) ?? "",
+      activityDetailText(entry.argsSummary, { provider: entry.provider }) ?? "",
     ]
       .join(" ")
       .toLowerCase();
@@ -106,10 +107,14 @@ export function ConnectorActivityList({
     );
   }
 
+  const collapsed = collapseConnectorActivity(entries);
+
   return (
     <ul className="divide-y divide-border/40">
-      {entries.map((entry) => {
-        const detail = activityDetailText(entry.argsSummary);
+      {collapsed.map(({ entry, count }) => {
+        const detail = activityDetailText(entry.argsSummary, {
+          provider: entry.provider,
+        });
         const friendlyError = activityFriendlyError(entry);
         return (
           <li key={entry.id} className="flex gap-3 py-3 first:pt-0">
@@ -122,6 +127,12 @@ export function ConnectorActivityList({
                     <span className="font-normal text-muted-foreground">
                       {" "}
                       {detail}
+                    </span>
+                  ) : null}
+                  {count > 1 ? (
+                    <span className="font-normal text-muted-foreground">
+                      {" "}
+                      · {count} times
                     </span>
                   ) : null}
                 </span>

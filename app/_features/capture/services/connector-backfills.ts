@@ -23,6 +23,7 @@ import { resolvePerson } from "./system-plays";
 import { getCategoryAdapter, hasHandWrittenParsing } from "../adapters/categories";
 import { parseQuickbooksBalanceDetailReport } from "../adapters/categories/billing";
 import { ingestEnvelope } from "./ingest-envelope";
+import { logBackfillSummaryExecution } from "./backfill-summary";
 import { processCalBookings } from "./cal-booking-processor";
 import {
   absorbInferredSignals,
@@ -321,6 +322,13 @@ async function runConnectorBackfill(
   console.log(
     `[connector-backfill] ${spec.provider}: created=${stats.created}, fetched=${stats.itemsFetched}, dupes=${stats.duplicates}, dropped=${stats.dropped}, declined=${stats.declined}, errors=${stats.insertErrors}`,
   );
+
+  // P5: one summary row per run for the connector Activity tab.
+  await logBackfillSummaryExecution(workspaceId, spec.provider, {
+    found: stats.itemsFetched,
+    added: stats.created,
+    keptOut: stats.skippedNoise + stats.dropped,
+  });
 
   const { created, envelopes: _envelopes, newEnvelopes: _newEnvelopes, ...debug } = stats;
   return { success: true, capturesCreated: created, debug };
