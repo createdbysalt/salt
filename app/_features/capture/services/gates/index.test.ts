@@ -49,6 +49,7 @@ vi.mock("./cold-intent", () => ({
 }));
 
 import { runGatePipeline } from "./index";
+import { resolveGatePolicy } from "./gate-policy";
 
 function emailEnvelope(overrides: Partial<CaptureEnvelope> = {}): CaptureEnvelope {
   return {
@@ -398,5 +399,139 @@ describe("runGatePipeline Lane 1 discriminator (cold-inbound intent read)", () =
     const admission = result.gateResults.admission as GateResultCandidate;
     expect(admission.confidence).toBe(85); // 45 + 40
     expect(admission.signals.map((s) => s.type)).toContain("intent_inquiry");
+  });
+});
+
+describe("runGatePipeline gate policy (Customize surfaces, S3)", () => {
+  function automatedEnvelope(): CaptureEnvelope {
+    return emailEnvelope({
+      participants: [
+        { email: "receipts@stripe.com", name: null, role: "from" },
+      ],
+      extracted: {
+        subject: "Your receipt",
+        sender_email: "receipts@stripe.com",
+        isSentByUser: false,
+      },
+    });
+  }
+
+  it("strangers = dropped drops stranger mail before paying for a cold-intent read", async () => {
+    const result = await runGatePipeline({
+      workspaceId: "ws-1",
+      userEmail: "me@myco.com",
+      envelope: emailEnvelope(),
+      coldIntentRead: true,
+      gatePolicy: resolveGatePolicy({ email: { strangers: "dropped" } }),
+    });
+
+    expect(result.finalAction).toBe("drop");
+    expect(result.shouldIngest).toBe(false);
+    expect(result.gateResults.policy).toEqual({
+      action: "drop",
+      gate: "policy",
+      reason: "Workspace policy: mail from strangers is dropped",
+      category: "blocked",
+    });
+    expect(classifyColdInboundIntentMock).not.toHaveBeenCalled();
+  });
+
+  it("strangers = let_in bypasses the hold — stranger mail lands at full prominence", async () => {
+    const result = await runGatePipeline({
+      workspaceId: "ws-1",
+      userEmail: "me@myco.com",
+      envelope: emailEnvelope(),
+      gatePolicy: resolveGatePolicy({ email: { strangers: "let_in" } }),
+    });
+
+    expect(result.finalAction).toBe("candidate");
+    expect(result.shouldIngest).toBe(true);
+    expect(result.gateResults.policy).toBeUndefined();
+  });
+
+  it("no policy (defaults) still holds stranger mail", async () => {
+    const result = await runGatePipeline({
+      workspaceId: "ws-1",
+      userEmail: "me@myco.com",
+      envelope: emailEnvelope(),
+    });
+
+    expect(result.finalAction).toBe("held");
+  });
+
+  it("default policy drops automated mail at pre-ingest", async () => {
+    const result = await runGatePipeline({
+      workspaceId: "ws-1",
+      userEmail: "me@myco.com",
+      envelope: automatedEnvelope(),
+    });
+
+    expect(result.finalAction).toBe("drop");
+    expect(result.shouldIngest).toBe(false);
+    expect(result.gateResults.preIngest?.category).toBe("automated");
+  });
+
+  it("automatedSenders = watched lets automated mail past the drop but still holds it", async () => {
+    const result = await runGatePipeline({
+      workspaceId: "ws-1",
+      userEmail: "me@myco.com",
+      envelope: automatedEnvelope(),
+      gatePolicy: resolveGatePolicy({
+        email: { automated_senders: "watched" },
+      }),
+    });
+
+    expect(result.gateResults.preIngest).toBeNull();
+    expect(result.finalAction).toBe("held");
+  });
+
+  it("automatedSenders = let_in admits automated mail past both the drop and the hold", async () => {
+    const result = await runGatePipeline({
+      workspaceId: "ws-1",
+      userEmail: "me@myco.com",
+      envelope: automatedEnvelope(),
+      gatePolicy: resolveGatePolicy({
+        email: { automated_senders: "let_in" },
+      }),
+    });
+
+    expect(result.gateResults.preIngest).toBeNull();
+    expect(result.finalAction).toBe("candidate");
+    expect(result.shouldIngest).toBe(true);
+  });
+
+  it("marketing detections still drop even when automatedSenders = let_in", async () => {
+    const envelope = emailEnvelope({
+      raw: {
+        messageId: "msg-1",
+        headers: { "List-Unsubscribe": "<mailto:unsub@example.com>" },
+      },
+    });
+
+    const result = await runGatePipeline({
+      workspaceId: "ws-1",
+      userEmail: "me@myco.com",
+      envelope,
+      gatePolicy: resolveGatePolicy({
+        email: { automated_senders: "let_in" },
+      }),
+    });
+
+    expect(result.finalAction).toBe("drop");
+    expect(result.gateResults.preIngest?.category).toBe("marketing");
+  });
+
+  it("strangers = dropped does not drop mail the user sent", async () => {
+    const envelope = emailEnvelope();
+    (envelope.extracted as Record<string, unknown>).isSentByUser = true;
+
+    const result = await runGatePipeline({
+      workspaceId: "ws-1",
+      userEmail: "me@myco.com",
+      envelope,
+      gatePolicy: resolveGatePolicy({ email: { strangers: "dropped" } }),
+    });
+
+    expect(result.finalAction).toBe("candidate");
   });
 });

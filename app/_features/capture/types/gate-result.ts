@@ -24,7 +24,7 @@ export interface EntityRef {
 
 export interface GateResultDrop {
   action: "drop";
-  gate: "pre-ingest" | "blocklist" | "rules";
+  gate: "pre-ingest" | "blocklist" | "rules" | "policy";
   reason: string;
   category: "spam" | "marketing" | "automated" | "blocklisted" | "blocked";
 }
@@ -107,6 +107,8 @@ export interface GatePipelineResult {
     blocklist?: GateResultDrop | null;
     knownEntity?: GateResultSignal | null;
     admission?: GateResultCandidate | GateResultNoise | null;
+    /** Workspace gate-policy decision (S3) — e.g. strangers dropped. */
+    policy?: GateResultDrop | null;
   };
   passedGates: (
     | "rules"

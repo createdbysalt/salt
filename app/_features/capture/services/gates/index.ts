@@ -21,9 +21,14 @@ import type {
 } from "../../types/gate-result";
 import {
   runPreIngestGate,
+  runPreIngestGateDetailed,
   extractDomainFromEmail,
   extractHeadersFromEnvelope,
 } from "./pre-ingest-gate";
+import {
+  DEFAULT_GATE_POLICY,
+  type ResolvedGatePolicy,
+} from "./gate-policy";
 import { runKnownEntityGate } from "./known-entity-gate";
 import {
   runAdmissionGate,
@@ -66,10 +71,16 @@ export interface GatePipelineInput {
    * and the discovery pass already covers held senders.
    */
   coldIntentRead?: boolean;
+  /**
+   * Workspace gate policy (Customize surfaces, S3). Callers load it via
+   * `getCaptureGatePolicy`; omitted = defaults (current behavior).
+   */
+  gatePolicy?: ResolvedGatePolicy;
 }
 
 export async function runGatePipeline(input: GatePipelineInput): Promise<GatePipelineResult> {
   const { workspaceId, userEmail, envelope } = input;
+  const gatePolicy = input.gatePolicy ?? DEFAULT_GATE_POLICY;
 
   const senderParticipant = envelope.participants.find((p) => p.role === "from");
   const senderEmail = senderParticipant?.email ?? null;
@@ -125,10 +136,10 @@ export async function runGatePipeline(input: GatePipelineInput): Promise<GatePip
     labels: (envelope.extracted as Record<string, unknown>)?.labels as string[] | undefined,
   };
 
-  const preIngestResult = runPreIngestGate(preIngestInput);
-  result.gateResults.preIngest = preIngestResult;
+  const preIngest = runPreIngestGateDetailed(preIngestInput, gatePolicy);
+  result.gateResults.preIngest = preIngest.drop;
 
-  if (preIngestResult) {
+  if (preIngest.drop) {
     result.finalAction = "drop";
     result.shouldIngest = false;
     return result;
@@ -219,48 +230,74 @@ export async function runGatePipeline(input: GatePipelineInput): Promise<GatePip
   // admission — the booking email must not wait for the discovery cron. The
   // read's outcome is recorded either way so Activity can answer "why didn't
   // Salt catch this?" and misses are queryable (failure mode #1 telemetry).
+  //
+  // Gate policy (S3) governs this hold:
+  // - strangers = dropped: explicit workspace choice to never see stranger
+  //   mail — drop before paying for a cold-intent read.
+  // - strangers = let_in: no hold; stranger mail lands at full prominence.
+  // - automatedSenders = let_in: an automated detection the workspace chose
+  //   to let in bypasses the hold (receipts land at full prominence).
   if (isHoldableEmail(envelope)) {
-    if (input.coldIntentRead) {
-      const extracted = envelope.extracted as Record<string, unknown>;
-      const intent = await classifyColdInboundIntent({
-        workspaceId,
-        senderEmail,
-        senderName,
-        subject: (extracted?.subject as string | null) ?? envelope.title,
-        snippet: (extracted?.snippet as string | null) ?? null,
-      });
-      result.coldIntent = intent;
-
-      if (intentEarnsAdmission(intent)) {
-        const intentSignal = {
-          type: "intent_inquiry" as const,
-          weight: 40,
-          evidence: intent.reason,
-        };
-        result.gateResults.admission =
-          admissionResult.action === "candidate"
-            ? {
-                ...admissionResult,
-                confidence: Math.min(100, admissionResult.confidence + 40),
-                signals: [...admissionResult.signals, intentSignal],
-                reason: `${admissionResult.reason}; genuine inquiry: ${intent.reason}`,
-              }
-            : {
-                action: "candidate",
-                gate: "admission",
-                confidence: Math.round(intent.confidence * 100),
-                signals: [intentSignal],
-                reason: `Genuine inquiry: ${intent.reason}`,
-              };
-        result.finalAction = "candidate";
-        result.shouldIngest = true;
-        return result;
-      }
+    if (gatePolicy.email.strangers === "dropped") {
+      result.gateResults.policy = {
+        action: "drop",
+        gate: "policy",
+        reason: "Workspace policy: mail from strangers is dropped",
+        category: "blocked",
+      };
+      result.finalAction = "drop";
+      result.shouldIngest = false;
+      return result;
     }
 
-    result.finalAction = "held";
-    result.shouldIngest = true;
-    return result;
+    const bypassHold =
+      gatePolicy.email.strangers === "let_in" ||
+      (preIngest.suppressed !== null &&
+        gatePolicy.email.automatedSenders === "let_in");
+
+    if (!bypassHold) {
+      if (input.coldIntentRead) {
+        const extracted = envelope.extracted as Record<string, unknown>;
+        const intent = await classifyColdInboundIntent({
+          workspaceId,
+          senderEmail,
+          senderName,
+          subject: (extracted?.subject as string | null) ?? envelope.title,
+          snippet: (extracted?.snippet as string | null) ?? null,
+        });
+        result.coldIntent = intent;
+
+        if (intentEarnsAdmission(intent)) {
+          const intentSignal = {
+            type: "intent_inquiry" as const,
+            weight: 40,
+            evidence: intent.reason,
+          };
+          result.gateResults.admission =
+            admissionResult.action === "candidate"
+              ? {
+                  ...admissionResult,
+                  confidence: Math.min(100, admissionResult.confidence + 40),
+                  signals: [...admissionResult.signals, intentSignal],
+                  reason: `${admissionResult.reason}; genuine inquiry: ${intent.reason}`,
+                }
+              : {
+                  action: "candidate",
+                  gate: "admission",
+                  confidence: Math.round(intent.confidence * 100),
+                  signals: [intentSignal],
+                  reason: `Genuine inquiry: ${intent.reason}`,
+                };
+          result.finalAction = "candidate";
+          result.shouldIngest = true;
+          return result;
+        }
+      }
+
+      result.finalAction = "held";
+      result.shouldIngest = true;
+      return result;
+    }
   }
 
   if (admissionResult.action === "noise") {

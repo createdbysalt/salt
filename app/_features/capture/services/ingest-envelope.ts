@@ -4,6 +4,7 @@ import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { classifyCaptureNoise } from "./intelligence/capture-noise";
 import { processCaptureForEvidence } from "@/app/_features/memory/evidence";
 import { runGatePipeline, type GatePipelineInput } from "./gates";
+import { getCaptureGatePolicy } from "../actions/gate-policy";
 import { enrichAndPersist } from "./enrichment";
 import { promoteRepliedRecipients } from "./relationship-discovery";
 import { recordOutboundReplies } from "./sender-reputation";
@@ -101,11 +102,13 @@ export async function ingestEnvelope(
   let gateResult: GatePipelineResult | undefined;
 
   if (options.useGatePipeline) {
+    const gatePolicy = await getCaptureGatePolicy(workspaceId);
     const gateInput: GatePipelineInput = {
       workspaceId,
       userEmail: options.userEmail ?? null,
       envelope,
       coldIntentRead: options.coldIntentRead ?? false,
+      gatePolicy,
     };
     gateResult = await runGatePipeline(gateInput);
 
@@ -115,6 +118,7 @@ export async function ingestEnvelope(
         noiseReason:
           gateResult.gateResults.preIngest?.reason ??
           gateResult.gateResults.rules?.reason ??
+          gateResult.gateResults.policy?.reason ??
           "Blocked by gate pipeline",
         gateResult,
       };

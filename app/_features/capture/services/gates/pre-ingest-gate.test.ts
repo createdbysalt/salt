@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { runPreIngestGate, extractDomainFromEmail } from "./pre-ingest-gate";
+import {
+  runPreIngestGate,
+  runPreIngestGateDetailed,
+  extractDomainFromEmail,
+} from "./pre-ingest-gate";
+import { resolveGatePolicy } from "./gate-policy";
 
 describe("runPreIngestGate", () => {
   it("passes through normal email without spam indicators", () => {
@@ -177,6 +182,113 @@ describe("runPreIngestGate", () => {
       });
       expect(result, local).toBeNull();
     }
+  });
+});
+
+describe("runPreIngestGate with gate policy (S3)", () => {
+  const automatedInput = {
+    senderEmail: "noreply@company.com",
+    senderDomain: "company.com",
+    headers: {},
+  };
+
+  it("default policy keeps current behavior (automated dropped)", () => {
+    const result = runPreIngestGate(automatedInput, resolveGatePolicy(null));
+    expect(result?.action).toBe("drop");
+    expect(result?.category).toBe("automated");
+  });
+
+  it("omitted policy keeps current behavior", () => {
+    expect(runPreIngestGate(automatedInput)?.action).toBe("drop");
+  });
+
+  it("watched: automated detections pass instead of dropping", () => {
+    const policy = resolveGatePolicy({
+      email: { automated_senders: "watched" },
+    });
+    expect(runPreIngestGate(automatedInput, policy)).toBeNull();
+    expect(
+      runPreIngestGate(
+        {
+          senderEmail: "updates@service.com",
+          senderDomain: "service.com",
+          headers: { precedence: "bulk" },
+        },
+        policy,
+      ),
+    ).toBeNull();
+  });
+
+  it("let_in: automated detections pass instead of dropping", () => {
+    const policy = resolveGatePolicy({
+      email: { automated_senders: "let_in" },
+    });
+    expect(runPreIngestGate(automatedInput, policy)).toBeNull();
+  });
+
+  it("policy never softens spam or marketing drops — only automated", () => {
+    const policy = resolveGatePolicy({
+      email: { automated_senders: "let_in" },
+    });
+    // Disposable domain (spam) still drops.
+    expect(
+      runPreIngestGate(
+        {
+          senderEmail: "test@mailinator.com",
+          senderDomain: "mailinator.com",
+          headers: {},
+        },
+        policy,
+      )?.category,
+    ).toBe("spam");
+    // Marketing platform domain still drops even from a noreply address.
+    expect(
+      runPreIngestGate(
+        {
+          senderEmail: "noreply@sendgrid.net",
+          senderDomain: "sendgrid.net",
+          headers: {},
+        },
+        policy,
+      )?.category,
+    ).toBe("marketing");
+    // List-Unsubscribe (marketing) still drops.
+    expect(
+      runPreIngestGate(
+        {
+          senderEmail: "news@company.com",
+          senderDomain: "company.com",
+          headers: { listUnsubscribe: "<mailto:u@company.com>" },
+        },
+        policy,
+      )?.category,
+    ).toBe("marketing");
+  });
+
+  it("detailed result reports the suppressed automated detection", () => {
+    const policy = resolveGatePolicy({
+      email: { automated_senders: "watched" },
+    });
+    const result = runPreIngestGateDetailed(automatedInput, policy);
+    expect(result.drop).toBeNull();
+    expect(result.suppressed?.category).toBe("automated");
+  });
+
+  it("detailed result reports no suppression under the default policy", () => {
+    const result = runPreIngestGateDetailed(
+      automatedInput,
+      resolveGatePolicy(null),
+    );
+    expect(result.drop?.category).toBe("automated");
+    expect(result.suppressed).toBeNull();
+  });
+
+  it("detailed result on clean mail is all null", () => {
+    const result = runPreIngestGateDetailed(
+      { senderEmail: "alice@acme.com", senderDomain: "acme.com", headers: {} },
+      resolveGatePolicy(null),
+    );
+    expect(result).toEqual({ drop: null, suppressed: null });
   });
 });
 

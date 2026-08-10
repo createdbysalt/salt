@@ -11,6 +11,10 @@
  */
 
 import type { PreIngestGateInput, GateResultDrop } from "../../types/gate-result";
+import {
+  DEFAULT_GATE_POLICY,
+  type ResolvedGatePolicy,
+} from "./gate-policy";
 
 const DISPOSABLE_EMAIL_DOMAINS = new Set([
   "mailinator.com",
@@ -111,104 +115,152 @@ const PROMOTIONAL_LABELS = new Set([
   "TRASH",
 ]);
 
-export function runPreIngestGate(input: PreIngestGateInput): GateResultDrop | null {
+/**
+ * Every detection the heuristics produce for this input, in priority order
+ * (the historical early-return order). The policy layer then decides which
+ * detections are allowed to drop.
+ */
+function detectDrops(input: PreIngestGateInput): GateResultDrop[] {
   const { senderEmail, senderDomain, headers, labels } = input;
+  const drops: GateResultDrop[] = [];
 
   if (headers.listUnsubscribe) {
-    return {
+    drops.push({
       action: "drop",
       gate: "pre-ingest",
       reason: "List-Unsubscribe header indicates marketing email",
       category: "marketing",
-    };
+    });
   }
 
   const precedence = headers.precedence?.toLowerCase();
   if (precedence === "bulk" || precedence === "list" || precedence === "junk") {
-    return {
+    drops.push({
       action: "drop",
       gate: "pre-ingest",
       reason: `Precedence: ${precedence} indicates bulk/list mail`,
       category: "automated",
-    };
+    });
   }
 
   const autoSubmitted = headers.autoSubmitted?.toLowerCase();
   if (autoSubmitted && autoSubmitted !== "no") {
-    return {
+    drops.push({
       action: "drop",
       gate: "pre-ingest",
       reason: `Auto-Submitted: ${autoSubmitted} indicates automated message`,
       category: "automated",
-    };
+    });
   }
 
   if (senderDomain) {
     const domainLower = senderDomain.toLowerCase();
 
     if (DISPOSABLE_EMAIL_DOMAINS.has(domainLower)) {
-      return {
+      drops.push({
         action: "drop",
         gate: "pre-ingest",
         reason: `Disposable email domain: ${senderDomain}`,
         category: "spam",
-      };
+      });
     }
 
     if (MARKETING_DOMAINS.has(domainLower)) {
-      return {
+      drops.push({
         action: "drop",
         gate: "pre-ingest",
         reason: `Known marketing platform domain: ${senderDomain}`,
         category: "marketing",
-      };
+      });
     }
 
     if (domainLower.includes("noreply") || domainLower.includes("no-reply")) {
-      return {
+      drops.push({
         action: "drop",
         gate: "pre-ingest",
         reason: "No-reply domain indicates automated message",
         category: "automated",
-      };
+      });
     }
   }
 
   if (senderEmail) {
     const localPart = senderEmail.split("@")[0]?.toLowerCase() ?? "";
     if (AUTOMATED_LOCAL_PARTS.has(localPart)) {
-      return {
+      drops.push({
         action: "drop",
         gate: "pre-ingest",
         reason: `Automated sender address: ${senderEmail}`,
         category: "automated",
-      };
-    }
-    // noreply+tag@ / no-reply-something@ variants
-    if (/^(no-?reply|do-?not-?reply)[+.\-_]/.test(localPart)) {
-      return {
+      });
+    } else if (/^(no-?reply|do-?not-?reply)[+.\-_]/.test(localPart)) {
+      // noreply+tag@ / no-reply-something@ variants
+      drops.push({
         action: "drop",
         gate: "pre-ingest",
         reason: `Automated sender address: ${senderEmail}`,
         category: "automated",
-      };
+      });
     }
   }
 
   if (labels && labels.length > 0) {
     for (const label of labels) {
       if (PROMOTIONAL_LABELS.has(label)) {
-        return {
+        drops.push({
           action: "drop",
           gate: "pre-ingest",
           reason: `Gmail label indicates promotional: ${label}`,
           category: "marketing",
-        };
+        });
+        break;
       }
     }
   }
 
-  return null;
+  return drops;
+}
+
+export interface PreIngestGateDetailedResult {
+  /** The drop that applies after policy, or null when the mail passes. */
+  drop: GateResultDrop | null;
+  /**
+   * The first 'automated' detection the workspace policy suppressed
+   * (automatedSenders ≠ dropped). The pipeline reads this to let explicitly
+   * let-in automated mail bypass the memory-first hold.
+   */
+  suppressed: GateResultDrop | null;
+}
+
+/**
+ * Policy-aware gate (Customize surfaces, S3): the workspace's
+ * `automatedSenders` choice governs ONLY the 'automated' category
+ * (noreply/bulk/auto-submitted heuristics). Spam and marketing detections
+ * always drop — no policy makes a disposable domain or a List-Unsubscribe
+ * blast acceptable.
+ */
+export function runPreIngestGateDetailed(
+  input: PreIngestGateInput,
+  policy: ResolvedGatePolicy = DEFAULT_GATE_POLICY,
+): PreIngestGateDetailedResult {
+  const automatedSoftened = policy.email.automatedSenders !== "dropped";
+  let suppressed: GateResultDrop | null = null;
+
+  for (const detection of detectDrops(input)) {
+    if (automatedSoftened && detection.category === "automated") {
+      suppressed ??= detection;
+      continue;
+    }
+    return { drop: detection, suppressed };
+  }
+  return { drop: null, suppressed };
+}
+
+export function runPreIngestGate(
+  input: PreIngestGateInput,
+  policy: ResolvedGatePolicy = DEFAULT_GATE_POLICY,
+): GateResultDrop | null {
+  return runPreIngestGateDetailed(input, policy).drop;
 }
 
 export function extractDomainFromEmail(email: string | null): string | null {
