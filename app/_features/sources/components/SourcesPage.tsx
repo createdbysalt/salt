@@ -7,6 +7,7 @@ import { CaptureStreamTab } from "@/app/_features/capture/components/CaptureStre
 import { PlaysSectionHeader } from "@/app/_features/plays/components/PlaysSectionHeader";
 import { SourcesTabs } from "./SourcesTabs";
 import { SourcesPageSkeleton } from "./SourcesPageSkeleton";
+import { SourcesCustomizeTab } from "./SourcesCustomizeTab";
 import { KeptOutSection } from "./KeptOutSection";
 import { DiscoveryStatusCard } from "./DiscoveryStatusCard";
 import { useSourcesTabCache } from "../hooks/useSourcesTabCache";
@@ -24,18 +25,22 @@ import type { ConnectorCatalogId } from "@/app/_features/connectors";
  *
  * - Connectors: the pipes Salt learns from (moved from Plays → Customize)
  * - Activity: what came in (capture stream, moved from Plays → Activity)
+ * - Customize: intake policy by capture category (2026-08-10)
  */
 export function SourcesPage({
   initialTab,
   initialData,
+  initialCategory = null,
 }: {
   initialTab: SourcesTab;
   initialData: SourcesTabData;
+  /** ?category= for the Customize tab's deep links (pane "Customize →"). */
+  initialCategory?: string | null;
 }) {
   const { tab, activeData, isTabLoading, handleTabChange, invalidateActiveTab } =
     useSourcesTabCache({ tab: initialTab, data: initialData });
 
-  const { connectors, streamCaptures, streamTotalCount, streamCounts, hasCaptureData, keptOut, workspaceId, discovery } =
+  const { connectors, streamCaptures, streamTotalCount, streamCounts, hasCaptureData, keptOut, workspaceId, discovery, customize } =
     activeData ?? initialData;
 
   // Keep the stream honest: new captures (webhook or backfill) revalidate the
@@ -122,6 +127,34 @@ export function SourcesPage({
                     keptOutSample={keptOut.sample}
                     workspaceId={workspaceId}
                   />
+                )}
+              </motion.div>
+            )}
+
+            {/* CUSTOMIZE TAB — intake policy by capture category */}
+            {tab === "customize" && (
+              <motion.div
+                key="customize"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="space-y-6"
+              >
+                <PlaysSectionHeader
+                  eyebrow="Intake policy"
+                  title="Customize"
+                  description="What Salt does by default, and the rules you've added on top."
+                />
+                {customize ? (
+                  <SourcesCustomizeTab
+                    data={customize}
+                    initialCategory={initialCategory}
+                    onChanged={invalidateActiveTab}
+                  />
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Sign in to manage intake rules.
+                  </p>
                 )}
               </motion.div>
             )}

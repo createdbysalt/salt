@@ -28,6 +28,7 @@ import {
 import { resolveCaptureSourceUrl } from "./utils/capture-source-url";
 import { getTierCapacity } from "@/app/_lib/usage/tiers";
 import { nextDiscoveryDueAt } from "./services/discovery-cadence";
+import type { SeededTriggerFilter } from "./adapters/default-policy";
 
 /** Shape of the gate_result JSONB subset the stream reads. */
 interface StreamGateResult {
@@ -519,6 +520,50 @@ export const hasCaptures = cache(async (workspaceId: string): Promise<boolean> =
 
   return (count ?? 0) > 0;
 });
+
+/**
+ * Seeded upstream filters (Sources → Customize transparency layer): the
+ * Salt-curated `capture_trigger_config` rows for the given providers, read
+ * live from connector_trigger_types so the "What Salt does by default"
+ * copy can never drift from what the subscriptions actually filter.
+ * Returns only rows that carry a config; renderers live in the pure
+ * `adapters/default-policy.ts`.
+ */
+export async function getSeededCaptureTriggerFilters(
+  providers: readonly string[],
+): Promise<SeededTriggerFilter[]> {
+  if (providers.length === 0) return [];
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("connector_trigger_types")
+    .select("toolkit_slug, trigger_slug, capture_trigger_config")
+    .in("toolkit_slug", [...providers])
+    .eq("enabled_for_capture", true)
+    .eq("sync_status", "active")
+    .not("capture_trigger_config", "is", null);
+
+  if (error) {
+    console.error(
+      "[capture-queries] getSeededCaptureTriggerFilters error:",
+      error.message,
+    );
+    return [];
+  }
+
+  return (data ?? [])
+    .filter(
+      (row) =>
+        row.capture_trigger_config !== null &&
+        typeof row.capture_trigger_config === "object" &&
+        !Array.isArray(row.capture_trigger_config),
+    )
+    .map((row) => ({
+      provider: row.toolkit_slug,
+      slug: row.trigger_slug,
+      config: row.capture_trigger_config as Record<string, unknown>,
+    }));
+}
 
 /**
  * Discovery status for the Sources surface (Sources plan 4.4): the workspace's

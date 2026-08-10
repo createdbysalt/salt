@@ -7,7 +7,11 @@ import {
 import { SourcesPage } from "@/app/_features/sources/components/SourcesPage";
 import { SourcesPageSkeleton } from "@/app/_features/sources/components/SourcesPageSkeleton";
 
-type SearchParams = Promise<{ tab?: string; connector?: string }>;
+type SearchParams = Promise<{
+  tab?: string;
+  connector?: string;
+  category?: string;
+}>;
 
 async function SourcesPageWithData({
   searchParams,
@@ -21,7 +25,13 @@ async function SourcesPageWithData({
 
   const data = await loadSourcesPageData({ tab, workspaceId });
 
-  return <SourcesPage initialTab={tab} initialData={data} />;
+  return (
+    <SourcesPage
+      initialTab={tab}
+      initialData={data}
+      initialCategory={params.category ?? null}
+    />
+  );
 }
 
 export default function SourcesRoute({

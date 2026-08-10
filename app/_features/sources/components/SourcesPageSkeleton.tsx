@@ -12,7 +12,13 @@ export function SourcesPageSkeleton({
     <div className="relative min-h-full">
       <div className="mx-auto w-full max-w-[1400px] space-y-8">
         <SourcesTabBarSkeleton />
-        {tab === "activity" ? <SourcesActivitySkeleton /> : <SourcesConnectorsSkeleton />}
+        {tab === "activity" ? (
+          <SourcesActivitySkeleton />
+        ) : tab === "customize" ? (
+          <SourcesCustomizeSkeleton />
+        ) : (
+          <SourcesConnectorsSkeleton />
+        )}
       </div>
     </div>
   );
@@ -46,6 +52,20 @@ function SourcesConnectorsSkeleton() {
         </div>
       </div>
     </>
+  );
+}
+
+function SourcesCustomizeSkeleton() {
+  return (
+    <div className="max-w-3xl space-y-6">
+      <div className="flex gap-1.5">
+        <Skeleton className="h-8 w-24 rounded-full" />
+        <Skeleton className="h-8 w-16 rounded-full" />
+        <Skeleton className="h-8 w-20 rounded-full" />
+      </div>
+      <Skeleton className="h-24 rounded-2xl" />
+      <Skeleton className="h-40 rounded-2xl" />
+    </div>
   );
 }
 

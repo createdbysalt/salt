@@ -8,11 +8,13 @@ import type { SourcesTab } from "../sources-tab-routing";
  * Sources Surface Tabs
  * - Connectors: the pipes (default)
  * - Activity: what came in
+ * - Customize: intake policy by capture category (2026-08-10)
  */
 
 const tabs: { id: SourcesTab; label: string }[] = [
   { id: "connectors", label: "Connectors" },
   { id: "activity", label: "Activity" },
+  { id: "customize", label: "Customize" },
 ];
 
 export function SourcesTabs({

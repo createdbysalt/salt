@@ -84,3 +84,42 @@ export function ruleEntityOptionsForCategory(
 ): RuleEntityOption[] {
   return CATEGORY_RULE_ENTITY_OPTIONS[category] ?? [];
 }
+
+/** Every entity type any category accepts — the workspace-wide vocabulary. */
+export const ALL_RULE_ENTITY_TYPES: readonly ConnectorRuleEntityType[] = [
+  ...new Set(
+    Object.values(CATEGORY_RULE_ENTITY_OPTIONS).flatMap((options) =>
+      options.map((option) => option.type),
+    ),
+  ),
+];
+
+/**
+ * Display labels + pill order for the Sources → Customize category tabs
+ * (2026-08-10). Order leads with the highest-signal categories (email
+ * first); "All connectors" (workspace-wide rules) is prepended by the tab,
+ * not listed here.
+ */
+export const CATEGORY_LABELS: Record<ConnectorCategory, string> = {
+  email: "Email",
+  calendar: "Calendar",
+  billing: "Billing",
+  communication: "Chat",
+  documents: "Documents",
+  storage: "Files",
+  crm: "CRM",
+  meetings: "Meetings",
+  project_management: "Projects",
+};
+
+export const CUSTOMIZE_CATEGORY_ORDER: readonly ConnectorCategory[] = [
+  "email",
+  "calendar",
+  "billing",
+  "communication",
+  "documents",
+  "storage",
+  "crm",
+  "meetings",
+  "project_management",
+];

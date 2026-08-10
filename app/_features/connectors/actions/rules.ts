@@ -1,12 +1,13 @@
 "use server";
 
 /**
- * Connector rules actions (Connector Rules & Learning, P3).
+ * Connector rules actions (Connector Rules & Learning, P3; Sources →
+ * Customize, P3).
  *
- * Back the detail pane's Customize tab: provider-scoped allow/deny lists
- * are editable here; inherited workspace-wide rules (provider NULL) are
- * read-only with a pointer to Sources → Activity, where intake policy
- * lives.
+ * Back the Sources → Customize surface: provider-scoped allow/deny rules
+ * and workspace-wide rules (provider NULL) are both editable there.
+ * Workspace-wide validation checks the entity type against the union
+ * rule-entities vocabulary (there is no provider category to dispatch on).
  */
 
 import { revalidatePath } from "next/cache";
@@ -14,6 +15,7 @@ import { z } from "zod";
 import { requireAuthenticatedWorkspaceMember } from "@/app/_lib/composio/workspace-auth";
 import { getCategoryForConnector } from "@/app/_lib/composio/enrichment/registry";
 import {
+  ALL_RULE_ENTITY_TYPES,
   ruleEntityOptionsForCategory,
   type RuleEntityOption,
 } from "@/app/_features/capture/adapters/rule-entities";
@@ -76,7 +78,7 @@ export async function getConnectorCustomization(input: {
 }
 
 const AddRuleSchema = z.object({
-  provider: z.string().min(1),
+  provider: z.string().min(1).nullable(),
   ruleType: z.enum(["allow", "deny"]),
   entityType: z.string().min(1),
   entityKey: z.string().min(1).max(320),
@@ -84,7 +86,7 @@ const AddRuleSchema = z.object({
 });
 
 export async function addConnectorRule(input: {
-  provider: string;
+  provider: string | null;
   ruleType: "allow" | "deny";
   entityType: ConnectorRuleEntityType;
   entityKey: string;
@@ -101,18 +103,27 @@ export async function addConnectorRule(input: {
     return { success: false, error: member.error };
   }
 
-  // Entity vocabulary is category-defined — reject types the provider's
-  // category doesn't extract, or rules can never fire.
-  const category = await getCategoryForConnector(provider);
-  if (!category) {
-    return {
-      success: false,
-      error: "This connector doesn't support rules yet.",
-    };
-  }
-  const allowed = ruleEntityOptionsForCategory(category).map((o) => o.type);
-  if (!allowed.includes(entityType as ConnectorRuleEntityType)) {
-    return { success: false, error: "Invalid request." };
+  if (provider === null) {
+    // Workspace-wide rule: no provider category to dispatch on, so validate
+    // against the union vocabulary — the type must exist somewhere in
+    // rule-entities.ts.
+    if (!ALL_RULE_ENTITY_TYPES.includes(entityType as ConnectorRuleEntityType)) {
+      return { success: false, error: "Invalid request." };
+    }
+  } else {
+    // Entity vocabulary is category-defined — reject types the provider's
+    // category doesn't extract, or rules can never fire.
+    const category = await getCategoryForConnector(provider);
+    if (!category) {
+      return {
+        success: false,
+        error: "This connector doesn't support rules yet.",
+      };
+    }
+    const allowed = ruleEntityOptionsForCategory(category).map((o) => o.type);
+    if (!allowed.includes(entityType as ConnectorRuleEntityType)) {
+      return { success: false, error: "Invalid request." };
+    }
   }
 
   const result = await addRule({
@@ -135,11 +146,11 @@ export async function addConnectorRule(input: {
 }
 
 export async function removeConnectorRule(input: {
-  provider: string;
+  provider: string | null;
   ruleId: string;
 }): Promise<ActionResult> {
   const parsed = z
-    .object({ provider: z.string().min(1), ruleId: z.string().min(1) })
+    .object({ provider: z.string().min(1).nullable(), ruleId: z.string().min(1) })
     .safeParse(input);
   if (!parsed.success) {
     return { success: false, error: "Invalid request." };
@@ -151,11 +162,11 @@ export async function removeConnectorRule(input: {
     return { success: false, error: member.error };
   }
 
-  // Only provider-scoped rules are removable from this pane — workspace-wide
-  // rules are intake policy and stay on Sources → Activity.
-  const providerRules = await getRules(member.workspaceId, { provider });
-  if (!providerRules.some((rule) => rule.id === ruleId)) {
-    return { success: false, error: "Rule not found for this connector." };
+  // Removable scopes mirror the editable ones: provider-scoped rules for a
+  // provider, workspace-wide rules for provider null.
+  const scopeRules = await getRules(member.workspaceId, { provider });
+  if (!scopeRules.some((rule) => rule.id === ruleId)) {
+    return { success: false, error: "Rule not found for this scope." };
   }
 
   const result = await removeRule(member.workspaceId, ruleId);

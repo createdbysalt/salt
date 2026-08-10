@@ -25,7 +25,8 @@ export function RuleInputBox({
   label,
   onAdded,
 }: {
-  provider: string;
+  /** Null = workspace-wide rule (the "All connectors" view). */
+  provider: string | null;
   category: ConnectorCategory | null;
   ruleType: "allow" | "deny";
   /** Section label — drives the accessible names ("Always let in"). */
