@@ -122,6 +122,20 @@ const PROVIDER_ARG_TRANSLATORS: Record<string, (value: string) => string | null>
 };
 
 /**
+ * Run a value through the provider's arg translator. Returns intent copy for
+ * machine syntax (Gmail operator queries), null for anything else — callers
+ * must NOT render null as "no filter", only as "not machine syntax". Shared
+ * with the capture default-policy renderer so seeded upstream filters and
+ * activity rows can never describe the same query two different ways.
+ */
+export function translateProviderArg(
+  provider: string,
+  value: string,
+): string | null {
+  return PROVIDER_ARG_TRANSLATORS[provider]?.(value) ?? null;
+}
+
+/**
  * Source-aware action copy (P5): background sync rows read as checks ("Checked
  * for new email") — a cron didn't read anything. Interactive sources keep the
  * curated copy ("Read your email"). Covers the high-frequency background slugs
