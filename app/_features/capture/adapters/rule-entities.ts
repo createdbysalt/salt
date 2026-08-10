@@ -95,31 +95,84 @@ export const ALL_RULE_ENTITY_TYPES: readonly ConnectorRuleEntityType[] = [
 ];
 
 /**
- * Display labels + pill order for the Sources → Customize category tabs
- * (2026-08-10). Order leads with the highest-signal categories (email
- * first); "All connectors" (workspace-wide rules) is prepended by the tab,
- * not listed here.
+ * User-facing intake AREAS (Sources → Customize pills, 2026-08-10) — the
+ * same vocabulary as the Sources → Activity area filter
+ * (capture/stream-filters.ts derives its labels from AREA_LABELS), NOT the
+ * engineering ConnectorCategory enum. Documents fold into Storage;
+ * communication → Messaging; project_management → Projects.
  */
-export const CATEGORY_LABELS: Record<ConnectorCategory, string> = {
+export type CustomizeArea =
+  | "email"
+  | "calendar"
+  | "billing"
+  | "storage"
+  | "messaging"
+  | "meetings"
+  | "crm"
+  | "projects";
+
+export const AREA_LABELS: Record<CustomizeArea, string> = {
   email: "Email",
   calendar: "Calendar",
   billing: "Billing",
-  communication: "Chat",
-  documents: "Documents",
-  storage: "Files",
-  crm: "CRM",
+  storage: "Storage",
+  messaging: "Messaging",
   meetings: "Meetings",
-  project_management: "Projects",
+  crm: "CRM",
+  projects: "Projects",
 };
 
-export const CUSTOMIZE_CATEGORY_ORDER: readonly ConnectorCategory[] = [
+/** Pill order — leads with the highest-signal areas (email first). */
+export const CUSTOMIZE_AREA_ORDER: readonly CustomizeArea[] = [
   "email",
   "calendar",
   "billing",
-  "communication",
-  "documents",
   "storage",
-  "crm",
+  "messaging",
   "meetings",
-  "project_management",
+  "crm",
+  "projects",
 ];
+
+/** Engineering category → user-facing area. */
+export const CATEGORY_TO_AREA: Record<ConnectorCategory, CustomizeArea> = {
+  email: "email",
+  calendar: "calendar",
+  billing: "billing",
+  crm: "crm",
+  meetings: "meetings",
+  documents: "storage",
+  storage: "storage",
+  project_management: "projects",
+  communication: "messaging",
+};
+
+/** The categories folded into each area, primary first. */
+export const AREA_CATEGORIES: Record<CustomizeArea, readonly ConnectorCategory[]> = {
+  email: ["email"],
+  calendar: ["calendar"],
+  billing: ["billing"],
+  storage: ["storage", "documents"],
+  messaging: ["communication"],
+  meetings: ["meetings"],
+  crm: ["crm"],
+  projects: ["project_management"],
+};
+
+/**
+ * Rule vocabulary for an area — the union of its categories' options,
+ * deduped by entity type. The parse box validates against this; the server
+ * action still validates writes against the provider's own category.
+ */
+export function ruleEntityOptionsForArea(area: CustomizeArea): RuleEntityOption[] {
+  const seen = new Set<ConnectorRuleEntityType>();
+  const options: RuleEntityOption[] = [];
+  for (const category of AREA_CATEGORIES[area]) {
+    for (const option of CATEGORY_RULE_ENTITY_OPTIONS[category]) {
+      if (seen.has(option.type)) continue;
+      seen.add(option.type);
+      options.push(option);
+    }
+  }
+  return options;
+}

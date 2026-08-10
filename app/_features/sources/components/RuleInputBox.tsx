@@ -4,7 +4,7 @@ import * as React from "react";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@repo/ui";
-import type { ConnectorCategory } from "@/app/_lib/composio/enrichment/types";
+import type { CustomizeArea } from "@/app/_features/capture/adapters/rule-entities";
 import { parseRuleInput } from "@/app/_features/capture/adapters/parse-rule-input";
 import { addConnectorRule } from "@/app/_features/connectors/actions/rules";
 
@@ -20,14 +20,14 @@ import { addConnectorRule } from "@/app/_features/connectors/actions/rules";
  */
 export function RuleInputBox({
   provider,
-  category,
+  area,
   ruleType,
   label,
   onAdded,
 }: {
   /** Null = workspace-wide rule (the "All connectors" view). */
   provider: string | null;
-  category: ConnectorCategory | null;
+  area: CustomizeArea | null;
   ruleType: "allow" | "deny";
   /** Section label — drives the accessible names ("Always let in"). */
   label: string;
@@ -37,8 +37,8 @@ export function RuleInputBox({
   const [saving, setSaving] = React.useState(false);
 
   const parsed = React.useMemo(
-    () => parseRuleInput(value, category),
-    [value, category],
+    () => parseRuleInput(value, area),
+    [value, area],
   );
   const showFeedback = value.trim().length > 0;
 

@@ -1,9 +1,9 @@
 import { isValidSenderGlobPattern } from "@repo/security";
-import type { ConnectorCategory } from "@/app/_lib/composio/enrichment/types";
 import type { ConnectorRuleEntityType } from "./types";
 import {
   ENTITY_TYPE_LABELS,
-  ruleEntityOptionsForCategory,
+  ruleEntityOptionsForArea,
+  type CustomizeArea,
   type RuleEntityOption,
 } from "./rule-entities";
 
@@ -14,14 +14,14 @@ import {
  * user is typing in; this parser detects the ENTITY type from the value's
  * shape:
  *
- *   sarah@acme.com   → the category's person entity (sender, organizer, …)
+ *   sarah@acme.com   → the area's person entity (sender, organizer, …)
  *   @acme.com        → domain
  *   acme.com         → domain
  *   *newsletter*     → sender name pattern (glob)
  *   #random          → channel
  *
  * The parser NEVER guesses: anything that doesn't match a known shape
- * rejects with a hint, and a detected type the category's vocabulary doesn't
+ * rejects with a hint, and a detected type the area's vocabulary doesn't
  * support rejects too (rule-entities.ts is the law). The corrections flow
  * (Kept Out → "Always let this in") remains the zero-typing primary path;
  * this box is the convenience layer.
@@ -40,7 +40,7 @@ export type ParseRuleInputResult =
     }
   | { ok: false; hint: string };
 
-/** Workspace-wide rules (category null) accept the intake-wide vocabulary. */
+/** Workspace-wide rules (area null) accept the intake-wide vocabulary. */
 const WORKSPACE_ENTITY_OPTIONS: RuleEntityOption[] = [
   { type: "sender_email", label: "Sender email", placeholder: "name@example.com" },
   { type: "domain", label: "Domain", placeholder: "example.com" },
@@ -52,10 +52,10 @@ const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const DOMAIN_SHAPE =
   /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i;
 
-function optionsFor(category: ConnectorCategory | null): RuleEntityOption[] {
-  return category === null
+function optionsFor(area: CustomizeArea | null): RuleEntityOption[] {
+  return area === null
     ? WORKSPACE_ENTITY_OPTIONS
-    : ruleEntityOptionsForCategory(category);
+    : ruleEntityOptionsForArea(area);
 }
 
 function hintFor(options: readonly RuleEntityOption[]): string {
@@ -71,7 +71,7 @@ function rejectWithCategoryHint(options: readonly RuleEntityOption[]) {
   return { ok: false as const, hint: hintFor(options) };
 }
 
-/** The category's person-ish entity — the option whose key shape is an email. */
+/** The area's person-ish entity — the option whose key shape is an email. */
 function emailLikeOption(
   options: readonly RuleEntityOption[],
 ): RuleEntityOption | null {
@@ -118,9 +118,9 @@ function accept(
 
 export function parseRuleInput(
   raw: string,
-  category: ConnectorCategory | null,
+  area: CustomizeArea | null,
 ): ParseRuleInputResult {
-  const options = optionsFor(category);
+  const options = optionsFor(area);
   const value = raw.trim();
   if (!value) {
     return rejectWithCategoryHint(options);
@@ -146,7 +146,7 @@ export function parseRuleInput(
     return accept(options, "sender_pattern", value);
   }
 
-  // Email-shaped: the category's person entity (sender, organizer, customer…).
+  // Email-shaped: the area's person entity (sender, organizer, customer…).
   if (EMAIL_SHAPE.test(value)) {
     const option = emailLikeOption(options);
     if (!option) return rejectWithCategoryHint(options);

@@ -51,4 +51,13 @@ describe("sources tab routing helpers", () => {
     expect(parseCustomizeCategory(null)).toBeNull();
     expect(parseCustomizeCategory("")).toBeNull();
   });
+
+  it("normalizes legacy ConnectorCategory keys to their area", () => {
+    // Deep links predate the area re-key (2026-08-10) — old bookmarks and
+    // pane links carrying engineering category keys still land right.
+    expect(parseCustomizeCategory("communication")).toBe("messaging");
+    expect(parseCustomizeCategory("project_management")).toBe("projects");
+    expect(parseCustomizeCategory("documents")).toBe("storage");
+    expect(parseCustomizeCategory("EMAIL")).toBe("email");
+  });
 });

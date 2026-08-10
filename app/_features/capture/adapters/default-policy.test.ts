@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { ConnectorCategory } from "@/app/_lib/composio/enrichment/types";
+import { CUSTOMIZE_AREA_ORDER } from "./rule-entities";
 import {
-  defaultPolicyForCategory,
+  defaultPolicyForArea,
   renderSeededTriggerFilter,
 } from "./default-policy";
 
@@ -129,9 +129,9 @@ describe("renderSeededTriggerFilter", () => {
   });
 });
 
-describe("defaultPolicyForCategory", () => {
+describe("defaultPolicyForArea", () => {
   it("combines live-rendered seeded filters with curated gate behavior (email)", () => {
-    const policy = defaultPolicyForCategory("email", [GMAIL_SEED]);
+    const policy = defaultPolicyForArea("email", [GMAIL_SEED]);
     expect(policy.upstreamFilters).toEqual([
       "New mail from your inbox and sent mail — promotions, social, updates, and mailing lists are skipped",
     ]);
@@ -143,10 +143,10 @@ describe("defaultPolicyForCategory", () => {
   });
 
   it("renders multiple seeded filters in the order given", () => {
-    const policy = defaultPolicyForCategory("communication", [SLACK_SEED]);
+    const policy = defaultPolicyForArea("messaging", [SLACK_SEED]);
     expect(policy.upstreamFilters).toEqual(["Bot messages are skipped"]);
 
-    const emailPolicy = defaultPolicyForCategory("email", [
+    const emailPolicy = defaultPolicyForArea("email", [
       GMAIL_SEED,
       {
         provider: "gmail",
@@ -161,27 +161,24 @@ describe("defaultPolicyForCategory", () => {
   });
 
   it("drops seeded filters that render to null without breaking the rest", () => {
-    const policy = defaultPolicyForCategory("email", [
+    const policy = defaultPolicyForArea("email", [
       { provider: "gmail", slug: "GMAIL_NEW_GMAIL_MESSAGE", config: null },
       GMAIL_SEED,
     ]);
     expect(policy.upstreamFilters).toHaveLength(1);
   });
 
-  it("has curated gate behavior for every capture category", () => {
-    const categories: ConnectorCategory[] = [
-      "email",
-      "communication",
-      "calendar",
-      "billing",
-      "storage",
-      "documents",
-      "crm",
-      "meetings",
-      "project_management",
-    ];
-    for (const category of categories) {
-      const policy = defaultPolicyForCategory(category);
+  it("merges files and documents copy in the storage area", () => {
+    const policy = defaultPolicyForArea("storage");
+    expect(policy.gateBehavior).toEqual([
+      "Files and documents from owners you already know come straight in",
+      "Files and documents from owners you don't know are watched until they earn their way in",
+    ]);
+  });
+
+  it("has curated gate behavior for every customize area", () => {
+    for (const area of CUSTOMIZE_AREA_ORDER) {
+      const policy = defaultPolicyForArea(area);
       expect(policy.upstreamFilters).toEqual([]);
       expect(policy.gateBehavior.length).toBeGreaterThan(0);
     }

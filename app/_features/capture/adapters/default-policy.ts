@@ -1,8 +1,8 @@
-import type { ConnectorCategory } from "@/app/_lib/composio/enrichment/types";
+import type { CustomizeArea } from "./rule-entities";
 import { translateProviderArg } from "@/app/_features/connectors/utils/activity-format";
 
 /**
- * Default intake policy per capture category (Sources → Customize, Phase 1).
+ * Default intake policy per intake area (Sources → Customize, Phase 1).
  *
  * The transparency layer answers "what does Salt do by default?" in two
  * layers:
@@ -18,7 +18,7 @@ import { translateProviderArg } from "@/app/_features/connectors/utils/activity-
  *   in the DB-rendered layer above.
  *
  * Pure module: no server-only imports, safe for client components and Vitest.
- * The server loader scopes `seededFilters` to the category's providers; this
+ * The server loader scopes `seededFilters` to the area's providers; this
  * module renders whatever it is given.
  */
 
@@ -114,17 +114,19 @@ export function renderSeededTriggerFilter(
 }
 
 /**
- * Curated gate-behavior copy per category. Mirrors the gate pipeline
- * (services/gates): email's pre-ingest heuristics, the category-general
- * known-entity fast-track, and the admission hold for unknown entities.
+ * Curated gate-behavior copy per intake AREA (the user-facing vocabulary —
+ * see rule-entities.ts). Mirrors the gate pipeline (services/gates): email's
+ * pre-ingest heuristics, the category-general known-entity fast-track, and
+ * the admission hold for unknown entities. Storage folds the documents
+ * category in, so its copy speaks of both.
  */
-const CATEGORY_GATE_BEHAVIOR: Record<ConnectorCategory, string[]> = {
+const AREA_GATE_BEHAVIOR: Record<CustomizeArea, string[]> = {
   email: [
     "Obvious spam, bulk mail, and automated senders are dropped before anything is stored",
     "Mail from people and companies you already know comes straight in",
     "Unknown senders are watched until they earn their way in",
   ],
-  communication: [
+  messaging: [
     "Messages from people and channels you already know come straight in",
     "Messages from people you don't know are watched until they earn their way in",
   ],
@@ -137,12 +139,8 @@ const CATEGORY_GATE_BEHAVIOR: Record<ConnectorCategory, string[]> = {
     "Activity from customers you don't know is watched until it earns its way in",
   ],
   storage: [
-    "Files from owners you already know come straight in",
-    "Files from owners you don't know are watched until they earn their way in",
-  ],
-  documents: [
-    "Documents from owners you already know come straight in",
-    "Documents from owners you don't know are watched until they earn their way in",
+    "Files and documents from owners you already know come straight in",
+    "Files and documents from owners you don't know are watched until they earn their way in",
   ],
   crm: [
     "Activity for contacts you already know comes straight in",
@@ -152,25 +150,25 @@ const CATEGORY_GATE_BEHAVIOR: Record<ConnectorCategory, string[]> = {
     "Meetings with people you already know come straight in",
     "Meetings hosted by people you don't know are watched until they earn their way in",
   ],
-  project_management: [
+  projects: [
     "Work from people and projects you already know comes straight in",
     "Work from people you don't know is watched until it earns its way in",
   ],
 };
 
 /**
- * The default intake policy for a category: live-rendered seeded upstream
+ * The default intake policy for an area: live-rendered seeded upstream
  * filters plus the curated gate behavior. Seeded filters that render to null
  * are dropped silently — the section shows only claims it can back.
  */
-export function defaultPolicyForCategory(
-  category: ConnectorCategory,
+export function defaultPolicyForArea(
+  area: CustomizeArea,
   seededFilters: readonly SeededTriggerFilter[] = [],
 ): DefaultPolicy {
   return {
     upstreamFilters: seededFilters
       .map(renderSeededTriggerFilter)
       .filter((line): line is string => line !== null),
-    gateBehavior: CATEGORY_GATE_BEHAVIOR[category],
+    gateBehavior: AREA_GATE_BEHAVIOR[area],
   };
 }

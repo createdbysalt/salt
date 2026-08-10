@@ -4,9 +4,12 @@ import { parseRuleInput } from "./parse-rule-input";
 /**
  * Smart parse box (Sources → Customize, Phase 2). The parser never guesses:
  * anything that doesn't match a known shape rejects with a hint, and the
- * parsed entity type must be legal for the category's rule vocabulary.
+ * parsed entity type must be legal for the area's rule vocabulary. The box
+ * is keyed on the user-facing AREAS (Email, Messaging, Projects…) — the
+ * same vocabulary as the Activity area filter — not the engineering
+ * ConnectorCategory enum.
  */
-describe("parseRuleInput — email category", () => {
+describe("parseRuleInput — email area", () => {
   it("parses a sender email, normalizing case and whitespace", () => {
     expect(parseRuleInput("  SARAH@Acme.com ", "email")).toEqual({
       ok: true,
@@ -62,8 +65,8 @@ describe("parseRuleInput — email category", () => {
   });
 });
 
-describe("parseRuleInput — other categories", () => {
-  it("maps an email to the category's person entity", () => {
+describe("parseRuleInput — other areas", () => {
+  it("maps an email to the area's person entity", () => {
     expect(parseRuleInput("sarah@acme.com", "calendar")).toMatchObject({
       ok: true,
       entityType: "organizer",
@@ -81,26 +84,23 @@ describe("parseRuleInput — other categories", () => {
       ok: true,
       entityType: "host",
     });
+    // Storage area folds the documents category in — same owner entity.
     expect(parseRuleInput("sarah@acme.com", "storage")).toMatchObject({
       ok: true,
       entityType: "owner",
     });
-    expect(parseRuleInput("sarah@acme.com", "documents")).toMatchObject({
-      ok: true,
-      entityType: "owner",
-    });
-    expect(parseRuleInput("sarah@acme.com", "project_management")).toMatchObject({
+    expect(parseRuleInput("sarah@acme.com", "projects")).toMatchObject({
       ok: true,
       entityType: "assignee",
     });
-    expect(parseRuleInput("sarah@acme.com", "communication")).toMatchObject({
+    expect(parseRuleInput("sarah@acme.com", "messaging")).toMatchObject({
       ok: true,
       entityType: "author",
     });
   });
 
-  it("parses a #channel under communication, stripping the #", () => {
-    expect(parseRuleInput("#Random", "communication")).toEqual({
+  it("parses a #channel under messaging, stripping the #", () => {
+    expect(parseRuleInput("#Random", "messaging")).toEqual({
       ok: true,
       entityType: "channel",
       entityKey: "Random",
@@ -108,7 +108,7 @@ describe("parseRuleInput — other categories", () => {
     });
   });
 
-  it("rejects a domain where the category has no domain rules", () => {
+  it("rejects a domain where the area has no domain rules", () => {
     const result = parseRuleInput("@acme.com", "calendar");
     expect(result.ok).toBe(false);
     if (!result.ok) {
@@ -121,7 +121,7 @@ describe("parseRuleInput — other categories", () => {
   });
 });
 
-describe("parseRuleInput — workspace-wide (category null)", () => {
+describe("parseRuleInput — workspace-wide (area null)", () => {
   it("accepts the full intake vocabulary", () => {
     expect(parseRuleInput("sarah@acme.com", null)).toMatchObject({
       ok: true,
@@ -171,7 +171,7 @@ describe("parseRuleInput — rejects without guessing", () => {
 
   it("rejects a bare @ and a bare #", () => {
     expect(parseRuleInput("@", "email").ok).toBe(false);
-    expect(parseRuleInput("#", "communication").ok).toBe(false);
+    expect(parseRuleInput("#", "messaging").ok).toBe(false);
   });
 
   it("rejects a trailing-dot domain", () => {

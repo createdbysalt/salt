@@ -76,6 +76,7 @@ import {
   ConnectorPermissionsSection,
 } from "./side-sections";
 import { buildSourcesPath } from "@/app/_features/sources/sources-tab-routing";
+import { CATEGORY_TO_AREA } from "@/app/_features/capture/adapters/rule-entities";
 import { ConnectorKeptOutCard } from "./ConnectorKeptOutCard";
 import { ConnectorActivityList, ACTIVITY_TIME_FILTERS, filterConnectorActivity, type ActivityTimeFilter } from "./ConnectorActivityList";
 
@@ -786,7 +787,7 @@ export function ConnectorDetailPane({
                 <p className="text-xs text-muted-foreground">{activitySummaryLabel}</p>
                 {captureState?.capable && captureState.category ? (
                   <Link
-                    href={buildSourcesPath("customize", null, captureState.category)}
+                    href={buildSourcesPath("customize", null, CATEGORY_TO_AREA[captureState.category])}
                     className="inline-flex items-center gap-1 pt-0.5 text-xs font-medium text-primary hover:underline"
                   >
                     Customize

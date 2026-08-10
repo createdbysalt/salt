@@ -10,10 +10,13 @@ import {
 import { getAdmissionDecisions } from "@/app/_features/memory/queries/admission-decisions";
 import { DEFAULT_CAPTURE_STREAM_PAGE_SIZE } from "@/app/_features/capture/stream-constants";
 import { getCaptureCategoryMap } from "@/app/_lib/composio/capture-categories";
-import { defaultPolicyForCategory } from "@/app/_features/capture/adapters/default-policy";
-import { CUSTOMIZE_CATEGORY_ORDER } from "@/app/_features/capture/adapters/rule-entities";
+import { defaultPolicyForArea } from "@/app/_features/capture/adapters/default-policy";
+import {
+  CATEGORY_TO_AREA,
+  CUSTOMIZE_AREA_ORDER,
+  type CustomizeArea,
+} from "@/app/_features/capture/adapters/rule-entities";
 import { getRules } from "@/app/_features/capture/services/rules-manager";
-import type { ConnectorCategory } from "@/app/_lib/composio/enrichment/types";
 import {
   parseSourcesTab,
   type SourcesTab,
@@ -44,12 +47,12 @@ export function emptySourcesPageData(): SourcesPageData {
 }
 
 /**
- * Sources → Customize (2026-08-10): intake policy organized by capture
- * category. Categories render only when they have ≥1 connected,
- * capture-capable account (non-capture connectors have nothing to
- * customize). Seeded upstream filters render live from
- * connector_trigger_types through the default-policy model — the
- * transparency copy can never drift from the DB.
+ * Sources → Customize (2026-08-10): intake policy organized by intake AREA
+ * (Email, Messaging, Projects… — the same vocabulary as the Activity area
+ * filter). Areas render only when they have ≥1 connected, capture-capable
+ * account (non-capture connectors have nothing to customize). Seeded
+ * upstream filters render live from connector_trigger_types through the
+ * default-policy model — the transparency copy can never drift from the DB.
  */
 async function loadCustomizeTabData(
   workspaceId: string,
@@ -60,8 +63,9 @@ async function loadCustomizeTabData(
     getRules(workspaceId, { limit: 500 }),
   ]);
 
-  // Group connected, capture-capable accounts by capture category.
-  const accountsByCategory = new Map<ConnectorCategory, CustomizeTabData["categories"][number]["accounts"]>();
+  // Group connected, capture-capable accounts by intake area (engineering
+  // categories fold in via CATEGORY_TO_AREA — documents → storage, …).
+  const accountsByArea = new Map<CustomizeArea, CustomizeTabData["areas"][number]["accounts"]>();
   for (const definition of connectors?.catalog ?? []) {
     if (!definition.providerKey) continue;
     const status = connectors?.connectors[definition.id];
@@ -69,8 +73,9 @@ async function loadCustomizeTabData(
     if (!status?.connected || !capture?.capable) continue;
     const category = categoryMap.get(definition.providerKey);
     if (!category) continue;
+    const area = CATEGORY_TO_AREA[category];
 
-    const accounts = accountsByCategory.get(category) ?? [];
+    const accounts = accountsByArea.get(area) ?? [];
     accounts.push({
       provider: definition.providerKey,
       name: definition.name,
@@ -78,25 +83,25 @@ async function loadCustomizeTabData(
       captureEnabled: capture.enabled,
       scope: capture.scope,
     });
-    accountsByCategory.set(category, accounts);
+    accountsByArea.set(area, accounts);
   }
 
   const seededFilters = await getSeededCaptureTriggerFilters(
-    [...accountsByCategory.values()].flatMap((accounts) =>
+    [...accountsByArea.values()].flatMap((accounts) =>
       accounts.map((account) => account.provider),
     ),
   );
 
-  const categories = CUSTOMIZE_CATEGORY_ORDER.filter((category) =>
-    accountsByCategory.has(category),
-  ).map((category) => {
-    const accounts = accountsByCategory.get(category) ?? [];
+  const areas = CUSTOMIZE_AREA_ORDER.filter((area) =>
+    accountsByArea.has(area),
+  ).map((area) => {
+    const accounts = accountsByArea.get(area) ?? [];
     const providers = new Set(accounts.map((account) => account.provider));
     return {
-      category,
+      area,
       accounts,
-      policy: defaultPolicyForCategory(
-        category,
+      policy: defaultPolicyForArea(
+        area,
         seededFilters.filter((filter) => providers.has(filter.provider)),
       ),
       rules: allRules.filter(
@@ -106,7 +111,7 @@ async function loadCustomizeTabData(
   });
 
   return {
-    categories,
+    areas,
     workspaceRules: allRules.filter((rule) => rule.provider === null),
   };
 }

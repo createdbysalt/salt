@@ -1,37 +1,32 @@
 import type { CaptureCategory } from "./services/intelligence/capture-intelligence-outcome";
+import {
+  AREA_LABELS,
+  CUSTOMIZE_AREA_ORDER,
+  type CustomizeArea,
+} from "./adapters/rule-entities";
 
 /**
  * Shared vocabulary for the Sources → Activity stream filters. Lives outside
  * the client components so the server-side paged query can use the same
  * types and origin mapping.
+ *
+ * The area vocabulary is single-sourced in adapters/rule-entities.ts
+ * (AREA_LABELS) — the Sources → Customize pills use the same names.
  */
 
 /** State filter - what happened to the capture */
 export type StreamStateFilter = CaptureCategory | "watching" | "all";
 
-/** Area filter - what kind of capture (by connector category) */
-export type StreamAreaFilter =
-  | "all"
-  | "email"
-  | "calendar"
-  | "billing"
-  | "storage"
-  | "messaging"
-  | "meetings"
-  | "crm"
-  | "projects";
+/** Area filter - what kind of capture (by intake area) */
+export type StreamAreaFilter = "all" | CustomizeArea;
 
 /** Area filter options for the toolbar dropdown, in display order. */
 export const STREAM_AREA_OPTIONS: { id: StreamAreaFilter; label: string }[] = [
   { id: "all", label: "All areas" },
-  { id: "email", label: "Email" },
-  { id: "calendar", label: "Calendar" },
-  { id: "billing", label: "Billing" },
-  { id: "storage", label: "Storage" },
-  { id: "messaging", label: "Messaging" },
-  { id: "meetings", label: "Meetings" },
-  { id: "crm", label: "CRM" },
-  { id: "projects", label: "Projects" },
+  ...CUSTOMIZE_AREA_ORDER.map((area) => ({
+    id: area as StreamAreaFilter,
+    label: AREA_LABELS[area],
+  })),
 ];
 
 /** Map connector origins to area filter categories */

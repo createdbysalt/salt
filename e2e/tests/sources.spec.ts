@@ -228,7 +228,7 @@ test.describe("Sources — Customize tab (intake policy)", () => {
 
     // With no connected capture accounts and no workspace rules the honest
     // empty state renders instead of the category pills.
-    const pills = page.getByRole("group", { name: "Customize category" });
+    const pills = page.getByRole("group", { name: "Customize area" });
     if (await pills.isVisible({ timeout: 5_000 }).catch(() => false)) {
       await expect(
         pills.getByRole("button", { name: "All connectors" }),
@@ -247,7 +247,7 @@ test.describe("Sources — Customize tab (intake policy)", () => {
       page.getByRole("heading", { name: /^customize$/i, level: 2 }),
     ).toBeVisible({ timeout: 15000 });
 
-    const pills = page.getByRole("group", { name: "Customize category" });
+    const pills = page.getByRole("group", { name: "Customize area" });
     if (!(await pills.isVisible({ timeout: 5_000 }).catch(() => false))) {
       // No connected capture accounts in test data — nothing to switch.
       return;
@@ -282,7 +282,7 @@ test.describe("Sources — Customize tab (intake policy)", () => {
       page.getByRole("heading", { name: /^customize$/i, level: 2 }),
     ).toBeVisible({ timeout: 15000 });
 
-    const pills = page.getByRole("group", { name: "Customize category" });
+    const pills = page.getByRole("group", { name: "Customize area" });
     if (!(await pills.isVisible({ timeout: 5_000 }).catch(() => false))) {
       return;
     }

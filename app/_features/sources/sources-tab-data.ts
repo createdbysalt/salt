@@ -4,7 +4,7 @@ import type { CaptureDiscoveryStatus } from "@/app/_features/capture/queries";
 import type { CaptureStreamCounts } from "@/app/_features/capture/utils/capture-stream-page-filter";
 import type { AdmissionItem } from "@/app/_features/memory/queries/admission-decisions";
 import type { CaptureScope } from "@/app/_lib/composio/capture-scope";
-import type { ConnectorCategory } from "@/app/_lib/composio/enrichment/types";
+import type { CustomizeArea } from "@/app/_features/capture/adapters/rule-entities";
 import type { DefaultPolicy } from "@/app/_features/capture/adapters/default-policy";
 import type { ConnectorRule } from "@/app/_features/capture/services/rules-manager";
 
@@ -32,18 +32,18 @@ export interface CustomizeAccountData {
   scope: CaptureScope | null;
 }
 
-/** One capture category's slice of the Customize tab. */
-export interface CustomizeCategoryData {
-  category: ConnectorCategory;
+/** One intake area's slice of the Customize tab. */
+export interface CustomizeAreaData {
+  area: CustomizeArea;
   accounts: CustomizeAccountData[];
   /** Transparency layer: live-rendered seeded filters + curated gate copy. */
   policy: DefaultPolicy;
-  /** Provider-scoped rules across this category's accounts. */
+  /** Provider-scoped rules across this area's accounts. */
   rules: ConnectorRule[];
 }
 
 export interface CustomizeTabData {
-  categories: CustomizeCategoryData[];
+  areas: CustomizeAreaData[];
   /** Workspace-wide rules (provider NULL) — editable on the "all" view. */
   workspaceRules: ConnectorRule[];
 }
@@ -62,6 +62,6 @@ export type SourcesTabData = {
   keptOut: KeptOutData | null;
   /** 4.4: plan-tiered discovery cadence, shown honestly on Activity. */
   discovery: CaptureDiscoveryStatus | null;
-  /** Sources → Customize (2026-08-10): intake policy by capture category. */
+  /** Sources → Customize (2026-08-10): intake policy by area. */
   customize: CustomizeTabData | null;
 };

@@ -5,9 +5,8 @@ import Link from "next/link";
 import { Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@repo/utils";
-import type { ConnectorCategory } from "@/app/_lib/composio/enrichment/types";
 import {
-  CATEGORY_LABELS,
+  AREA_LABELS,
   ENTITY_TYPE_LABELS,
 } from "@/app/_features/capture/adapters/rule-entities";
 import type { ConnectorRule } from "@/app/_features/capture/services/rules-manager";
@@ -18,14 +17,16 @@ import {
   syncSourcesUrl,
 } from "../sources-tab-routing";
 import type {
-  CustomizeCategoryData,
+  CustomizeAreaData,
   CustomizeTabData,
 } from "../sources-tab-data";
 import { RuleInputBox } from "./RuleInputBox";
 
 /**
  * Sources → Customize (2026-08-10) — intake policy at the intake surface,
- * organized by capture category instead of by app. Per category:
+ * organized by intake AREA (Email, Calendar, Billing, Storage, Messaging,
+ * Meetings, CRM, Projects — the same vocabulary as the Activity area
+ * filter) instead of by app. Per area:
  *
  *   What Salt does by default   read-only transparency (P1 default-policy)
  *   Your accounts               per-account scope controls (moved from the
@@ -57,9 +58,9 @@ export function SourcesCustomizeTab({
   const [selected, setSelected] = React.useState<string>(() =>
     requested === "all" ||
     (requested !== null &&
-      data.categories.some((entry) => entry.category === requested))
+      data.areas.some((entry) => entry.area === requested))
       ? requested
-      : (data.categories[0]?.category ?? "all"),
+      : (data.areas[0]?.area ?? "all"),
   );
 
   const select = (key: string) => {
@@ -67,7 +68,7 @@ export function SourcesCustomizeTab({
     syncSourcesUrl("customize", null, key);
   };
 
-  if (data.categories.length === 0 && data.workspaceRules.length === 0) {
+  if (data.areas.length === 0 && data.workspaceRules.length === 0) {
     return (
       <div className="max-w-xl rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
         <p className="text-sm leading-relaxed text-muted-foreground">
@@ -85,36 +86,36 @@ export function SourcesCustomizeTab({
     );
   }
 
-  const activeCategory =
+  const activeArea =
     selected === "all"
       ? null
-      : (data.categories.find((entry) => entry.category === selected) ?? null);
+      : (data.areas.find((entry) => entry.area === selected) ?? null);
 
   return (
     <div className="max-w-3xl space-y-8">
       <div
         role="group"
-        aria-label="Customize category"
+        aria-label="Customize area"
         className="flex flex-wrap items-center gap-1.5"
       >
-        <CategoryPill
+        <AreaPill
           label="All connectors"
           active={selected === "all"}
           onSelect={() => select("all")}
         />
-        {data.categories.map((entry) => (
-          <CategoryPill
-            key={entry.category}
-            label={CATEGORY_LABELS[entry.category]}
-            active={selected === entry.category}
-            onSelect={() => select(entry.category)}
+        {data.areas.map((entry) => (
+          <AreaPill
+            key={entry.area}
+            label={AREA_LABELS[entry.area]}
+            active={selected === entry.area}
+            onSelect={() => select(entry.area)}
           />
         ))}
       </div>
 
-      {activeCategory ? (
-        <CategorySection
-          data={activeCategory}
+      {activeArea ? (
+        <AreaSection
+          data={activeArea}
           onChanged={onChanged}
         />
       ) : (
@@ -127,7 +128,7 @@ export function SourcesCustomizeTab({
   );
 }
 
-function CategoryPill({
+function AreaPill({
   label,
   active,
   onSelect,
@@ -153,11 +154,11 @@ function CategoryPill({
   );
 }
 
-function CategorySection({
+function AreaSection({
   data,
   onChanged,
 }: {
-  data: CustomizeCategoryData;
+  data: CustomizeAreaData;
   onChanged: () => void;
 }) {
   const { policy } = data;
@@ -219,7 +220,7 @@ function CategorySection({
         providers={data.accounts.map((account) => account.provider)}
         onChanged={onChanged}
       >
-        <CategoryRuleInput
+        <AreaRuleInput
           data={data}
           ruleType="allow"
           label="Always let in"
@@ -233,7 +234,7 @@ function CategorySection({
         providers={data.accounts.map((account) => account.provider)}
         onChanged={onChanged}
       >
-        <CategoryRuleInput
+        <AreaRuleInput
           data={data}
           ruleType="deny"
           label="Keep out"
@@ -245,18 +246,18 @@ function CategorySection({
 }
 
 /**
- * Rules are provider-scoped (no category scope in v1), so the box writes to
- * the category's connected account. When two accounts share a category
- * (Gmail + Outlook), the box says which one it applies to — never a silent
- * guess.
+ * Rules are provider-scoped (no category/area scope in v1), so the box
+ * writes to the area's first connected account. When two accounts share an
+ * area (Gmail + Outlook), the box says which one it applies to — never a
+ * silent guess.
  */
-function CategoryRuleInput({
+function AreaRuleInput({
   data,
   ruleType,
   label,
   onAdded,
 }: {
-  data: CustomizeCategoryData;
+  data: CustomizeAreaData;
   ruleType: "allow" | "deny";
   label: string;
   onAdded: () => void;
@@ -267,7 +268,7 @@ function CategoryRuleInput({
     <div className="space-y-1">
       <RuleInputBox
         provider={account.provider}
-        category={data.category}
+        area={data.area}
         ruleType={ruleType}
         label={label}
         onAdded={onAdded}
@@ -307,7 +308,7 @@ function WorkspaceRulesView({
       >
         <RuleInputBox
           provider={null}
-          category={null}
+          area={null}
           ruleType="allow"
           label="Always let in"
           onAdded={onChanged}
@@ -322,7 +323,7 @@ function WorkspaceRulesView({
       >
         <RuleInputBox
           provider={null}
-          category={null}
+          area={null}
           ruleType="deny"
           label="Keep out"
           onAdded={onChanged}

@@ -1,3 +1,6 @@
+import { CATEGORY_TO_AREA } from "@/app/_features/capture/adapters/rule-entities";
+import type { ConnectorCategory } from "@/app/_lib/composio/enrichment/types";
+
 export type SourcesTab = "connectors" | "activity" | "customize";
 
 export function parseSourcesTab(value: string | null | undefined): SourcesTab {
@@ -9,15 +12,21 @@ export function parseSourcesTab(value: string | null | undefined): SourcesTab {
 
 /**
  * The Customize tab's category param. "all" is the workspace-wide rules
- * view; anything else is a capture category key, validated by the tab
- * against the connected accounts (unknown keys fall back to the first
- * connected category).
+ * view; anything else is an intake AREA key (email, messaging, projects…),
+ * validated by the tab against the connected accounts (unknown keys fall
+ * back to the first connected area). Legacy ConnectorCategory keys
+ * ("communication", "project_management", "documents") normalize to their
+ * area so pre-area deep links keep landing right.
  */
 export function parseCustomizeCategory(
   value: string | null | undefined,
 ): string | null {
   const trimmed = value?.trim().toLowerCase();
-  return trimmed ? trimmed : null;
+  if (!trimmed) return null;
+  const legacy = CATEGORY_TO_AREA[trimmed as ConnectorCategory] as
+    | string
+    | undefined;
+  return legacy ?? trimmed;
 }
 
 export function buildSourcesPath(

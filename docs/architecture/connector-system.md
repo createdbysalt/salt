@@ -690,10 +690,10 @@ backfilled into `connector_rules` by migration
 
 User-facing copy is "Always let in" / "Keep out" on **Sources → Customize**
 (`/sources?tab=customize`, `connectors/actions/rules.ts`) — intake policy
-organized by capture category, with workspace-wide rules editable under
-"All connectors". The connector detail pane keeps a "Customize →" deep
-link (`?category=<cat>`) from its Activity tab header. Engineering
-vocabulary stays "rules".
+organized by intake area (the Activity area-filter vocabulary), with
+workspace-wide rules editable under "All connectors". The connector detail
+pane keeps a "Customize →" deep link (`?category=<area>`) from its
+Activity tab header. Engineering vocabulary stays "rules".
 
 ### Learned entity profiles (P6)
 
