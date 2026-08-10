@@ -2,8 +2,14 @@
 
 import { useState, useTransition } from "react";
 import { ChevronDown, Loader2, ShieldX, Ban } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@repo/utils";
 import { moveKeptOutToWatching } from "@/app/_features/memory/actions/admission-decisions";
+import {
+  alwaysAllowEntity,
+  escalateSenderToWatching,
+  removeBlockRuleForCapture,
+} from "@/app/_features/capture/actions/corrections";
 import { BlocklistManager } from "@/app/_features/capture/components/BlocklistManager";
 import type { AdmissionItem } from "@/app/_features/memory/queries/admission-decisions";
 
@@ -11,8 +17,34 @@ import type { AdmissionItem } from "@/app/_features/memory/queries/admission-dec
  * Kept Out Section — P11 compliant placement in Sources → Activity.
  *
  * Shows captures that Salt's admission gate rejected (noise, spam, blocklisted).
- * Users can override by moving items back to Watching.
+ * Corrections are cause-aware (Connector Rules & Learning, P4): rule-caused
+ * items offer "Remove keep-out rule"; heuristic-caused items offer
+ * "Always let this … in" (writes an allow rule) plus a one-off "Let this in".
  */
+
+/** Per-category always-allow copy — the entity is resolved server-side. */
+function alwaysAllowLabel(sourceType: string): string {
+  switch (sourceType) {
+    case "gmail":
+    case "outlook":
+      return "Always let this sender in";
+    case "slack":
+      return "Always let this channel in";
+    case "googlecalendar":
+    case "outlook_calendar":
+    case "cal":
+    case "calendly":
+      return "Always let this organizer in";
+    case "stripe":
+    case "quickbooks":
+    case "xero":
+      return "Always let this customer in";
+    default:
+      return "Always let this in";
+  }
+}
+
+const EMAIL_SOURCE_TYPES = new Set(["gmail", "outlook"]);
 
 interface KeptOutSectionProps {
   keptOutCount: number;
@@ -30,11 +62,21 @@ export function KeptOutSection({
   const [isOpen, setIsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  const handleLetThisIn = (captureId: string) => {
+  const runCorrection = (
+    action: () => Promise<{ success: boolean; error?: string }>,
+  ) => {
     startTransition(async () => {
-      await moveKeptOutToWatching(captureId, workspaceId);
-      onUpdate?.();
+      const result = await action();
+      if (result.success) {
+        onUpdate?.();
+      } else {
+        toast.error(result.error ?? "That didn't work — try again.");
+      }
     });
+  };
+
+  const handleLetThisIn = (captureId: string) => {
+    runCorrection(() => moveKeptOutToWatching(captureId, workspaceId));
   };
 
   if (keptOutCount === 0) return null;
@@ -94,14 +136,59 @@ export function KeptOutSection({
                       {item.reason ? ` — ${item.reason}` : ""}
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleLetThisIn(item.captureId)}
-                    disabled={isPending}
-                    className="inline-flex h-8 shrink-0 items-center rounded-lg border border-border/60 px-3 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-60"
-                  >
-                    Let this in
-                  </button>
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    {item.cause === "rule" ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          runCorrection(() =>
+                            removeBlockRuleForCapture(item.captureId),
+                          )
+                        }
+                        disabled={isPending}
+                        className="inline-flex h-8 items-center rounded-lg border border-border/60 px-3 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-60"
+                      >
+                        Remove keep-out rule
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleLetThisIn(item.captureId)}
+                          disabled={isPending}
+                          className="inline-flex h-8 items-center rounded-lg border border-border/60 px-3 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-60"
+                        >
+                          Let this in
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            runCorrection(() =>
+                              alwaysAllowEntity(item.captureId),
+                            )
+                          }
+                          disabled={isPending}
+                          className="inline-flex h-8 items-center rounded-lg border border-border/60 px-3 text-xs font-medium text-foreground transition hover:bg-muted disabled:opacity-60"
+                        >
+                          {alwaysAllowLabel(item.sourceType)}
+                        </button>
+                      </>
+                    )}
+                    {EMAIL_SOURCE_TYPES.has(item.sourceType) ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          runCorrection(() =>
+                            escalateSenderToWatching(item.captureId),
+                          )
+                        }
+                        disabled={isPending}
+                        className="inline-flex h-8 items-center rounded-lg border border-border/60 px-3 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-60"
+                      >
+                        Add to People
+                      </button>
+                    ) : null}
+                  </div>
                 </li>
               ))}
             </ul>

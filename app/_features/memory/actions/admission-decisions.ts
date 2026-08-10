@@ -14,6 +14,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
+import { recordDecisionOutcomeForCapture } from "@/app/_features/capture/services/intelligence/record-capture-outcome";
 
 type AdmissionOutcome = "signal" | "noise" | "candidate";
 
@@ -45,6 +46,18 @@ async function setCaptureGateAction(
   if (error) {
     console.error("[admission-decisions] Failed to update gate_action:", error);
     return { success: false, error: error.message };
+  }
+
+  // Calibration repair (Connector Rules & Learning, P4): accept/dismiss
+  // verdicts must reach record_capture_decisions or the auto-apply earn
+  // loop can never trigger from real feedback. "candidate" (back to
+  // Watching) is not a verdict — no outcome.
+  if (gateAction === "signal" || gateAction === "noise") {
+    await recordDecisionOutcomeForCapture(
+      captureId,
+      gateAction === "signal" ? "approved" : "rejected",
+      context.userId,
+    );
   }
 
   revalidatePath("/memory");

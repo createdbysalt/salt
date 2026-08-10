@@ -108,6 +108,43 @@ export async function recordDecisionOutcome(
   return true;
 }
 
+/**
+ * Record an outcome for the latest unresolved decision tied to a capture.
+ *
+ * Watching accept/dismiss and Kept-Out corrections key off a capture id,
+ * not a decision id — this bridges the two so real user feedback reaches
+ * the auto-apply calibration loop (Connector Rules & Learning, P4 repair:
+ * previously nothing wrote these outcomes, so the earn loop could never
+ * trigger). No-ops when the capture has no pending decision row.
+ */
+export async function recordDecisionOutcomeForCapture(
+  captureEventId: string,
+  outcome: DecisionOutcome,
+  userId?: string
+): Promise<boolean> {
+  const admin = createAdminClient();
+
+  const { data: decision, error } = await admin
+    .from("record_capture_decisions")
+    .select("id")
+    .eq("capture_event_id", captureEventId)
+    .is("outcome", null)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error(
+      "[record-capture-outcome] Failed to find pending decision:",
+      error.message,
+    );
+    return false;
+  }
+  if (!decision) return false;
+
+  return recordDecisionOutcome(decision.id, outcome, userId);
+}
+
 // ============= Auto-Apply Gate =============
 
 export interface AutoApplySettings {

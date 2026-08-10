@@ -2,6 +2,11 @@ import "server-only";
 
 import { cache } from "react";
 import { createClient } from "@/app/_lib/supabase/server";
+import {
+  extractGateReason,
+  keptOutCauseFromGateResult,
+  type KeptOutCause,
+} from "./admission-gate-result";
 
 /**
  * Admission decisions for Memory → Filter.
@@ -20,6 +25,12 @@ export interface AdmissionItem {
   confidence: number | null;
   gateAction: string;
   reason: string | null;
+  /**
+   * Why this capture was kept out: an explicit user rule (removable) or a
+   * heuristic score (correctable with always-allow). Drives the Kept Out
+   * correction action (P4).
+   */
+  cause: KeptOutCause;
 }
 
 export interface AdmissionDecisions {
@@ -50,27 +61,6 @@ function extractFromLabel(extracted: unknown): string | null {
   return data.from_name?.trim() || data.from_email || null;
 }
 
-function extractGateReason(gateResult: unknown): string | null {
-  if (!gateResult || typeof gateResult !== "object") return null;
-  const result = gateResult as {
-    gateResults?: Record<string, { reason?: string }>;
-  };
-  const gateResults = result.gateResults;
-  if (!gateResults || typeof gateResults !== "object") return null;
-  // The deciding gate is the one whose result did not pass — check the
-  // decisive gates first, then fall back to any recorded reason.
-  for (const key of ["blocklist", "preIngest", "pre_ingest", "admission", "knownEntity", "known_entity"]) {
-    const reason = gateResults[key]?.reason;
-    if (typeof reason === "string" && reason.trim()) return reason;
-  }
-  for (const value of Object.values(gateResults)) {
-    if (typeof value?.reason === "string" && value.reason.trim()) {
-      return value.reason;
-    }
-  }
-  return null;
-}
-
 function mapRow(row: CaptureGateRow): AdmissionItem | null {
   if (!row.gate_action) return null;
   return {
@@ -82,6 +72,7 @@ function mapRow(row: CaptureGateRow): AdmissionItem | null {
     confidence: row.overall_confidence,
     gateAction: row.gate_action,
     reason: extractGateReason(row.gate_result),
+    cause: keptOutCauseFromGateResult(row.gate_result),
   };
 }
 

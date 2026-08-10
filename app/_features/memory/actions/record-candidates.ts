@@ -15,6 +15,7 @@ import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { getPendingEvidenceById } from "../evidence/queries";
 import { dismissEvidence } from "../evidence/actions";
 import { autoCreateRecord } from "../evidence/auto-create-record";
+import { recordDecisionOutcomeForCapture } from "@/app/_features/capture/services/intelligence/record-capture-outcome";
 
 type ActionOutcome =
   | { success: true; recordId?: string }
@@ -80,6 +81,14 @@ export async function addRecordCandidate(
     return { success: false, error: result.error };
   }
 
+  // Calibration repair (P4): the accept verdict reaches the decision log.
+  const acceptedCaptureId = guard.evidence.signals.find(
+    (signal) => signal.capture_id,
+  )?.capture_id;
+  if (acceptedCaptureId) {
+    await recordDecisionOutcomeForCapture(acceptedCaptureId, "approved", userId);
+  }
+
   revalidatePath("/memory");
   revalidatePath("/hq");
   return { success: true, recordId: result.recordId };
@@ -94,6 +103,18 @@ export async function dismissRecordCandidate(
   if (!guard.ok) return { success: false, error: guard.error };
 
   await dismissEvidence(evidenceId, "Dismissed from Watching");
+
+  // Calibration repair (P4): the dismiss verdict reaches the decision log.
+  const dismissedCaptureId = guard.evidence.signals.find(
+    (signal) => signal.capture_id,
+  )?.capture_id;
+  if (dismissedCaptureId) {
+    await recordDecisionOutcomeForCapture(
+      dismissedCaptureId,
+      "rejected",
+      guard.userId,
+    );
+  }
 
   revalidatePath("/memory");
   return { success: true };
