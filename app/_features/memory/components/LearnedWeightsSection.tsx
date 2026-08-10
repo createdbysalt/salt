@@ -121,8 +121,8 @@ export function LearnedWeightsSection({
     });
   }
 
-  function handleSingleReset() {
-    setWeights((prev) => prev.filter((w) => w.id !== w.id));
+  function handleSingleReset(id: string) {
+    setWeights((prev) => prev.filter((w) => w.id !== id));
   }
 
   if (weights.length === 0) {
@@ -174,7 +174,7 @@ export function LearnedWeightsSection({
             key={weight.id}
             weight={weight}
             workspaceId={workspaceId}
-            onReset={handleSingleReset}
+            onReset={() => handleSingleReset(weight.id)}
           />
         ))}
       </div>

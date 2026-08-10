@@ -4,19 +4,18 @@ import { getConnectionsGraphData } from "@/app/_features/connections/queries";
 import { MemoryGraphPage } from "@/app/_features/connections/components/MemoryGraphPage";
 import { MemoryTabs } from "@/app/_features/memory/components/MemoryTabs";
 import { FilterTab } from "@/app/_features/memory/components/FilterTab";
-import { RulesTab } from "@/app/_features/memory/components/RulesTab";
-import { parseMemoryTab, type MemoryTab } from "@/app/_features/memory/memory-tab-routing";
+import { CustomizeTab } from "@/app/_features/memory/components/CustomizeTab";
+import {
+  parseCustomizeType,
+  parseMemoryTab,
+  type MemoryTab,
+} from "@/app/_features/memory/memory-tab-routing";
+import type { MemoryCustomizeEntityType } from "@/app/_features/memory/customize/default-guidance";
+import { listActiveCustomizeEntriesByType } from "@/app/_features/memory/customize/queries";
 import { getLearningEvidence } from "@/app/_features/memory/queries/learning-evidence";
 import { getHandledWrites } from "@/app/_features/memory/queries/handled-items";
 import { getRecordCandidates } from "@/app/_features/memory/queries/record-candidates";
-import {
-  getCareCapabilityStates,
-  getCareThreshold,
-} from "@/app/_features/memory/care/settings";
-import {
-  CARE_CAPABILITIES,
-  CARE_SETTINGS_SLUGS,
-} from "@/app/_features/memory/care/types";
+import { getCareThreshold } from "@/app/_features/memory/care/settings";
 import { getLearnedWeights } from "@/app/_features/memory/care/actions";
 import { resolveMockContentEnabled } from "@/app/_lib/demo/mock-content";
 import { createClient } from "@/app/_lib/supabase/server";
@@ -43,21 +42,23 @@ async function MemoryFilterSection({ workspaceId }: { workspaceId: string }) {
   );
 }
 
-async function MemoryRulesSection({ workspaceId }: { workspaceId: string }) {
-  const [threshold, states, learnedWeights] = await Promise.all([
+async function MemoryCustomizeSection({
+  workspaceId,
+  type,
+}: {
+  workspaceId: string;
+  type: MemoryCustomizeEntityType;
+}) {
+  const [entriesByType, threshold, learnedWeights] = await Promise.all([
+    listActiveCustomizeEntriesByType(workspaceId),
     getCareThreshold(workspaceId),
-    getCareCapabilityStates(workspaceId),
     getLearnedWeights(workspaceId),
   ]);
-  const capabilities = CARE_CAPABILITIES.map((capability) => ({
-    capability,
-    slug: CARE_SETTINGS_SLUGS[capability],
-    enabled: states[capability],
-  }));
   return (
-    <RulesTab
+    <CustomizeTab
       workspaceId={workspaceId}
-      capabilities={capabilities}
+      activeType={type}
+      entriesByType={entriesByType}
       initialThreshold={threshold}
       learnedWeights={learnedWeights}
     />
@@ -81,7 +82,7 @@ function MemoryShell({
   );
 }
 
-type SearchParams = Promise<{ tab?: string }>;
+type SearchParams = Promise<{ tab?: string; type?: string }>;
 
 export default async function MemoryRoute({
   searchParams,
@@ -90,6 +91,7 @@ export default async function MemoryRoute({
 }) {
   const params = await searchParams;
   const tab = parseMemoryTab(params.tab ?? null);
+  const customizeType = parseCustomizeType(params.type ?? null);
 
   const { workspace } = await getWorkspaceContext();
   const supabase = await createClient();
@@ -118,7 +120,10 @@ export default async function MemoryRoute({
         {tab === "activity" ? (
           <MemoryFilterSection workspaceId={workspace.id} />
         ) : (
-          <MemoryRulesSection workspaceId={workspace.id} />
+          <MemoryCustomizeSection
+            workspaceId={workspace.id}
+            type={customizeType}
+          />
         )}
       </Suspense>
     </MemoryShell>
