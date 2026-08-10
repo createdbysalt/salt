@@ -38,6 +38,7 @@ import {
 } from "./admission-gate";
 import { checkRules } from "../rules-manager";
 import { extractFeedbackEntityForEnvelope } from "../../adapters/feedback-entity";
+import { ruleMatchCandidatesForEnvelope } from "../../adapters/rule-match-candidates";
 import { loadEntityReputation } from "../entity-profiles";
 import { getCategoryForConnector } from "@/app/_lib/composio/enrichment/registry";
 import { extractAdmissionSignals } from "./admission-signals";
@@ -103,6 +104,7 @@ export async function runGatePipeline(input: GatePipelineInput): Promise<GatePip
     provider: envelope.sourceType,
     entity: feedbackEntity,
     patternCandidates: senderName ? [senderName] : [],
+    entityCandidates: ruleMatchCandidatesForEnvelope(envelope),
   });
 
   if (ruleCheck.verdict === "deny") {

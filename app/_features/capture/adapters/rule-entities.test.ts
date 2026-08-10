@@ -27,9 +27,38 @@ describe("rule entity vocabulary", () => {
     }
   });
 
-  it("email offers sender email, domain, and sender name pattern", () => {
+  it("email offers sender email, domain, sender name pattern, and subject pattern", () => {
     const types = ruleEntityOptionsForCategory("email").map((o) => o.type);
-    expect(types).toEqual(["sender_email", "domain", "sender_pattern"]);
+    expect(types).toEqual([
+      "sender_email",
+      "domain",
+      "sender_pattern",
+      "subject_pattern",
+    ]);
+  });
+
+  it("calendar offers organizer, title pattern, and attendee", () => {
+    const types = ruleEntityOptionsForCategory("calendar").map((o) => o.type);
+    expect(types).toEqual(["organizer", "title_pattern", "attendee"]);
+  });
+
+  it("communication offers channel, author, and keyword", () => {
+    const types = ruleEntityOptionsForCategory("communication").map(
+      (o) => o.type,
+    );
+    expect(types).toEqual(["channel", "author", "keyword"]);
+  });
+
+  it("meetings offers host, title pattern, and participant", () => {
+    const types = ruleEntityOptionsForCategory("meetings").map((o) => o.type);
+    expect(types).toEqual(["host", "title_pattern", "participant"]);
+  });
+
+  it("storage and documents offer owner and name pattern", () => {
+    for (const category of ["storage", "documents"] as const) {
+      const types = ruleEntityOptionsForCategory(category).map((o) => o.type);
+      expect(types, `category ${category}`).toEqual(["owner", "name_pattern"]);
+    }
   });
 
   it("project_management offers assignee and project", () => {

@@ -177,6 +177,12 @@ describe("runGatePipeline connector rules precedence", () => {
       provider: "gmail",
       entity: { type: "sender_email", key: "stranger@somewhere.com" },
       patternCandidates: ["A Stranger"],
+      entityCandidates: {
+        subject_pattern: ["Hello"],
+        title_pattern: ["Hello"],
+        attendee: ["stranger@somewhere.com"],
+        participant: ["stranger@somewhere.com"],
+      },
     });
   });
 

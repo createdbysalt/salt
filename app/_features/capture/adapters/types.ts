@@ -39,19 +39,26 @@ export type ConnectorRuleEntityType =
   | "sender_email"
   | "domain"
   | "sender_pattern"
+  | "subject_pattern"
   // communication
   | "channel"
   | "author"
+  | "keyword"
   // calendar
   | "organizer"
+  | "attendee"
+  // calendar, meetings
+  | "title_pattern"
   // billing
   | "customer"
   // storage, documents
   | "owner"
+  | "name_pattern"
   // crm
   | "contact"
   // meetings
   | "host"
+  | "participant"
   // project_management
   | "assignee"
   | "project";

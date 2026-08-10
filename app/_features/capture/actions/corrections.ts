@@ -24,6 +24,7 @@ import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { createClient } from "@/app/_lib/supabase/server";
 import { getCategoryForConnector } from "@/app/_lib/composio/enrichment/registry";
 import { extractFeedbackEntityForEnvelope } from "../adapters/feedback-entity";
+import { ruleMatchCandidatesForEnvelope } from "../adapters/rule-match-candidates";
 import { addRule, checkRules, removeRule } from "../services/rules-manager";
 import { recordEntityObservation } from "../services/entity-profiles";
 import { recordFeedback } from "../services/training-feedback";
@@ -223,9 +224,8 @@ export async function removeBlockRuleForCapture(
     return { success: false, error: "Capture not found" };
   }
 
-  const entity = await extractFeedbackEntityForEnvelope(
-    envelopeForCaptureRow(capture),
-  );
+  const captureEnvelope = envelopeForCaptureRow(capture);
+  const entity = await extractFeedbackEntityForEnvelope(captureEnvelope);
   if (!entity) {
     return {
       success: false,
@@ -236,6 +236,7 @@ export async function removeBlockRuleForCapture(
   const check = await checkRules(workspace.id, {
     provider: capture.source_type,
     entity,
+    entityCandidates: ruleMatchCandidatesForEnvelope(captureEnvelope),
   });
   if (check.verdict !== "deny" || !check.rule) {
     return { success: false, error: "No matching keep-out rule found." };

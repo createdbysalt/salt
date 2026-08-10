@@ -34,28 +34,60 @@ export const CATEGORY_RULE_ENTITY_OPTIONS: Record<
       label: "Sender name pattern",
       placeholder: "*newsletter*",
     },
+    {
+      type: "subject_pattern",
+      label: "Subject pattern",
+      placeholder: "*invoice*",
+    },
   ],
   communication: [
     { type: "channel", label: "Channel", placeholder: "#general" },
     { type: "author", label: "Author", placeholder: "name@example.com" },
+    { type: "keyword", label: "Keyword", placeholder: "*unsubscribe*" },
   ],
   calendar: [
     { type: "organizer", label: "Organizer", placeholder: "name@example.com" },
+    {
+      type: "title_pattern",
+      label: "Event title pattern",
+      placeholder: "*lunch*",
+    },
+    { type: "attendee", label: "Attendee", placeholder: "name@example.com" },
   ],
   billing: [
     { type: "customer", label: "Customer", placeholder: "name@example.com" },
   ],
   storage: [
     { type: "owner", label: "Owner", placeholder: "name@example.com" },
+    {
+      type: "name_pattern",
+      label: "File name pattern",
+      placeholder: "*template*",
+    },
   ],
   documents: [
     { type: "owner", label: "Owner", placeholder: "name@example.com" },
+    {
+      type: "name_pattern",
+      label: "File name pattern",
+      placeholder: "*template*",
+    },
   ],
   crm: [
     { type: "contact", label: "Contact", placeholder: "name@example.com" },
   ],
   meetings: [
     { type: "host", label: "Host", placeholder: "name@example.com" },
+    {
+      type: "title_pattern",
+      label: "Meeting title pattern",
+      placeholder: "*standup*",
+    },
+    {
+      type: "participant",
+      label: "Participant",
+      placeholder: "name@example.com",
+    },
   ],
   project_management: [
     { type: "assignee", label: "Assignee", placeholder: "name@example.com" },
@@ -68,13 +100,19 @@ export const ENTITY_TYPE_LABELS: Record<ConnectorRuleEntityType, string> = {
   sender_email: "sender",
   domain: "domain",
   sender_pattern: "sender pattern",
+  subject_pattern: "subject pattern",
   channel: "channel",
   author: "author",
+  keyword: "keyword",
   organizer: "organizer",
+  attendee: "attendee",
+  title_pattern: "title pattern",
   customer: "customer",
   owner: "owner",
+  name_pattern: "name pattern",
   contact: "contact",
   host: "host",
+  participant: "participant",
   assignee: "assignee",
   project: "project",
 };

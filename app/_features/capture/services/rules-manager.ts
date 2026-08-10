@@ -75,6 +75,13 @@ export interface RuleCheckInput {
    * key would let a pattern row cross-match exact domain/email lookups.
    */
   patternCandidates?: string[];
+  /**
+   * Per-entity-type match candidates (S5 vocabulary expansion) — e.g.
+   * `{ subject_pattern: ["Invoice #42"], attendee: ["bob@acme.com"] }`.
+   * Pattern types glob against their candidates; people types (attendee,
+   * participant) exact-match case-insensitively.
+   */
+  entityCandidates?: Partial<Record<ConnectorRuleEntityType, string[]>>;
 }
 
 export interface RuleCheckResult {
@@ -84,6 +91,21 @@ export interface RuleCheckResult {
 
 /** Past 100 rows a flat limit silently stops enforcing — page instead. */
 const PAGE_SIZE = 100;
+
+/**
+ * Glob-pattern entity types (S5): the key is a glob validated at write time
+ * and matched against per-capture candidate strings at check time.
+ * sender_pattern matches `patternCandidates` (legacy blocklist semantics);
+ * the rest match `entityCandidates[type]`.
+ */
+const GLOB_PATTERN_ENTITY_TYPES: ReadonlySet<ConnectorRuleEntityType> =
+  new Set([
+    "sender_pattern",
+    "subject_pattern",
+    "title_pattern",
+    "keyword",
+    "name_pattern",
+  ]);
 
 /** Email-like keys normalize to lowercase; ids (channel, project) stay verbatim. */
 const LOWERCASE_ENTITY_TYPES: ReadonlySet<ConnectorRuleEntityType> = new Set([
@@ -95,6 +117,8 @@ const LOWERCASE_ENTITY_TYPES: ReadonlySet<ConnectorRuleEntityType> = new Set([
   "owner",
   "assignee",
   "host",
+  "attendee",
+  "participant",
 ]);
 
 export function normalizeRuleEntityKey(
@@ -104,7 +128,7 @@ export function normalizeRuleEntityKey(
   const trimmed = key.trim();
   if (!trimmed) return null;
 
-  if (entityType === "sender_pattern") {
+  if (GLOB_PATTERN_ENTITY_TYPES.has(entityType)) {
     return isValidSenderGlobPattern(trimmed) ? trimmed : null;
   }
   if (entityType === "domain") {
@@ -317,7 +341,11 @@ export async function checkRules(
     ? normalizeRuleEntityKey(entity.type, entity.key)
     : null;
   if (entity && !key) return { verdict: null };
-  if (!entity && (input.patternCandidates ?? []).length === 0) {
+  const entityCandidates = input.entityCandidates ?? {};
+  const hasCandidates =
+    (input.patternCandidates ?? []).length > 0 ||
+    Object.values(entityCandidates).some((list) => (list ?? []).length > 0);
+  if (!entity && !hasCandidates) {
     return { verdict: null };
   }
 
@@ -343,6 +371,20 @@ export async function checkRules(
     if (rule.entityType === "sender_pattern") {
       return patternTargets.some((target) =>
         matchesSenderGlobPattern(rule.entityKey, target),
+      );
+    }
+    if (GLOB_PATTERN_ENTITY_TYPES.has(rule.entityType)) {
+      return (entityCandidates[rule.entityType] ?? []).some((target) =>
+        matchesSenderGlobPattern(rule.entityKey, target),
+      );
+    }
+    if (
+      rule.entityType === "attendee" ||
+      rule.entityType === "participant"
+    ) {
+      const ruleKey = rule.entityKey.toLowerCase();
+      return (entityCandidates[rule.entityType] ?? []).some(
+        (candidate) => candidate.toLowerCase() === ruleKey,
       );
     }
     return false;

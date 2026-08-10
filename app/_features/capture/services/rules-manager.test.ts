@@ -403,3 +403,184 @@ describe("checkRules precedence", () => {
     expect(result.verdict).toBe("allow");
   });
 });
+
+describe("checkRules — S5 vocabulary expansion", () => {
+  it("matches subject_pattern rules against subject candidates", async () => {
+    seedRule({
+      rule_type: "deny",
+      entity_type: "subject_pattern",
+      entity_key: "*invoice*",
+    });
+
+    const result = await checkRules("ws-1", {
+      provider: "gmail",
+      entity: { type: "sender_email", key: "billing@vendor.com" },
+      entityCandidates: { subject_pattern: ["Invoice #42 attached"] },
+    });
+
+    expect(result.verdict).toBe("deny");
+    expect(result.rule?.entityType).toBe("subject_pattern");
+  });
+
+  it("matches title_pattern rules against title candidates (allow)", async () => {
+    seedRule({
+      rule_type: "allow",
+      entity_type: "title_pattern",
+      entity_key: "*standup*",
+    });
+
+    const result = await checkRules("ws-1", {
+      provider: "googlecalendar",
+      entity: null,
+      entityCandidates: { title_pattern: ["Weekly standup with Sam"] },
+    });
+
+    expect(result.verdict).toBe("allow");
+  });
+
+  it("matches keyword rules against message text candidates", async () => {
+    seedRule({
+      rule_type: "deny",
+      entity_type: "keyword",
+      entity_key: "*unsubscribe*",
+    });
+
+    const result = await checkRules("ws-1", {
+      provider: "slack",
+      entity: null,
+      entityCandidates: { keyword: ["please unsubscribe me from this"] },
+    });
+
+    expect(result.verdict).toBe("deny");
+  });
+
+  it("matches name_pattern rules against file name candidates", async () => {
+    seedRule({
+      rule_type: "deny",
+      entity_type: "name_pattern",
+      entity_key: "*template*",
+    });
+
+    const result = await checkRules("ws-1", {
+      provider: "googledrive",
+      entity: null,
+      entityCandidates: { name_pattern: ["Brand Template v2.psd"] },
+    });
+
+    expect(result.verdict).toBe("deny");
+  });
+
+  it("matches attendee rules against candidate emails case-insensitively", async () => {
+    seedRule({
+      rule_type: "deny",
+      entity_type: "attendee",
+      entity_key: "bob@acme.com",
+    });
+
+    const result = await checkRules("ws-1", {
+      provider: "googlecalendar",
+      entity: null,
+      entityCandidates: { attendee: ["Bob@Acme.com", "sam@acme.com"] },
+    });
+
+    expect(result.verdict).toBe("deny");
+  });
+
+  it("matches participant rules against candidate emails", async () => {
+    seedRule({
+      rule_type: "allow",
+      entity_type: "participant",
+      entity_key: "carol@x.com",
+    });
+
+    const result = await checkRules("ws-1", {
+      provider: "fireflies",
+      entity: null,
+      entityCandidates: { participant: ["carol@x.com"] },
+    });
+
+    expect(result.verdict).toBe("allow");
+  });
+
+  it("does not cross-match a pattern rule against a different candidate type", async () => {
+    seedRule({
+      rule_type: "deny",
+      entity_type: "subject_pattern",
+      entity_key: "*invoice*",
+    });
+
+    const result = await checkRules("ws-1", {
+      provider: "googledrive",
+      entity: null,
+      entityCandidates: { name_pattern: ["invoice-template.psd"] },
+    });
+
+    expect(result.verdict).toBeNull();
+  });
+
+  it("enforces new pattern rules past the 100-row page boundary", async () => {
+    for (let i = 0; i < 149; i++) {
+      seedRule({
+        rule_type: "deny",
+        entity_type: "subject_pattern",
+        entity_key: `*no-match-${i}*`,
+      });
+    }
+    seedRule({
+      rule_type: "deny",
+      entity_type: "subject_pattern",
+      entity_key: "*invoice*",
+    });
+
+    const result = await checkRules("ws-1", {
+      provider: "gmail",
+      entity: null,
+      entityCandidates: { subject_pattern: ["Your invoice is ready"] },
+    });
+
+    expect(result.verdict).toBe("deny");
+  });
+
+  it("returns null when there is no entity and no candidates", async () => {
+    seedRule({
+      rule_type: "deny",
+      entity_type: "subject_pattern",
+      entity_key: "*invoice*",
+    });
+
+    const result = await checkRules("ws-1", {
+      provider: "gmail",
+      entity: null,
+    });
+
+    expect(result.verdict).toBeNull();
+  });
+});
+
+describe("addRule — S5 vocabulary expansion", () => {
+  it("lowercases attendee keys", async () => {
+    const result = await addRule({
+      workspaceId: "ws-1",
+      provider: "googlecalendar",
+      ruleType: "deny",
+      entityType: "attendee",
+      entityKey: "Bob@Acme.COM",
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.rule?.entityKey).toBe("bob@acme.com");
+  });
+
+  it("rejects invalid subject_pattern globs", async () => {
+    const result = await addRule({
+      workspaceId: "ws-1",
+      provider: null,
+      ruleType: "deny",
+      entityType: "subject_pattern",
+      entityKey: "[invalid(regex",
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("Invalid value format");
+  });
+});
