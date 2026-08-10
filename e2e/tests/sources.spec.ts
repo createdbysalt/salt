@@ -214,3 +214,62 @@ test.describe("Sources — legacy redirects", () => {
     ).toBeVisible({ timeout: 15000 });
   });
 });
+
+test.describe("Connector detail — Customize tab (rules)", () => {
+  test("Customize tab renders and adds/removes a rule", async ({ page }) => {
+    await gotoAppRoute(page, "/sources");
+
+    await expect(
+      page.getByRole("heading", { name: /^connectors$/i, level: 2 }),
+    ).toBeVisible({ timeout: 15000 });
+
+    // Open the first connected connector's detail pane.
+    const connectedCard = page
+      .getByRole("button")
+      .filter({ hasText: /^connected$/i })
+      .first();
+
+    if (!(await connectedCard.isVisible({ timeout: 5_000 }).catch(() => false))) {
+      // No connected connectors in test data — nothing to customize.
+      return;
+    }
+    await connectedCard.click();
+
+    const customizeTab = page.getByRole("tab", { name: /^customize$/i });
+    await expect(customizeTab).toBeVisible({ timeout: 10_000 });
+    await customizeTab.click();
+
+    // Non-capture connectors render the honest empty state instead.
+    const emptyState = page.getByText(/doesn’t yet learn from it/i);
+    if (await emptyState.isVisible({ timeout: 3_000 }).catch(() => false)) {
+      await expect(emptyState).toBeVisible();
+      return;
+    }
+
+    await expect(
+      page.getByRole("heading", { name: /^always let in$/i }),
+    ).toBeVisible({ timeout: 10_000 });
+    await expect(
+      page.getByRole("heading", { name: /^keep out$/i }),
+    ).toBeVisible();
+
+    // Add a keep-out rule, then remove it.
+    await page.getByRole("button", { name: /^keep out$/i }).first().click();
+    const valueInput = page.getByRole("textbox").last();
+    await valueInput.fill("e2e-rule-probe@example.com");
+    await page.getByRole("button", { name: /^add rule$/i }).click();
+
+    await expect(
+      page.getByText("e2e-rule-probe@example.com"),
+    ).toBeVisible({ timeout: 10_000 });
+
+    await page
+      .getByRole("button", {
+        name: /remove rule for e2e-rule-probe@example\.com/i,
+      })
+      .click();
+    await expect(
+      page.getByText("e2e-rule-probe@example.com"),
+    ).toHaveCount(0, { timeout: 10_000 });
+  });
+});

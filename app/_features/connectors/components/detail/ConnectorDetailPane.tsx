@@ -75,7 +75,7 @@ import {
   ConnectorCaptureSection,
   ConnectorPermissionsSection,
 } from "./side-sections";
-import { ConnectorScopeSection } from "./ConnectorScopeSection";
+import { ConnectorCustomizeTab } from "./ConnectorCustomizeTab";
 import { ConnectorActivityList, ACTIVITY_TIME_FILTERS, filterConnectorActivity, type ActivityTimeFilter } from "./ConnectorActivityList";
 
 /** Recent activity rows shown on Overview before sending people to the Activity tab. */
@@ -707,6 +707,9 @@ export function ConnectorDetailPane({
             <TabsTrigger value="activity" className={memoryTabTriggerClass}>
               Activity
             </TabsTrigger>
+            <TabsTrigger value="customize" className={memoryTabTriggerClass}>
+              Customize
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="m-0 space-y-8">
@@ -840,6 +843,19 @@ export function ConnectorDetailPane({
               )}
             />
           </TabsContent>
+
+          <TabsContent value="customize" className="m-0">
+            {definition.providerKey ? (
+              <ConnectorCustomizeTab
+                provider={definition.providerKey}
+                connectorName={definition.name}
+                captureCapable={captureState?.capable ?? false}
+                captureEnabled={localCaptureEnabled}
+                scope={captureState?.scope ?? null}
+                onChanged={refreshConnectorsUi}
+              />
+            ) : null}
+          </TabsContent>
         </Tabs>
 
         <aside className="space-y-6 lg:sticky lg:top-6">
@@ -886,14 +902,6 @@ export function ConnectorDetailPane({
               </p>
             </section>
           )}
-
-          {connected && localCaptureEnabled && definition.providerKey ? (
-            <ConnectorScopeSection
-              provider={definition.providerKey}
-              scope={captureState?.scope ?? null}
-              onChanged={refreshConnectorsUi}
-            />
-          ) : null}
 
           <AboutSections meta={meta} />
         </aside>
