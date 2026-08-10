@@ -122,6 +122,44 @@ describe("extractCaptureEmailFields", () => {
 
     expect(fields?.is_sent_by_user).toBe(true);
   });
+
+  it("prefers an explicit body_text over the snippet (inline backfill seam)", () => {
+    // Sources plan 3.4: the backfill attaches the transient full body to the
+    // in-memory row's extracted_data; it must win over the snippet fallback.
+    const fields = extractCaptureEmailFields(
+      { messageId: "msg-1", source: "composio_backfill" },
+      {
+        subject: "Proposal",
+        snippet: "Short preview",
+        sender_email: "alex@client.co",
+        sender_name: "Alex",
+        to: ["you@studio.com"],
+        thread_id: "thread-9",
+        isSentByUser: false,
+        body_text: "Full body with signature\n\nAlex Client\n555-0100",
+      } as never
+    );
+
+    expect(fields?.body_text).toBe(
+      "Full body with signature\n\nAlex Client\n555-0100"
+    );
+  });
+
+  it("falls back to the snippet when body_text is absent or empty", () => {
+    const fields = extractCaptureEmailFields(
+      { messageId: "msg-2" },
+      {
+        subject: "Hello",
+        snippet: "Just the preview",
+        sender_email: "alex@client.co",
+        to: [],
+        isSentByUser: false,
+        body_text: "",
+      } as never
+    );
+
+    expect(fields?.body_text).toBe("Just the preview");
+  });
 });
 
 describe("extractEmailToAnalyze", () => {

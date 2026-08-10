@@ -2,6 +2,8 @@
  * Connector catalog types for Settings → Connectors.
  */
 
+import type { CaptureScope } from "@/app/_lib/composio/capture-scope";
+
 export type ConnectorOwnership = "native" | "composio" | "internal";
 
 export type ConnectorCategory =
@@ -28,6 +30,15 @@ export type ConnectorCategory =
   | "website";
 
 export type ConnectorAuthMethod = "oauth" | "api_key" | "platform";
+
+/**
+ * Registry depth tier (mirrors ConnectorTier in
+ * app/_lib/composio/connector-registry.ts — redeclared here because that
+ * module is server-only). catalog_only = shallow catalog sync: no tools,
+ * triggers, or capture adapter, so the connector is browse-only in the UI
+ * and refused by the server-side connect gate (Sources plan 5.5).
+ */
+export type ConnectorTier = "catalog_only" | "action" | "capture";
 
 export type ConnectorPhase = "1a" | "1b" | "1c" | "2" | "future" | "native";
 
@@ -192,6 +203,11 @@ export interface ConnectorDefinition {
   /** Composio toolkit key when ownership is composio */
   composioProviders?: readonly string[];
   comingSoon?: boolean;
+  /**
+   * Registry depth tier. Undefined on legacy/static definitions — treat as
+   * connectable. "catalog_only" renders browse-only (no connect CTA).
+   */
+  tier?: ConnectorTier;
   /** Connect dialog spec for api_key connectors with non-default inputs. */
   apiKeyForm?: ConnectorApiKeyForm;
   /**
@@ -220,17 +236,6 @@ export interface ConnectorRuntimeStatus {
   needsReconnect?: boolean;
   /** Most recent capture for this provider (ISO). Null = none since connecting. */
   lastActivityAt?: string | null;
-}
-
-/** Persisted in workspace_integrations.config for Composio connectors. */
-export interface ConnectorIntegrationConfig {
-  disabledTools?: string[];
-}
-
-export interface ConnectorDetailData {
-  definition: ConnectorDefinition;
-  status: ConnectorRuntimeStatus;
-  disabledTools: string[];
 }
 
 /** One row of the workspace tool execution audit log, scoped to a connector. */
@@ -267,16 +272,18 @@ export interface ConnectorsPageData {
   catalog: ConnectorDefinition[];
   /** Missing entry = not connected (catalog is larger than implemented set). */
   connectors: Partial<Record<ConnectorCatalogId, ConnectorRuntimeStatus>>;
-  /** Per-catalog disabled Composio tool slugs (per-app: one provider each). */
-  disabledToolsByConnector: Partial<Record<ConnectorCatalogId, string[]>>;
   /** Email mode per connector; trustLevel mirrors the workspace-global value. */
   settingsByConnector: Partial<Record<ConnectorCatalogId, ConnectorTrustSettings>>;
   /**
    * Per-connection memory capture (Phase 3.3b): capable = a capture adapter
-   * exists for the provider; enabled = the user's explicit opt-in.
+   * exists for the provider; enabled = the user's explicit opt-in. scope is
+   * the 4.5 per-connection upstream filter (null = unscoped/global filters).
    */
   captureByConnector: Partial<
-    Record<ConnectorCatalogId, { capable: boolean; enabled: boolean }>
+    Record<
+      ConnectorCatalogId,
+      { capable: boolean; enabled: boolean; scope: CaptureScope | null }
+    >
   >;
   /** Workspace-global trust — the ONE switch in Settings. */
   workspaceTrustLevel?: ConnectorTrustLevel;

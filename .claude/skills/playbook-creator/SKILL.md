@@ -3,7 +3,7 @@ name: playbook-creator
 description: >-
   Author, validate, and edit Salt playbooks (v2 YAML format). Use whenever
   creating or editing playbook YAML files, adding triggers, writing steps,
-  or configuring system playbooks. This skill should trigger when the user
+  or configuring playbook workflows. This skill should trigger when the user
   says "playbook", "recipe", "automation", "play", "workflow", or asks
   how Salt should handle something automatically.
 disable-model-invocation: true
@@ -19,34 +19,27 @@ Salt playbooks are YAML files that define automated workflows. They live in `app
 playbooks/v2/
 ├── relationships/           # People & Orgs
 │   ├── _section.yaml       # Section metadata
-│   ├── follow-up.yaml      # Individual playbook
-│   └── health.yaml
+│   ├── follow-up/          # Package-style playbook
+│   │   ├── definition.yaml
+│   │   └── PLAYBOOK.md
+│   └── health/
 ├── work/                   # Projects & tasks
 ├── billing/                # Invoices & payments
 ├── files/                  # Documents
 ├── meetings/               # Scheduled time
-├── me/                     # Operator profile
-└── _meta/                  # System playbooks (always-on)
-    ├── _section.yaml
-    ├── daily-briefing.yaml
-    ├── memory-records/     # Package-style playbook
-    │   ├── definition.yaml
-    │   ├── PLAYBOOK.md
-    │   └── scripts/
-    │       ├── index.ts
-    │       ├── run.ts      # Signal-driven upkeep
-    │       └── intake.ts   # Multi-entity intake
-    ├── notes.yaml          # Combined notes system playbook
-    └── connections.yaml    # Combined connections system playbook
+├── communication/          # Email digests, triage
+├── capture/                # Intake-related act plays
+└── me/                     # Operator (daily-briefing lives here)
 ```
+
+> **No `_meta/` section.** The learn-layer "system playbooks" (memory-records, memory-hygiene, connections, notes) were retired 2026-08-06 and replaced by **Memory Care** (`app/_features/memory/care/`). Learn-layer memory upkeep is not a playbook — see `docs/architecture/memory-care.md`. Playbooks are act-layer only.
 
 ## Playbook Types
 
-| Type | Section | Layer | Toggle | Use Case |
-|------|---------|-------|--------|----------|
-| **Regular** | Any except `_meta` | `act` | User can toggle | User-facing automations |
-| **System** | `_meta` | `act` or `learn` | Always on | Core Salt behaviors |
-| **Package** | Any | Either | Depends | Complex playbooks with scripts |
+| Type | Layer | Toggle | Use Case |
+|------|-------|--------|----------|
+| **Regular** | `act` | User can toggle | User-facing automations |
+| **Package** | `act` | Depends | Complex playbooks with scripts/references |
 
 ## YAML Schema
 
@@ -57,8 +50,8 @@ slug: invoice-reminder           # Auto-inferred from name if omitted
 version: 1.0.0
 description: Drafts payment reminders for overdue invoices
 
-section: billing                 # relationships|work|billing|files|meetings|me|_meta
-layer: act                       # learn (memory) | act (action)
+section: billing                 # relationships|work|billing|files|meetings|communication|capture|me
+layer: act                       # act only — learn-layer is Memory Care, not playbooks
 
 # Trigger (single)
 trigger:
@@ -131,16 +124,15 @@ value:
 
 | Layer | Voice | Policy | Steps | Output |
 |-------|-------|--------|-------|--------|
-| `learn` | Forbidden | Required | Optional | `memory_update` |
 | `act` | Required | Optional | Required | Any |
+
+The `learn` enum value remains in the schema for backward compatibility, but no playbook uses it — learn-layer enrichment is Memory Care (`app/_features/memory/care/`).
 
 ## Creating a New Playbook
 
-1. **Choose section**: Where does this belong? (`billing`, `relationships`, `_meta`, etc.)
+1. **Choose section**: Where does this belong? (`billing`, `relationships`, `work`, `meetings`, etc.)
 
-2. **Choose layer**:
-   - `learn` for memory/profile updates (keeper-style)
-   - `act` for workflows that produce user-facing output
+2. **Layer is always `act`**: playbooks produce user-facing output. If you're building memory/profile upkeep, that's a Memory Care capability, not a playbook.
 
 3. **Define trigger**:
    - `signal`: Fires on entity events (see signal registry)
@@ -149,7 +141,7 @@ value:
 
 4. **Write steps**: Start with `fetch`, then `classify`/`branch`, then `draft`/`action`
 
-5. **Test**: Restart dev server, check `/plays?tab=customize`
+5. **Test**: Restart dev server, check `/plays?tab=playbooks`
 
 ## Signal Registry
 
@@ -168,56 +160,23 @@ capture_email_received, capture_email_sent, capture_processed
 connection_inferred, relationship_at_risk
 ```
 
-## System Playbooks
+## Memory Care (not playbooks)
 
-System playbooks in `_meta/` are always-on and cannot be toggled by users.
-
-Current system playbooks:
-- **Memory Records**: Signal-driven field upkeep + multi-entity intake
-- **Daily Briefing**: Morning summary
-- **Notes**: Detect + create notes from signals, archive stale, merge duplicates
-- **Connections**: Infer relationships from signals, monitor health
-
-System playbooks can have **multiple triggers** using the `triggers` array:
-```yaml
-triggers:
-  - type: signal
-    signal: capture_processed     # Intake on signals
-  - type: schedule
-    cron: "0 6 * * 1"             # Health check weekly
-```
-
-Use `branch` at the start to route by trigger type:
-```yaml
-steps:
-  - step: branch
-    id: route_trigger
-    switch: trigger.type
-    cases:
-      signal: { goto: intake_flow }
-      schedule: { goto: health_flow }
-```
+Learn-layer memory upkeep (record enrichment, hygiene, connections, notes) is **Memory Care** — typed TypeScript capabilities in `app/_features/memory/care/`, scheduled by `care/scheduler.ts`, gated by the shared decision pipeline with tiered confidence bars. Do not author these as YAML playbooks. See `docs/architecture/memory-care.md`.
 
 ## Package-Style Playbooks
 
 For complex playbooks with TypeScript logic:
 
 ```
-memory-records/
+daily-briefing/
 ├── definition.yaml      # Playbook definition
 ├── PLAYBOOK.md          # Documentation
 ├── tools.yaml           # Tool declarations (optional)
-├── references/          # Domain docs (optional)
-└── scripts/
-    ├── index.ts         # Re-exports
-    ├── run.ts           # Signal-driven execution
-    └── intake.ts        # Parsing/orchestration logic
+└── references/          # Domain docs (optional)
 ```
 
-Scripts can be imported by Ask Salt or other consumers:
-```typescript
-import { parseIntakeRequest } from "@/app/_features/plays/playbooks/v2/_meta/memory-records/scripts";
-```
+Package directories live under their section (`v2/{section}/{slug}/`) and are discovered by `schema/v2/discovery.ts`.
 
 ## Validation
 
@@ -230,9 +189,8 @@ Validation errors show in dev server console. Fix all errors before committing.
 
 ## UI Display
 
-Playbooks appear in `/plays?tab=customize`:
+Playbooks appear in `/plays?tab=playbooks`:
 - Regular playbooks: Toggle on/off, show step count
-- System playbooks: "Always on" badge, no step count
 
 ## Quick Reference
 
@@ -243,8 +201,8 @@ grep "PLAYBOOK DISCOVERY" in dev server output
 # Validate signals
 grep "CAPTURE_SIGNAL_KEYS" app/_features/plays/playbooks/records-engine/types.ts
 
-# Run intake tests
-pnpm test playbooks/v2/_meta/memory-records/scripts/intake.test.ts
+# Run playbook tests
+pnpm test playbooks/v2/
 ```
 
 ## Checklist
@@ -252,12 +210,12 @@ pnpm test playbooks/v2/_meta/memory-records/scripts/intake.test.ts
 Before committing a new playbook:
 
 - [ ] Valid YAML syntax
-- [ ] Valid section (`relationships`, `work`, `billing`, `files`, `meetings`, `me`, `_meta`)
-- [ ] Valid layer (`learn` or `act`)
+- [ ] Valid section (`relationships`, `work`, `billing`, `files`, `meetings`, `communication`, `capture`, `me`)
+- [ ] Layer is `act` (learn-layer is Memory Care, not playbooks)
 - [ ] Valid trigger signal (in signal registry)
 - [ ] Voice specified for `act` layer playbooks
 - [ ] All step IDs unique
 - [ ] All step references valid (forEach references existing fetch)
 - [ ] Output type valid (`email_draft`, `notification`, `memory_update`, `finding`, `briefing`)
 - [ ] No discovery errors in dev server
-- [ ] Shows in UI at `/plays?tab=customize`
+- [ ] Shows in UI at `/plays?tab=playbooks`

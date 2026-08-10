@@ -10,7 +10,6 @@ import {
   type ConnectorCapabilityGroups,
 } from "./connector-capabilities";
 import {
-  mergeDisabledToolsIntoConfig,
   mergeEmailModeIntoConfig,
 } from "./connector-config";
 import {
@@ -67,7 +66,7 @@ export async function updateWorkspaceTrustLevel(
     return { success: false, error: "Failed to save permissions." };
   }
 
-  revalidatePath("/plays");
+  revalidatePath("/sources");
   revalidatePath("/settings");
   return { success: true, data: undefined };
 }
@@ -132,7 +131,7 @@ export async function updateConnectorEmailMode(input: {
     return { success: false, error: "Failed to save permissions." };
   }
 
-  revalidatePath("/plays");
+  revalidatePath("/sources");
   return { success: true, data: undefined };
 }
 
@@ -149,28 +148,6 @@ export async function fetchConnectorActivity(
 
   const entries = await getConnectorActivity(workspace.id, providers);
   return { success: true, data: entries };
-}
-
-async function validateDisabledTools(
-  connectorId: ConnectorCatalogId,
-  disabledTools: string[],
-): Promise<string[] | null> {
-  // DB-driven tool list first (every approved synced tool); curated static
-  // list as fallback so toggles keep working before the first catalog sync.
-  const groups =
-    (await getConnectorToolGroups(connectorId)) ??
-    getConnectorCapabilities(connectorId);
-  if (!groups) {
-    return null;
-  }
-
-  const allowedSlugs = new Set(
-    [...groups.read, ...groups.write]
-      .map((capability) => capability.toolSlug)
-      .filter((slug): slug is string => Boolean(slug)),
-  );
-
-  return disabledTools.filter((slug) => allowedSlugs.has(slug));
 }
 
 /**
@@ -191,79 +168,6 @@ export async function fetchConnectorTools(
     return { success: false, error: "Unknown connector." };
   }
   return { success: true, data: groups };
-}
-
-export async function updateConnectorToolPreferences(input: {
-  connectorId: ConnectorCatalogId;
-  disabledTools: string[];
-}): Promise<ConnectorActionResult<void>> {
-  const { connectorId, disabledTools } = input;
-
-  // Tool preferences are supported for any connector with a DB-driven tool
-  // list; the static allowlist only gates the pre-sync fallback.
-  const validated = await validateDisabledTools(connectorId, disabledTools);
-  if (validated === null) {
-    return { success: false, error: "Unknown connector." };
-  }
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    return { success: false, error: "Not authenticated" };
-  }
-
-  const { context } = await getTenantContext();
-  const workspace = requireWorkspaceMember(context);
-  const workspaceId = workspace.id;
-
-  // Per-app connectors: each tile manages only its own provider's config row.
-  const providers = await connectorActivityProviders(connectorId);
-
-  if (providers.length === 0) {
-    return { success: false, error: "Connector has no persisted integration provider." };
-  }
-
-  const { data: rows, error: fetchError } = await supabase
-    .from("workspace_integrations")
-    .select("id, provider, config")
-    .eq("workspace_id", workspaceId)
-    .in("provider", providers);
-
-  if (fetchError) {
-    console.error("[connectors] failed to load integration rows:", fetchError);
-    return { success: false, error: "Failed to load connector settings." };
-  }
-
-  if (!rows || rows.length === 0) {
-    return {
-      success: false,
-      error: "Connect this integration before changing tool preferences.",
-    };
-  }
-
-  for (const row of rows) {
-    const mergedConfig = mergeDisabledToolsIntoConfig(
-      row.config as Record<string, unknown> | null,
-      validated,
-    );
-
-    const { error: updateError } = await supabase
-      .from("workspace_integrations")
-      .update({ config: mergedConfig })
-      .eq("id", row.id);
-
-    if (updateError) {
-      console.error("[connectors] failed to save tool preferences:", updateError);
-      return { success: false, error: "Failed to save tool preferences." };
-    }
-  }
-
-  revalidatePath("/plays");
-  return { success: true, data: undefined };
 }
 
 // ---------------------------------------------------------------------------
@@ -353,6 +257,6 @@ export async function updateToolApprovalPreference(
     }
   }
 
-  revalidatePath("/plays");
+  revalidatePath("/sources");
   return { success: true, data: undefined };
 }

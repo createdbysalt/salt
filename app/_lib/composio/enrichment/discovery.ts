@@ -14,8 +14,9 @@ import "server-only";
  */
 
 import { getConnectedCategories, type ConnectedCategory } from "../category-fetcher";
-import { getCategoriesForEntity, CONNECTOR_TO_CATEGORY } from "./registry";
-import { getAskSaltToolkits } from "../unified-connector-registry";
+import { getCategoriesForEntity } from "./registry";
+import { getCaptureCategory } from "../capture-categories";
+import { listAskSaltEntries } from "../connector-registry";
 import type { ConnectorCategory, EnrichableEntityType } from "./types";
 
 export interface EnrichmentProvider {
@@ -73,19 +74,23 @@ export async function getConnectedProvidersForEnrichment(
 /**
  * Check if a provider has an enrichment manifest (i.e., Ask Salt enabled with tools).
  *
- * Derives from the unified connector registry — no hardcoded list.
- * Used to decide between manifest-based extraction and capability fallback.
+ * Derives from the DB connector registry (connector_overrides.ask_salt_slug_prefix)
+ * — no hardcoded list. Used to decide between manifest-based extraction and
+ * capability fallback.
  */
-export function hasConnectorManifest(provider: string): boolean {
-  const askSaltToolkits = new Set(getAskSaltToolkits().map(t => t.toLowerCase()));
-  return askSaltToolkits.has(provider.toLowerCase());
+export async function hasConnectorManifest(provider: string): Promise<boolean> {
+  const entries = await listAskSaltEntries();
+  const key = provider.toLowerCase();
+  return entries.some((entry) => entry.toolkitSlug.toLowerCase() === key);
 }
 
 /**
- * Get the category for a provider key.
+ * Get the category for a provider key (DB-backed capture taxonomy).
  */
-export function getCategoryForProvider(provider: string): ConnectorCategory | null {
-  return CONNECTOR_TO_CATEGORY[provider.toLowerCase()] ?? null;
+export async function getCategoryForProvider(
+  provider: string,
+): Promise<ConnectorCategory | null> {
+  return getCaptureCategory(provider);
 }
 
 /**

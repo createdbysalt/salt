@@ -4,7 +4,12 @@
  * Evidence Actions
  *
  * Mutations for accumulating and managing pending evidence.
- * Creates plays in the approval queue when thresholds are reached.
+ *
+ * Threshold behavior (plays canon Phase 2): record proposals never write
+ * play_runs. Suggest-tier evidence carries status='suggested' and the
+ * Memory → Filter Watching lane renders it with one-tap Add to Memory.
+ * The auto tier (P6 + P7: calibrated AND relationship-grade) creates
+ * records directly.
  */
 
 import { createClient } from "@/app/_lib/supabase/server";
@@ -14,8 +19,13 @@ import {
   accumulateEvidence,
   evaluateEvidence,
   logOddsToProbability,
-} from "@/app/_features/plays/playbooks/v2/_meta/memory-records/scripts";
-import { createIntakePlayRun } from "@/app/_features/plays/services/create-intake-play-run";
+} from "@/app/_features/memory/care/intake";
+import { autoCreateRecord } from "./auto-create-record";
+import {
+  extractedFieldPlainValues,
+  hasRelationshipGradeSignal,
+  mergeExtractedFields,
+} from "./route-intake-proposal";
 import type {
   AddSignalInput,
   AddSignalResult,
@@ -91,27 +101,43 @@ export async function addSignalToEvidence(
       extracted_data: input.extractedData || {},
     });
 
-    // Create play when transitioning to suggested or auto
-    if (
-      (action === "suggest" || action === "auto") &&
-      existing.status === "watching"
-    ) {
-      // Count signals for this evidence
-      const { count } = await supabase
+    // Handle threshold transitions. Plays canon Phase 2: proposals never
+    // write play_runs — suggest-tier rows carry status='suggested' and the
+    // Memory → Filter Watching lane renders them directly.
+    if (existing.status === "watching") {
+      // Fetch all signals for this evidence (for count and worthiness check)
+      const { data: signalRows } = await supabase
         .from("pending_evidence_signals")
-        .select("*", { count: "exact", head: true })
+        .select("signal")
         .eq("evidence_id", existing.id);
 
-      await createIntakePlayRun({
-        workspaceId: input.workspaceId,
-        evidenceId: existing.id,
-        entityType: input.entityType,
-        identifier: canonicalId,
-        confidence: logOddsToProbability(newScore),
-        extractedFields: mergedFields,
-        signalCount: (count ?? 0) + 1,
-        autoCreate: action === "auto",
-      });
+      const signalCount = (signalRows?.length ?? 0) + 1;
+      const allSignals = [...(signalRows?.map((r) => r.signal as string) ?? []), input.signal];
+      const isWorthy = hasRelationshipGradeSignal(allSignals);
+      // Files never auto-create from background paths: files.uploaded_by is
+      // NOT NULL and only the confirm path supplies an acting user.
+      const canAutoCreate = isWorthy && input.entityType !== "file";
+
+      if (action === "auto" && canAutoCreate) {
+        // P6 + P7: Auto-create only if relationship-grade worthy
+        await autoCreateRecord({
+          workspaceId: input.workspaceId,
+          evidenceId: existing.id,
+          entityType: input.entityType,
+          identifier: canonicalId,
+          confidence: logOddsToProbability(newScore),
+          extractedFields: mergedFields,
+          signalCount,
+          captureId: input.captureId,
+        });
+      } else if (action === "auto") {
+        // P7: confidence passed but not relationship-grade (or the entity
+        // is confirm-only) — surface as a suggested candidate instead.
+        await supabase
+          .from("pending_evidence")
+          .update({ status: "suggested" })
+          .eq("id", existing.id);
+      }
     }
 
     return {
@@ -175,9 +201,17 @@ export async function addSignalToEvidence(
       extracted_data: input.extractedData || {},
     });
 
-    // Create play if immediately crosses threshold (e.g., very strong signal)
-    if (action === "suggest" || action === "auto") {
-      await createIntakePlayRun({
+    // Handle immediate threshold crossing (e.g., very strong signal).
+    // Plays canon Phase 2: proposals never write play_runs — the row was
+    // inserted with status='suggested' above when the suggest bar cleared,
+    // and the Memory → Filter Watching lane renders it directly.
+    const isWorthy = hasRelationshipGradeSignal([input.signal]);
+    // Files never auto-create from background paths (see above).
+    const canAutoCreate = isWorthy && input.entityType !== "file";
+
+    if (action === "auto" && canAutoCreate) {
+      // P6 + P7: Auto-create only if relationship-grade worthy
+      await autoCreateRecord({
         workspaceId: input.workspaceId,
         evidenceId: newEvidence.id,
         entityType: input.entityType,
@@ -185,8 +219,15 @@ export async function addSignalToEvidence(
         confidence: logOddsToProbability(newScore),
         extractedFields: initialFields,
         signalCount: 1,
-        autoCreate: action === "auto",
+        captureId: input.captureId,
       });
+    } else if (action === "auto") {
+      // P7: confidence passed but not relationship-grade (or the entity
+      // is confirm-only) — surface as a suggested candidate instead.
+      await supabase
+        .from("pending_evidence")
+        .update({ status: "suggested" })
+        .eq("id", newEvidence.id);
     }
 
     return {
@@ -251,44 +292,4 @@ export async function restoreEvidence(evidenceId: string): Promise<void> {
       dismissed_reason: null,
     })
     .eq("id", evidenceId);
-}
-
-/**
- * Merge extracted fields from a new signal into existing fields.
- */
-function mergeExtractedFields(
-  existing: Record<string, ExtractedFieldValue>,
-  newData: Record<string, string>,
-  captureId?: string
-): Record<string, ExtractedFieldValue> {
-  const merged = { ...existing };
-
-  for (const [key, value] of Object.entries(newData)) {
-    if (!value) continue;
-
-    if (merged[key]) {
-      // Field already exists - update if new value matches or has higher implied confidence
-      if (merged[key].value === value) {
-        // Same value - add source
-        if (captureId && !merged[key].sources.includes(captureId)) {
-          merged[key].sources.push(captureId);
-          // Increase confidence slightly with corroboration
-          merged[key].confidence = Math.min(99, merged[key].confidence + 2);
-        }
-      } else {
-        // Different value - only replace if we have more sources for the new one
-        // (This is a simplification; in production you'd want more sophisticated conflict resolution)
-        // For now, keep the existing value but note the conflict
-      }
-    } else {
-      // New field
-      merged[key] = {
-        value,
-        confidence: 80,
-        sources: captureId ? [captureId] : [],
-      };
-    }
-  }
-
-  return merged;
 }

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/app/_lib/composio/connections", () => ({
@@ -11,7 +11,34 @@ vi.mock("./system-plays", () => ({ resolvePerson: vi.fn() }));
 vi.mock("./ingest-envelope", () => ({ ingestEnvelope: vi.fn() }));
 vi.mock("./cal-booking-processor", () => ({ processCalBookings: vi.fn() }));
 
-import { unwrapItems } from "./connector-backfills";
+const getCategoryAdapterMock = vi.fn(async (_provider: string) => null as unknown);
+const hasHandWrittenParsingMock = vi.fn((_provider: string) => true);
+vi.mock("../adapters/categories", () => ({
+  getCategoryAdapter: (provider: string) => getCategoryAdapterMock(provider),
+  hasHandWrittenParsing: (provider: string) =>
+    hasHandWrittenParsingMock(provider),
+}));
+
+const absorbInferredSignalsMock = vi.fn(
+  async (
+    _workspaceId: string,
+    _envelopes: CaptureEnvelope[],
+    _context: { userEmail: string | null },
+    _llmCall: unknown,
+  ) => ({ contactsProposed: 0 }),
+);
+vi.mock("./generic-signal-extractor", () => ({
+  absorbInferredSignals: (...args: unknown[]) =>
+    absorbInferredSignalsMock(
+      ...(args as Parameters<typeof absorbInferredSignalsMock>),
+    ),
+}));
+
+import { unwrapItems, backfillDropboxCaptures } from "./connector-backfills";
+import { getConnectionStatusAdmin } from "@/app/_lib/composio/connections";
+import { executeComposioAction } from "@/app/_lib/composio/actions";
+import { ingestEnvelope } from "./ingest-envelope";
+import type { CaptureEnvelope } from "../adapters/types";
 
 /**
  * Golden contracts for the list shapes Composio tools actually return —
@@ -61,5 +88,98 @@ describe("unwrapItems", () => {
     expect(unwrapItems({ entries: [], has_more: false })).toEqual([]);
     expect(unwrapItems({ resource: { uri: "not-a-list" } })).toEqual([]);
     expect(unwrapItems(null)).toEqual([]);
+  });
+});
+
+/**
+ * Long-tail LLM supplement (Sources plan 5.4): providers without hand-written
+ * parsing get absorbInferredSignals on newly-created envelopes only.
+ */
+describe("backfill LLM signal supplement", () => {
+  const stubAdapter = {
+    sourceType: "dropbox",
+    toolkit: "dropbox",
+    triggerSlugs: [],
+    deriveSignals: () => new Map(),
+    normalize(row: unknown): CaptureEnvelope | null {
+      const record = row as { id?: string; email?: string };
+      if (!record.id) return null;
+      return {
+        sourceType: "dropbox",
+        captureType: "file",
+        externalId: record.id,
+        title: record.id,
+        occurredAt: "2026-08-08T00:00:00Z",
+        participants: record.email
+          ? [{ email: record.email, name: null, role: "from" as const }]
+          : [],
+        threadId: null,
+        extracted: {},
+        raw: {},
+        noise: null,
+      };
+    },
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    hasHandWrittenParsingMock.mockReturnValue(true);
+    getCategoryAdapterMock.mockResolvedValue(stubAdapter);
+    vi.mocked(getConnectionStatusAdmin).mockResolvedValue({
+      connected: true,
+      composioConnectionId: "conn-1",
+      integrationId: "int-1",
+      email: "me@usesalt.io",
+    } as never);
+    vi.mocked(executeComposioAction).mockResolvedValue({
+      entries: [
+        {
+          ".tag": "file",
+          id: "new-1",
+          email: "new@client.co",
+          server_modified: new Date().toISOString(),
+        },
+        {
+          ".tag": "file",
+          id: "dupe-1",
+          email: "dupe@client.co",
+          server_modified: new Date().toISOString(),
+        },
+      ],
+    } as never);
+    vi.mocked(ingestEnvelope).mockImplementation(async (_ws, _int, envelope) => {
+      return {
+        outcome: envelope.externalId === "new-1" ? "created" : "duplicate",
+      } as never;
+    });
+  });
+
+  it("extracts LLM signals from newly-created envelopes only (not dupes)", async () => {
+    hasHandWrittenParsingMock.mockReturnValue(false);
+    const llmCall = vi.fn(async () => "{}");
+
+    await backfillDropboxCaptures("ws-1", { llmCall });
+
+    expect(absorbInferredSignalsMock).toHaveBeenCalledTimes(1);
+    const [, envelopes, context, call] = absorbInferredSignalsMock.mock.calls[0];
+    expect(envelopes.map((e) => e.externalId)).toEqual(["new-1"]);
+    expect(context).toEqual({ userEmail: "me@usesalt.io" });
+    expect(call).toBe(llmCall);
+  });
+
+  it("skips the LLM supplement for hand-written providers", async () => {
+    hasHandWrittenParsingMock.mockReturnValue(true);
+
+    await backfillDropboxCaptures("ws-1", { llmCall: vi.fn(async () => "{}") });
+
+    expect(absorbInferredSignalsMock).not.toHaveBeenCalled();
+  });
+
+  it("skips the LLM supplement when no llmCall is provided", async () => {
+    hasHandWrittenParsingMock.mockReturnValue(false);
+
+    await backfillDropboxCaptures("ws-1");
+
+    expect(absorbInferredSignalsMock).not.toHaveBeenCalled();
   });
 });

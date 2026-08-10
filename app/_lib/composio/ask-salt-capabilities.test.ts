@@ -19,7 +19,6 @@ vi.mock("./load-ask-salt-tools", () => ({
 
 vi.mock("@/app/_features/connectors/queries", () => ({
   getWorkspaceConnectorPolicy: vi.fn(async () => ({
-    disabledTools: [],
     trustByProvider: {},
     emailModeByProvider: { gmail: "draft", outlook: "draft" },
   })),
@@ -29,20 +28,33 @@ vi.mock("@/app/_features/ask-salt/connector-discovery-tools", () => ({
   buildConnectorDiscoveryTools: vi.fn(() => ({})),
 }));
 
-vi.mock("./connector-registry", () => ({
-  getConnectorRegistry: vi.fn(async () => {
-    const toolkits = [
-      "gmail",
-      "googlecalendar",
-      "googledrive",
-      "googledocs",
-      "googlesheets",
-      "googleslides",
-      "stripe",
-    ];
-    return new Map(toolkits.map((toolkit) => [toolkit, { providerKey: toolkit }]));
-  }),
-}));
+vi.mock("./connector-registry", () => {
+  const toolkits = [
+    "gmail",
+    "googlecalendar",
+    "googledrive",
+    "googledocs",
+    "googlesheets",
+    "googleslides",
+    "stripe",
+  ];
+  const labels: Record<string, string> = {
+    gmail: "Gmail",
+    googlecalendar: "Google Calendar",
+    googledrive: "Google Drive",
+    googledocs: "Google Docs",
+    googlesheets: "Google Sheets",
+    googleslides: "Google Slides",
+    stripe: "Stripe",
+  };
+  return {
+    getConnectorRegistry: vi.fn(
+      async () => new Map(toolkits.map((toolkit) => [toolkit, { providerKey: toolkit }])),
+    ),
+    listAskSaltToolkits: vi.fn(async () => toolkits),
+    getAskSaltToolkitLabels: vi.fn(async () => labels),
+  };
+});
 
 const WORKSPACE = "ws-1";
 

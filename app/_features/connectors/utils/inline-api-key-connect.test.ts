@@ -41,4 +41,15 @@ describe("usesInlineApiKeyConnect", () => {
       ),
     ).toBe(false);
   });
+
+  it("returns false for catalog_only connectors (browse-only, plan 5.5)", () => {
+    expect(
+      usesInlineApiKeyConnect(
+        stubDefinition({
+          tier: "catalog_only",
+          connectHelp: "Paste your key below.",
+        }),
+      ),
+    ).toBe(false);
+  });
 });

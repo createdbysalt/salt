@@ -20,6 +20,7 @@ import { CURRENT_PRICING_VERSION } from "@/app/_lib/usage/pricing-versions";
 
 import {
   mapStripeStatus,
+  resolveCheckoutTier,
   resolveTierFromPriceId,
   resolveTierFromStripe,
   syncWorkspaceSubscription,
@@ -73,6 +74,48 @@ describe("resolveTierFromPriceId", () => {
     expect(resolveTierFromPriceId("price_something_else")).toBeNull();
     expect(resolveTierFromPriceId(null)).toBeNull();
     expect(resolveTierFromPriceId(undefined)).toBeNull();
+  });
+});
+
+describe("resolveCheckoutTier (INV-5)", () => {
+  it("grants the tier the customer actually paid for", () => {
+    expect(resolveCheckoutTier("price_pro_m", "pro")).toEqual({
+      tier: "pro",
+      metadataMismatch: false,
+    });
+  });
+
+  // The tamper case: a checkout session created with metadata claiming Max
+  // but a Starter price must grant Starter — the price is the truth.
+  it("price wins when metadata claims a larger bundle", () => {
+    expect(resolveCheckoutTier("price_starter_m", "max")).toEqual({
+      tier: "starter",
+      metadataMismatch: true,
+    });
+  });
+
+  it("flags metadata naming a smaller bundle too (config drift, not attack)", () => {
+    expect(resolveCheckoutTier("price_max_y", "starter")).toEqual({
+      tier: "max",
+      metadataMismatch: true,
+    });
+  });
+
+  it("absent metadata is not a mismatch", () => {
+    expect(resolveCheckoutTier("price_max_m", null)).toEqual({
+      tier: "max",
+      metadataMismatch: false,
+    });
+    expect(resolveCheckoutTier("price_max_m", undefined)).toEqual({
+      tier: "max",
+      metadataMismatch: false,
+    });
+  });
+
+  // Fail closed: an unknown price grants nothing, whatever metadata says.
+  it("returns null for an unknown price even with plausible metadata", () => {
+    expect(resolveCheckoutTier("price_something_else", "max")).toBeNull();
+    expect(resolveCheckoutTier(null, "pro")).toBeNull();
   });
 });
 

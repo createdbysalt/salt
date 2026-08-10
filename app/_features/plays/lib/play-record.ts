@@ -3,7 +3,7 @@
  *
  * Unified interface for creating play records from any source:
  * - Ask Salt tool execution
- * - Keeper playbook execution
+ * - Memory Care profile writes
  * - Action playbook execution
  * - Manual user actions
  *
@@ -12,6 +12,7 @@
  */
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import type { Json } from "@/app/_lib/supabase/database.types";
 import {
   shouldRouteToNeedsYou,
   type QueueDecision,
@@ -41,13 +42,59 @@ export type PlayTargetType =
   | "billing"
   | "me";
 
-export interface SourceContext {
+// Type aliases (not interfaces) so these stay assignable to the generated
+// Json column type — interfaces lack the implicit index signature.
+export type SourceContext = {
   source: PlaySource;
   chat_id?: string;
   message_id?: string;
   user_approved_at?: string;
   playbook_slug?: string;
   trigger_signal?: string;
+};
+
+/**
+ * Canonical playbook attribution (plays canon: a play is a playbook run).
+ *
+ * `source_context.playbook_slug` is the ONE location attribution lives in —
+ * the card mappers, queue search, earned autonomy, and stats all read it.
+ * `trigger_evidence` carries evidence payloads (signal keys, classification
+ * tags, capture ids), never attribution.
+ */
+export type PlaybookSourceContext = SourceContext & {
+  playbook_slug: string;
+};
+
+/**
+ * Build the `source_context` for a play_runs insert that knows its playbook.
+ * Every insert site with a playbook in scope must construct its
+ * source_context through this helper so attribution cannot drift back into
+ * trigger_evidence or metadata.
+ */
+export function buildPlaybookSourceContext(input: {
+  playbookSlug: string;
+  /** Defaults to "playbook" — the run was created by playbook machinery. */
+  source?: PlaySource;
+  /** Signal key that fired the playbook, when signal-triggered. */
+  triggerSignal?: string;
+  chatId?: string;
+  messageId?: string;
+  userApprovedAt?: string;
+}): PlaybookSourceContext {
+  if (!input.playbookSlug) {
+    throw new Error(
+      "buildPlaybookSourceContext: playbookSlug is required — a play is a playbook run"
+    );
+  }
+
+  return {
+    source: input.source ?? "playbook",
+    playbook_slug: input.playbookSlug,
+    ...(input.triggerSignal ? { trigger_signal: input.triggerSignal } : {}),
+    ...(input.chatId ? { chat_id: input.chatId } : {}),
+    ...(input.messageId ? { message_id: input.messageId } : {}),
+    ...(input.userApprovedAt ? { user_approved_at: input.userApprovedAt } : {}),
+  };
 }
 
 export interface CreatePlayRecordInput {
@@ -221,6 +268,13 @@ export async function createPlayRecord(
     state = "ran";
   }
 
+  // Canonical attribution: a top-level playbookSlug always lands in
+  // source_context.playbook_slug (previously this input was silently dropped).
+  const sourceContext: SourceContext = {
+    ...input.sourceContext,
+    ...(input.playbookSlug ? { playbook_slug: input.playbookSlug } : {}),
+  };
+
   // Insert play run
   // Note: player_id is deprecated (2026-07-13). Players replaced by sections.
   const { data: playRun, error } = await admin
@@ -239,9 +293,11 @@ export async function createPlayRecord(
       stakes: input.stakes,
       queue,
       state,
-      source_context: input.sourceContext,
-      context_inputs: input.contextInputs ?? {},
-      metadata: input.metadata ?? {},
+      source_context: sourceContext,
+      // Callers hand these over as Record<string, unknown>; boundary casts
+      // into the Json columns (values are serialized as-is either way).
+      context_inputs: (input.contextInputs ?? {}) as Json,
+      metadata: (input.metadata ?? {}) as Json,
       ran_at: state === "ran" ? new Date().toISOString() : null,
       outcome_expected: input.outcomeExpected ?? null,
       outcome_window_hours: input.outcomeWindowHours ?? null,
@@ -274,10 +330,9 @@ export async function createPlayRecord(
   });
 
   if (state === "ran") {
-    // Second metering point (pricing §1). `executePlayRun` covers plays that
-    // run through the executor; this covers the ones that land here already
-    // finished — Ask Salt's approved-in-chat actions above all, which are
-    // external sends and therefore billable.
+    // Second metering point (pricing §1). This covers plays that land here
+    // already finished — Ask Salt's approved-in-chat actions above all, which
+    // are external sends and therefore billable.
     //
     // Never allowed to fail the caller: the work is already done, and refusing
     // to return a play id because a ledger insert failed would be worse than

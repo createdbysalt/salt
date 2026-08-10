@@ -18,8 +18,18 @@ import { verifyComposioWebhookSignature } from "@/app/_lib/composio/webhook-sign
 import { resolveAdapterForTriggerSlug } from "@/app/_features/capture/adapters/trigger-routing";
 import { ingestEnvelope } from "@/app/_features/capture/services/ingest-envelope";
 import { isFeatureEnabled, FeatureFlag } from "@/app/_lib/feature-flags";
-import { enrichWebhookPayload } from "@/app/_lib/composio/webhook-enrichment";
+import {
+  enrichWebhookPayload,
+  hasEnrichmentSpec,
+  type EnrichmentResult,
+} from "@/app/_lib/composio/webhook-enrichment";
+import { captureAlreadyIngested } from "@/app/_features/capture/services/pre-enrichment-gates";
+import {
+  getCaptureBudgetStatus,
+  recordBudgetExceededWarning,
+} from "@/app/_features/capture/services/capture-budget";
 import { routeResourceWebhook } from "@/app/_lib/resources/live/signal-router";
+import { recordComposioTriggerEvent } from "@/app/_lib/usage/record-trigger-usage";
 
 export const maxDuration = 60;
 
@@ -86,6 +96,73 @@ async function recordWebhookOutcome(
       outcome,
       error,
     });
+  }
+}
+
+/**
+ * Lifecycle deliveries (account expired, trigger disabled) are billed by
+ * Composio at delivery like any trigger event, so they meter too — the
+ * workspace is resolved from the connection id. Unattributable deliveries
+ * (no integration row) skip recording rather than failing the ack.
+ */
+async function meterLifecycleDelivery(
+  admin: ReturnType<typeof createAdminClient>,
+  connectedAccountId: string | null,
+  triggerSlug: string,
+  webhookDeliveryId: string | null,
+): Promise<void> {
+  if (!connectedAccountId) return;
+  try {
+    const { data } = await admin
+      .from("workspace_integrations")
+      .select("workspace_id")
+      .eq("composio_connection_id", connectedAccountId)
+      .maybeSingle();
+    if (!data?.workspace_id) return;
+    await recordComposioTriggerEvent({
+      workspaceId: data.workspace_id,
+      triggerSlug,
+      webhookDeliveryId,
+    });
+  } catch (error) {
+    console.error("[composio-webhook] failed to meter lifecycle delivery", {
+      triggerSlug,
+      error,
+    });
+  }
+}
+
+/** One delivery-health stamp per connection per hour is plenty (3.3). */
+const DELIVERY_STAMP_INTERVAL_MS = 60 * 60 * 1000;
+
+async function stampWebhookDelivery(
+  admin: ReturnType<typeof createAdminClient>,
+  integrationId: string,
+  config: unknown,
+): Promise<void> {
+  const current = isRecord(config) ? config : {};
+  const last =
+    typeof current.lastWebhookDeliveryAt === "string"
+      ? Date.parse(current.lastWebhookDeliveryAt)
+      : NaN;
+  if (Number.isFinite(last) && Date.now() - last < DELIVERY_STAMP_INTERVAL_MS) {
+    return;
+  }
+  try {
+    // Read-modify-write on the config JSONB can theoretically lose a
+    // concurrent lastReconciledAt stamp; both are advisory throttle
+    // markers, so a lost stamp costs at most one extra backfill.
+    await admin
+      .from("workspace_integrations")
+      .update({
+        config: {
+          ...current,
+          lastWebhookDeliveryAt: new Date().toISOString(),
+        } as never,
+      })
+      .eq("id", integrationId);
+  } catch (error) {
+    console.error("[composio-webhook] failed to stamp delivery health", error);
   }
 }
 
@@ -198,6 +275,12 @@ export async function POST(req: NextRequest) {
       console.warn(
         `[composio-webhook] connected account expired: ${event.connectedAccountId}`,
       );
+      await meterLifecycleDelivery(
+        admin,
+        event.connectedAccountId,
+        "connected_account.expired",
+        req.headers.get("webhook-id"),
+      );
     }
     return NextResponse.json({ ok: true, handled: "connected_account_expired" });
   }
@@ -219,6 +302,12 @@ export async function POST(req: NextRequest) {
       triggerSlug: event.triggerSlug,
       connectedAccountId: event.connectedAccountId,
     });
+    await meterLifecycleDelivery(
+      admin,
+      event.connectedAccountId,
+      event.triggerSlug ?? "trigger.disabled",
+      req.headers.get("webhook-id"),
+    );
     return NextResponse.json({ ok: true, handled: "trigger_disabled" });
   }
 
@@ -248,6 +337,16 @@ export async function POST(req: NextRequest) {
         resourceType: str(triggerConfig.resourceType) ?? undefined,
       },
     });
+
+    // Billed at delivery like any trigger event — meter once the router
+    // resolved the workspace from the resource.
+    if (resourceResult.workspaceId) {
+      await recordComposioTriggerEvent({
+        workspaceId: resourceResult.workspaceId,
+        triggerSlug: event.triggerSlug,
+        webhookDeliveryId: req.headers.get("webhook-id"),
+      });
+    }
 
     return NextResponse.json({
       ok: true,
@@ -287,6 +386,17 @@ export async function POST(req: NextRequest) {
     .eq("composio_connection_id", event.connectedAccountId)
     .maybeSingle();
 
+  if (integration) {
+    // Composio bills trigger events at DELIVERY — this cost is real even when
+    // the integration is inactive or capture-disabled below, so record before
+    // any early return. Non-fatal and idempotent on the delivery id.
+    await recordComposioTriggerEvent({
+      workspaceId: integration.workspace_id,
+      triggerSlug: event.triggerSlug,
+      webhookDeliveryId: req.headers.get("webhook-id"),
+    });
+  }
+
   if (!integration?.is_active) {
     // Distinguish "no row" (orphaned trigger firing at a stale connection)
     // from "row exists but deactivated" — different repairs.
@@ -308,18 +418,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, handled: "capture_disabled" });
   }
 
-  // Enrich minimal payloads (e.g., Outlook sends only message ID)
-  const enrichment = await enrichWebhookPayload(
-    event.triggerSlug,
-    event.payload,
-    event.connectedAccountId,
-    integration.workspace_id,
-  );
-  const payloadToNormalize = enrichment.payload;
+  // Stamp delivery health (Sources plan 3.3): the reconciliation cron skips
+  // its repair backfill for connections with proven delivery in the window.
+  // Throttled to one write per connection per hour — delivery volume can be
+  // hundreds/day, the stamp only needs to be fresh.
+  await stampWebhookDelivery(admin, integration.id, integration.config);
 
+  // Normalize BEFORE enrichment (Phase 6): pointer-only payloads (Outlook
+  // sends just a message ID) used to pay for a Composio fetch before any
+  // gate ran. Cheap gates — adapter decline, dedupe, daily budget — run on
+  // the minimal envelope first; only survivors pay for hydration.
   let envelope;
   try {
-    envelope = adapter.normalize(payloadToNormalize);
+    envelope = adapter.normalize(event.payload);
   } catch (error) {
     console.error("[composio-webhook] adapter threw on payload", {
       sourceType: adapter.sourceType,
@@ -329,7 +440,7 @@ export async function POST(req: NextRequest) {
     await recordWebhookOutcome(admin, "malformed_payload", {
       triggerSlug: event.triggerSlug,
       connectedAccountId: event.connectedAccountId,
-      payload: payloadToNormalize,
+      payload: event.payload,
       detail: {
         sourceType: adapter.sourceType,
         error: error instanceof Error ? error.message : String(error),
@@ -345,10 +456,85 @@ export async function POST(req: NextRequest) {
     await recordWebhookOutcome(admin, "declined", {
       triggerSlug: event.triggerSlug,
       connectedAccountId: event.connectedAccountId,
-      payload: payloadToNormalize,
-      detail: { sourceType: adapter.sourceType, enriched: enrichment.enriched },
+      payload: event.payload,
+      detail: { sourceType: adapter.sourceType, enriched: false },
     });
     return NextResponse.json({ ok: true, handled: "declined" });
+  }
+
+  let enrichment: EnrichmentResult = { enriched: false, payload: event.payload };
+
+  const extracted = envelope.extracted as Record<string, unknown> | null;
+  const needsHydration =
+    extracted?.needs_hydration === true &&
+    hasEnrichmentSpec(event.triggerSlug);
+
+  if (needsHydration) {
+    // Cheap gate 1: replayed/re-tried delivery of an already-ingested
+    // message — ack without paying for a second fetch.
+    const duplicate = await captureAlreadyIngested(
+      admin,
+      integration.workspace_id,
+      envelope.sourceType,
+      envelope.externalId,
+    );
+    if (duplicate) {
+      return NextResponse.json({
+        ok: true,
+        handled: "trigger",
+        outcome: "duplicate",
+        enriched: false,
+      });
+    }
+
+    // Cheap gate 2: over the daily capture budget, skip the paid fetch —
+    // ingestEnvelope stamps the minimal envelope as noise.
+    const budget = await getCaptureBudgetStatus(integration.workspace_id, admin);
+    if (budget.exceeded) {
+      await recordBudgetExceededWarning(integration.workspace_id, budget, admin);
+    } else {
+      // Enrich minimal payloads (e.g., Outlook sends only message ID)
+      enrichment = await enrichWebhookPayload(
+        event.triggerSlug,
+        event.payload,
+        event.connectedAccountId,
+        integration.workspace_id,
+      );
+
+      if (enrichment.enriched) {
+        let enrichedEnvelope;
+        try {
+          enrichedEnvelope = adapter.normalize(enrichment.payload);
+        } catch (error) {
+          console.error("[composio-webhook] adapter threw on enriched payload", {
+            sourceType: adapter.sourceType,
+            triggerSlug: event.triggerSlug,
+            error,
+          });
+          await recordWebhookOutcome(admin, "malformed_payload", {
+            triggerSlug: event.triggerSlug,
+            connectedAccountId: event.connectedAccountId,
+            payload: enrichment.payload,
+            detail: {
+              sourceType: adapter.sourceType,
+              enriched: true,
+              error: error instanceof Error ? error.message : String(error),
+            },
+          });
+          return NextResponse.json({ ok: true, handled: "malformed_payload" });
+        }
+        if (!enrichedEnvelope) {
+          await recordWebhookOutcome(admin, "declined", {
+            triggerSlug: event.triggerSlug,
+            connectedAccountId: event.connectedAccountId,
+            payload: enrichment.payload,
+            detail: { sourceType: adapter.sourceType, enriched: true },
+          });
+          return NextResponse.json({ ok: true, handled: "declined" });
+        }
+        envelope = enrichedEnvelope;
+      }
+    }
   }
 
   const config = integration.config as Record<string, unknown> | null;
@@ -365,6 +551,9 @@ export async function POST(req: NextRequest) {
       // after the response. Composio retries on slow acks are harmless —
       // the envelope dedupe key makes replays idempotent.
       awaitEnrichment: true,
+      // Lane 1: webhook arrival is the real-time path — a genuine inquiry
+      // from an unknown sender earns immediate admission via the intent read.
+      coldIntentRead: true,
     },
   );
 

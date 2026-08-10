@@ -14,6 +14,7 @@ voice: follow-up
 trigger:
   type: signal
   signal: person_no_contact_30_days
+  surface: person
 
 requirements:
   categories:
@@ -70,7 +71,7 @@ instructions:
     - Don't mention how long it's been since contact
 
   avoid:
-    - "It's been a while" or similar
+    - '"It''s been a while" or similar'
     - Pushy sales language
     - Generic "checking in" messages
     - Multiple questions

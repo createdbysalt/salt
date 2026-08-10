@@ -23,7 +23,7 @@ export type PlaybookEvalOrigin = "authored" | "from_edge_case";
  *
  * | Type | Fires when | Engine |
  * |------|------------|--------|
- * | signal | Capture emits a workspace signal | records-engine (keeper), proposal (acting) |
+ * | signal | Capture emits a workspace signal | records-engine (Memory Care), proposal (acting) |
  * | schedule | Cron spec matches | daily-scan |
  * | pattern | Threshold predicate on Memory | pattern-scanner |
  * | chat | User invokes via Ask SALT | playbook-tools routing |

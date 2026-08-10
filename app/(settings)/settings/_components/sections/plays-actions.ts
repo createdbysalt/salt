@@ -5,50 +5,9 @@ import { createClient } from "@/app/_lib/supabase/server";
 
 export type WorkspaceTrustLevel = "read_only" | "act_with_approval" | "trust";
 
-/**
- * Get the keeper autonomy threshold for a workspace.
- * Default is 85 if not set.
- */
-export async function getKeeperAutonomyThreshold(
-  workspaceId: string,
-): Promise<number> {
-  const supabase = await createClient();
-
-  const { data, error } = await supabase
-    .from("workspaces")
-    .select("keeper_auto_execute_threshold")
-    .eq("id", workspaceId)
-    .single();
-
-  if (error) throw error;
-
-  return data?.keeper_auto_execute_threshold ?? 85;
-}
-
-/**
- * Update the keeper autonomy threshold for a workspace.
- * Value must be between 50 and 100.
- */
-export async function updateKeeperAutonomyThreshold(
-  workspaceId: string,
-  threshold: number,
-): Promise<void> {
-  if (threshold < 50 || threshold > 100) {
-    throw new Error("Threshold must be between 50 and 100");
-  }
-
-  const supabase = await createClient();
-
-  const { error } = await supabase
-    .from("workspaces")
-    .update({ keeper_auto_execute_threshold: threshold })
-    .eq("id", workspaceId);
-
-  if (error) throw error;
-
-  revalidatePath("/settings/plays");
-  revalidatePath("/me");
-}
+// The Memory auto-apply threshold lives with Memory Care
+// (`app/_features/memory/care/actions.ts`); this file keeps only connector
+// trust settings.
 
 /**
  * Get the workspace trust level for connectors.
@@ -92,6 +51,43 @@ export async function updateWorkspaceTrustLevel(
 
   revalidatePath("/settings/plays");
   revalidatePath("/settings"); // Connector modal reads trust from settingsByConnector
-  revalidatePath("/connections");
+  revalidatePath("/memory");
   revalidatePath("/plays"); // Ask Salt tools depend on trust level
+}
+
+/* ── Earned autonomy grants ── */
+
+export interface AutonomyGrantItem {
+  playbookSlug: string;
+  toolSlug: string;
+  approvedCount: number;
+  grantedAt: string;
+}
+
+/**
+ * Active earned-autonomy grants for this workspace (Settings → Plays).
+ */
+export async function getAutonomyGrants(
+  workspaceId: string,
+): Promise<AutonomyGrantItem[]> {
+  const { listAutonomyGrants } = await import(
+    "@/app/_features/plays/services/earned-autonomy"
+  );
+  return listAutonomyGrants(workspaceId);
+}
+
+/**
+ * Revoke a grant — the step immediately returns to asking for approval.
+ */
+export async function revokeAutonomyGrant(
+  workspaceId: string,
+  playbookSlug: string,
+  toolSlug: string,
+): Promise<void> {
+  const { revokeAutonomy } = await import(
+    "@/app/_features/plays/services/earned-autonomy"
+  );
+  await revokeAutonomy(workspaceId, playbookSlug, toolSlug);
+  revalidatePath("/settings/plays");
+  revalidatePath("/plays");
 }

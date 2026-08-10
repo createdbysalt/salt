@@ -1,113 +1,73 @@
 /**
  * Workspace Threshold Retrieval
  *
- * Gets the confidence threshold for auto-applying changes.
- * Falls back to workspace default (85) if no playbook-specific override.
+ * Reads the Memory Care auto-apply threshold from
+ * `workspaces.memory_care_auto_apply_threshold` (default 85).
+ *
+ * This is the single source of truth shared by `memoryUpdateField` and the
+ * care decision pipeline (`getCareThreshold`). Per-playbook overrides are
+ * retired — care capabilities no longer live in the playbook engine.
  */
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import type { LearningEntityType } from "./types";
 import { DEFAULT_THRESHOLD_SETTINGS } from "./types";
 
-/** All entity types now use the unified memory-records playbook */
-const UNIFIED_BLUEPRINT_SLUG = "memory-records";
-
-const ENTITY_TO_BLUEPRINT: Record<LearningEntityType, string> = {
-  person: UNIFIED_BLUEPRINT_SLUG,
-  organization: UNIFIED_BLUEPRINT_SLUG,
-  work: UNIFIED_BLUEPRINT_SLUG,
-  billing: UNIFIED_BLUEPRINT_SLUG,
-  meeting: UNIFIED_BLUEPRINT_SLUG,
-  file: UNIFIED_BLUEPRINT_SLUG,
-  me: UNIFIED_BLUEPRINT_SLUG,
-};
+const DEFAULT_THRESHOLD = DEFAULT_THRESHOLD_SETTINGS.defaultThreshold;
 
 interface ThresholdResult {
   threshold: number;
-  source: "playbook" | "workspace" | "default";
-  blueprintSlug?: string;
+  source: "care" | "default";
 }
 
 /**
- * Get the confidence threshold for a given entity type and optional field.
+ * Get the confidence threshold for a given workspace.
  *
  * Priority:
- * 1. Per-playbook setting (profile_playbook_settings.auto_apply_threshold)
- * 2. Workspace default (workspace_settings.default_confidence_threshold)
- * 3. Global default (85)
+ * 1. Workspace Memory Care threshold (`memory_care_auto_apply_threshold`)
+ * 2. Global default (85)
+ *
+ * `entityType` / `field` are accepted for call-site compatibility; tiered
+ * bars (sensitive / destructive / never-touch) are applied by callers via
+ * `minThreshold` and `field-tiers.ts`, not here.
  */
 export async function getWorkspaceThreshold(
   workspaceId: string,
-  entityType: LearningEntityType,
+  _entityType?: LearningEntityType,
   _field?: string
 ): Promise<ThresholdResult> {
   const admin = createAdminClient();
-  const blueprintSlug = ENTITY_TO_BLUEPRINT[entityType];
+  const { data } = await admin
+    .from("workspaces")
+    .select("memory_care_auto_apply_threshold")
+    .eq("id", workspaceId)
+    .maybeSingle();
 
-  if (blueprintSlug) {
-    const { data: settings } = await admin
-      .from("profile_playbook_settings")
-      .select("auto_apply_threshold")
-      .eq("workspace_id", workspaceId)
-      .eq("blueprint_slug", blueprintSlug)
-      .maybeSingle();
-
-    if (settings?.auto_apply_threshold != null) {
-      return {
-        threshold: Number(settings.auto_apply_threshold),
-        source: "playbook",
-        blueprintSlug,
-      };
-    }
+  if (data?.memory_care_auto_apply_threshold != null) {
+    return {
+      threshold: Number(data.memory_care_auto_apply_threshold),
+      source: "care",
+    };
   }
 
-  // TODO: Check workspace_settings.default_confidence_threshold when that column exists
-  // For now, fall back to global default
   return {
-    threshold: DEFAULT_THRESHOLD_SETTINGS.defaultThreshold,
+    threshold: DEFAULT_THRESHOLD,
     source: "default",
   };
 }
 
 /**
- * Batch get thresholds for multiple entity types (optimization for bulk operations).
+ * Batch get thresholds for multiple entity types.
+ * All entity types share the same workspace care threshold.
  */
 export async function getWorkspaceThresholds(
   workspaceId: string,
   entityTypes: LearningEntityType[]
 ): Promise<Map<LearningEntityType, ThresholdResult>> {
-  const admin = createAdminClient();
-  const slugs = entityTypes.map((t) => ENTITY_TO_BLUEPRINT[t]).filter(Boolean);
-
-  const { data: settings } = await admin
-    .from("profile_playbook_settings")
-    .select("blueprint_slug, auto_apply_threshold")
-    .eq("workspace_id", workspaceId)
-    .in("blueprint_slug", slugs);
-
-  const settingsMap = new Map(
-    (settings ?? []).map((s) => [s.blueprint_slug, s.auto_apply_threshold])
-  );
-
+  const shared = await getWorkspaceThreshold(workspaceId);
   const results = new Map<LearningEntityType, ThresholdResult>();
-
   for (const entityType of entityTypes) {
-    const slug = ENTITY_TO_BLUEPRINT[entityType];
-    const override = slug ? settingsMap.get(slug) : undefined;
-
-    if (override != null) {
-      results.set(entityType, {
-        threshold: Number(override),
-        source: "playbook",
-        blueprintSlug: slug,
-      });
-    } else {
-      results.set(entityType, {
-        threshold: DEFAULT_THRESHOLD_SETTINGS.defaultThreshold,
-        source: "default",
-      });
-    }
+    results.set(entityType, shared);
   }
-
   return results;
 }

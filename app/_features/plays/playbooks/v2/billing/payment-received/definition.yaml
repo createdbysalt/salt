@@ -31,9 +31,7 @@ steps:
     prompt: |
       Draft a professional thank-you for receiving payment.
 
-      Customer: {{payment_details.customer}}
-      Amount: {{payment_details.amount}}
-      Invoice: {{payment_details.invoice_number}}
+      Payment details: {{payment_details}}
 
       Keep it brief and professional.
       Mention the invoice number for their records.

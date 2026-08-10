@@ -82,6 +82,15 @@ vi.mock("./get-threshold", () => ({
   getWorkspaceThreshold: vi.fn(async () => ({ threshold: 85 })),
 }));
 
+vi.mock("@/app/_lib/learning/correction-blocklist", () => ({
+  getCorrectionBlocklist: vi.fn(async () => []),
+  findBlockingCorrection: vi.fn(() => null),
+}));
+
+import {
+  findBlockingCorrection,
+  getCorrectionBlocklist,
+} from "@/app/_lib/learning/correction-blocklist";
 import { memoryUpdateField } from "./update-field";
 
 const baseInput = {
@@ -96,6 +105,42 @@ describe("memoryUpdateField field mappings", () => {
     updates.length = 0;
     upserts.length = 0;
     vi.clearAllMocks();
+  });
+
+  it("rejects previously corrected values from automated sources", async () => {
+    vi.mocked(findBlockingCorrection).mockReturnValueOnce({
+      id: "corr-1",
+      fieldPath: "title",
+      wrongValue: "CEO",
+      reason: "never_true",
+      createdAt: "2026-08-01T00:00:00Z",
+    });
+
+    const result = await memoryUpdateField({
+      ...baseInput,
+      entityType: "person",
+      entityId: "person-1",
+      field: "title",
+      value: "CEO",
+    });
+
+    expect(result.action).toBe("rejected");
+    expect(result.message).toContain("previously corrected");
+    expect(updates).toHaveLength(0);
+  });
+
+  it("lets manual writes bypass the correction blocklist", async () => {
+    const result = await memoryUpdateField({
+      ...baseInput,
+      source: "manual",
+      entityType: "person",
+      entityId: "person-1",
+      field: "title",
+      value: "CEO",
+    });
+
+    expect(result.action).toBe("applied");
+    expect(getCorrectionBlocklist).not.toHaveBeenCalled();
   });
 
   it("maps person address_line1 aliases to the address_line_1 column", async () => {

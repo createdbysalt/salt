@@ -3,47 +3,35 @@
 import { getTenantContext } from "@/app/_lib/tenancy";
 import {
   loadPlaysPageData,
-  parsePlaysActivityView,
   parsePlaysTab,
-  type PlaysActivityView,
   type PlaysPageData,
   type PlaysTab,
 } from "../load-plays-page-data";
 import type { PlaysTabData } from "../plays-tab-data";
-import { EMPTY_CONNECTORS } from "../plays-tab-data";
 
 function toPlaysTabData(data: PlaysPageData): PlaysTabData {
   return {
     initialQueue: data.initialQueue,
     initialActivity: data.initialActivity,
     activityTotalCount: data.activityTotalCount ?? 0,
-    connectors: data.connectors ?? EMPTY_CONNECTORS,
     initialFindings: data.initialFindings,
     autoHandledFindings: data.autoHandledFindings,
     autoHandledRuns: data.autoHandledRuns,
     findingCounts: data.findingCounts,
     playsRanToday: data.playsRanToday ?? 0,
-    learningEvidence: data.learningEvidence,
-    streamCaptures: data.streamCaptures,
-    captureStats: data.captureStats,
-    hasCaptureData: data.hasCaptureData,
     playbooksV2: data.playbooksV2 ?? null,
     workspaceId: data.workspaceId ?? null,
-    keeperUnseenCount: data.keeperUnseenCount ?? 0,
   };
 }
 
 export async function fetchPlaysTabData(input: {
   tab: PlaysTab;
-  activityView?: PlaysActivityView;
 }): Promise<PlaysTabData> {
   const { context } = await getTenantContext();
   const workspaceId = context.workspace?.id;
-  const activityView = input.activityView ?? "actions";
 
   const data = await loadPlaysPageData({
     tab: input.tab,
-    activityView,
     workspaceId,
   });
 
@@ -52,9 +40,7 @@ export async function fetchPlaysTabData(input: {
 
 export async function fetchPlaysTabDataFromSearchParams(searchParams: {
   tab?: string | null;
-  view?: string | null;
 }): Promise<PlaysTabData> {
   const tab = parsePlaysTab(searchParams.tab ?? null);
-  const activityView = parsePlaysActivityView(searchParams.view ?? null);
-  return fetchPlaysTabData({ tab, activityView });
+  return fetchPlaysTabData({ tab });
 }

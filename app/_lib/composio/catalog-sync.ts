@@ -4,7 +4,7 @@ import { createAdminClient } from "@/app/_lib/supabase/admin";
 import type { Json } from "@/app/_lib/supabase/database.types";
 import { getComposioClient } from "./client";
 import { invalidateClassificationCache } from "./classification-store";
-import { schemaHash } from "./catalog-sync-hash";
+import { schemaHash, stableStringify } from "./catalog-sync-hash";
 import { classifyToolByHeuristic } from "./tool-classification-heuristics";
 
 /**
@@ -19,6 +19,10 @@ import { classifyToolByHeuristic } from "./tool-classification-heuristics";
  *     classification DISABLED (needs re-review) + event
  *   - new tool → connector_tools row + an 'unclassified' classification row
  *     (unusable until reviewed) + event
+ *   - trigger payload/config schema changed → sync_status 'changed' +
+ *     'trigger_schema_changed' event flagged with enabledForCapture so drift
+ *     on a capture-subscribed trigger (whose normalizer parses that shape)
+ *     is distinguishable from long-tail noise (Sources plan 5.8)
  *
  * Shallow sync (toolkit metadata) covers every catalog provider; deep sync
  * (tools + triggers) only providers whose override tier is action/capture —
@@ -33,6 +37,7 @@ export interface CatalogSyncEvent {
     | "tool_schema_changed"
     | "trigger_added"
     | "trigger_removed"
+    | "trigger_schema_changed"
     | "classification_disabled"
     | "sync_failed";
   subjectSlug: string;
@@ -64,8 +69,6 @@ const SALT_META_KEYS = [
   "connectHelp",
   "nativeBadge",
   "seededFrom",
-  // Sync-owned: auth config OAuth scopes; preserved when a refetch fails.
-  "grantScopes",
 ] as const;
 
 function preserveSaltMeta(existing: unknown): Record<string, unknown> {
@@ -75,44 +78,6 @@ function preserveSaltMeta(existing: unknown): Record<string, unknown> {
     if (key in existingMeta) preserved[key] = existingMeta[key];
   }
   return preserved;
-}
-
-/**
- * OAuth scopes the provider's pinned auth config requests (the connection's
- * grant ceiling). Composio returns credentials.scopes either as an array or
- * as a stringified list — parse both. Null on any failure (callers keep the
- * previous value via preserveSaltMeta).
- */
-async function fetchAuthConfigScopes(
-  authConfigId: string | undefined,
-): Promise<string[] | null> {
-  if (!authConfigId) return null;
-  const apiKey = process.env.COMPOSIO_API_KEY;
-  if (!apiKey) return null;
-  try {
-    const res = await fetch(
-      `https://backend.composio.dev/api/v3/auth_configs/${authConfigId}`,
-      { headers: { "x-api-key": apiKey } },
-    );
-    if (!res.ok) return null;
-    const body: unknown = await res.json();
-    if (!isRecord(body)) return null;
-    const credentials = isRecord(body.credentials) ? body.credentials : {};
-    const rawScopes = credentials.scopes;
-    if (Array.isArray(rawScopes)) {
-      const scopes = rawScopes.filter(
-        (scope): scope is string => typeof scope === "string",
-      );
-      return scopes.length > 0 ? scopes : null;
-    }
-    if (typeof rawScopes === "string") {
-      const scopes = rawScopes.match(/https?:\/\/[^\s'",\]]+/g) ?? [];
-      return scopes.length > 0 ? scopes : null;
-    }
-    return null;
-  } catch {
-    return null;
-  }
 }
 
 function str(value: unknown): string | null {
@@ -156,20 +121,12 @@ export async function runCatalogSync(): Promise<CatalogSyncResult> {
 
   const { data: overrideRows, error: overrideError } = await supabase
     .from("connector_overrides")
-    .select("provider_key, tier, auth_config_id, auth_config_env_var");
+    .select("provider_key, tier");
   if (overrideError) {
     throw new Error(`overrides read failed: ${overrideError.message}`);
   }
   const tierByProvider = new Map(
     (overrideRows ?? []).map((row) => [row.provider_key, row.tier] as const),
-  );
-  const authConfigByProvider = new Map(
-    (overrideRows ?? []).map((row) => {
-      const envOverride = row.auth_config_env_var
-        ? process.env[row.auth_config_env_var]
-        : undefined;
-      return [row.provider_key, envOverride || row.auth_config_id] as const;
-    }),
   );
 
   const targets: SyncTarget[] = (catalogRows ?? []).map((row) => ({
@@ -189,9 +146,6 @@ export async function runCatalogSync(): Promise<CatalogSyncResult> {
       if (isRecord(toolkit)) {
         const meta = isRecord(toolkit.meta) ? toolkit.meta : {};
         const existing = existingByProvider.get(target.providerKey);
-        const grantScopes = await fetchAuthConfigScopes(
-          authConfigByProvider.get(target.providerKey),
-        );
         // Curated copy wins: only fill name/description from Composio when
         // the row has none. Salt meta keys survive; raw payload nests.
         await supabase
@@ -206,7 +160,6 @@ export async function runCatalogSync(): Promise<CatalogSyncResult> {
             logo_url: str(meta.logo) ?? str(toolkit.logo) ?? undefined,
             meta: {
               ...preserveSaltMeta(existing?.meta),
-              ...(grantScopes ? { grantScopes } : {}),
               composio: JSON.parse(JSON.stringify(toolkit)) as Json,
             },
             sync_status: "active",
@@ -278,8 +231,8 @@ export async function runCatalogSync(): Promise<CatalogSyncResult> {
             toolkit_slug: target.toolkitSlug,
             name: str(raw.name) ?? slug,
             description: str(raw.description) ?? "",
-            input_schema: inputSchema,
-            output_schema: outputSchema,
+            input_schema: inputSchema as Json,
+            output_schema: outputSchema as Json,
             required_scopes: Array.isArray(raw.scopes)
               ? (raw.scopes.filter(
                   (scope): scope is string => typeof scope === "string",
@@ -360,7 +313,7 @@ export async function runCatalogSync(): Promise<CatalogSyncResult> {
 
       const { data: existingTriggers } = await supabase
         .from("connector_trigger_types")
-        .select("trigger_slug, sync_status")
+        .select("trigger_slug, sync_status, payload_schema, config_schema, enabled_for_capture")
         .eq("toolkit_slug", target.toolkitSlug);
       const existingTriggerSlugs = new Map(
         (existingTriggers ?? []).map((row) => [row.trigger_slug, row] as const),
@@ -373,6 +326,24 @@ export async function runCatalogSync(): Promise<CatalogSyncResult> {
         if (!slug) continue;
         seenTriggers.add(slug);
 
+        const payloadSchema = isRecord(raw.payload) ? raw.payload : null;
+        const configSchema = isRecord(raw.config) ? raw.config : null;
+        const existing = existingTriggerSlugs.get(slug);
+
+        // 5.8 drift watch: compare against the stored schemas (stable
+        // stringify — jsonb key order is not meaningful). A changed payload
+        // schema on a capture-subscribed trigger means the normalizer may
+        // now be parsing the wrong shape.
+        const changedFields: string[] = [];
+        if (existing) {
+          if (stableStringify(existing.payload_schema ?? null) !== stableStringify(payloadSchema)) {
+            changedFields.push("payload_schema");
+          }
+          if (stableStringify(existing.config_schema ?? null) !== stableStringify(configSchema)) {
+            changedFields.push("config_schema");
+          }
+        }
+
         await supabase.from("connector_trigger_types").upsert(
           {
             trigger_slug: slug,
@@ -380,16 +351,25 @@ export async function runCatalogSync(): Promise<CatalogSyncResult> {
             name: str(raw.name) ?? slug,
             description: str(raw.description) ?? "",
             delivery: str(raw.type),
-            payload_schema: isRecord(raw.payload) ? raw.payload : null,
-            config_schema: isRecord(raw.config) ? raw.config : null,
-            sync_status: "active",
+            payload_schema: payloadSchema as Json,
+            config_schema: configSchema as Json,
+            sync_status: changedFields.length > 0 ? "changed" : "active",
             last_synced_at: now,
           },
           { onConflict: "trigger_slug" },
         );
         triggersSynced += 1;
-        if (!existingTriggerSlugs.has(slug)) {
+        if (!existing) {
           events.push({ kind: "trigger_added", subjectSlug: slug });
+        } else if (changedFields.length > 0) {
+          events.push({
+            kind: "trigger_schema_changed",
+            subjectSlug: slug,
+            detail: {
+              enabledForCapture: existing.enabled_for_capture === true,
+              changedFields,
+            },
+          });
         }
       }
 

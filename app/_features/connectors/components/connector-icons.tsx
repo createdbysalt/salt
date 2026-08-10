@@ -1,5 +1,72 @@
 import { Plug } from "lucide-react";
 import Image from "next/image";
+import type { IconType } from "react-icons";
+import {
+  Si1Password,
+  SiAirtable,
+  SiAsana,
+  SiBasecamp,
+  SiBrandfetch,
+  SiCaldotcom,
+  SiCalendly,
+  SiCanva,
+  SiClickup,
+  SiDiscord,
+  SiDocker,
+  SiDropbox,
+  SiElevenlabs,
+  SiFacebook,
+  SiFigma,
+  SiGithub,
+  SiGitlab,
+  SiGmail,
+  SiGoogleads,
+  SiGoogleanalytics,
+  SiGooglecalendar,
+  SiGoogledocs,
+  SiGoogledrive,
+  SiGooglemaps,
+  SiGooglesearchconsole,
+  SiGooglesheets,
+  SiGoogleslides,
+  SiGoogletagmanager,
+  SiHubspot,
+  SiInstagram,
+  SiInstacart,
+  SiJira,
+  SiKit,
+  SiLemonsqueezy,
+  SiLinear,
+  SiMailchimp,
+  SiMeta,
+  SiMiro,
+  SiNotion,
+  SiPagespeedinsights,
+  SiPosthog,
+  SiQuickbooks,
+  SiReddit,
+  SiResend,
+  SiSalesforce,
+  SiSanity,
+  SiSemrush,
+  SiShopify,
+  SiSlack,
+  SiSquare,
+  SiStripe,
+  SiSupabase,
+  SiTelegram,
+  SiTiktok,
+  SiTrello,
+  SiTypeform,
+  SiVercel,
+  SiWebflow,
+  SiWhatsapp,
+  SiWix,
+  SiX,
+  SiYoutube,
+  SiZoom,
+} from "react-icons/si";
+import { cn } from "@repo/utils";
 import type { ConnectorCatalogId } from "../types";
 
 export interface ConnectorIconMeta {
@@ -145,6 +212,125 @@ const CONNECTOR_LOGOS: Record<string, ConnectorIconMeta> = {
   instacart: { src: "/connectors/instacart.png", color: "#43B02A" },
 };
 
+/**
+ * Brand glyphs (Simple Icons via react-icons) — the preferred logo rendering.
+ * Brand colors come from CONNECTOR_LOGOS above. Ids missing here (Microsoft
+ * apps, Fireflies, Granola, and brands Simple Icons dropped) fall back to the
+ * downloaded PNGs.
+ */
+const CONNECTOR_GLYPHS: Partial<Record<string, IconType>> = {
+  // Core Google
+  google: SiGmail,
+  "google-calendar": SiGooglecalendar,
+  "google-drive": SiGoogledrive,
+  "google-docs": SiGoogledocs,
+  "google-sheets": SiGooglesheets,
+  "google-slides": SiGoogleslides,
+  "google-ads": SiGoogleads,
+  "google-analytics": SiGoogleanalytics,
+  "google-search-console": SiGooglesearchconsole,
+  "google-tag-manager": SiGoogletagmanager,
+  "google-maps": SiGooglemaps,
+
+  // Payments & Finance
+  stripe: SiStripe,
+  quickbooks: SiQuickbooks,
+  square: SiSquare,
+  shopify: SiShopify,
+  "lemon-squeezy": SiLemonsqueezy,
+
+  // Social
+  instagram: SiInstagram,
+  x: SiX,
+  facebook: SiFacebook,
+  tiktok: SiTiktok,
+  youtube: SiYoutube,
+  reddit: SiReddit,
+
+  // Marketing
+  "meta-ads": SiMeta,
+  "reddit-ads": SiReddit,
+  mailchimp: SiMailchimp,
+  kit: SiKit,
+  semrush: SiSemrush,
+
+  // Analytics
+  posthog: SiPosthog,
+  pagespeed: SiPagespeedinsights,
+
+  // Communication
+  slack: SiSlack,
+  zoom: SiZoom,
+  whatsapp: SiWhatsapp,
+  telegram: SiTelegram,
+  discord: SiDiscord,
+
+  // Productivity
+  notion: SiNotion,
+  linear: SiLinear,
+  asana: SiAsana,
+  clickup: SiClickup,
+  trello: SiTrello,
+  basecamp: SiBasecamp,
+  airtable: SiAirtable,
+  jira: SiJira,
+  miro: SiMiro,
+
+  // Files
+  dropbox: SiDropbox,
+  "dropbox-sign": SiDropbox,
+
+  // Forms
+  typeform: SiTypeform,
+
+  // Scheduling
+  calendly: SiCalendly,
+  calcom: SiCaldotcom,
+
+  // CRM
+  hubspot: SiHubspot,
+  salesforce: SiSalesforce,
+
+  // Design
+  canva: SiCanva,
+  figma: SiFigma,
+  brandfetch: SiBrandfetch,
+
+  // Website
+  webflow: SiWebflow,
+  wix: SiWix,
+
+  // Developer
+  github: SiGithub,
+  gitlab: SiGitlab,
+  vercel: SiVercel,
+  supabase: SiSupabase,
+  resend: SiResend,
+  sanity: SiSanity,
+  "docker-hub": SiDocker,
+
+  // AI
+  elevenlabs: SiElevenlabs,
+
+  // Security
+  onepassword: Si1Password,
+
+  // Delivery
+  instacart: SiInstacart,
+};
+
+/** Near-black glyphs disappear on dark surfaces — invert them in dark mode. */
+const DARK_INVERT_GLYPHS = new Set([
+  "notion",
+  "x",
+  "tiktok",
+  "vercel",
+  "resend",
+  "github",
+  "elevenlabs",
+  "square",
+]);
+
 interface ConnectorIconProps {
   id: ConnectorCatalogId;
   size?: number;
@@ -152,6 +338,18 @@ interface ConnectorIconProps {
 }
 
 export function ConnectorIcon({ id, size = 24, className }: ConnectorIconProps) {
+  const Glyph = CONNECTOR_GLYPHS[id];
+
+  if (Glyph) {
+    return (
+      <Glyph
+        aria-label={id}
+        className={cn(className, DARK_INVERT_GLYPHS.has(id) && "dark:invert")}
+        style={{ color: CONNECTOR_LOGOS[id]?.color, width: size, height: size }}
+      />
+    );
+  }
+
   const logo = CONNECTOR_LOGOS[id];
 
   if (!logo) {

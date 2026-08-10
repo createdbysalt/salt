@@ -135,3 +135,13 @@ export function slugToLabel(slug: string): string {
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
 }
+
+export type TagSource = "manual" | "care" | "system";
+
+/**
+ * Rows written before the Keeper retirement carry source "keeper". Normalize
+ * on read so the rest of the app only ever sees the current vocabulary.
+ */
+export function normalizeTagSource(source: string): TagSource {
+  return source === "keeper" ? "care" : (source as TagSource);
+}

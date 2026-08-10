@@ -5,10 +5,20 @@ import {
   getCategoryForProvider,
 } from "./discovery";
 import * as categoryFetcher from "../category-fetcher";
+import { listAskSaltEntries } from "../connector-registry";
+import { getCaptureCategory } from "../capture-categories";
 
 vi.mock("../category-fetcher");
+vi.mock("../connector-registry", () => ({
+  listAskSaltEntries: vi.fn(),
+}));
+vi.mock("../capture-categories", () => ({
+  getCaptureCategory: vi.fn(),
+}));
 
 const mockGetConnectedCategories = vi.mocked(categoryFetcher.getConnectedCategories);
+const mockListAskSaltEntries = vi.mocked(listAskSaltEntries);
+const mockGetCaptureCategory = vi.mocked(getCaptureCategory);
 
 describe("getConnectedProvidersForEnrichment", () => {
   beforeEach(() => {
@@ -79,35 +89,38 @@ describe("getConnectedProvidersForEnrichment", () => {
 });
 
 describe("hasConnectorManifest", () => {
-  it("returns true for Ask Salt enabled providers", () => {
-    expect(hasConnectorManifest("gmail")).toBe(true);
-    expect(hasConnectorManifest("hubspot")).toBe(true);
-    expect(hasConnectorManifest("stripe")).toBe(true);
-    expect(hasConnectorManifest("outlook")).toBe(true);
-    expect(hasConnectorManifest("GMAIL")).toBe(true); // case-insensitive
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockListAskSaltEntries.mockResolvedValue([
+      { toolkitSlug: "gmail" },
+      { toolkitSlug: "stripe" },
+    ] as Awaited<ReturnType<typeof listAskSaltEntries>>);
   });
 
-  it("returns false for providers without manifests (Ask Salt disabled)", () => {
-    // These connectors are NOT Ask Salt enabled in unified-connector-registry
-    expect(hasConnectorManifest("salesforce")).toBe(false);
-    expect(hasConnectorManifest("unknown")).toBe(false);
+  it("returns true for Ask Salt enabled providers", async () => {
+    await expect(hasConnectorManifest("gmail")).resolves.toBe(true);
+    await expect(hasConnectorManifest("stripe")).resolves.toBe(true);
+    await expect(hasConnectorManifest("GMAIL")).resolves.toBe(true); // case-insensitive
+  });
+
+  it("returns false for providers without manifests (Ask Salt disabled)", async () => {
+    // These connectors carry no ask_salt_slug_prefix in connector_overrides
+    await expect(hasConnectorManifest("salesforce")).resolves.toBe(false);
+    await expect(hasConnectorManifest("unknown")).resolves.toBe(false);
   });
 });
 
 describe("getCategoryForProvider", () => {
-  it("returns correct category for known providers", () => {
-    expect(getCategoryForProvider("gmail")).toBe("email");
-    expect(getCategoryForProvider("hubspot")).toBe("crm");
-    expect(getCategoryForProvider("stripe")).toBe("billing");
-    expect(getCategoryForProvider("asana")).toBe("project_management");
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
-  it("returns null for unknown providers", () => {
-    expect(getCategoryForProvider("unknown-provider")).toBeNull();
-  });
+  it("delegates to the DB-backed capture category lookup", async () => {
+    mockGetCaptureCategory.mockImplementation(async (provider) =>
+      provider === "gmail" ? "email" : null,
+    );
 
-  it("handles case-insensitive lookup", () => {
-    expect(getCategoryForProvider("GMAIL")).toBe("email");
-    expect(getCategoryForProvider("HubSpot")).toBe("crm");
+    await expect(getCategoryForProvider("gmail")).resolves.toBe("email");
+    await expect(getCategoryForProvider("unknown-provider")).resolves.toBeNull();
   });
 });

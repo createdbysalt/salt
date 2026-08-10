@@ -22,7 +22,8 @@
  */
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
-import type { LearningEntityType } from "./types";
+import type { Json } from "@/app/_lib/supabase/database.types";
+import type { LearningEntityType, TableUpdate } from "./types";
 
 export interface RollbackFieldInput {
   workspaceId: string;
@@ -148,7 +149,9 @@ export async function memoryRollbackField(
       entity_type: input.entityType,
       entity_id: input.entityId,
       field: input.field,
-      value: targetValue,
+      // Boundary cast: the restored value came out of the provenance table's
+      // Json columns, so it is Json by construction.
+      value: (targetValue ?? null) as Json,
       source: "rollback",
       confidence: 100,
       because: input.reason,
@@ -190,11 +193,13 @@ async function applyRollback(
 ): Promise<void> {
   const { entityType, entityId, workspaceId, field } = input;
 
+  // Boundary casts: `field` comes from a provenance row that was written when
+  // the value was originally applied, so it names a real column of the table.
   switch (entityType) {
     case "person":
       await admin
         .from("people")
-        .update({ [field]: value })
+        .update({ [field]: value } as TableUpdate<"people">)
         .eq("id", entityId)
         .eq("workspace_id", workspaceId);
       break;
@@ -202,7 +207,7 @@ async function applyRollback(
     case "organization":
       await admin
         .from("organizations")
-        .update({ [field]: value })
+        .update({ [field]: value } as TableUpdate<"organizations">)
         .eq("id", entityId)
         .eq("workspace_id", workspaceId);
       break;
@@ -210,7 +215,7 @@ async function applyRollback(
     case "work":
       await admin
         .from("work")
-        .update({ [field]: value })
+        .update({ [field]: value } as TableUpdate<"work">)
         .eq("id", entityId)
         .eq("workspace_id", workspaceId);
       break;
@@ -218,7 +223,7 @@ async function applyRollback(
     case "billing":
       await admin
         .from("billing_records")
-        .update({ [field]: value })
+        .update({ [field]: value } as TableUpdate<"billing_records">)
         .eq("id", entityId)
         .eq("workspace_id", workspaceId);
       break;
@@ -226,7 +231,7 @@ async function applyRollback(
     case "meeting":
       await admin
         .from("meetings")
-        .update({ [field]: value })
+        .update({ [field]: value } as TableUpdate<"meetings">)
         .eq("id", entityId)
         .eq("workspace_id", workspaceId);
       break;
@@ -234,26 +239,27 @@ async function applyRollback(
     case "file":
       await admin
         .from("files")
-        .update({ [field]: value })
+        .update({ [field]: value } as TableUpdate<"files">)
         .eq("id", entityId)
         .eq("workspace_id", workspaceId);
       break;
 
-    case "me":
+    case "me": {
       // Me fields can be on profiles or workspaces - try profiles first
       const { data: profileData } = await admin
         .from("profiles")
-        .update({ [field]: value })
+        .update({ [field]: value } as TableUpdate<"profiles">)
         .eq("id", entityId)
         .select("id");
 
       if (!profileData?.length) {
         await admin
           .from("workspaces")
-          .update({ [field]: value })
+          .update({ [field]: value } as TableUpdate<"workspaces">)
           .eq("id", entityId);
       }
       break;
+    }
 
     default:
       throw new Error(`Unknown entity type for rollback: ${entityType}`);

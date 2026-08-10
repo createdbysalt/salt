@@ -108,13 +108,15 @@ Without 1Password CLI, use `.env.local` (copy from `.env.example`). The dev serv
 | `/hq` | Session | Authenticated entry point (HQ Today view). Redirects to sign-in without auth. |
 | `/people` | Session | Primary nav target for contacts/relationships (replaced legacy `/clients`) |
 | `/work` | Session | Projects and work surface |
-| `/spaces` | Session | Role-aware collaboration spaces |
-| `/connections` | Session | Connections surface |
-| `/plays` | Session | Approval outbox; Capture stream lives in Activity → Captures |
+| `/spaces` | Session | Roadmap surface (not in MVP) — redirects to `/work` until it ships |
+| `/memory` | Session | Memory Map graph (`/connections` redirects here); tabs: Map / Activity / Rules |
+| `/sources` | Session | Intake surface: Connectors + Activity (capture stream) |
+| `/plays` | Session | Approval outbox (Queue / Playbooks / Activity) |
 | `/billing` | Session | Billing surface (`app/(product)/billing/page.tsx`) |
 
 > **Legacy / non-primary routes:**
 > - `/studio` and `/dashboard/*` are legacy URLs handled by `middleware.ts` — they redirect to the current root-level routes (`/hq`, `/people`, etc.).
 > - `/clients` and `/relationships` redirect to `/people`. `/people` is the canonical surface.
-> - `/capture` redirects to `/plays?tab=activity&view=captures`. `/notes` redirects to `/me`.
+> - `/capture` redirects to `/sources?tab=activity`. `/notes` redirects to `/me`. `/connections` redirects to `/memory`. `/roundtables` and `/tables` redirect to `/work`. `/spaces` redirects to `/work` until the roadmap Spaces surface ships (Spaces is not in the MVP).
+> - Pre-reorg Plays URLs: `/plays?tab=customize` → `/plays?tab=playbooks` (or `/sources` for connectors), `/plays?tab=activity&view=captures` → `/sources?tab=activity`, `/plays?filter=learning` → `/memory?tab=activity` (`?tab=filter` is a legacy alias).
 > - On the `app.usesalt.io` (and `app.lvh.me`) subdomain, `/` redirects to `/hq`.

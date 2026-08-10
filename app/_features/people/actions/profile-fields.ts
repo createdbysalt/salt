@@ -4,8 +4,8 @@ import { revalidatePath } from "next/cache";
 import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import type { Json, TablesUpdate } from "@/app/_lib/supabase/database.types";
 import { scheduleRelationshipHealthRecompute } from "@/app/_features/people/health/recompute";
-import { capturePlaybookLearningSignal } from "@/app/_features/plays/playbooks/learning/capture-signals";
 import { writeProfileFieldProvenance } from "@/app/_features/plays/playbooks/records-engine/write-provenance";
 import { PEOPLE_PROFILE_SLUG } from "@/app/_features/plays/playbooks/records-engine/apply-person-profile";
 import type { PersonProfileFieldKey } from "@/app/_features/plays/playbooks/records-engine/types";
@@ -130,7 +130,7 @@ export async function correctPersonProfileField(input: {
     };
   }
 
-  const patch: Record<string, string> = {};
+  const patch: TablesUpdate<"people"> = {};
   if (input.field === "relationship_type") {
     patch.relationship_type = input.value;
   } else if (input.field === "title") {
@@ -181,18 +181,6 @@ export async function correctPersonProfileField(input: {
     status: "applied",
   });
 
-  await capturePlaybookLearningSignal({
-    workspaceId: workspace.id,
-    blueprintSlug: PEOPLE_PROFILE_SLUG,
-    templateId: null,
-    playRunId: null,
-    signalType: "edited",
-    delta: {
-      field: input.field,
-      value: input.value,
-    },
-  });
-
   revalidatePath(`/people/${input.personId}`);
   revalidatePath("/people");
   revalidatePath("/plays");
@@ -222,7 +210,11 @@ export async function updateProfilePlaybookSettings(input: {
       context_facts: input.contextFacts ?? {},
       auto_apply_threshold: input.autoApplyThreshold ?? 85,
       ai_fallback_enabled: input.aiFallbackEnabled ?? true,
-      fill_rules_override: input.fillRulesOverride ?? undefined,
+      // ProfileFillRulesDocument is an interface (no implicit index signature);
+      // narrow to the jsonb column type at the write boundary only.
+      fill_rules_override: (input.fillRulesOverride ?? undefined) as unknown as
+        | Json
+        | undefined,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "workspace_id,blueprint_slug" },
@@ -481,7 +473,10 @@ export async function updatePersonDetailField(input: {
   const workspace = requireWorkspaceMember(context);
   const admin = createAdminClient();
 
-  const columnMap: Record<PersonDetailField, string> = {
+  const columnMap: Record<
+    PersonDetailField,
+    "email" | "phone" | "billing_email" | "timezone"
+  > = {
     email: "email",
     phone: "phone",
     billingEmail: "billing_email",
@@ -495,9 +490,12 @@ export async function updatePersonDetailField(input: {
     timezone: "timezone",
   };
 
+  const patch: TablesUpdate<"people"> = {};
+  patch[columnMap[input.field]] = input.value.trim() || null;
+
   const { error } = await admin
     .from("people")
-    .update({ [columnMap[input.field]]: input.value.trim() || null })
+    .update(patch)
     .eq("id", input.personId)
     .eq("workspace_id", workspace.id);
 
@@ -534,7 +532,10 @@ export async function updatePersonAddress(input: {
   const workspace = requireWorkspaceMember(context);
   const admin = createAdminClient();
 
-  const columnMap: Record<PersonAddressField, string> = {
+  const columnMap: Record<
+    PersonAddressField,
+    "address_line_1" | "address_line_2" | "city" | "state" | "postal_code" | "country"
+  > = {
     addressLine1: "address_line_1",
     addressLine2: "address_line_2",
     city: "city",
@@ -552,10 +553,12 @@ export async function updatePersonAddress(input: {
     country: "country",
   };
 
-  const column = columnMap[input.field];
+  const patch: TablesUpdate<"people"> = {};
+  patch[columnMap[input.field]] = input.value.trim() || null;
+
   const { error } = await admin
     .from("people")
-    .update({ [column]: input.value.trim() || null })
+    .update(patch)
     .eq("id", input.personId)
     .eq("workspace_id", workspace.id);
 

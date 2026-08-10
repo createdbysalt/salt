@@ -8,9 +8,7 @@
  * - Which Memory surfaces it typically routes to
  *
  * This is used by:
- * - Routing engine to determine likely destinations
  * - UI to show source badges and icons
- * - Confidence scoring to weight by source type
  */
 
 import {
@@ -24,27 +22,28 @@ import {
   Video,
   Users,
   Mic,
-  Building2,
   ClipboardList,
   Share2,
-  BarChart3,
   Megaphone,
   Sparkles,
+  Puzzle,
   type LucideIcon,
 } from "lucide-react";
 
 import type {
   CaptureSourceType,
+  KnownCaptureSourceType,
   CaptureEventType,
-  MemorySurface,
   SourceCategory,
   SourceMeta,
 } from "./types";
 
 /**
- * Complete source taxonomy mapping every capture source to its metadata.
+ * Curated source taxonomy. Providers outside this map (any connector-registry
+ * key can be a capture source since the column went TEXT — Sources plan 5.2)
+ * get a generic fallback from getSourceMeta instead of curated meta.
  */
-export const SOURCE_TAXONOMY: Record<CaptureSourceType, SourceMeta> = {
+export const SOURCE_TAXONOMY: Record<KnownCaptureSourceType, SourceMeta> = {
   // ============================================================================
   // Communication
   // ============================================================================
@@ -367,45 +366,59 @@ export const SOURCE_TAXONOMY: Record<CaptureSourceType, SourceMeta> = {
 };
 
 /**
- * Get source metadata for a given source type.
+ * Composio provider keys that differ from the capture-layer source type.
+ * Runtime lookups sometimes arrive with the provider key (connector-keyed
+ * code paths); alias instead of falling through to the generic meta.
  */
-export function getSourceMeta(sourceType: CaptureSourceType): SourceMeta {
-  return SOURCE_TAXONOMY[sourceType];
+const SOURCE_TYPE_ALIASES: Record<string, KnownCaptureSourceType> = {
+  cal: "calcom",
+};
+
+/** "yahoo_mail" → "Yahoo Mail" for providers without curated labels. */
+function humanizeSourceLabel(sourceType: string): string {
+  return sourceType
+    .split(/[_-]+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
 }
 
 /**
- * Get all sources in a category.
+ * Get source metadata for a given source type.
+ *
+ * Accepts provider-key aliases (see SOURCE_TYPE_ALIASES). Unknown providers
+ * (any registry key can capture since source_type went TEXT) get a generic
+ * fallback meta — never undefined (Sources plan 5.3).
  */
-export function getSourcesByCategory(category: SourceCategory): CaptureSourceType[] {
-  return (Object.entries(SOURCE_TAXONOMY) as [CaptureSourceType, SourceMeta][])
+export function getSourceMeta(sourceType: CaptureSourceType | string): SourceMeta {
+  const canonical = SOURCE_TYPE_ALIASES[sourceType] ?? sourceType;
+  const known = (SOURCE_TAXONOMY as Partial<Record<string, SourceMeta>>)[canonical];
+  if (known) return known;
+  return {
+    label: humanizeSourceLabel(canonical) || "Unknown source",
+    icon: Puzzle,
+    category: "other",
+    produces: ["other"],
+    routes_to: [],
+  };
+}
+
+/**
+ * Get all curated sources in a category.
+ */
+export function getSourcesByCategory(category: SourceCategory): KnownCaptureSourceType[] {
+  return (Object.entries(SOURCE_TAXONOMY) as [KnownCaptureSourceType, SourceMeta][])
     .filter(([, meta]) => meta.category === category)
     .map(([source]) => source);
 }
 
 /**
- * Get sources that typically produce a given capture type.
+ * Get curated sources that typically produce a given capture type.
  */
-export function getSourcesForCaptureType(captureType: CaptureEventType): CaptureSourceType[] {
-  return (Object.entries(SOURCE_TAXONOMY) as [CaptureSourceType, SourceMeta][])
+export function getSourcesForCaptureType(captureType: CaptureEventType): KnownCaptureSourceType[] {
+  return (Object.entries(SOURCE_TAXONOMY) as [KnownCaptureSourceType, SourceMeta][])
     .filter(([, meta]) => meta.produces.includes(captureType))
     .map(([source]) => source);
-}
-
-/**
- * Get likely Memory surfaces for a source type.
- */
-export function getLikelySurfaces(sourceType: CaptureSourceType): MemorySurface[] {
-  return SOURCE_TAXONOMY[sourceType].routes_to;
-}
-
-/**
- * Check if a source typically routes to a given surface.
- */
-export function sourceRoutesToSurface(
-  sourceType: CaptureSourceType,
-  surface: MemorySurface
-): boolean {
-  return SOURCE_TAXONOMY[sourceType].routes_to.includes(surface);
 }
 
 // ============================================================================
@@ -423,6 +436,7 @@ export const CATEGORY_LABELS: Record<SourceCategory, string> = {
   social: "Social",
   marketing: "Marketing",
   manual: "Manual",
+  other: "Other",
 };
 
 export const CATEGORY_ICONS: Record<SourceCategory, LucideIcon> = {
@@ -436,30 +450,5 @@ export const CATEGORY_ICONS: Record<SourceCategory, LucideIcon> = {
   social: Share2,
   marketing: Megaphone,
   manual: Pencil,
-};
-
-// ============================================================================
-// Surface Display
-// ============================================================================
-
-export const SURFACE_LABELS: Record<MemorySurface, string> = {
-  people: "People",
-  orgs: "Organizations",
-  work: "Work",
-  files: "Files",
-  conversations: "Conversations",
-  meetings: "Meetings",
-  teams: "Teams",
-  me: "Me",
-};
-
-export const SURFACE_ICONS: Record<MemorySurface, LucideIcon> = {
-  people: Users,
-  orgs: Building2,
-  work: ClipboardList,
-  files: FolderOpen,
-  conversations: MessageSquare,
-  meetings: Calendar,
-  teams: Users,
-  me: Pencil,
+  other: Puzzle,
 };

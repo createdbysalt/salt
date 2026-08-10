@@ -15,12 +15,16 @@ import "server-only";
  */
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
-import { recordPlayExecution } from "@/app/_lib/usage/record-play-usage";
 import { getPlaybookBySlug } from "@/app/_features/plays/playbooks/schema/v2/discovery";
 import {
   buildExecutionContextV2,
   executePlaybookV2,
 } from "@/app/_features/plays/playbooks/schema/v2/executor";
+import { resolveWorkspaceActor } from "@/app/_features/plays/services/workspace-actor";
+import {
+  recordInlineToolExecutions,
+  collectExecutedToolSlugs,
+} from "@/app/_features/plays/services/record-inline-executions";
 import type { CaptureEnvelope } from "../adapters/types";
 import type { EnrichedMetadata } from "./enrichment/types";
 
@@ -57,12 +61,16 @@ export async function runEmailTriageHook(params: {
   const admin = createAdminClient();
 
   // Idempotency: re-enrichment (intelligence rescans) must not re-apply
-  // labels. One triage run per capture, keyed through trigger_evidence.
+  // labels. One triage run per capture: capture_id lives in trigger_evidence
+  // (evidence payload); the slug match accepts the canonical location
+  // (source_context) or trigger_evidence for rows written before 2026-08-07.
   const { data: existingRun } = await admin
     .from("play_runs")
     .select("id")
     .eq("workspace_id", workspaceId)
-    .eq("trigger_evidence->>playbook_slug", TRIAGE_PLAYBOOK_SLUG)
+    .or(
+      `source_context->>playbook_slug.eq.${TRIAGE_PLAYBOOK_SLUG},trigger_evidence->>playbook_slug.eq.${TRIAGE_PLAYBOOK_SLUG}`
+    )
     .eq("trigger_evidence->>capture_id", captureId)
     .limit(1)
     .maybeSingle();
@@ -102,90 +110,29 @@ export async function runEmailTriageHook(params: {
 
   const result = await executePlaybookV2(playbook.definition, context);
 
-  const toolsExecuted = result.stepResults
-    .filter(
-      (step) =>
-        step.status === "success" &&
-        typeof step.data === "object" &&
-        step.data !== null &&
-        (step.data as Record<string, unknown>).executed === true &&
-        typeof (step.data as Record<string, unknown>).tool === "string"
-    )
-    .map((step) => (step.data as Record<string, unknown>).tool as string);
+  const toolsExecuted = collectExecutedToolSlugs(result.stepResults);
 
   // Record the completed portion (labels applied) even when the archive
   // branch paused — the paused approval run is created by the executor and
   // resumes independently.
-  if (toolsExecuted.length > 0) {
-    const { data: run } = await admin
-      .from("play_runs")
-      .insert({
-        workspace_id: workspaceId,
-        state: "auto_handled",
-        title: `Email Triage — ${classification.category}`,
-        preview: `Labeled "${(extracted.subject as string) ?? "email"}" as Salt/${classification.category}`,
-        trigger_source: "signal",
-        trigger_evidence: {
-          playbook_slug: TRIAGE_PLAYBOOK_SLUG,
-          capture_id: captureId,
-          category: classification.category,
-          triage_action: classification.triage_action,
-        },
-        context_inputs: {
-          tools_executed: toolsExecuted,
-          execution_status: result.status,
-        },
-      })
-      .select("id")
-      .single();
-
-    if (run) {
-      try {
-        await recordPlayExecution({
-          workspaceId,
-          playRunId: run.id as string,
-          toolSlugs: toolsExecuted,
-        });
-      } catch (error) {
-        console.error(
-          "[email-triage-hook] failed to meter triage run",
-          run.id,
-          error
-        );
-      }
-    }
-  }
+  await recordInlineToolExecutions({
+    workspaceId,
+    playbookSlug: TRIAGE_PLAYBOOK_SLUG,
+    title: `Email Triage — ${classification.category}`,
+    preview: `Labeled "${(extracted.subject as string) ?? "email"}" as Salt/${classification.category}`,
+    triggerSignal: `email_classified_${classification.category}`,
+    evidence: {
+      capture_id: captureId,
+      category: classification.category,
+      triage_action: classification.triage_action,
+      execution_status: result.status,
+    },
+    toolSlugs: toolsExecuted,
+  });
 
   return {
     ran: true,
     status: result.status,
     toolsExecuted,
   };
-}
-
-/**
- * A cron-context playbook run needs a human to act as (audit provenance +
- * LLM billing). Prefer the workspace owner, fall back to any member.
- */
-async function resolveWorkspaceActor(workspaceId: string): Promise<string | null> {
-  const admin = createAdminClient();
-
-  const { data: owner } = await admin
-    .from("workspace_members")
-    .select("user_id")
-    .eq("workspace_id", workspaceId)
-    .eq("role", "owner")
-    .limit(1)
-    .maybeSingle();
-
-  if (owner?.user_id) return owner.user_id as string;
-
-  const { data: member } = await admin
-    .from("workspace_members")
-    .select("user_id")
-    .eq("workspace_id", workspaceId)
-    .limit(1)
-    .maybeSingle();
-
-  return (member?.user_id as string) ?? null;
 }

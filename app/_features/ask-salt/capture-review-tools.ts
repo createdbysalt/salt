@@ -78,114 +78,12 @@ Returns:
       },
     }),
 
-    trigger_play_for_capture: tool({
-      description: `Trigger a specific play for the capture being reviewed. Use when the user says things like "run the invoice follow-up play" or "trigger the payment received handler".
-
-This queues a play run for approval — it doesn't execute immediately. The play will appear in the user's Plays queue for confirmation.
-
-Before calling, use get_capture_context to see which plays have high fit scores.`,
-      inputSchema: z.object({
-        capture_id: z
-          .string()
-          .uuid()
-          .optional()
-          .describe("Capture ID. If omitted, uses the capture being reviewed."),
-        play_slug: z
-          .string()
-          .min(1)
-          .describe("Slug of the playbook to trigger (e.g., 'invoice-followup', 'payment-received')"),
-        reason: z
-          .string()
-          .optional()
-          .describe("Why the user is manually triggering this play"),
-      }),
-      execute: async (input) => {
-        const targetId = input.capture_id ?? captureId;
-        if (!targetId) {
-          return {
-            success: false,
-            message: "No capture ID provided.",
-          };
-        }
-
-        const ctx = await loadCaptureReviewContext(targetId, workspaceId);
-        if (!ctx) {
-          return {
-            success: false,
-            message: `Capture ${targetId} not found.`,
-          };
-        }
-
-        const alreadyTriggered = ctx.plays_dispatched.find(
-          (p) => p.play_slug === input.play_slug
-        );
-        if (alreadyTriggered) {
-          return {
-            success: false,
-            message: `Play "${input.play_slug}" was already triggered for this capture (state: ${alreadyTriggered.state}).`,
-            existing_play_run_id: alreadyTriggered.play_run_id,
-          };
-        }
-
-        const supabase = createAdminClient();
-
-        const { data: playRun, error } = await supabase
-          .from("play_runs")
-          .insert({
-            workspace_id: workspaceId,
-            playbook_slug: input.play_slug,
-            trigger_type: "manual",
-            trigger_source: "capture_review",
-            trigger_capture_id: targetId,
-            state: "queued",
-            created_by: userId,
-            context: {
-              capture_id: targetId,
-              manual_trigger_reason: input.reason ?? "User triggered via capture review",
-              triggered_by: userId,
-            },
-          })
-          .select("id")
-          .single();
-
-        if (error) {
-          return {
-            success: false,
-            message: `Failed to trigger play: ${error.message}`,
-          };
-        }
-
-        const { error: updateError } = await supabase
-          .from("capture_events")
-          .update({
-            enriched_metadata: {
-              ...ctx,
-              plays_dispatched: [
-                ...ctx.plays_dispatched,
-                {
-                  play_slug: input.play_slug,
-                  play_name: input.play_slug.replace(/-/g, " "),
-                  play_run_id: playRun.id,
-                  state: "queued",
-                  dispatched_at: new Date().toISOString(),
-                },
-              ],
-            },
-          })
-          .eq("id", targetId);
-
-        if (updateError) {
-          console.error("[capture-review-tools] Failed to update enriched_metadata:", updateError);
-        }
-
-        return {
-          success: true,
-          message: `Play "${input.play_slug}" has been queued. It will appear in the Plays queue for confirmation.`,
-          play_run_id: playRun.id,
-          queued_for_approval: true,
-        };
-      },
-    }),
+    // trigger_play_for_capture was removed 2026-08-07. Its insert wrote five
+    // columns that don't exist on play_runs (it failed at runtime on every
+    // call), and even repaired it would have queued an approve-but-nothing-
+    // executes card — the trust failure the plays canon forbids. Manual
+    // playbook triggering returns when the signal path runs through the
+    // executor (plays canonical plan, Phase 4).
 
     add_sender_to_watching: tool({
       description: `Add the capture's sender to the watching system. Use when the user says "watch this sender", "keep an eye on this person", or "notify me when they email again".
@@ -234,7 +132,7 @@ This will:
 
         const { data: existingPerson } = await supabase
           .from("people")
-          .select("id, display_name")
+          .select("id, name")
           .eq("workspace_id", workspaceId)
           .eq("email", ctx.sender.email.toLowerCase())
           .maybeSingle();
@@ -245,7 +143,7 @@ This will:
 
         if (existingPerson) {
           personId = existingPerson.id;
-          personName = existingPerson.display_name ?? ctx.sender.email;
+          personName = existingPerson.name ?? ctx.sender.email;
         } else {
           const displayName = ctx.sender.name ?? ctx.sender.email.split("@")[0];
           const { data: newPerson, error } = await supabase
@@ -253,8 +151,8 @@ This will:
             .insert({
               workspace_id: workspaceId,
               email: ctx.sender.email.toLowerCase(),
-              display_name: displayName,
-              source: "capture_review",
+              name: displayName,
+              created_via: "capture_review",
               notes: input.reason,
             })
             .select("id")
@@ -385,10 +283,6 @@ Categories:
           .describe("Capture ID. If omitted, uses the capture being reviewed."),
         new_category: categorySchema,
         reason: z.string().describe("Why the user is recategorizing"),
-        trigger_play: z
-          .string()
-          .optional()
-          .describe("Optionally also trigger a play by slug"),
       }),
       execute: async (input) => {
         const targetId = input.capture_id ?? captureId;
@@ -411,14 +305,10 @@ Categories:
 
         const supabase = createAdminClient();
 
+        // capture_state has no "error" value — error/processing categories
+        // keep the row pending so it stays visible for repair.
         const newState =
-          input.new_category === "queued"
-            ? "pending"
-            : input.new_category === "no-signal"
-              ? "dismissed"
-              : input.new_category === "error"
-                ? "error"
-                : "pending";
+          input.new_category === "no-signal" ? "dismissed" : "pending";
 
         const { error } = await supabase
           .from("capture_events")
@@ -444,33 +334,11 @@ Categories:
           };
         }
 
-        let playTriggered: string | null = null;
-        if (input.trigger_play) {
-          const { data: playRun } = await supabase
-            .from("play_runs")
-            .insert({
-              workspace_id: workspaceId,
-              playbook_slug: input.trigger_play,
-              trigger_type: "manual",
-              trigger_source: "recategorization",
-              trigger_capture_id: targetId,
-              state: "queued",
-              created_by: userId,
-            })
-            .select("id")
-            .single();
-
-          if (playRun) {
-            playTriggered = input.trigger_play;
-          }
-        }
-
         return {
           success: true,
-          message: `Changed category from "${previousCategory}" to "${input.new_category}".${playTriggered ? ` Also triggered play "${playTriggered}".` : ""}`,
+          message: `Changed category from "${previousCategory}" to "${input.new_category}".`,
           previous_category: previousCategory,
           new_category: input.new_category,
-          play_triggered: playTriggered,
         };
       },
     }),

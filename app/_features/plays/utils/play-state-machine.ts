@@ -7,10 +7,14 @@ const TRANSITIONS: Record<PlayRunState, PlayRunState[]> = {
   scheduled: ["executing", "ran", "dismissed"],
   // executing is entered only via the executor's atomic claim; dismissed here
   // means a guard step decided the play's conditions no longer hold.
-  executing: ["ran", "failed", "dismissed"],
+  executing: ["ran", "failed", "dismissed", "blocked"],
   ran: [],
   failed: ["queued", "dismissed"],
   dismissed: [],
+  // Blocked runs (toolkit reconnect, pacing, exhausted bundle) go back to
+  // approved once the cause is fixed, or are dismissed. The executor's claim
+  // also accepts approved directly, so no extra hop is needed to re-run.
+  blocked: ["approved", "dismissed"],
 };
 
 export function canTransitionPlayRun(

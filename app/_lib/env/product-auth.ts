@@ -12,7 +12,7 @@ export const PRODUCT_APP_ROUTE_PREFIXES = [
   "/people",
   "/plays",
   "/capture",
-  "/connections",
+  "/memory",
   "/spaces",
   "/conversations",
   "/meetings",

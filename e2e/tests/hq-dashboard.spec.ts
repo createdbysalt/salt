@@ -13,9 +13,11 @@ test.describe("HQ dashboard", () => {
       timeout: 15000,
     });
     await expect(page.getByText("Today's briefing")).toBeVisible();
-    await expect(page.getByText("Plays ready")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /needs you/i })
+    ).toBeVisible();
     await expect(page.getByText(/\d+\/\d+/)).toBeVisible();
-    const approveButton = page.getByRole("button", { name: /approve and send/i }).first();
+    const approveButton = page.getByRole("button", { name: /approve/i }).first();
     const emptyQueue = page.getByText(/inbox zero/i);
     await expect(approveButton.or(emptyQueue)).toBeVisible();
   });
@@ -42,6 +44,8 @@ test.describe("HQ dashboard", () => {
     ).toBeVisible();
 
     await page.getByRole("button", { name: "Today" }).click();
-    await expect(page.getByText("Plays ready")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /needs you/i })
+    ).toBeVisible();
   });
 });

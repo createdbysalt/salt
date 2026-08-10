@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import type { Json } from "@/app/_lib/supabase/database.types";
 import { getComposioProviderForToolSlug } from "@/app/_features/connectors/connector-capabilities";
 import type { ToolRiskClass } from "./tool-policy";
 
@@ -118,7 +119,7 @@ export async function logToolExecution(params: ToolExecutionLogParams): Promise<
       risk: params.risk,
       source: params.source,
       status: params.status,
-      args_summary: summarizeToolArgs(params.args),
+      args_summary: summarizeToolArgs(params.args) as Json,
       error: params.error ? params.error.slice(0, MAX_ERROR_LENGTH) : null,
     });
     if (error) {

@@ -103,7 +103,7 @@ CREATE TABLE workspace_tags (
   workspace_id UUID REFERENCES workspaces(id),
   slug TEXT NOT NULL,           -- Normalized identifier
   label TEXT NOT NULL,          -- Display name
-  scope TEXT NOT NULL,          -- 'person' | 'org' | 'work' | 'all'
+  scope TEXT NOT NULL,          -- 'person' | 'org' | 'work' | 'billing' | 'file' | 'all'
   category TEXT NOT NULL,       -- 'segment' | 'signal' | 'priority' | 'custom'
   ai_description TEXT,          -- Natural language for AI
   is_system BOOLEAN DEFAULT FALSE,
@@ -116,10 +116,10 @@ CREATE TABLE entity_tag_assignments (
   id UUID PRIMARY KEY,
   workspace_id UUID REFERENCES workspaces(id),
   tag_id UUID REFERENCES workspace_tags(id),
-  entity_type TEXT NOT NULL,    -- 'person' | 'org' | 'work'
+  entity_type TEXT NOT NULL,    -- 'person' | 'org' | 'work' | 'billing'
   entity_id UUID NOT NULL,
-  source TEXT NOT NULL,         -- 'user' | 'ai'
-  confidence FLOAT,             -- 0-1, only for AI
+  source TEXT NOT NULL,         -- 'manual' | 'care' | 'system' ('keeper' rows normalized to 'care' 2026-08-07)
+  confidence FLOAT,             -- 0-1, only for care/system
   because TEXT,                 -- AI reasoning
   source_ref TEXT,              -- Reference to source (meeting_id, etc.)
   UNIQUE(workspace_id, tag_id, entity_type, entity_id)

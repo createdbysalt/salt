@@ -20,15 +20,25 @@ import "server-only";
  * the sender flows in real time. On promotion, the sender's held rows are
  * released to the stream as candidates so the scan can pick them up.
  *
- * Runs inside the capture-intelligence cron (hourly on staging). No LLM
- * calls — pure DB scoring.
+ * Runs inside the capture-intelligence cron, gated by the plan-tiered
+ * cadence (Sources plan 4.4: Starter 1x/day, paid 4x/day — see
+ * discovery-cadence.ts). No LLM calls — pure DB scoring.
  */
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { EMAIL_SCAN_SOURCE_TYPES } from "../adapters/categories/email";
+import type { CaptureSourceType } from "../types";
 import { checkCalendarRelationship } from "./gates/admission-gate";
 import { resolvePerson } from "./system-plays/person-resolver";
 import { extractDomain, type PersonSignals } from "./system-plays/person-signals";
+
+/**
+ * Relationship discovery reads only the two providers with thread/sender
+ * semantics the person-signals extractor understands.
+ */
+const EMAIL_SOURCE_TYPES: CaptureSourceType[] = EMAIL_SCAN_SOURCE_TYPES.filter(
+  (t): t is CaptureSourceType => t === "gmail" || t === "outlook"
+);
 
 const DEFAULT_LOOKBACK_DAYS = 30;
 const DEFAULT_MIN_MESSAGES = 3;
@@ -191,7 +201,7 @@ async function fetchRepliedRecipients(
     .from("capture_events")
     .select("extracted_data")
     .eq("workspace_id", workspaceId)
-    .in("source_type", [...EMAIL_SCAN_SOURCE_TYPES])
+    .in("source_type", EMAIL_SOURCE_TYPES)
     .eq("extracted_data->>isSentByUser", "true")
     .gte("created_at", cutoffIso)
     .order("created_at", { ascending: false })
@@ -216,7 +226,7 @@ async function fetchOrgDomains(workspaceId: string): Promise<Set<string>> {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("organizations")
-    .select("domain, domains")
+    .select("domain")
     .eq("workspace_id", workspaceId);
 
   if (error) {
@@ -225,13 +235,8 @@ async function fetchOrgDomains(workspaceId: string): Promise<Set<string>> {
 
   const domains = new Set<string>();
   for (const row of data ?? []) {
-    if (typeof row.domain === "string" && row.domain) {
+    if (row.domain) {
       domains.add(row.domain.toLowerCase());
-    }
-    if (Array.isArray(row.domains)) {
-      for (const d of row.domains) {
-        if (typeof d === "string" && d) domains.add(d.toLowerCase());
-      }
     }
   }
   return domains;

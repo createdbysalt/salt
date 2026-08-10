@@ -25,6 +25,12 @@ import { listHeldSenders } from "./relationship-discovery";
 const DIGEST_PLAYBOOK_SLUG = "email-digest";
 const DIGEST_LOOKBACK_HOURS = 24;
 
+/**
+ * capture_events.source_type is TEXT (Sources plan 5.2), so scan source types
+ * no longer need filtering to a frozen enum — any provider key is queryable.
+ */
+const EMAIL_SOURCE_TYPES: readonly string[] = EMAIL_SCAN_SOURCE_TYPES;
+
 function envInt(name: string, fallback: number): number {
   const raw = process.env[name];
   if (!raw) return fallback;
@@ -100,7 +106,7 @@ async function workspaceHasDigestContent(workspaceId: string): Promise<boolean> 
     .from("capture_events")
     .select("id", { count: "exact", head: true })
     .eq("workspace_id", workspaceId)
-    .in("source_type", [...EMAIL_SCAN_SOURCE_TYPES])
+    .in("source_type", EMAIL_SOURCE_TYPES)
     .eq("enriched_metadata->email_classification->>triage_action", "batch_digest")
     .gte("created_at", cutoffIso);
 

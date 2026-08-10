@@ -98,7 +98,7 @@ describe("executeSystemPlay create-person", () => {
     );
   });
 
-  it("logs created people to Activity and Auto-handled play runs", async () => {
+  function setupCreatePersonMocks() {
     const peopleLookup = createQueryBuilder({ data: null, error: null });
     const peopleInsert = createQueryBuilder({
       data: { id: "new-person-id" },
@@ -106,6 +106,10 @@ describe("executeSystemPlay create-person", () => {
     });
     const activityInsert = createQueryBuilder({ data: null, error: null });
     const playRunInsert = createQueryBuilder({ data: null, error: null });
+    const saltLearningsInsert = createQueryBuilder({
+      data: { id: "learning-1" },
+      error: null,
+    });
     let peopleCall = 0;
 
     mockFrom.mockImplementation((table: string) => {
@@ -119,15 +123,18 @@ describe("executeSystemPlay create-person", () => {
       if (table === "play_runs") {
         return playRunInsert;
       }
+      if (table === "salt_learnings") {
+        return saltLearningsInsert;
+      }
       return createQueryBuilder({ data: null, error: null });
     });
 
-    const result = await executeSystemPlay("ws-1", "system:create-person", {
-      name: "Jane Doe",
-      email: "jane@acme.com",
-    });
+    return { activityInsert, playRunInsert, saltLearningsInsert };
+  }
 
-    expect(result.success).toBe(true);
+  function expectEnrichedActivityInsert(
+    activityInsert: ReturnType<typeof createQueryBuilder>
+  ) {
     expect(activityInsert.insert).toHaveBeenCalledWith(
       expect.objectContaining({
         workspace_id: "ws-1",
@@ -136,30 +143,46 @@ describe("executeSystemPlay create-person", () => {
         detail: "Jane Doe",
         metadata: expect.objectContaining({
           source: "system_play",
-          player_slug: "keeper",
+          player_slug: "memory-care",
           auto_executed: true,
           entity_type: "person",
           entity_id: "new-person-id",
+          section: "relationships",
+          confidence: 95,
+          because: "System play created a Memory record with high confidence.",
+          preview: "Salt created a People record for Jane Doe using jane@acme.com.",
         }),
       })
     );
-    expect(playRunInsert.insert).toHaveBeenCalledWith(
+  }
+
+  it("logs enriched Activity and a salt_learnings row, never a play_runs row", async () => {
+    const { activityInsert, playRunInsert, saltLearningsInsert } =
+      setupCreatePersonMocks();
+
+    const result = await executeSystemPlay("ws-1", "system:create-person", {
+      name: "Jane Doe",
+      email: "jane@acme.com",
+    });
+
+    expect(result.success).toBe(true);
+    expectEnrichedActivityInsert(activityInsert);
+    // Memory Care never creates plays: no play_runs row for the auto-handled mutation
+    expect(playRunInsert.insert).not.toHaveBeenCalled();
+    // The salt_learnings write happens (the executor swallows errors, so assert it)
+    expect(saltLearningsInsert.insert).toHaveBeenCalledWith(
       expect.objectContaining({
         workspace_id: "ws-1",
-        target_type: "person",
-        target_id: "new-person-id",
-        target_label: "Jane Doe",
-        title: "Added Jane Doe to People",
-        state: "approved",
-        queue: "auto_handled",
-        metadata: expect.objectContaining({
-          keeper_profile: true,
-          section: "relationships",
-          profile_entity_type: "person",
-          profile_entity_id: "new-person-id",
-          profile_field: "record",
-          profile_value: "Jane Doe",
-        }),
+        entity_type: "person",
+        entity_id: "new-person-id",
+        entity_label: "Jane Doe",
+        field_path: "record",
+        field_label: "Record",
+        new_value: "Jane Doe",
+        confidence: 95,
+        evidence_summary:
+          "System play created a Memory record with high confidence.",
+        playbook_slug: "memory-records",
       })
     );
   });

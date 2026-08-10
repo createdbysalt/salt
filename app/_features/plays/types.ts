@@ -21,6 +21,10 @@ export const PLAY_RUN_STATES = [
   "ran",
   "failed",
   "dismissed",
+  // Written only by the executor (admin client): a claimable run that cannot
+  // proceed right now — toolkit disconnected, pacing guard, or play bundle
+  // exhausted. Re-approvable once the cause is fixed.
+  "blocked",
 ] as const;
 
 export type PlayRunState = (typeof PLAY_RUN_STATES)[number];
@@ -47,11 +51,14 @@ export type PlayerSlug =
   | "client-risk"
   | "scope"
   | "billing"
-  | "keeper"
+  | "memory-care"
   | "general";
 
 /**
  * Section-based playbook groupings (replaces players).
+ *
+ * The retired `_meta` section (system memory playbooks) is owned by Memory
+ * Care (`app/_features/memory/care`), not by playbooks.
  */
 export type PlaybookSection =
   | "relationships"
@@ -62,8 +69,7 @@ export type PlaybookSection =
   | "me"
   | "connections"
   | "notes"
-  | "communication"
-  | "_meta";
+  | "communication";
 
 export type PlaybookKind = "acting" | "profile";
 
@@ -131,29 +137,6 @@ export interface PlayRunRow {
   trigger_evidence?: Record<string, unknown> | null;
 }
 
-export interface PlayTemplateRow {
-  id: string;
-  workspace_id: string;
-  player_id: string | null;
-  slug: string;
-  name: string;
-  description: string | null;
-  default_channel: string | null;
-  is_active: boolean;
-  required_actions: string[];
-  approved_actions: string[];
-  actions_approved_by: string | null;
-  actions_approved_at: string | null;
-  /** Compiled step list (see utils/play-definition.ts). Null = draft-only template. */
-  definition: unknown | null;
-  /** Human-readable procedure — the MD authoring layer the GROW loop patches. */
-  procedure_md: string | null;
-  blueprint_slug: string | null;
-  blueprint_version: number | null;
-  created_at: string;
-  updated_at: string;
-}
-
 export type PlayRunAssignmentRole = "owner" | "executor" | "reviewer" | "approver" | "watcher";
 export type PlayRunAssignmentStatus = "assigned" | "in_progress" | "completed" | "dismissed";
 
@@ -201,6 +184,90 @@ export interface ActivityEntryRow {
   created_at: string;
   /** Deep link to source email/thread when resolvable. */
   source_url?: string | null;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Plays → Activity (run-centric)
+ *
+ * The Activity tab is the act-layer audit trail: one card per play run.
+ * Categories derive from play_runs.state — never from activity_entries.action
+ * strings (those drift; see parked/failed actions outside the CHECK constraint).
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+export const PLAY_ACTIVITY_CATEGORIES = [
+  "completed",
+  "in-progress",
+  "needs-attention",
+  "decided",
+] as const;
+
+export type PlayActivityCategory = (typeof PLAY_ACTIVITY_CATEGORIES)[number];
+
+export type PlayActivityActor = "salt" | "you";
+
+export type PlayActivityDayGroup = "Today" | "Yesterday" | "Earlier this week";
+
+/** Evidence snippet attached to a run (play_run_sources). */
+export interface PlayRunSourceSnippet {
+  label: string | null;
+  excerpt: string | null;
+  external_url: string | null;
+  source_type: string | null;
+}
+
+/** play_runs row enriched server-side for the Activity tab. */
+export interface PlayActivityRunRow extends PlayRunRow {
+  /** Resolved from the playbook registry via source_context.playbook_slug. */
+  playbookName?: string | null;
+  /** Playbook section — drives the activity row's icon and accent color. */
+  playbookSection?: PlaybookSection | null;
+  sources?: PlayRunSourceSnippet[];
+  /** activity_entries for this run, newest first — timeline + undo lookup. */
+  events?: ActivityEntryRow[];
+}
+
+/** UI-facing activity card view model. */
+export interface PlayActivityItem {
+  id: string;
+  time: string;
+  dayGroup: PlayActivityDayGroup;
+  /** ISO timestamp used for display + grouping (ran_at ?? dismissed_at ?? updated_at). */
+  sortIso: string;
+  title: string;
+  target: string;
+  category: PlayActivityCategory;
+  actor: PlayActivityActor;
+  /** Row badge text, e.g. "Salt acted", "You approved", "Blocked". */
+  badgeLabel: string;
+  state: PlayRunState;
+  playbookName: string | null;
+  playbookHref: string | null;
+  outcome: string | null;
+  valueLabel: string | null;
+  /** True when value_basis is not "actual" — UI must label estimates. */
+  valueEstimated: boolean;
+  triggerLabel: string | null;
+  sources: { label: string; url: string | null }[];
+  durationMs: number | null;
+  /** Failure or blocked reason, in plain language. */
+  errorLabel: string | null;
+  /** Raw last_error for troubleshooting, when it differs from errorLabel. */
+  errorDetail: string | null;
+  /** Real next step from approval_context / scheduling, never hardcoded. */
+  nextStepLabel: string | null;
+  etaLabel: string | null;
+  pausedForApproval: boolean;
+  decisionLabel: string | null;
+  /** How the run was authorized: Ask Salt, Queue, or autonomous. */
+  approvalLabel: string | null;
+  /** App the run acted in (Gmail, Stripe, …). */
+  channelLabel: string | null;
+  /** Playbook section — row avatar icon + accent when the run has a playbook. */
+  playbookSection: PlaybookSection | null;
+  timeline: { id: string; time: string; title: string; detail: string | null }[];
+  /** Activity entry id that undoAutoAppliedAction accepts, when reversible. */
+  undoEntryId: string | null;
+  sourceUrl: string | null;
 }
 
 /** UI-facing queue item aligned with plays-demo-data QueuePlay */
@@ -261,18 +328,6 @@ export interface PlaybookBlueprintView {
   procedureMd: string | null;
   /** 'salt' = system, 'user' = user-created. */
   origin: PlaybookOrigin;
-}
-
-export interface PlayTemplateView {
-  id: string;
-  slug: string;
-  name: string;
-  description: string | null;
-  playerSlug: PlayerSlug | null;
-  blueprintSlug: string | null;
-  blueprintVersion: number | null;
-  isActive: boolean;
-  upgradeAvailable: boolean;
 }
 
 export interface PlayerView {

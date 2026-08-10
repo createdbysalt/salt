@@ -43,7 +43,9 @@ Principal-engineer review for Salt: high standards without bikeshedding. Pair wi
    - Duplicated mechanics (suggest `code-structure` extraction)
    - Defer: style nits already covered by lint, subjective naming unless confusing
 
-5. **Output** — markdown report only:
+5. **Doc-drift check** (`/docs-sync`, scoped to this diff) — if the diff renames or deletes a route, table/column, or exported function/module, grep `docs/`, `brand-identity/`, and the `CLAUDE.md` files for the old identifier. Every hit is stale by definition — list them under "Should fix" with file:line. Skip this step when the diff has no renames/deletions.
+
+6. **Output** — markdown report only:
 
 ```markdown
 # Pragmatic Code Review

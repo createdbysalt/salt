@@ -13,15 +13,14 @@ Create, validate, or edit Salt playbooks (v2 YAML format).
 ## Workflow
 
 This command uses the playbook-creator skill. See:
-- `.cursor/skills/playbook-creator/SKILL.md` (source of truth)
-- `.claude/skills/playbook-creator/SKILL.md` (mirror)
+- `.claude/skills/playbook-creator/SKILL.md` (source of truth)
 
 ### Creating a new playbook
 
 1. Run `/playbook new billing/late-fee` to create the YAML file
 2. Edit the YAML with triggers, steps, and output
 3. Restart dev server to validate
-4. Check `/plays?tab=customize` to verify it appears
+4. Check `/plays?tab=playbooks` to verify it appears
 
 ### Playbook structure (v2)
 
@@ -66,19 +65,23 @@ output:
 | `billing` | Invoices & payments |
 | `files` | Documents |
 | `meetings` | Scheduled time |
-| `me` | Operator profile |
-| `_meta` | System playbooks (always-on) |
+| `communication` | Email digests, triage |
+| `capture` | Intake-related act plays |
+| `me` | Operator (includes `daily-briefing`) |
+
+> **No `_meta` section.** The learn-layer system playbooks were retired 2026-08-06 — memory upkeep is Memory Care (`app/_features/memory/care/`), not a playbook. See `docs/architecture/memory-care.md`.
 
 ### Layers
 
 | Layer | Voice | Use |
 |-------|-------|-----|
-| `learn` | Forbidden | Memory/profile updates |
-| `act` | Required | User-facing workflows |
+| `act` | Required | User-facing workflows (all current playbooks) |
 
-### System playbooks
+The `learn` enum value remains in the schema for backward compatibility but is unused.
 
-System playbooks go in `_meta/` and are always-on. They can have multiple triggers:
+### Multiple triggers
+
+Playbooks can have multiple triggers:
 
 ```yaml
 triggers:

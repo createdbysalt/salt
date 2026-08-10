@@ -20,10 +20,14 @@ import { executeComposioAction } from "@/app/_lib/composio/actions";
 import { COMPOSIO_TOOL_SLUGS } from "@/app/_lib/composio/tool-slugs";
 import type { CaptureAdapter, CaptureEnvelope } from "../adapters/types";
 import { resolvePerson } from "./system-plays";
-import { getCategoryAdapter } from "../adapters/categories";
+import { getCategoryAdapter, hasHandWrittenParsing } from "../adapters/categories";
 import { parseQuickbooksBalanceDetailReport } from "../adapters/categories/billing";
 import { ingestEnvelope } from "./ingest-envelope";
 import { processCalBookings } from "./cal-booking-processor";
+import {
+  absorbInferredSignals,
+  type LlmCall,
+} from "./generic-signal-extractor";
 
 export interface ConnectorBackfillResult {
   success: boolean;
@@ -96,6 +100,8 @@ async function ingestRows(
   NonNullable<ConnectorBackfillResult["debug"]> & {
     created: number;
     envelopes: CaptureEnvelope[];
+    /** Subset of envelopes that were newly created (not dupes/noise/held). */
+    newEnvelopes: CaptureEnvelope[];
   }
 > {
   const stats = {
@@ -108,6 +114,7 @@ async function ingestRows(
     firstError: undefined as string | undefined,
     created: 0,
     envelopes: [] as CaptureEnvelope[],
+    newEnvelopes: [] as CaptureEnvelope[],
   };
 
   for (const row of rows) {
@@ -127,6 +134,7 @@ async function ingestRows(
       case "created":
         stats.created++;
         stats.envelopes.push(envelope);
+        stats.newEnvelopes.push(envelope);
         break;
       case "duplicate":
         stats.duplicates++;
@@ -164,32 +172,75 @@ const MAX_SIGNAL_CONTACTS_PER_RUN = 50;
  * profile signals and hand them to resolvePerson — the existing admission +
  * fill machinery decides whether the signals justify creation and records
  * provenance. Idempotent per contact; reconciliation runs keep signals fresh.
+ *
+ * Long-tail supplement (Sources plan 5.4): providers without hand-written
+ * parsing get little from the deterministic derive, so newly-created
+ * envelopes also go through the LLM generic-signal-extractor when the caller
+ * provides a metered llmCall. Ask-first only (signalsInferred caps admission
+ * at needs_confirmation). Created-only, never dupes — the 6h reconciliation
+ * overlap would otherwise re-extract the same envelopes every run.
  */
 async function absorbDerivedSignals(
   workspaceId: string,
   adapter: CaptureAdapter,
   envelopes: readonly CaptureEnvelope[],
   userEmail: string | null,
+  llmCall: LlmCall | null,
+  newEnvelopes: readonly CaptureEnvelope[],
 ): Promise<void> {
-  if (!adapter.deriveSignals || envelopes.length === 0) return;
+  if (envelopes.length > 0 && adapter.deriveSignals) {
+    const derived = adapter.deriveSignals(envelopes, { userEmail });
+    let processed = 0;
+    for (const [email, signals] of derived) {
+      if (processed >= MAX_SIGNAL_CONTACTS_PER_RUN) break;
+      processed++;
+      try {
+        const name = envelopes
+          .flatMap((e) => e.participants)
+          .find((p) => p.email === email && p.name)?.name;
+        await resolvePerson(workspaceId, { email, name: name ?? undefined, signals });
+      } catch (error) {
+        console.warn(
+          `[connector-backfill] signal absorption failed for ${adapter.sourceType}:`,
+          error instanceof Error ? error.message : error,
+        );
+      }
+    }
+  }
 
-  const derived = adapter.deriveSignals(envelopes, { userEmail });
-  let processed = 0;
-  for (const [email, signals] of derived) {
-    if (processed >= MAX_SIGNAL_CONTACTS_PER_RUN) break;
-    processed++;
+  if (llmCall && newEnvelopes.length > 0 && !hasHandWrittenParsing(adapter.toolkit)) {
     try {
-      const name = envelopes
-        .flatMap((e) => e.participants)
-        .find((p) => p.email === email && p.name)?.name;
-      await resolvePerson(workspaceId, { email, name: name ?? undefined, signals });
+      const { contactsProposed } = await absorbInferredSignals(
+        workspaceId,
+        newEnvelopes,
+        { userEmail },
+        llmCall,
+      );
+      if (contactsProposed > 0) {
+        console.log(
+          `[connector-backfill] ${adapter.sourceType}: LLM-extracted signals for ${contactsProposed} contacts`,
+        );
+      }
     } catch (error) {
       console.warn(
-        `[connector-backfill] signal absorption failed for ${adapter.sourceType}:`,
+        `[connector-backfill] LLM signal extraction failed for ${adapter.sourceType}:`,
         error instanceof Error ? error.message : error,
       );
     }
   }
+}
+
+/**
+ * Shared options for the public backfills. `llmCall` is a metered LLM call
+ * (createLlmCall) enabling long-tail signal extraction (Sources plan 5.4) —
+ * without it, providers without hand-written parsing get deterministic
+ * signals only.
+ */
+export interface BackfillOptions {
+  lookbackDays?: number;
+  limit?: number;
+  isBootstrap?: boolean;
+  llmCall?: LlmCall | null;
 }
 
 interface BackfillFetch {
@@ -209,7 +260,7 @@ interface BackfillFetch {
 async function runConnectorBackfill(
   workspaceId: string,
   spec: BackfillFetch,
-  options: { isBootstrap?: boolean } = {},
+  options: BackfillOptions = {},
 ): Promise<ConnectorBackfillResult> {
   const connection = await getConnectionStatusAdmin(spec.provider, workspaceId);
   if (!connection.connected || !connection.composioConnectionId) {
@@ -220,7 +271,7 @@ async function runConnectorBackfill(
     };
   }
 
-  const adapter = getCategoryAdapter(spec.provider);
+  const adapter = await getCategoryAdapter(spec.provider);
   if (!adapter) {
     return {
       success: false,
@@ -263,13 +314,15 @@ async function runConnectorBackfill(
     adapter,
     stats.envelopes,
     connection.email ?? null,
+    options.llmCall ?? null,
+    stats.newEnvelopes,
   );
 
   console.log(
     `[connector-backfill] ${spec.provider}: created=${stats.created}, fetched=${stats.itemsFetched}, dupes=${stats.duplicates}, dropped=${stats.dropped}, declined=${stats.declined}, errors=${stats.insertErrors}`,
   );
 
-  const { created, envelopes: _envelopes, ...debug } = stats;
+  const { created, envelopes: _envelopes, newEnvelopes: _newEnvelopes, ...debug } = stats;
   return { success: true, capturesCreated: created, debug };
 }
 
@@ -285,7 +338,7 @@ const UNATTENDED = (workspaceId: string) => ({
 
 export async function backfillCalendarCaptures(
   workspaceId: string,
-  options: { lookbackDays?: number; limit?: number; isBootstrap?: boolean } = {},
+  options: BackfillOptions = {},
 ): Promise<ConnectorBackfillResult> {
   const { lookbackDays = 7, limit = 50, isBootstrap = false } = options;
   const timeMin = new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000).toISOString();
@@ -312,7 +365,7 @@ export async function backfillCalendarCaptures(
         ),
       ],
     },
-    { isBootstrap },
+    { isBootstrap, llmCall: options.llmCall ?? null },
   );
 }
 
@@ -333,7 +386,7 @@ export async function runCalendarBootstrap(
 
 export async function backfillDriveCaptures(
   workspaceId: string,
-  options: { lookbackDays?: number; limit?: number; isBootstrap?: boolean } = {},
+  options: BackfillOptions = {},
 ): Promise<ConnectorBackfillResult> {
   const { lookbackDays = 7, limit = 50, isBootstrap = false } = options;
   const modifiedAfter = new Date(
@@ -360,7 +413,7 @@ export async function backfillDriveCaptures(
         ),
       ],
     },
-    { isBootstrap },
+    { isBootstrap, llmCall: options.llmCall ?? null },
   );
 }
 
@@ -381,7 +434,7 @@ export async function runDriveBootstrap(
 
 export async function backfillStripeCaptures(
   workspaceId: string,
-  options: { limit?: number; isBootstrap?: boolean } = {},
+  options: BackfillOptions = {},
 ): Promise<ConnectorBackfillResult> {
   const { limit = 30, isBootstrap = false } = options;
 
@@ -406,7 +459,7 @@ export async function backfillStripeCaptures(
         ),
       ],
     },
-    { isBootstrap },
+    { isBootstrap, llmCall: options.llmCall ?? null },
   );
 }
 
@@ -423,14 +476,14 @@ export async function runStripeBootstrap(
 
 export async function backfillCalBookings(
   workspaceId: string,
-  options: { isBootstrap?: boolean } = {},
+  options: BackfillOptions = {},
 ): Promise<ConnectorBackfillResult> {
   const connection = await getConnectionStatusAdmin("cal", workspaceId);
   if (!connection.connected || !connection.composioConnectionId) {
     return { success: false, capturesCreated: 0, error: "cal not connected" };
   }
 
-  const calAdapter = getCategoryAdapter("cal");
+  const calAdapter = await getCategoryAdapter("cal");
   if (!calAdapter) {
     return { success: false, capturesCreated: 0, error: "No adapter for cal" };
   }
@@ -475,6 +528,8 @@ export async function backfillCalBookings(
     calAdapter,
     stats.envelopes,
     connection.email ?? null,
+    options.llmCall ?? null,
+    stats.newEnvelopes,
   );
 
   // Operational rows: lead people + meetings upserts (Phase 4.2 port
@@ -491,7 +546,7 @@ export async function backfillCalBookings(
     `[connector-backfill] cal: captures=${stats.created}, meetings +${processed.meetingsCreated}/~${processed.meetingsUpdated}, leads=${processed.leadsCreated}`,
   );
 
-  const { created, envelopes: _envelopes, ...debug } = stats;
+  const { created, envelopes: _envelopes, newEnvelopes: _newEnvelopes, ...debug } = stats;
   return { success: true, capturesCreated: created, debug };
 }
 
@@ -518,7 +573,7 @@ const CALENDLY_INVITEE_FETCH_CAP = 20;
 
 export async function backfillCalendlyEvents(
   workspaceId: string,
-  options: { lookbackDays?: number; limit?: number; isBootstrap?: boolean } = {},
+  options: BackfillOptions = {},
 ): Promise<ConnectorBackfillResult> {
   const { lookbackDays = 30, limit = 50, isBootstrap = false } = options;
   const minStartTime = new Date(
@@ -598,7 +653,7 @@ export async function backfillCalendlyEvents(
         })(),
       ],
     },
-    { isBootstrap },
+    { isBootstrap, llmCall: options.llmCall ?? null },
   );
 }
 
@@ -627,7 +682,7 @@ const DROPBOX_LIST_SCAN_LIMIT = 500;
 
 export async function backfillDropboxCaptures(
   workspaceId: string,
-  options: { lookbackDays?: number; limit?: number; isBootstrap?: boolean } = {},
+  options: BackfillOptions = {},
 ): Promise<ConnectorBackfillResult> {
   const { lookbackDays = 7, limit = 100, isBootstrap = false } = options;
   const modifiedAfter = Date.now() - lookbackDays * 24 * 60 * 60 * 1000;
@@ -666,7 +721,7 @@ export async function backfillDropboxCaptures(
         })(),
       ],
     },
-    { isBootstrap },
+    { isBootstrap, llmCall: options.llmCall ?? null },
   );
 }
 
@@ -695,7 +750,7 @@ export async function runDropboxBootstrap(
 
 export async function backfillQuickbooksCaptures(
   workspaceId: string,
-  options: { isBootstrap?: boolean } = {},
+  options: BackfillOptions = {},
 ): Promise<ConnectorBackfillResult> {
   const { isBootstrap = false } = options;
 
@@ -725,7 +780,7 @@ export async function backfillQuickbooksCaptures(
         })(),
       ],
     },
-    { isBootstrap },
+    { isBootstrap, llmCall: options.llmCall ?? null },
   );
 }
 
@@ -753,7 +808,7 @@ export async function runQuickbooksBootstrap(
 
 export async function backfillOutlookCaptures(
   workspaceId: string,
-  options: { lookbackDays?: number; limit?: number; isBootstrap?: boolean } = {},
+  options: BackfillOptions = {},
 ): Promise<ConnectorBackfillResult> {
   const { lookbackDays = 2, limit = 50, isBootstrap = false } = options;
   const receivedAfter = new Date(
@@ -791,7 +846,7 @@ export async function backfillOutlookCaptures(
         ),
       ],
     },
-    { isBootstrap },
+    { isBootstrap, llmCall: options.llmCall ?? null },
   );
 }
 

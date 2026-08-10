@@ -1,19 +1,19 @@
 /**
  * Memory-write monopoly enforcement.
  *
- * Invariant: Only _meta section playbooks may mutate Memory records.
- * Non-_meta playbooks may READ memory (fetch steps), but any act step
- * with a memory-mutating slug is rejected at parse and at runtime.
+ * Invariant: No playbook may mutate Memory records. Playbooks may READ
+ * memory (fetch steps), but any act step with a memory-mutating slug is
+ * rejected at parse and at runtime.
  *
- * Rationale: keeps the records pipeline single-sourced — provenance,
- * admission rules, and consistency live in one place. Also the structural
+ * Memory mutations are owned by Memory Care (`app/_features/memory/care`)
+ * and the protected memory tools (`app/_lib/memory-tools`), which enforce
+ * tiered confidence bars and provenance. This module is the structural
  * guardrail making user-created playbooks safe by construction.
  *
  * Exception: Ask SALT's chat memory_* system plays are the human-in-chat
  * path, NOT plays — unaffected by this constraint.
  */
 
-import { sectionCanWriteMemory } from "../section-capabilities";
 import type { PlaybookSection } from "../types";
 
 export const MEMORY_MUTATING_SLUGS = [
@@ -53,12 +53,8 @@ export function isMemoryMutatingSlug(slug: string): boolean {
 
 export function validateMemoryMonopoly(
   actSlugs: string[],
-  section: PlaybookSection,
+  _section: PlaybookSection,
 ): { ok: true } | { ok: false; violations: string[] } {
-  if (sectionCanWriteMemory(section)) {
-    return { ok: true };
-  }
-
   const violations = actSlugs.filter((slug) => MEMORY_MUTATING_SET.has(slug));
 
   if (violations.length === 0) {

@@ -4,7 +4,6 @@ import { memoryListShellClass } from "@/app/_features/memory/utils/memory-layout
 export function MemoryListPageSkeleton() {
   return (
     <div className="relative min-h-full">
-      <div aria-hidden className="salt-ambient-wash" />
       <div className={memoryListShellClass}>
         <div className="space-y-2">
           <Skeleton className="h-3 w-24" />

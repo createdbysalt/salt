@@ -3,15 +3,16 @@
 /**
  * Salt Learnings Actions
  *
- * Records and retrieves auto-executed keeper mutations for the digest.
+ * Records and retrieves auto-applied Memory Care mutations for the digest.
  * Users see transparency about what Salt did and can undo.
  */
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/app/_lib/supabase/server";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import type { Json } from "@/app/_lib/supabase/database.types";
 import { getTenantContext } from "@/app/_features/auth/queries";
-import type { KeeperEntityType } from "@/app/_features/plays/playbooks/evidence-accumulator";
+import type { LearningEntityType } from "@/app/_lib/learning";
 
 // ============================================================================
 // Types
@@ -20,7 +21,7 @@ import type { KeeperEntityType } from "@/app/_features/plays/playbooks/evidence-
 export interface SaltLearningRow {
   id: string;
   workspace_id: string;
-  entity_type: KeeperEntityType;
+  entity_type: LearningEntityType;
   entity_id: string;
   entity_label: string;
   field_path: string;
@@ -41,7 +42,7 @@ export interface SaltLearningRow {
 
 export interface RecordLearningInput {
   workspaceId: string;
-  entityType: KeeperEntityType;
+  entityType: LearningEntityType;
   entityId: string;
   entityLabel: string;
   fieldPath: string;
@@ -84,8 +85,10 @@ export async function recordSaltLearning(
       entity_label: input.entityLabel,
       field_path: input.fieldPath,
       field_label: input.fieldLabel ?? null,
-      old_value: input.oldValue ?? null,
-      new_value: input.newValue,
+      // oldValue/newValue arrive as unknown from callers; the DB columns are
+      // jsonb, so narrow at the write boundary only.
+      old_value: (input.oldValue ?? null) as Json,
+      new_value: input.newValue as Json,
       confidence: input.confidence,
       evidence_summary: input.evidenceSummary,
       evidence_ids: input.evidenceIds ?? null,
@@ -140,25 +143,6 @@ export async function getSaltLearningsDigest(
   const older = rows.filter((l) => new Date(l.created_at) < twoWeeksAgo);
 
   return { unseenCount, thisWeek, lastWeek, older };
-}
-
-/**
- * Get unseen count for badge display.
- */
-export async function getUnseenLearningsCount(
-  workspaceId: string,
-): Promise<number> {
-  const supabase = await createClient();
-
-  const { count, error } = await supabase
-    .from("salt_learnings")
-    .select("*", { count: "exact", head: true })
-    .eq("workspace_id", workspaceId)
-    .is("seen_at", null)
-    .is("undone_at", null);
-
-  if (error) throw error;
-  return count ?? 0;
 }
 
 /**
@@ -255,7 +239,7 @@ export async function undoSaltLearning(
  */
 export async function getEntityLearningsCount(
   workspaceId: string,
-  entityType: KeeperEntityType,
+  entityType: LearningEntityType,
   entityId: string,
 ): Promise<number> {
   const supabase = await createClient();
@@ -277,7 +261,7 @@ export async function getEntityLearningsCount(
  */
 export async function getEntityLearnings(
   workspaceId: string,
-  entityType: KeeperEntityType,
+  entityType: LearningEntityType,
   entityId: string,
 ): Promise<SaltLearningRow[]> {
   const supabase = await createClient();

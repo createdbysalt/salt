@@ -207,7 +207,7 @@ describe("mapOperatorProvenanceToActivityEntry (families 8–9)", () => {
     expect(entry.detail).toContain("role title → Brand designer");
   });
 
-  it("prefixes workspace fields with 'business' and maps Salt suggestions as pending keeper entries", () => {
+  it("prefixes workspace fields with 'business' and maps Salt suggestions as pending Salt entries", () => {
     const entry = mapOperatorProvenanceToActivityEntry({
       entityType: "workspace",
       field: "payment_terms",
@@ -219,7 +219,7 @@ describe("mapOperatorProvenanceToActivityEntry (families 8–9)", () => {
       setAt: T1,
     });
     expect(entry.label).toBe("Salt suggested business payment terms");
-    expect(entry.kind).toBe("keeper");
+    expect(entry.kind).toBe("salt");
     expect(entry.status).toBe("pending");
     expect(entry.detail).toContain("Seen on 3 recent invoices");
     expect(entry.detail).toContain("82% sure");

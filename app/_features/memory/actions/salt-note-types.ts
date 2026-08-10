@@ -1,6 +1,11 @@
 import type { EntityNoteKind, NoteSource, NoteStatus } from "@/app/_features/memory/types/taxonomies";
 
-export const KEEPER_ENTITY_NOTES_SLUG = "keeper-entity-notes";
+/**
+ * Blueprint slug for Memory Care entity notes. The value is a legacy slug
+ * stored on existing blueprint rows — do not change it without a data
+ * migration.
+ */
+export const ENTITY_NOTES_BLUEPRINT_SLUG = "keeper-entity-notes";
 
 export interface CreateSaltNoteInput {
   entityType: "person" | "organization" | "work";

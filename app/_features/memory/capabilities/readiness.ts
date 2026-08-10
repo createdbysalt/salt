@@ -5,7 +5,7 @@ import type {
   CapabilitySpec,
 } from "./types";
 
-export const CAPABILITY_SPECS: CapabilitySpec[] = [
+const CAPABILITY_SPECS: CapabilitySpec[] = [
   {
     id: "invoicing",
     label: "Invoice-ready",

@@ -1,11 +1,7 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Loader2, Zap } from "lucide-react";
-import { Button } from "@repo/ui";
-import { cn } from "@repo/utils";
-import { syncAndScanCaptures } from "@/app/_features/capture/actions/run-intelligence-scan";
 import type { PlayRunRow } from "../types";
 import type { AskSaltContext } from "@/app/_features/shell/components/AskSaltPanel";
 import {
@@ -13,19 +9,17 @@ import {
   type FindingWithContext,
 } from "@/app/_features/capture/types/intelligence-findings";
 import { ActivityTab } from "./ActivityTab";
-import { ActivityViewToggle, type ActivityView } from "./ActivityViewToggle";
-import { CaptureStreamTab } from "@/app/_features/capture/components/CaptureStreamTab";
 import { PlaysSectionHeader } from "./PlaysSectionHeader";
 import { PlaysTabs } from "./PlaysTabs";
 import { QueueToggle } from "./QueueToggle";
-import { CustomizeTab } from "./CustomizeTab";
+import { PlaybooksTab } from "./PlaybooksTab";
 import { getSectionMeta } from "./PlaybookSectionNav";
 import { PlayQueueList } from "./PlayCard/PlayQueueList";
-import { LearningTab } from "./LearningTab";
 import { mapFindingToCard } from "../play-card/map-finding-to-card";
 import { mapPlayRunToCardClient } from "../play-card/map-play-run-to-card-client";
 import { mapHandledFindingToCard } from "../play-card/map-handled-finding-to-card";
 import { validatePlayCard } from "../play-card/validate-play-card";
+import { sortQueueCards } from "../lib/queue-sort";
 import type { PlayCardViewModel } from "../play-card/types";
 import { PlaysPageSkeleton } from "./PlaysPageSkeleton";
 import { AutoHandledTimeline } from "./AutoHandledTimeline";
@@ -42,29 +36,28 @@ import {
 } from "./QueueFilterMenu";
 import {
   getSectionFromFindingType,
-  getSectionFromLearningEntity,
   getSectionFromPlayRun,
   matchesSectionFilter,
   QUEUE_SECTION_ORDER,
   type QueueSectionFilter,
 } from "../utils/queue-section";
-import type { PlaysActivityView, PlaysTab } from "@/app/_features/plays/load-plays-page-data";
-import { usePlaysTabCache, type PlaysTabData } from "../hooks/usePlaysTabCache";
+import type { PlaysTab } from "@/app/_features/plays/load-plays-page-data";
+import { usePlaysTabCache } from "../hooks/usePlaysTabCache";
+import type { PlaysTabData } from "../plays-tab-data";
 import { usePlayRunsRealtime } from "../hooks/usePlayRunsRealtime";
 import type { HqBriefingData } from "@/app/_features/plays/types";
 import type { HqSideRailData } from "@/app/_features/hq/types";
 
 /**
- * Plays Page — Redesigned 2026-06-13
+ * Plays Page — what Salt is doing, and what it needs from you.
  *
- * New structure:
- * - Queue: Daily attention (Needs You / Auto-handled toggle)
- * - Customize: Playbooks, Connectors
- * - Activity: Audit trail
+ * Structure (2026-08-06 reorg):
+ * - Queue: Action approvals (Needs You / Auto-handled)
+ * - Playbooks: the library
+ * - Activity: Actions audit trail
  *
- * Capture has been folded into Plays. The Queue now shows:
- * - Findings about people (revenue signals, new contacts, pending actions)
- * - Prepared actions (drafts ready to send)
+ * Intake (Connectors / Activity) lives in Sources; memory-admission decisions
+ * live in Memory → Filter.
  */
 
 function openAskSalt(options?: {
@@ -81,10 +74,6 @@ function openAskSalt(options?: {
       },
     })
   );
-}
-
-function parseActivityView(value: PlaysActivityView): ActivityView {
-  return value === "captures" ? "captures" : "actions";
 }
 
 function findingMatchesSearch(finding: FindingWithContext, term: string): boolean {
@@ -134,32 +123,27 @@ function mapAutoHandledRunToCard(play: PlayRunRow): PlayCardViewModel {
 
 export function PlaysPage({
   initialTab,
-  initialActivityView,
   initialQueueFilter,
   initialData,
   sideRail,
   briefing,
 }: {
   initialTab: PlaysTab;
-  initialActivityView: PlaysActivityView;
-  initialQueueFilter: "needs_you" | "auto_handled" | "learning";
+  initialQueueFilter: "needs_you" | "auto_handled";
   initialData: PlaysTabData;
   sideRail?: HqSideRailData;
   briefing?: HqBriefingData;
 }) {
   const {
     tab,
-    activityView,
     queueFilter,
     activeData,
     isTabLoading,
     handleTabChange,
     handleQueueFilterChange,
-    handleActivityViewChange,
     invalidateActiveTab,
   } = usePlaysTabCache({
     tab: initialTab,
-    activityView: parseActivityView(initialActivityView),
     queueFilter: initialQueueFilter,
     data: initialData,
   });
@@ -168,18 +152,11 @@ export function PlaysPage({
     initialQueue,
     initialActivity,
     activityTotalCount,
-    connectors,
     initialFindings,
     autoHandledFindings,
     autoHandledRuns,
-    playsRanToday,
-    learningEvidence,
-    streamCaptures,
-    captureStats,
-    hasCaptureData,
     playbooksV2,
     workspaceId,
-    keeperUnseenCount,
   } = activeData ?? initialData;
 
   // Real-time subscription for play_runs changes
@@ -198,11 +175,6 @@ export function PlaysPage({
   }
 
 
-  const [isPipelinePending, startPipelineTransition] = useTransition();
-  const [actionResult, setActionResult] = useState<{
-    success: boolean;
-    message: string;
-  } | null>(null);
   const [queueSearch, setQueueSearch] = useState("");
   const [queueFilters, setQueueFilters] = useState<QueueFiltersState>(EMPTY_QUEUE_FILTERS);
 
@@ -231,18 +203,13 @@ export function PlaysPage({
         const section = getSectionFromPlayRun(play);
         counts.set(section, (counts.get(section) ?? 0) + 1);
       }
-    } else if (queueFilter === "auto_handled") {
+    } else {
       for (const finding of autoHandledFindings) {
         const section = getSectionFromFindingType(finding.finding_type);
         counts.set(section, (counts.get(section) ?? 0) + 1);
       }
       for (const play of autoHandledRuns) {
         const section = getSectionFromPlayRun(play);
-        counts.set(section, (counts.get(section) ?? 0) + 1);
-      }
-    } else {
-      for (const item of learningEvidence ?? []) {
-        const section = getSectionFromLearningEntity(item.entityType);
         counts.set(section, (counts.get(section) ?? 0) + 1);
       }
     }
@@ -259,7 +226,6 @@ export function PlaysPage({
     autoHandledRuns,
     initialFindings,
     initialQueue,
-    learningEvidence,
     queueFilter,
     sectionLabels,
   ]);
@@ -355,34 +321,15 @@ export function PlaysPage({
     [initialQueue, normalizedQueueSearch, queueFilters]
   );
 
-  const filteredLearningEvidence = useMemo(() => {
-    const items = learningEvidence ?? [];
-    return items.filter((item) => {
-      if (
-        !matchesSectionFilter(
-          queueFilters.sections,
-          getSectionFromLearningEntity(item.entityType),
-        )
-      ) {
-        return false;
-      }
-      if (!normalizedQueueSearch) return true;
-      return (
-        item.entityLabel.toLowerCase().includes(normalizedQueueSearch) ||
-        item.fields.some((field) =>
-          field.fieldPath.toLowerCase().includes(normalizedQueueSearch)
-        )
-      );
-    });
-  }, [learningEvidence, normalizedQueueSearch, queueFilters.sections]);
-
   // Unify findings (scan signals shown as plays) and prepared plays into one
   // ordered list of view models, rendered by the single PlayCard.
+  // Order: money at risk → time-sensitive → newest (spec Q11).
   const queueCards = useMemo<PlayCardViewModel[]>(
-    () => [
-      ...filteredFindings.map(mapFindingToCard),
-      ...filteredQueue.map(mapPlayRunToCardClient),
-    ],
+    () =>
+      sortQueueCards([
+        ...filteredFindings.map(mapFindingToCard),
+        ...filteredQueue.map(mapPlayRunToCardClient),
+      ]),
     [filteredFindings, filteredQueue]
   );
 
@@ -398,47 +345,6 @@ export function PlaysPage({
     [filteredAutoHandledFindings, filteredAutoHandledRuns],
   );
 
-  const handleSyncAndScan = () => {
-    setActionResult(null);
-    startPipelineTransition(async () => {
-      const result = await syncAndScanCaptures({ lookbackDays: 7 });
-      if (result.success && result.scan) {
-        const syncNote = result.sync
-          ? `Synced ${result.sync.capturesCreated} new captures. `
-          : "";
-        const firstWarning = result.scan.errors[0];
-        const errorNote =
-          result.scan.errors.length > 0
-            ? firstWarning
-              ? ` ${firstWarning}`
-              : ` (${result.scan.errors.length} warnings)`
-            : "";
-        const vendorDismissed = result.scan.findingsDismissedAsVendor ?? 0;
-        const vendorRepaired = result.scan.findingsMemoryRepaired ?? 0;
-        const vendorNote =
-          vendorDismissed > 0 || vendorRepaired > 0
-            ? ` Cleared ${vendorDismissed} subscription/vendor item(s) from the queue${vendorRepaired > 0 ? `, repaired ${vendorRepaired} finding(s)` : ""}.`
-            : "";
-        const scanNote =
-          result.scan.findingsCreated > 0
-            ? `Scanned ${result.scan.emailsProcessed} captures, ${result.scan.findingsCreated} new or updated findings.${vendorNote}`
-            : result.scan.emailsProcessed > 0 || vendorDismissed > 0 || vendorRepaired > 0
-              ? `Re-scanned ${result.scan.emailsProcessed} captures.${vendorNote || " No new findings yet — try structural subjects like training sessions or deliverables ready for review."}`
-              : "No captures in the lookback window needed scanning. Sync Gmail first at /connections if the stream is empty.";
-        setActionResult({
-          success: result.scan.errors.length === 0 || result.scan.emailsProcessed > 0,
-          message: `${syncNote}${scanNote}${errorNote}`,
-        });
-        invalidateActiveTab();
-      } else {
-        setActionResult({
-          success: false,
-          message: result.error || "Sync and scan failed",
-        });
-      }
-    });
-  };
-
   // Count what the queue can actually render (valid, mapped cards), not the raw
   // server finding count — otherwise non-renderable findings inflate the badge
   // and you see "1" with an empty list.
@@ -451,49 +357,30 @@ export function PlaysPage({
     [initialFindings, initialQueue]
   );
 
+  // Same contract as needsYouCount: the badge counts what the list can
+  // actually render (validated mapped cards), so the number on the toggle
+  // always matches the cards below it.
   const autoHandledCount = useMemo(
     () =>
-      autoHandledFindings
-        .map(mapHandledFindingToCard)
-        .filter((vm) => validatePlayCard(vm).ok).length,
-    [autoHandledFindings]
+      [
+        ...autoHandledFindings.map(mapHandledFindingToCard),
+        ...autoHandledRuns.map(mapAutoHandledRunToCard),
+      ].filter((vm) => validatePlayCard(vm).ok).length,
+    [autoHandledFindings, autoHandledRuns]
   );
 
   const queueCounts = {
     needs_you: needsYouCount,
-    auto_handled: playsRanToday ?? autoHandledCount,
-    learning: learningEvidence?.length ?? 0,
+    auto_handled: autoHandledCount,
   };
 
   return (
     <div className="relative min-h-full">
-      <div aria-hidden className="salt-ambient-wash" />
-
       <div className="mx-auto w-full max-w-[1400px] space-y-8">
         {/* Tab Bar */}
         <div className="flex flex-wrap items-center justify-between gap-4">
           <PlaysTabs active={tab} onChange={handleTabChange} />
         </div>
-
-        {/* Sync / Scan result toast */}
-        {actionResult && (
-          <div
-            className={`flex items-start justify-between gap-3 rounded-lg border p-3 text-sm ${
-              actionResult.success
-                ? "border-green-500/30 bg-green-500/10 text-green-600"
-                : "border-red-500/30 bg-red-500/10 text-red-600"
-            }`}
-          >
-            <span className="min-w-0 flex-1">{actionResult.message}</span>
-            <button
-              type="button"
-              onClick={() => setActionResult(null)}
-              className="shrink-0 underline hover:no-underline"
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
 
         {isTabLoading ? (
           <PlaysPageSkeleton tab={tab} />
@@ -514,23 +401,17 @@ export function PlaysPage({
                   eyebrow={
                     queueFilter === "needs_you"
                       ? "Needs your attention"
-                      : queueFilter === "learning"
-                        ? "Building confidence"
-                        : "Salt handled"
+                      : "Salt handled"
                   }
                   title={
                     queueFilter === "needs_you"
                       ? "Needs You"
-                      : queueFilter === "learning"
-                        ? "Watching"
-                        : "Auto-handled"
+                      : "Auto-handled"
                   }
                   description={
                     queueFilter === "needs_you"
                       ? "Unresolved decisions waiting for you. Approve, edit, apply, or dismiss."
-                      : queueFilter === "learning"
-                        ? "Salt is gathering signals. Accept when ready, or wait for more evidence."
-                        : "Recent confident Memory and Salt updates. Activity keeps the full history."
+                      : "Recent confident Memory and Salt updates. Activity keeps the full history."
                   }
                 />
                 <QueueToggle
@@ -547,9 +428,7 @@ export function PlaysPage({
                   placeholder={
                     queueFilter === "needs_you"
                       ? "Search queued plays"
-                      : queueFilter === "learning"
-                        ? "Search watching…"
-                        : "Search handled updates"
+                      : "Search handled updates"
                   }
                   filterActive={activeQueueFilterCount > 0}
                   filterActiveCount={activeQueueFilterCount}
@@ -563,27 +442,6 @@ export function PlaysPage({
                       sectionOptions={queueSectionOptions}
                       itemKindOptions={queueItemKindOptions}
                     />
-                  }
-                  trailingAction={
-                    process.env.NODE_ENV === "development" ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleSyncAndScan}
-                        disabled={isPipelinePending}
-                        className={cn(
-                          "h-9 shrink-0 rounded-full border-border/60 bg-card px-3.5 gap-1.5 text-sm font-medium text-foreground shadow-none hover:border-border hover:bg-muted/40",
-                        )}
-                      >
-                        {isPipelinePending ? (
-                          <Loader2 className="size-3.5 animate-spin" strokeWidth={2.25} />
-                        ) : (
-                          <Zap className="size-3.5" strokeWidth={2.25} />
-                        )}
-                        {isPipelinePending ? "Syncing…" : "Sync & Scan"}
-                      </Button>
-                    ) : undefined
                   }
                 />
 
@@ -606,21 +464,7 @@ export function PlaysPage({
                   emptyDescription={
                     hasActiveQueueFilter
                       ? "Try clearing search or adjusting the filters."
-                      : "Salt's drafting the next batch. Check back soon."
-                  }
-                />
-              ) : queueFilter === "learning" ? (
-                <LearningTab
-                  evidence={filteredLearningEvidence}
-                  workspaceId={workspaceId ?? ""}
-                  onUpdate={invalidateActiveTab}
-                  emptyTitle={
-                    hasActiveQueueFilter ? "No matching evidence" : undefined
-                  }
-                  emptyDescription={
-                    hasActiveQueueFilter
-                      ? "Try clearing search or adjusting the filters."
-                      : undefined
+                      : "Salt is reading your connected accounts — your next plays land here."
                   }
                 />
               ) : (
@@ -638,19 +482,17 @@ export function PlaysPage({
             </motion.div>
           )}
 
-          {/* CUSTOMIZE TAB */}
-          {tab === "customize" && (
+          {/* PLAYBOOKS TAB */}
+          {tab === "playbooks" && (
             <motion.div
-              key="customize"
+              key="playbooks"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              <CustomizeTab
-                connectors={connectors}
+              <PlaybooksTab
                 playbooksV2={playbooksV2}
                 workspaceId={workspaceId ?? ""}
-                keeperUnseenCount={keeperUnseenCount}
               />
             </motion.div>
           )}
@@ -664,37 +506,15 @@ export function PlaysPage({
               exit={{ opacity: 0 }}
               className="space-y-8"
             >
-              <div className="flex flex-wrap items-end justify-between gap-4">
-                <PlaysSectionHeader
-                  eyebrow={
-                    activityView === "captures"
-                      ? "All captured context"
-                      : "All actions taken"
-                  }
-                  title="Activity"
-                  description={
-                    activityView === "captures"
-                      ? "Everything Salt saw from connected apps — a complete record of context entering your system."
-                      : "Everything Salt has done, approved, or learned from. A complete record of what shipped and why."
-                  }
-                />
-                <ActivityViewToggle
-                  active={activityView}
-                  onChange={handleActivityViewChange}
-                />
-              </div>
-              {activityView === "actions" ? (
-                <ActivityTab
-                  initialActivity={initialActivity}
-                  initialTotalCount={activityTotalCount}
-                />
-              ) : (
-                <CaptureStreamTab
-                  realStreamCaptures={streamCaptures}
-                  realStats={captureStats}
-                  hasRealData={hasCaptureData}
-                />
-              )}
+              <PlaysSectionHeader
+                eyebrow="All actions taken"
+                title="Activity"
+                description="Everything Salt has done, approved, or learned from. A complete record of what shipped and why."
+              />
+              <ActivityTab
+                initialActivity={initialActivity}
+                initialTotalCount={activityTotalCount}
+              />
             </motion.div>
           )}
         </AnimatePresence>
@@ -703,4 +523,3 @@ export function PlaysPage({
     </div>
   );
 }
-

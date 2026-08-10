@@ -144,9 +144,9 @@ function main() {
     process.exit(1);
   }
 
-  if (slug.startsWith("keeper-")) {
-    console.error(`Slug "${slug}" starts with "keeper-" which is reserved for keeper playbooks.`);
-    console.error("Keeper playbooks are manually seeded. See docs/architecture/playbook-formula.md.");
+  if (slug.startsWith("keeper-") || slug.startsWith("memory-")) {
+    console.error(`Slug "${slug}" uses a prefix reserved for Memory Care capabilities.`);
+    console.error("Memory Care is not playbook-based — see docs/architecture/memory-care.md.");
     process.exit(1);
   }
 

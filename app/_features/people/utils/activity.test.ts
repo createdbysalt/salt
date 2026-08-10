@@ -35,11 +35,11 @@ function provenance(
 }
 
 describe("mapProvenanceToActivity", () => {
-  it("attributes Keeper rule updates", () => {
+  it("attributes Salt rule updates", () => {
     const activity = mapProvenanceToActivity(provenance({ source: "rule" }));
 
-    expect(activity.kind).toBe("keeper");
-    expect(activity.label).toBe("Keeper updated relationship");
+    expect(activity.kind).toBe("salt");
+    expect(activity.label).toBe("Salt updated relationship");
     expect(activity.detail).toBe("Payment received · 92% sure");
   });
 
@@ -53,8 +53,8 @@ describe("mapProvenanceToActivity", () => {
       }),
     );
 
-    expect(activity.kind).toBe("keeper");
-    expect(activity.label).toBe("Keeper suggested job title");
+    expect(activity.kind).toBe("salt");
+    expect(activity.label).toBe("Salt suggested job title");
     expect(activity.detail).toBe("Signature said Creative Director · 92% sure");
   });
 
@@ -97,7 +97,7 @@ describe("mapProvenanceToActivity", () => {
     );
 
     expect(buildPersonActivityAskSaltPrompt(activity, "Liam Gillies")).toContain(
-      "Keeper suggested relationship",
+      "Salt suggested relationship",
     );
     expect(buildPersonActivityAskSaltPrompt(activity, "Liam Gillies")).toContain(
       "review or change",
@@ -142,7 +142,7 @@ describe("mapProvenanceToActivity", () => {
 
     const entry = mapProvenanceFeedItemToTimelineEntry(item);
 
-    expect(entry.label).toBe("Keeper suggested relationship");
+    expect(entry.label).toBe("Salt suggested relationship");
     expect(entry.entityName).toBe("Liam Gillies");
     expect(entry.detail).toContain("relationship →");
     expect(buildPlaybookProvenanceAskSaltPrompt(entry, "People Profile")).toContain(
@@ -159,7 +159,7 @@ describe("mapProvenanceToActivity", () => {
       detail: "Salt synced this billing record from a connected finance app.",
     });
 
-    expect(entry.kind).toBe("ai");
+    expect(entry.kind).toBe("salt");
     expect(entry.label).toBe("Record found in Stripe");
   });
 });

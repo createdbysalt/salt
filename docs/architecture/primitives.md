@@ -4,11 +4,11 @@
 
 Salt's proactive AI architecture separates concerns cleanly:
 
-| Primitive | Role | Analogy |
-|-----------|------|---------|
-| **Signals** | Observable events from the world | The eyes and ears |
-| **Tools** | Atomic, protected capabilities | The hands |
-| **Playbooks** | Orchestration logic | The brain |
+| Primitive     | Role                             | Analogy           |
+| ------------- | -------------------------------- | ----------------- |
+| **Signals**   | Observable events from the world | The eyes and ears |
+| **Tools**     | Atomic, protected capabilities   | The hands         |
+| **Playbooks** | Orchestration logic              | The brain         |
 
 **Key architectural insight:** Playbooks are pure orchestration (like Claude skills). Protection and thresholds are enforced at the **tool layer**, not in playbooks. This means Ask Salt, playbooks, and the UI all go through the same protected tools.
 
@@ -29,6 +29,7 @@ Signal: billing_payment_matched
 ```
 
 **Properties:**
+
 - **Declarative** — what happened, not what to do
 - **Immutable** — events are facts, they don't change
 - **Source-attributed** — where did we learn this?
@@ -62,6 +63,7 @@ if (confidence >= workspaceThreshold) {
 ```
 
 **Properties:**
+
 - **Protected** — thresholds and approvals enforced inside the tool
 - **Auditable** — every call logged with evidence chain
 - **Composable** — playbooks combine them
@@ -70,11 +72,11 @@ if (confidence >= workspaceThreshold) {
 
 **Risk Classes:**
 
-| Class | Execution | Examples |
-|-------|-----------|----------|
-| `read` | Auto-execute | `get_person`, `list_invoices`, `get_voice_profile` |
-| `mutating` | Confidence-gated or approval-required | `memory_update_field`, `draft_email`, `enrich_entity` |
-| `destructive` | Never executed by Salt | `delete_customer`, `void_invoice` |
+| Class         | Execution                             | Examples                                              |
+| ------------- | ------------------------------------- | ----------------------------------------------------- |
+| `read`        | Auto-execute                          | `get_person`, `list_invoices`, `get_voice_profile`    |
+| `mutating`    | Confidence-gated or approval-required | `memory_update_field`, `draft_email`, `enrich_entity` |
+| `destructive` | Never executed by Salt                | `delete_customer`, `void_invoice`                     |
 
 **See:** [Tools Reference](tools.md)
 
@@ -82,26 +84,41 @@ if (confidence >= workspaceThreshold) {
 
 ### Playbooks — The Brain
 
-Playbooks are **reusable orchestration logic** that respond to signals using tools. They're self-contained packages (like Claude skills) with instructions, triggers, and execution code.
+Playbooks are **reusable orchestration logic** that respond to signals using tools. Each is a directory package: a declarative `definition.yaml` (trigger, steps, tool allowlist, output, value) plus a `PLAYBOOK.md` — the v2 executor runs the steps.
 
 ```yaml
 # playbooks/v2/billing/payment-received/definition.yaml
-name: Payment Received Handler
+name: Payment Received
 slug: payment-received
-layer: learn              # or "act" for action playbooks
+layer: act # playbooks are act-layer only
 section: billing
 
-triggers:
-  - type: signal
-    signals: [billing_payment_matched]
+trigger:
+  type: signal
+  signal: billing_payment_matched
 
 tools:
-  - memory_update_field   # Protected, threshold-gated
-  - get_entity_facts      # Read-only
-  - notify                # Creates notifications
+  - GMAIL_CREATE_EMAIL_DRAFT # allowlist — action steps may only use these
+
+steps:
+  - step: fetch
+    id: payment
+    from: billing.read_payment
+  - step: draft
+    id: thank_you
+    prompt: Draft a short thank-you for {{payment.client_name}}...
+  - step: action
+    id: queue_draft
+    tool: GMAIL_CREATE_EMAIL_DRAFT
+    approval: ask
+
+output:
+  type: email_draft
+  approval: ask
 ```
 
 **Properties:**
+
 - **Pure orchestration** — no protection logic (tools handle that)
 - **Trigger-driven** — which signals activate me?
 - **Tool-based** — I call tools, I don't mutate directly
@@ -110,12 +127,14 @@ tools:
 
 **Layers:**
 
-| Layer | Purpose | Example |
-|-------|---------|---------|
-| `learn` | Enrich Memory records | keeper-people-records, keeper-billing-records |
-| `act` | Take actions, create outputs | invoice-reminder, daily-briefing |
+| Layer   | Purpose                       | Example                                                                 |
+| ------- | ----------------------------- | ----------------------------------------------------------------------- |
+| `learn` | Enrich Memory (not playbooks) | [Memory Care](memory-care.md) — records / hygiene / connections / notes |
+| `act`   | Take actions, create outputs  | invoice-reminder, daily-briefing                                        |
 
-**See:** [Playbooks Reference](playbooks.md)
+Playbooks are **act-layer only**. Learn-layer Memory enrichment is Memory Care.
+
+**See:** [Playbooks Reference](playbooks.md) · [Memory Care](memory-care.md)
 
 ---
 
@@ -129,71 +148,69 @@ tools:
    Example: "billing_payment_matched" for person abc123
                 │
                 ▼
-3. Signal dispatch finds playbooks triggered by this signal
-   - keeper-billing-records (LEARN layer)
-   - cash-celebration (ACT layer)
+3. Signal dispatch routes:
+   - Memory Care records capability (learn layer)
+   - cash-celebration playbook (act layer)
                 │
                 ▼
-4. Each playbook executes using Tools:
+4. Each system executes using Tools:
 
-   keeper-billing-records:
+   Memory Care · Records:
    ├── get_entity_facts(billing_record)
-   ├── evaluate fill_rules
-   └── memory_update_field(status: "paid", confidence: 95)
-       └── Tool checks: 95 >= 85 threshold → applies
-   
-   cash-celebration:
-   ├── get_voice_profile(context: "celebration")
-   ├── draft content
-   └── notify(type: "celebration")
+   ├── evaluate fill_rules (field registry)
+   └── memory_update_field(status: "paid", confidence: 95, minThreshold: bar)
+       └── Tool checks tiered bar → apply / watch / refuse
+
+   cash-celebration (executor steps):
+   ├── fetch payment context (billing.* / memory.* sources)
+   ├── draft thank-you (voice guidance inline in the prompt)
+   ├── action GMAIL_CREATE_EMAIL_DRAFT (approval: ask → Plays Queue)
+   └── output.type: email_draft → queue card
 ```
 
 ---
 
 ## Progressive Autonomy
 
-Salt uses **confidence-based execution** to balance automation with user control:
+Salt uses **confidence-based execution** for Memory writes (tiered bars, not an approval queue):
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    CONFIDENCE CHECK                      │
+│              MEMORY CARE DECISION PIPELINE               │
 ├─────────────────────────────────────────────────────────┤
 │                                                          │
-│  Confidence < Threshold (85% default)                    │
-│  └── ACCUMULATE: Store evidence, wait for more signals  │
+│  Never-touch field (money)                               │
+│  └── REFUSE: no write, no evidence, no queue            │
 │                                                          │
-│  Confidence ≥ Threshold (low-stakes field)              │
-│  └── AUTO-EXECUTE: Apply change, log provenance         │
+│  Confidence < tier bar                                   │
+│  └── WATCH: accumulate evidence (Filter → Watching)     │
 │                                                          │
-│  High-stakes field (ask-first policy)                   │
-│  └── APPROVAL REQUIRED: Queue for user confirmation     │
+│  Confidence ≥ tier bar (standard / sensitive / destroy) │
+│  └── APPLY: write via memory-tools, log Handled          │
 │                                                          │
-│  Destructive action                                      │
-│  └── NEVER EXECUTED: Salt cannot perform this           │
+│  Correction                                              │
+│  └── "That's wrong" → rollback + lesson in Rules         │
 │                                                          │
 └─────────────────────────────────────────────────────────┘
 ```
 
-**Threshold is a workspace setting** (`keeper_auto_execute_threshold`, default 85%). Users can raise or lower it based on their trust level.
+**Threshold** is `workspaces.memory_care_auto_apply_threshold` (default 85%). Sensitive and destructive tiers raise the floor to 95. See [Memory Care](memory-care.md) and `app/_lib/learning/field-tiers.ts`.
 
-**Ask-first fields** (from `execution-router.ts`):
-- `industry`, `preferred_channel` (person)
-- `work_type`, `billing_model` (work)
-- `business_model`, `pricing_model` (me)
-- Any first-time classification
+Act-layer plays (anything leaving Salt) still require Plays Queue approval — that is where approval belongs.
 
 ---
 
 ## Quick Reference
 
-| Need to... | Use | Example |
-|------------|-----|---------|
-| React to an event | Signal → Playbook | Payment received → update billing status |
-| Perform an action | Tool (via Playbook or Ask Salt) | `memory_update_field`, `draft_email` |
-| Create reusable intelligence | Playbook | keeper-people-records, invoice-reminder |
-| Enrich entity data | `enrich_entity` tool | Query connected accounts for person info |
-| Ensure consistent voice | `get_voice_profile` tool | Get tone for billing reminders |
-| Show what Salt knows | Trust Dashboard | `/plays/trust` |
+| Need to...                       | Use                                     | Example                                               |
+| -------------------------------- | --------------------------------------- | ----------------------------------------------------- |
+| React to an event                | Signal → Care or Playbook               | Payment → Care records; celebration → playbook        |
+| Perform an action                | Tool (via Care, Playbook, or Ask Salt)  | `memory_update_field`, `draft_email`                  |
+| Enrich Memory                    | Memory Care                             | records / hygiene / connections / notes               |
+| Create reusable act intelligence | Playbook                                | invoice-reminder, daily-briefing                      |
+| Enrich entity data               | `enrich_entity` tool                    | Query connected accounts for person info              |
+| Ensure consistent voice          | Playbook `instructions` / draft prompts | Voice guidance inline (voice tools are future design) |
+| See what Salt is learning        | Memory → Filter                         | Watching / Handled / Kept out                         |
 
 ---
 
@@ -204,21 +221,18 @@ Salt uses **confidence-based execution** to balance automation with user control
 │                        SIGNALS                                │
 │  Observable events from connected accounts and the world      │
 │  Examples: person_created, payment_received, meeting_ended    │
-└──────────────────────────────────┬───────────────────────────┘
-                                   │
-                                   ▼
-┌──────────────────────────────────────────────────────────────┐
-│                       PLAYBOOKS                               │
-│  Orchestration logic that responds to signals using tools     │
-│  Examples: keeper-people-records, invoice-reminder            │
-│                                                               │
-│  ┌─────────────────┐  ┌─────────────────┐                    │
-│  │ LEARN Layer     │  │ ACT Layer       │                    │
-│  │ Enrich Memory   │  │ Take actions    │                    │
-│  └─────────────────┘  └─────────────────┘                    │
-└──────────────────────────────────┬───────────────────────────┘
-                                   │
-                                   ▼
+└───────────────┬──────────────────────────────┬───────────────┘
+                │                              │
+                ▼                              ▼
+┌───────────────────────────┐    ┌──────────────────────────────┐
+│      MEMORY CARE          │    │         PLAYBOOKS            │
+│  Learn-layer enrichment   │    │  Act-layer orchestration     │
+│  records / hygiene /      │    │  invoice-reminder,           │
+│  connections / notes      │    │  daily-briefing              │
+└───────────────┬───────────┘    └──────────────┬───────────────┘
+                │                               │
+                └───────────────┬───────────────┘
+                                ▼
 ┌──────────────────────────────────────────────────────────────┐
 │                         TOOLS                                 │
 │  Atomic, protected capabilities that do one thing well        │
@@ -234,8 +248,9 @@ Salt uses **confidence-based execution** to balance automation with user control
 
 ## See Also
 
+- [Memory Care](memory-care.md) — Learn-layer enrichment (not playbooks)
 - [Signals Reference](signals.md) — Full signal taxonomy and registry
 - [Tools Reference](tools.md) — Tool contracts and risk classes
-- [Playbooks Reference](playbooks.md) — Playbook structure and execution model
+- [Playbooks Reference](playbooks.md) — Act-layer playbook structure and execution
 - [Memory Trust Layer](../plans/2026-07-11-memory-trust-layer.md) — Evidence chains, conflicts, rollback
 - [Playbook Packages](../plans/2026-07-11-playbook-packages.md) — Skill-like playbook architecture

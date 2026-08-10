@@ -285,7 +285,6 @@ export function PersonDetailPage({
   if (!person && !personSummary && !profileFields) {
     return (
       <div className="relative min-h-full">
-        <div aria-hidden className="salt-ambient-wash" />
         <div className={memoryDetailShellClass}>
           <Link
             href="/people"
@@ -309,8 +308,6 @@ export function PersonDetailPage({
 
   return (
     <div className="relative min-h-full">
-      <div aria-hidden className="salt-ambient-wash" />
-
       <div className={memoryDetailShellClass}>
         <Link
           href="/people"

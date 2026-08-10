@@ -1,12 +1,26 @@
 import "server-only";
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import type { Json } from "@/app/_lib/supabase/database.types";
 import { logHealthChangeLifecycleEvent } from "@/app/_features/memory/health/log-health-lifecycle-event";
 import { gatherWorkHealthSignals } from "./gather-signals";
 import { detectWorkBlockers, syncDetectedBlockers } from "./detect-blockers";
 import { scoreWorkHealth } from "./score-work-health";
 import { WORK_HEALTH_VERSION } from "./types";
-import type { WorkHealthResult } from "./types";
+import type { HealthFactor, WorkHealthResult } from "./types";
+
+/** HealthFactor is an interface (no implicit index signature); re-shape into
+ * fresh literals so the payload satisfies the jsonb column type without casts. */
+function healthFactorsToJson(factors: HealthFactor[]): Json {
+  return factors.map((factor) => ({
+    key: factor.key,
+    label: factor.label,
+    subScore: factor.subScore,
+    weight: factor.weight,
+    direction: factor.direction,
+    detail: factor.detail,
+  }));
+}
 
 function logRecomputeError(message: string, error: unknown, meta?: Record<string, string>): void {
   if (meta) {
@@ -85,7 +99,7 @@ export async function recomputeWorkHealth(workId: string): Promise<WorkHealthRes
       health_score_cached: result.score,
       health_band: result.band,
       health_archetype: result.archetype,
-      health_factors: result.factors,
+      health_factors: healthFactorsToJson(result.factors),
       health_updated_at: new Date().toISOString(),
       health_version: result.version,
     })

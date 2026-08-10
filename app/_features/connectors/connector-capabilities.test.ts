@@ -4,13 +4,8 @@ import {
   getComposioProviderForToolSlug,
   getConnectorCapabilities,
   humanizeToolDescription,
-  supportsToolPreferences,
 } from "./connector-capabilities";
-import {
-  getDisabledToolsFromConfig,
-  mergeDisabledToolsIntoConfig,
-  parseConnectorIntegrationConfig,
-} from "./connector-config";
+import { parseConnectorIntegrationConfig } from "./connector-config";
 
 describe("connector capabilities", () => {
   it("returns only Gmail tools for the Gmail connector (per-app split)", () => {
@@ -81,11 +76,6 @@ describe("connector capabilities", () => {
     ).toBe("googlecalendar");
   });
 
-  it("flags tool-preference connectors", () => {
-    expect(supportsToolPreferences("google")).toBe(true);
-    expect(supportsToolPreferences("stripe")).toBe(true);
-  });
-
   it("maps Stripe tool slugs to the stripe provider", () => {
     expect(
       getComposioProviderForToolSlug(COMPOSIO_TOOL_SLUGS.STRIPE_LIST_INVOICES),
@@ -94,28 +84,10 @@ describe("connector capabilities", () => {
 });
 
 describe("connector integration config", () => {
-  it("defaults missing disabledTools to empty", () => {
-    expect(getDisabledToolsFromConfig({ email: "a@b.com" })).toEqual([]);
-  });
-
-  it("merges disabledTools without clobbering legacy keys", () => {
-    const merged = mergeDisabledToolsIntoConfig(
-      { email: "hello@usesalt.io", username: "salt" },
-      [COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL],
-    );
-    expect(merged).toEqual({
-      email: "hello@usesalt.io",
-      username: "salt",
-      disabledTools: [COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL],
-    });
-  });
-
   it("parses config with passthrough fields", () => {
     const parsed = parseConnectorIntegrationConfig({
       botEmail: "fred@fireflies.ai",
-      disabledTools: ["CAL_ADD_ATTENDEE"],
     });
-    expect(parsed.disabledTools).toEqual(["CAL_ADD_ATTENDEE"]);
     expect(parsed.botEmail).toBe("fred@fireflies.ai");
   });
 });

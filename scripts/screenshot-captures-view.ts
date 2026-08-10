@@ -44,8 +44,8 @@ async function main() {
   await page.waitForTimeout(3000);
   console.log(`Post-auth URL: ${page.url()}`);
 
-  // Captures view
-  await page.goto(`${BASE_URL}/plays?tab=activity&view=captures`, {
+  // Sources Activity (capture audit view)
+  await page.goto(`${BASE_URL}/sources?tab=activity`, {
     waitUntil: "domcontentloaded",
     timeout: 120_000,
   });

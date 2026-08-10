@@ -90,7 +90,7 @@ export interface OrgHealthResult {
 export type OrgActivityEvent = {
   id: string;
   at: string;
-  kind: "keeper" | "ai" | "user" | "system" | "salt";
+  kind: "salt" | "ai" | "user" | "system";
   label: string;
   detail: string | null;
   field?: OrgProfileFieldKey | string;

@@ -58,6 +58,31 @@ export function resolveTierFromStripe(
 }
 
 /**
+ * INV-5: the tier a checkout grants derives from the PAID price id, never
+ * from checkout-session metadata. Metadata is written at session-creation
+ * time on the client-initiated path, so a tampered session could otherwise
+ * pay Starter and claim Max. The price the customer actually paid is the
+ * only incorruptible signal Stripe gives us.
+ *
+ * Returns null when the price id is unknown — fail closed, grant nothing,
+ * let the webhook error surface for a human. When metadata disagrees with
+ * the price, the price wins and `metadataMismatch` flags it for logging.
+ */
+export function resolveCheckoutTier(
+  priceId: string | null | undefined,
+  metadataTier: string | null | undefined,
+): { tier: WorkspaceTier; metadataMismatch: boolean } | null {
+  const priceTier = resolveTierFromPriceId(priceId);
+  if (!priceTier) return null;
+
+  const declared = metadataTier ? resolveTierFromStripe(metadataTier) : null;
+  return {
+    tier: priceTier,
+    metadataMismatch: declared !== null && declared !== priceTier,
+  };
+}
+
+/**
  * Reverse the configured price map to recover a tier from a Stripe price id.
  *
  * Needed on `customer.subscription.updated`, where an upgrade or downgrade

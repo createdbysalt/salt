@@ -25,7 +25,7 @@ globs: "brand-identity/**/*"
 | Who we target | `foundation/target-audience.md` |
 | What Salt is | `foundation/product-truth.md` |
 | Positioning | `positioning/value-proposition.md` |
-| Terminology | `voice/terminology.md` |
+| Terminology | `voice/terminology.md` (vault only — not in repo) |
 | UI copy | `voice/examples/ui-copy.md` |
 
 ## Quick Identity

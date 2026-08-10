@@ -1,11 +1,11 @@
 /**
  * Goal ai_progress writer — closes the "operator_goals.ai_progress has no
- * writer" contract gap (keeper-me playbook, keeper-derived-surfaces #8a).
+ * writer" contract gap (me blueprint, keeper-derived-surfaces #8a).
  *
  * Derives current progress for each ACTIVE operator goal DETERMINISTICALLY
  * from memory — no LLM. Salt writes ONLY `ai_progress` (system_derived);
  * goal content, status, targets, and manual progress stay user-only per the
- * keeper-me field contract.
+ * me field contract.
  *
  * Derivation rules (per target_unit, settled 2026-07-03):
  * - "dollars": sum of `billing_records.amount_paid_cents` on receivables with
@@ -306,7 +306,7 @@ export function isGoalAiProgressStale(
 /**
  * Recompute ai_progress for every ACTIVE goal in the workspace. Writes ONLY
  * the ai_progress column — never goal content, status, targets, or progress
- * (user-only per the keeper-me contract).
+ * (user-only per the me field contract).
  */
 export async function recomputeGoalAiProgress(workspaceId: string): Promise<number> {
   const admin = createAdminClient();

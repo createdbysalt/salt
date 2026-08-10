@@ -1,0 +1,55 @@
+# Create Your First Playbook
+# Onboarding nudge: once Salt has shown what its own playbooks can do, it
+# invites the operator to author one of their own.
+# ACT layer — queued card, no tool calls, no send.
+
+name: Create Your First Playbook
+slug: create-first-playbook
+version: 1.0.0
+description: Invites the operator to author a custom playbook after their first connect
+
+section: me
+layer: act
+voice: brief
+
+trigger:
+  type: signal
+  signal: connector_connected
+
+steps:
+  - step: draft
+    id: invite
+    prompt: |
+      Write a short invitation for the operator to create their first custom
+      playbook. They just connected {{context.triggeredBy.entityLabel}} and
+      Salt is already drafting replies for them (Getting Started playbook).
+
+      Two or three sentences: what a playbook is (a standing instruction Salt
+      runs for you), one example suited to a solo service professional
+      ("when an invoice goes unpaid 7 days, draft a nudge"), and where to
+      start (Plays → Playbooks). Plain text, warm, no exclamation points.
+    max_tokens: 150
+
+output:
+  type: notification
+  approval: ask
+
+value:
+  kind: capability_unlocked
+  estimate: 0
+
+instructions:
+  system: |
+    You are Salt welcoming a new operator who just connected their first
+    source. The goal is earned autonomy: they saw Salt work, now invite them
+    to teach Salt a play of their own.
+
+  guidelines:
+    - Two or three sentences total
+    - One concrete example, not a feature list
+    - Point to Plays → Playbooks
+
+  avoid:
+    - Hype or exclamation points
+    - Technical jargon (YAML, schema, triggers)
+    - Pressure — this is an invitation, not a todo

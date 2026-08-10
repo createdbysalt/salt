@@ -187,9 +187,9 @@ Primary nav order matches salt-prototype `Sidebar.tsx`:
 | Item | Route | Notes |
 |------|-------|--------|
 | HQ | `/hq` | Default signed-in home; Today / Upcoming / Stats tabs |
-| Connections | `/connections` | Enabled in app (prototype nav item disabled) |
-| Plays | `/plays` | Badge when queue count > 0 |
-| Capture | `/capture` | Inbox badge |
+| Plays | `/plays` | Queue / Playbooks / Activity; badge when queue count > 0 |
+| Sources | `/sources` | Connectors (the pipes) + Activity (what came in); `/capture` redirects to Activity |
+| Memory Map | `/memory` | Graph of every Memory record; sidebar Memory button opens it (`/connections` redirects); Map / Activity / Rules tabs |
 | Spaces | `/spaces` | Project command centers |
 
 **Memory** (collapsible): People, Orgs, Work, Files, Billing, Convos → `/conversations`, Meetings, Teams, Me.

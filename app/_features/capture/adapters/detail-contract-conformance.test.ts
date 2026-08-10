@@ -30,6 +30,19 @@ import { NOTION_TRIGGER_PAGE_CREATED } from "./__fixtures__/notion-payloads";
 import { GOOGLEDOCS_TRIGGER_DOCUMENT_CREATED } from "./__fixtures__/googledocs-payloads";
 import { GOOGLESHEETS_TRIGGER_SPREADSHEET_CREATED } from "./__fixtures__/googlesheets-payloads";
 import { GOOGLESLIDES_TRIGGER_SLIDE_ADDED } from "./__fixtures__/googleslides-payloads";
+import { OUTLOOK_MESSAGE_HYDRATED } from "./__fixtures__/outlook-payloads";
+import {
+  OUTLOOK_EVENT_TRIGGER_POINTER,
+  OUTLOOK_CALENDAR_EVENT_HYDRATED,
+} from "./__fixtures__/outlook-calendar-payloads";
+import { QUICKBOOKS_INVOICE_BACKFILL } from "./__fixtures__/quickbooks-payloads";
+import { DROPBOX_FILE_ENTRY } from "./__fixtures__/dropbox-payloads";
+import { ONEDRIVE_DRIVE_ITEM } from "./__fixtures__/onedrive-payloads";
+import {
+  PIPEDRIVE_TRIGGER_NEW_DEAL,
+  PIPEDRIVE_TRIGGER_NEW_ORGANIZATION,
+} from "./__fixtures__/pipedrive-payloads";
+import { FIREFLIES_TRANSCRIPT } from "./__fixtures__/fireflies-payloads";
 
 /**
  * Detail-contract conformance (capture quality repair, Phase D).
@@ -72,20 +85,7 @@ const CONTRACT_SUITES: Record<string, AdapterFixture[]> = {
   outlook: [
     {
       name: "OUTLOOK_MESSAGE_TRIGGER (Graph message)",
-      payload: {
-        id: "AAMkOutlookMsg123",
-        subject: "Contract redlines",
-        bodyPreview: "Two clauses to review before Friday.",
-        from: {
-          emailAddress: { address: "Grace@AcmeCreative.co", name: "Grace Chen" },
-        },
-        toRecipients: [
-          { emailAddress: { address: "you@usesalt.io", name: "You" } },
-        ],
-        conversationId: "conv-outlook-1",
-        receivedDateTime: "2026-08-01T10:00:00Z",
-        webLink: "https://outlook.office.com/mail/id/AAMkOutlookMsg123",
-      },
+      payload: OUTLOOK_MESSAGE_HYDRATED,
       expectExternalId: "AAMkOutlookMsg123",
       expectContractFields: [
         "subject",
@@ -125,31 +125,13 @@ const CONTRACT_SUITES: Record<string, AdapterFixture[]> = {
   outlook_calendar: [
     {
       name: "OUTLOOK_EVENT_TRIGGER pointer (needs hydration)",
-      payload: { id: "AAMkEvtPointer1", event_type: "created" },
+      payload: OUTLOOK_EVENT_TRIGGER_POINTER,
       expectExternalId: "AAMkEvtPointer1",
       expectContractFields: ["needs_hydration"],
     },
     {
       name: "Graph event resource (hydrated)",
-      payload: {
-        id: "AAMkEvtFull1",
-        subject: "Q3 planning",
-        start: { dateTime: "2026-08-12T14:00:00Z" },
-        end: { dateTime: "2026-08-12T15:00:00Z" },
-        organizer: {
-          emailAddress: { address: "you@usesalt.io", name: "You" },
-        },
-        attendees: [
-          {
-            emailAddress: { address: "ada@northwind.com", name: "Ada Lovelace" },
-            status: { response: "accepted" },
-          },
-        ],
-        location: { displayName: "Teams" },
-        onlineMeeting: { joinUrl: "https://teams.microsoft.com/l/meetup/1" },
-        webLink: "https://outlook.office365.com/calendar/item/AAMkEvtFull1",
-        showAs: "busy",
-      },
+      payload: OUTLOOK_CALENDAR_EVENT_HYDRATED,
       expectExternalId: "AAMkEvtFull1",
       expectContractFields: [
         "summary",
@@ -198,17 +180,7 @@ const CONTRACT_SUITES: Record<string, AdapterFixture[]> = {
   quickbooks: [
     {
       name: "QuickBooks invoice (backfill)",
-      payload: {
-        Id: "1042",
-        DocNumber: "INV-1042",
-        TotalAmt: 2060.0,
-        Balance: 0,
-        CurrencyRef: { value: "CAD" },
-        DueDate: "2026-08-20",
-        CustomerRef: { name: "Northwind Studio" },
-        BillEmail: { Address: "billing@northwind.com" },
-        MetaData: { LastUpdatedTime: "2026-08-01T12:00:00Z" },
-      },
+      payload: QUICKBOOKS_INVOICE_BACKFILL,
       expectExternalId: "1042",
       expectContractFields: [
         "amount",
@@ -240,16 +212,7 @@ const CONTRACT_SUITES: Record<string, AdapterFixture[]> = {
   dropbox: [
     {
       name: "Dropbox file entry (backfill)",
-      payload: {
-        id: "id:a4ayc_80_OEAAAAAAAAAYa",
-        name: "report.pdf",
-        path_display: "/Documents/report.pdf",
-        ".tag": "file",
-        size: 1024000,
-        client_modified: "2026-08-01T09:00:00Z",
-        preview_url: "https://www.dropbox.com/preview/Documents/report.pdf",
-        sharing_info: { modified_by: "editor@example.com" },
-      },
+      payload: DROPBOX_FILE_ENTRY,
       expectExternalId: "id:a4ayc_80_OEAAAAAAAAAYa",
       expectContractFields: [
         "file_name",
@@ -263,16 +226,7 @@ const CONTRACT_SUITES: Record<string, AdapterFixture[]> = {
   onedrive: [
     {
       name: "Graph driveItem (backfill)",
-      payload: {
-        id: "01BYE5RZ6QN3ZWBTUFOFD3GSPGOHDJD36K",
-        name: "brief.pdf",
-        size: 204800,
-        webUrl: "https://contoso-my.sharepoint.com/personal/me/brief.pdf",
-        lastModifiedDateTime: "2026-08-01T12:00:00Z",
-        parentReference: { path: "/drive/root:/Clients/Acme" },
-        file: { mimeType: "application/pdf" },
-        lastModifiedBy: { user: { email: "anna@contoso.com", displayName: "Anna" } },
-      },
+      payload: ONEDRIVE_DRIVE_ITEM,
       expectExternalId: "01BYE5RZ6QN3ZWBTUFOFD3GSPGOHDJD36K",
       expectContractFields: [
         "file_name",
@@ -313,14 +267,7 @@ const CONTRACT_SUITES: Record<string, AdapterFixture[]> = {
   pipedrive: [
     {
       name: "new deal trigger",
-      payload: {
-        id: "42",
-        title: "Retainer renewal",
-        value: "2500",
-        currency: "USD",
-        status: "open",
-        stage_id: "3",
-      },
+      payload: PIPEDRIVE_TRIGGER_NEW_DEAL,
       expectExternalId: "deal:42",
       expectContractFields: [
         "entity_type",
@@ -333,7 +280,7 @@ const CONTRACT_SUITES: Record<string, AdapterFixture[]> = {
     },
     {
       name: "new organization trigger",
-      payload: { id: "77", name: "Acme Creative", email: "hello@acmecreative.co" },
+      payload: PIPEDRIVE_TRIGGER_NEW_ORGANIZATION,
       expectExternalId: "organization:77",
       expectContractFields: ["entity_type", "entity_name", "email"],
     },
@@ -343,21 +290,7 @@ const CONTRACT_SUITES: Record<string, AdapterFixture[]> = {
   fireflies: [
     {
       name: "Fireflies transcript (backfill)",
-      payload: {
-        id: "tr-abc123",
-        title: "Kickoff — Acme rebrand",
-        date: 1754500000000,
-        duration: 32.4,
-        meeting_attendees: [
-          { displayName: "You", email: "you@usesalt.io" },
-          { displayName: "Grace Chen", email: "grace@acmecreative.co" },
-        ],
-        summary: {
-          overview: "Aligned on rebrand scope and next steps.",
-          action_items: "- Send revised proposal\n- Book brand workshop",
-        },
-        transcript_url: "https://app.fireflies.ai/view/tr-abc123",
-      },
+      payload: FIREFLIES_TRANSCRIPT,
       expectExternalId: "tr-abc123",
       expectContractFields: [
         "duration_minutes",
@@ -406,12 +339,6 @@ const CONTRACT_SUITES: Record<string, AdapterFixture[]> = {
   ],
 };
 
-/** Trigger-enabled providers exempt from the contract suite, with the reason. */
-const SKIPPED: Record<string, string> = {
-  salesforce:
-    "SALESFORCE_* trigger slugs 404 in Composio (repair-plan Phase 2 finding) — no live payload shape to pin",
-};
-
 describe("capture detail-contract conformance", () => {
   // provider → category from the hardcoded known-provider list. The enrichment
   // registry's DB-backed lookup doesn't cover every known provider, so resolve
@@ -426,7 +353,7 @@ describe("capture detail-contract conformance", () => {
     for (const [provider, category] of providerCategories) {
       const adapter = getAdapterForCategory(category, provider);
       if (adapter.triggerSlugs.length === 0) continue;
-      const covered = provider in CONTRACT_SUITES || provider in SKIPPED;
+      const covered = provider in CONTRACT_SUITES;
       expect(
         covered,
         `provider '${provider}' has trigger slugs [${adapter.triggerSlugs.join(", ")}] but no contract fixture — add one to CONTRACT_SUITES (see capture-detail-contract.md)`,

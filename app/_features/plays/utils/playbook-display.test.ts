@@ -12,11 +12,11 @@ describe("playbookKindLabel", () => {
 });
 
 describe("playbookHeroEyebrow", () => {
-  it("shows Keeper play for keeper profile playbooks", () => {
-    expect(playbookHeroEyebrow("profile", "keeper")).toBe("Keeper play");
+  it("shows Memory Care play for memory-care profile playbooks", () => {
+    expect(playbookHeroEyebrow("profile", "memory-care")).toBe("Memory Care play");
   });
 
-  it("falls back to kind label for non-keeper profile playbooks", () => {
+  it("falls back to kind label for non-care profile playbooks", () => {
     expect(playbookHeroEyebrow("profile", "billing")).toBe("Capture playbook");
   });
 

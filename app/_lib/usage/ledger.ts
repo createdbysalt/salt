@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import type { Json } from "@/app/_lib/supabase/database.types";
 import { noteLocalSpend } from "./cogs";
 import type {
   LedgerWriteResult,
@@ -45,7 +46,7 @@ export async function recordUsageEvent(
       billable: input.billable,
       idempotency_key: input.idempotencyKey,
       cost_estimate_micros: costMicros,
-      cost_breakdown: input.costBreakdown ?? {},
+      cost_breakdown: (input.costBreakdown ?? {}) as Json,
       play_run_id: input.playRunId ?? null,
       external_effect: input.externalEffect ?? null,
     })

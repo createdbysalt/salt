@@ -6,7 +6,7 @@ import { X } from "lucide-react";
 import { cn } from "@repo/utils";
 import type { QueueSectionFilter } from "../utils/queue-section";
 
-export type QueueTab = "needs_you" | "auto_handled" | "learning";
+export type QueueTab = "needs_you" | "auto_handled";
 
 export type QueueItemKindFilter = "finding" | "prepared_play";
 
@@ -49,10 +49,6 @@ const PANEL_COPY: Record<QueueTab, { title: string; description: string }> = {
   },
   auto_handled: {
     title: "Filter auto-handled",
-    description: "Filter by playbook section",
-  },
-  learning: {
-    title: "Filter watching",
     description: "Filter by playbook section",
   },
 };

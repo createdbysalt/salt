@@ -93,7 +93,8 @@ async function fetchCogsMicros(
   const { data, error } = await supabase.rpc("workspace_cogs_micros", {
     p_workspace_id: workspaceId,
     p_since: periodStart,
-    p_until: periodEnd,
+    // The SQL parameter defaults to NULL; omitting it and passing null agree.
+    p_until: periodEnd ?? undefined,
   });
 
   if (error) {

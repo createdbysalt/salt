@@ -16,7 +16,10 @@ import "server-only";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { getConnectionStatus } from "./connections";
 import { resolveCapabilityTool } from "./capability-resolver";
-import { CONNECTOR_TO_CATEGORY } from "./enrichment/registry";
+import {
+  getCaptureCategoryMap,
+  listProvidersForCategory,
+} from "./capture-categories";
 import type { ConnectorCategory } from "./enrichment/types";
 
 export interface ConnectedCategory {
@@ -55,7 +58,7 @@ export async function getConnectedCategories(
 
   const { data: integrations, error } = await supabase
     .from("workspace_integrations")
-    .select("provider_key, composio_connection_id")
+    .select("provider, composio_connection_id")
     .eq("workspace_id", workspaceId)
     .eq("is_active", true)
     .not("composio_connection_id", "is", null);
@@ -65,10 +68,12 @@ export async function getConnectedCategories(
   }
 
   const categoryMap = new Map<ConnectorCategory, { providers: string[]; connectionIds: string[] }>();
+  const providerCategories = await getCaptureCategoryMap();
 
   for (const integration of integrations) {
-    const category = CONNECTOR_TO_CATEGORY[integration.provider_key];
-    if (!category) continue;
+    const category = providerCategories.get(integration.provider);
+    // composio_connection_id is filtered non-null above; the guard narrows the type.
+    if (!category || !integration.composio_connection_id) continue;
 
     let entry = categoryMap.get(category);
     if (!entry) {
@@ -76,7 +81,7 @@ export async function getConnectedCategories(
       categoryMap.set(category, entry);
     }
 
-    entry.providers.push(integration.provider_key);
+    entry.providers.push(integration.provider);
     entry.connectionIds.push(integration.composio_connection_id);
   }
 
@@ -107,9 +112,7 @@ export async function getCategoryCapabilities(
 ): Promise<string[]> {
   const supabase = createAdminClient();
 
-  const providers = Object.entries(CONNECTOR_TO_CATEGORY)
-    .filter(([, cat]) => cat === category)
-    .map(([provider]) => provider);
+  const providers = await listProvidersForCategory(category);
 
   if (providers.length === 0) {
     return [];

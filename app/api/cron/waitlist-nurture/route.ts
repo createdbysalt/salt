@@ -6,27 +6,13 @@
 
 import { processDueWaitlistNurtureEmails } from "@/app/_features/marketing/waitlist-nurture";
 import { NextRequest, NextResponse } from "next/server";
-
-const CRON_SECRET = process.env.CRON_SECRET;
+import { assertInternalSecret } from "@/app/_lib/security/assert-internal-secret";
 
 export async function GET(req: NextRequest) {
   const startTime = Date.now();
 
-  if (!CRON_SECRET) {
-    console.error("[Waitlist nurture cron] CRON_SECRET not configured");
-    return NextResponse.json(
-      { error: "Server configuration error" },
-      { status: 500 }
-    );
-  }
-
-  const authHeader = req.headers.get("Authorization");
-  const token = authHeader?.replace("Bearer ", "");
-
-  if (!token || token !== CRON_SECRET) {
-    console.warn("[Waitlist nurture cron] Unauthorized request attempt");
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const unauthorized = assertInternalSecret(req, "[Waitlist nurture cron]");
+  if (unauthorized) return unauthorized;
 
   try {
     const result = await processDueWaitlistNurtureEmails({ limit: 200 });

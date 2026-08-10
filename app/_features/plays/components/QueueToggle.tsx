@@ -4,17 +4,18 @@ import { motion } from "framer-motion";
 import { cn } from "@repo/utils";
 
 /**
- * Queue Toggle — Needs You / Auto-handled / Watching
+ * Queue Toggle — Needs You / Auto-handled
  *
  * Trust-based filtering for the Queue tab:
  * - Needs You: Items requiring human decision (low/medium confidence)
  * - Auto-handled: Items Salt handled confidently (high confidence, FYI only)
- * - Watching: Accumulating evidence, waiting for more signals
+ *
+ * Memory-admission decisions ("Watching") moved to Memory → Filter.
  *
  * Default view: Needs You
  */
 
-export type QueueFilter = "needs_you" | "auto_handled" | "learning";
+export type QueueFilter = "needs_you" | "auto_handled";
 
 interface QueueToggleProps {
   active: QueueFilter;
@@ -22,7 +23,6 @@ interface QueueToggleProps {
   counts?: {
     needs_you: number;
     auto_handled: number;
-    learning?: number;
   };
 }
 
@@ -42,13 +42,6 @@ export function QueueToggle({ active, onChange, counts }: QueueToggleProps) {
         count={counts?.auto_handled}
       >
         Auto-handled
-      </ToggleButton>
-      <ToggleButton
-        isActive={active === "learning"}
-        onClick={() => onChange("learning")}
-        count={counts?.learning}
-      >
-        Watching
       </ToggleButton>
     </div>
   );

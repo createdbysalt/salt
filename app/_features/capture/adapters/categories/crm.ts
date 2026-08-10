@@ -15,6 +15,10 @@ import { isRecord, pickString, unwrapRecord } from "../normalize-utils";
 import type { PersonSignals } from "@/app/_features/capture/services/system-plays/person-signals";
 import type { CaptureSourceType } from "@/app/_features/capture/types";
 
+// hubspot is dormant: demoted to action-only (Sources plan 5.7, 2026-08-08)
+// because its triggers require the user's own developer-app credentials. Its
+// capture_category is NULL in the DB, so this parsing is unreachable until
+// re-enabled by data — keep the code so re-enabling is a pure data change.
 type KnownCrmProvider = "hubspot" | "salesforce" | "pipedrive";
 
 const KNOWN_CRM_PROVIDERS: KnownCrmProvider[] = ["hubspot", "salesforce", "pipedrive"];
@@ -24,12 +28,7 @@ const CRM_TRIGGER_SLUGS: Record<KnownCrmProvider, string[]> = {
     "HUBSPOT_CONTACT_CREATED_TRIGGER",
     "HUBSPOT_DEAL_STAGE_UPDATED_TRIGGER",
   ],
-  salesforce: [
-    "SALESFORCE_ACCOUNT_CREATED_OR_UPDATED_TRIGGER",
-    "SALESFORCE_CONTACT_UPDATED_TRIGGER",
-    "SALESFORCE_LEAD_CREATED_OR_UPDATED_TRIGGER",
-    "SALESFORCE_OPPORTUNITY_UPDATED_TRIGGER",
-  ],
+  salesforce: [], // SALESFORCE_* trigger slugs 404 upstream — no subscribable triggers
   pipedrive: [
     "PIPEDRIVE_NEW_DEAL_TRIGGER",
     "PIPEDRIVE_NEW_ORGANIZATION_TRIGGER",
@@ -80,13 +79,13 @@ function normalizeHubspot(payload: unknown): CaptureEnvelope | null {
   // Not the ID-only trigger shape — fall through to generic extraction
   // (backfill rows carry full objects).
   if (!objectId || !subscriptionType) {
-    return normalizeGenericCrm(payload, "hubspot" as CaptureSourceType);
+    return normalizeGenericCrm(payload, "hubspot");
   }
 
   const isContact = subscriptionType.startsWith("contact");
 
   return {
-    sourceType: "hubspot" as CaptureSourceType,
+    sourceType: "hubspot",
     captureType: isContact ? "contact" : "note",
     // objectId spaces overlap across HubSpot object types — scope by type.
     externalId: `${subscriptionType}:${objectId}`,
@@ -143,7 +142,7 @@ function normalizePipedrive(payload: unknown): CaptureEnvelope | null {
   if (isDeal) {
     const title = pickString(record, ["title"]);
     return {
-      sourceType: "pipedrive" as CaptureSourceType,
+      sourceType: "pipedrive",
       captureType: "note",
       // IDs overlap between Pipedrive object types — scope the dedupe key.
       externalId: `deal:${externalId}`,
@@ -173,7 +172,7 @@ function normalizePipedrive(payload: unknown): CaptureEnvelope | null {
   const email = pickString(record, ["email"]);
 
   return {
-    sourceType: "pipedrive" as CaptureSourceType,
+    sourceType: "pipedrive",
     captureType: "contact",
     externalId: `organization:${externalId}`,
     title: name,
@@ -259,7 +258,7 @@ export function createCrmCategoryAdapter(provider: string): CaptureAdapter {
     : []; // Unknown providers: triggers come from DB
 
   return {
-    sourceType: provider as CaptureSourceType,
+    sourceType: provider,
     toolkit: provider,
     triggerSlugs,
     deriveSignals: deriveCrmSignals,
@@ -272,7 +271,7 @@ export function createCrmCategoryAdapter(provider: string): CaptureAdapter {
           return normalizePipedrive(payload);
         default:
           // Other CRM providers use generic extraction
-          return normalizeGenericCrm(payload, provider as CaptureSourceType);
+          return normalizeGenericCrm(payload, provider);
       }
     },
   };

@@ -2,7 +2,7 @@
  * Field Contract Context
  *
  * Single source of AI-facing field contracts, generated from the registry.
- * Everything that tells an LLM what a field means — Keeper playbook prompts,
+ * Everything that tells an LLM what a field means — Memory Care prompts,
  * records-engine validation messages, the capture email analyzer — reads the
  * same contract via this module, so prompts can never drift from the
  * dropdowns or the DB constraints.
@@ -23,8 +23,8 @@ import {
 import { VOCABULARY_REGISTRY } from "./registry";
 
 const POLICY_LABEL: Record<WritePolicy, string> = {
-  keeper_auto: "auto-apply above confidence threshold",
-  keeper_ask: "propose and wait for approval",
+  care_auto: "auto-apply above confidence bar",
+  care_ask: "propose and hold in Watching until it clears the bar",
   user_only: "never write (user only)",
   system_derived: "derived value (write the inputs, never this field)",
 };
@@ -57,17 +57,17 @@ export function buildFieldContractContext(entityType: ContractEntityType): strin
 }
 
 /**
- * Only the fields Keeper is allowed to touch (auto or ask) — the working set
- * for playbook rule authoring and proposal generation.
+ * Only the fields Memory Care is allowed to touch (auto or ask) — the working
+ * set for capability rule authoring and proposal generation.
  */
-export function buildKeeperWritableContext(entityType: ContractEntityType): string {
+export function buildCareWritableContext(entityType: ContractEntityType): string {
   const fields = getFieldsForEntity(entityType).filter((f) => {
     const policy = getWritePolicy(f);
-    return policy === "keeper_auto" || policy === "keeper_ask";
+    return policy === "care_auto" || policy === "care_ask";
   });
   if (fields.length === 0) return "";
   const lines = fields.map(describeField);
-  return [`Fields Keeper may maintain on ${entityType} records:`, ...lines].join("\n");
+  return [`Fields Memory Care may maintain on ${entityType} records:`, ...lines].join("\n");
 }
 
 /**

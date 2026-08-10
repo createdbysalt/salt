@@ -30,21 +30,21 @@ export async function getConnectionsGraphData(
   ] = await Promise.all([
     supabase
       .from("people")
-      .select("id, name, title, record_status, relationship_type")
+      .select("id, name, title, record_status, relationship_type, ai_summary, ai_worth_attention")
       .eq("workspace_id", workspaceId)
       .is("deleted_at", null)
       .order("updated_at", { ascending: false })
       .limit(GRAPH_ENTITY_LIMIT),
     supabase
       .from("organizations")
-      .select("id, name, industry, record_status, relationship_status")
+      .select("id, name, industry, record_status, relationship_status, ai_summary, ai_worth_attention")
       .eq("workspace_id", workspaceId)
       .is("deleted_at", null)
       .order("updated_at", { ascending: false })
       .limit(GRAPH_ENTITY_LIMIT),
     supabase
       .from("work")
-      .select("id, name, status, organization_id, person_id")
+      .select("id, name, status, organization_id, person_id, ai_summary, ai_worth_attention")
       .eq("workspace_id", workspaceId)
       .is("deleted_at", null)
       .order("updated_at", { ascending: false })
@@ -69,7 +69,7 @@ export async function getConnectionsGraphData(
       .limit(GRAPH_BILLING_LIMIT),
     supabase
       .from("files")
-      .select("id, file_name, person_id, organization_id")
+      .select("id, file_name, person_id, organization_id, ai_summary")
       .is("deleted_at", null)
       .is("archived_at", null)
       .order("created_at", { ascending: false })
@@ -143,6 +143,8 @@ export async function getConnectionsGraphData(
       href: `/people/${p.id}`,
       recordStatus: p.record_status === "inactive" ? "inactive" : "active",
       relationship: p.relationship_type ?? undefined,
+      summary: p.ai_summary ?? undefined,
+      worthAttention: p.ai_worth_attention ?? undefined,
     });
   }
 
@@ -155,6 +157,8 @@ export async function getConnectionsGraphData(
       href: `/orgs/${o.id}`,
       recordStatus: o.record_status === "inactive" ? "inactive" : "active",
       relationship: o.relationship_status ?? undefined,
+      summary: o.ai_summary ?? undefined,
+      worthAttention: o.ai_worth_attention ?? undefined,
     });
   }
 
@@ -165,6 +169,8 @@ export async function getConnectionsGraphData(
       label: w.name,
       sublabel: w.status ?? undefined,
       href: `/work/${w.id}`,
+      summary: w.ai_summary ?? undefined,
+      worthAttention: w.ai_worth_attention ?? undefined,
     });
   }
 
@@ -174,12 +180,29 @@ export async function getConnectionsGraphData(
       style: "currency",
       currency: b.currency.toUpperCase(),
     }).format(b.amount_cents / 100);
+    const isReceivable = b.direction === "receivable";
+    const worthAttention =
+      b.status === "overdue"
+        ? isReceivable
+          ? "overdue — worth chasing"
+          : "overdue — pay this soon"
+        : b.status === "disputed"
+          ? "disputed — needs a response"
+          : b.status === "partial"
+            ? "partially paid — balance still outstanding"
+            : b.status === "draft"
+              ? "a draft — not sent yet"
+              : isReceivable && b.status === "due"
+                ? "still unpaid"
+                : undefined;
     nodes.set(nid("billing", b.id), {
       id: nid("billing", b.id),
       type: "billing",
       label,
       sublabel: `${amount} · ${b.status}`,
       href: `/billing/${b.id}`,
+      summary: isReceivable ? "Money owed to you." : "Money you owe.",
+      worthAttention,
     });
   }
 
@@ -209,7 +232,36 @@ export async function getConnectionsGraphData(
       label: f.file_name,
       sublabel: "File",
       href: `/files?preview=${f.id}`,
+      summary: f.ai_summary ?? undefined,
     });
+  }
+
+  // AI summary per meeting (same source as the meeting overview page).
+  // Rows arrive newest-first: prefer the row flagged is_current, else the
+  // most recent generation.
+  const meetingSummaryById = new Map<string, string>();
+  const meetingIds = meetings.map((m) => m.id);
+  if (meetingIds.length > 0) {
+    const { data: summaryRows } = await supabase
+      .from("meeting_summaries")
+      .select("meeting_id, content, is_current, created_at")
+      .in("meeting_id", meetingIds)
+      .order("created_at", { ascending: false });
+    const currentByMeeting = new Map<string, string>();
+    const latestByMeeting = new Map<string, string>();
+    for (const row of summaryRows ?? []) {
+      if (!row.meeting_id || !row.content) continue;
+      if (!latestByMeeting.has(row.meeting_id)) {
+        latestByMeeting.set(row.meeting_id, row.content);
+      }
+      if (row.is_current && !currentByMeeting.has(row.meeting_id)) {
+        currentByMeeting.set(row.meeting_id, row.content);
+      }
+    }
+    for (const id of meetingIds) {
+      const content = currentByMeeting.get(id) ?? latestByMeeting.get(id);
+      if (content) meetingSummaryById.set(id, content);
+    }
   }
 
   for (const m of meetings) {
@@ -226,6 +278,7 @@ export async function getConnectionsGraphData(
         ? new Date(m.start_time).toLocaleDateString()
         : "Meeting",
       href: `/meetings/${m.id}`,
+      summary: meetingSummaryById.get(m.id),
     });
   }
 
@@ -242,12 +295,17 @@ export async function getConnectionsGraphData(
     const title =
       n.title || n.content.slice(0, 40) + (n.content.length > 40 ? "…" : "");
 
+    const excerpt = n.content.trim().slice(0, 140);
+
     nodes.set(nid("note", n.id), {
       id: nid("note", n.id),
       type: "note",
       label: title,
       sublabel: "Note",
       href: "/me",
+      summary: excerpt
+        ? excerpt + (n.content.trim().length > 140 ? "…" : "")
+        : undefined,
     });
   }
 
@@ -256,7 +314,7 @@ export async function getConnectionsGraphData(
     addEdge(nid("person", link.person_id), nid("org", link.organization_id), "employment");
   }
 
-  // Explicit edges (manual/keeper links + note mentions) from entity_links
+  // Explicit edges (manual/care links + note mentions) from entity_links
   for (const link of entityLinks) {
     addEdge(
       nid(link.source_type as NodeType, link.source_id),

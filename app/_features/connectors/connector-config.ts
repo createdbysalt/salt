@@ -5,7 +5,6 @@ export type EmailMode = (typeof EMAIL_MODES)[number];
 
 export const connectorIntegrationConfigSchema = z
   .object({
-    disabledTools: z.array(z.string()).optional(),
     /** Gmail only: draft = Salt prepares drafts, never sends. Absent = draft. */
     emailMode: z.enum(EMAIL_MODES).optional(),
   })
@@ -23,27 +22,6 @@ export function parseConnectorIntegrationConfig(
     return {};
   }
   return parsed.data;
-}
-
-export function getDisabledToolsFromConfig(
-  config: Record<string, unknown> | null | undefined,
-): string[] {
-  return parseConnectorIntegrationConfig(config).disabledTools ?? [];
-}
-
-export function mergeDisabledToolsIntoConfig(
-  existing: Record<string, unknown> | null | undefined,
-  disabledTools: string[],
-): Record<string, unknown> {
-  const base =
-    existing && typeof existing === "object" && !Array.isArray(existing)
-      ? { ...existing }
-      : {};
-
-  return {
-    ...base,
-    disabledTools,
-  };
 }
 
 /** Absent or invalid emailMode means draft — the safe default. */
@@ -66,11 +44,4 @@ export function mergeEmailModeIntoConfig(
     ...base,
     emailMode,
   };
-}
-
-export function isToolDisabledForWorkspace(
-  toolSlug: string,
-  disabledTools: readonly string[] | undefined,
-): boolean {
-  return Boolean(disabledTools?.includes(toolSlug));
 }

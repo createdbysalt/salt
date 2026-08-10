@@ -7,7 +7,6 @@ import {
   Calendar,
   User,
   Link,
-  Settings,
   MessageSquare,
   type LucideIcon,
 } from "lucide-react";
@@ -22,8 +21,7 @@ export type PlaybookSection =
   | "me"
   | "connections"
   | "notes"
-  | "communication"
-  | "_meta";
+  | "communication";
 
 export type SectionColor =
   | "violet"
@@ -46,7 +44,7 @@ interface SectionMeta {
 
 export const SECTION_COLOR_STYLES: Record<
   SectionColor,
-  { bg: string; text: string; border: string; ring: string; accent: string; dot: string }
+  { bg: string; text: string; border: string; ring: string; accent: string; dot: string; gradient: string }
 > = {
   violet: {
     bg: "bg-violet/10",
@@ -55,6 +53,8 @@ export const SECTION_COLOR_STYLES: Record<
     ring: "ring-violet/10 hover:ring-violet/25",
     accent: "var(--violet)",
     dot: "bg-violet",
+    gradient:
+      "bg-[radial-gradient(120%_80%_at_100%_0%,color-mix(in_oklab,var(--violet)_16%,transparent)_0%,transparent_60%),linear-gradient(180deg,var(--card)_0%,var(--card)_100%)]",
   },
   sky: {
     bg: "bg-sky/10",
@@ -63,6 +63,8 @@ export const SECTION_COLOR_STYLES: Record<
     ring: "ring-sky/10 hover:ring-sky/25",
     accent: "var(--sky)",
     dot: "bg-sky",
+    gradient:
+      "bg-[radial-gradient(120%_80%_at_100%_0%,color-mix(in_oklab,var(--sky)_16%,transparent)_0%,transparent_60%),linear-gradient(180deg,var(--card)_0%,var(--card)_100%)]",
   },
   emerald: {
     bg: "bg-emerald-500/10",
@@ -71,6 +73,8 @@ export const SECTION_COLOR_STYLES: Record<
     ring: "ring-emerald-500/10 hover:ring-emerald-500/25",
     accent: "rgb(16, 185, 129)",
     dot: "bg-emerald-500",
+    gradient:
+      "bg-[radial-gradient(120%_80%_at_100%_0%,color-mix(in_oklab,rgb(16_185_129)_14%,transparent)_0%,transparent_60%),linear-gradient(180deg,var(--card)_0%,var(--card)_100%)]",
   },
   amber: {
     bg: "bg-amber-500/10",
@@ -79,6 +83,8 @@ export const SECTION_COLOR_STYLES: Record<
     ring: "ring-amber-500/10 hover:ring-amber-500/25",
     accent: "rgb(245, 158, 11)",
     dot: "bg-amber-500",
+    gradient:
+      "bg-[radial-gradient(120%_80%_at_100%_0%,color-mix(in_oklab,rgb(245_158_11)_14%,transparent)_0%,transparent_60%),linear-gradient(180deg,var(--card)_0%,var(--card)_100%)]",
   },
   flame: {
     bg: "bg-flame/10",
@@ -87,6 +93,8 @@ export const SECTION_COLOR_STYLES: Record<
     ring: "ring-flame/10 hover:ring-flame/25",
     accent: "var(--flame)",
     dot: "bg-flame",
+    gradient:
+      "bg-[radial-gradient(120%_80%_at_100%_0%,color-mix(in_oklab,var(--flame)_16%,transparent)_0%,transparent_60%),linear-gradient(180deg,var(--card)_0%,var(--card)_100%)]",
   },
   indigo: {
     bg: "bg-indigo-500/10",
@@ -95,6 +103,8 @@ export const SECTION_COLOR_STYLES: Record<
     ring: "ring-indigo-500/10 hover:ring-indigo-500/25",
     accent: "rgb(99, 102, 241)",
     dot: "bg-indigo-500",
+    gradient:
+      "bg-[radial-gradient(120%_80%_at_100%_0%,color-mix(in_oklab,rgb(99_102_241)_14%,transparent)_0%,transparent_60%),linear-gradient(180deg,var(--card)_0%,var(--card)_100%)]",
   },
   rose: {
     bg: "bg-rose-500/10",
@@ -103,6 +113,8 @@ export const SECTION_COLOR_STYLES: Record<
     ring: "ring-rose-500/10 hover:ring-rose-500/25",
     accent: "rgb(244, 63, 94)",
     dot: "bg-rose-500",
+    gradient:
+      "bg-[radial-gradient(120%_80%_at_100%_0%,color-mix(in_oklab,rgb(244_63_94)_14%,transparent)_0%,transparent_60%),linear-gradient(180deg,var(--card)_0%,var(--card)_100%)]",
   },
   teal: {
     bg: "bg-teal-500/10",
@@ -111,6 +123,8 @@ export const SECTION_COLOR_STYLES: Record<
     ring: "ring-teal-500/10 hover:ring-teal-500/25",
     accent: "rgb(20, 184, 166)",
     dot: "bg-teal-500",
+    gradient:
+      "bg-[radial-gradient(120%_80%_at_100%_0%,color-mix(in_oklab,rgb(20_184_166)_14%,transparent)_0%,transparent_60%),linear-gradient(180deg,var(--card)_0%,var(--card)_100%)]",
   },
   slate: {
     bg: "bg-slate-500/10",
@@ -119,6 +133,8 @@ export const SECTION_COLOR_STYLES: Record<
     ring: "ring-slate-500/10 hover:ring-slate-500/25",
     accent: "rgb(100, 116, 139)",
     dot: "bg-slate-500",
+    gradient:
+      "bg-[radial-gradient(120%_80%_at_100%_0%,color-mix(in_oklab,rgb(100_116_139)_12%,transparent)_0%,transparent_60%),linear-gradient(180deg,var(--card)_0%,var(--card)_100%)]",
   },
   cyan: {
     bg: "bg-cyan-500/10",
@@ -127,6 +143,8 @@ export const SECTION_COLOR_STYLES: Record<
     ring: "ring-cyan-500/10 hover:ring-cyan-500/25",
     accent: "rgb(6, 182, 212)",
     dot: "bg-cyan-500",
+    gradient:
+      "bg-[radial-gradient(120%_80%_at_100%_0%,color-mix(in_oklab,rgb(6_182_212)_14%,transparent)_0%,transparent_60%),linear-gradient(180deg,var(--card)_0%,var(--card)_100%)]",
   },
 };
 
@@ -184,12 +202,6 @@ const SECTION_META: Record<Exclude<PlaybookSection, "all">, SectionMeta> = {
     icon: MessageSquare,
     description: "Email and messaging",
     color: "cyan",
-  },
-  _meta: {
-    label: "System",
-    icon: Settings,
-    description: "Cross-cutting operations",
-    color: "slate",
   },
 };
 

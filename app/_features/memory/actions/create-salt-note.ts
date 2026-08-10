@@ -2,12 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import type { TablesInsert } from "@/app/_lib/supabase/database.types";
 import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import type { NoteStatus } from "@/app/_features/memory/types/taxonomies";
 import { ENTITY_NOTE_KIND_LABELS } from "@/app/_features/memory/types/taxonomies";
 import {
-  KEEPER_ENTITY_NOTES_SLUG,
+  ENTITY_NOTES_BLUEPRINT_SLUG,
   type CreateSaltNoteInput,
   type CreateSaltNoteResult,
   type ConfirmSaltNoteInput,
@@ -23,7 +24,7 @@ async function loadNoteSettings(workspaceId: string): Promise<{ autoApplyThresho
     .from("profile_playbook_settings")
     .select("auto_apply_threshold")
     .eq("workspace_id", workspaceId)
-    .eq("blueprint_slug", KEEPER_ENTITY_NOTES_SLUG)
+    .eq("blueprint_slug", ENTITY_NOTES_BLUEPRINT_SLUG)
     .maybeSingle();
 
   return {
@@ -80,7 +81,7 @@ export async function createSaltNote(
       const entityLabel = input.entityName ?? input.entityId;
 
       // Map entity type to the correct FK column
-      const findingInsert: Record<string, unknown> = {
+      const findingInsert: TablesInsert<"intelligence_findings"> = {
         workspace_id: workspaceId,
         finding_type: "note_suggestion",
         state: "needs_you",

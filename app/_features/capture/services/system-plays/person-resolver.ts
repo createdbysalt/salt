@@ -64,7 +64,7 @@ export interface PersonResolutionInput {
   signals?: PersonSignals;
   /** LLM-inferred signals (Phase 5.2): admission caps at needs_confirmation. */
   signalsInferred?: boolean;
-  /** Source tracking for confidence-gated keeper execution. */
+  /** Source tracking for Memory Care proposal routing. */
   sourceType?: string;
   sourceCaptureId?: string;
   /** Heuristic enrichment from the capture (signature phone/company/title). */
@@ -210,8 +210,6 @@ export async function resolvePerson(
       results: profileEvaluation.results,
       blueprintSlug: profileEvaluation.blueprintSlug,
       blueprintVersion: profileEvaluation.blueprintVersion,
-      // Enable confidence-gated execution for keeper mutations
-      useConfidenceGate: true,
       sourceType: input.sourceType,
       sourceCaptureId: input.sourceCaptureId,
     });
@@ -337,7 +335,8 @@ async function applyPersonEnrichment(
         .maybeSingle();
 
       if (person) {
-        const updates: Record<string, string> = {};
+        const updates: { first_contact_at?: string; last_contact_at?: string } =
+          {};
         if (!person.first_contact_at || enrichment.contactAt < person.first_contact_at) {
           updates.first_contact_at = enrichment.contactAt;
         }

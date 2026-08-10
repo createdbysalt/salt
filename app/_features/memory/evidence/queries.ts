@@ -5,14 +5,14 @@
  */
 
 import { createClient } from "@/app/_lib/supabase/server";
-import { logOddsToProbability } from "@/app/_features/plays/playbooks/v2/_meta/memory-records/scripts";
+import { logOddsToProbability } from "@/app/_features/memory/care/intake";
 import type {
   PendingEvidenceRow,
   PendingEvidenceSignalRow,
   PendingEvidenceWithSignals,
   EvidenceStatus,
 } from "./types";
-import type { IntakeEntityType } from "@/app/_features/plays/playbooks/v2/_meta/memory-records/scripts";
+import type { IntakeEntityType } from "@/app/_features/memory/care/intake";
 
 /**
  * Get all pending evidence for a workspace.

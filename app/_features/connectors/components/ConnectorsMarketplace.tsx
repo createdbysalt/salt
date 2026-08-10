@@ -34,12 +34,7 @@ interface ConnectorsMarketplaceProps {
   data: ConnectorsPageData;
   onConnect: (id: ConnectorCatalogId) => void;
   onDisconnect: (id: ConnectorCatalogId) => void;
-  onSaveToolPreferences: (
-    id: ConnectorCatalogId,
-    disabledTools: string[],
-  ) => Promise<boolean>;
   loadingId: ConnectorCatalogId | null;
-  savingPreferences: boolean;
   showHeader?: boolean;
 }
 
@@ -89,7 +84,12 @@ function filterByTab(
     case "connected":
       return entries.filter(({ status, definition }) => status.connected && !definition.comingSoon);
     case "available":
-      return entries.filter(({ status, definition }) => !status.connected && !definition.comingSoon);
+      // Available = connectable. catalog_only (browse-only) stays visible in
+      // discover/all but doesn't belong here (Sources plan 5.5).
+      return entries.filter(
+        ({ status, definition }) =>
+          !status.connected && !definition.comingSoon && definition.tier !== "catalog_only",
+      );
     case "discover":
       return entries;
     case "all":
@@ -118,7 +118,8 @@ function ConnectorRowCard({
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
 
-  const disabled = loading || definition.comingSoon;
+  const browseOnly = definition.tier === "catalog_only";
+  const disabled = loading || definition.comingSoon || browseOnly;
   const canConnect = !status.connected && !disabled;
 
   const handleRowClick = () => {
@@ -208,6 +209,8 @@ function ConnectorRowCard({
           )
         ) : definition.comingSoon ? (
           <span className="text-[11px] font-medium text-muted-foreground">Soon</span>
+        ) : browseOnly ? (
+          <span className="text-[11px] font-medium text-muted-foreground">Browse-only</span>
         ) : (
           <button
             type="button"
@@ -227,9 +230,7 @@ export function ConnectorsMarketplace({
   data,
   onConnect,
   onDisconnect,
-  onSaveToolPreferences,
   loadingId,
-  savingPreferences,
   showHeader = true,
 }: ConnectorsMarketplaceProps) {
   const [tab, setTab] = React.useState<ConnectorTab>("discover");
@@ -300,7 +301,6 @@ export function ConnectorsMarketplace({
         }}
         data={data}
         loading={selectedConnectorId !== null && loadingId === selectedConnectorId}
-        savingPreferences={savingPreferences}
         onConnect={(id) => {
           onConnect(id);
         }}
@@ -308,7 +308,6 @@ export function ConnectorsMarketplace({
           onDisconnect(id);
           setSelectedConnectorId(null);
         }}
-        onSaveToolPreferences={onSaveToolPreferences}
       />
 
       {showHeader ? (

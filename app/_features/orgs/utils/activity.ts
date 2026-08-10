@@ -45,8 +45,8 @@ export function mapOrgProvenanceToActivity(provenance: OrgProfileFieldProvenance
     return {
       id: `org-profile-${provenance.field}-${provenance.setAt}`,
       at: provenance.setAt,
-      kind: "keeper",
-      label: `Keeper ${action} ${field}`,
+      kind: "salt",
+      label: `Salt ${action} ${field}`,
       detail: `${field} → ${valueLabel} · ${detailParts.join(" · ")}`,
       field: provenance.field as OrgActivityEvent["field"],
       source: provenance.source,
@@ -57,8 +57,8 @@ export function mapOrgProvenanceToActivity(provenance: OrgProfileFieldProvenance
   return {
     id: `org-profile-${provenance.field}-${provenance.setAt}`,
     at: provenance.setAt,
-    kind: "keeper",
-    label: `Keeper filled ${field}`,
+    kind: "salt",
+    label: `Salt filled ${field}`,
     detail: `${field} → ${valueLabel} · ${detailParts.join(" · ")}`,
     field: provenance.field as OrgActivityEvent["field"],
     source: provenance.source,
@@ -69,7 +69,7 @@ export function mapOrgProvenanceToActivity(provenance: OrgProfileFieldProvenance
 export function buildOrgActivityAskSaltPrompt(entry: OrgActivityEvent, orgName: string): string {
   const field = entry.field ? orgProfileFieldLabel(entry.field) : "this field";
   if (entry.status === "pending") {
-    return `On ${orgName}'s profile, Keeper suggested ${field}${entry.detail ? ` (${entry.detail})` : ""}. I want to review or change this.`;
+    return `On ${orgName}'s profile, Salt suggested ${field}${entry.detail ? ` (${entry.detail})` : ""}. I want to review or change this.`;
   }
   return `On ${orgName}'s profile: "${entry.label}"${entry.detail ? ` — ${entry.detail}` : ""}. I want to review or change this.`;
 }

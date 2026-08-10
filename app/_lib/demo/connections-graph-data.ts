@@ -306,6 +306,6 @@ export const TYPE_META: Record<NodeType, { label: string; color: string }> = {
   org: { label: "Orgs", color: "#E08A5B" },
   work: { label: "Work", color: "#B89BD9" },
   billing: { label: "Billing", color: "#D9A45B" },
-  file: { label: "Files", color: "#E8B4A8" },
+  file: { label: "Resources", color: "#E8B4A8" },
   note: { label: "Notes", color: "#9CA3AF" },
 };

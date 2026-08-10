@@ -1,68 +1,77 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { getCategoryAdapter, adapterForToolkitWithCategory, listCategoryAdapters, getAdapterForCategory } from "./index";
 import { getEmailAdapter } from "./email";
 import { getCalendarAdapter } from "./calendar";
 import { getBillingAdapter } from "./billing";
 
+// Category lookups are DB-backed in prod; tests pin them to the frozen
+// fallback snapshot so the suite stays hermetic.
+vi.mock("@/app/_lib/composio/capture-categories", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/app/_lib/composio/capture-categories")>();
+  return {
+    ...actual,
+    getCaptureCategory: async (provider: string) =>
+      actual.FALLBACK_PROVIDER_CATEGORIES[provider.toLowerCase()] ?? null,
+  };
+});
+
 describe("category adapter registry", () => {
   describe("getCategoryAdapter", () => {
-    it("returns email adapter for gmail", () => {
-      const adapter = getCategoryAdapter("gmail");
+    it("returns email adapter for gmail", async () => {
+      const adapter = await getCategoryAdapter("gmail");
       expect(adapter).not.toBeNull();
       expect(adapter?.sourceType).toBe("gmail");
     });
 
-    it("returns email adapter for outlook", () => {
-      const adapter = getCategoryAdapter("outlook");
+    it("returns email adapter for outlook", async () => {
+      const adapter = await getCategoryAdapter("outlook");
       expect(adapter).not.toBeNull();
       expect(adapter?.sourceType).toBe("outlook");
     });
 
-    it("returns calendar adapter for googlecalendar", () => {
-      const adapter = getCategoryAdapter("googlecalendar");
+    it("returns calendar adapter for googlecalendar", async () => {
+      const adapter = await getCategoryAdapter("googlecalendar");
       expect(adapter).not.toBeNull();
       expect(adapter?.sourceType).toBe("googlecalendar");
     });
 
-    it("returns calendar adapter for cal", () => {
-      const adapter = getCategoryAdapter("cal");
+    it("returns calendar adapter for cal", async () => {
+      const adapter = await getCategoryAdapter("cal");
       expect(adapter).not.toBeNull();
-      expect(adapter?.sourceType).toBe("cal");
+      // Toolkit key 'cal' resolves the adapter; captures are typed 'calcom'.
+      expect(adapter?.sourceType).toBe("calcom");
     });
 
-    it("returns billing adapter for stripe", () => {
-      const adapter = getCategoryAdapter("stripe");
+    it("returns billing adapter for stripe", async () => {
+      const adapter = await getCategoryAdapter("stripe");
       expect(adapter).not.toBeNull();
       expect(adapter?.sourceType).toBe("stripe");
     });
 
-    it("returns storage adapter for googledrive", () => {
-      const adapter = getCategoryAdapter("googledrive");
+    it("returns storage adapter for googledrive", async () => {
+      const adapter = await getCategoryAdapter("googledrive");
       expect(adapter).not.toBeNull();
       expect(adapter?.sourceType).toBe("googledrive");
     });
 
-    it("falls back to app-specific adapter for unknown category", () => {
-      const adapter = getCategoryAdapter("googlecalendar");
-      expect(adapter).not.toBeNull();
-    });
-
-    it("returns null for completely unknown provider", () => {
-      const adapter = getCategoryAdapter("unknown_provider");
+    it("returns null for completely unknown provider", async () => {
+      const adapter = await getCategoryAdapter("unknown_provider");
       expect(adapter).toBeNull();
     });
   });
 
   describe("adapterForToolkitWithCategory", () => {
-    it("prefers category adapter over app-specific", () => {
-      const adapter = adapterForToolkitWithCategory("gmail");
+    it("resolves gmail to the email category adapter", async () => {
+      const adapter = await adapterForToolkitWithCategory("gmail");
       expect(adapter).not.toBeNull();
       expect(adapter?.sourceType).toBe("gmail");
     });
 
-    it("falls back to app-specific adapter", () => {
-      const adapter = adapterForToolkitWithCategory("googlecalendar");
+    it("resolves googlecalendar to the calendar category adapter", async () => {
+      const adapter = await adapterForToolkitWithCategory("googlecalendar");
       expect(adapter).not.toBeNull();
+      expect(adapter?.sourceType).toBe("googlecalendar");
     });
   });
 

@@ -1,8 +1,8 @@
 # Memory Tools
 
-> **See also:** [Primitives Overview](../../../docs/architecture/primitives.md) | [Tools Reference](../../../docs/architecture/tools.md)
+> **See also:** [Primitives Overview](../../../docs/architecture/primitives.md) | [Memory Care](../../../docs/architecture/memory-care.md) | [Tools Reference](../../../docs/architecture/tools.md)
 
-Protected tools for Memory record mutations. These enforce workspace confidence thresholds regardless of caller (playbook, Ask Salt, UI, enrichment).
+Protected tools for Memory record mutations. These enforce workspace confidence thresholds and field tiers regardless of caller (Memory Care, Ask Salt, UI, enrichment).
 
 ## Key Insight
 
@@ -10,11 +10,11 @@ Protected tools for Memory record mutations. These enforce workspace confidence 
 
 ```
 Before (scattered):
-  Playbook → checks threshold → applies change
+  Caller → checks threshold → applies change
   Ask Salt → different path → might bypass
 
 After (unified):
-  Playbook → calls memoryUpdateField → tool checks threshold
+  Memory Care → calls memoryUpdateField → tool checks threshold + tiers
   Ask Salt → calls memoryUpdateField → same tool, same check
 ```
 
@@ -53,30 +53,36 @@ const result = await memoryUpdateField({
   value: "client",
   confidence: 95,
   because: "Payment received",
-  source: "playbook",
+  source: "care",
   sourceDetails: {
     playbookSlug: "memory-records",
     ruleId: "people-rel-payment-client",
   },
+  minThreshold: 95, // elevated bar for sensitive tier
 });
 
-// result.action === "applied" if 95 >= threshold (85)
-// result.action === "accumulated" if 95 < threshold
+// result.action === "applied" if confidence clears the bar
+// result.action === "accumulated" if below bar
 ```
 
 ## How Threshold Works
 
 1. **Tool receives call** with field, value, confidence, reason
-2. **Tool gets threshold** from workspace/playbook settings (default: 85%)
-3. **If confidence >= threshold** → Apply to Memory, resolve evidence
-4. **If confidence < threshold** → Accumulate evidence, wait for more signals
+2. **Tool gets threshold** from `workspaces.memory_care_auto_apply_threshold` via `getWorkspaceThreshold` (default **85**; result `source: "care"`)
+3. **Callers raise the bar** for sensitive / destructive fields via `minThreshold` from `app/_lib/learning/field-tiers.ts` (or Memory Care `getCareFieldBar`)
+4. **If confidence >= effective bar** → Apply to Memory, resolve evidence
+5. **If confidence < bar** → Accumulate evidence (Watching)
+6. **Never-touch fields** → Hard refuse at any confidence (money fields)
+
+Retired: ask-first / `approval_required` / playbook `execution-router`. Correction replaces learn-layer approval — see [Memory Care](../../../docs/architecture/memory-care.md).
 
 ## Threshold Sources
 
 Priority order:
-1. Per-playbook setting (`profile_playbook_settings.auto_apply_threshold`)
-2. Workspace default (future: `workspace_settings.default_confidence_threshold`)
-3. Global default: **85%**
+1. Workspace Memory Care threshold (`workspaces.memory_care_auto_apply_threshold`)
+2. Global default: **85%**
+
+Per-playbook `auto_apply_threshold` overrides are retired. Tier floors (sensitive / destructive = 95) live in `field-tiers.ts`, not the threshold column.
 
 ## Entity Types
 
@@ -90,19 +96,22 @@ Priority order:
 
 ## Tool Sources
 
-Track who/what initiated the change:
+Track who/what initiated the change (`ToolSource`):
 
-- `playbook` — Playbook rule execution
+- `care` — Memory Care (`app/_features/memory/care`)
+- `playbook` — Legacy provenance from retired system playbooks (historical rows)
 - `ask_salt` — Ask Salt conversation
 - `manual` — User direct edit
 - `enrichment` — Connector enrichment
 - `cron` — Scheduled job
 
+New care writes use `source: "care"`.
+
 ## Integration Points
 
 | Consumer | How to Use |
 |----------|------------|
-| Playbook scripts | Call `memoryUpdateField` with rule confidence |
+| Memory Care | Call `memoryUpdateField` with `source: "care"` and tier `minThreshold` |
 | Ask Salt | Call `memoryUpdateField` when user requests changes |
 | Manual UI | Call `memoryUpdateField` with confidence: 100 |
 | Enrichment layer | Call `memoryAccumulateEvidence` for observations |
@@ -111,18 +120,31 @@ Track who/what initiated the change:
 
 | Action | Meaning |
 |--------|---------|
-| `applied` | Change applied to Memory (threshold crossed) |
+| `applied` | Change applied to Memory (bar cleared) |
 | `accumulated` | Evidence stored, waiting for more signals |
-| `rejected` | Value invalid or field doesn't exist |
+| `rejected` | Value invalid, field doesn't exist, or never-touch refuse |
 | `contradicted` | Conflicting evidence detected |
 
 ## Relation to Learning Module
 
-This module **uses** `@/app/_lib/learning` for evidence accumulation but adds:
+This module **uses** `@/app/_lib/learning` for evidence accumulation and `field-tiers.ts` for tier policy, and adds:
 - Threshold enforcement
 - Direct Memory table updates
 - Provenance recording
 - Unified tool interface
+
+## Field tiers (replaces ask-first)
+
+Policy lives in `app/_lib/learning/field-tiers.ts`:
+
+| Tier | Behavior |
+|------|----------|
+| standard | Workspace threshold |
+| sensitive | `max(threshold, 95)` |
+| destructive | `max(threshold, 95)` + provenance snapshot |
+| never_touch | Refused at any confidence (billing money fields, etc.) |
+
+Always-auto observation fields bypass gating. There is no approval queue for Memory writes.
 
 ## Trust Layer Tools
 
@@ -142,22 +164,8 @@ Additional tools for the Memory Trust Layer:
 | `memoryGetOrphan` | Get orphan records (hygiene) |
 | `memoryGetSimilar` | Find similar records (duplicate detection) |
 
-## Ask-First Fields
-
-Fields that ALWAYS require approval regardless of confidence:
-
-```typescript
-// From execution-router.ts
-const ASK_FIRST_FIELDS = {
-  person: ["industry", "preferred_channel"],
-  organization: ["industry", "industry_parent"],
-  work: ["work_type", "billing_model"],
-  me: ["business_model", "pricing_model"],
-  billing: ["total", "amount_paid"],
-};
-```
-
 ## Related Plans
 
+- [Memory Care](../../../docs/architecture/memory-care.md) — Canonical learn-layer system
 - [Memory Trust Layer](../../../docs/plans/2026-07-11-memory-trust-layer.md) — Evidence chains, conflicts, rollback
 - [Playbook Packages](../../../docs/plans/2026-07-11-playbook-packages.md) — Protection at tool layer architecture

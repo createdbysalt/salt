@@ -40,6 +40,8 @@ interface DemoOrg {
   industry: string;
   notes: string;
   relationshipStatus: "client" | "lead" | "partner" | "past_client";
+  /** Drives the HQ client-pulse stat card. */
+  healthBand: "healthy" | "watch" | "risk";
   contacts: DemoPerson[];
   work: DemoWork[];
 }
@@ -71,13 +73,21 @@ const DEMO_ORGS: DemoOrg[] = [
     industry: "Consumer Goods",
     notes: "Premium DTC brand portfolio. Q4 contract renewal coming up.",
     relationshipStatus: "client",
+    healthBand: "healthy",
     contacts: [
       { name: "Sarah Chen", email: "sarah@evergreenbrands.co", title: "VP Marketing", isPrimary: true, lastContactDaysAgo: 2, phone: "+1 415-555-0101" },
       { name: "Marcus Williams", email: "marcus@evergreenbrands.co", title: "Brand Director", isPrimary: false, lastContactDaysAgo: 8 },
+      { name: "Priya Nair", email: "priya@evergreenbrands.co", title: "Social Media Manager", isPrimary: false, lastContactDaysAgo: 3 },
+      { name: "Tom Bradley", email: "tom@evergreenbrands.co", title: "Creative Director", isPrimary: false, lastContactDaysAgo: 6 },
+      { name: "Lisa Chang", email: "lisa@evergreenbrands.co", title: "E-commerce Lead", isPrimary: false, lastContactDaysAgo: 11 },
+      { name: "Jordan Reyes", email: "jordan@evergreenbrands.co", title: "PR & Communications", isPrimary: false, lastContactDaysAgo: 15 },
     ],
     work: [
       { name: "Brand Refresh Q3", description: "Full visual identity refresh across all channels", status: "active", value: 24000, startDate: "2026-07-01", endDate: "2026-09-30" },
       { name: "Holiday Campaign 2026", description: "Q4 holiday campaign creative and media buy", status: "draft", value: 45000, startDate: "2026-10-01", endDate: "2026-12-31" },
+      { name: "Influencer Program", description: "Ongoing creator partnerships and gifting program", status: "active", value: 9000, startDate: "2026-06-01" },
+      { name: "Retail Launch Kit", description: "In-store display assets for national retail debut", status: "active", value: 14000, startDate: "2026-07-15", endDate: "2026-10-01" },
+      { name: "Spring Lookbook", description: "Seasonal photography and lookbook design", status: "completed", value: 8000, startDate: "2026-02-01", endDate: "2026-03-15" },
     ],
   },
   {
@@ -87,6 +97,7 @@ const DEMO_ORGS: DemoOrg[] = [
     industry: "B2B SaaS",
     notes: "Series B startup, aggressive growth mode. Want to 3x content output.",
     relationshipStatus: "client",
+    healthBand: "healthy",
     contacts: [
       { name: "James Park", email: "james@meridiantech.io", title: "Head of Growth", isPrimary: true, lastContactDaysAgo: 1, phone: "+1 650-555-0202" },
       { name: "Elena Rodriguez", email: "elena@meridiantech.io", title: "Content Lead", isPrimary: false, lastContactDaysAgo: 5 },
@@ -103,6 +114,7 @@ const DEMO_ORGS: DemoOrg[] = [
     industry: "Health & Wellness",
     notes: "Boutique wellness brand expanding nationally. Strong founder story.",
     relationshipStatus: "client",
+    healthBand: "healthy",
     contacts: [
       { name: "Amanda Foster", email: "amanda@lunawellness.com", title: "Founder & CEO", isPrimary: true, lastContactDaysAgo: 4, phone: "+1 310-555-0303" },
     ],
@@ -118,6 +130,7 @@ const DEMO_ORGS: DemoOrg[] = [
     industry: "Venture Capital",
     notes: "Interested in becoming a client. Met at conference last month. Big potential.",
     relationshipStatus: "lead",
+    healthBand: "healthy",
     contacts: [
       { name: "David Liu", email: "david@catalystvc.com", title: "Partner", isPrimary: true, lastContactDaysAgo: 12 },
       { name: "Rachel Kim", email: "rachel@catalystvc.com", title: "Principal", isPrimary: false, lastContactDaysAgo: 15 },
@@ -133,6 +146,7 @@ const DEMO_ORGS: DemoOrg[] = [
     industry: "Food & Beverage",
     notes: "Regional specialty coffee brand. Great photography opportunities.",
     relationshipStatus: "client",
+    healthBand: "watch",
     contacts: [
       { name: "Nina Patel", email: "nina@artisancoffee.co", title: "Marketing Manager", isPrimary: true, lastContactDaysAgo: 6 },
       { name: "Tom Martinez", email: "tom@artisancoffee.co", title: "Founder", isPrimary: false, lastContactDaysAgo: 21 },
@@ -148,6 +162,7 @@ const DEMO_ORGS: DemoOrg[] = [
     industry: "Professional Services",
     notes: "Boutique architecture firm. Referred by Amanda Foster.",
     relationshipStatus: "client",
+    healthBand: "healthy",
     contacts: [
       { name: "Michael Torres", email: "michael@vertexarch.com", title: "Principal Architect", isPrimary: true, lastContactDaysAgo: 3, phone: "+1 212-555-0404" },
     ],
@@ -162,6 +177,7 @@ const DEMO_ORGS: DemoOrg[] = [
     industry: "Creative Agency",
     notes: "Partner agency for overflow work. Excellent photo team.",
     relationshipStatus: "partner",
+    healthBand: "healthy",
     contacts: [
       { name: "Jessica Wong", email: "jessica@bloomcreative.co", title: "Creative Director", isPrimary: true, lastContactDaysAgo: 7 },
     ],
@@ -176,6 +192,7 @@ const DEMO_ORGS: DemoOrg[] = [
     industry: "Fitness & Sports",
     notes: "Chain of boutique gyms. Expanding to 3 new locations.",
     relationshipStatus: "client",
+    healthBand: "watch",
     contacts: [
       { name: "Chris Anderson", email: "chris@horizonfitness.com", title: "Marketing Director", isPrimary: true, lastContactDaysAgo: 9 },
       { name: "Lisa Chen", email: "lisa@horizonfitness.com", title: "Brand Manager", isPrimary: false, lastContactDaysAgo: 11 },
@@ -191,6 +208,7 @@ const DEMO_ORGS: DemoOrg[] = [
     industry: "Biotech",
     notes: "Past client - good relationship. May have new project in fall.",
     relationshipStatus: "past_client",
+    healthBand: "risk",
     contacts: [
       { name: "Dr. Sarah Mitchell", email: "sarah.mitchell@nexuslabs.io", title: "Head of Marketing", isPrimary: true, lastContactDaysAgo: 45 },
     ],
@@ -205,6 +223,7 @@ const DEMO_ORGS: DemoOrg[] = [
     industry: "Design Studio",
     notes: "New lead from LinkedIn. Interested in strategy services.",
     relationshipStatus: "lead",
+    healthBand: "healthy",
     contacts: [
       { name: "Alex Rivera", email: "alex@studiocollective.design", title: "Founder", isPrimary: true, lastContactDaysAgo: 2 },
     ],
@@ -213,14 +232,42 @@ const DEMO_ORGS: DemoOrg[] = [
 ];
 
 // Plays in the queue (5 plays showing Salt's proactive value)
+//
+// Richness is data-driven: the detail modal renders the full layout (section
+// identity, step dots, "Prepared for you" artifacts/draft, "How Salt knew"
+// evidence) only when the row carries v2 attribution — source_context.
+// playbook_slug plus metadata { section, layer, output_type, playbook_name,
+// headline, evidence, artifacts }. Seeded rows must include all of it or the
+// modal falls back to a bare title + preview.
+interface DemoPlayEvidence {
+  label: string;
+  url?: string;
+  appLabel?: string;
+  appId?: string;
+}
+
+interface DemoPlayArtifact {
+  appId: string;
+  label: string;
+  url?: string;
+}
+
 interface DemoPlay {
   title: string;
+  /** Moment-first headline shown on the card face and modal header. */
+  headline: string;
   preview: string;
   draftBody: string;
   recipientLabel: string;
   channel: "Gmail" | "Slack" | "Note";
   confidence: number;
   etaLabel: string;
+  playbookSlug: string;
+  playbookName: string;
+  section: "relationships" | "work" | "billing" | "meetings" | "communication" | "me";
+  triggerSignal: string;
+  evidence: DemoPlayEvidence[];
+  artifacts?: DemoPlayArtifact[];
   targetOrgSlug?: string;
   sourceUrl?: string;
   triggerLabel?: string;
@@ -229,60 +276,116 @@ interface DemoPlay {
 const DEMO_PLAYS: DemoPlay[] = [
   {
     title: "$50K deal closing — meeting prep + invoice ready",
+    headline: "Catalyst call at 4pm, your proposal and deposit invoice are ready",
     preview: "Salt cross-referenced Calendar, Gmail, and Stripe. Proposal attached, invoice drafted, talking points ready.",
     draftBody: "Hi David,\n\nLooking forward to our call at 4pm! As discussed, I've attached the full Portfolio Brand Services proposal.\n\nQuick summary:\n• $50K/year for up to 5 portfolio companies\n• Dedicated brand strategist for each\n• 48-hour turnaround on urgent requests\n\nI've also included the Meridian Tech case study you asked about — they saw 3x content output in 90 days.\n\nSee you at 4!\n\nBest,\n[You]",
     recipientLabel: "David Liu",
     channel: "Gmail",
     confidence: 98,
     etaLabel: "Send before 4pm",
+    playbookSlug: "meeting-prep",
+    playbookName: "Meeting Prep",
+    section: "meetings",
+    triggerSignal: "Meeting in under 4 hours with an open proposal",
+    evidence: [
+      { label: "Saw the 4:00 PM Catalyst Ventures follow-up on your calendar", url: "https://calendar.google.com/calendar/event?eid=catalyst-4pm", appLabel: "Google Calendar", appId: "google-calendar" },
+      { label: "Read David's last email asking for the portfolio pricing breakdown", url: "https://mail.google.com/mail/u/0/#inbox/demo-catalyst", appLabel: "Gmail", appId: "google" },
+      { label: "Noticed the $25,000 deposit invoice is still a draft in Stripe", url: "https://dashboard.stripe.com/invoices/in_demo_catalyst", appLabel: "Stripe", appId: "stripe" },
+    ],
+    artifacts: [
+      { appId: "stripe", label: "INV-2026-056 · $25,000 deposit (draft)", url: "https://dashboard.stripe.com/invoices/in_demo_catalyst" },
+    ],
     targetOrgSlug: "catalyst-ventures",
     sourceUrl: "https://calendar.google.com/calendar/event?eid=catalyst-4pm",
     triggerLabel: "📅 Calendar + 📧 Gmail + 💳 Stripe",
   },
   {
     title: "Artisan overdue $4,750 — Stripe says card failed",
+    headline: "Nina's payment failed 35 days ago, the nudge is drafted",
     preview: "Salt found the failed charge in Stripe, drafted a friendly nudge with updated payment link.",
     draftBody: "Hi Nina,\n\nHope you're well! Quick heads up — it looks like the payment for INV-2026-048 ($4,750) didn't go through. Stripe flagged a card issue on July 15.\n\nNo worries at all — here's a fresh payment link:\n→ [Pay $4,750 securely]\n\nLet me know if you'd prefer to switch to ACH or need to update your card on file.\n\nThanks!\n[You]",
     recipientLabel: "Nina Patel",
     channel: "Gmail",
     confidence: 94,
     etaLabel: "35 days overdue",
+    playbookSlug: "invoice-reminder",
+    playbookName: "Invoice Reminder",
+    section: "billing",
+    triggerSignal: "Invoice 35 days overdue with a failed charge",
+    evidence: [
+      { label: "Noticed INV-2026-048 ($4,750) is 35 days past due in Stripe", url: "https://dashboard.stripe.com/payments/pi_3abc123", appLabel: "Stripe", appId: "stripe" },
+      { label: "Saw the card decline Stripe logged on July 15", url: "https://dashboard.stripe.com/payments/pi_3abc123", appLabel: "Stripe", appId: "stripe" },
+      { label: "Checked Gmail, no reply from Nina since the first reminder", url: "https://mail.google.com/mail/u/0/#inbox/demo-artisan", appLabel: "Gmail", appId: "google" },
+    ],
     targetOrgSlug: "artisan-coffee",
     sourceUrl: "https://dashboard.stripe.com/payments/pi_3abc123",
     triggerLabel: "💳 Stripe failed charge + 📧 Gmail",
   },
   {
     title: "Sarah's contract renews in 30 days — upsell ready",
+    headline: "Evergreen renews Sept 30, the renewal + holiday upsell is drafted",
     preview: "Salt analyzed 6 months of Slack convos + invoices. She mentioned expansion 4x. Renewal + upsell proposal drafted.",
     draftBody: "Hi Sarah,\n\nCan you believe we're coming up on 6 months already? The Evergreen partnership has been incredible — 3 successful campaigns, 47% engagement lift, and that viral TikTok moment.\n\nYour current contract ($24K) renews Sept 30. Given the Holiday Campaign scope, I'd love to propose:\n\n• Renewed retainer: $28K (+$4K for expanded social)\n• Add-on: $45K Holiday Campaign (Oct-Dec)\n• Total partnership: $73K/year\n\nI've attached a detailed breakdown. Coffee this week to discuss?\n\nBest,\n[You]",
     recipientLabel: "Sarah Chen",
     channel: "Gmail",
     confidence: 96,
     etaLabel: "Renews in 30 days",
+    playbookSlug: "contract-renewal-alert",
+    playbookName: "Contract Renewal Alert",
+    section: "billing",
+    triggerSignal: "Recurring contract hits its 30-day renewal window",
+    evidence: [
+      { label: "Found the Brand Refresh contract renewing Sept 30 ($24K)", url: "https://dashboard.stripe.com/subscriptions/sub_demo_evergreen", appLabel: "Stripe", appId: "stripe" },
+      { label: "Counted 4 expansion mentions from Sarah in #evergreen-salt this month", url: "https://app.slack.com/client/T01234/C56789", appLabel: "Slack", appId: "slack" },
+      { label: "Saw the Holiday Campaign draft invoice ($45K) waiting in Stripe", url: "https://dashboard.stripe.com/invoices/in_demo_evergreen", appLabel: "Stripe", appId: "stripe" },
+    ],
     targetOrgSlug: "evergreen-brands",
     sourceUrl: "https://app.slack.com/client/T01234/C56789",
     triggerLabel: "💬 Slack mentions + 💳 Stripe history + 📅 Contract date",
   },
   {
     title: "Tomorrow's kickoff missing scope doc — found it in Drive",
+    headline: "Kickoff with Michael tomorrow at 11am, scope doc found and attached",
     preview: "Salt checked Calendar, saw no attachment in the invite. Found scope doc in Drive, attached it, drafted reminder.",
     draftBody: "Hi Michael,\n\nQuick note before our kickoff tomorrow at 11am — I noticed the scope document wasn't attached to the calendar invite.\n\nI've attached it here for easy reference:\n• Vertex Website Redesign - Scope v2.pdf\n• Timeline & Milestones\n• Photography shot list\n\nCan't wait to get started! See you at 11.\n\nBest,\n[You]",
     recipientLabel: "Michael Torres",
     channel: "Gmail",
     confidence: 97,
     etaLabel: "Meeting tomorrow",
+    playbookSlug: "meeting-prep",
+    playbookName: "Meeting Prep",
+    section: "meetings",
+    triggerSignal: "Kickoff within 24 hours with no scope doc attached",
+    evidence: [
+      { label: "Saw the Vertex kickoff tomorrow at 11:00 AM on your calendar", url: "https://calendar.google.com/calendar/event?eid=vertex-kickoff", appLabel: "Google Calendar", appId: "google-calendar" },
+      { label: "Noticed the invite has no attachments", url: "https://calendar.google.com/calendar/event?eid=vertex-kickoff", appLabel: "Google Calendar", appId: "google-calendar" },
+      { label: "Found \"Vertex Website Redesign - Scope v2.pdf\" in your Drive", url: "https://drive.google.com/file/d/scope-doc-vertex", appLabel: "Google Drive", appId: "google-drive" },
+    ],
+    artifacts: [
+      { appId: "google-drive", label: "Vertex Website Redesign - Scope v2.pdf", url: "https://drive.google.com/file/d/scope-doc-vertex" },
+    ],
     targetOrgSlug: "vertex-architecture",
     sourceUrl: "https://drive.google.com/file/d/scope-doc-vertex",
     triggerLabel: "📅 Calendar + 📁 Drive + 📧 Gmail",
   },
   {
     title: "Amanda mentioned video 4x — $60K upsell opportunity",
+    headline: "Amanda asked about video again, the $60K proposal is drafted",
     preview: "Salt analyzed Slack history + meeting notes. She's ready. Proposal + calendar invite drafted.",
     draftBody: "Hi Amanda,\n\nI've been thinking about our last few conversations — you mentioned video 4 times in the past month, and I think you're absolutely right that it's time.\n\nLuna's national expansion deserves to be documented. I put together a video package:\n\n• $5K/month ($60K/year commitment)\n• 4 short-form + 1 long-form monthly\n• First video: Your founder story\n\nI blocked Thursday 2pm for us to discuss — calendar invite attached. Let me know if another time works better.\n\nBest,\n[You]",
     recipientLabel: "Amanda Foster",
     channel: "Gmail",
     confidence: 92,
     etaLabel: "Hot lead",
+    playbookSlug: "upsell-opportunity",
+    playbookName: "Upsell Opportunity",
+    section: "relationships",
+    triggerSignal: "Client mentioned an unpurchased service 4 times in 30 days",
+    evidence: [
+      { label: "Counted 4 video mentions from Amanda in Slack this month", url: "https://app.slack.com/client/T01234/D78901", appLabel: "Slack", appId: "slack" },
+      { label: "Re-read the July retro notes, national expansion is the priority", url: "https://calendar.google.com/calendar/event?eid=luna-retro", appLabel: "Google Calendar", appId: "google-calendar" },
+      { label: "Confirmed no video line item on any Luna invoice in Stripe", url: "https://dashboard.stripe.com/customers/cus_demo_luna", appLabel: "Stripe", appId: "stripe" },
+    ],
     targetOrgSlug: "luna-wellness",
     sourceUrl: "https://app.slack.com/client/T01234/D78901",
     triggerLabel: "💬 Slack (4 mentions) + 📅 Calendar + 📧 Gmail",
@@ -318,6 +421,12 @@ const DEMO_BILLING_RECORDS: DemoBillingRecord[] = [
   // Draft
   { orgSlug: "evergreen-brands", number: "INV-2026-055", amountCents: 2250000, status: "draft", issuedDaysAgo: 0, description: "Holiday Campaign - Deposit" },
   { orgSlug: "catalyst-ventures", number: "INV-2026-056", amountCents: 2500000, status: "draft", issuedDaysAgo: 0, description: "Portfolio Services - Proposal" },
+  // Evergreen history — deep billing trail so the hub node shows payment density
+  { orgSlug: "evergreen-brands", number: "INV-2026-038", amountCents: 900000, status: "paid", issuedDaysAgo: 72, paidDaysAgo: 60, description: "Influencer Program - May" },
+  { orgSlug: "evergreen-brands", number: "INV-2026-031", amountCents: 800000, status: "paid", issuedDaysAgo: 130, paidDaysAgo: 118, description: "Spring Lookbook - Final" },
+  { orgSlug: "evergreen-brands", number: "INV-2026-027", amountCents: 700000, status: "paid", issuedDaysAgo: 160, paidDaysAgo: 150, description: "Spring Lookbook - Deposit" },
+  { orgSlug: "evergreen-brands", number: "INV-2026-059", amountCents: 700000, status: "due", issuedDaysAgo: 2, description: "Retail Launch Kit - Milestone 1" },
+  { orgSlug: "evergreen-brands", number: "INV-2026-044", amountCents: 900000, status: "paid", issuedDaysAgo: 45, paidDaysAgo: 35, description: "Influencer Program - June" },
 ];
 
 // Opportunity gaps for HQ briefing
@@ -385,6 +494,13 @@ const DEMO_MEETINGS: DemoMeeting[] = [
   { title: "Vertex Architecture - Design Review", daysFromNow: 2, hour: 11, durationMinutes: 60, meetingType: "review", notes: "Review homepage wireframes, discuss photography", orgSlug: "vertex-architecture", personName: "Michael Torres" },
   { title: "Luna Wellness - Monthly Retro", daysFromNow: 3, hour: 14, durationMinutes: 60, meetingType: "review", notes: "Review July performance, pitch video add-on", orgSlug: "luna-wellness", personName: "Amanda Foster" },
   { title: "Horizon Fitness - Location Launch Check-in", daysFromNow: 4, hour: 10, durationMinutes: 45, meetingType: "check-in", notes: "Review brand assets for 3 new gym locations", orgSlug: "horizon-fitness", personName: "Chris Anderson" },
+  // PAST Evergreen meetings — history trail so the hub node shows meeting density
+  { title: "Evergreen - Brand Refresh Review", daysFromNow: -3, hour: 13, durationMinutes: 60, meetingType: "review", notes: "Phase 2 sign-off, engagement numbers up 47%", orgSlug: "evergreen-brands", personName: "Sarah Chen" },
+  { title: "Evergreen - Influencer Program Sync", daysFromNow: -6, hour: 11, durationMinutes: 30, meetingType: "check-in", notes: "Creator shortlist review with Priya", orgSlug: "evergreen-brands", personName: "Priya Nair" },
+  { title: "Evergreen - Retail Kit Walkthrough", daysFromNow: -9, hour: 15, durationMinutes: 45, meetingType: "review", notes: "Display mockups with Lisa, print vendor timing", orgSlug: "evergreen-brands", personName: "Lisa Chang" },
+  { title: "Evergreen - Holiday Concepts Pitch", daysFromNow: -13, hour: 10, durationMinutes: 90, meetingType: "review", notes: "First concepts round with Sarah and Marcus", orgSlug: "evergreen-brands", personName: "Marcus Williams" },
+  { title: "Evergreen - PR Strategy Session", daysFromNow: -17, hour: 14, durationMinutes: 45, meetingType: "check-in", notes: "Launch PR angles with Jordan", orgSlug: "evergreen-brands", personName: "Jordan Reyes" },
+  { title: "Evergreen - Creative Direction", daysFromNow: -21, hour: 11, durationMinutes: 60, meetingType: "check-in", notes: "Photography direction with Tom", orgSlug: "evergreen-brands", personName: "Tom Bradley" },
 ];
 
 // Captures for activity stream
@@ -410,20 +526,24 @@ const DEMO_CAPTURES: DemoCapture[] = [
 ];
 
 // Intelligence findings for HQ
+// needs_you → HQ "Heads up" rail + Plays Needs You queue.
+// auto_handled → HQ "Auto-handled" stack (HQ reads findings, not play_runs,
+// for that section). Memory-care style entries carry evidence.metadata
+// { memory_care_profile, profile_field, profile_value } so the handled card
+// renders a concrete change line ("relationship → Client").
 interface DemoFinding {
   findingType: "revenue_closing" | "revenue_risk" | "revenue_upsell" | "pending_deliverable" | "pending_reply";
   title: string;
   content: string;
   confidence: number;
   orgSlug?: string;
+  personName?: string;
 }
 
 const DEMO_FINDINGS: DemoFinding[] = [
-  { findingType: "revenue_closing", title: "Evergreen Q4 campaign ready to sign", content: "Sarah approved the $45K holiday campaign proposal. Just needs contract sent.", confidence: 95, orgSlug: "evergreen-brands" },
-  { findingType: "revenue_risk", title: "Catalyst deal going cold", content: "No response from David Liu in 12 days. $50K deal may slip to next quarter.", confidence: 78, orgSlug: "catalyst-ventures" },
-  { findingType: "revenue_upsell", title: "Luna Wellness interested in video", content: "Amanda mentioned video twice in last call. Potential $5K/month add-on.", confidence: 82, orgSlug: "luna-wellness" },
-  { findingType: "pending_deliverable", title: "Meridian launch content due Aug 15", content: "Product launch assets deadline in 2 weeks. Video brief still pending.", confidence: 90, orgSlug: "meridian-tech" },
-  { findingType: "pending_reply", title: "Artisan Coffee invoice inquiry", content: "Nina asked about payment terms yesterday. Hasn't received response.", confidence: 85, orgSlug: "artisan-coffee" },
+  { findingType: "revenue_risk", title: "Catalyst deal going cold", content: "No response from David Liu in 12 days. $50K deal may slip to next quarter.", confidence: 78, orgSlug: "catalyst-ventures", personName: "David Liu" },
+  { findingType: "pending_reply", title: "Artisan Coffee invoice inquiry", content: "Nina asked about payment terms yesterday. Hasn't received response.", confidence: 85, orgSlug: "artisan-coffee", personName: "Nina Patel" },
+  { findingType: "pending_deliverable", title: "Meridian launch content due Aug 15", content: "Product launch assets deadline in 1 week. Video brief still pending.", confidence: 90, orgSlug: "meridian-tech", personName: "James Park" },
 ];
 
 // User profile data for Me section
@@ -540,6 +660,8 @@ async function clearDemoData(workspaceId: string) {
   await supabase.from("capture_routing_decisions").delete().eq("workspace_id", workspaceId);
   await supabase.from("capture_events").delete().eq("workspace_id", workspaceId);
   await supabase.from("intelligence_findings").delete().eq("workspace_id", workspaceId);
+  await supabase.from("activity_entries").delete().eq("workspace_id", workspaceId);
+  await supabase.from("proposals").delete().eq("workspace_id", workspaceId);
   await supabase.from("billing_records").delete().eq("workspace_id", workspaceId);
   await supabase.from("play_runs").delete().eq("workspace_id", workspaceId);
   await supabase.from("opportunity_gaps").delete().eq("workspace_id", workspaceId);
@@ -547,8 +669,16 @@ async function clearDemoData(workspaceId: string) {
   await supabase.from("work").delete().eq("workspace_id", workspaceId);
   await supabase.from("files").delete().eq("workspace_id", workspaceId);
   await supabase.from("entity_links").delete().eq("workspace_id", workspaceId);
+  await supabase.from("notes").delete().eq("workspace_id", workspaceId);
   await supabase.from("people").delete().eq("workspace_id", workspaceId);
   await supabase.from("organizations").delete().eq("workspace_id", workspaceId);
+
+  // Reset the auto-handled watermark — reseeded handled items should be
+  // "unreviewed" so the Auto-handled tab shows them on first view.
+  await supabase
+    .from("workspaces")
+    .update({ auto_handled_seen_at: null })
+    .eq("id", workspaceId);
 
   console.log(`  ✓ Cleared`);
 }
@@ -568,6 +698,7 @@ async function seedOrganizations(workspaceId: string): Promise<Map<string, strin
         industry: org.industry,
         notes: org.notes,
         relationship_status: org.relationshipStatus,
+        relationship_health_band: org.healthBand,
         record_status: "active",
       })
       .select("id")
@@ -627,7 +758,7 @@ async function seedPeople(workspaceId: string, orgIds: Map<string, string>): Pro
         target_type: "org",
         target_id: orgId,
         relation_type: "employment",
-        source: "demo-seed",
+        source: "system",
         confidence: 100,
       });
 
@@ -715,7 +846,8 @@ async function seedMeetings(workspaceId: string, orgIds: Map<string, string>, pe
 async function seedPlays(workspaceId: string, orgIds: Map<string, string>) {
   console.log(`\nSeeding plays (${DEMO_PLAYS.length} queued + executed)...`);
 
-  // First, add queued plays
+  // Queued plays — full v2 attribution so cards and the detail modal render
+  // the rich layout (headline, section identity, draft, evidence, artifacts).
   for (const play of DEMO_PLAYS) {
     const targetOrgId = play.targetOrgSlug ? orgIds.get(play.targetOrgSlug) : undefined;
     const targetOrg = DEMO_ORGS.find((o) => o.slug === play.targetOrgSlug);
@@ -723,6 +855,7 @@ async function seedPlays(workspaceId: string, orgIds: Map<string, string>) {
     const { error } = await supabase.from("play_runs").insert({
       workspace_id: workspaceId,
       state: "queued",
+      queue: "needs_you",
       title: play.title,
       preview: play.preview,
       draft_body: play.draftBody,
@@ -733,7 +866,19 @@ async function seedPlays(workspaceId: string, orgIds: Map<string, string>) {
       target_type: targetOrgId ? "organization" : null,
       target_id: targetOrgId,
       target_label: targetOrg?.name,
+      source_context: {
+        source: "playbook",
+        playbook_slug: play.playbookSlug,
+        trigger_signal: play.triggerSignal,
+      },
       metadata: {
+        section: play.section,
+        layer: "act",
+        output_type: "email_draft",
+        playbook_name: play.playbookName,
+        headline: play.headline,
+        evidence: play.evidence,
+        artifacts: play.artifacts ?? [],
         source_url: play.sourceUrl,
         trigger_label: play.triggerLabel,
       },
@@ -747,50 +892,308 @@ async function seedPlays(workspaceId: string, orgIds: Map<string, string>) {
     console.log(`  ✓ ${play.title} (queued)`);
   }
 
-  // Add executed plays (for time saved display) - MORE auto-handled than need-you items
-  // Put more plays on TODAY (daysAgo: 0) for impressive briefing stats
-  // Mix channels: Gmail, Slack, Note for variety
-  const executedPlays = [
-    // TODAY - impressive overnight/early morning auto-actions (12 for wow factor)
-    { title: "Meeting brief prepped: Catalyst Ventures 4pm", daysAgo: 0, stakes: "high", channel: "Note", preview: "Assembled case studies, talking points, and $50K deal history for David Liu" },
-    { title: "Meeting brief prepped: Meridian Tech 2pm", daysAgo: 0, stakes: "high", channel: "Note", preview: "Launch timeline, content status, deliverables checklist for James" },
-    { title: "Invoice sent: Luna Wellness August retainer", daysAgo: 0, stakes: "high", channel: "Gmail", preview: "Auto-generated and sent INV-2026-057 for $6,500" },
-    { title: "Follow-up sent: Evergreen Q3 check-in", daysAgo: 0, stakes: "high", channel: "Gmail", preview: "Brand refresh progress update, seeded holiday campaign discussion" },
-    { title: "Invoice reminder: Artisan Coffee overdue", daysAgo: 0, stakes: "high", channel: "Gmail", preview: "Payment reminder for INV-2026-048 ($4,750) - 5 days overdue" },
-    { title: "Proposal sent: Catalyst portfolio services", daysAgo: 0, stakes: "high", channel: "Gmail", preview: "Attached $50K proposal ahead of today's meeting" },
-    { title: "Weekly digest: Meridian content pipeline", daysAgo: 0, stakes: "medium", channel: "Slack", preview: "Shared content status in #meridian-salt channel - 3/5 complete" },
-    { title: "Calendar hold: Studio Collective intro", daysAgo: 0, stakes: "medium", channel: "Note", preview: "Blocked 30min tomorrow for new lead call with Alex Rivera" },
-    { title: "Status update: Vertex Architecture", daysAgo: 0, stakes: "medium", channel: "Gmail", preview: "Shared website redesign Phase 1 progress - on track" },
-    { title: "Contract renewal alert: Horizon Fitness", daysAgo: 0, stakes: "high", channel: "Gmail", preview: "30-day notice sent for $22K Location Launch Kit renewal" },
-    { title: "Meeting notes shared: Luna Wellness", daysAgo: 0, stakes: "medium", channel: "Slack", preview: "Posted last call notes + video upsell talking points" },
-    { title: "Lead response: Studio Collective", daysAgo: 0, stakes: "medium", channel: "Gmail", preview: "Warm response to Alex's LinkedIn inquiry with availability" },
-    { title: "Thank you sent: Evergreen Brands", daysAgo: 0, stakes: "medium", channel: "Gmail", preview: "Appreciation note to Sarah for Q3 brand refresh partnership" },
-    { title: "Project brief created: Horizon Fitness", daysAgo: 0, stakes: "high", channel: "Note", preview: "Location launch kit scope, timeline, and deliverables documented" },
+  // Auto-handled plays (for the Auto-handled tab, Activity, and the HQ
+  // time-saved widget). Three requirements that are easy to miss:
+  //   1. queue = "auto_handled" — listAutoHandledPlayRuns filters on it;
+  //      without it these runs are invisible on the Auto-handled tab.
+  //   2. source_context.playbook_slug pointing at a live act-layer v2
+  //      playbook — the Activity tab allowlist drops unattributed rows, and
+  //      the HQ time-saved widget prices runs via the playbook's
+  //      value.estimate. No slug → no Activity row → 0 minutes saved.
+  //   3. created_at backdated with ran_at — the stats window and the
+  //      Activity ordering both read creation/update timestamps.
+  //   4. metadata.output_type must match the playbook's declared output —
+  //      the card mapper derives the body kind from it, and email_draft
+  //      without a draft_body fails validation (card silently dropped).
+  //      Ran email plays keep their sent body in draft_body, like the
+  //      executor leaves it.
+  //   5. headline/evidence/artifacts/trigger_signal — the handled card and
+  //      its modal render the same rich anatomy as the queue card only when
+  //      these are present; otherwise you get a bare title + preview.
+  const executedPlays: {
+    title: string;
+    headline: string;
+    preview: string;
+    daysAgo: number;
+    stakes: "low" | "medium" | "high";
+    channel: "Gmail" | "Slack" | "Note";
+    recipientLabel: string;
+    playbookSlug: string;
+    playbookName: string;
+    section: string;
+    outputType: "email_draft" | "briefing" | "notification";
+    triggerSignal: string;
+    evidence: DemoPlayEvidence[];
+    artifacts?: DemoPlayArtifact[];
+    sentBody?: string;
+  }[] = [
+    // TODAY - impressive overnight/early morning auto-actions
+    {
+      title: "Meeting brief prepped: Catalyst Ventures 4pm", headline: "Your 4pm Catalyst brief is ready", daysAgo: 0, stakes: "high", channel: "Note", recipientLabel: "David Liu", preview: "Assembled case studies, talking points, and $50K deal history for David Liu", playbookSlug: "meeting-prep", playbookName: "Meeting Prep", section: "meetings", outputType: "briefing", triggerSignal: "Meeting in under 4 hours with an open proposal",
+      evidence: [
+        { label: "Saw the 4:00 PM Catalyst Ventures follow-up on your calendar", url: "https://calendar.google.com/calendar/event?eid=catalyst-4pm", appLabel: "Google Calendar", appId: "google-calendar" },
+        { label: "Read David's last email asking for the portfolio pricing breakdown", url: "https://mail.google.com/mail/u/0/#inbox/demo-catalyst", appLabel: "Gmail", appId: "google" },
+        { label: "Noticed the $25,000 deposit invoice is still a draft in Stripe", url: "https://dashboard.stripe.com/invoices/in_demo_catalyst", appLabel: "Stripe", appId: "stripe" },
+      ],
+      artifacts: [{ appId: "google", label: "Catalyst meeting brief (Notes)", url: "https://docs.google.com/document/d/demo-catalyst-brief" }],
+    },
+    {
+      title: "Meeting brief prepped: Meridian Tech 2pm", headline: "Your 2pm Meridian brief is ready", daysAgo: 0, stakes: "high", channel: "Note", recipientLabel: "James Park", preview: "Launch timeline, content status, deliverables checklist for James", playbookSlug: "meeting-prep", playbookName: "Meeting Prep", section: "meetings", outputType: "briefing", triggerSignal: "Weekly sync in under 4 hours",
+      evidence: [
+        { label: "Saw the 2:00 PM Meridian weekly sync on your calendar", url: "https://calendar.google.com/calendar/event?eid=meridian-2pm", appLabel: "Google Calendar", appId: "google-calendar" },
+        { label: "Pulled the launch checklist from #meridian-salt in Slack", url: "https://slack.com/archives/demo-meridian", appLabel: "Slack", appId: "slack" },
+      ],
+      artifacts: [{ appId: "google", label: "Meridian launch brief (Notes)", url: "https://docs.google.com/document/d/demo-meridian-brief" }],
+    },
+    {
+      title: "Invoice sent: Luna Wellness August retainer", headline: "Amanda's August retainer invoice went out", daysAgo: 0, stakes: "high", channel: "Gmail", recipientLabel: "Amanda Foster", preview: "Auto-generated and sent INV-2026-057 for $6,500", playbookSlug: "invoice-reminder", playbookName: "Invoice Reminder", section: "billing", outputType: "email_draft", triggerSignal: "Retainer invoice due on the 1st of the month",
+      evidence: [
+        { label: "Noticed the August retainer was due and uninvoiced in Stripe", url: "https://dashboard.stripe.com/invoices/in_demo_luna", appLabel: "Stripe", appId: "stripe" },
+        { label: "Matched the $6,500 amount to the signed retainer email", url: "https://mail.google.com/mail/u/0/#inbox/demo-luna-retainer", appLabel: "Gmail", appId: "google" },
+      ],
+      artifacts: [{ appId: "stripe", label: "INV-2026-057 · $6,500 (sent)", url: "https://dashboard.stripe.com/invoices/in_demo_luna" }],
+      sentBody: "Hi Amanda,\n\nYour August retainer invoice is ready — INV-2026-057 for $6,500.\n\nPay securely here: [payment link]\n\nThanks as always!\n[You]",
+    },
+    {
+      title: "Follow-up sent: Evergreen Q3 check-in", headline: "Sarah got the Q3 check-in", daysAgo: 0, stakes: "high", channel: "Gmail", recipientLabel: "Sarah Chen", preview: "Brand refresh progress update, seeded holiday campaign discussion", playbookSlug: "follow-up", playbookName: "Follow-up", section: "relationships", outputType: "email_draft", triggerSignal: "No reply in 6 days on an active engagement",
+      evidence: [
+        { label: "Noticed Sarah hasn't replied since the Phase 2 update 6 days ago", url: "https://mail.google.com/mail/u/0/#inbox/demo-evergreen-q3", appLabel: "Gmail", appId: "google" },
+        { label: "Read her Slack reaction to the engagement numbers on Friday", url: "https://slack.com/archives/demo-evergreen", appLabel: "Slack", appId: "slack" },
+      ],
+      sentBody: "Hi Sarah,\n\nQuick check-in on the brand refresh — Phase 2 wraps Friday and engagement is tracking 47% above baseline.\n\nWith Q4 around the corner, worth sketching the holiday campaign soon. Want me to put together concepts?\n\nBest,\n[You]",
+    },
+    {
+      title: "Invoice reminder: Artisan Coffee overdue", headline: "Nina got a friendly nudge on INV-2026-048", daysAgo: 0, stakes: "high", channel: "Gmail", recipientLabel: "Nina Patel", preview: "Payment reminder for INV-2026-048 ($4,750) - 5 days overdue", playbookSlug: "invoice-reminder", playbookName: "Invoice Reminder", section: "billing", outputType: "email_draft", triggerSignal: "Invoice 5 days past due",
+      evidence: [
+        { label: "Noticed INV-2026-048 ($4,750) crossed 5 days past due in Stripe", url: "https://dashboard.stripe.com/invoices/in_demo_artisan", appLabel: "Stripe", appId: "stripe" },
+        { label: "Checked Gmail — no reply from Nina since the invoice went out", url: "https://mail.google.com/mail/u/0/#inbox/demo-artisan", appLabel: "Gmail", appId: "google" },
+      ],
+      artifacts: [{ appId: "stripe", label: "INV-2026-048 · $4,750 (overdue)", url: "https://dashboard.stripe.com/invoices/in_demo_artisan" }],
+      sentBody: "Hi Nina,\n\nFriendly reminder that INV-2026-048 ($4,750) is a few days past due.\n\nHere's the payment link: [payment link]\n\nThanks!\n[You]",
+    },
+    {
+      title: "Proposal sent: Catalyst portfolio services", headline: "David has the $50K portfolio proposal", daysAgo: 0, stakes: "high", channel: "Gmail", recipientLabel: "David Liu", preview: "Attached $50K proposal ahead of today's meeting", playbookSlug: "upsell-opportunity", playbookName: "Upsell Opportunity", section: "relationships", outputType: "email_draft", triggerSignal: "Meeting today with an open proposal",
+      evidence: [
+        { label: "Saw the 4:00 PM call with David on your calendar", url: "https://calendar.google.com/calendar/event?eid=catalyst-4pm", appLabel: "Google Calendar", appId: "google-calendar" },
+        { label: "Read his email asking for portfolio pricing before the call", url: "https://mail.google.com/mail/u/0/#inbox/demo-catalyst", appLabel: "Gmail", appId: "google" },
+      ],
+      artifacts: [{ appId: "google", label: "Portfolio Brand Services proposal.pdf", url: "https://docs.google.com/document/d/demo-catalyst-proposal" }],
+      sentBody: "Hi David,\n\nAhead of our call — the full Portfolio Brand Services proposal is attached.\n\n• $50K/year for up to 5 portfolio companies\n• Dedicated strategist for each\n• 48-hour turnaround on urgent requests\n\nSee you at 4!\n\nBest,\n[You]",
+    },
+    {
+      title: "Weekly digest: Meridian content pipeline", headline: "Meridian's weekly digest posted to Slack", daysAgo: 0, stakes: "medium", channel: "Slack", recipientLabel: "#meridian-salt", preview: "Shared content status in #meridian-salt channel - 3/5 complete", playbookSlug: "email-digest", playbookName: "Email Digest", section: "communication", outputType: "briefing", triggerSignal: "Weekly digest schedule (Fridays 9am)",
+      evidence: [
+        { label: "Compiled the week's content status from the Meridian work board", url: "https://slack.com/archives/demo-meridian", appLabel: "Slack", appId: "slack" },
+        { label: "Cross-checked Elena's latest draft submissions in Gmail", url: "https://mail.google.com/mail/u/0/#inbox/demo-meridian", appLabel: "Gmail", appId: "google" },
+      ],
+    },
+    {
+      title: "Calendar hold: Studio Collective intro", headline: "Held 30 minutes for the Alex Rivera intro", daysAgo: 0, stakes: "medium", channel: "Note", recipientLabel: "Alex Rivera", preview: "Blocked 30min tomorrow for new lead call with Alex Rivera", playbookSlug: "meeting-prep", playbookName: "Meeting Prep", section: "meetings", outputType: "briefing", triggerSignal: "New lead asked for a call",
+      evidence: [
+        { label: "Read Alex's LinkedIn inquiry asking for an intro call", url: "https://mail.google.com/mail/u/0/#inbox/demo-studio", appLabel: "Gmail", appId: "google" },
+        { label: "Found a free 30-minute block tomorrow at 3:00 PM", url: "https://calendar.google.com/calendar/event?eid=studio-intro", appLabel: "Google Calendar", appId: "google-calendar" },
+      ],
+    },
+    {
+      title: "Status update: Vertex Architecture", headline: "Michael got the Phase 1 status update", daysAgo: 0, stakes: "medium", channel: "Gmail", recipientLabel: "Michael Torres", preview: "Shared website redesign Phase 1 progress - on track", playbookSlug: "follow-up", playbookName: "Follow-up", section: "relationships", outputType: "email_draft", triggerSignal: "Weekly status cadence for active work",
+      evidence: [
+        { label: "Pulled Phase 1 progress from the Vertex work board", url: "https://mail.google.com/mail/u/0/#inbox/demo-vertex", appLabel: "Gmail", appId: "google" },
+      ],
+      sentBody: "Hi Michael,\n\nPhase 1 of the redesign is on track — wireframes approved, homepage in build.\n\nFull status board: [link]\n\nBest,\n[You]",
+    },
+    {
+      title: "Contract renewal alert: Horizon Fitness", headline: "Chris got the 30-day renewal heads-up", daysAgo: 0, stakes: "high", channel: "Gmail", recipientLabel: "Chris Anderson", preview: "30-day notice sent for $22K Location Launch Kit renewal", playbookSlug: "contract-renewal-alert", playbookName: "Contract Renewal Alert", section: "billing", outputType: "email_draft", triggerSignal: "Contract renews in 30 days",
+      evidence: [
+        { label: "Noticed the Location Launch Kit agreement renews in 30 days", url: "https://dashboard.stripe.com/invoices/in_demo_horizon", appLabel: "Stripe", appId: "stripe" },
+        { label: "Read Chris's email about the 3 new gym locations", url: "https://mail.google.com/mail/u/0/#inbox/demo-horizon", appLabel: "Gmail", appId: "google" },
+      ],
+      sentBody: "Hi Chris,\n\nHeads up that the Location Launch Kit agreement renews in 30 days.\n\nGiven the 3 new locations, I'd love to walk you through the expanded package. Coffee this week?\n\nBest,\n[You]",
+    },
+    {
+      title: "Meeting notes shared: Luna Wellness", headline: "Luna call notes posted to Slack", daysAgo: 0, stakes: "medium", channel: "Slack", recipientLabel: "#luna-wellness", preview: "Posted last call notes + video upsell talking points", playbookSlug: "meeting-recap", playbookName: "Meeting Recap", section: "meetings", outputType: "notification", triggerSignal: "Meeting ended 30 minutes ago",
+      evidence: [
+        { label: "Saw the Luna Wellness monthly review ended at 2:30 PM", url: "https://calendar.google.com/calendar/event?eid=luna-review", appLabel: "Google Calendar", appId: "google-calendar" },
+        { label: "Formatted the recap for #luna-wellness in Slack", url: "https://slack.com/archives/demo-luna", appLabel: "Slack", appId: "slack" },
+      ],
+    },
+    {
+      title: "Lead response: Studio Collective", headline: "Alex got a warm reply with your availability", daysAgo: 0, stakes: "medium", channel: "Gmail", recipientLabel: "Alex Rivera", preview: "Warm response to Alex's LinkedIn inquiry with availability", playbookSlug: "follow-up", playbookName: "Follow-up", section: "relationships", outputType: "email_draft", triggerSignal: "Inbound lead inquiry unanswered for 2 days",
+      evidence: [
+        { label: "Read Alex's inquiry about strategy sprints", url: "https://mail.google.com/mail/u/0/#inbox/demo-studio", appLabel: "Gmail", appId: "google" },
+        { label: "Checked your calendar for two open intro slots", url: "https://calendar.google.com/calendar/event?eid=studio-intro", appLabel: "Google Calendar", appId: "google-calendar" },
+      ],
+      sentBody: "Hi Alex,\n\nThanks for reaching out! Strategy sprints are exactly what we do.\n\nI have Thursday 3pm or Friday 10am open for an intro call — either work?\n\nBest,\n[You]",
+    },
+    {
+      title: "Thank you sent: Evergreen Brands", headline: "Sarah got a thank-you note", daysAgo: 0, stakes: "medium", channel: "Gmail", recipientLabel: "Sarah Chen", preview: "Appreciation note to Sarah for Q3 brand refresh partnership", playbookSlug: "follow-up", playbookName: "Follow-up", section: "relationships", outputType: "email_draft", triggerSignal: "Milestone completed (Phase 2 sign-off)",
+      evidence: [
+        { label: "Saw Sarah approve the Phase 2 designs in the refresh thread", url: "https://mail.google.com/mail/u/0/#inbox/demo-evergreen-q3", appLabel: "Gmail", appId: "google" },
+      ],
+      sentBody: "Hi Sarah,\n\nJust wanted to say thanks — the Q3 refresh has been a joy to work on. The results speak for themselves.\n\nBest,\n[You]",
+    },
+    {
+      title: "Project brief created: Horizon Fitness", headline: "Horizon launch brief is in your notes", daysAgo: 0, stakes: "high", channel: "Note", recipientLabel: "Horizon Fitness", preview: "Location launch kit scope, timeline, and deliverables documented", playbookSlug: "daily-briefing", playbookName: "Daily Briefing", section: "me", outputType: "briefing", triggerSignal: "New work item created without a brief",
+      evidence: [
+        { label: "Read the signed Location Launch Kit scope in Gmail", url: "https://mail.google.com/mail/u/0/#inbox/demo-horizon", appLabel: "Gmail", appId: "google" },
+        { label: "Pulled the launch dates from your calendar", url: "https://calendar.google.com/calendar/event?eid=horizon-launch", appLabel: "Google Calendar", appId: "google-calendar" },
+      ],
+      artifacts: [{ appId: "google", label: "Horizon location launch brief (Notes)", url: "https://docs.google.com/document/d/demo-horizon-brief" }],
+    },
     // YESTERDAY - more high-value plays
-    { title: "Invoice sent: Evergreen monthly", daysAgo: 1, stakes: "high", channel: "Gmail", preview: "Auto-generated INV-2026-058 for $12,000 brand refresh" },
-    { title: "Meeting prep: Evergreen Q4 kickoff", daysAgo: 1, stakes: "high", channel: "Note", preview: "Campaign concepts, budget breakdown, timeline for $45K project" },
-    { title: "Follow-up sent: Bloom Creative", daysAgo: 1, stakes: "medium", channel: "Gmail", preview: "Photo support retainer check-in for July deliverables" },
-    { title: "Calendar hold: Evergreen campaign kickoff", daysAgo: 1, stakes: "low", channel: "Note", preview: "Blocked 90min tomorrow based on email thread" },
+    {
+      title: "Invoice sent: Evergreen monthly", headline: "Sarah got the $12,000 brand refresh invoice", daysAgo: 1, stakes: "high", channel: "Gmail", recipientLabel: "Sarah Chen", preview: "Auto-generated INV-2026-058 for $12,000 brand refresh", playbookSlug: "invoice-reminder", playbookName: "Invoice Reminder", section: "billing", outputType: "email_draft", triggerSignal: "Monthly billing cycle",
+      evidence: [
+        { label: "Noticed the July brand refresh invoice was due in Stripe", url: "https://dashboard.stripe.com/invoices/in_demo_evergreen", appLabel: "Stripe", appId: "stripe" },
+      ],
+      artifacts: [{ appId: "stripe", label: "INV-2026-058 · $12,000 (sent)", url: "https://dashboard.stripe.com/invoices/in_demo_evergreen" }],
+      sentBody: "Hi Sarah,\n\nThis month's brand refresh invoice is ready — INV-2026-058 for $12,000.\n\nPay securely here: [payment link]\n\nThanks!\n[You]",
+    },
+    {
+      title: "Meeting prep: Evergreen Q4 kickoff", headline: "Your Q4 kickoff brief is ready", daysAgo: 1, stakes: "high", channel: "Note", recipientLabel: "Sarah Chen", preview: "Campaign concepts, budget breakdown, timeline for $45K project", playbookSlug: "meeting-prep", playbookName: "Meeting Prep", section: "meetings", outputType: "briefing", triggerSignal: "Kickoff scheduled with a draft proposal",
+      evidence: [
+        { label: "Saw the Q4 campaign kickoff on tomorrow's calendar", url: "https://calendar.google.com/calendar/event?eid=evergreen-q4", appLabel: "Google Calendar", appId: "google-calendar" },
+        { label: "Pulled the $45K holiday campaign proposal scope", url: "https://mail.google.com/mail/u/0/#inbox/demo-evergreen-q4", appLabel: "Gmail", appId: "google" },
+      ],
+    },
+    {
+      title: "Follow-up sent: Bloom Creative", headline: "Jessica got a July deliverables check-in", daysAgo: 1, stakes: "medium", channel: "Gmail", recipientLabel: "Jessica Bloom", preview: "Photo support retainer check-in for July deliverables", playbookSlug: "follow-up", playbookName: "Follow-up", section: "relationships", outputType: "email_draft", triggerSignal: "Deliverables due with no recent reply",
+      evidence: [
+        { label: "Noticed the July photo deliverables window closing", url: "https://mail.google.com/mail/u/0/#inbox/demo-bloom", appLabel: "Gmail", appId: "google" },
+      ],
+      sentBody: "Hi Jessica,\n\nChecking in on July photo deliverables — everything you need from our side?\n\nBest,\n[You]",
+    },
+    {
+      title: "Calendar hold: Evergreen campaign kickoff", headline: "Blocked 90 minutes for the campaign kickoff", daysAgo: 1, stakes: "low", channel: "Note", recipientLabel: "Sarah Chen", preview: "Blocked 90min tomorrow based on email thread", playbookSlug: "meeting-prep", playbookName: "Meeting Prep", section: "meetings", outputType: "briefing", triggerSignal: "Email thread proposed a kickoff time",
+      evidence: [
+        { label: "Read Sarah's email proposing a kickoff this week", url: "https://mail.google.com/mail/u/0/#inbox/demo-evergreen-q4", appLabel: "Gmail", appId: "google" },
+        { label: "Found a 90-minute opening tomorrow at 10:00 AM", url: "https://calendar.google.com/calendar/event?eid=evergreen-q4", appLabel: "Google Calendar", appId: "google-calendar" },
+      ],
+    },
     // THIS WEEK
-    { title: "Proposal follow-up: Vertex Phase 2", daysAgo: 2, stakes: "high", channel: "Gmail", preview: "Gentle nudge on $9K Phase 2 website expansion" },
-    { title: "Invoice sent: Horizon deposit", daysAgo: 3, stakes: "high", channel: "Gmail", preview: "Auto-generated INV-2026-056 for $11,000 location kit deposit" },
-    { title: "Thank you sent: Artisan Coffee", daysAgo: 4, stakes: "medium", channel: "Gmail", preview: "Post-campaign appreciation to Nina for summer collab" },
-    { title: "Intro scheduled: Studio Collective", daysAgo: 5, stakes: "medium", channel: "Gmail", preview: "Auto-replied to Alex's inquiry with Calendly link" },
+    {
+      title: "Proposal follow-up: Vertex Phase 2", headline: "Michael got a gentle nudge on Phase 2", daysAgo: 2, stakes: "high", channel: "Gmail", recipientLabel: "Michael Torres", preview: "Gentle nudge on $9K Phase 2 website expansion", playbookSlug: "follow-up", playbookName: "Follow-up", section: "relationships", outputType: "email_draft", triggerSignal: "Proposal viewed but unanswered for 5 days",
+      evidence: [
+        { label: "Saw Michael open the Phase 2 proposal twice this week", url: "https://mail.google.com/mail/u/0/#inbox/demo-vertex", appLabel: "Gmail", appId: "google" },
+      ],
+      sentBody: "Hi Michael,\n\nCircling back on the Phase 2 proposal ($9K) — happy to answer questions or adjust scope.\n\nBest,\n[You]",
+    },
+    {
+      title: "Invoice sent: Horizon deposit", headline: "Chris got the $11,000 deposit invoice", daysAgo: 3, stakes: "high", channel: "Gmail", recipientLabel: "Chris Anderson", preview: "Auto-generated INV-2026-056 for $11,000 location kit deposit", playbookSlug: "invoice-reminder", playbookName: "Invoice Reminder", section: "billing", outputType: "email_draft", triggerSignal: "Signed agreement received, deposit due",
+      evidence: [
+        { label: "Read the signed Location Launch Kit agreement in Gmail", url: "https://mail.google.com/mail/u/0/#inbox/demo-horizon", appLabel: "Gmail", appId: "google" },
+        { label: "Created the 50% deposit invoice in Stripe", url: "https://dashboard.stripe.com/invoices/in_demo_horizon_deposit", appLabel: "Stripe", appId: "stripe" },
+      ],
+      artifacts: [{ appId: "stripe", label: "INV-2026-056 · $11,000 (sent)", url: "https://dashboard.stripe.com/invoices/in_demo_horizon_deposit" }],
+      sentBody: "Hi Chris,\n\nThe Location Launch Kit deposit invoice is ready — INV-2026-056 for $11,000.\n\nPay securely here: [payment link]\n\nThanks!\n[You]",
+    },
+    {
+      title: "Thank you sent: Artisan Coffee", headline: "Nina got a thank-you for the summer campaign", daysAgo: 4, stakes: "medium", channel: "Gmail", recipientLabel: "Nina Patel", preview: "Post-campaign appreciation to Nina for summer collab", playbookSlug: "payment-received", playbookName: "Payment Received", section: "billing", outputType: "email_draft", triggerSignal: "Payment received in Stripe",
+      evidence: [
+        { label: "Saw Nina's payment clear in Stripe", url: "https://dashboard.stripe.com/payments/pi_demo_artisan", appLabel: "Stripe", appId: "stripe" },
+      ],
+      sentBody: "Hi Nina,\n\nPayment received — thank you! The summer campaign was a pleasure.\n\nBest,\n[You]",
+    },
+    {
+      title: "Intro scheduled: Studio Collective", headline: "Alex got your booking link", daysAgo: 5, stakes: "medium", channel: "Gmail", recipientLabel: "Alex Rivera", preview: "Auto-replied to Alex's inquiry with Calendly link", playbookSlug: "follow-up", playbookName: "Follow-up", section: "relationships", outputType: "email_draft", triggerSignal: "Inbound lead inquiry",
+      evidence: [
+        { label: "Read Alex's LinkedIn inquiry about strategy sprints", url: "https://mail.google.com/mail/u/0/#inbox/demo-studio", appLabel: "Gmail", appId: "google" },
+      ],
+      sentBody: "Hi Alex,\n\nGreat to hear from you! Grab any slot that works: [calendar link]\n\nBest,\n[You]",
+    },
   ];
 
   for (const play of executedPlays) {
     const ranAt = new Date();
     ranAt.setDate(ranAt.getDate() - play.daysAgo);
 
+    const { data: run, error } = await supabase
+      .from("play_runs")
+      .insert({
+        workspace_id: workspaceId,
+        state: "ran",
+        queue: "auto_handled",
+        title: play.title,
+        preview: play.preview,
+        stakes: play.stakes,
+        ran_at: ranAt.toISOString(),
+        created_at: ranAt.toISOString(),
+        channel: play.channel ?? "Gmail",
+        confidence: 95,
+        recipient_label: play.recipientLabel,
+        draft_body: play.sentBody ?? null,
+        source_context: {
+          source: "playbook",
+          playbook_slug: play.playbookSlug,
+          trigger_signal: play.triggerSignal,
+        },
+        metadata: {
+          section: play.section,
+          layer: "act",
+          output_type: play.outputType,
+          playbook_name: play.playbookName,
+          headline: play.headline,
+          evidence: play.evidence,
+          artifacts: play.artifacts ?? [],
+        },
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      console.error(`  ✗ ${play.title}: ${error.message}`);
+      continue;
+    }
+
+    // Activity entry per run, mirroring play-record.ts — the Activity tab
+    // renders the per-run timeline from these rows.
+    await supabase.from("activity_entries").insert({
+      workspace_id: workspaceId,
+      play_run_id: run.id,
+      action: "auto_applied",
+      title: play.title,
+      detail: play.preview,
+      created_at: ranAt.toISOString(),
+      metadata: {
+        queue: "auto_handled",
+        stakes: play.stakes,
+        confidence: 95,
+        source: "playbook",
+        auto_executed: true,
+      },
+    });
+
+    console.log(`  ✓ ${play.title} (ran, auto-handled)`);
+  }
+
+  // Scheduled plays — power HQ "Coming up" and the automations list.
+  const scheduledPlays = [
+    { title: "Daily briefing for tomorrow", inDays: 1, hour: 8, playbookSlug: "daily-briefing", playbookName: "Daily Briefing", section: "me", preview: "Salt will assemble tomorrow's briefing at 8am" },
+    { title: "Weekly digest: client status roundup", inDays: 2, hour: 9, playbookSlug: "email-digest", playbookName: "Email Digest", section: "communication", preview: "Salt will compile the weekly client digest Monday at 9am" },
+  ];
+
+  for (const play of scheduledPlays) {
+    const scheduledFor = new Date();
+    scheduledFor.setDate(scheduledFor.getDate() + play.inDays);
+    scheduledFor.setHours(play.hour, 0, 0, 0);
+
     const { error } = await supabase.from("play_runs").insert({
       workspace_id: workspaceId,
-      state: "ran",
+      state: "scheduled",
+      queue: "auto_handled",
       title: play.title,
       preview: play.preview,
-      stakes: play.stakes,
-      ran_at: ranAt.toISOString(),
-      channel: play.channel ?? "Gmail",
+      scheduled_for: scheduledFor.toISOString(),
+      channel: "Note",
       confidence: 95,
+      source_context: {
+        source: "playbook",
+        playbook_slug: play.playbookSlug,
+      },
+      metadata: {
+        section: play.section,
+        layer: "act",
+        playbook_name: play.playbookName,
+      },
     });
 
     if (error) {
@@ -798,7 +1201,7 @@ async function seedPlays(workspaceId: string, orgIds: Map<string, string>) {
       continue;
     }
 
-    console.log(`  ✓ ${play.title} (ran)`);
+    console.log(`  ✓ ${play.title} (scheduled +${play.inDays}d)`);
   }
 }
 
@@ -842,6 +1245,37 @@ async function seedBilling(workspaceId: string, orgIds: Map<string, string>) {
     }
 
     console.log(`  ✓ ${record.number} ($${(record.amountCents / 100).toLocaleString()})`);
+  }
+}
+
+// Proposals drive the HQ pipeline stat card ("$XK in proposals").
+async function seedProposals(workspaceId: string) {
+  console.log(`\nSeeding proposals (3)...`);
+
+  const proposals = [
+    { title: "Evergreen Holiday Campaign", totalAmount: 45000, status: "sent", daysAgo: 3 },
+    { title: "Catalyst Portfolio Brand Services", totalAmount: 50000, status: "viewed", daysAgo: 1 },
+    { title: "Studio Collective Strategy Sprint", totalAmount: 12000, status: "draft", daysAgo: 0 },
+  ];
+
+  for (const proposal of proposals) {
+    const updatedAt = new Date();
+    updatedAt.setDate(updatedAt.getDate() - proposal.daysAgo);
+
+    const { error } = await supabase.from("proposals").insert({
+      workspace_id: workspaceId,
+      title: proposal.title,
+      total_amount: proposal.totalAmount,
+      status: proposal.status,
+      updated_at: updatedAt.toISOString(),
+    });
+
+    if (error) {
+      console.error(`  ✗ ${proposal.title}: ${error.message}`);
+      continue;
+    }
+
+    console.log(`  ✓ ${proposal.title} (${proposal.status}, $${proposal.totalAmount.toLocaleString()})`);
   }
 }
 
@@ -901,11 +1335,16 @@ async function seedCaptures(workspaceId: string, orgIds: Map<string, string>, pe
   }
 }
 
-async function seedFindings(workspaceId: string, orgIds: Map<string, string>) {
-  console.log(`\nSeeding intelligence findings (${DEMO_FINDINGS.length})...`);
+async function seedFindings(
+  workspaceId: string,
+  orgIds: Map<string, string>,
+  personIds: Map<string, string>,
+) {
+  console.log(`\nSeeding intelligence findings (${DEMO_FINDINGS.length} needs_you)...`);
 
   for (const finding of DEMO_FINDINGS) {
     const orgId = finding.orgSlug ? orgIds.get(finding.orgSlug) : null;
+    const personId = finding.personName ? personIds.get(finding.personName) : null;
 
     const { error } = await supabase.from("intelligence_findings").insert({
       workspace_id: workspaceId,
@@ -914,6 +1353,7 @@ async function seedFindings(workspaceId: string, orgIds: Map<string, string>) {
       content: finding.content,
       confidence: finding.confidence,
       org_id: orgId,
+      person_id: personId,
       state: "needs_you",
     });
 
@@ -922,7 +1362,7 @@ async function seedFindings(workspaceId: string, orgIds: Map<string, string>) {
       continue;
     }
 
-    console.log(`  ✓ ${finding.title}`);
+    console.log(`  ✓ ${finding.title} (needs you)`);
   }
 }
 
@@ -956,6 +1396,201 @@ async function seedConnections(workspaceId: string) {
   }
 }
 
+// Notes power the Memory Map's note nodes — a note only appears on the graph
+// if it has at least one entity_links row with relation_type = 'mention'
+// (the wikilink sync path writes these with source = 'system'). The extra
+// 'related' edges below add cross-links the FK projections don't cover.
+async function seedNotes(
+  workspaceId: string,
+  userId: string,
+  orgIds: Map<string, string>,
+  personIds: Map<string, string>,
+) {
+  console.log(`\nSeeding notes + graph cross-links...`);
+
+  const evergreenId = orgIds.get("evergreen-brands");
+
+  // Resolve work IDs by name (seedWork generates slugs; names are unique here)
+  const { data: workRows } = await supabase
+    .from("work")
+    .select("id, name")
+    .eq("workspace_id", workspaceId);
+  const workIdsByName = new Map((workRows ?? []).map((w) => [w.name, w.id]));
+
+  const notes: {
+    title: string;
+    content: string;
+    category: "note" | "idea" | "reference" | "reflection";
+    daysAgo: number;
+    mentions: { type: "org" | "person" | "work"; id: string }[];
+  }[] = [
+    {
+      title: "Evergreen holiday campaign ideas",
+      content: "# Evergreen holiday campaign ideas\n\nSarah wants three concepts by kickoff:\n\n- 'Evergreen Everwhere' — UGC-led, creators unbox the holiday collection\n- 'Rooted' — heritage angle, 10-year brand story\n- 'The Gift of Green' — sustainability-first, recycled packaging hero\n\nMarcus prefers Rooted. Priya thinks UGC wins on TikTok. Budget conversation happens at kickoff.",
+      category: "idea",
+      daysAgo: 2,
+      mentions: [
+        { type: "org", id: evergreenId! },
+        { type: "person", id: personIds.get("Sarah Chen")! },
+        { type: "work", id: workIdsByName.get("Holiday Campaign 2026")! },
+      ],
+    },
+    {
+      title: "Sarah Chen — working style",
+      content: "# Sarah Chen — working style\n\n- Decides fast when given options, hates open-ended questions\n- Prefers Slack over email for anything urgent\n- Champion for us internally — sold the holiday campaign to her CEO\n- Kids' soccer Saturdays, never schedule Monday 8am",
+      category: "reference",
+      daysAgo: 5,
+      mentions: [
+        { type: "person", id: personIds.get("Sarah Chen")! },
+        { type: "org", id: evergreenId! },
+      ],
+    },
+    {
+      title: "Brand refresh retrospective",
+      content: "# Brand refresh retrospective\n\nWhat worked:\n- Engagement +47% after phase 1 launch\n- Tom's photography direction nailed the premium feel\n\nWhat to change for the holiday campaign:\n- Start retail assets 3 weeks earlier (Lisa got burned by print lead times)\n- Loop PR in from day one — Jordan found out about the launch from Instagram",
+      category: "reflection",
+      daysAgo: 8,
+      mentions: [
+        { type: "org", id: evergreenId! },
+        { type: "work", id: workIdsByName.get("Brand Refresh Q3")! },
+        { type: "person", id: personIds.get("Tom Bradley")! },
+        { type: "person", id: personIds.get("Lisa Chang")! },
+        { type: "person", id: personIds.get("Jordan Reyes")! },
+      ],
+    },
+    {
+      title: "Retail launch checklist",
+      content: "# Retail launch checklist\n\n- [ ] Display units confirmed with vendor\n- [ ] Lisa signs off on in-store photography\n- [ ] Influencer seeding boxes ship 2 weeks before launch\n- [ ] PR embargo lifts on launch day\n\nCross-reference the influencer program calendar.",
+      category: "note",
+      daysAgo: 4,
+      mentions: [
+        { type: "work", id: workIdsByName.get("Retail Launch Kit")! },
+        { type: "work", id: workIdsByName.get("Influencer Program")! },
+        { type: "person", id: personIds.get("Lisa Chang")! },
+        { type: "org", id: evergreenId! },
+      ],
+    },
+    {
+      title: "Meridian launch — lessons",
+      content: "# Meridian launch — lessons\n\nJames moves fast and expects us to match. Content engine is working; the Aug 15 launch date is immovable because of their board meeting.",
+      category: "note",
+      daysAgo: 6,
+      mentions: [
+        { type: "org", id: orgIds.get("meridian-tech")! },
+        { type: "person", id: personIds.get("James Park")! },
+        { type: "work", id: workIdsByName.get("Product Launch Support")! },
+      ],
+    },
+    {
+      title: "Pricing thoughts for 2027",
+      content: "# Pricing thoughts for 2027\n\nRetainers underpriced relative to project work. Luna retainer is 20% below market. Raise at renewal.",
+      category: "idea",
+      daysAgo: 12,
+      mentions: [{ type: "org", id: orgIds.get("luna-wellness")! }],
+    },
+    {
+      title: "David Liu intro",
+      content: "# David Liu intro\n\nMet David through Sarah Chen at the SaaS Growth Summit. Catalyst's portfolio companies all need brand work — this could be the biggest door we walk through this year.",
+      category: "note",
+      daysAgo: 15,
+      mentions: [
+        { type: "person", id: personIds.get("David Liu")! },
+        { type: "person", id: personIds.get("Sarah Chen")! },
+        { type: "org", id: orgIds.get("catalyst-ventures")! },
+      ],
+    },
+    {
+      title: "Studio day — August",
+      content: "# Studio day — August\n\nBlocked Friday for admin, invoicing, and portfolio updates. No client calls.",
+      category: "note",
+      daysAgo: 1,
+      mentions: [],
+    },
+  ];
+
+  for (const note of notes) {
+    const createdAt = new Date();
+    createdAt.setDate(createdAt.getDate() - note.daysAgo);
+
+    const { data, error } = await supabase
+      .from("notes")
+      .insert({
+        workspace_id: workspaceId,
+        title: note.title,
+        content: note.content,
+        category: note.category,
+        author_type: "user",
+        source: "manual",
+        created_by: userId,
+        created_at: createdAt.toISOString(),
+        updated_at: createdAt.toISOString(),
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      console.error(`  ✗ ${note.title}: ${error.message}`);
+      continue;
+    }
+
+    for (const mention of note.mentions) {
+      if (!mention.id) continue;
+      const { error: linkError } = await supabase.from("entity_links").insert({
+        workspace_id: workspaceId,
+        source_type: "note",
+        source_id: data.id,
+        target_type: mention.type,
+        target_id: mention.id,
+        relation_type: "mention",
+        source: "system",
+        confidence: 100,
+      });
+      if (linkError) {
+        console.error(`  ✗ ${note.title} mention link: ${linkError.message}`);
+      }
+    }
+
+    console.log(`  ✓ ${note.title} (${note.mentions.filter((m) => m.id).length} mentions)`);
+  }
+
+  // Cross-links the FK projections don't produce — these add the "everything
+  // connects to everything" texture around the hub.
+  const relatedLinks: {
+    sourceType: "person" | "work";
+    sourceId: string | undefined;
+    targetType: "person" | "work";
+    targetId: string | undefined;
+    because: string;
+  }[] = [
+    { sourceType: "person", sourceId: personIds.get("Sarah Chen"), targetType: "person", targetId: personIds.get("David Liu"), because: "Introduced at SaaS Growth Summit" },
+    { sourceType: "person", sourceId: personIds.get("Sarah Chen"), targetType: "person", targetId: personIds.get("Amanda Foster"), because: "Peer founders circle" },
+    { sourceType: "work", sourceId: workIdsByName.get("Brand Refresh Q3"), targetType: "work", targetId: workIdsByName.get("Holiday Campaign 2026"), because: "Refresh assets feed the holiday creative" },
+    { sourceType: "work", sourceId: workIdsByName.get("Influencer Program"), targetType: "work", targetId: workIdsByName.get("Holiday Campaign 2026"), because: "Creators will seed the holiday launch" },
+    { sourceType: "person", sourceId: personIds.get("Priya Nair"), targetType: "work", targetId: workIdsByName.get("Influencer Program"), because: "Runs the creator program day-to-day" },
+    { sourceType: "person", sourceId: personIds.get("Tom Bradley"), targetType: "work", targetId: workIdsByName.get("Spring Lookbook"), because: "Directed photography" },
+    { sourceType: "person", sourceId: personIds.get("Marcus Williams"), targetType: "work", targetId: workIdsByName.get("Brand Refresh Q3"), because: "Brand-side approver" },
+  ];
+
+  for (const link of relatedLinks) {
+    if (!link.sourceId || !link.targetId) continue;
+    const { error } = await supabase.from("entity_links").insert({
+      workspace_id: workspaceId,
+      source_type: link.sourceType,
+      source_id: link.sourceId,
+      target_type: link.targetType,
+      target_id: link.targetId,
+      relation_type: "related",
+      source: "manual",
+      confidence: 100,
+      because: link.because,
+    });
+    if (error) {
+      console.error(`  ✗ related link: ${error.message}`);
+    }
+  }
+  console.log(`  ✓ ${relatedLinks.filter((l) => l.sourceId && l.targetId).length} related cross-links`);
+}
+
 // ============================================================================
 // MAIN
 // ============================================================================
@@ -973,15 +1608,20 @@ async function main() {
 
     const orgIds = await seedOrganizations(workspaceId);
     const personIds = await seedPeople(workspaceId, orgIds);
+    const personIdsByName = new Map(
+      DEMO_ORGS.flatMap((o) => o.contacts.map((c) => [c.name, personIds.get(c.email)] as const))
+        .filter((entry): entry is readonly [string, string] => Boolean(entry[1])),
+    );
     await seedWork(workspaceId, orgIds, personIds);
     await seedMeetings(workspaceId, orgIds, personIds);
     await seedPlays(workspaceId, orgIds);
     await seedBilling(workspaceId, orgIds);
+    await seedProposals(workspaceId);
     await seedOpportunityGaps(workspaceId);
     await seedCaptures(workspaceId, orgIds, personIds);
-    // Skip findings for demo - only show the 5 multi-app plays in "Need you"
-    // await seedFindings(workspaceId, orgIds);
+    await seedFindings(workspaceId, orgIds, personIdsByName);
     await seedConnections(workspaceId);
+    await seedNotes(workspaceId, userId, orgIds, personIds);
 
     console.log("\n╔══════════════════════════════════════════════════════════╗");
     console.log("║              DEMO ACCOUNT READY!                          ║");

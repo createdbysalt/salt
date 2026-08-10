@@ -4,7 +4,7 @@
  * Single source of truth for all signals that can trigger playbooks.
  * Every signal is registry-bounded with a description for the model
  * (anti-hallucination). Used by:
- * - Records engine (keeper playbooks)
+ * - Records engine (Memory Care profile rules)
  * - Trigger dispatch (acting playbooks)
  * - Frontmatter validation (compile-time)
  * - Ask SALT routing (chat-time)
@@ -21,6 +21,7 @@ import {
   OPERATOR_FACT_SIGNAL_KEYS,
   CAPTURE_SIGNAL_KEYS,
   EMAIL_INTELLIGENCE_SIGNAL_KEYS,
+  WORKSPACE_SIGNAL_KEYS,
   type ProfileSignalKey,
 } from "@/app/_features/plays/playbooks/records-engine/types";
 
@@ -927,6 +928,18 @@ const EMAIL_INTELLIGENCE_SIGNAL_DESCRIPTIONS: Record<
   },
 };
 
+const WORKSPACE_SIGNAL_DESCRIPTIONS: Record<
+  string,
+  { description: string; firesWhen: string; canTriggerActing: boolean }
+> = {
+  connector_connected: {
+    description: "A connector was connected to the workspace",
+    firesWhen:
+      "Composio OAuth callback or API-key connect persists composio_status 'connected'",
+    canTriggerActing: true,
+  },
+};
+
 function buildSignalDefinitions(
   keys: readonly string[],
   surface: SignalSurface,
@@ -994,6 +1007,11 @@ export const SIGNAL_REGISTRY: SignalDefinition[] = [
     EMAIL_INTELLIGENCE_SIGNAL_KEYS,
     "capture",
     EMAIL_INTELLIGENCE_SIGNAL_DESCRIPTIONS
+  ),
+  ...buildSignalDefinitions(
+    WORKSPACE_SIGNAL_KEYS,
+    "workspace",
+    WORKSPACE_SIGNAL_DESCRIPTIONS
   ),
 ];
 

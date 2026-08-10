@@ -16,7 +16,7 @@ import type { PersonSignals } from "@/app/_features/capture/services/system-play
  * never mirrors the user's account.
  *
  * Every adapter must pass the conformance harness
- * (adapter-conformance.test-utils.ts) against golden payload fixtures before
+ * (adapter-conformance.ts) against golden payload fixtures before
  * it can ship — the generic ingestor only ever sees this contract, so a
  * conformant adapter cannot break the downstream engine.
  */

@@ -6,7 +6,12 @@
  */
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
-import type { LearningEntityType } from "./types";
+import {
+  getMemoryEntityTable,
+  type LearningEntityType,
+  type MemoryEntityTable,
+  type TableUpdate,
+} from "./types";
 import { memoryCompareDuplicates } from "./compare-duplicates";
 
 export interface MergeRecordsInput {
@@ -67,7 +72,7 @@ export async function memoryMergeRecords(
     }
   }
 
-  const table = getTableName(entityType);
+  const table = getMemoryEntityTable(entityType);
   if (!table) {
     return {
       success: false,
@@ -82,9 +87,11 @@ export async function memoryMergeRecords(
   }
 
   if (Object.keys(mergeData).length > 0) {
+    // mergeData keys come from a real row of this table (via the comparison),
+    // so the boundary cast to the table's Update payload is sound.
     const { error: updateError } = await supabase
       .from(table)
-      .update(mergeData)
+      .update(mergeData as TableUpdate<MemoryEntityTable>)
       .eq("id", winnerId)
       .eq("workspace_id", workspaceId);
 
@@ -166,14 +173,18 @@ export async function memoryMergeRecords(
   }
 
   const archivedAt = new Date().toISOString();
-  const { error: archiveError } = await supabase
-    .from(table)
-    .update({
-      deleted_at: archivedAt,
-      ...(table === "people" ? { record_status: "archived" } : {}),
-    })
-    .eq("id", loserId)
-    .eq("workspace_id", workspaceId);
+  const { error: archiveError } =
+    table === "people"
+      ? await supabase
+          .from("people")
+          .update({ deleted_at: archivedAt, record_status: "archived" })
+          .eq("id", loserId)
+          .eq("workspace_id", workspaceId)
+      : await supabase
+          .from(table)
+          .update({ deleted_at: archivedAt })
+          .eq("id", loserId)
+          .eq("workspace_id", workspaceId);
 
   if (archiveError) {
     return {
@@ -188,19 +199,10 @@ export async function memoryMergeRecords(
     };
   }
 
-  await supabase.from("capture_events").insert({
-    workspace_id: workspaceId,
-    kind: "system",
-    event_type: "records_merged",
-    data: {
-      entity_type: entityType,
-      winner_id: winnerId,
-      loser_id: loserId,
-      merged_fields: mergedFields,
-      migrated_billing: migratedBillingCount,
-      migrated_links: migratedLinksCount,
-    },
-  });
+  // Note: a capture_events audit insert used to live here, but it wrote
+  // columns (kind/event_type/data) that have never existed on capture_events,
+  // so it silently failed on every call. Removed rather than polluting the
+  // capture stream with synthetic rows.
 
   return {
     success: true,
@@ -211,16 +213,4 @@ export async function memoryMergeRecords(
     migratedLinksCount,
     archivedAt,
   };
-}
-
-function getTableName(entityType: LearningEntityType): string | null {
-  const tables: Record<string, string> = {
-    person: "people",
-    organization: "organizations",
-    work: "work",
-    billing: "billing_records",
-    meeting: "meetings",
-    file: "files",
-  };
-  return tables[entityType] || null;
 }

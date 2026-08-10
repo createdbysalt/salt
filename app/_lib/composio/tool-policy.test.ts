@@ -44,21 +44,6 @@ describe("composio tool policy", () => {
     );
   });
 
-  it("rejects disabled workspace tools", () => {
-    expect(() =>
-      assertComposioToolAllowed(COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL, {
-        disabledTools: [COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL],
-      }),
-    ).toThrow(/disabled for this workspace/);
-  });
-
-  it("allows tools not present in disabledTools", () => {
-    const policy = assertComposioToolAllowed(COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES, {
-      disabledTools: [COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL],
-    });
-    expect(policy.risk).toBe("read");
-  });
-
   it("validates gmail get message input", () => {
     const parsed = parseComposioToolInput(COMPOSIO_TOOL_SLUGS.GMAIL_GET_MESSAGE, {
       message_id: "abc123",
@@ -128,15 +113,6 @@ describe("play pre-approval contract", () => {
         },
       }),
     ).toThrow(/destructive/);
-  });
-
-  it("rejects workspace-disabled tools even when play-approved", () => {
-    expect(() =>
-      assertComposioToolAllowed(COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL, {
-        play,
-        disabledTools: [COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL],
-      }),
-    ).toThrow(/disabled for this workspace/);
   });
 
   it("leaves read tools unaffected by play context", () => {

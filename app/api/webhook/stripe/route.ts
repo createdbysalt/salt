@@ -12,8 +12,8 @@ import { getStripeClient } from "@/app/_lib/stripe/stripe-client";
 import {
   downgradeWorkspaceSubscription,
   mapStripeStatus,
+  resolveCheckoutTier,
   resolveTierFromPriceId,
-  resolveTierFromStripe,
   syncWorkspaceSubscription,
   updateWorkspaceSubscriptionStatus,
 } from "@/app/_lib/stripe/subscription-sync";
@@ -181,9 +181,22 @@ async function handleSubscriptionCheckout(
   const subscription = await stripe.subscriptions.retrieve(subscriptionId);
   const priceId = subscription.items.data[0].price.id;
 
-  // Determine tier from metadata. Unrecognised values resolve to starter so an
-  // ambiguous checkout can never grant the largest bundle.
-  const tier = resolveTierFromStripe(session.metadata?.tier);
+  // INV-5: the paid price id is the source of truth for tier. Checkout
+  // metadata is written on the client-initiated session-creation path, so
+  // metadata.tier can claim a bundle the customer did not pay for. An
+  // unknown price fails closed (throw → Stripe retries → human looks).
+  const resolved = resolveCheckoutTier(priceId, session.metadata?.tier);
+  if (!resolved) {
+    throw new Error(
+      `Unrecognized price id ${priceId} on checkout ${session.id} — refusing to grant a tier from metadata`,
+    );
+  }
+  if (resolved.metadataMismatch) {
+    console.error(
+      `[stripe-webhook] checkout ${session.id}: metadata tier "${session.metadata?.tier}" disagrees with paid price ${priceId} → ${resolved.tier}; the price wins`,
+    );
+  }
+  const tier = resolved.tier;
 
   // Find user
   let profile;

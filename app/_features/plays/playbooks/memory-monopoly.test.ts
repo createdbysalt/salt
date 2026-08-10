@@ -26,26 +26,29 @@ describe("memory-monopoly", () => {
   });
 
   describe("validateMemoryMonopoly", () => {
-    it("allows _meta section to use any memory slug", () => {
-      const result = validateMemoryMonopoly(
-        ["memory_create_person", "memory_update_org"],
-        "_meta",
-      );
-      expect(result.ok).toBe(true);
-    });
-
-    it("rejects non-_meta section using memory-mutating slugs", () => {
-      const result = validateMemoryMonopoly(
-        ["memory_create_person"],
+    it("rejects memory-mutating slugs in every section", () => {
+      // No playbook section may write Memory — Memory Care owns mutations.
+      const sections = [
         "relationships",
-      );
-      expect(result.ok).toBe(false);
-      if (!result.ok) {
-        expect(result.violations).toContain("memory_create_person");
+        "work",
+        "billing",
+        "files",
+        "meetings",
+        "me",
+        "connections",
+        "notes",
+        "communication",
+      ] as const;
+      for (const section of sections) {
+        const result = validateMemoryMonopoly(["memory_create_person"], section);
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+          expect(result.violations).toContain("memory_create_person");
+        }
       }
     });
 
-    it("allows non-_meta section to use non-memory slugs", () => {
+    it("allows sections to use non-memory slugs", () => {
       const result = validateMemoryMonopoly(
         ["GMAIL_CREATE_EMAIL_DRAFT", "STRIPE_CREATE_INVOICE"],
         "relationships",
@@ -97,4 +100,71 @@ describe("memory-monopoly", () => {
       expect(MEMORY_MUTATING_SLUGS).toContain("memory_create_meeting");
     });
   });
+
+  describe("parse-time enforcement (parser.ts)", () => {
+    const baseYaml = (toolSlug: string, nested = false) => `
+name: Test Playbook
+slug: test-playbook
+version: "1.0.0"
+description: Test playbook for monopoly enforcement
+section: relationships
+layer: act
+voice: professional
+trigger:
+  type: manual
+tools:
+  - ${toolSlug}
+steps:
+${
+  nested
+    ? `  - step: branch
+    id: gate
+    if: "true"
+    steps:
+      - step: action
+        id: act
+        tool: ${toolSlug}
+        args: {}
+`
+    : `  - step: action
+    id: act
+    tool: ${toolSlug}
+    args: {}
+`
+}
+output:
+  type: notification
+  approval: auto
+`;
+
+    it("rejects a playbook whose action step uses a memory-mutating tool", async () => {
+      const { parsePlaybookV2Yaml } = await import("./schema/v2/parser");
+      const result = parsePlaybookV2Yaml(baseYaml("memory_create_person"));
+      expect(result.validationErrors.some((e) => e.path === "steps")).toBe(true);
+      expect(
+        result.validationErrors.some((e) =>
+          e.message.includes("memory_create_person")
+        )
+      ).toBe(true);
+    });
+
+    it("rejects memory-mutating tools nested inside branch steps", async () => {
+      const { parsePlaybookV2Yaml } = await import("./schema/v2/parser");
+      const result = parsePlaybookV2Yaml(baseYaml("memory_update_org", true));
+      expect(
+        result.validationErrors.some((e) => e.message.includes("memory_update_org"))
+      ).toBe(true);
+    });
+
+    it("accepts non-memory tools", async () => {
+      const { parsePlaybookV2Yaml } = await import("./schema/v2/parser");
+      const result = parsePlaybookV2Yaml(baseYaml("GMAIL_CREATE_EMAIL_DRAFT"));
+      expect(
+        result.validationErrors.filter((e) => e.path === "steps")
+      ).toHaveLength(0);
+    });
+  });
+
+  // Runtime enforcement (executor-level guard) is tested in
+  // schema/v2/executor.test.ts, which has the executor's full mock harness.
 });

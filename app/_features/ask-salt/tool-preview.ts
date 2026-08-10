@@ -229,8 +229,8 @@ const MEMORY_TOOL_STEPS: Record<string, string> = {
   enrich_entity_context: "Scan connected apps for context",
   enrich_entity: "Scan connected apps",
   load_playbook: "Load playbook",
-  adopt_playbook: "Enable playbook",
-  propose_play: "Queue play for approval",
+  load_memory_intake: "Load Memory Care intake",
+  enable_playbook: "Enable playbook",
   parse_intake: "Parse intake",
   add_to_watching: "Add to watching",
 };
@@ -273,22 +273,25 @@ export function formatToolStepLabel(
       return playbook ? `Load ${playbook} playbook` : MEMORY_TOOL_STEPS.load_playbook;
     }
 
-    if (toolName === "adopt_playbook") {
-      const playbook = resolvePlaybookDisplayName(input, output);
-      return playbook ? `Enable ${playbook} playbook` : MEMORY_TOOL_STEPS.adopt_playbook;
+    if (toolName === "load_memory_intake") {
+      return MEMORY_TOOL_STEPS.load_memory_intake;
     }
 
-    if (toolName === "propose_play") {
+    if (toolName === "enable_playbook") {
       const playbook = resolvePlaybookDisplayName(input, output);
-      if (typeof record.title === "string" && record.title.trim()) {
-        return `Queue play: ${record.title.trim()}`;
-      }
-      return playbook ? `Queue ${playbook} play` : MEMORY_TOOL_STEPS.propose_play;
+      return playbook ? `Enable ${playbook} playbook` : MEMORY_TOOL_STEPS.enable_playbook;
     }
 
     if (toolName === "parse_intake") {
-      const playbook = resolvePlaybookDisplayName(input, output);
-      return playbook ? `Parse intake (${playbook})` : MEMORY_TOOL_STEPS.parse_intake;
+      const intakeLabel = resolvePlaybookDisplayName(input, output);
+      if (intakeLabel) {
+        const normalized =
+          /memory.?care|memory.?records/i.test(intakeLabel)
+            ? "Memory Care"
+            : intakeLabel;
+        return `Parse intake (${normalized})`;
+      }
+      return MEMORY_TOOL_STEPS.parse_intake;
     }
 
     if (toolName === "enrich_entity") {

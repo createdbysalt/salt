@@ -47,14 +47,10 @@ export async function loadProfilePlaybook(
 }> {
   const admin = createAdminClient();
 
-  const { data: blueprint } = await admin
-    .from("playbook_blueprints")
-    .select("fill_rules, version")
-    .eq("slug", blueprintSlug)
-    .maybeSingle();
-
-  const systemRules =
-    (blueprint?.fill_rules as ProfileFillRulesDocument | null) ?? defaultRulesForSlug(blueprintSlug);
+  // Fill rules ship in code (defaultRulesForSlug); the v1 playbook_blueprints
+  // table that used to hold them was dropped. Workspaces can still override
+  // via profile_playbook_settings.fill_rules_override.
+  const systemRules = defaultRulesForSlug(blueprintSlug);
 
   const { data: settingsRow } = await admin
     .from("profile_playbook_settings")
@@ -66,7 +62,7 @@ export async function loadProfilePlaybook(
   return {
     systemRules,
     settings: settingsRow ? mapSettingsRow(settingsRow as Record<string, unknown>, blueprintSlug) : null,
-    blueprintVersion: blueprint?.version ?? 1,
+    blueprintVersion: 1,
   };
 }
 

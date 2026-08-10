@@ -28,6 +28,7 @@ import {
   mapTagAssignmentToActivityEntry,
   mapWorkProvenanceToActivity,
 } from "./utils/activity";
+import { normalizeTagSource } from "@/app/_features/memory/tags/normalize";
 import { mapNoteRow } from "@/app/_features/memory/types/taxonomies";
 import {
   buildConnectionEntityNameMap,
@@ -167,7 +168,7 @@ export const getWorkSupplementalActivity = cache(
         mapTagAssignmentToActivityEntry({
           id: record.id as string,
           tagLabel,
-          source: record.source as "manual" | "keeper" | "system",
+          source: normalizeTagSource(record.source as string),
           because: (record.because as string | null) ?? null,
           confidence: (record.confidence as number | null) ?? null,
           createdAt: record.created_at as string,

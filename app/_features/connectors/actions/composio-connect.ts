@@ -176,7 +176,7 @@ export async function connectComposioApiKeyProvider(input: {
   }
 
   revalidatePath(connectorsPageUrl());
-  revalidatePath("/plays");
+  revalidatePath("/sources");
   return { success: true };
 }
 
@@ -218,6 +218,6 @@ export async function disconnectComposioProvider(
     return result;
   }
 
-  revalidatePath("/plays");
+  revalidatePath("/sources");
   return { success: true };
 }

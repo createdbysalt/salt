@@ -8,6 +8,10 @@ import { enrichAndPersist } from "./enrichment";
 import { promoteRepliedRecipients } from "./relationship-discovery";
 import { recordOutboundReplies } from "./sender-reputation";
 import { mergeIntelligenceMeta } from "./intelligence/capture-intelligence-outcome";
+import {
+  getCaptureBudgetStatus,
+  recordBudgetExceededWarning,
+} from "./capture-budget";
 import type { CaptureEnvelope } from "../adapters/types";
 import type { CaptureOrigin, CaptureState } from "../types";
 import type { GatePipelineResult } from "../types/gate-result";
@@ -71,6 +75,13 @@ export interface IngestEnvelopeOptions {
    * without enriched_metadata ("Processing" forever).
    */
   awaitEnrichment?: boolean;
+  /**
+   * Lane 1 discriminator: pay for a cold-inbound intent read so a genuine
+   * inquiry from an unknown sender is admitted in real time instead of held
+   * for the discovery cron. Real-time paths (webhook) only — backfills never
+   * set this.
+   */
+  coldIntentRead?: boolean;
 }
 
 export interface IngestEnvelopeResult {
@@ -94,6 +105,7 @@ export async function ingestEnvelope(
       workspaceId,
       userEmail: options.userEmail ?? null,
       envelope,
+      coldIntentRead: options.coldIntentRead ?? false,
     };
     gateResult = await runGatePipeline(gateInput);
 
@@ -113,15 +125,32 @@ export async function ingestEnvelope(
     }
   }
 
-  const isNoise = gateResult?.finalAction === "noise";
+  const admin = createAdminClient();
+
+  // Daily capture budget (Phase 6): past the cap the row still lands, but is
+  // stamped as noise — no enrichment fetch, no evidence, no LLM scan. Held
+  // mail is already thin/unenriched and keeps its discovery semantics.
+  //
+  // This check is a racy peek (warning row + cheap pre-stamp); the
+  // capture_budget_enforcer DB trigger re-checks atomically at insert and is
+  // authoritative — the post-insert branch below reads the returned
+  // gate_action, so a row the trigger stamped is never enriched.
+  const budget = await getCaptureBudgetStatus(workspaceId, admin);
+  if (budget.exceeded) {
+    await recordBudgetExceededWarning(workspaceId, budget, admin);
+  }
+
   const isHeld = gateResult?.finalAction === "held";
+  const forcedNoiseByBudget = budget.exceeded && !isHeld;
+  const isNoise =
+    forcedNoiseByBudget || gateResult?.finalAction === "noise";
   const captureState: CaptureState = gateResult?.finalAction === "signal" ? "routed" : "pending";
   const overallConfidence = gateResult?.targetEntity?.confidence ?? null;
 
   // Noise rows skip enrichment and scanning by design; without a terminal
   // intelligence outcome they render as "Processing" forever in the stream.
-  // Stamp no_signal at insert — the scan still re-analyzes no_signal rows,
-  // so a later pass can upgrade them if they turn out to matter.
+  // Stamp no_signal at insert — terminal unless an explicit rescan is
+  // requested (Phase 6 scan policy: the LLM gets at most one look).
   // Held rows (Memory-first) store a thin extract only — sender/subject/thread.
   const extractedData = isHeld
     ? thinHeldExtracted(envelope.extracted as Record<string, unknown>)
@@ -132,7 +161,15 @@ export async function ingestEnvelope(
         })
       : envelope.extracted;
 
-  const admin = createAdminClient();
+  const gateResultForRow = gateResult
+    ? ({
+        ...gateResult,
+        ...(forcedNoiseByBudget ? { budgetExceeded: true } : {}),
+      } as unknown as Record<string, unknown>)
+    : forcedNoiseByBudget
+      ? ({ budgetExceeded: true } as Record<string, unknown>)
+      : null;
+
   const { data, error } = await admin
     .from("capture_events")
     .insert({
@@ -148,10 +185,12 @@ export async function ingestEnvelope(
       state: captureState,
       overall_confidence: overallConfidence,
       is_bootstrap: options.isBootstrap ?? false,
-      gate_action: gateResult?.finalAction ?? null,
-      gate_result: gateResult ? (gateResult as unknown as Record<string, unknown>) : null,
+      gate_action: forcedNoiseByBudget
+        ? "noise"
+        : (gateResult?.finalAction ?? null),
+      gate_result: gateResultForRow,
     } as never)
-    .select("id")
+    .select("id, gate_action")
     .single();
 
   if (!error && data) {
@@ -161,7 +200,14 @@ export async function ingestEnvelope(
       return { outcome: "held", captureId: data.id, gateResult };
     }
 
-    if (!options.skipEvidence && !options.isBootstrap && !isNoise) {
+    // The DB trigger may have stamped the row noise (budget cap hit between
+    // the peek above and the insert — the TOCTOU the trigger exists to
+    // close). The returned row is truth: never enrich a stamped row.
+    const row = data as { id: string; gate_action: string | null };
+    const dbForcedNoise = !isNoise && row.gate_action === "noise";
+    const effectiveNoise = isNoise || dbForcedNoise;
+
+    if (!options.skipEvidence && !options.isBootstrap && !effectiveNoise) {
       const evidencePromise = processCaptureForEvidence(data.id).catch((err) => {
         console.warn(
           `[ingest-envelope] Evidence processing failed for ${data.id}:`,
@@ -225,10 +271,13 @@ export async function ingestEnvelope(
       }
     }
 
-    if (isNoise) {
+    if (effectiveNoise) {
       return {
         outcome: "noise",
-        noiseReason: gateResult?.gateResults.admission?.reason ?? "Low signal score",
+        noiseReason:
+          forcedNoiseByBudget || dbForcedNoise
+            ? `Daily capture budget exceeded (${budget.count}/${budget.limit} in 24h)`
+            : (gateResult?.gateResults.admission?.reason ?? "Low signal score"),
         captureId: data.id,
         gateResult,
       };

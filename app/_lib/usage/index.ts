@@ -28,6 +28,11 @@ export {
 export { recordPlayExecution, creditPlayExecution } from "./record-play-usage";
 export type { RecordPlayUsageInput } from "./record-play-usage";
 export { getWorkspaceEntitlement } from "./entitlements";
+export { checkPlayAdmission } from "./play-admission";
+export type {
+  PlayAdmissionCandidate,
+  PlayAdmissionDecision,
+} from "./play-admission";
 export { checkAskSaltAllowance, recordAskSaltUsage } from "./ask-salt-usage";
 export type {
   AskSaltAllowance,

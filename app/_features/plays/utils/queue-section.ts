@@ -15,7 +15,6 @@ export const QUEUE_SECTION_ORDER: QueueSectionFilter[] = [
   "files",
   "meetings",
   "me",
-  "_meta",
 ];
 
 export function getSectionFromFindingType(type: FindingType): QueueSectionFilter {
@@ -29,7 +28,7 @@ export function getSectionFromFindingType(type: FindingType): QueueSectionFilter
   ) {
     return "relationships";
   }
-  return "_meta";
+  return "work";
 }
 
 export function getSectionFromPlayRun(play: PlayRunRow): QueueSectionFilter {
@@ -49,9 +48,6 @@ export function getSectionFromPlayRun(play: PlayRunRow): QueueSectionFilter {
   }
   if (slug.includes("billing") || slug.includes("invoice") || slug.includes("payment")) {
     return "billing";
-  }
-  if (slug.includes("keeper") || slug.includes("meta") || slug.includes("intake")) {
-    return "_meta";
   }
   if (slug.includes("meeting") || slug.includes("calendar")) {
     return "meetings";
@@ -80,7 +76,7 @@ export function getSectionFromLearningEntity(
     case "me":
       return "me";
     default:
-      return "_meta";
+      return "work";
   }
 }
 

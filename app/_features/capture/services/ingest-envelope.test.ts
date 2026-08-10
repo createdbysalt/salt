@@ -37,6 +37,15 @@ vi.mock("./intelligence/capture-noise", () => ({
   classifyCaptureNoise: () => ({ isNoise: false, reason: null }),
 }));
 
+const budgetStatusMock = vi.fn();
+const budgetWarningMock = vi.fn(async (..._args: unknown[]) => undefined);
+vi.mock("./capture-budget", () => ({
+  getCaptureBudgetStatus: (workspaceId: string) =>
+    budgetStatusMock(workspaceId),
+  recordBudgetExceededWarning: (...args: unknown[]) =>
+    budgetWarningMock(...args),
+}));
+
 import { ingestEnvelope } from "./ingest-envelope";
 
 function makeEnvelope(): CaptureEnvelope {
@@ -59,6 +68,9 @@ beforeEach(() => {
   enrichAndPersistMock.mockClear();
   evidenceMock.mockClear();
   runGatePipelineMock.mockReset();
+  budgetStatusMock.mockReset();
+  budgetStatusMock.mockResolvedValue({ limit: 500, count: 0, exceeded: false });
+  budgetWarningMock.mockClear();
 });
 
 describe("ingestEnvelope noise handling", () => {
@@ -148,6 +160,54 @@ describe("ingestEnvelope held handling (Memory-first)", () => {
     // Held rows never enrich or accumulate evidence — no LLM spend.
     expect(enrichAndPersistMock).not.toHaveBeenCalled();
     expect(evidenceMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("ingestEnvelope daily capture budget (Phase 6)", () => {
+  it("ingests over-budget captures as noise without enrichment or evidence", async () => {
+    runGatePipelineMock.mockResolvedValue({
+      finalAction: "candidate",
+      shouldIngest: true,
+      passedGates: ["pre-ingest", "blocklist", "known-entity", "admission"],
+      gateResults: { admission: { action: "candidate", confidence: 45, signals: [] } },
+    });
+    budgetStatusMock.mockResolvedValue({ limit: 500, count: 500, exceeded: true });
+
+    const result = await ingestEnvelope("ws-1", "int-1", makeEnvelope(), {
+      useGatePipeline: true,
+    });
+
+    expect(result.outcome).toBe("noise");
+    expect(result.noiseReason).toContain("budget");
+    expect(inserted).toHaveLength(1);
+    expect(inserted[0].gate_action).toBe("noise");
+    expect(
+      (inserted[0].gate_result as Record<string, unknown>).budgetExceeded,
+    ).toBe(true);
+    const extracted = inserted[0].extracted_data as {
+      intelligence?: { outcome?: string };
+    };
+    expect(extracted.intelligence?.outcome).toBe("no_signal");
+    expect(enrichAndPersistMock).not.toHaveBeenCalled();
+    expect(evidenceMock).not.toHaveBeenCalled();
+    expect(budgetWarningMock).toHaveBeenCalledOnce();
+  });
+
+  it("keeps held semantics for held mail even over budget", async () => {
+    runGatePipelineMock.mockResolvedValue({
+      finalAction: "held",
+      shouldIngest: true,
+      passedGates: [],
+      gateResults: { admission: { action: "candidate", confidence: 45, signals: [] } },
+    });
+    budgetStatusMock.mockResolvedValue({ limit: 500, count: 600, exceeded: true });
+
+    const result = await ingestEnvelope("ws-1", "int-1", makeEnvelope(), {
+      useGatePipeline: true,
+    });
+
+    expect(result.outcome).toBe("held");
+    expect(inserted[0].gate_action).toBe("held");
   });
 });
 

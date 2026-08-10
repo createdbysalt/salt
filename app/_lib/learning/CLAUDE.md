@@ -1,24 +1,26 @@
 # Learning Infrastructure
 
-Shared infrastructure for the LEARN → ACT → GROW loop. Evidence accumulation and signal registry powering Keeper playbooks, enrichment, and Ask Salt.
+Shared infrastructure for the LEARN → ACT → GROW loop. Evidence accumulation, field tiers, and signal registry powering **Memory Care**, enrichment, and Ask Salt.
 
 ## Module Structure
 
 ```
 app/_lib/learning/
-├── types.ts        # Shared types (LearningEntityType, SignalDefinition, etc.)
-├── evidence.ts     # Evidence accumulation with log-sigmoid confidence scoring
-├── signals.ts      # Signal registry (all playbook triggers)
-├── promotion.ts    # Evidence → Play promotion (Phase 5)
-├── outcomes.ts     # Outcome tracking and detection (Phase 6)
-├── calibration.ts  # Confidence calibration & GROW loop (Phase 7)
-├── queue-budget.ts # Queue flood prevention (Phase 8)
-└── index.ts        # Re-exports
+├── types.ts         # Shared types (LearningEntityType, SignalDefinition, etc.)
+├── evidence.ts      # Evidence accumulation with log-sigmoid confidence scoring
+├── field-tiers.ts   # Tiered bars: standard / sensitive / destructive / never_touch
+├── signals.ts       # Signal registry (playbook + care triggers)
+├── outcomes.ts      # Outcome tracking and detection
+├── calibration.ts   # Confidence calibration & GROW loop
+├── queue-budget.ts  # Queue flood prevention (act-layer Plays)
+├── emit-signal.ts   # Inline entity signal emission
+├── watches.ts       # Cross-entity reactive watches
+└── index.ts         # Re-exports
 ```
 
 ## Evidence Accumulation
 
-Stores observations and aggregates confidence until threshold is crossed.
+Stores observations and aggregates confidence until the bar is crossed.
 
 **Key concepts:**
 - **Log-sigmoid scoring**: First mentions matter most, diminishing returns
@@ -59,9 +61,22 @@ if (agg && agg.aggregatedConfidence >= 90) {
 }
 ```
 
+## Field Tiers
+
+`field-tiers.ts` is the shared policy for how aggressively a Memory write may apply. Used by Memory Care (`decision-pipeline.ts`) and `memoryUpdateField`.
+
+| Tier | Bar | Examples |
+|------|-----|----------|
+| standard | Workspace threshold (default 85) | Notes, preferences |
+| sensitive | `max(threshold, 95)` | Industry, relationship type, first-time classifications |
+| destructive | `max(threshold, 95)` | Status → past_client / completed / void |
+| never_touch | Refused | Billing total / amount_paid, money-model fields |
+
+See [Memory Care](../../../docs/architecture/memory-care.md).
+
 ## Signal Registry
 
-Single source of truth for all playbook triggers. Anti-hallucination via registry-bounded signals.
+Single source of truth for triggers. Anti-hallucination via registry-bounded signals.
 
 ```typescript
 import {
@@ -76,7 +91,7 @@ if (!isValidSignalKey(key)) {
   throw new Error(`Unknown signal: ${key}`);
 }
 
-// Get signals that can trigger action playbooks
+// Get signals that can trigger act playbooks
 const actionTriggers = getActingTriggerSignals();
 
 // Get signals for a specific surface
@@ -85,13 +100,9 @@ const personSignals = getSignalsForSurface("person");
 
 ## Confidence Thresholds
 
-| Use Case | Threshold |
-|----------|-----------|
-| Auto-apply to Memory | ≥ 90 |
-| Suggest to user | 70-89 |
-| Keep accumulating | < 70 |
+Workspace auto-apply bar lives on `workspaces.memory_care_auto_apply_threshold` (default **85**), read via Memory Care `getCareThreshold` / memory-tools `getWorkspaceThreshold`. Tier floors raise sensitive/destructive fields to **95**. Below the bar → Watching (accumulate); never-touch → refuse.
 
-High-stakes actions (email, invoice) may require higher thresholds regardless of confidence.
+High-stakes **act** actions (email, invoice) still require Plays approval regardless of Memory confidence.
 
 ## Entity Types
 
@@ -107,13 +118,11 @@ High-stakes actions (email, invoice) may require higher thresholds regardless of
 
 | Consumer | Purpose |
 |----------|---------|
-| Keeper playbooks | Evidence → Memory updates |
+| Memory Care | Evidence → tiered apply / watch / refuse → Memory updates |
 | Enrichment layer | Connector data → Evidence |
 | Ask Salt | Tool execution attribution |
-| Learning Tab UI | Surface accumulating evidence |
-| Promotion service | Evidence → Play creation |
+| Memory → Filter | Watching / Handled surfaces |
 | Entity CRUD actions | Inline signal emission |
-| Watch system | Cross-entity reactive signals |
 
 ## Signal Emission
 
@@ -133,24 +142,6 @@ emitEntitySignal({
 });
 ```
 
-## Entity Watch System
-
-"When X happens, start watching for Y" - enables reactive cross-entity signals:
-
-```typescript
-import { registerEntityWatch } from "@/app/_lib/learning";
-
-// When a person is created, watch for emails from them
-await registerEntityWatch({
-  workspaceId,
-  watchedEntity: { type: "person", id: person.id },
-  watchForSignals: ["capture_email_received"],
-  filterCriteria: { from_email: person.email },
-  onMatch: { signal: "person_email_received" },
-  expiresInDays: 90,
-});
-```
-
 ## Backward Compatibility
 
-Original locations (`plays/playbooks/evidence-accumulator.ts`, `plays/playbooks/signal-registry.ts`) re-export from this module. New code should import from `@/app/_lib/learning`.
+Original locations (`plays/playbooks/evidence-accumulator.ts`, `plays/playbooks/signal-registry.ts`) may re-export from this module. New code should import from `@/app/_lib/learning`.

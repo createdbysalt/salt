@@ -18,16 +18,66 @@ import { getWorkspaceThreshold } from "./get-threshold";
 import type { AccumulateInput, AccumulateResult } from "./types";
 
 /**
+ * Watching contract: evidence must carry a concrete proposed value and a
+ * human-readable reason. A "gap" (missing field, diagnostic, debug probe)
+ * carries neither — it must never reach entity_evidence, because everything
+ * unresolved there surfaces in Memory → Filter.
+ */
+function validateConcreteEvidence(input: AccumulateInput): string | null {
+  const { value, because } = input;
+
+  if (value === null || value === undefined) {
+    return "evidence requires a concrete value (got null/undefined)";
+  }
+  if (typeof value === "string" && value.trim() === "") {
+    return "evidence requires a concrete value (got empty string)";
+  }
+  if (
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    Object.keys(value as Record<string, unknown>).length === 0
+  ) {
+    return "evidence requires a concrete value (got empty object)";
+  }
+  if (typeof because !== "string" || because.trim() === "") {
+    return "evidence requires a human-readable `because`";
+  }
+  return null;
+}
+
+/**
  * Accumulate evidence for a field without applying changes.
  *
  * Use this when:
  * - You want to observe/record without triggering updates
  * - Building confidence over multiple observations
  * - Gathering evidence before letting memoryUpdateField decide
+ *
+ * Value-less evidence is rejected at this gate: throws in development so the
+ * emitting capability fails loudly; logs and skips in production so a bad
+ * emitter can't pollute Watching.
  */
 export async function memoryAccumulateEvidence(
   input: AccumulateInput
 ): Promise<AccumulateResult> {
+  const validationError = validateConcreteEvidence(input);
+  if (validationError) {
+    const context = `${input.entityType}/${input.field} (source: ${input.source})`;
+    if (process.env.NODE_ENV !== "production") {
+      throw new Error(`[memoryAccumulateEvidence] ${validationError} — ${context}`);
+    }
+    console.error(
+      `[memoryAccumulateEvidence] Rejected value-less evidence: ${validationError} — ${context}`
+    );
+    return {
+      evidenceId: "",
+      aggregatedConfidence: 0,
+      evidenceCount: 0,
+      sourceTypeCount: 0,
+      meetsThreshold: false,
+      threshold: 0,
+    };
+  }
   const { evidenceId, aggregatedConfidence } = await coreAccumulate({
     workspaceId: input.workspaceId,
     entityType: input.entityType,
@@ -91,7 +141,7 @@ async function recordEvidenceActivity(
         : "Salt is watching evidence",
       detail: input.because,
       metadata: {
-        player_slug: "keeper",
+        player_slug: "memory-care",
         auto_executed: true,
         evidence_id: evidenceId,
         entity_type: input.entityType,

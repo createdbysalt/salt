@@ -91,10 +91,10 @@ Primary app routes:
 | Production URL | Local URL | Surface |
 |----------------|-----------|---------|
 | `app.usesalt.io/hq` | `localhost:3000/hq` | HQ |
-| `app.usesalt.io/plays` | `localhost:3000/plays` | Plays |
-| `app.usesalt.io/plays?tab=activity&view=captures` | `localhost:3000/plays?tab=activity&view=captures` | Captures (inside Plays Activity) |
-| `app.usesalt.io/spaces` | `localhost:3000/spaces` | Spaces |
-| `app.usesalt.io/connections` | `localhost:3000/connections` | Connections |
+| `app.usesalt.io/sources` | `localhost:3000/sources` | Sources (Connectors + Activity) |
+| `app.usesalt.io/plays` | `localhost:3000/plays` | Plays (Queue / Playbooks / Activity) |
+| `app.usesalt.io/spaces` | `localhost:3000/spaces` | Spaces — roadmap, not in MVP (redirects to `/work` until it ships) |
+| `app.usesalt.io/memory` | `localhost:3000/memory` | Memory Map (`/connections` redirects here) |
 | `app.usesalt.io/people` | `localhost:3000/people` | People |
 | `app.usesalt.io/work` | `localhost:3000/work` | Work |
 | `app.usesalt.io/conversations` | `localhost:3000/conversations` | Conversations |
@@ -103,7 +103,7 @@ Primary app routes:
 | `app.usesalt.io/billing` | `localhost:3000/billing` | Billing |
 | `app.usesalt.io/settings` | `localhost:3000/settings` | Settings (`app/(settings)/`) |
 
-**Legacy redirects:** `/capture` → Plays Activity Captures; `/notes` → `/me`; `/roundtables` and `/tables` → `/spaces`.
+**Legacy redirects:** `/capture` → Sources Activity (`/sources?tab=activity`); `/notes` → `/me`; `/connections` → `/memory`; `/roundtables` and `/tables` → `/work`; `/spaces` → `/work` until the roadmap Spaces surface ships (middleware redirects before any route render). Pre-reorg Plays URLs (`tab=customize`, `view=captures`, `filter=learning`) redirect to `/sources`, `/sources?tab=activity`, and `/memory?tab=activity` respectively. `/memory?tab=filter` is a legacy alias for Memory → Activity.
 
 Use `localhost:3000/*` for normal development. Only use subdomain-style local testing if a task specifically touches host-based routing.
 
@@ -309,7 +309,8 @@ Salt's proactive AI is built on three primitives. **Read these before building p
 | **Primitives Overview** | `./docs/architecture/primitives.md` | **START HERE** — Signals, Tools, Playbooks |
 | Signals Reference | `./docs/architecture/signals.md` | Signal taxonomy and registry |
 | Tools Reference | `./docs/architecture/tools.md` | Tool contracts and risk classes |
-| Playbooks Reference | `./docs/architecture/playbooks.md` | Playbook structure and execution model |
+| Playbooks Reference | `./docs/architecture/playbooks.md` | Act-layer playbook structure and execution |
+| **Memory Care** | `./docs/architecture/memory-care.md` | Learn-layer enrichment (replaces Keeper / system playbooks) |
 | Memory Tools | `./app/_lib/memory-tools/CLAUDE.md` | Protected Memory mutation tools |
 | Playbook Schema v2 | `./app/_features/plays/playbooks/schema/v2/CLAUDE.md` | YAML schema for playbook definitions |
 | **Playbook Troubleshooting** | `./docs/guides/playbook-troubleshooting.md` | **Debug missing playbooks** — silent validation errors |
@@ -437,7 +438,7 @@ Core utilities and integrations used across the app:
 | `permissions/` | RLS helpers and permission checks |
 | `tenancy/` | Multi-tenant context and guards |
 | `email/` | Resend integration for transactional emails |
-| `hooks/` | Shared React hooks (realtime, unread counts) |
+| `hooks/` | Shared React hooks (body scroll lock, client-mounted, mobile, reduced-motion, shell nav breakpoint) |
 | `theme/` | Theme resolution and accent presets |
 | `ai/` | GPT integration |
 | `rate-limit/` | API rate limiting |
@@ -445,7 +446,7 @@ Core utilities and integrations used across the app:
 
 ### `app/_features/` - Feature Modules
 
-Domain-specific code organized by feature. Current app-facing surfaces include `hq`, `plays`, `capture` (stream folded into Plays Activity), `connections`, `meetings`, `people`, `orgs`, `work`, `spaces`, `shell`, and supporting modules such as `auth`, `billing`, `payments`, `marketing`, `messaging`, and `relationships` (shared components/actions).
+Domain-specific code organized by feature. Current app-facing surfaces include `hq`, `sources` (intake: Connectors + Activity), `plays`, `capture` (stream lives in Sources → Activity), `connections` (Memory Map graph at `/memory`), `meetings`, `people`, `orgs`, `work`, `spaces`, `shell`, and supporting modules such as `auth`, `billing`, `payments`, `marketing`, `messaging`, and `relationships` (shared components/actions).
 
 ### `brand-identity/` - Brand & Product Documentation
 

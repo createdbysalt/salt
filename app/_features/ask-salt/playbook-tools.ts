@@ -2,8 +2,8 @@ import "server-only";
 
 import { z } from "zod";
 import { tool, type ToolSet } from "ai";
-import { createPlayRunFromTemplate } from "@/app/_features/plays/services/create-play-run";
-import { adoptPlaybookBlueprint, getPlaybookBlueprint } from "@/app/_features/plays/playbooks/adopt-blueprint";
+import { togglePlaybookEnabled } from "@/app/_features/plays/actions/playbook-settings";
+import { getPlaybookBySlug } from "@/app/_features/plays/playbooks/schema/v2/discovery";
 import {
   validatePlayDefinition,
   type PlayDefinition,
@@ -31,8 +31,6 @@ export interface BuildPlaybookToolsOptions {
   workspaceId: string;
   userId?: string;
 }
-
-const PLAYS_URL = "/plays";
 
 /**
  * Validate a user-created playbook draft.
@@ -86,8 +84,8 @@ function validateUserPlaybookDraft(input: {
 
   if (memoryMutationViolations.length > 0) {
     errors.push(
-      `User playbooks cannot mutate Memory records: ${memoryMutationViolations.join(", ")}. ` +
-        "These actions are reserved for Keeper playbooks.",
+        `User playbooks cannot mutate Memory records: ${memoryMutationViolations.join(", ")}. ` +
+        "These actions are reserved for Memory Care.",
     );
   }
 
@@ -101,12 +99,12 @@ function validateUserPlaybookDraft(input: {
     definition = validation.definition;
     requiredActions = validation.requiredActions;
 
-    // User-created playbooks are never in _meta section, so they can't write Memory
+    // No playbook may write Memory — Memory Care owns all Memory mutations.
     const monopolyCheck = validateMemoryMonopoly(requiredActions, "relationships");
     if (!monopolyCheck.ok) {
       errors.push(
         `User playbooks cannot mutate Memory records: ${monopolyCheck.violations.join(", ")}. ` +
-          "These actions are reserved for system playbooks.",
+          "These actions are reserved for Memory Care.",
       );
     }
 
@@ -157,20 +155,20 @@ function reportPlaybookToolError(input: {
 }
 
 /**
- * load_playbook + propose_play: the skill-style usage layer.
- * - load_playbook pulls one adopted playbook's full procedure on demand.
- * - propose_play queues a play_run from a playbook for human approval; the LLM
- *   never executes the playbook's acting steps itself (the typed engine does,
- *   after approval).
+ * load_playbook + enable_playbook: the skill-style usage layer.
+ * - load_playbook pulls one enabled playbook's full procedure on demand.
+ * - enable_playbook turns on a disabled v2 playbook for this workspace.
+ * External actions a playbook calls for run through the connector tools with
+ * in-chat approval — there is no background queue handoff.
  */
 export function buildPlaybookTools(options: BuildPlaybookToolsOptions): ToolSet {
   const { workspaceId, userId } = options;
 
   const loadPlaybook = tool({
     description:
-      "Load the full instructions for one of the workspace's adopted playbooks before following it in chat. Returns procedure steps, chat execution mode (inline vs queue), enrichment requirements, allowed tools, and whether external actions need propose_play approval.",
+      "Load the full instructions for one of the workspace's enabled playbooks before following it in chat. Returns procedure steps, chat execution mode, enrichment requirements, allowed tools, and whether actions need approval.",
     inputSchema: z.object({
-      slug: z.string().min(1).describe("The playbook slug from the Available playbooks list."),
+      slug: z.string().min(1).describe("The playbook slug from the Enabled playbooks list."),
     }),
     execute: async ({ slug }) => {
       try {
@@ -179,7 +177,7 @@ export function buildPlaybookTools(options: BuildPlaybookToolsOptions): ToolSet 
           const available = await resolveAskSaltPlaybooks(workspaceId);
           return {
             found: false as const,
-            message: `No adopted playbook with slug "${slug}".`,
+            message: `No enabled playbook with slug "${slug}".`,
             availableSlugs: available.map((p) => p.slug),
           };
         }
@@ -223,233 +221,47 @@ export function buildPlaybookTools(options: BuildPlaybookToolsOptions): ToolSet 
     },
   });
 
-  const proposePlay = tool({
+  const enablePlaybook = tool({
     description:
-      "Queue a play from an adopted playbook for the user's approval on Plays. Use this for any action a playbook performs (sending email, scheduling, payments) — it never sends or acts immediately; the user approves and Salt's engine runs it. Call load_playbook first. Include entity references when the request mentions specific people, organizations, or work.",
-    inputSchema: z.object({
-      slug: z.string().min(1).describe("The adopted playbook slug to run."),
-      title: z
-        .string()
-        .min(1)
-        .max(140)
-        .describe("Short queue-card title describing what this play will do."),
-      summary: z
-        .string()
-        .max(600)
-        .optional()
-        .describe("Optional preview of the prepared action for the queue card."),
-      personName: z
-        .string()
-        .optional()
-        .describe("Name of the person this play targets (e.g., 'Dana Chen'). Will be resolved to an ID."),
-      orgName: z
-        .string()
-        .optional()
-        .describe("Name of the organization this play targets (e.g., 'Acme Corp'). Will be resolved to an ID."),
-      workName: z
-        .string()
-        .optional()
-        .describe("Name of the work/project this play relates to (e.g., 'Website Redesign'). Will be resolved to an ID."),
-    }),
-    execute: async ({ slug, title, summary, personName, orgName, workName }) => {
-      try {
-        const detail = await loadAskSaltPlaybook(workspaceId, slug);
-        if (!detail) {
-          return {
-            queued: false as const,
-            message: `No adopted playbook with slug "${slug}". Ask the user to adopt it in Plays first.`,
-          };
-        }
-
-        const contextInputs: Record<string, unknown> = {};
-        const supabase = await createClient();
-
-        if (personName) {
-          const { data: person } = await supabase
-            .from("people")
-            .select("id, display_name, email")
-            .eq("workspace_id", workspaceId)
-            .is("deleted_at", null)
-            .ilike("display_name", `%${personName}%`)
-            .limit(1)
-            .maybeSingle();
-          if (person) {
-            contextInputs.person_id = person.id;
-            contextInputs.person_name = person.display_name;
-            contextInputs.person_email = person.email;
-          }
-        }
-
-        if (orgName) {
-          const { data: org } = await supabase
-            .from("organizations")
-            .select("id, name")
-            .eq("workspace_id", workspaceId)
-            .is("deleted_at", null)
-            .ilike("name", `%${orgName}%`)
-            .limit(1)
-            .maybeSingle();
-          if (org) {
-            contextInputs.org_id = org.id;
-            contextInputs.org_name = org.name;
-          }
-        }
-
-        if (workName) {
-          const { data: work } = await supabase
-            .from("work")
-            .select("id, name")
-            .eq("workspace_id", workspaceId)
-            .is("deleted_at", null)
-            .ilike("name", `%${workName}%`)
-            .limit(1)
-            .maybeSingle();
-          if (work) {
-            contextInputs.work_id = work.id;
-            contextInputs.work_name = work.name;
-          }
-        }
-
-        const result = await createPlayRunFromTemplate({
-          workspaceId,
-          templateId: detail.templateId,
-          title,
-          preview: summary,
-          contextInputs: Object.keys(contextInputs).length > 0 ? contextInputs : undefined,
-        });
-
-        if (!result.ok) {
-          const report = reportPlaybookToolError({
-            error: new Error(result.error),
-            workspaceId,
-            userId,
-            slug,
-            action: "while queueing that play",
-          });
-          void logToolExecution({
-            workspaceId,
-            toolSlug: `propose_play:${slug}`,
-            risk: "mutating",
-            source: "ask_salt",
-            status: "error",
-            userId: userId ?? null,
-            args: { slug, title, personName, orgName, workName },
-            error: result.error,
-          });
-          return {
-            queued: false as const,
-            message: report.userMessage,
-            errorId: report.errorId,
-          };
-        }
-
-        void logToolExecution({
-          workspaceId,
-          toolSlug: `propose_play:${slug}`,
-          risk: "mutating",
-          source: "ask_salt",
-          status: "success",
-          userId: userId ?? null,
-          approvedBy: null,
-          args: { slug, title, runId: result.value.runId, contextInputs },
-        });
-
-        return {
-          queued: true as const,
-          runId: result.value.runId,
-          title: result.value.title,
-          playsUrl: PLAYS_URL,
-          message:
-            "Queued in Plays. It is waiting for your approval — nothing was sent or changed yet. Review and approve it on the Plays page.",
-        };
-      } catch (error) {
-        const report = reportPlaybookToolError({
-          error,
-          workspaceId,
-          userId,
-          slug,
-          action: "while queueing that play",
-        });
-        void logToolExecution({
-          workspaceId,
-          toolSlug: `propose_play:${slug}`,
-          risk: "mutating",
-          source: "ask_salt",
-          status: "error",
-          userId: userId ?? null,
-          args: { slug, title, personName, orgName, workName },
-          error: error instanceof Error ? error.message : "Failed to queue play",
-        });
-        return {
-          queued: false as const,
-          message: report.userMessage,
-          errorId: report.errorId,
-        };
-      }
-    },
-  });
-
-  const adoptPlaybook = tool({
-    description:
-      "Enable an available playbook for this workspace. Use when a request matches an available (not-adopted) playbook from the 'Available playbooks' list.",
+      "Enable a disabled playbook for this workspace. Use when a request matches a playbook from the 'Available playbooks' (disabled) list.",
     inputSchema: z.object({
       slug: z.string().min(1).describe("The playbook slug from the Available playbooks list."),
     }),
     execute: async ({ slug }) => {
       try {
-        const blueprint = await getPlaybookBlueprint(slug);
-        if (!blueprint) {
-          const available = await resolveAskSaltBlueprints(workspaceId, []);
+        const parsed = getPlaybookBySlug(slug);
+        if (!parsed || parsed.definition.layer !== "act") {
+          const available = await resolveAskSaltBlueprints(workspaceId);
           return {
-            adopted: false as const,
+            enabled: false as const,
             needsApproval: false as const,
-            message: `No active blueprint with slug "${slug}".`,
+            message: `No playbook with slug "${slug}".`,
             availableSlugs: available.map((b) => b.slug),
           };
         }
 
-        const result = await adoptPlaybookBlueprint({
-          workspaceId,
-          blueprintSlug: slug,
-        });
+        const result = await togglePlaybookEnabled(slug, true);
+        if (!result.success) {
+          throw new Error(result.error ?? "Failed to enable playbook");
+        }
 
         void logToolExecution({
           workspaceId,
-          toolSlug: `adopt_playbook:${slug}`,
+          toolSlug: `enable_playbook:${slug}`,
           risk: "mutating",
           source: "ask_salt",
           status: "success",
           userId: userId ?? null,
           approvedBy: userId ?? null,
-          args: { slug, created: result.created, missingToolkits: result.missingToolkits },
+          args: { slug },
         });
 
-        if (result.missingToolkits.length > 0) {
-          const needsReconnect = result.missingToolkits.filter((t) => t.needsReconnect);
-          const notConnected = result.missingToolkits.filter((t) => !t.connected && !t.needsReconnect);
-          return {
-            adopted: true as const,
-            needsApproval: false as const,
-            templateId: result.template.id,
-            slug: result.template.slug,
-            name: result.template.name,
-            created: result.created,
-            missingToolkits: result.missingToolkits.map((t) => t.toolkit),
-            message: `Adopted "${blueprint.name}" but it requires connections that aren't ready: ${result.missingToolkits.map((t) => t.toolkit).join(", ")}. ${notConnected.length > 0 ? `Please connect ${notConnected.map((t) => t.toolkit).join(", ")} in Settings → Connections.` : ""} ${needsReconnect.length > 0 ? `Please reconnect ${needsReconnect.map((t) => t.toolkit).join(", ")} (token expired).` : ""}`.trim(),
-            connectUrl: "/connections",
-          };
-        }
-
         return {
-          adopted: true as const,
+          enabled: true as const,
           needsApproval: false as const,
-          templateId: result.template.id,
-          slug: result.template.slug,
-          name: result.template.name,
-          created: result.created,
-          message: result.created
-            ? `Adopted "${blueprint.name}" — it's now available. Call load_playbook to use it.`
-            : `Updated "${blueprint.name}" to latest version.`,
+          slug: parsed.definition.slug,
+          name: parsed.definition.name,
+          message: `Enabled "${parsed.definition.name}" — it's now available. Call load_playbook to use it.`,
         };
       } catch (error) {
         const report = reportPlaybookToolError({
@@ -457,20 +269,20 @@ export function buildPlaybookTools(options: BuildPlaybookToolsOptions): ToolSet 
           workspaceId,
           userId,
           slug,
-          action: "while adopting that blueprint",
+          action: "while enabling that playbook",
         });
         void logToolExecution({
           workspaceId,
-          toolSlug: `adopt_playbook:${slug}`,
+          toolSlug: `enable_playbook:${slug}`,
           risk: "mutating",
           source: "ask_salt",
           status: "error",
           userId: userId ?? null,
           args: { slug },
-          error: error instanceof Error ? error.message : "Failed to adopt",
+          error: error instanceof Error ? error.message : "Failed to enable",
         });
         return {
-          adopted: false as const,
+          enabled: false as const,
           needsApproval: false as const,
           message: report.userMessage,
           errorId: report.errorId,
@@ -484,10 +296,9 @@ export function buildPlaybookTools(options: BuildPlaybookToolsOptions): ToolSet 
       "Check the status of a play run. Use when the user asks 'did that send?', 'what happened with X?', or wants to know about a queued or recent play.",
     inputSchema: z.object({
       runId: z.string().uuid().optional().describe("Specific play run ID to check."),
-      templateSlug: z.string().optional().describe("Check recent runs for this playbook slug."),
       limit: z.number().int().min(1).max(10).default(5).describe("Max runs to return."),
     }),
-    execute: async ({ runId, templateSlug, limit }) => {
+    execute: async ({ runId, limit }) => {
       try {
         const supabase = await createClient();
 
@@ -517,18 +328,12 @@ export function buildPlaybookTools(options: BuildPlaybookToolsOptions): ToolSet 
           };
         }
 
-        let query = supabase
+        const { data: runs, error } = await supabase
           .from("play_runs")
-          .select("id, title, state, ran_at, dismissed_at, last_error, created_at, play_templates!inner(slug)")
+          .select("id, title, state, ran_at, dismissed_at, last_error, created_at")
           .eq("workspace_id", workspaceId)
           .order("created_at", { ascending: false })
           .limit(limit);
-
-        if (templateSlug) {
-          query = query.eq("play_templates.slug", templateSlug);
-        }
-
-        const { data: runs, error } = await query;
 
         if (error) {
           throw error;
@@ -669,8 +474,7 @@ export function buildPlaybookTools(options: BuildPlaybookToolsOptions): ToolSet 
 
   return {
     load_playbook: loadPlaybook,
-    propose_play: proposePlay,
-    adopt_playbook: adoptPlaybook,
+    enable_playbook: enablePlaybook,
     get_play_run_status: getPlayRunStatus,
     draft_playbook: draftPlaybook,
   };

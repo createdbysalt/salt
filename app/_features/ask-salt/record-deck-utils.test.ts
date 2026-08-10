@@ -324,11 +324,11 @@ describe("buildDeckCompletionEntries (playbook drafts)", () => {
 
     const entries = buildDeckCompletionEntries(
       items,
-      new Map([[items[0]!.id, "/plays?tab=customize"]]),
+      new Map([[items[0]!.id, "/plays?tab=playbooks"]]),
     );
 
     expect(entries[0]?.summary).toBe('Created playbook "Weekly Status Email"');
-    expect(entries[0]?.href).toBe("/plays?tab=customize");
+    expect(entries[0]?.href).toBe("/plays?tab=playbooks");
     expect(entries[0]?.memoryLabel).toBe("Playbooks");
   });
 });

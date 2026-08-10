@@ -87,7 +87,9 @@ const model = shouldDegrade(decision) ? CHEAP : NORMAL;
 
 ## Still unenforced
 
-`playsIncluded`, `storageQuotaBytes`, and `MAX_TOOL_CALLS_PER_PLAY` are **enforced nowhere** — nothing checks `playsRemaining` before `executePlayRun`, so a Starter workspace can still run unlimited plays. That is a revenue leak, distinct from the margin leak `canSpend` closed. Legacy `ai_credits` is never deducted.
+`storageQuotaBytes` and `MAX_TOOL_CALLS_PER_PLAY` are **enforced nowhere**. Ask Salt standalone actions (`createPlayRecord` with `executedToolSlugs`) bill correctly but nothing refuses them at zero remaining — that belongs to the overage UI phase. Legacy `ai_credits` is never deducted.
+
+`playsIncluded` **is** enforced: `checkPlayAdmission` (`app/_lib/usage/play-admission.ts`) gates `executePlayRun` at admission — after consent, before any step — and refuses only plays that could bill (`external_effect` slugs or an external capability act step). A refused run lands in `blocked`, never `failed` (billing is not playbook failure evidence), and stays re-approvable; overage-enabled workspaces pass. Fails open like `canSpend`.
 
 `sendLlm` takes an `LlmSpendContext`, not a `userId`, and meters itself:
 

@@ -99,8 +99,6 @@ function SideRailSkeleton() {
 export default function HqLoading() {
   return (
     <div className="relative min-h-full">
-      <div aria-hidden className="salt-ambient-wash" />
-
       <div className="mx-auto w-full max-w-[1400px]">
         <HqTabsSkeleton />
 

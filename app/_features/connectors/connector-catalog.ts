@@ -1,5 +1,5 @@
 // ============================================================================
-// SEED SOURCE ONLY (connector-platform Phase 2.5) — the runtime reads the DB
+// SEED SOURCE ONLY (connector-platform Phase 2.5): the runtime reads the DB
 // registry (connector_catalog + connector_overrides via connector-registry.ts).
 // This file exists solely as the frozen input to
 // scripts/generate-connector-seed.ts and its consistency tests.
@@ -7,7 +7,7 @@
 // ============================================================================
 
 /**
- * Connector policy registry — single source of truth for native vs Composio scope.
+ * Connector policy registry: single source of truth for native vs Composio scope.
  *
  * Native platform (Salt's own infrastructure, never user connectors):
  * - Supabase, Resend, OpenRouter
@@ -30,7 +30,7 @@
  *
  * Composio Phase 1C:
  * - Stripe (user's own account, API-key auth). Replaced the native Stripe
- *   Connect Express integration (product decision 2026-06-11) — Salt reads
+ *   Connect Express integration (product decision 2026-06-11): Salt reads
  *   business data and drafts invoices/subscriptions on the user's account.
  *
  * Composio Phase 2 (connector expansion, plan 2026-06-11):
@@ -40,7 +40,7 @@
  *   or user API key). Entries with `comingSoon: true` cannot connect yet —
  *   no Composio toolkit exists, the platform has no managed OAuth app, or
  *   the API-key flow needs fields the connect dialog doesn't collect.
- *   Cal.com and Fireflies live here too — legacy API-key rows may exist in
+ *   Cal.com and Fireflies live here too: legacy API-key rows may exist in
  *   workspace_integrations; they reconnect via Composio when enabled.
  */
 
@@ -73,7 +73,7 @@ interface Phase2ConnectorSpec {
 }
 
 /**
- * Phase 2 connectors — in the catalog as "Coming soon", not yet connectable.
+ * Phase 2 connectors: in the catalog as "Coming soon", not yet connectable.
  * Every providerKey must exist in COMPOSIO_WORKSPACE_PROVIDERS
  * (app/_lib/composio/providers.ts). authMethod "api_key" must match
  * COMPOSIO_API_KEY_PROVIDERS there; extend that list when enabling a
@@ -85,7 +85,7 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "quickbooks",
     providerKey: "quickbooks",
     name: "QuickBooks",
-    description: "Bookkeeping — invoices, expenses, and cash flow in view",
+    description: "Bookkeeping: invoices, expenses, and cash flow in view",
     category: "payments",
     authMethod: "oauth",
   },
@@ -93,7 +93,7 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "square",
     providerKey: "square",
     name: "Square",
-    description: "Payments and POS — sales and customers in view",
+    description: "Payments and POS: sales and customers in view",
     category: "payments",
     authMethod: "oauth",
   },
@@ -130,27 +130,27 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "ramp",
     providerKey: "ramp",
     name: "Ramp",
-    description: "Cards and spend — expenses and limits in view",
+    description: "Cards and spend: expenses and limits in view",
     category: "payments",
     authMethod: "oauth",
-    comingSoon: true, // no Composio managed app — needs Salt's own Ramp dev app
+    comingSoon: true, // no Composio managed app: needs Salt's own Ramp dev app
   },
   {
     id: "mercury",
     providerKey: "mercury",
     name: "Mercury",
-    description: "Banking — balances and transactions in view",
+    description: "Banking: balances and transactions in view",
     category: "payments",
-    authMethod: "oauth", // DCR OAuth via mercury_mcp — signs in at app.mercury.com
+    authMethod: "oauth", // DCR OAuth via mercury_mcp: signs in at app.mercury.com
     connectHelp:
-      "You'll sign in to Mercury directly and clear its two-factor check — it's your bank, so the login is theirs, not Salt's. Have your security key or passkey ready before you start; if the key prompt times out, choose “Use backup code instead” on Mercury's screen.",
+      "You'll sign in to Mercury directly and clear its two-factor check: it's your bank, so the login is theirs, not Salt's. Have your security key or passkey ready before you start; if the key prompt times out, choose “Use backup code instead” on Mercury's screen.",
   },
   // Social
   {
     id: "instagram",
     providerKey: "instagram",
     name: "Instagram",
-    description: "Posts and engagement — publish with your approval",
+    description: "Posts and engagement: publish with your approval",
     category: "social",
     authMethod: "oauth",
   },
@@ -158,7 +158,7 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "linkedin",
     providerKey: "linkedin",
     name: "LinkedIn",
-    description: "Posts and profile reach — publish with your approval",
+    description: "Posts and profile reach: publish with your approval",
     category: "social",
     authMethod: "oauth",
   },
@@ -166,16 +166,16 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "x",
     providerKey: "twitter",
     name: "X (Twitter)",
-    description: "Posts and replies — publish with your approval",
+    description: "Posts and replies: publish with your approval",
     category: "social",
     authMethod: "oauth",
-    comingSoon: true, // no Composio managed app — needs Salt's own X dev app
+    comingSoon: true, // no Composio managed app: needs Salt's own X dev app
   },
   {
     id: "facebook",
     providerKey: "facebook",
     name: "Facebook",
-    description: "Pages and posts — publish with your approval",
+    description: "Pages and posts: publish with your approval",
     category: "social",
     authMethod: "oauth",
   },
@@ -183,10 +183,10 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "tiktok",
     providerKey: "tiktok",
     name: "TikTok",
-    description: "Videos and performance — publish with your approval",
+    description: "Videos and performance: publish with your approval",
     category: "social",
     authMethod: "oauth",
-    comingSoon: true, // no Composio managed app — needs Salt's own TikTok dev app
+    comingSoon: true, // no Composio managed app: needs Salt's own TikTok dev app
   },
   {
     id: "youtube",
@@ -200,7 +200,7 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "reddit",
     providerKey: "reddit",
     name: "Reddit",
-    description: "Communities and posts — publish with your approval",
+    description: "Communities and posts: publish with your approval",
     category: "social",
     authMethod: "oauth",
   },
@@ -228,7 +228,7 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     description: "B2B campaign spend and results in view",
     category: "marketing",
     authMethod: "oauth",
-    comingSoon: true, // no Composio managed app — needs Salt's own LinkedIn dev app
+    comingSoon: true, // no Composio managed app: needs Salt's own LinkedIn dev app
   },
   {
     id: "reddit-ads",
@@ -242,7 +242,7 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "mailchimp",
     providerKey: "mailchimp",
     name: "Mailchimp",
-    description: "Email campaigns and audiences — send with your approval",
+    description: "Email campaigns and audiences: send with your approval",
     category: "marketing",
     authMethod: "oauth",
   },
@@ -250,7 +250,7 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "kit",
     providerKey: "convertkit",
     name: "Kit",
-    description: "Newsletter broadcasts and subscribers — send with your approval",
+    description: "Newsletter broadcasts and subscribers: send with your approval",
     category: "marketing",
     authMethod: "oauth",
   },
@@ -283,7 +283,7 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "google-tag-manager",
     providerKey: "googletagmanager",
     name: "Google Tag Manager",
-    description: "Tags and triggers — changes with your approval",
+    description: "Tags and triggers: changes with your approval",
     category: "analytics",
     authMethod: "oauth",
     comingSoon: true, // no Composio toolkit exists
@@ -292,7 +292,7 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "posthog",
     providerKey: "posthog",
     name: "PostHog",
-    description: "Product analytics — events and funnels in view",
+    description: "Product analytics: events and funnels in view",
     category: "analytics",
     authMethod: "api_key",
   },
@@ -310,7 +310,7 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "slack",
     providerKey: "slack",
     name: "Slack",
-    description: "Channels and messages — send with your approval",
+    description: "Channels and messages: send with your approval",
     category: "communication",
     authMethod: "oauth",
   },
@@ -318,7 +318,7 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "zoom",
     providerKey: "zoom",
     name: "Zoom",
-    description: "Meetings and recordings — scheduling with your approval",
+    description: "Meetings and recordings: scheduling with your approval",
     category: "communication",
     authMethod: "oauth",
   },
@@ -326,17 +326,17 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "whatsapp",
     providerKey: "whatsapp",
     name: "WhatsApp",
-    description: "Business messages — send with your approval",
+    description: "Business messages: send with your approval",
     category: "communication",
     authMethod: "oauth",
     connectHelp:
-      "The next screen asks for a WABA ID — that's your WhatsApp Business Account ID. Find it at business.facebook.com → Settings → WhatsApp accounts: select your account and copy the long number near its name. Requires a WhatsApp Business (not personal) account.",
+      "The next screen asks for a WABA ID: that's your WhatsApp Business Account ID. Find it at business.facebook.com → Settings → WhatsApp accounts: select your account and copy the long number near its name. Requires a WhatsApp Business (not personal) account.",
   },
   {
     id: "telegram",
     providerKey: "telegram",
     name: "Telegram",
-    description: "Messages and channels — send with your approval",
+    description: "Messages and channels: send with your approval",
     category: "communication",
     authMethod: "api_key",
   },
@@ -344,7 +344,7 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "discord",
     providerKey: "discord",
     name: "Discord",
-    description: "Servers and messages — send with your approval",
+    description: "Servers and messages: send with your approval",
     category: "communication",
     authMethod: "oauth",
   },
@@ -352,7 +352,7 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "outlook",
     providerKey: "outlook",
     name: "Outlook",
-    description: "Email and calendar — send and schedule with your approval",
+    description: "Email and calendar: send and schedule with your approval",
     category: "communication",
     authMethod: "oauth",
   },
@@ -361,7 +361,7 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "notion",
     providerKey: "notion",
     name: "Notion",
-    description: "Pages and databases — read, draft, and update with your approval",
+    description: "Pages and databases: read, draft, and update with your approval",
     category: "productivity",
     authMethod: "oauth",
   },
@@ -369,7 +369,7 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "linear",
     providerKey: "linear",
     name: "Linear",
-    description: "Issues and projects — create and update with your approval",
+    description: "Issues and projects: create and update with your approval",
     category: "productivity",
     authMethod: "oauth",
   },
@@ -377,7 +377,7 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "asana",
     providerKey: "asana",
     name: "Asana",
-    description: "Tasks and projects — create and update with your approval",
+    description: "Tasks and projects: create and update with your approval",
     category: "productivity",
     authMethod: "oauth",
   },
@@ -385,7 +385,7 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "clickup",
     providerKey: "clickup",
     name: "ClickUp",
-    description: "Tasks and docs — create and update with your approval",
+    description: "Tasks and docs: create and update with your approval",
     category: "productivity",
     authMethod: "oauth",
     connectHelp:
@@ -395,7 +395,7 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "trello",
     providerKey: "trello",
     name: "Trello",
-    description: "Boards and cards — create and update with your approval",
+    description: "Boards and cards: create and update with your approval",
     category: "productivity",
     authMethod: "oauth",
   },
@@ -403,7 +403,7 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "monday",
     providerKey: "monday",
     name: "Monday.com",
-    description: "Boards and items — create and update with your approval",
+    description: "Boards and items: create and update with your approval",
     category: "productivity",
     authMethod: "oauth",
   },
@@ -411,7 +411,7 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "basecamp",
     providerKey: "basecamp",
     name: "Basecamp",
-    description: "Projects and to-dos — create and update with your approval",
+    description: "Projects and to-dos: create and update with your approval",
     category: "productivity",
     authMethod: "oauth",
   },
@@ -419,7 +419,7 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "airtable",
     providerKey: "airtable",
     name: "Airtable",
-    description: "Bases and records — read and add with your approval",
+    description: "Bases and records: read and add with your approval",
     category: "productivity",
     authMethod: "oauth",
   },
@@ -427,7 +427,7 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "jira",
     providerKey: "jira",
     name: "Jira",
-    description: "Issues and sprints — create and update with your approval",
+    description: "Issues and sprints: create and update with your approval",
     category: "productivity",
     authMethod: "oauth",
   },
@@ -435,7 +435,7 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "wrike",
     providerKey: "wrike",
     name: "Wrike",
-    description: "Tasks and workloads — create and update with your approval",
+    description: "Tasks and workloads: create and update with your approval",
     category: "productivity",
     authMethod: "oauth",
   },
@@ -443,7 +443,7 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "miro",
     providerKey: "miro",
     name: "Miro",
-    description: "Boards and ideas — read and add with your approval",
+    description: "Boards and ideas: read and add with your approval",
     category: "productivity",
     authMethod: "oauth",
   },
@@ -452,7 +452,7 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "onedrive",
     providerKey: "onedrive",
     name: "OneDrive",
-    description: "Files and folders — Salt organizes with your approval",
+    description: "Files and folders: Salt organizes with your approval",
     category: "files",
     authMethod: "oauth",
   },
@@ -460,7 +460,7 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "excel",
     providerKey: "microsoftexcel",
     name: "Excel",
-    description: "Spreadsheets — read data and add rows with your approval",
+    description: "Spreadsheets: read data and add rows with your approval",
     category: "files",
     authMethod: "oauth",
   },
@@ -468,7 +468,7 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "word",
     providerKey: "microsoftword",
     name: "Word",
-    description: "Documents — read, draft, and update with your approval",
+    description: "Documents: read, draft, and update with your approval",
     category: "files",
     authMethod: "oauth",
     comingSoon: true, // no Composio toolkit exists
@@ -477,7 +477,7 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "powerpoint",
     providerKey: "microsoftpowerpoint",
     name: "PowerPoint",
-    description: "Presentations — read and create decks with your approval",
+    description: "Presentations: read and create decks with your approval",
     category: "files",
     authMethod: "oauth",
     comingSoon: true, // no Composio toolkit exists
@@ -486,7 +486,7 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "dropbox",
     providerKey: "dropbox",
     name: "Dropbox",
-    description: "Files and folders — Salt organizes with your approval",
+    description: "Files and folders: Salt organizes with your approval",
     category: "files",
     authMethod: "oauth",
   },
@@ -495,16 +495,16 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "docusign",
     providerKey: "docusign",
     name: "DocuSign",
-    description: "Agreements — send for signature with your approval",
+    description: "Agreements: send for signature with your approval",
     category: "documents",
     authMethod: "oauth",
-    comingSoon: true, // no Composio managed app — needs Salt's own DocuSign dev app
+    comingSoon: true, // no Composio managed app: needs Salt's own DocuSign dev app
   },
   {
     id: "pandadoc",
     providerKey: "pandadoc",
     name: "PandaDoc",
-    description: "Proposals and contracts — send with your approval",
+    description: "Proposals and contracts: send with your approval",
     category: "documents",
     authMethod: "api_key",
   },
@@ -512,7 +512,7 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "dropbox-sign",
     providerKey: "dropboxsign",
     name: "Dropbox Sign",
-    description: "Signature requests — send with your approval",
+    description: "Signature requests: send with your approval",
     category: "documents",
     authMethod: "api_key",
   },
@@ -546,7 +546,7 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "calendly",
     providerKey: "calendly",
     name: "Calendly",
-    description: "Bookings and availability — scheduling with your approval",
+    description: "Bookings and availability: scheduling with your approval",
     category: "scheduling",
     authMethod: "oauth",
   },
@@ -554,7 +554,7 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "calcom",
     providerKey: "cal",
     name: "Cal.com",
-    description: "Bookings and availability — scheduling with your approval",
+    description: "Bookings and availability: scheduling with your approval",
     category: "scheduling",
     authMethod: "oauth",
     connectHelp:
@@ -575,14 +575,14 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     name: "Granola",
     description: "Meeting notes and summaries in view",
     category: "meetings",
-    authMethod: "oauth", // DCR OAuth via granola_mcp — signs in at granola.ai
+    authMethod: "oauth", // DCR OAuth via granola_mcp: signs in at granola.ai
   },
   // CRM
   {
     id: "hubspot",
     providerKey: "hubspot",
     name: "HubSpot",
-    description: "Contacts and deals — update with your approval",
+    description: "Contacts and deals: update with your approval",
     category: "crm",
     authMethod: "oauth",
   },
@@ -590,7 +590,7 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "salesforce",
     providerKey: "salesforce",
     name: "Salesforce",
-    description: "Contacts and opportunities — update with your approval",
+    description: "Contacts and opportunities: update with your approval",
     category: "crm",
     authMethod: "oauth",
   },
@@ -598,7 +598,7 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "pipedrive",
     providerKey: "pipedrive",
     name: "Pipedrive",
-    description: "Deals and pipelines — update with your approval",
+    description: "Deals and pipelines: update with your approval",
     category: "crm",
     authMethod: "api_key",
     apiKeyForm: {
@@ -619,7 +619,7 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "pipeline-crm",
     providerKey: "pipelinecrm",
     name: "Pipeline CRM",
-    description: "Deals and contacts — update with your approval",
+    description: "Deals and contacts: update with your approval",
     category: "crm",
     authMethod: "api_key",
     apiKeyForm: {
@@ -639,7 +639,7 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "followup-boss",
     providerKey: "followupboss",
     name: "Follow Up Boss",
-    description: "Leads and follow-ups — update with your approval",
+    description: "Leads and follow-ups: update with your approval",
     category: "crm",
     authMethod: "api_key",
   },
@@ -647,7 +647,7 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "apollo",
     providerKey: "apollo",
     name: "Apollo",
-    description: "Prospects and outreach — update with your approval",
+    description: "Prospects and outreach: update with your approval",
     category: "crm",
     authMethod: "api_key",
   },
@@ -681,7 +681,7 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "webflow",
     providerKey: "webflow",
     name: "Webflow",
-    description: "Site content and CMS items — publish with your approval",
+    description: "Site content and CMS items: publish with your approval",
     category: "website",
     authMethod: "api_key",
   },
@@ -689,7 +689,7 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "wix",
     providerKey: "wix",
     name: "Wix",
-    description: "Site content and bookings — update with your approval",
+    description: "Site content and bookings: update with your approval",
     category: "website",
     authMethod: "api_key",
   },
@@ -698,7 +698,7 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "github",
     providerKey: "github",
     name: "GitHub",
-    description: "Repos, issues, and PRs — changes with your approval",
+    description: "Repos, issues, and PRs: changes with your approval",
     category: "developer",
     authMethod: "oauth",
   },
@@ -706,7 +706,7 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "gitlab",
     providerKey: "gitlab",
     name: "GitLab",
-    description: "Repos, issues, and MRs — changes with your approval",
+    description: "Repos, issues, and MRs: changes with your approval",
     category: "developer",
     authMethod: "oauth",
   },
@@ -730,7 +730,7 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "resend",
     providerKey: "resend",
     name: "Resend",
-    description: "Your own email sending — domains and logs in view",
+    description: "Your own email sending: domains and logs in view",
     category: "developer",
     authMethod: "api_key",
   },
@@ -738,7 +738,7 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "sanity",
     providerKey: "sanity",
     name: "Sanity",
-    description: "Content documents — edit with your approval",
+    description: "Content documents: edit with your approval",
     category: "developer",
     authMethod: "api_key",
     apiKeyForm: {
@@ -799,14 +799,14 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     description: "Your own toolkits and connections in view",
     category: "developer",
     authMethod: "api_key",
-    comingSoon: true, // Composio toolkit is NO_AUTH — no user account to connect
+    comingSoon: true, // Composio toolkit is NO_AUTH: no user account to connect
   },
   // AI
   {
     id: "elevenlabs",
     providerKey: "elevenlabs",
     name: "ElevenLabs",
-    description: "Voice generation — create audio with your approval",
+    description: "Voice generation: create audio with your approval",
     category: "ai",
     authMethod: "api_key",
   },
@@ -814,7 +814,7 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "heygen",
     providerKey: "heygen",
     name: "HeyGen",
-    description: "Video generation — create videos with your approval",
+    description: "Video generation: create videos with your approval",
     category: "ai",
     authMethod: "api_key",
   },
@@ -835,14 +835,14 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     description: "3D spaces and virtual tours in view",
     category: "property",
     authMethod: "oauth",
-    comingSoon: true, // no Composio managed app — needs Salt's own Matterport dev app
+    comingSoon: true, // no Composio managed app: needs Salt's own Matterport dev app
   },
   // Security
   {
     id: "onepassword",
     providerKey: "onepassword",
     name: "1Password",
-    description: "Shared vault items in view — never your master password",
+    description: "Shared vault items in view: never your master password",
     category: "security",
     authMethod: "oauth",
     comingSoon: true, // no Composio toolkit exists
@@ -852,10 +852,10 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     id: "instacart",
     providerKey: "instacart",
     name: "Instacart",
-    description: "Orders — place with your approval",
+    description: "Orders: place with your approval",
     category: "delivery",
     authMethod: "oauth",
-    comingSoon: true, // Composio toolkit is NO_AUTH — no user account to connect
+    comingSoon: true, // Composio toolkit is NO_AUTH: no user account to connect
   },
 ] as const;
 
@@ -893,7 +893,7 @@ export const CONNECTOR_CATALOG: readonly ConnectorDefinition[] = [
     id: "google",
     providerKey: "gmail",
     name: "Gmail",
-    description: "Email — search, read, and send with your approval",
+    description: "Email: search, read, and send with your approval",
     category: "recommended",
     ownership: "composio",
     authMethod: "oauth",
@@ -905,7 +905,7 @@ export const CONNECTOR_CATALOG: readonly ConnectorDefinition[] = [
     id: "google-calendar",
     providerKey: "googlecalendar",
     name: "Google Calendar",
-    description: "Events and availability — scheduling with your approval",
+    description: "Events and availability: scheduling with your approval",
     category: "recommended",
     ownership: "composio",
     authMethod: "oauth",
@@ -917,7 +917,7 @@ export const CONNECTOR_CATALOG: readonly ConnectorDefinition[] = [
     id: "google-drive",
     providerKey: "googledrive",
     name: "Google Drive",
-    description: "Files and folders — Salt organizes with your approval",
+    description: "Files and folders: Salt organizes with your approval",
     category: "files",
     ownership: "composio",
     authMethod: "oauth",
@@ -929,7 +929,7 @@ export const CONNECTOR_CATALOG: readonly ConnectorDefinition[] = [
     id: "google-docs",
     providerKey: "googledocs",
     name: "Google Docs",
-    description: "Documents — read, draft, and update with your approval",
+    description: "Documents: read, draft, and update with your approval",
     category: "files",
     ownership: "composio",
     authMethod: "oauth",
@@ -941,7 +941,7 @@ export const CONNECTOR_CATALOG: readonly ConnectorDefinition[] = [
     id: "google-sheets",
     providerKey: "googlesheets",
     name: "Google Sheets",
-    description: "Spreadsheets — read data and add rows with your approval",
+    description: "Spreadsheets: read data and add rows with your approval",
     category: "files",
     ownership: "composio",
     authMethod: "oauth",
@@ -953,7 +953,7 @@ export const CONNECTOR_CATALOG: readonly ConnectorDefinition[] = [
     id: "google-slides",
     providerKey: "googleslides",
     name: "Google Slides",
-    description: "Presentations — read and create decks with your approval",
+    description: "Presentations: read and create decks with your approval",
     category: "files",
     ownership: "composio",
     authMethod: "oauth",
@@ -965,7 +965,7 @@ export const CONNECTOR_CATALOG: readonly ConnectorDefinition[] = [
     id: "stripe",
     providerKey: "stripe",
     name: "Stripe",
-    description: "Revenue, invoices, and subscriptions — with your approval",
+    description: "Revenue, invoices, and subscriptions: with your approval",
     category: "payments",
     ownership: "composio",
     authMethod: "api_key",
@@ -980,11 +980,11 @@ export const CONNECTOR_CATALOG: readonly ConnectorDefinition[] = [
 2. Click **Create restricted key**.
 3. Name it **Salt**, then turn on these permissions:
 
-   - **Customers** — Read
-   - **Invoices** — Read
-   - **Subscriptions** — Read
-   - **Charges** — Read
-   - **Webhooks** — Write
+   - **Customers**: Read
+   - **Invoices**: Read
+   - **Subscriptions**: Read
+   - **Charges**: Read
+   - **Webhooks**: Write
 
 4. Click **Create key**, then paste it in the field above.`,
   },

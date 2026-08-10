@@ -5,8 +5,9 @@ import { recordPlayExecution } from "@/app/_lib/usage/record-play-usage";
 /**
  * Meter a play that reached `ran` without executing any connector tool.
  *
- * Keeper applies, intake records, and log-only approvals all finish outside
- * `executePlayRun`. None of them touch an external system, so every one of
+ * Memory Care applies, intake records, and log-only approvals all finish
+ * outside the (retired) v1 template executor. None of them touch an external
+ * system, so every one of
  * them meters `billable: false` — they are never invoiced. They are recorded
  * anyway because G10 requires LEARN-layer spend to stay visible to the margin
  * monitor; a play that costs money and bills nothing is exactly the kind of

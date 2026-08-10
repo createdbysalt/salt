@@ -1,6 +1,7 @@
 "use server";
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import type { TablesInsert, TablesUpdate } from "@/app/_lib/supabase/database.types";
 import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 
@@ -10,6 +11,13 @@ interface ComputedBillingMetrics {
   outstandingCents: number;
   totalPaidCents: number;
   retainerLabel: string | null;
+}
+
+/** recurrence_cadence is TEXT CHECK ('weekly'|'monthly'|'yearly') in the DB. */
+function normalizeToMonthlyCents(amountCents: number, cadence: string): number {
+  if (cadence === "yearly") return Math.round(amountCents / 12);
+  if (cadence === "weekly") return Math.round((amountCents * 52) / 12);
+  return amountCents;
 }
 
 /**
@@ -46,39 +54,33 @@ async function computeBillingMetrics(
   let lifetimeRevenueCents = 0;
   let outstandingCents = 0;
   let totalPaidCents = 0;
-  let retainerLabel: string | null = null;
+  const seenRecurrenceSeries = new Set<string>();
 
   for (const record of records) {
-    const amountCents = (record.amount_cents as number) ?? 0;
-    const status = record.status as string;
-    const recordType = record.record_type as string;
+    // Client billing metrics come from receivables; payables are workspace spend.
+    if (record.direction !== "receivable") continue;
 
-    // Calculate lifetime revenue (paid invoices)
-    if (recordType === "invoice" && status === "paid") {
+    const amountCents = record.amount_cents;
+    const amountPaidCents = record.amount_paid_cents;
+
+    // Lifetime revenue (fully or partially collected receivables)
+    if (record.status === "paid") {
       lifetimeRevenueCents += amountCents;
       totalPaidCents += amountCents;
-    }
-
-    // Calculate outstanding (unpaid invoices)
-    if (recordType === "invoice" && (status === "open" || status === "overdue")) {
+    } else if (record.status === "partial") {
+      lifetimeRevenueCents += amountPaidCents;
+      totalPaidCents += amountPaidCents;
+      outstandingCents += Math.max(0, amountCents - amountPaidCents);
+    } else if (record.status === "due" || record.status === "overdue") {
+      // Outstanding (unpaid receivables)
       outstandingCents += amountCents;
     }
 
-    // Calculate MRR from active subscriptions
-    if (recordType === "subscription" && status === "active") {
-      const interval = record.interval as string | null;
-      const intervalCount = (record.interval_count as number) ?? 1;
-
-      if (interval === "year") {
-        mrrCents += Math.round(amountCents / 12 / intervalCount);
-      } else if (interval === "month") {
-        mrrCents += Math.round(amountCents / intervalCount);
-      }
-
-      // Set retainer label from highest value subscription
-      const subscriptionLabel = record.label as string | null;
-      if (subscriptionLabel) {
-        retainerLabel = subscriptionLabel;
+    // MRR: one contribution per recurrence series (mirrors billing-metrics.ts)
+    if (record.recurrence_series_id && record.recurrence_cadence) {
+      if (!seenRecurrenceSeries.has(record.recurrence_series_id)) {
+        seenRecurrenceSeries.add(record.recurrence_series_id);
+        mrrCents += normalizeToMonthlyCents(amountCents, record.recurrence_cadence);
       }
     }
   }
@@ -88,7 +90,9 @@ async function computeBillingMetrics(
     lifetimeRevenueCents,
     outstandingCents,
     totalPaidCents,
-    retainerLabel,
+    // billing_records has no subscription-label column; retainer_label is only
+    // ever set via setManualBillingMetrics.
+    retainerLabel: null,
   };
 }
 
@@ -254,7 +258,7 @@ export async function setManualBillingMetrics(input: {
     const entityField =
       input.entityType === "organization" ? "organization_id" : "person_id";
 
-    const updateData: Record<string, unknown> = {
+    const updateData: TablesUpdate<"billing_accounts"> = {
       source: "manual",
       updated_at: new Date().toISOString(),
     };
@@ -285,9 +289,10 @@ export async function setManualBillingMetrics(input: {
       }
     } else {
       // Create new record with manual values
-      const insertData: Record<string, unknown> = {
+      const insertData: TablesInsert<"billing_accounts"> = {
         workspace_id: workspace.id,
-        [entityField]: input.entityId,
+        organization_id: input.entityType === "organization" ? input.entityId : null,
+        person_id: input.entityType === "person" ? input.entityId : null,
         mrr_cents: input.mrrCents ?? 0,
         lifetime_revenue_cents: 0,
         outstanding_cents: 0,

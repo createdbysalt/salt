@@ -1,256 +1,119 @@
 # Playbooks Reference
 
-> **Playbooks are reusable orchestration logic that respond to signals using tools.**
+> **Playbooks are reusable act-layer orchestration that respond to signals using tools.**
 
-Playbooks are the "brain" of Salt's proactive AI. They're self-contained packages (like Claude skills) with instructions, triggers, and execution code. Playbooks are **pure orchestration** — they don't enforce protection themselves; that's the tool layer's job.
+Playbooks are the "brain" of Salt's proactive **actions**. Each is a directory package with a declarative `definition.yaml` that the v2 executor runs step by step. Playbooks are **pure orchestration** — they never write Memory; that's Memory Care's job, and the monopoly is enforced structurally (parse + runtime).
+
+**Learn-layer Memory enrichment is not a playbook.** It lives in [Memory Care](memory-care.md) (`app/_features/memory/care/`). Do not add new `learn`-layer packages.
+
+---
+
+## Canon
+
+1. **A play is a playbook run.** Every `play_runs` row is attributed via `source_context.playbook_slug` — single writer: `createPlayRecord` (`app/_features/plays/lib/play-record.ts`).
+2. **One executor.** Signal, schedule, and manual triggers all run through `executePlaybookV2` (`playbooks/schema/v2/executor.ts`). There is no separate signal path that inserts bare rows.
+3. **Per-step gates.** Approval is declared per step (`approval: auto | ask`), checked against the workspace trust level, tool policy, and earned autonomy at runtime.
+4. **Completed run = billing unit.** A run that reaches `state = ran` is what stats, billing, and the HQ widget all count.
 
 ---
 
 ## Playbook Structure
 
-Each playbook is a directory with multiple files:
-
 ```
-playbooks/v2/{section}/{slug}/
-├── PLAYBOOK.md           # Instructions for execution (Ask Salt reads this)
-├── definition.yaml       # Config (triggers, requirements, value model)
-├── scripts/
-│   └── run.ts            # Main execution script
-├── references/           # Documentation loaded on-demand
-│   ├── signals.md        # Signal definitions
-│   └── fields.md         # Field schemas
-└── tools.yaml            # Tools this playbook uses (reference only)
+app/_features/plays/playbooks/v2/{section}/{slug}/
+├── definition.yaml       # The whole definition: trigger, steps, tools allowlist, output, value
+└── PLAYBOOK.md           # Human-facing docs, rendered on the detail page
 ```
 
----
-
-## Layers
-
-| Layer | Purpose | Output | Examples |
-|-------|---------|--------|----------|
-| `learn` | Enrich Memory records | Memory updates | keeper-people-records, keeper-billing-records |
-| `act` | Take actions, create outputs | Notifications, drafts | invoice-reminder, daily-briefing, cash-celebration |
-
-**Learn playbooks** respond to signals by updating Memory fields. They use `memory_update_field` which enforces confidence thresholds.
-
-**Act playbooks** respond to signals by creating outputs — notifications, email drafts, summaries. They may require voice profiles for consistent tone.
-
----
-
-## Sections
-
-Playbooks are organized by domain:
-
-| Section | Domain | Examples |
-|---------|--------|----------|
-| `relationships` | People + Organizations | keeper-people-records, keeper-org-records |
-| `work` | Projects, retainers | keeper-work-records |
-| `billing` | Invoices, payments | keeper-billing-records, invoice-reminder |
-| `meetings` | Meetings, agendas | keeper-meetings-records |
-| `files` | Documents, contracts | keeper-files-records |
-| `me` | Operator profile, business | keeper-me-records |
-| `_meta` | Cross-cutting operations | daily-briefing, memory-records |
+There is no `scripts/run.ts` and no `tools.yaml` — execution is the declarative `steps:` array, and tools are declared in `definition.yaml` (validated at parse: every action step must name a declared tool).
 
 ---
 
 ## definition.yaml Schema
 
 ```yaml
-# Required fields
 name: Invoice Reminder
-slug: invoice-reminder          # Auto-inferred from name if omitted
+slug: invoice-reminder
 version: 1.0.0
 description: Drafts payment reminders for overdue invoices
 
-section: billing                # relationships|work|billing|files|meetings|me|_meta
-layer: act                      # learn | act
-voice: billing                  # Required for act-layer, forbidden for learn-layer
+section: billing # relationships|work|billing|files|meetings|me|connections|notes|communication
+layer: act # act only — learn-layer is Memory Care
+voice: billing # Required for act-layer
 
-# Triggers — when this playbook activates
-triggers:
-  - type: signal                # signal | schedule | pattern | chat | manual
-    signals: [billing_due_date_passed]
-  - type: schedule
-    cron: "0 9 * * 1"           # Mondays at 9am
+trigger:
+  type: signal # signal | schedule | manual
+  signal: billing_due_date_passed
 
-# Tools this playbook uses (reference, not definition)
+# Tool allowlist — action steps may only use tools declared here
 tools:
-  - memory_update_field
-  - get_entity_facts
-  - notify
+  - GMAIL_CREATE_EMAIL_DRAFT
 
-# Optional: requirements
 requirements:
   categories:
-    required: [billing]         # Must have billing connector
-    optional: [email]
+    required: [billing] # Connector category must be connected
 
-# Optional: policy overrides
-policy:
-  auto_apply_threshold: 95      # Override workspace default for this playbook
+steps:
+  - step: fetch # fetch | classify | draft | action | branch
+    id: invoices
+    from: billing.read_invoices
+  - step: classify
+    id: overdue
+    forEach: invoices
+    rules:
+      - if: "days_overdue > 7"
+        then: overdue
+    else: current
+  - step: draft
+    id: reminder
+    prompt: |
+      Draft a payment reminder for {{overdue.client_name}}...
+  - step: action
+    id: create_draft
+    tool: GMAIL_CREATE_EMAIL_DRAFT
+    args:
+      recipient_email: "{{overdue.client_email}}"
+      body: "{{reminder}}"
+    approval: ask # auto | ask — pauses for the queue when ask
 
-# Optional: value model (for ROI tracking)
+output:
+  type: email_draft # email_draft | notification | finding | briefing
+  approval: ask
+
 value:
   kind: invoice_collected
-  estimate: 50                  # $50 average value per invocation
-
-# Optional: instructions for LLM execution
-instructions:
-  system: |
-    You are drafting payment reminders for freelancers.
-    Be professional but not cold.
-  guidelines:
-    - Keep emails under 150 words
-    - Always include invoice number and amount
-  avoid:
-    - Threatening language
-    - Legal jargon
+  estimate: 10 # minutes of manual work saved per completed run
 ```
 
+**Value model:** `value.estimate` is **minutes saved per completed run** — it feeds hero-card and HQ "time saved" stats (Phase 5b). Not dollars.
+
+**Step types:**
+
+| Step       | Does                                                                               |
+| ---------- | ---------------------------------------------------------------------------------- |
+| `fetch`    | Reads data (`{category}.{capability}`, `capture.*`, `memory.*`) into `stepData`    |
+| `classify` | `forEach` over a fetched list, first-match rules → tagged entities                 |
+| `draft`    | LLM prompt → text; `forEach: <list>` runs per item with `{{item.*}}` interpolation |
+| `action`   | Executes a declared tool; `approval: ask` pauses the run for the queue             |
+| `branch`   | Conditional `if` over `stepData`, contains nested steps                            |
+
 ---
 
-## Trigger Types
+## Approval & Autonomy
 
-| Type | Fires When | Example |
-|------|------------|---------|
-| `signal` | Capture emits a workspace signal | `billing_payment_matched` |
-| `schedule` | Cron spec matches | `0 9 * * 1` (Mondays 9am) |
-| `pattern` | Threshold predicate on Memory | `days_since_contact >= 14` |
-| `chat` | User invokes via Ask Salt | "update this person's records" |
-| `manual` | User clicks "Run" in Plays UI | Direct invocation |
+- **`approval: auto | ask` on every step.** `ask` pauses the run (`paused_for_approval`) and queues a card with the pending tool call; approving executes exactly that call.
+- **Output approval** mirrors the same vocabulary (`none`/`per_entity`/`batch` normalize to `auto`/`ask` at parse).
+- **Trust level** (`read_only` → `act_with_approval` → `trust`) tightens or loosens what `auto` may do; high-risk tools always require confirmation.
+- **Earned autonomy** is offer-first: after enough approvals of the same action, the user gets a queued offer card to grant autonomy for that playbook+tool — revocable anytime in Settings → Plays.
+- **Park-and-resume**: a connector failure (`ConnectorUnavailableError`) sets the run to `blocked` with the pending call preserved; the queue card shows the reason and approval resumes the exact step after reconnect.
 
 ---
 
-## Execution Script
-
-The `scripts/run.ts` file contains the playbook's execution logic:
+## Dispatch & Dedup
 
 ```typescript
-// scripts/run.ts
-import { memoryUpdateField, memoryGetFacts } from "@/app/_lib/memory-tools";
-import { fillRules } from "../definition.yaml";
-
-export interface RunInput {
-  signal: string;
-  entityType: string;
-  entityId: string;
-  workspaceId: string;
-}
-
-export async function run(input: RunInput): Promise<{
-  rulesEvaluated: number;
-  rulesMatched: number;
-  updates: Array<{ field: string; value: string; action: string; confidence: number }>;
-}> {
-  // 1. Get current facts
-  const facts = await memoryGetFacts(input);
-  
-  const updates = [];
-  let rulesMatched = 0;
-  
-  // 2. Evaluate fill_rules
-  for (const rule of fillRules) {
-    if (evaluateCondition(rule.when, facts)) {
-      rulesMatched++;
-      
-      // 3. Call protected tool - IT handles threshold
-      const result = await memoryUpdateField({
-        workspaceId: input.workspaceId,
-        entityType: input.entityType,
-        entityId: input.entityId,
-        field: rule.field,
-        value: rule.set.value,
-        confidence: rule.confidence,
-        because: rule.because,
-        source: "playbook",
-      });
-      
-      updates.push({
-        field: rule.field,
-        value: rule.set.value,
-        action: result.action,
-        confidence: rule.confidence,
-      });
-    }
-  }
-  
-  return {
-    rulesEvaluated: fillRules.length,
-    rulesMatched,
-    updates,
-  };
-}
-```
-
-**Key principle:** The script calls `memoryUpdateField` with a confidence score. The tool decides whether to apply or accumulate based on the workspace threshold. The playbook doesn't know or care about the threshold.
-
----
-
-## Fill Rules (Learn Layer)
-
-Learn-layer playbooks use fill rules to infer field values from signals:
-
-```yaml
-# In definition.yaml
-fill_rules:
-  version: 1
-  fields: [relationship_type, title, org_link]
-  rules:
-    - id: people-rel-payment-client
-      field: relationship_type
-      when:
-        signal: has_payment_received
-        op: eq
-        value: true
-      set:
-        value: client
-      confidence: 95
-      because: "Payment received indicates client relationship"
-    
-    - id: people-rel-invoice-client
-      field: relationship_type
-      when:
-        signal: has_invoice_sent
-        op: eq
-        value: true
-      set:
-        value: client
-      confidence: 90
-      because: "Invoice sent indicates client relationship"
-```
-
----
-
-## Playbook Adoption
-
-Users must "adopt" a playbook before it runs in their workspace:
-
-```typescript
-// adopt-blueprint.ts
-const adoption = await adoptPlaybookBlueprint({
-  workspaceId,
-  blueprintSlug: "keeper-billing-records",
-});
-
-// Creates a play_template row linking workspace to blueprint
-// Checks required toolkit connections
-// Sets initial is_active state
-```
-
-**Adoption checks:**
-1. Required toolkits connected (e.g., Gmail for email playbooks)
-2. User has permission to adopt
-3. Blueprint is active (not deprecated)
-
----
-
-## Signal Dispatch
-
-When a signal fires, the dispatch system finds and runs matching playbooks:
-
-```typescript
-// trigger-dispatch.ts
-const results = await dispatchSignalTrigger({
+// Signal path (all surfaces): capture/services/play-triggers.ts → trigger-dispatch.ts
+await dispatchSignalTrigger({
   workspaceId,
   signalKey: "billing_payment_matched",
   entityId: billingRecordId,
@@ -258,93 +121,55 @@ const results = await dispatchSignalTrigger({
   entityLabel: "Invoice #1234",
   evidence: { amount: 2500 },
 });
-
-// For each matching playbook:
-// 1. Check if adopted and active
-// 2. For profile/learn playbooks: run script directly
-// 3. For acting playbooks: create play_run in "queued" state
 ```
 
+- Matching playbooks run through `executePlaybookV2` with entity context.
+- **Dedup:** one run per playbook + entity + signal per 72h. Workspace-scoped signals (e.g. `connector_connected`) use the workspace id as `entityId` — once per workspace per window.
+- **Metering:** runs record to the usage ledger; runs that execute an `external_effect` tool bill as a play.
+
 ---
 
-## PLAYBOOK.md Format
+## Memory Monopoly
 
-The `PLAYBOOK.md` file contains instructions that Ask Salt reads:
+No playbook may mutate Memory. `memory_*` mutating slugs are rejected at **parse time** (parser, including branch-nested steps) and again at **runtime** in the executor's action step (`playbooks/memory-monopoly.ts`). Memory reads (`memory.find_*` fetch steps) are fine. Ask Salt's chat `memory_*` plays are the human-in-chat path, not playbooks, and are unaffected.
 
-```markdown
----
-name: Memory Records
-slug: memory-records
-version: 2.0.0
-description: Keep Memory records complete and accurate.
-
-triggers:
-  - type: signal
-    signals: [person_created, person_updated, billing_payment_matched, ...]
-
-tools:
-  - memory_update_field
-  - memory_get_facts
 ---
 
-# Memory Records
+## Run Stats (Phase 5b)
 
-You keep Memory records complete and accurate by learning from connected accounts.
+One source of truth: `getPlaybookRunStats(slug)` / `getWorkspaceRunStats()` in `app/_features/plays/queries.ts`, pure math in `plays/run-stats.ts`.
 
-## What You Do
+- **Runs this week** = completed runs (`state = ran`) in the trailing 7 days
+- **Runtime** = median executor `duration_ms` (recorded in `activity_entries` metadata)
+- **Time saved** = `value.estimate` minutes × completed runs
 
-When a signal arrives (new person, payment received, meeting completed), you:
+The playbook hero cards and the HQ Today widget both read these queries.
 
-1. Load the current facts for the entity
-2. Evaluate the fill_rules to see what fields can be inferred
-3. For each match, call `memory_update_field` with the confidence score
-4. The tool handles threshold checking — you just provide the confidence
+---
 
-## Fill Rules
+## Storage-Agnostic Definitions (Design)
 
-| Signal | Field | Value | Confidence |
-|--------|-------|-------|------------|
-| has_payment_received | relationship_type | client | 95 |
-| has_invoice_sent | relationship_type | client | 90 |
-| email_domain_matches_workspace | relationship_type | team | 92 |
-```
+Playbook definitions can live in the repo (files) or in a future `playbook_definitions` table (`jsonb` of the same `PlaybookDefinitionV2`) — merged into one registry at read time. Design: `docs/plans/2026-08-08-playbook-definitions-storage.md`. This is the foundation for user-authored playbooks.
 
 ---
 
 ## Creating a New Playbook
 
-1. Create directory: `playbooks/v2/{section}/{slug}/`
-2. Create `definition.yaml` with triggers, tools, and rules
-3. Create `scripts/run.ts` with execution logic
-4. Create `PLAYBOOK.md` with instructions
-5. Run `pnpm playbooks:compile` to validate
-6. Test with evals in `evals.json`
+1. Create `app/_features/plays/playbooks/v2/{section}/{slug}/definition.yaml`
+2. Declare `tools:` and write `steps:` (fetch → classify → draft → action)
+3. Add `PLAYBOOK.md` (rendered on the detail page)
+4. Parse-time validation runs automatically at discovery: signal keys, section metadata, tool allowlist, memory monopoly
+5. Add a co-located unit test that parses the definition (see existing `*.test.ts` in `v2/`)
 
-**Validation checks:**
-- Slug matches directory name
-- All referenced signals exist
-- All referenced tools exist
-- Fill rules have valid fields
-- Evals pass
-
----
-
-## User-Created Playbooks (Future)
-
-Users will be able to create their own playbooks with:
-
-1. **Sandbox execution** — isolated context
-2. **Tool allowlist** — only approved tools (no destructive)
-3. **Capability requirements** — declare needed connectors
-4. **Approval gates** — high-impact steps require confirmation
-5. **Value tracking** — measure ROI
+If a playbook silently doesn't load, see [Playbook Troubleshooting](../guides/playbook-troubleshooting.md) — validation errors are swallowed at discovery by design.
 
 ---
 
 ## See Also
 
 - [Primitives Overview](primitives.md) — How playbooks fit in the architecture
+- [Memory Care](memory-care.md) — Learn-layer enrichment (not playbooks)
 - [Signals Reference](signals.md) — What triggers playbooks
 - [Tools Reference](tools.md) — What playbooks use
 - [Playbook Schema v2](../../app/_features/plays/playbooks/schema/v2/CLAUDE.md) — YAML schema details
-- [Playbook Packages Plan](../plans/2026-07-11-playbook-packages.md) — Architecture decisions
+- Plays canonical plan: `.cursor/plans/2026-08-07-plays-canonical.md` (2026-08 canon rebuild, Phases 1–7)

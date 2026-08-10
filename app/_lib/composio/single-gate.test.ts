@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -56,12 +56,80 @@ describe("single-gate invariant (5.5.1)", () => {
     expect(gate).toContain("getComposioClient().tools.execute(");
   });
 
+  it("webhook enrichment executes through the metered gate", () => {
+    const enrichment = read("app/_lib/composio/webhook-enrichment.ts");
+    expect(enrichment).toContain("executeComposioAction");
+    expect(enrichment.includes(".tools.execute(")).toBe(false);
+    expect(enrichment.includes("getComposioClient()")).toBe(false);
+  });
+
+  /**
+   * Repo-wide sweep (6.2): no module anywhere in the app — background jobs,
+   * webhooks, API routes, features — may call the raw Composio execute API.
+   * actions.ts is the single gate; everything else goes through it so
+   * canSpend admission, rate limits, classification, and the audit log
+   * cannot be bypassed by a new call site.
+   */
+  it("no module outside actions.ts calls the raw execute API anywhere", () => {
+    const SCAN_DIRS = ["app/_lib/composio", "app/_features", "app/api"];
+    const ALLOWED = new Set(["app/_lib/composio/actions.ts"]);
+    const offenders: string[] = [];
+
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(join(ROOT, dir), { withFileTypes: true })) {
+        const rel = `${dir}/${entry.name}`;
+        if (entry.isDirectory()) {
+          walk(rel);
+          continue;
+        }
+        if (!/\.(ts|tsx)$/.test(entry.name)) continue;
+        if (/\.test\.(ts|tsx)$/.test(entry.name)) continue;
+        if (ALLOWED.has(rel)) continue;
+        const source = read(rel);
+        if (
+          source.includes(".tools.execute(") ||
+          source.includes(".proxyExecute(")
+        ) {
+          offenders.push(rel);
+        }
+      }
+    };
+
+    for (const dir of SCAN_DIRS) {
+      walk(dir);
+    }
+
+    expect(offenders).toEqual([]);
+  });
+
   /**
    * Play-side tool execution funnels through `executeConnectorTool`, which is
    * the only play module allowed to call the gate. Both the executor and the
    * paused-playbook resume path go through it, so the invariant is checked at
    * the shared helper and at every caller.
    */
+  /**
+   * Cost-metering invariant (companion plan 3.1): the gate records every
+   * successful non-play execution to the usage ledger. Because the repo-wide
+   * sweep above proves all Composio spend flows through actions.ts, metering
+   * inside the gate covers backfills, hydration, enrichment, and Ask Salt
+   * reads without any feature carrying billing code.
+   */
+  it("the gate meters successful executions at the spend primitive (3.1)", () => {
+    const gate = read("app/_lib/composio/actions.ts");
+    expect(gate).toContain(
+      'import { recordComposioActionCall } from "@/app/_lib/usage/record-composio-usage"',
+    );
+    // Recording happens in the success path — after the raw execute call.
+    const executeAt = gate.indexOf("getComposioClient().tools.execute(");
+    const recordAt = gate.indexOf("recordComposioActionCall({");
+    expect(executeAt).toBeGreaterThan(-1);
+    expect(recordAt).toBeGreaterThan(executeAt);
+    // Play runs are excluded: their Composio COGS is already estimated in the
+    // run's play_executed ledger row; recording both would double count.
+    expect(gate).toContain("options?.workspaceId && !options?.play");
+  });
+
   it("the shared play connector helper routes through the gate (5.5.1 parity)", () => {
     const helper = read("app/_features/plays/services/execute-connector-tool.ts");
     expect(helper).toContain(
@@ -74,7 +142,6 @@ describe("single-gate invariant (5.5.1)", () => {
 
   it("every play execution path delegates to that helper", () => {
     const callers = [
-      "app/_features/plays/services/run-play-deps.ts",
       "app/_features/plays/services/resume-paused-playbook-deps.ts",
     ];
 

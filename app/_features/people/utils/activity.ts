@@ -13,7 +13,7 @@ import { formatRelationshipLabel } from "@/app/_features/plays/playbooks/records
 import { getProviderDisplay } from "@/app/_features/memory/utils/provider-display";
 import { bandDisplayLabel, type HealthBand } from "@/app/_lib/health/core";
 
-export type PersonActivityKind = "keeper" | "ai" | "salt" | "user" | "system";
+export type PersonActivityKind = "salt" | "ai" | "user" | "system";
 
 export interface PersonActivityEvent {
   id: string;
@@ -131,17 +131,19 @@ export function buildPersonActivityAskSaltPrompt(
 ): string {
   const field = entry.field ? profileFieldLabel(entry.field) : "this field";
   if (entry.status === "pending") {
-    return `On ${personName}'s profile, Keeper suggested ${field}${entry.detail ? ` (${entry.detail})` : ""}. I want to review or change this.`;
+    return `On ${personName}'s profile, Salt suggested ${field}${entry.detail ? ` (${entry.detail})` : ""}. I want to review or change this.`;
   }
   return `On ${personName}'s profile: "${entry.label}"${entry.detail ? ` — ${entry.detail}` : ""}. I want to review or change this.`;
 }
 
 export function normalizeLegacyActivityKind(
-  kind: ActivityEvent["kind"] | PersonActivityKind | "salt",
+  kind: ActivityEvent["kind"] | PersonActivityKind | "keeper",
 ): PersonActivityKind {
-  if (kind === "salt" || kind === "ai") return "ai";
   if (kind === "user" || kind === "system") return kind;
-  return "keeper";
+  if (kind === "ai") return "ai";
+  // "keeper" is the retired Keeper kind from legacy data; everything
+  // non-user/non-system is Salt activity.
+  return "salt";
 }
 
 export function mapActivityEventToTimelineEntry(
@@ -170,7 +172,7 @@ export function buildPlaybookProvenanceAskSaltPrompt(
   const who = entry.entityName ?? "this person";
   const field = entry.field ? profileFieldLabel(entry.field) : "profile field";
   if (entry.status === "pending") {
-    return `${playbookTitle} playbook: for ${who}, Keeper suggested ${field}${entry.detail ? ` (${entry.detail})` : ""}. I want to review this fill.`;
+    return `${playbookTitle} playbook: for ${who}, Salt suggested ${field}${entry.detail ? ` (${entry.detail})` : ""}. I want to review this fill.`;
   }
   return `${playbookTitle} playbook: for ${who}, "${entry.label}"${entry.detail ? ` — ${entry.detail}` : ""}. I want to review this fill.`;
 }
@@ -290,7 +292,7 @@ export function mapLifecycleEventToTimelineEntry(
     event.source === "ai_inference"
       ? "ai"
       : event.source === "rule"
-        ? "keeper"
+        ? "salt"
         : event.source === "manual"
           ? "user"
           : "system";
@@ -334,16 +336,16 @@ export function mapSourceHistoryToTimelineEntry(
         kind = "user";
       } else {
         label = `Data captured from ${providerDisplay.label}`;
-        kind = "keeper";
+        kind = "salt";
       }
       break;
     case "synced":
       label = `Data synced from ${providerDisplay.label}`;
-      kind = "keeper";
+      kind = "salt";
       break;
     case "extracted":
-      label = "Data extracted by Salt Keeper";
-      kind = "keeper";
+      label = "Data extracted by Salt";
+      kind = "salt";
       break;
     case "reclassified":
       label = `Source changed to ${providerDisplay.label}`;
@@ -355,7 +357,7 @@ export function mapSourceHistoryToTimelineEntry(
       break;
     default:
       label = `Data updated from ${providerDisplay.label}`;
-      kind = "keeper";
+      kind = "salt";
   }
 
   // Build detail with actor and context
@@ -446,8 +448,8 @@ export function mapProvenanceToActivity(
     return {
       id: `profile-${provenance.field}-${provenance.setAt}`,
       at: provenance.setAt,
-      kind: "keeper",
-      label: `Keeper ${action} ${field}`,
+      kind: "salt",
+      label: `Salt ${action} ${field}`,
       detail: detailParts.join(" · "),
       field: provenance.field,
       source: provenance.source,
@@ -459,8 +461,8 @@ export function mapProvenanceToActivity(
   return {
     id: `profile-${provenance.field}-${provenance.setAt}`,
     at: provenance.setAt,
-    kind: "keeper",
-    label: `Keeper ${action} ${field}`,
+    kind: "salt",
+    label: `Salt ${action} ${field}`,
     detail: detailParts.join(" · "),
     field: provenance.field,
     source: provenance.source,

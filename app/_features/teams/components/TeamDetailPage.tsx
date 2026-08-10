@@ -10,8 +10,6 @@ export function TeamDetailPage({ teamId }: { teamId: string }) {
 
   return (
     <div className="relative min-h-full">
-      <div aria-hidden className="salt-ambient-wash" />
-
       <div className={memoryDetailShellClass}>
         <Link
           href="/teams"

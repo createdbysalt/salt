@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback, type Ref } from "react";
-import { CheckCircle2, X, Sparkles, ArrowUpRight, Clock, Flame, Zap, Calendar, Edit3 } from "lucide-react";
+import { CheckCircle2, X, Sparkles, ArrowUpRight, Flame, Zap, Calendar, Edit3, Maximize2 } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { cn } from "@repo/utils";
 import {
@@ -8,7 +8,7 @@ import {
   type HqQueueChannel,
   type HqQueuePlay,
 } from "@/app/_lib/demo/hq-play-queue";
-import { playerById, TONE_SOFT } from "../demo-plays-data";
+import { playerById, TONE_SOFT, TONE_TEXT } from "../demo-plays-data";
 
 const SALT_ICON_PATH = "/landing/salt-icon.svg";
 
@@ -35,7 +35,8 @@ const APPLE_EASE = [0.32, 0.72, 0, 1] as const;
 const SPRING = { type: "spring" as const, stiffness: 380, damping: 32, mass: 0.8 };
 const SOFT_SPRING = { type: "spring" as const, stiffness: 260, damping: 28, mass: 0.9 };
 
-function SourceStack({
+/** Connector logos stacked beside the headline — mirrors PlaybookConnectorLogos on the real card. */
+function LogoStack({
   channel,
   channels,
 }: {
@@ -46,29 +47,21 @@ function SourceStack({
   const label = stack.map((key) => CHANNEL[key].label).join(" · ");
 
   return (
-    <span
-      className="inline-flex items-center gap-1.5 h-7 pl-1 pr-2.5 rounded-full bg-muted/70 border border-border/50"
-      title={`Salt → ${label}`}
-    >
-      <span className="flex -space-x-1.5">
-        <span className="size-5 rounded-full bg-card grid place-items-center ring-1 ring-border/60 overflow-hidden">
-          <img src={SALT_ICON_PATH} alt="Salt" className="size-3.5" />
-        </span>
-        {stack.map((key) => {
-          const { Icon, color } = CHANNEL[key];
-          return (
-            <span
-              key={key}
-              className="size-5 rounded-full bg-card grid place-items-center ring-1 ring-border/60"
-            >
-              <Icon className="size-3" style={{ color }} />
-            </span>
-          );
-        })}
+    <span className="flex shrink-0 -space-x-1.5" title={`Salt → ${label}`}>
+      <span className="size-6 rounded-full bg-card grid place-items-center ring-1 ring-border/60 overflow-hidden">
+        <img src={SALT_ICON_PATH} alt="Salt" className="size-3.5" />
       </span>
-      <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-        {label}
-      </span>
+      {stack.map((key) => {
+        const { Icon, color } = CHANNEL[key];
+        return (
+          <span
+            key={key}
+            className="size-6 rounded-full bg-card grid place-items-center ring-1 ring-border/60"
+          >
+            <Icon className="size-3" style={{ color }} />
+          </span>
+        );
+      })}
     </span>
   );
 }
@@ -185,11 +178,10 @@ export function PlayQueue({
 
       <header className="flex items-end justify-between px-1">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="chip flex items-center gap-1.5">
-              <Sparkles className="size-3.5 text-flame" strokeWidth={2.5} />
-              Plays ready
-            </span>
+          <div className="flex items-center gap-2.5 mb-1">
+            <h2 className="font-display text-[26px] leading-none tracking-tight">
+              <span className="tabular-nums">{visible.length}</span> plays ready
+            </h2>
             <AnimatePresence>
               {combo > 0 && (
                 <motion.span
@@ -257,8 +249,7 @@ export function PlayQueue({
                 onMouseEnter={readOnly ? undefined : () => setFocusIdx(idxInVisible)}
                 whileHover={reduceMotion ? undefined : { y: -2 }}
                 className={cn(
-                  "group glass-card relative overflow-hidden rounded-3xl",
-                  isDemo ? "p-6" : "p-5 lg:p-6",
+                  "group relative overflow-hidden rounded-[24px] border border-border/50 glass-card transition-all duration-300",
                   isFocused && "focus-card",
                 )}
                 style={{ transition: "box-shadow 300ms cubic-bezier(0.32,0.72,0,1)" }}
@@ -278,91 +269,98 @@ export function PlayQueue({
                   )}
                 </AnimatePresence>
 
-                {/* Header: Player attribution + source stack */}
-                <div className="flex items-start justify-between gap-3 mb-4 relative">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span className={cn("size-9 rounded-2xl grid place-items-center shrink-0", TONE_SOFT[player.tone])}>
-                      <PlayerIcon className="size-[16px]" strokeWidth={2} />
+                {/* Expand affordance — matches the real card's top-right Maximize2 */}
+                <span className="absolute right-3.5 top-3.5 z-10 inline-flex size-8 items-center justify-center rounded-lg text-muted-foreground/60">
+                  <Maximize2 className="size-3.5" strokeWidth={2} />
+                </span>
+
+                {/* Glance layer — same anatomy as the product PlayCard face */}
+                <div className="relative flex flex-col gap-4 px-6 py-6">
+                  <div className="flex items-center gap-4">
+                    <span
+                      className={cn(
+                        "size-12 rounded-2xl grid place-items-center shrink-0",
+                        "shadow-[0_6px_18px_-6px_color-mix(in_oklab,var(--foreground)_22%,transparent)]",
+                        TONE_SOFT[player.tone],
+                      )}
+                    >
+                      <PlayerIcon className="size-5" strokeWidth={2} />
                     </span>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap text-[13px] leading-tight">
-                        <span className="font-semibold tracking-tight">{player.name}</span>
-                        <span className="text-muted-foreground">·</span>
-                        <span className="text-muted-foreground">{p.playbook}</span>
+
+                    <div className="flex min-w-0 flex-1 flex-col items-start gap-1.5">
+                      <p
+                        className={cn(
+                          "text-[10px] uppercase tracking-[0.14em] font-bold",
+                          TONE_TEXT[player.tone],
+                        )}
+                      >
+                        {p.playbook}
+                      </p>
+
+                      <div className="flex w-full min-w-0 items-center gap-3">
+                        <h3 className="line-clamp-2 min-w-0 font-display text-[20px] leading-snug tracking-tight text-foreground">
+                          {p.title}
+                        </h3>
+                        <LogoStack channel={p.channel} channels={p.channels} />
                       </div>
-                      <p className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1">
-                        <Clock className="size-3" /> {p.eta}
+
+                      <p className="line-clamp-1 max-w-2xl text-[12px] leading-relaxed text-muted-foreground/60">
+                        To {p.recipient} · {p.eta}
                       </p>
                     </div>
                   </div>
-                  <SourceStack channel={p.channel} channels={p.channels} />
-                </div>
 
-                <div className="relative">
-                  <h3 className="text-[17px] font-semibold tracking-tight leading-snug">{p.title}</h3>
-                  <p className="mt-1.5 text-[12px] text-muted-foreground">To {p.recipient}</p>
-                  <p className="mt-2 text-sm text-muted-foreground leading-relaxed line-clamp-2">{p.preview}</p>
-                </div>
-
-                {/* Footer actions — match Plays focus card */}
-                <footer className="mt-5 flex items-center justify-between gap-3 flex-wrap relative">
-                  {readOnly ? (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
-                      Open in Plays <ArrowUpRight className="size-3" />
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
-                      Open in Plays <ArrowUpRight className="size-3" />
-                    </span>
-                  )}
-                  <div className="ml-auto inline-flex items-center gap-1 p-1 rounded-2xl bg-muted/60 border border-border/50">
-                    <IconActionButton
-                      label="Schedule"
-                      shortcut="S"
-                      disabled={readOnly}
-                      onClick={undefined}
-                    >
-                      <Calendar className="size-[18px]" strokeWidth={1.75} />
-                    </IconActionButton>
-                    <IconActionButton
-                      label="Dismiss"
-                      shortcut="D"
-                      disabled={readOnly}
-                      onClick={readOnly ? undefined : () => act(p.id, "skipped")}
-                    >
-                      <X className="size-[18px]" strokeWidth={1.75} />
-                    </IconActionButton>
-                    <IconActionButton
-                      ref={p.playerId === "scope" ? demo?.scopeEditRef : undefined}
-                      label="Edit"
-                      shortcut="E"
-                      disabled={readOnly || isDemo}
-                      onClick={undefined}
-                    >
-                      <Edit3 className="size-[18px]" strokeWidth={1.75} />
-                    </IconActionButton>
-                    <motion.button
-                      ref={
-                        p.id === "1"
-                          ? demo?.billingApproveRef
-                          : p.id === "2"
-                            ? demo?.middleApproveRef
-                            : undefined
-                      }
-                      type="button"
-                      disabled={readOnly || isDemo}
-                      onClick={readOnly || isDemo ? undefined : () => act(p.id, "approved")}
-                      whileHover={readOnly || reduceMotion ? undefined : { scale: 1.02, y: -1 }}
-                      whileTap={readOnly ? undefined : { scale: 0.96 }}
-                      transition={SPRING}
-                      className="h-9 px-4 ml-1 inline-flex items-center gap-1.5 rounded-xl text-[13px] font-semibold bg-foreground text-background hover:opacity-90 transition disabled:opacity-100"
-                      aria-label="Approve and send"
-                    >
-                      <CheckCircle2 className="size-4" strokeWidth={2} />
-                      Approve &amp; send
-                    </motion.button>
+                  {/* Actions — bottom right pill, same as the real queue card */}
+                  <div className="flex justify-end">
+                    <div className="inline-flex items-center gap-1 rounded-2xl border border-border/50 bg-muted/60 p-1">
+                      <IconActionButton
+                        label="Schedule"
+                        shortcut="S"
+                        disabled={readOnly}
+                        onClick={undefined}
+                      >
+                        <Calendar className="size-[18px]" strokeWidth={1.75} />
+                      </IconActionButton>
+                      <IconActionButton
+                        label="Dismiss"
+                        shortcut="D"
+                        disabled={readOnly}
+                        onClick={readOnly ? undefined : () => act(p.id, "skipped")}
+                      >
+                        <X className="size-[18px]" strokeWidth={1.75} />
+                      </IconActionButton>
+                      <IconActionButton
+                        ref={p.playerId === "scope" ? demo?.scopeEditRef : undefined}
+                        label="Edit with Salt"
+                        shortcut="E"
+                        disabled={readOnly || isDemo}
+                        onClick={undefined}
+                      >
+                        <Edit3 className="size-[18px]" strokeWidth={1.75} />
+                      </IconActionButton>
+                      <motion.button
+                        ref={
+                          p.id === "1"
+                            ? demo?.billingApproveRef
+                            : p.id === "2"
+                              ? demo?.middleApproveRef
+                              : undefined
+                        }
+                        type="button"
+                        disabled={readOnly || isDemo}
+                        onClick={readOnly || isDemo ? undefined : () => act(p.id, "approved")}
+                        whileHover={readOnly || reduceMotion ? undefined : { scale: 1.02, y: -1 }}
+                        whileTap={readOnly ? undefined : { scale: 0.96 }}
+                        transition={SPRING}
+                        className="surface-aurora relative ml-1 inline-flex h-9 items-center gap-1.5 overflow-hidden rounded-xl px-4 text-[13px] font-semibold text-white shadow-[var(--shadow-lift)] transition disabled:opacity-100"
+                        aria-label="Approve and send"
+                      >
+                        <CheckCircle2 className="relative z-10 size-4" strokeWidth={2} />
+                        <span className="relative z-10">Approve &amp; send</span>
+                      </motion.button>
+                    </div>
                   </div>
-                </footer>
+                </div>
 
               </motion.article>
             );

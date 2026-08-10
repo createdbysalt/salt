@@ -16,6 +16,9 @@ import "server-only";
  */
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import { Constants } from "@/app/_lib/supabase/database.types";
+import type { Database, TablesUpdate } from "@/app/_lib/supabase/database.types";
+import { recordSaltLearning } from "@/app/_features/me/actions/salt-learnings";
 import { registerWatchExpressions } from "../watch-expressions";
 import { dispatchSignalTrigger } from "@/app/_features/plays/playbooks/trigger-dispatch";
 import { reportError } from "@/app/_lib/errors";
@@ -72,6 +75,23 @@ import {
   resolvePrimaryOrgIdForPerson,
   resolveWorkParents,
 } from "./project-fields";
+
+type DbEnums = Database["public"]["Enums"];
+
+/**
+ * System-play input unions (types.ts) drift from the DB enums (WorkType
+ * "other", WorkPaymentTerms "net_7"/"net_14", WorkBillingCycle "weekly"…).
+ * An invalid enum value rejects the whole row at Postgres, so coerce unknown
+ * values to null at the write boundary instead of failing the play.
+ */
+function toDbEnum<K extends keyof DbEnums>(
+  enumName: K,
+  value: string | null | undefined
+): DbEnums[K] | null {
+  if (!value) return null;
+  const values: readonly string[] = Constants.public.Enums[enumName];
+  return values.includes(value) ? (value as DbEnums[K]) : null;
+}
 
 async function applyWorkProfileAfterChange(input: {
   workspaceId: string;
@@ -351,12 +371,7 @@ async function createPerson(
     return { success: false, error: error.message };
   }
 
-  await logActivity(admin, workspaceId, "created", "Person created", input.name, actorUserId, {
-    entity_type: "person",
-    entity_id: data.id,
-    playbook_slug: "memory-records",
-  });
-  await logAutoHandledMemoryRun(admin, {
+  const autoHandled: AutoHandledMemoryRunInput = {
     workspaceId,
     entityType: "person",
     entityId: data.id,
@@ -367,7 +382,14 @@ async function createPerson(
       ? `Salt created a People record for ${input.name} using ${email}.`
       : `Salt created a People record for ${input.name}.`,
     confidence: 95,
+  };
+  await logActivity(admin, workspaceId, "created", "Person created", input.name, actorUserId, {
+    entity_type: "person",
+    entity_id: data.id,
+    playbook_slug: "memory-records",
+    ...autoHandledActivityMetadata(autoHandled),
   });
+  await logAutoHandledMemoryRun(admin, autoHandled);
 
   registerWatchExpressions({
     workspaceId,
@@ -541,12 +563,7 @@ async function createOrg(
     return { success: false, error: error.message };
   }
 
-  await logActivity(admin, workspaceId, "created", "Org created", input.name, actorUserId, {
-    entity_type: "organization",
-    entity_id: data.id,
-    playbook_slug: "memory-records",
-  });
-  await logAutoHandledMemoryRun(admin, {
+  const autoHandled: AutoHandledMemoryRunInput = {
     workspaceId,
     entityType: "organization",
     entityId: data.id,
@@ -557,7 +574,14 @@ async function createOrg(
       ? `Salt created an Organization record for ${input.name} using ${domain}.`
       : `Salt created an Organization record for ${input.name}.`,
     confidence: 95,
+  };
+  await logActivity(admin, workspaceId, "created", "Org created", input.name, actorUserId, {
+    entity_type: "organization",
+    entity_id: data.id,
+    playbook_slug: "memory-records",
+    ...autoHandledActivityMetadata(autoHandled),
   });
+  await logAutoHandledMemoryRun(admin, autoHandled);
 
   registerWatchExpressions({
     workspaceId,
@@ -673,6 +697,9 @@ async function createWork(
       ensureUniqueProjectSlug(admin, workspaceId, input.name),
     ]);
 
+    // base_price_cents / is_bundle / value_proposition / deliverables /
+    // prerequisites / differentiators are workspace_services catalog columns,
+    // not columns on work — including them rejects the whole insert.
     const { data, error } = await admin
       .from("work")
       .insert({
@@ -682,25 +709,19 @@ async function createWork(
         name: input.name,
         slug,
         description: input.description ?? null,
-        work_type: input.work_type ?? null,
+        work_type: toDbEnum("work_type", input.work_type),
         status: input.status ?? "active",
         deadline: input.deadline ?? null,
         start_date: input.start_date ?? null,
         contract_value_cents: input.contract_value_cents ?? null,
-        base_price_cents: input.base_price_cents ?? null,
         currency: input.currency ?? null,
         hourly_rate_cents: input.hourly_rate_cents ?? null,
         hours_estimate: input.hours_estimate ?? null,
-        payment_type: input.payment_type ?? null,
-        payment_terms: input.payment_terms ?? null,
-        billing_cycle: input.billing_cycle ?? null,
+        payment_type: toDbEnum("work_payment_type", input.payment_type),
+        payment_terms: toDbEnum("work_payment_terms", input.payment_terms),
+        billing_cycle: toDbEnum("work_billing_cycle", input.billing_cycle),
         retainer_mrr_cents: input.retainer_mrr_cents ?? null,
         po_number: input.po_number ?? null,
-        is_bundle: input.is_bundle ?? null,
-        value_proposition: input.value_proposition ?? null,
-        deliverables: input.deliverables ?? null,
-        prerequisites: input.prerequisites ?? null,
-        differentiators: input.differentiators ?? null,
       })
       .select("id")
       .single();
@@ -741,12 +762,7 @@ async function createWork(
       );
     }
 
-    await logActivity(admin, workspaceId, "created", "Work created", input.name, actorUserId, {
-      entity_type: "work",
-      entity_id: data.id,
-      playbook_slug: "memory-records",
-    });
-    await logAutoHandledMemoryRun(admin, {
+    const autoHandled: AutoHandledMemoryRunInput = {
       workspaceId,
       entityType: "work",
       entityId: data.id,
@@ -755,7 +771,14 @@ async function createWork(
       title: `Added ${input.name} to Work`,
       content: `Salt created a Work record for ${input.name}.`,
       confidence: 95,
+    };
+    await logActivity(admin, workspaceId, "created", "Work created", input.name, actorUserId, {
+      entity_type: "work",
+      entity_id: data.id,
+      playbook_slug: "memory-records",
+      ...autoHandledActivityMetadata(autoHandled),
     });
+    await logAutoHandledMemoryRun(admin, autoHandled);
 
     scheduleWorkHealthRecompute(data.id);
 
@@ -798,12 +821,34 @@ async function updateWork(
     { type: "work", id: input.work_id },
   ]);
 
+  // Explicit column map: the input union allows enum values the DB rejects
+  // (coerced via toDbEnum), and its catalog fields (base_price_cents,
+  // is_bundle, value_proposition, deliverables, prerequisites,
+  // differentiators) are workspace_services columns that don't exist on work.
+  const f = input.fields;
+  const updates: TablesUpdate<"work"> = {
+    updated_at: new Date().toISOString(),
+  };
+  if (f.name !== undefined) updates.name = f.name;
+  if (f.description !== undefined) updates.description = f.description;
+  if (f.status !== undefined) updates.status = f.status;
+  if (f.work_type !== undefined) updates.work_type = toDbEnum("work_type", f.work_type);
+  if (f.deadline !== undefined) updates.deadline = f.deadline;
+  if (f.start_date !== undefined) updates.start_date = f.start_date;
+  if (f.contract_value_cents !== undefined) updates.contract_value_cents = f.contract_value_cents;
+  if (f.currency !== undefined) updates.currency = f.currency;
+  if (f.hourly_rate_cents !== undefined) updates.hourly_rate_cents = f.hourly_rate_cents;
+  if (f.hours_estimate !== undefined) updates.hours_estimate = f.hours_estimate;
+  if (f.hours_logged !== undefined) updates.hours_logged = f.hours_logged;
+  if (f.payment_type !== undefined) updates.payment_type = toDbEnum("work_payment_type", f.payment_type);
+  if (f.payment_terms !== undefined) updates.payment_terms = toDbEnum("work_payment_terms", f.payment_terms);
+  if (f.billing_cycle !== undefined) updates.billing_cycle = toDbEnum("work_billing_cycle", f.billing_cycle);
+  if (f.retainer_mrr_cents !== undefined) updates.retainer_mrr_cents = f.retainer_mrr_cents;
+  if (f.po_number !== undefined) updates.po_number = f.po_number;
+
   const { error } = await admin
     .from("work")
-    .update({
-      ...input.fields,
-      updated_at: new Date().toISOString(),
-    })
+    .update(updates)
     .eq("id", input.work_id)
     .eq("workspace_id", workspaceId);
 
@@ -1098,7 +1143,7 @@ async function createMeeting(
     .from("capture_events")
     .select("id")
     .eq("workspace_id", workspaceId)
-    .eq("external_id", externalId)
+    .eq("source_external_id", externalId)
     .maybeSingle();
 
   if (existing?.id) {
@@ -1117,7 +1162,7 @@ async function createMeeting(
       source_type: "gmail",
       capture_type: "meeting",
       origin: "found",
-      external_id: externalId,
+      source_external_id: externalId,
       title: input.title,
       raw_payload: input.source_capture_id
         ? { source_capture_id: input.source_capture_id }
@@ -1139,20 +1184,21 @@ async function createMeeting(
     return { success: false, error: error.message };
   }
 
-  await admin.from("capture_routing_decisions").insert({
-    capture_event_id: data.id,
-    target_surface: "meetings",
-    confidence: 95,
-    status: "approved",
-    routing_action: "route",
-    routed_at: new Date().toISOString(),
-  });
-
   await admin
     .from("capture_events")
     .update({ state: "routed", processed_at: new Date().toISOString() })
     .eq("id", data.id);
 
+  const autoHandled: AutoHandledMemoryRunInput = {
+    workspaceId,
+    entityType: "meeting",
+    entityId: data.id,
+    targetType: "meeting",
+    label: input.title,
+    title: `Added ${input.title} to Meetings`,
+    content: `Salt created a Meeting record for ${input.title}.`,
+    confidence: 95,
+  };
   await logActivity(
     admin,
     workspaceId,
@@ -1164,18 +1210,10 @@ async function createMeeting(
       entity_type: "meeting",
       entity_id: data.id,
       playbook_slug: "memory-records",
+      ...autoHandledActivityMetadata(autoHandled),
     }
   );
-  await logAutoHandledMemoryRun(admin, {
-    workspaceId,
-    entityType: "meeting",
-    entityId: data.id,
-    targetType: "meeting",
-    label: input.title,
-    title: `Added ${input.title} to Meetings`,
-    content: `Salt created a Meeting record for ${input.title}.`,
-    confidence: 95,
-  });
+  await logAutoHandledMemoryRun(admin, autoHandled);
 
   return {
     success: true,
@@ -1206,7 +1244,7 @@ async function logActivity(
     actor_user_id: actorUserId,
     metadata: {
       source: "system_play",
-      player_slug: "keeper",
+      player_slug: "memory-care",
       auto_executed: true,
       reversible: false,
       ...metadata,
@@ -1227,6 +1265,36 @@ type AutoHandledMemoryEntityType =
   | "meeting"
   | "me";
 
+const AUTO_HANDLED_BECAUSE =
+  "System play created a Memory record with high confidence.";
+
+interface AutoHandledMemoryRunInput {
+  workspaceId: string;
+  entityType: AutoHandledMemoryEntityType;
+  entityId: string;
+  targetType: string;
+  label: string;
+  title: string;
+  content: string;
+  confidence: number;
+}
+
+/**
+ * Activity metadata carried alongside every auto-handled record creation.
+ * Keeps the fields that historically only lived on the retired play_runs
+ * row (confidence, because, preview, section) visible on activity_entries.
+ */
+function autoHandledActivityMetadata(
+  input: Pick<AutoHandledMemoryRunInput, "entityType" | "confidence" | "content">
+): Record<string, unknown> {
+  return {
+    section: sectionForMemoryEntity(input.entityType),
+    confidence: input.confidence,
+    because: AUTO_HANDLED_BECAUSE,
+    preview: input.content,
+  };
+}
+
 function sectionForMemoryEntity(entityType: AutoHandledMemoryEntityType): string {
   switch (entityType) {
     case "person":
@@ -1246,63 +1314,34 @@ function sectionForMemoryEntity(entityType: AutoHandledMemoryEntityType): string
   }
 }
 
+/**
+ * Plays canon Phase 2: auto-handled memory mutations never write play_runs
+ * (Memory Care never creates plays). One salt_learnings row per created
+ * record surfaces the creation in Memory → Filter → Handled with the
+ * correction affordance; the paired activity_entries write carries the rest.
+ */
 async function logAutoHandledMemoryRun(
-  admin: ReturnType<typeof createAdminClient>,
-  input: {
-    workspaceId: string;
-    entityType: AutoHandledMemoryEntityType;
-    entityId: string;
-    targetType: string;
-    label: string;
-    title: string;
-    content: string;
-    confidence: number;
-  }
+  _admin: ReturnType<typeof createAdminClient>,
+  input: AutoHandledMemoryRunInput
 ): Promise<void> {
-  const now = new Date().toISOString();
-  const section = sectionForMemoryEntity(input.entityType);
-  const { error } = await admin.from("play_runs").insert({
-    workspace_id: input.workspaceId,
-    target_type: input.targetType,
-    target_id: input.entityId,
-    target_label: input.label,
-    recipient_label: input.label,
-    state: "approved",
-    queue: "auto_handled",
-    stakes: "low",
-    title: input.title,
-    preview: input.content,
-    confidence: input.confidence,
-    source_context: {
-      source: "playbook",
-      playbook_slug: "memory-records",
-      trigger_signal: "system_play_record_created",
-    },
-    metadata: {
-      playbook_name: "Memory Records",
-      player_slug: "keeper",
-      keeper_profile: true,
-      play_card_kind: "profile",
-      output_type: "memory_update",
-      layer: "learn",
-      section,
-      profile_entity_type: input.entityType,
-      profile_entity_id: input.entityId,
-      profile_field: "record",
-      profile_value: input.label,
-      profile_status: "applied",
-      blueprint_slug: "memory-records",
-      blueprint_version: 1,
-      blueprint_name: "Memory Records",
-      memory_applied_at: now,
-      because: "System play created a Memory record with high confidence.",
-      primary_label: "Saved to Memory",
-    },
-    approved_at: now,
-  });
-
-  if (error) {
-    console.error("[system-plays] Auto-handled play-run logging failed:", error.message);
+  try {
+    await recordSaltLearning({
+      workspaceId: input.workspaceId,
+      entityType: input.entityType,
+      entityId: input.entityId,
+      entityLabel: input.label,
+      fieldPath: "record",
+      fieldLabel: "Record",
+      newValue: input.label,
+      confidence: input.confidence,
+      evidenceSummary: AUTO_HANDLED_BECAUSE,
+      playbookSlug: "memory-records",
+    });
+  } catch (error) {
+    console.error(
+      "[system-plays] Auto-handled learning logging failed:",
+      error instanceof Error ? error.message : error
+    );
   }
 }
 
@@ -1390,6 +1429,16 @@ async function createClientMeeting(
     return { success: false, error: `Failed to create meeting: ${meetingError.message}` };
   }
 
+  const autoHandled: AutoHandledMemoryRunInput = {
+    workspaceId,
+    entityType: "meeting",
+    entityId: meeting.id,
+    targetType: "meeting",
+    label: input.title,
+    title: `Added ${input.title} to Meetings`,
+    content: `Salt scheduled a Meeting record for ${input.title}.`,
+    confidence: 95,
+  };
   await logActivity(
     admin,
     workspaceId,
@@ -1401,18 +1450,10 @@ async function createClientMeeting(
       entity_type: "meeting",
       entity_id: meeting.id,
       playbook_slug: "memory-records",
+      ...autoHandledActivityMetadata(autoHandled),
     }
   );
-  await logAutoHandledMemoryRun(admin, {
-    workspaceId,
-    entityType: "meeting",
-    entityId: meeting.id,
-    targetType: "meeting",
-    label: input.title,
-    title: `Added ${input.title} to Meetings`,
-    content: `Salt scheduled a Meeting record for ${input.title}.`,
-    confidence: 95,
-  });
+  await logAutoHandledMemoryRun(admin, autoHandled);
 
   return {
     success: true,
@@ -1458,7 +1499,9 @@ async function createBilling(
       work_id: input.work_id ?? null,
       tags: input.tags ?? [],
       source: "ask_salt",
-      origin: "manual",
+      // billing_origin enum is "found" | "added"; user-added extraction rows
+      // use "added" (matches billing/utils/db-mapper.ts).
+      origin: "added",
     })
     .select("id")
     .single();
@@ -1467,6 +1510,16 @@ async function createBilling(
     return { success: false, error: error.message };
   }
 
+  const autoHandled: AutoHandledMemoryRunInput = {
+    workspaceId,
+    entityType: "billing",
+    entityId: data.id,
+    targetType: "billing",
+    label: input.vendor_label ?? `${input.amount_cents / 100} ${input.currency ?? "USD"}`,
+    title: `Added ${input.direction === "receivable" ? "invoice" : "bill"} to Billing`,
+    content: `Salt created a Billing record.`,
+    confidence: 95,
+  };
   await logActivity(
     admin,
     workspaceId,
@@ -1478,18 +1531,10 @@ async function createBilling(
       entity_type: "billing",
       entity_id: data.id,
       playbook_slug: "memory-records",
+      ...autoHandledActivityMetadata(autoHandled),
     }
   );
-  await logAutoHandledMemoryRun(admin, {
-    workspaceId,
-    entityType: "billing",
-    entityId: data.id,
-    targetType: "billing",
-    label: input.vendor_label ?? `${input.amount_cents / 100} ${input.currency ?? "USD"}`,
-    title: `Added ${input.direction === "receivable" ? "invoice" : "bill"} to Billing`,
-    content: `Salt created a Billing record.`,
-    confidence: 95,
-  });
+  await logAutoHandledMemoryRun(admin, autoHandled);
 
   return {
     success: true,
@@ -1581,6 +1626,16 @@ async function createFileRecord(
     return { success: false, error: error.message };
   }
 
+  const autoHandled: AutoHandledMemoryRunInput = {
+    workspaceId,
+    entityType: "file",
+    entityId: data.id,
+    targetType: "file",
+    label: input.file_name,
+    title: `Added ${input.file_name} to Resources`,
+    content: `Salt created a Resource record for ${input.file_name}.`,
+    confidence: 95,
+  };
   await logActivity(
     admin,
     workspaceId,
@@ -1592,18 +1647,10 @@ async function createFileRecord(
       entity_type: "file",
       entity_id: data.id,
       playbook_slug: "memory-records",
+      ...autoHandledActivityMetadata(autoHandled),
     }
   );
-  await logAutoHandledMemoryRun(admin, {
-    workspaceId,
-    entityType: "file",
-    entityId: data.id,
-    targetType: "file",
-    label: input.file_name,
-    title: `Added ${input.file_name} to Resources`,
-    content: `Salt created a Resource record for ${input.file_name}.`,
-    confidence: 95,
-  });
+  await logAutoHandledMemoryRun(admin, autoHandled);
 
   return {
     success: true,
@@ -1692,6 +1739,16 @@ async function createMeFact(
     return { success: false, error: error.message };
   }
 
+  const autoHandled: AutoHandledMemoryRunInput = {
+    workspaceId,
+    entityType: "me",
+    entityId: data.id,
+    targetType: "me",
+    label: input.label ?? input.value.slice(0, 50),
+    title: "Added fact to Me",
+    content: `Salt saved a fact about you: ${input.label ?? input.value.slice(0, 80)}.`,
+    confidence: input.confidence ?? 95,
+  };
   await logActivity(
     admin,
     workspaceId,
@@ -1703,18 +1760,10 @@ async function createMeFact(
       entity_type: "me",
       entity_id: data.id,
       playbook_slug: "memory-records",
+      ...autoHandledActivityMetadata(autoHandled),
     }
   );
-  await logAutoHandledMemoryRun(admin, {
-    workspaceId,
-    entityType: "me",
-    entityId: data.id,
-    targetType: "me",
-    label: input.label ?? input.value.slice(0, 50),
-    title: "Added fact to Me",
-    content: `Salt saved a fact about you: ${input.label ?? input.value.slice(0, 80)}.`,
-    confidence: input.confidence ?? 95,
-  });
+  await logAutoHandledMemoryRun(admin, autoHandled);
 
   return {
     success: true,
@@ -1871,7 +1920,7 @@ async function assignTagToEntity(
       entity_type: input.entity_type,
       entity_id: input.entity_id,
       tag_id: tag.id,
-      source: "keeper",
+      source: "care",
       because: input.because ?? null,
       source_ref: actorUserId ? `ask_salt:${actorUserId}` : null,
     })

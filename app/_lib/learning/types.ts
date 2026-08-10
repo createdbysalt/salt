@@ -2,7 +2,7 @@
  * Learning Infrastructure Types
  *
  * Shared types for the evidence accumulation and signal registry systems.
- * Used across Keeper playbooks, enrichment layer, and Ask Salt.
+ * Used across Memory Care, the enrichment layer, and Ask Salt.
  */
 
 export type LearningEntityType =
@@ -41,7 +41,8 @@ export type SignalSurface =
   | "file"
   | "note"
   | "operator"
-  | "capture";
+  | "capture"
+  | "workspace";
 
 export interface SignalDefinition {
   key: string;
@@ -102,6 +103,3 @@ export interface AggregatedEvidence {
   /** True if evidence contains contradicting values that need user resolution */
   hasConflict?: boolean;
 }
-
-export type KeeperEntityType = LearningEntityType;
-export type KeeperEvidenceType = EvidenceType;

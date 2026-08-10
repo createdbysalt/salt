@@ -14,6 +14,7 @@ import {
   RateLimitPresets,
 } from "@/app/_lib/rate-limit/rate-limit";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import type { Json } from "@/app/_lib/supabase/database.types";
 import type { ActionResponse } from "@/app/_features/marketing/actions";
 import { isValidWaitlistEmail } from "@/app/_features/marketing/waitlist-qualification";
 import { EMAIL_MAX_LENGTH } from "@/app/_features/marketing/waitlist-lead";
@@ -35,7 +36,7 @@ async function recordBlogNewsletterFunnelEvent(
   const { error } = await supabase.from("marketing_funnel_events").insert({
     event: "blog_newsletter_success",
     path,
-    metadata,
+    metadata: metadata as Json,
   });
 
   if (error) {
@@ -108,7 +109,10 @@ export async function subscribeBlogNewsletterAction(
 
     const { error: upsertError } = await supabase
       .from("blog_newsletter_subscribers")
-      .upsert(row, { onConflict: "normalized_email" });
+      .upsert(
+        { ...row, metadata: row.metadata as Json },
+        { onConflict: "normalized_email" }
+      );
 
     if (upsertError) {
       console.error("Error saving blog newsletter subscriber:", upsertError);

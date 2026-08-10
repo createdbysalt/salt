@@ -45,7 +45,7 @@ export function mapBlockerToActivityEntries(blocker: WorkBlocker): ProfileActivi
   entries.push({
     id: `blocker-created-${blocker.id}`,
     at: blocker.detectedAt,
-    kind: blocker.source === "user_flagged" ? "user" : "keeper",
+    kind: blocker.source === "user_flagged" ? "user" : "salt",
     label: blocker.source === "user_flagged" ? "You flagged a blocker" : "Salt detected a blocker",
     detail: createdDetail || null,
   });
@@ -76,7 +76,7 @@ export function mapBlockerToActivityEntries(blocker: WorkBlocker): ProfileActivi
 export function mapTagAssignmentToActivityEntry(input: {
   id: string;
   tagLabel: string;
-  source: "manual" | "keeper" | "system";
+  source: "manual" | "care" | "system";
   because: string | null;
   confidence: number | null;
   createdAt: string;
@@ -90,12 +90,12 @@ export function mapTagAssignmentToActivityEntry(input: {
   return {
     id: `tag-assigned-${input.id}`,
     at: input.createdAt,
-    kind: input.source === "manual" ? "user" : input.source === "keeper" ? "keeper" : "system",
+    kind: input.source === "manual" ? "user" : input.source === "care" ? "salt" : "system",
     label:
       input.source === "manual"
         ? "You added a tag"
-        : input.source === "keeper"
-          ? "Keeper added a tag"
+        : input.source === "care"
+          ? "Salt added a tag"
           : "Tag applied",
     detail: detailParts.join(" · ") || null,
   };
@@ -133,8 +133,8 @@ export function mapWorkProvenanceToActivity(
     return {
       id: `work-profile-${provenance.field}-${provenance.setAt}`,
       at: provenance.setAt,
-      kind: "keeper",
-      label: `Keeper ${action} ${field}`,
+      kind: "salt",
+      label: `Salt ${action} ${field}`,
       detail: `${field} → ${valueLabel} · ${detailParts.join(" · ")}`,
       field: provenance.field,
       source: provenance.source,
@@ -146,8 +146,8 @@ export function mapWorkProvenanceToActivity(
   return {
     id: `work-profile-${provenance.field}-${provenance.setAt}`,
     at: provenance.setAt,
-    kind: "keeper",
-    label: `Keeper ${action} ${field}`,
+    kind: "salt",
+    label: `Salt ${action} ${field}`,
     detail: `${field} → ${valueLabel} · ${detailParts.join(" · ")}`,
     field: provenance.field,
     source: provenance.source,
@@ -161,7 +161,7 @@ export function buildWorkActivityAskSaltPrompt(
 ): string {
   const field = workProfileFieldLabel(entry.field);
   if (entry.status === "pending") {
-    return `On ${workTitle}, Keeper suggested ${field}${entry.detail ? ` (${entry.detail})` : ""}. I want to review or change this.`;
+    return `On ${workTitle}, Salt suggested ${field}${entry.detail ? ` (${entry.detail})` : ""}. I want to review or change this.`;
   }
   return `On ${workTitle}: "${entry.label}"${entry.detail ? ` — ${entry.detail}` : ""}. I want to review or change this.`;
 }
@@ -225,7 +225,7 @@ export function mapConnectionToActivityEntry(
 export interface NoteActivityEntry {
   id: string;
   at: string;
-  kind: "user" | "keeper" | "system";
+  kind: "user" | "salt" | "system";
   label: string;
   detail: string | null;
   field: "note";
@@ -238,14 +238,14 @@ export function mapNoteToActivityEntry(note: EntityNoteWithProvenance): NoteActi
   const isSaltNote = note.authorType === "salt" || note.source === "ai_capture" || note.source === "ai_inference";
 
   let label: string;
-  let kind: "user" | "keeper" | "system";
+  let kind: "user" | "salt" | "system";
 
   if (isUserNote) {
     label = "You added a note";
     kind = "user";
   } else if (isSaltNote) {
     label = note.source === "ai_capture" ? "Salt captured a note" : "Salt added a note";
-    kind = "keeper";
+    kind = "salt";
   } else {
     label = "Note added";
     kind = "system";

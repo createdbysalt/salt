@@ -23,7 +23,7 @@ import {
   extractDomainFromEmail,
   extractHeadersFromEnvelope,
 } from "./pre-ingest-gate";
-import { runKnownEntityGate, checkPriorInteraction } from "./known-entity-gate";
+import { runKnownEntityGate } from "./known-entity-gate";
 import {
   runAdmissionGate,
   checkCalendarRelationship,
@@ -32,6 +32,7 @@ import {
 } from "./admission-gate";
 import { isBlocked } from "../blocklist-manager";
 import { extractAdmissionSignals } from "./admission-signals";
+import { classifyColdInboundIntent, intentEarnsAdmission } from "./cold-intent";
 import { EMAIL_SCAN_SOURCE_TYPES } from "../../adapters/categories/email";
 
 /**
@@ -53,6 +54,14 @@ export interface GatePipelineInput {
   workspaceId: string;
   userEmail: string | null;
   envelope: CaptureEnvelope;
+  /**
+   * Lane 1 discriminator: pay for a cold-inbound intent read so a genuine
+   * inquiry from an unknown sender earns REAL-TIME admission instead of
+   * waiting in the held pool for the discovery cron. Real-time paths
+   * (webhook) set this; backfills never do — historical mail is not urgent
+   * and the discovery pass already covers held senders.
+   */
+  coldIntentRead?: boolean;
 }
 
 export async function runGatePipeline(input: GatePipelineInput): Promise<GatePipelineResult> {
@@ -164,7 +173,51 @@ export async function runGatePipeline(input: GatePipelineInput): Promise<GatePip
   // candidate and noise alike go to the held pool. The admission result is
   // kept on the row so discovery can score held senders without re-running
   // the relationship checks. Hard drops already returned above.
+  //
+  // Lane 1 exception (the discriminator): on real-time paths, a paid intent
+  // read runs on this pre-ingest survivor. A genuine inquiry earns immediate
+  // admission — the booking email must not wait for the discovery cron. The
+  // read's outcome is recorded either way so Activity can answer "why didn't
+  // Salt catch this?" and misses are queryable (failure mode #1 telemetry).
   if (isHoldableEmail(envelope)) {
+    if (input.coldIntentRead) {
+      const extracted = envelope.extracted as Record<string, unknown>;
+      const intent = await classifyColdInboundIntent({
+        workspaceId,
+        senderEmail,
+        senderName,
+        subject: (extracted?.subject as string | null) ?? envelope.title,
+        snippet: (extracted?.snippet as string | null) ?? null,
+      });
+      result.coldIntent = intent;
+
+      if (intentEarnsAdmission(intent)) {
+        const intentSignal = {
+          type: "intent_inquiry" as const,
+          weight: 40,
+          evidence: intent.reason,
+        };
+        result.gateResults.admission =
+          admissionResult.action === "candidate"
+            ? {
+                ...admissionResult,
+                confidence: Math.min(100, admissionResult.confidence + 40),
+                signals: [...admissionResult.signals, intentSignal],
+                reason: `${admissionResult.reason}; genuine inquiry: ${intent.reason}`,
+              }
+            : {
+                action: "candidate",
+                gate: "admission",
+                confidence: Math.round(intent.confidence * 100),
+                signals: [intentSignal],
+                reason: `Genuine inquiry: ${intent.reason}`,
+              };
+        result.finalAction = "candidate";
+        result.shouldIngest = true;
+        return result;
+      }
+    }
+
     result.finalAction = "held";
     result.shouldIngest = true;
     return result;
@@ -183,7 +236,6 @@ export async function runGatePipeline(input: GatePipelineInput): Promise<GatePip
 
 export { runPreIngestGate, runKnownEntityGate, runAdmissionGate };
 export { extractDomainFromEmail, extractHeadersFromEnvelope } from "./pre-ingest-gate";
-export { checkPriorInteraction } from "./known-entity-gate";
 export {
   checkCalendarRelationship,
   checkPaymentRelationship,

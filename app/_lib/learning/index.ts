@@ -2,8 +2,8 @@
  * Learning Infrastructure
  *
  * Shared infrastructure for evidence accumulation and signal registry.
- * Used across Keeper playbooks, enrichment layer, Ask Salt, and the
- * upcoming LEARN → ACT → GROW loop.
+ * Used across Memory Care, the enrichment layer, Ask Salt, and the
+ * LEARN → ACT → GROW loop.
  *
  * @example
  * ```ts
@@ -25,8 +25,6 @@ export type {
   EntityEvidenceRow,
   AccumulateEvidenceInput,
   AggregatedEvidence,
-  KeeperEntityType,
-  KeeperEvidenceType,
 } from "./types";
 
 // Evidence accumulation
@@ -52,18 +50,6 @@ export {
   getActingTriggerSignals,
   getSignalsForSurface,
 } from "./signals";
-
-// Evidence → Play promotion
-export type {
-  PromotionCandidate,
-  PromotionResult,
-} from "./promotion";
-
-export {
-  findPromotionCandidates,
-  promoteEvidenceToPlay,
-  runPromotionPass,
-} from "./promotion";
 
 // Outcome tracking
 export type {
@@ -127,20 +113,3 @@ export {
   emitEntitySignalAsync,
   emitEntitySignals,
 } from "./emit-signal";
-
-// Entity watch system
-export type {
-  EntityWatch,
-  RegisterWatchInput,
-  RegisterWatchResult,
-} from "./watches";
-
-export {
-  registerEntityWatch,
-  removeWatch,
-  removeWatchesForEntity,
-  getActiveWatches,
-  processCaptureAgainstWatches,
-  expireOldWatches,
-  expireOverTriggeredWatches,
-} from "./watches";

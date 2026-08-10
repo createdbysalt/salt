@@ -21,6 +21,7 @@
  */
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import type { Json } from "@/app/_lib/supabase/database.types";
 import type { LearningEntityType } from "./types";
 
 export interface RecordCorrectionInput {
@@ -76,8 +77,10 @@ export async function memoryRecordCorrection(
       entity_type: input.entityType,
       entity_id: input.entityId,
       field: input.field,
-      original_value: input.originalValue,
-      corrected_value: input.correctedValue,
+      // Boundary casts from unknown: correction values are Json in practice
+      // (they mirror what was written to / read from Json columns).
+      original_value: input.originalValue as Json,
+      corrected_value: input.correctedValue as Json,
       original_provenance_id: input.originalProvenanceId,
       reason: input.correctionReason,
       corrected_by: input.correctedBy,
@@ -251,7 +254,9 @@ export async function getCorrectionAnalytics(
     const field = correction.field;
     correctionsByField[field] = (correctionsByField[field] ?? 0) + 1;
 
-    const ruleId = provenanceToRule.get(correction.original_provenance_id);
+    const ruleId = correction.original_provenance_id
+      ? provenanceToRule.get(correction.original_provenance_id)
+      : null;
     if (ruleId) {
       correctionsByRule[ruleId] = (correctionsByRule[ruleId] ?? 0) + 1;
     }
@@ -265,7 +270,9 @@ export async function getCorrectionAnalytics(
         ruleId,
         correctionCount,
         lastCorrectedAt: corrections.find(
-          (c) => provenanceToRule.get(c.original_provenance_id) === ruleId
+          (c) =>
+            c.original_provenance_id != null &&
+            provenanceToRule.get(c.original_provenance_id) === ruleId
         )?.corrected_at ?? new Date().toISOString(),
         recommendation:
           correctionCount >= CORRECTION_THRESHOLD * 2

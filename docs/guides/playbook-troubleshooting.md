@@ -14,20 +14,27 @@ pnpm tsx scripts/debug-playbook-discovery.ts
 
 ## Common Validation Errors
 
-### 1. `value.estimate: Number must be greater than 0`
+### 1. `value.estimate: Number must be an integer`
+
+`value.estimate` is **minutes of manual work saved per completed run** and may
+be `0` (playbooks with no direct time savings, e.g. onboarding nudges). It
+must be a non-negative integer.
 
 **Wrong:**
+
 ```yaml
 value:
   kind: time_saved
-  estimate: 0  # ❌ Zero is not positive
+  estimate: 2.5   # ❌ Not an integer
+  estimate: -1    # ❌ Negative
 ```
 
 **Right:**
+
 ```yaml
 value:
   kind: time_saved
-  estimate: 1  # ✓ Must be >= 1
+  estimate: 2 # ✓ Minutes; 0 is also valid
 ```
 
 ### 2. `instructions.guidelines: Expected string, received object`
@@ -35,15 +42,17 @@ value:
 YAML interprets colons as key-value separators. Quote strings with colons.
 
 **Wrong:**
+
 ```yaml
 guidelines:
-  - Create labels: Action, Money, Ops  # ❌ Parsed as nested object
+  - Create labels: Action, Money, Ops # ❌ Parsed as nested object
 ```
 
 **Right:**
+
 ```yaml
 guidelines:
-  - "Create labels: Action, Money, Ops"  # ✓ Quoted string
+  - "Create labels: Action, Money, Ops" # ✓ Quoted string
 ```
 
 ### 3. `output.type: Invalid enum value`
@@ -51,9 +60,10 @@ guidelines:
 Output type must be one of: `email_draft`, `notification`, `memory_update`, `finding`, `briefing`
 
 **Wrong:**
+
 ```yaml
 output:
-  type: activity_entry  # ❌ Not a valid type
+  type: activity_entry # ❌ Not a valid type
 ```
 
 ### 4. `trigger: Invalid input`
@@ -61,11 +71,12 @@ output:
 Trigger must have either `signal` (string) or `signals` (array), not both. Also check cron syntax for schedule triggers.
 
 **Wrong:**
+
 ```yaml
 trigger:
   type: signal
   signal: my_signal
-  signals:  # ❌ Can't have both
+  signals: # ❌ Can't have both
     - another_signal
 ```
 
@@ -94,6 +105,7 @@ Watch for unquoted special characters:
 Before committing a new playbook:
 
 1. **Run the validator:**
+
    ```bash
    pnpm tsx scripts/debug-playbook-discovery.ts
    ```
@@ -102,12 +114,23 @@ Before committing a new playbook:
    - `name`, `version`, `description`, `section`, `layer`
    - `trigger` or `triggers`
    - `output` with valid `type`
-   - `value.estimate` > 0 (if value block exists)
+   - `value.estimate` — non-negative integer minutes (if value block exists)
+   - Every `action` step's `tool` is listed in the definition's `tools:` allowlist
+   - No memory-mutating tools (`memory_create_*`, `memory_update_*`, link/unlink) — rejected at parse
+
+## Playbook runs but a step silently pauses
+
+If a step has `approval: ask` (or the tool policy requires confirmation at
+your trust level), the run **pauses** and queues a card in Plays → Queue —
+this is the design, not a hang. Blocked runs (`state = blocked`, parked on a
+connector failure) show the reason on the card; approve after reconnecting to
+resume the exact pending call.
 
 3. **Quote strings with colons:**
+
    ```yaml
    guidelines:
-     - "Label format: Category/Name"  # Always quote
+     - "Label format: Category/Name" # Always quote
    ```
 
 4. **Test in the debug API:**
@@ -121,9 +144,9 @@ The discovery system uses Zod for schema validation. Invalid playbooks are colle
 
 ## Files
 
-| File | Purpose |
-|------|---------|
-| `app/_features/plays/playbooks/schema/v2/schema.ts` | Zod schemas (source of truth) |
-| `app/_features/plays/playbooks/schema/v2/discovery.ts` | Discovery logic |
-| `app/api/debug/playbooks/route.ts` | Debug endpoint |
-| `scripts/debug-playbook-discovery.ts` | CLI debug script |
+| File                                                   | Purpose                       |
+| ------------------------------------------------------ | ----------------------------- |
+| `app/_features/plays/playbooks/schema/v2/schema.ts`    | Zod schemas (source of truth) |
+| `app/_features/plays/playbooks/schema/v2/discovery.ts` | Discovery logic               |
+| `app/api/debug/playbooks/route.ts`                     | Debug endpoint                |
+| `scripts/debug-playbook-discovery.ts`                  | CLI debug script              |

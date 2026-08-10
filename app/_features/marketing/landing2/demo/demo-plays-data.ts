@@ -1,9 +1,11 @@
 import {
   AlertTriangle,
+  BookMarked,
   FileSignature,
   FileText,
   Receipt,
   Users,
+  Wand2,
   type LucideIcon,
 } from "lucide-react";
 
@@ -13,7 +15,7 @@ export type PlayerId =
   | "client-risk"
   | "scope"
   | "billing"
-  | "keeper"
+  | "memory-care"
   | "general";
 
 export type Tone = "flame" | "sky" | "violet" | "muted" | "ink";
@@ -56,6 +58,18 @@ const PLAYERS: Player[] = [
     tone: "flame",
     icon: Receipt,
   },
+  {
+    id: "memory-care",
+    name: "Memory Care",
+    tone: "ink",
+    icon: BookMarked,
+  },
+  {
+    id: "general",
+    name: "General",
+    tone: "muted",
+    icon: Wand2,
+  },
 ];
 
 export const TONE_SOFT: Record<Tone, string> = {
@@ -66,8 +80,19 @@ export const TONE_SOFT: Record<Tone, string> = {
   ink: "bg-foreground/8 text-foreground",
 };
 
-export function playerById(id: PlayerId): Player {
-  const player = PLAYERS.find((p) => p.id === id);
+export const TONE_TEXT: Record<Tone, string> = {
+  flame: "text-flame",
+  sky: "text-sky",
+  violet: "text-violet",
+  muted: "text-muted-foreground",
+  ink: "text-foreground",
+};
+
+export function playerById(id: PlayerId | string): Player {
+  const normalized = id === "keeper" ? "memory-care" : id;
+  const player =
+    PLAYERS.find((p) => p.id === normalized) ??
+    PLAYERS.find((p) => p.id === "general");
   if (!player) {
     throw new Error(`Unknown demo player: ${id}`);
   }

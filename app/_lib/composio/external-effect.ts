@@ -10,7 +10,7 @@ import type { ToolRiskClass } from "./tool-policy-registry";
  *
  * A play is billable only when it performs at least one action that leaves
  * Salt: an email sent, an event created, a message posted, an invoice drafted
- * into a third-party system. Memory mutations, entity linking, and Keeper
+ * into a third-party system. Memory mutations, entity linking, and Memory Care
  * maintenance are LEARN-layer work and are never billed.
  *
  * Keeping this as a tool-contract property gives metering exactly one

@@ -11,8 +11,13 @@
  */
 
 import { createClient } from "@/app/_lib/supabase/server";
-import { createAdminClient } from "@/app/_lib/supabase/admin";
-import { normalizeTagSlug, normalizeTagLabel, slugToLabel } from "./normalize";
+import {
+  normalizeTagSlug,
+  normalizeTagLabel,
+  normalizeTagSource,
+  slugToLabel,
+  type TagSource,
+} from "./normalize";
 import { checkForDuplicate, type ExistingTag } from "./dedupe";
 import type { VocabularyScope } from "../taxonomy/registry";
 import { fromUnitInterval } from "@/app/_features/memory/lib/confidence";
@@ -23,7 +28,6 @@ import { fromUnitInterval } from "@/app/_features/memory/lib/confidence";
 
 export type TagScope = "person" | "org" | "work" | "billing" | "file" | "all";
 export type TagCategory = "segment" | "signal" | "priority" | "custom";
-export type TagSource = "manual" | "keeper" | "system";
 
 export interface WorkspaceTag {
   id: string;
@@ -535,61 +539,6 @@ export async function unassignTag(
 }
 
 // ============================================================================
-// AUTO-ARCHIVE (Run periodically to clean up unused tags)
-// ============================================================================
-
-export async function archiveUnusedTags(daysUnused: number = 90): Promise<{
-  success: boolean;
-  archivedCount: number;
-  error?: string;
-}> {
-  const admin = createAdminClient();
-
-  const cutoffDate = new Date();
-  cutoffDate.setDate(cutoffDate.getDate() - daysUnused);
-
-  const { data: unusedTags, error: fetchError } = await admin
-    .from("workspace_tags")
-    .select(`
-      id,
-      created_at,
-      entity_tag_assignments(id)
-    `)
-    .eq("is_system", false)
-    .eq("is_archived", false)
-    .lt("created_at", cutoffDate.toISOString());
-
-  if (fetchError) {
-    console.error("archiveUnusedTags fetch error:", fetchError);
-    return { success: false, archivedCount: 0, error: "Failed to fetch tags" };
-  }
-
-  const tagsToArchive = (unusedTags ?? []).filter(
-    (t: { id: string; created_at: string; entity_tag_assignments: { id: string }[] | null }) =>
-      !t.entity_tag_assignments || t.entity_tag_assignments.length === 0
-  );
-
-  if (tagsToArchive.length === 0) {
-    return { success: true, archivedCount: 0 };
-  }
-
-  const { error: updateError } = await admin
-    .from("workspace_tags")
-    .update({ is_archived: true })
-    .in(
-      "id",
-      tagsToArchive.map((t: { id: string }) => t.id)
-    );
-
-  if (updateError) {
-    console.error("archiveUnusedTags update error:", updateError);
-    return { success: false, archivedCount: 0, error: "Failed to archive tags" };
-  }
-
-  return { success: true, archivedCount: tagsToArchive.length };
-}
-
-// ============================================================================
 // ROW MAPPERS
 // ============================================================================
 
@@ -620,7 +569,7 @@ function mapAssignmentRow(row: Record<string, unknown>): TagAssignment {
     entityId: row.entity_id as string,
     tagId: row.tag_id as string,
     tag: tagData ? mapTagRow(tagData) : undefined,
-    source: row.source as TagSource,
+    source: normalizeTagSource(row.source as string),
     confidence: (row.confidence as number | null) ?? null,
     because: (row.because as string | null) ?? null,
     sourceRef: (row.source_ref as string | null) ?? null,

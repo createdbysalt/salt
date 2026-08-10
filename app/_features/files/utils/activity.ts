@@ -91,7 +91,7 @@ function resolveActivityKind(activityType: FileActivityType): PersonActivityKind
       return "ai";
     case "lifecycle_changed":
     case "metadata_updated":
-      return "keeper";
+      return "salt";
     default:
       return "user";
   }
@@ -317,7 +317,7 @@ export function mapFileRecordBootstrapActivity(
     entries.push({
       id: `file-lifecycle-${file.id}-${file.lifecycleStatus}`,
       at: file.updatedAt,
-      kind: "keeper",
+      kind: "salt",
       label: "Status updated",
       detail: `Status → ${formatLifecycleStatus(file.lifecycleStatus)}`,
     });
@@ -327,7 +327,7 @@ export function mapFileRecordBootstrapActivity(
     entries.push({
       id: `file-amount-${file.id}`,
       at: file.updatedAt,
-      kind: "keeper",
+      kind: "salt",
       label: "Amount identified",
       detail: `Total → ${formatMoney(file.totalAmountCents, file.currency ?? "USD")}`,
     });
@@ -337,7 +337,7 @@ export function mapFileRecordBootstrapActivity(
     entries.push({
       id: `file-due-${file.id}`,
       at: file.updatedAt,
-      kind: "keeper",
+      kind: "salt",
       label: "Due date set",
       detail: `Due → ${formatDisplayDate(file.dueDate)}`,
     });
@@ -347,7 +347,7 @@ export function mapFileRecordBootstrapActivity(
     entries.push({
       id: `file-expiry-${file.id}`,
       at: file.updatedAt,
-      kind: "keeper",
+      kind: "salt",
       label: "Expiry date set",
       detail: `Expires → ${formatDisplayDate(file.expiryDate)}`,
     });

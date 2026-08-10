@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import type { Json } from "@/app/_lib/supabase/database.types";
 import {
   getConsentFromCookieHeader,
   hasAnalyticsConsent,
@@ -34,7 +35,7 @@ export async function POST(request: Request) {
     const { error } = await supabase.from("marketing_funnel_events").insert({
       event,
       path: body.path?.trim() || "/",
-      metadata: body.metadata ?? {},
+      metadata: (body.metadata ?? {}) as Json,
     });
 
     if (error) {

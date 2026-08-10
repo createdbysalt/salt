@@ -5,10 +5,7 @@ import {
   type FindingWithContext,
 } from "@/app/_features/capture/types/intelligence-findings";
 import { playerById, type PlayerId } from "@/app/_lib/demo/plays-demo-data";
-import {
-  buildKeeperCardDisplay,
-  keeperPlaybookDisplayName,
-} from "@/app/_features/plays/playbooks/records-engine/keeper-profile-display";
+import { buildMemoryCareCardDisplay } from "@/app/_features/plays/playbooks/records-engine/memory-care-display";
 import type {
   PlaybookSection,
   PlaybookOutputType,
@@ -26,7 +23,7 @@ function getSectionFromFindingType(type: FindingType): PlaybookSection {
     return "relationships";
   }
   if (type === "referral") return "relationships";
-  return "_meta";
+  return "work";
 }
 
 /**
@@ -43,7 +40,6 @@ function getSectionLabel(section: PlaybookSection): string {
     connections: "Connections",
     notes: "Notes",
     communication: "Communication",
-    _meta: "System",
   };
   return labels[section];
 }
@@ -53,9 +49,9 @@ function getSectionLabel(section: PlaybookSection): string {
  */
 function getOutputTypeFromFinding(
   finding: FindingWithContext,
-  isKeeperProfile: boolean
+  isMemoryCareProfile: boolean
 ): PlaybookOutputType {
-  if (isKeeperProfile) return "memory_update";
+  if (isMemoryCareProfile) return "memory_update";
   if (finding.finding_type.startsWith("revenue_")) return "notification";
   if (finding.finding_type.startsWith("pending_")) return "notification";
   return "finding"; // Legacy, will be migrated to notification
@@ -70,7 +66,7 @@ function getOutputTypeFromFinding(
 export function mapFindingToCard(finding: FindingWithContext): PlayCardViewModel {
   const playerSlug = getFindingPlayerId(finding);
   const player = playerById(playerSlug);
-  const keeper = getKeeperProfileSuggestion(finding);
+  const memoryCare = getMemoryCareProfileSuggestion(finding);
   const targetLabel =
     finding.person?.name ??
     finding.person?.email ??
@@ -101,7 +97,7 @@ export function mapFindingToCard(finding: FindingWithContext): PlayCardViewModel
       sectionLabel: getSectionLabel(section),
       layer: "learn",
       outputType: "memory_update",
-      approvalMode: "per_entity",
+      approvalMode: "ask",
       autoApplyThreshold: null,
       confidenceExplanation: null,
       valueEstimate: null,
@@ -132,20 +128,20 @@ export function mapFindingToCard(finding: FindingWithContext): PlayCardViewModel
       provenance: {
         source: "finding",
         findingId: finding.id,
-        apply: "keeper_profile",
+        apply: "memory_care",
         flagged: Boolean(finding.flagged_at),
       },
       askSalt,
     };
   }
 
-  if (keeper) {
-    const display = buildKeeperCardDisplay({
+  if (memoryCare) {
+    const display = buildMemoryCareCardDisplay({
       findingTitle: finding.title,
       findingContent: finding.content,
       blueprintSlug: readMetadataString(finding, "blueprint_slug"),
-      field: keeper.field,
-      value: keeper.value,
+      field: memoryCare.field,
+      value: memoryCare.value,
       because: readMetadataString(finding, "because"),
       targetLabel,
     });
@@ -161,7 +157,7 @@ export function mapFindingToCard(finding: FindingWithContext): PlayCardViewModel
       sectionLabel: getSectionLabel(section),
       layer: "learn",
       outputType: "memory_update",
-      approvalMode: "per_entity",
+      approvalMode: "ask",
       autoApplyThreshold: null,
       confidenceExplanation: readMetadataString(finding, "because"),
       valueEstimate: null,
@@ -181,8 +177,8 @@ export function mapFindingToCard(finding: FindingWithContext): PlayCardViewModel
       channel: "Memory",
       sourceUrl: finding.source_url ?? null,
       profile: {
-        field: keeper.field,
-        proposedValue: keeper.value ?? "",
+        field: memoryCare.field,
+        proposedValue: memoryCare.value ?? "",
         because: readMetadataString(finding, "because") ?? finding.content,
       },
       primaryAction: display.isActionable
@@ -193,14 +189,14 @@ export function mapFindingToCard(finding: FindingWithContext): PlayCardViewModel
       provenance: {
         source: "finding",
         findingId: finding.id,
-        apply: "keeper_profile",
+        apply: "memory_care",
         flagged: Boolean(finding.flagged_at),
       },
       askSalt,
     };
   }
 
-  // Non-Keeper finding: a scan signal presented as a risk-style play.
+  // Non-Memory-Care finding: a scan signal presented as a risk-style play.
   const hasMemoryProposals =
     (finding.memory_proposals?.length ?? 0) > 0 && !finding.memory_applied_at;
   const preview = getRowPreview(finding);
@@ -211,13 +207,13 @@ export function mapFindingToCard(finding: FindingWithContext): PlayCardViewModel
     kind: "risk",
 
     // V2 attribution (derived from finding)
-    playbookSlug: null, // Non-keeper findings don't have a playbook slug yet
+    playbookSlug: null, // Non-care findings don't have a playbook slug yet
     playbookName: FINDING_TYPE_LABELS[finding.finding_type],
     section,
     sectionLabel: getSectionLabel(section),
     layer: "learn",
     outputType,
-    approvalMode: "per_entity",
+    approvalMode: "ask",
     autoApplyThreshold: null,
     confidenceExplanation: null,
     valueEstimate: null,
@@ -262,9 +258,9 @@ function getFindingPlayerId(finding: FindingWithContext): PlayerId {
     metadata &&
     typeof metadata === "object" &&
     !Array.isArray(metadata) &&
-    (metadata as Record<string, unknown>).keeper_profile === true
+    isMemoryCareProfileMetadata(metadata as Record<string, unknown>)
   ) {
-    return "keeper";
+    return "memory-care";
   }
   if (finding.finding_type.startsWith("revenue_")) return "client-risk";
   if (finding.finding_type.startsWith("pending_")) return "follow-up";
@@ -273,22 +269,27 @@ function getFindingPlayerId(finding: FindingWithContext): PlayerId {
     finding.finding_type === "new_person" ||
     finding.finding_type === "new_org"
   ) {
-    return "keeper";
+    return "memory-care";
   }
   return "brief";
 }
 
-type KeeperProfileSuggestion = { field: string; value: string | null };
+/** Accepts the current key plus the retired `keeper_profile` metadata key. */
+function isMemoryCareProfileMetadata(record: Record<string, unknown>): boolean {
+  return record.memory_care_profile === true || record.keeper_profile === true;
+}
 
-function getKeeperProfileSuggestion(
+type MemoryCareProfileSuggestion = { field: string; value: string | null };
+
+function getMemoryCareProfileSuggestion(
   finding: FindingWithContext,
-): KeeperProfileSuggestion | null {
+): MemoryCareProfileSuggestion | null {
   const metadata = finding.evidence?.metadata;
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
     return null;
   }
   const record = metadata as Record<string, unknown>;
-  if (record.keeper_profile !== true) return null;
+  if (!isMemoryCareProfileMetadata(record)) return null;
   const field = typeof record.profile_field === "string" ? record.profile_field : null;
   if (!field) return null;
   return {
@@ -306,7 +307,10 @@ function getQuestionPlay(finding: FindingWithContext): QuestionPlay | null {
   const metadata = finding.evidence?.metadata;
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null;
   const record = metadata as Record<string, unknown>;
-  if (record.keeper_question !== true) return null;
+  // Accepts the retired `keeper_question` metadata key as a legacy fallback.
+  if (record.memory_care_question !== true && record.keeper_question !== true) {
+    return null;
+  }
   const field = typeof record.question_field === "string" ? record.question_field : null;
   if (!field) return null;
   const rawOptions = Array.isArray(record.question_options) ? record.question_options : [];

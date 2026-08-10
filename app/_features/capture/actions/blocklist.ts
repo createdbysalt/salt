@@ -59,7 +59,7 @@ export async function blockDomain(
   });
 
   if (result.success) {
-    revalidatePath("/settings/captures");
+    revalidatePath("/sources");
   }
 
   return { success: result.success, error: result.error };
@@ -84,7 +84,7 @@ export async function blockEmail(
   });
 
   if (result.success) {
-    revalidatePath("/settings/captures");
+    revalidatePath("/sources");
   }
 
   return { success: result.success, error: result.error };
@@ -109,7 +109,7 @@ export async function blockSenderPattern(
   });
 
   if (result.success) {
-    revalidatePath("/settings/captures");
+    revalidatePath("/sources");
   }
 
   return { success: result.success, error: result.error };
@@ -125,7 +125,7 @@ export async function unblock(entryId: string): Promise<BlocklistActionResult> {
   const result = await removeBlocklistEntry(workspace.id, entryId);
 
   if (result.success) {
-    revalidatePath("/settings/captures");
+    revalidatePath("/sources");
   }
 
   return { success: result.success, error: result.error };

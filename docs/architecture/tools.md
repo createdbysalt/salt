@@ -10,24 +10,24 @@ Tools are the "hands" of Salt's proactive AI. Every mutation goes through a tool
 
 Every tool MUST declare:
 
-| Property | Description | Example |
-|----------|-------------|---------|
-| `risk` | Risk classification | `read`, `mutating`, `destructive` |
+| Property          | Description                                                | Example                                                          |
+| ----------------- | ---------------------------------------------------------- | ---------------------------------------------------------------- |
+| `risk`            | Risk classification                                        | `read`, `mutating`, `destructive`                                |
 | `external_effect` | Whether executing the tool produces an effect outside Salt | `true` for `GMAIL_SEND_EMAIL`, `false` for `memory_update_field` |
-| `inputs` | Required parameters with types | `{ entityId: string, field: string, value: string }` |
-| `outputs` | Return type | `{ action: "applied" \| "accumulated", confidence: number }` |
-| `protection` | How safety is enforced | Confidence threshold, approval required, blocked |
-| `audit` | What gets logged | Evidence chain, provenance record |
+| `inputs`          | Required parameters with types                             | `{ entityId: string, field: string, value: string }`             |
+| `outputs`         | Return type                                                | `{ action: "applied" \| "accumulated", confidence: number }`     |
+| `protection`      | How safety is enforced                                     | Confidence threshold, approval required, blocked                 |
+| `audit`           | What gets logged                                           | Evidence chain, provenance record                                |
 
 ---
 
 ## Risk Classes
 
-| Class | Execution Model | Protection | Examples |
-|-------|----------------|------------|----------|
-| `read` | Auto-execute always | None needed | `get_person`, `list_invoices`, `get_voice_profile` |
-| `mutating` | Confidence-gated OR approval-required | Threshold check, ask-first fields | `memory_update_field`, `draft_email`, `enrich_entity` |
-| `destructive` | Never executed by Salt | Blocked at tool layer | `delete_customer`, `void_invoice`, `remove_permission` |
+| Class         | Execution Model                                                                           | Protection                                              | Examples                                               |
+| ------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------ |
+| `read`        | Auto-execute always                                                                       | None needed                                             | `get_person`, `list_invoices`, `memory_get_facts`      |
+| `mutating`    | Confidence-gated (tiered bars) for internal state; approval-required for external effects | Threshold check, sensitive-tier bar, never-touch fields | `memory_update_field`, `draft_email`, `enrich_entity`  |
+| `destructive` | Never executed by Salt                                                                    | Blocked at tool layer                                   | `delete_customer`, `void_invoice`, `remove_permission` |
 
 **Destructive tools are unreachable.** They're defined in the policy registry but Salt cannot execute them. Users must perform destructive actions in the source application (Stripe, Gmail, etc.).
 
@@ -39,12 +39,12 @@ Every tool MUST declare:
 
 A play is billable when **at least one tool it executed carries `external_effect: true`**. Deriving billability from tool contracts gives metering exactly one classification point — there are no per-play judgement calls, and a hybrid play with internal and external steps bills exactly once.
 
-| `external_effect` | Meaning | Examples |
-|---|---|---|
-| `true` | Leaves Salt — a third party can observe it | `GMAIL_SEND_EMAIL`, `GOOGLECALENDAR_CREATE_EVENT`, `SLACK_SEND_MESSAGE`, `STRIPE_CREATE_INVOICE` |
-| `false` | Internal, or housekeeping inside the user's own account | All Memory tools, all `read` tools, `GMAIL_ADD_LABEL_TO_EMAIL` |
+| `external_effect` | Meaning                                                 | Examples                                                                                         |
+| ----------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `true`            | Leaves Salt — a third party can observe it              | `GMAIL_SEND_EMAIL`, `GOOGLECALENDAR_CREATE_EVENT`, `SLACK_SEND_MESSAGE`, `STRIPE_CREATE_INVOICE` |
+| `false`           | Internal, or housekeeping inside the user's own account | All Memory tools, all `read` tools, `GMAIL_ADD_LABEL_TO_EMAIL`                                   |
 
-**Memory tools are never billable.** Memory mutations, entity linking, and Keeper maintenance are LEARN-layer work. They are still metered with `billable: false` so the margin monitor can see the spend, but they never reach an invoice — charging for them would be charging the user for Salt organizing itself.
+**Memory tools are never billable.** Memory mutations, entity linking, and Memory Care maintenance are LEARN-layer work. They are still metered with `billable: false` so the margin monitor can see the spend, but they never reach an invoice — charging for them would be charging the user for Salt organizing itself.
 
 **Resolution order** (`app/_lib/composio/external-effect.ts`):
 
@@ -52,7 +52,7 @@ A play is billable when **at least one tool it executed carries `external_effect
 2. Slug overrides — mailbox housekeeping is internal; drafts written into an external mailbox are external
 3. Risk class — `read` is internal, everything else is external, since Composio tools act on third-party systems by definition
 
-The fallback direction is toward *not* billing. See [Billing & Metering](./billing-metering.md) for how the ledger consumes this and [Pricing Proposal §1](../reference/pricing-proposal-tiered-plays.md) for the business rules it implements.
+The fallback direction is toward _not_ billing. See [Billing & Metering](./billing-metering.md) for how the ledger consumes this and [Pricing Proposal §1](../reference/pricing-proposal-tiered-plays.md) for the business rules it implements.
 
 ---
 
@@ -71,9 +71,9 @@ interface UpdateFieldInput {
   entityId: string;
   field: string;
   value: string;
-  confidence: number;          // 0-100
-  because: string;             // Human-readable reason
-  source: "playbook" | "ask_salt" | "manual" | "enrichment";
+  confidence: number; // 0-100
+  because: string; // Human-readable reason
+  source: "care" | "playbook" | "ask_salt" | "manual" | "enrichment" | "cron";
   evidenceChain?: EvidenceChainItem[];
 }
 
@@ -86,13 +86,17 @@ interface UpdateFieldResult {
 }
 ```
 
-**Protection:**
-- Checks `confidence >= workspaceThreshold` (default 85%)
-- Ask-first fields always require approval
-- First-time classifications require approval
-- Destructive value changes require approval
+**Protection (tiered bars — approvals are retired from the learn layer):**
+
+- Standard fields: `confidence >= workspaceThreshold` (`workspaces.memory_care_auto_apply_threshold`, default 85)
+- Sensitive classifications (industry, relationship type, first-time classifications): higher bar (95)
+- Destructive value changes: highest bar + pre-operation snapshot for rollback
+- Never-touch fields (billing `total`/`amount_paid`, money fields): never auto-written at any confidence — hard rule, not a queue
+
+See [Memory Care](./memory-care.md) for the full decision-pipeline model.
 
 **Audit:**
+
 - Creates provenance record with evidence chain
 - Stores `previous_value` for rollback
 - Logs to `entity_evidence` table
@@ -138,7 +142,7 @@ interface RollbackFieldInput {
   entityType: LearningEntityType;
   entityId: string;
   field: string;
-  toProvenanceId?: string;  // Specific version, or latest-1 if omitted
+  toProvenanceId?: string; // Specific version, or latest-1 if omitted
   reason: string;
 }
 ```
@@ -168,47 +172,47 @@ Located in `app/_lib/composio/tool-policy-registry.ts`.
 
 ### Gmail
 
-| Tool | Risk | Approval | Purpose |
-|------|------|----------|---------|
-| `GMAIL_SEND_EMAIL` | mutating | Required | Send email |
-| `GMAIL_CREATE_DRAFT` | mutating | Not required | Create draft (invisible until user sends) |
-| `GMAIL_LIST_MESSAGES` | read | Auto | List inbox messages |
-| `GMAIL_GET_MESSAGE` | read | Auto | Get single message |
-| `GMAIL_LIST_LABELS` | read | Auto | List labels |
+| Tool                  | Risk     | Approval     | Purpose                                   |
+| --------------------- | -------- | ------------ | ----------------------------------------- |
+| `GMAIL_SEND_EMAIL`    | mutating | Required     | Send email                                |
+| `GMAIL_CREATE_DRAFT`  | mutating | Not required | Create draft (invisible until user sends) |
+| `GMAIL_LIST_MESSAGES` | read     | Auto         | List inbox messages                       |
+| `GMAIL_GET_MESSAGE`   | read     | Auto         | Get single message                        |
+| `GMAIL_LIST_LABELS`   | read     | Auto         | List labels                               |
 
 ### Google Calendar
 
-| Tool | Risk | Approval | Purpose |
-|------|------|----------|---------|
-| `GOOGLECALENDAR_CREATE_EVENT` | mutating | Required | Create calendar event |
-| `GOOGLECALENDAR_LIST_EVENTS` | read | Auto | List events |
-| `GOOGLECALENDAR_UPDATE_EVENT` | mutating | Required | Update event |
-| `GOOGLECALENDAR_DELETE_EVENT` | destructive | Blocked | Delete event |
+| Tool                          | Risk        | Approval | Purpose               |
+| ----------------------------- | ----------- | -------- | --------------------- |
+| `GOOGLECALENDAR_CREATE_EVENT` | mutating    | Required | Create calendar event |
+| `GOOGLECALENDAR_LIST_EVENTS`  | read        | Auto     | List events           |
+| `GOOGLECALENDAR_UPDATE_EVENT` | mutating    | Required | Update event          |
+| `GOOGLECALENDAR_DELETE_EVENT` | destructive | Blocked  | Delete event          |
 
 ### Google Drive
 
-| Tool | Risk | Approval | Purpose |
-|------|------|----------|---------|
-| `GOOGLEDRIVE_FIND_FILE` | read | Auto | Search files |
-| `GOOGLEDRIVE_LIST_FILES` | read | Auto | List files |
-| `GOOGLEDRIVE_GET_FILE_METADATA` | read | Auto | Get file info |
-| `GOOGLEDRIVE_MOVE_FILE` | mutating | Required | Move file |
-| `GOOGLEDRIVE_CREATE_FOLDER` | mutating | Required | Create folder |
-| `GOOGLEDRIVE_COPY_FILE` | mutating | Required | Copy file |
-| `GOOGLEDRIVE_DELETE_FILE` | destructive | Blocked | Delete file |
-| `GOOGLEDRIVE_SHARE_FILE` | destructive | Blocked | Share file (exfiltration risk) |
+| Tool                            | Risk        | Approval | Purpose                        |
+| ------------------------------- | ----------- | -------- | ------------------------------ |
+| `GOOGLEDRIVE_FIND_FILE`         | read        | Auto     | Search files                   |
+| `GOOGLEDRIVE_LIST_FILES`        | read        | Auto     | List files                     |
+| `GOOGLEDRIVE_GET_FILE_METADATA` | read        | Auto     | Get file info                  |
+| `GOOGLEDRIVE_MOVE_FILE`         | mutating    | Required | Move file                      |
+| `GOOGLEDRIVE_CREATE_FOLDER`     | mutating    | Required | Create folder                  |
+| `GOOGLEDRIVE_COPY_FILE`         | mutating    | Required | Copy file                      |
+| `GOOGLEDRIVE_DELETE_FILE`       | destructive | Blocked  | Delete file                    |
+| `GOOGLEDRIVE_SHARE_FILE`        | destructive | Blocked  | Share file (exfiltration risk) |
 
 ### Stripe (User's Account)
 
-| Tool | Risk | Approval | Purpose |
-|------|------|----------|---------|
-| `STRIPE_LIST_CUSTOMERS` | read | Auto | List customers |
-| `STRIPE_RETRIEVE_CUSTOMER` | read | Auto | Get customer |
-| `STRIPE_LIST_INVOICES` | read | Auto | List invoices |
-| `STRIPE_CREATE_CUSTOMER` | mutating | Required | Create customer |
-| `STRIPE_CREATE_INVOICE` | mutating | Required | Create draft invoice |
-| `STRIPE_CREATE_REFUND` | mutating | Required | Create refund |
-| `STRIPE_DELETE_CUSTOMER` | destructive | Blocked | Delete customer |
+| Tool                       | Risk        | Approval | Purpose              |
+| -------------------------- | ----------- | -------- | -------------------- |
+| `STRIPE_LIST_CUSTOMERS`    | read        | Auto     | List customers       |
+| `STRIPE_RETRIEVE_CUSTOMER` | read        | Auto     | Get customer         |
+| `STRIPE_LIST_INVOICES`     | read        | Auto     | List invoices        |
+| `STRIPE_CREATE_CUSTOMER`   | mutating    | Required | Create customer      |
+| `STRIPE_CREATE_INVOICE`    | mutating    | Required | Create draft invoice |
+| `STRIPE_CREATE_REFUND`     | mutating    | Required | Create refund        |
+| `STRIPE_DELETE_CUSTOMER`   | destructive | Blocked  | Delete customer      |
 
 **Note:** `STRIPE_CREATE_INVOICE` has `auto_advance` pinned to `false`. Salt only creates draft invoices — they become customer-visible only when the user finalizes in Stripe.
 
@@ -227,7 +231,7 @@ interface EnrichInput {
   workspaceId: string;
   entityType: "person" | "organization" | "work";
   entityId: string;
-  seed: Record<string, unknown>;  // Starting data (name, email, etc.)
+  seed: Record<string, unknown>; // Starting data (name, email, etc.)
 }
 
 interface EnrichResult {
@@ -241,6 +245,7 @@ interface EnrichResult {
 ```
 
 **Behavior:**
+
 - Queries connected providers in priority order (waterfall)
 - Returns enriched data with confidence scores
 - Does NOT apply changes (caller uses `memory_update_field`)
@@ -268,9 +273,14 @@ interface ApplyEnrichmentResult {
 
 ---
 
-## Voice Tools
+## Voice Tools (Future — Not Implemented)
 
-Voice tools ensure consistent brand voice across all Salt outputs.
+> **Aspirational design.** None of these tools exist in the codebase yet
+> (`app/_lib/voice/` is not implemented). Today, voice guidance lives inline in
+> playbook `instructions` / draft prompts. Do not reference these tools from
+> playbook definitions.
+
+Voice tools would ensure consistent brand voice across all Salt outputs.
 
 ### get_voice_profile
 
@@ -280,43 +290,44 @@ Returns context-aware brand voice settings.
 interface GetVoiceInput {
   workspaceId: string;
   context: VoiceContext;
-  recipientId?: string;      // For relationship-aware tone
+  recipientId?: string; // For relationship-aware tone
   recipientType?: "person" | "organization";
   urgency?: "low" | "normal" | "high";
 }
 
-type VoiceContext = 
-  | "billing"      // Invoice reminders, payment requests
-  | "follow-up"    // Check-ins, status updates
-  | "celebration"  // Wins, milestones, thank-yous
-  | "reminder"     // Gentle nudges, deadline alerts
-  | "brief"        // Daily briefings, summaries
-  | "proposal"     // Quotes, proposals, pitches
-  | "onboarding"   // Welcome, setup instructions
-  | "support";     // Help, troubleshooting
+type VoiceContext =
+  | "billing" // Invoice reminders, payment requests
+  | "follow-up" // Check-ins, status updates
+  | "celebration" // Wins, milestones, thank-yous
+  | "reminder" // Gentle nudges, deadline alerts
+  | "brief" // Daily briefings, summaries
+  | "proposal" // Quotes, proposals, pitches
+  | "onboarding" // Welcome, setup instructions
+  | "support"; // Help, troubleshooting
 
 interface VoiceProfile {
-  tone: string;              // e.g., "warm but direct"
+  tone: string; // e.g., "warm but direct"
   formality: "casual" | "professional" | "formal";
-  personality: string[];     // e.g., ["helpful", "confident", "concise"]
-  avoid: string[];           // e.g., ["legal jargon", "exclamation marks"]
-  prefer: string[];          // e.g., ["active voice", "contractions OK"]
-  maxLength?: number;        // Word limit for this context
-  signature: string;         // How to sign off
-  greeting?: string;         // How to open
-  examples: VoiceExample[];  // Real examples for this context
+  personality: string[]; // e.g., ["helpful", "confident", "concise"]
+  avoid: string[]; // e.g., ["legal jargon", "exclamation marks"]
+  prefer: string[]; // e.g., ["active voice", "contractions OK"]
+  maxLength?: number; // Word limit for this context
+  signature: string; // How to sign off
+  greeting?: string; // How to open
+  examples: VoiceExample[]; // Real examples for this context
 }
 
 interface VoiceExample {
   label: string;
   content: string;
-  context?: string;          // When to use this example
+  context?: string; // When to use this example
 }
 ```
 
 **Risk class:** `read` (no mutations)
 
 **Behavior:**
+
 1. Load workspace voice settings from `workspace_settings.voice_profile`
 2. Load operator voice from `profiles.voice_settings`
 3. Merge with context-specific defaults
@@ -324,6 +335,7 @@ interface VoiceExample {
 5. Return combined profile
 
 **Voice Inheritance:**
+
 ```
 Workspace defaults → Operator overrides → Context adjustments → Recipient adjustments
 ```
@@ -331,6 +343,7 @@ Workspace defaults → Operator overrides → Context adjustments → Recipient 
 **Implementation location:** `app/_lib/voice/` (to be created)
 
 **Data sources:**
+
 - `workspace_settings.voice_profile` — Business-level voice
 - `profiles.voice_settings` — Operator personal voice
 - `voice_contexts` table — Per-context overrides
@@ -350,13 +363,18 @@ interface ApplyVoiceInput {
 
 interface ApplyVoiceResult {
   rewritten: string;
-  changes: string[];  // What was adjusted
+  changes: string[]; // What was adjusted
 }
 ```
 
 ---
 
-## Notification Tools
+## Notification Tools (Future — Not Implemented)
+
+> **Aspirational design.** There is no `notify` tool today. Playbooks surface
+> notifications declaratively via `output.type: notification` — the executor
+> creates the queue card / HQ inbox entry. Do not reference `notify` from
+> playbook definitions.
 
 ### notify
 
@@ -384,10 +402,10 @@ Tools are protected at call time, not at playbook definition time:
 // In tool-policy.ts
 export function assertComposioToolAllowed(
   toolSlug: string,
-  options?: ComposioToolAllowOptions,
+  options?: ComposioToolAllowOptions
 ): ComposioToolPolicy {
   const policy = getComposioToolPolicy(toolSlug);
-  
+
   if (!policy) {
     throw new Error(`Tool not approved: ${toolSlug}`);
   }
@@ -524,7 +542,7 @@ if (conflicts.length > 0) {
     body: formatConflicts(conflicts),
     priority: "high",
     entityRef: { type: "person", id: personId },
-    actions: conflicts[0].candidates.map(c => ({
+    actions: conflicts[0].candidates.map((c) => ({
       label: `Use "${c.value}"`,
       action: `resolve_${c.value}`,
     })),
@@ -581,6 +599,7 @@ if (incomplete.length > 0 || stale.length > 0) {
 4. **Document:** Update this file with the new tool
 
 **Checklist for new tools:**
+
 - [ ] Risk class defined (`read` / `mutating` / `destructive`)
 - [ ] `external_effect` confirmed — the heuristic default is correct for most tools, but override it in `external-effect.ts` when the tool is housekeeping inside the user's own account
 - [ ] Input validation (Zod schema)

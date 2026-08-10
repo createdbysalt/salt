@@ -1,5 +1,15 @@
 import { describe, it, expect } from "vitest";
 import { createEmailCategoryAdapter, getEmailAdapter } from "./email";
+import { runAdapterConformance } from "../adapter-conformance";
+
+const GENERIC_EMAIL_MESSAGE = {
+  id: "pm-msg-001",
+  subject: "Re: Proposal feedback",
+  from: "Rita Alvarez <rita@clientco.com>",
+  snippet: "Loved the direction — a few notes inline.",
+  date: "2026-08-07T15:30:00Z",
+  threadId: "pm-thread-9",
+};
 
 describe("email category adapter", () => {
   describe("getEmailAdapter", () => {
@@ -164,6 +174,82 @@ describe("email category adapter", () => {
     it("returns null for invalid payload", () => {
       expect(adapter.normalize(null)).toBeNull();
       expect(adapter.normalize({})).toBeNull();
+    });
+
+    it("populates raw.headers from internetMessageHeaders (2.7 marketing-gate parity)", () => {
+      const payload = {
+        id: "outlook-msg-mkt",
+        subject: "50% off everything!",
+        bodyPreview: "Deals deals deals",
+        from: { emailAddress: { address: "promo@shop.com", name: "Shop" } },
+        toRecipients: [],
+        conversationId: "conv-mkt",
+        receivedDateTime: "2026-08-08T10:00:00Z",
+        internetMessageHeaders: [
+          { name: "List-Unsubscribe", value: "<mailto:unsub@shop.com>" },
+          { name: "Precedence", value: "bulk" },
+          { name: "X-Irrelevant", value: "dropped" },
+        ],
+      };
+
+      const envelope = adapter.normalize(payload);
+
+      expect(envelope?.raw.headers).toEqual({
+        "List-Unsubscribe": "<mailto:unsub@shop.com>",
+        Precedence: "bulk",
+      });
+    });
+
+    it("omits header values when Graph payload carries none (no false gating)", () => {
+      const payload = {
+        id: "outlook-msg-plain",
+        subject: "Hi",
+        bodyPreview: "Quick question",
+        from: { emailAddress: { address: "human@client.com", name: "Client" } },
+        toRecipients: [],
+        conversationId: "conv-plain",
+        receivedDateTime: "2026-08-08T10:00:00Z",
+      };
+
+      const envelope = adapter.normalize(payload);
+      expect(envelope?.raw.headers).toEqual({});
+    });
+  });
+
+  describe("generic provider normalization (long tail)", () => {
+    const adapter = createEmailCategoryAdapter("protonmail");
+
+    it("passes conformance (golden fixture)", () => {
+      runAdapterConformance(adapter, [
+        {
+          name: "generic message",
+          payload: GENERIC_EMAIL_MESSAGE,
+          expectExternalId: "pm-msg-001",
+        },
+        { name: "no id", payload: { subject: "?" }, expectExternalId: null },
+      ]);
+    });
+
+    it("normalizes a generic payload with gate-ready noise input", () => {
+      const envelope = adapter.normalize(GENERIC_EMAIL_MESSAGE);
+
+      expect(envelope).not.toBeNull();
+      expect(envelope?.sourceType).toBe("protonmail");
+      expect(envelope?.captureType).toBe("message");
+      expect(envelope?.title).toBe("Re: Proposal feedback");
+      expect(envelope?.threadId).toBe("pm-thread-9");
+      expect(envelope?.participants[0].email).toBe("rita@clientco.com");
+      expect(envelope?.participants[0].name).toBe("Rita Alvarez");
+      expect(envelope?.extracted.is_reply).toBe(true);
+      // Message captures must consult the noise gate — generic providers get
+      // the same gate inputs as known ones (was noise:null, a conformance
+      // violation).
+      expect(envelope?.noise).toEqual({
+        sourceType: "protonmail",
+        fromEmail: "rita@clientco.com",
+        subject: "Re: Proposal feedback",
+        isSentByUser: false,
+      });
     });
   });
 

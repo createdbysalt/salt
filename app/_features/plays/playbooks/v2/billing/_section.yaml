@@ -14,7 +14,7 @@ signals:
   - billing_amount_paid_covers_total
 
 templates:
-  - keeper
+  - memory
   - invoice-reminder
   - payment-received
   - cash-runway

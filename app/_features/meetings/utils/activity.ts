@@ -169,14 +169,14 @@ export function mapNoteToActivityEntry(
     note.source === "ai_inference";
 
   let label: string;
-  let kind: "user" | "keeper" | "system";
+  let kind: "user" | "salt" | "system";
 
   if (isUserNote) {
     label = "You added a note";
     kind = "user";
   } else if (isSaltNote) {
     label = note.source === "ai_capture" ? "Salt captured a note" : "Salt added a note";
-    kind = "keeper";
+    kind = "salt";
   } else {
     label = "Note added";
     kind = "system";

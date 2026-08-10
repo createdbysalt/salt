@@ -5,7 +5,7 @@
  * Fellegi-Sunter log-odds scoring.
  */
 
-import type { IntakeEntityType } from "@/app/_features/plays/playbooks/v2/_meta/memory-records/scripts";
+import type { IntakeEntityType } from "@/app/_features/memory/care/intake";
 
 export type EvidenceStatus = "watching" | "suggested" | "created" | "dismissed";
 

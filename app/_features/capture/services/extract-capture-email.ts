@@ -32,7 +32,9 @@ function parseToEmails(toHeader: string): string[] {
     .filter(Boolean) as string[];
 }
 
-function getGmailHeaders(rawPayload: Record<string, unknown>): Array<{ name: string; value: string }> {
+function getGmailHeaders(
+  rawPayload: Record<string, unknown>
+): Array<{ name: string; value: string }> {
   const nestedPayload = rawPayload.payload as Record<string, unknown> | undefined;
   const headers =
     (nestedPayload?.headers as Array<{ name: string; value: string }> | undefined) ??
@@ -106,9 +108,7 @@ function fromExtractedData(
  * sender_email/snippet/isSentByUser — with no `type` discriminant and, for
  * non-Gmail sources, a raw_payload that carries no headers to fall back on.
  */
-function fromAdapterExtracted(
-  extracted: Record<string, unknown>
-): CaptureEmailFields | null {
+function fromAdapterExtracted(extracted: Record<string, unknown>): CaptureEmailFields | null {
   const senderEmail =
     typeof extracted.sender_email === "string" && extracted.sender_email.trim()
       ? extracted.sender_email.trim().toLowerCase()
@@ -129,7 +129,13 @@ function fromAdapterExtracted(
     to_emails: toEmails.map((e) => e.trim().toLowerCase()),
     subject: typeof extracted.subject === "string" ? extracted.subject : "",
     snippet,
-    body_text: snippet || null,
+    // Inline backfill analysis (Sources plan 3.4) attaches the transient full
+    // body to the in-memory row only — it is never persisted. Prefer it over
+    // the snippet fallback when present.
+    body_text:
+      typeof extracted.body_text === "string" && extracted.body_text
+        ? extracted.body_text
+        : snippet || null,
     sent_at: new Date().toISOString(),
     thread_id: typeof extracted.thread_id === "string" ? extracted.thread_id : "",
     is_sent_by_user: extracted.isSentByUser === true,
@@ -175,9 +181,7 @@ export function extractCaptureEmailFields(
   }
 
   if (extractedData && typeof extractedData === "object") {
-    const fromAdapter = fromAdapterExtracted(
-      extractedData as unknown as Record<string, unknown>
-    );
+    const fromAdapter = fromAdapterExtracted(extractedData as unknown as Record<string, unknown>);
     if (fromAdapter) return fromAdapter;
   }
 

@@ -21,7 +21,7 @@ Mirrors skill-creator's metadata → body → bundled resources model:
 
 **Copy rules:** Do not use "JSON", "assertion", or "definition" in levels 1–2. Say "steps", "checks", "recipe".
 
-## Recipe card (Customize → Playbooks)
+## Recipe card (Plays → Playbooks)
 
 Each blueprint card shows:
 
@@ -49,7 +49,7 @@ Icons for connectors implied by `required_actions` (Gmail, Stripe, …) — same
 When a play run references a template:
 
 - Footer: `{Player} · {Playbook name}` (real template name, not placeholder "Playbook").
-- Expand: "Uses the Quiet Lead Nudge recipe" linking to Customize detail.
+- Expand: "Uses the Quiet Lead Nudge recipe" linking to the playbook detail.
 - Reliability pill optional on expanded view.
 
 ## Improvement review card

@@ -3,7 +3,7 @@
 /**
  * Correction Learning Actions
  *
- * Handles user corrections to keeper auto-executes. Three paths:
+ * Handles user corrections to Memory Care auto-applies. Three paths:
  * 1. Quick undo: minimal signal, small penalty
  * 2. Structured reason: predefined categories, medium penalty
  * 3. Conversational: Ask Salt explanation, full context learning
@@ -12,9 +12,10 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/app/_lib/supabase/server";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import type { Json } from "@/app/_lib/supabase/database.types";
 import { getTenantContext } from "@/app/_features/auth/queries";
-import { resolveEvidence } from "@/app/_features/plays/playbooks/evidence-accumulator";
-import type { KeeperEntityType } from "@/app/_features/plays/playbooks/evidence-accumulator";
+import { resolveEvidence, type LearningEntityType } from "@/app/_lib/learning";
+import { incrementReflectionTrigger } from "@/app/_features/memory/care/reflection/triggers";
 
 // ============================================================================
 // Types
@@ -35,7 +36,7 @@ export interface CorrectionEventRow {
   id: string;
   workspace_id: string;
   learning_id: string | null;
-  entity_type: KeeperEntityType;
+  entity_type: LearningEntityType;
   entity_id: string;
   field_path: string;
   wrong_value: unknown;
@@ -53,7 +54,7 @@ export interface CorrectionEventRow {
 export interface RecordCorrectionInput {
   workspaceId: string;
   learningId?: string;
-  entityType: KeeperEntityType;
+  entityType: LearningEntityType;
   entityId: string;
   fieldPath: string;
   wrongValue: unknown;
@@ -61,6 +62,8 @@ export interface RecordCorrectionInput {
   correctionType: CorrectionType;
   correctionReason?: CorrectionReason;
   userExplanation?: string;
+  /** Signal source that produced the wrong value (for P8 reflection learning) */
+  signalSource?: string;
 }
 
 // ============================================================================
@@ -84,7 +87,7 @@ const BASE_PENALTIES: Record<CorrectionType, number> = {
  */
 export async function calculateConfidencePenalty(
   workspaceId: string,
-  entityType: KeeperEntityType,
+  entityType: LearningEntityType,
   entityId: string,
   fieldPath: string,
   correctionType: CorrectionType,
@@ -115,6 +118,59 @@ export async function calculateConfidencePenalty(
 }
 
 // ============================================================================
+// Signal Source Lookup
+// ============================================================================
+
+/**
+ * Look up the signal source from a learning's evidence.
+ * Uses the evidence_ids to find the most common source_type.
+ */
+async function lookupSignalSourceFromLearning(
+  admin: ReturnType<typeof createAdminClient>,
+  learningId: string
+): Promise<string | undefined> {
+  // Get the learning's evidence IDs
+  const { data: learning } = await admin
+    .from("salt_learnings")
+    .select("evidence_ids")
+    .eq("id", learningId)
+    .single();
+
+  if (!learning?.evidence_ids || learning.evidence_ids.length === 0) {
+    return undefined;
+  }
+
+  // Get the source types from the evidence
+  const { data: evidence } = await admin
+    .from("entity_evidence")
+    .select("source_type")
+    .in("id", learning.evidence_ids);
+
+  if (!evidence || evidence.length === 0) {
+    return undefined;
+  }
+
+  // Return the most common source type
+  const sourceCounts = new Map<string, number>();
+  for (const e of evidence) {
+    if (e.source_type) {
+      sourceCounts.set(e.source_type, (sourceCounts.get(e.source_type) ?? 0) + 1);
+    }
+  }
+
+  let mostCommon: string | undefined;
+  let maxCount = 0;
+  for (const [source, count] of sourceCounts) {
+    if (count > maxCount) {
+      maxCount = count;
+      mostCommon = source;
+    }
+  }
+
+  return mostCommon;
+}
+
+// ============================================================================
 // Record Correction
 // ============================================================================
 
@@ -141,6 +197,12 @@ export async function recordCorrection(
     input.correctionType,
   );
 
+  // Resolve signal source: prefer explicit, fall back to evidence lookup
+  let signalSource = input.signalSource;
+  if (!signalSource && input.learningId) {
+    signalSource = await lookupSignalSourceFromLearning(admin, input.learningId);
+  }
+
   // Insert correction event
   const { data: correction, error: insertError } = await admin
     .from("correction_events")
@@ -150,13 +212,16 @@ export async function recordCorrection(
       entity_type: input.entityType,
       entity_id: input.entityId,
       field_path: input.fieldPath,
-      wrong_value: input.wrongValue,
-      correct_value: input.correctValue ?? null,
+      // wrongValue/correctValue arrive as unknown from callers; the DB columns
+      // are jsonb, so narrow at the write boundary only.
+      wrong_value: input.wrongValue as Json,
+      correct_value: (input.correctValue ?? null) as Json,
       correction_type: input.correctionType,
       correction_reason: input.correctionReason ?? null,
       user_explanation: input.userExplanation ?? null,
       confidence_penalty: penalty,
       created_by: context.userId,
+      signal_source: signalSource ?? null,
     })
     .select("id")
     .single();
@@ -193,6 +258,25 @@ export async function recordCorrection(
     penalty,
   );
 
+  // P8: Increment reflection trigger for pattern-level learning
+  // This tracks corrections by signal_source+field_type to enable
+  // "Salt learned to be more careful about X for Y" adjustments
+  if (signalSource) {
+    const triggerResult = await incrementReflectionTrigger({
+      workspaceId: input.workspaceId,
+      signalSource,
+      fieldType: input.fieldPath,
+    });
+
+    // Log when threshold is crossed (reflection pass should run)
+    if (triggerResult.thresholdCrossed) {
+      console.log(
+        `[corrections] Reflection trigger crossed for ${triggerResult.category} ` +
+          `(${triggerResult.newCount} corrections)`
+      );
+    }
+  }
+
   revalidatePath("/me");
 
   return { id: correction.id, penaltyApplied: penalty };
@@ -204,7 +288,7 @@ export async function recordCorrection(
  */
 async function applyPenaltyToPendingEvidence(
   workspaceId: string,
-  entityType: KeeperEntityType,
+  entityType: LearningEntityType,
   entityId: string,
   fieldPath: string,
   penalty: number,
@@ -250,7 +334,7 @@ async function applyPenaltyToPendingEvidence(
 export async function recordQuickUndo(
   learningId: string,
   workspaceId: string,
-  entityType: KeeperEntityType,
+  entityType: LearningEntityType,
   entityId: string,
   fieldPath: string,
   wrongValue: unknown,
@@ -277,7 +361,7 @@ export async function recordQuickUndo(
 export async function recordStructuredCorrection(
   learningId: string,
   workspaceId: string,
-  entityType: KeeperEntityType,
+  entityType: LearningEntityType,
   entityId: string,
   fieldPath: string,
   wrongValue: unknown,
@@ -311,7 +395,7 @@ export async function recordStructuredCorrection(
 export async function recordConversationalCorrection(input: {
   workspaceId: string;
   learningId?: string;
-  entityType: KeeperEntityType;
+  entityType: LearningEntityType;
   entityId: string;
   fieldPath: string;
   wrongValue: unknown;
@@ -338,7 +422,7 @@ export async function recordConversationalCorrection(input: {
     await admin
       .from("correction_events")
       .update({
-        extracted_patterns: input.extractedPatterns ?? [],
+        extracted_patterns: (input.extractedPatterns ?? []) as Json,
         resulting_fact_id: input.resultingFactId ?? null,
       })
       .eq("id", result.id);
@@ -356,7 +440,7 @@ export async function recordConversationalCorrection(input: {
  */
 export async function getEntityCorrections(
   workspaceId: string,
-  entityType: KeeperEntityType,
+  entityType: LearningEntityType,
   entityId: string,
 ): Promise<CorrectionEventRow[]> {
   const supabase = await createClient();
@@ -378,7 +462,7 @@ export async function getEntityCorrections(
  */
 export async function getCorrectionCount(
   workspaceId: string,
-  entityType: KeeperEntityType,
+  entityType: LearningEntityType,
   entityId: string,
   fieldPath: string,
 ): Promise<number> {

@@ -51,12 +51,6 @@ import { ConnectorIcon } from "./connector-icons";
 import { ConnectorApiKeyConnectSection } from "./ConnectorApiKeyConnectSection";
 import { ConnectorConnectHelp } from "./ConnectorConnectHelp";
 import { usesInlineApiKeyConnect } from "../utils/inline-api-key-connect";
-import { ToolPermissionsToolbar } from "./detail/ToolPermissionsToolbar";
-import {
-  buildToolEmptyMessage,
-  shouldShowToolSection,
-  type ToolRiskFilter,
-} from "./detail/tool-risk-filter-control";
 
 interface ConnectorDetailModalProps {
   connectorId: ConnectorCatalogId | null;
@@ -64,13 +58,8 @@ interface ConnectorDetailModalProps {
   onOpenChange: (open: boolean) => void;
   data: ConnectorsPageData;
   loading: boolean;
-  savingPreferences: boolean;
   onConnect: (id: ConnectorCatalogId) => void;
   onDisconnect: (id: ConnectorCatalogId) => void;
-  onSaveToolPreferences: (
-    id: ConnectorCatalogId,
-    disabledTools: string[],
-  ) => Promise<boolean>;
 }
 
 interface ConnectorLink {
@@ -152,178 +141,37 @@ function getConnectorMeta(
   );
 }
 
-function filterCapabilities(
-  capabilities: ConnectorCapability[],
-  query: string,
-): ConnectorCapability[] {
-  const normalized = query.trim().toLowerCase();
-  if (!normalized) {
-    return capabilities;
-  }
-
-  return capabilities.filter(
-    (capability) =>
-      capability.label.toLowerCase().includes(normalized) ||
-      capability.description?.toLowerCase().includes(normalized),
-  );
-}
-
-function bulkCategoryState(
-  capabilities: ConnectorCapability[],
-  disabledTools: string[],
-): "allow" | "disable" | "mixed" {
-  const slugs = capabilities
-    .map((capability) => capability.toolSlug)
-    .filter((slug): slug is string => Boolean(slug));
-
-  if (slugs.length === 0) {
-    return "allow";
-  }
-
-  const disabledCount = slugs.filter((slug) => disabledTools.includes(slug)).length;
-  if (disabledCount === 0) {
-    return "allow";
-  }
-  if (disabledCount === slugs.length) {
-    return "disable";
-  }
-  return "mixed";
-}
-
-interface ToolAllowToggleProps {
-  enabled: boolean;
-  disabled?: boolean;
-  onChange: (enabled: boolean) => void;
-}
-
-function ToolAllowToggle({ enabled, disabled, onChange }: ToolAllowToggleProps) {
-  return (
-    <div
-      className={cn(
-        "flex shrink-0 rounded-lg border border-border/70 bg-muted/30 p-0.5",
-        disabled && "opacity-50",
-      )}
-    >
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => onChange(false)}
-        className={cn(
-          "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-          !enabled
-            ? "bg-background text-foreground shadow-sm"
-            : "text-muted-foreground hover:text-foreground",
-        )}
-      >
-        Disable
-      </button>
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => onChange(true)}
-        className={cn(
-          "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-          enabled
-            ? "bg-background text-foreground shadow-sm"
-            : "text-muted-foreground hover:text-foreground",
-        )}
-      >
-        Allow
-      </button>
-    </div>
-  );
-}
-
 interface ToolCategorySectionProps {
   title: string;
   capabilities: ConnectorCapability[];
-  disabledTools: string[];
-  canManageTools: boolean;
-  controlsDisabled: boolean;
-  onBulkChange: (slugs: string[], enabled: boolean) => void;
-  onToolChange: (toolSlug: string, enabled: boolean) => void;
 }
 
 function ToolCategorySection({
   title,
   capabilities,
-  disabledTools,
-  canManageTools,
-  controlsDisabled,
-  onBulkChange,
-  onToolChange,
 }: ToolCategorySectionProps) {
   if (capabilities.length === 0) {
     return null;
   }
 
-  const slugs = capabilities
-    .map((capability) => capability.toolSlug)
-    .filter((slug): slug is string => Boolean(slug));
-  const bulkState = bulkCategoryState(capabilities, disabledTools);
-  const bulkLabel =
-    bulkState === "mixed" ? "Mixed" : bulkState === "allow" ? "Allow" : "Disable";
-
   return (
     <section className="rounded-xl border border-border/70">
       <div className="flex items-center justify-between gap-3 border-b border-border/70 bg-muted/20 px-4 py-2.5">
         <h4 className="text-sm font-medium text-foreground">{title}</h4>
-        {slugs.length > 0 && canManageTools ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-7 gap-1 rounded-lg px-2.5 text-xs"
-                disabled={controlsDisabled}
-              >
-                {bulkLabel}
-                <ChevronDown className="size-3.5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onBulkChange(slugs, true)}>
-                Allow all
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onBulkChange(slugs, false)}>
-                Disable all
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ) : null}
       </div>
 
       <ul className="divide-y divide-border/60">
-        {capabilities.map((capability) => {
-          const toolSlug = capability.toolSlug;
-          const enabled = toolSlug ? !disabledTools.includes(toolSlug) : true;
-          const rowControlsDisabled =
-            controlsDisabled || !toolSlug || !canManageTools;
-
-          return (
-            <li
-              key={capability.id}
-              className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_auto] items-center gap-4 px-4 py-2"
-            >
-              <p className="text-sm font-medium text-foreground">{capability.label}</p>
-              <p className="text-sm text-muted-foreground">
-                {capability.description ?? "—"}
-              </p>
-              {toolSlug ? (
-                <ToolAllowToggle
-                  enabled={enabled}
-                  disabled={rowControlsDisabled}
-                  onChange={(nextEnabled) => onToolChange(toolSlug, nextEnabled)}
-                />
-              ) : (
-                <span className="rounded-lg border border-border/60 bg-muted/20 px-3 py-1.5 text-xs text-muted-foreground">
-                  Included
-                </span>
-              )}
-            </li>
-          );
-        })}
+        {capabilities.map((capability) => (
+          <li
+            key={capability.id}
+            className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] items-center gap-4 px-4 py-2"
+          >
+            <p className="text-sm font-medium text-foreground">{capability.label}</p>
+            <p className="text-sm text-muted-foreground">
+              {capability.description ?? "—"}
+            </p>
+          </li>
+        ))}
       </ul>
     </section>
   );
@@ -335,10 +183,8 @@ export function ConnectorDetailModal({
   onOpenChange,
   data,
   loading,
-  savingPreferences,
   onConnect,
   onDisconnect,
-  onSaveToolPreferences,
 }: ConnectorDetailModalProps) {
   const definitionsById = React.useMemo(() => catalogById(data.catalog), [data.catalog]);
   const definition = connectorId ? definitionsById[connectorId] ?? null : null;
@@ -350,13 +196,7 @@ export function ConnectorDetailModal({
   );
   const capabilities =
     dbTools ?? (connectorId ? getConnectorCapabilities(connectorId) : null);
-  const serverDisabledTools =
-    (connectorId && data.disabledToolsByConnector[connectorId]) ?? [];
 
-  const [localDisabledTools, setLocalDisabledTools] =
-    React.useState<string[]>(serverDisabledTools);
-  const [toolQuery, setToolQuery] = React.useState("");
-  const [toolRiskFilter, setToolRiskFilter] = React.useState<ToolRiskFilter>("all");
   const [panelTab, setPanelTab] = React.useState<"tools" | "activity">("tools");
   const [activity, setActivity] = React.useState<ConnectorActivityEntry[] | null>(null);
   const [activityLoading, setActivityLoading] = React.useState(false);
@@ -383,17 +223,6 @@ export function ConnectorDetailModal({
   React.useEffect(() => {
     setLocalTrustSettings(serverTrustSettings);
   }, [connectorId, serverTrustSettings?.trustLevel, serverTrustSettings?.emailMode]);
-
-  React.useEffect(() => {
-    setLocalDisabledTools(serverDisabledTools);
-  }, [connectorId, serverDisabledTools.join("|")]);
-
-  React.useEffect(() => {
-    if (!open) {
-      setToolQuery("");
-      setToolRiskFilter("all");
-    }
-  }, [open]);
 
   React.useEffect(() => {
     setPanelTab("tools");
@@ -456,59 +285,19 @@ export function ConnectorDetailModal({
     definition.name,
     definition.description,
   );
-  // Any connector whose tool list carries real slugs supports per-tool
-  // toggles (DB-driven; static curated lists qualify too).
-  const hasToggleableTools = [...capabilities.read, ...capabilities.write].some(
-    (capability) => Boolean(capability.toolSlug),
-  );
-  const canManageTools = hasToggleableTools && (status?.connected ?? false);
   const inlineApiKeyConnect = definition
     ? usesInlineApiKeyConnect(definition)
     : false;
+  const browseOnly = definition.tier === "catalog_only";
   const showConnectCta =
-    !definition.comingSoon && !status?.connected && !inlineApiKeyConnect;
+    !definition.comingSoon && !browseOnly && !status?.connected && !status?.needsReconnect && !inlineApiKeyConnect;
+  // Reconnect runs the same connect flow: OAuth re-auth, then
+  // setCaptureState re-registers trigger subscriptions (connections.ts).
+  const showReconnectCta =
+    !definition.comingSoon && !browseOnly && Boolean(status?.needsReconnect) && !inlineApiKeyConnect;
   const showDisconnectCta = status?.connected && !definition.comingSoon;
-  const controlsDisabled = savingPreferences || loading;
   const hasToolSections =
     capabilities.read.length > 0 || capabilities.write.length > 0;
-
-  const filteredRead = filterCapabilities(capabilities.read, toolQuery);
-  const filteredWrite = filterCapabilities(capabilities.write, toolQuery);
-  const readCount = capabilities.read.length;
-  const writeCount = capabilities.write.length;
-  const showFilteredRead = shouldShowToolSection(
-    toolRiskFilter,
-    "read",
-    filteredRead.length,
-  );
-  const showFilteredWrite = shouldShowToolSection(
-    toolRiskFilter,
-    "write",
-    filteredWrite.length,
-  );
-  const noVisibleTools = !showFilteredRead && !showFilteredWrite;
-
-  const persistDisabledTools = async (nextDisabled: string[]) => {
-    setLocalDisabledTools(nextDisabled);
-    const ok = await onSaveToolPreferences(connectorId, nextDisabled);
-    if (!ok) {
-      setLocalDisabledTools(serverDisabledTools);
-    }
-  };
-
-  const handleToolChange = async (toolSlug: string, enabled: boolean) => {
-    const nextDisabled = enabled
-      ? localDisabledTools.filter((slug) => slug !== toolSlug)
-      : [...new Set([...localDisabledTools, toolSlug])];
-    await persistDisabledTools(nextDisabled);
-  };
-
-  const handleBulkChange = async (slugs: string[], enabled: boolean) => {
-    const nextDisabled = enabled
-      ? localDisabledTools.filter((slug) => !slugs.includes(slug))
-      : [...new Set([...localDisabledTools, ...slugs])];
-    await persistDisabledTools(nextDisabled);
-  };
 
   const handleCaptureChange = async (enabled: boolean) => {
     if (!definition?.providerKey) {
@@ -599,14 +388,27 @@ export function ConnectorDetailModal({
                 {meta.tagline}
               </DialogDescription>
               <div className="flex flex-wrap items-center gap-2 pt-1">
-                {status?.connected ? (
+                {status?.needsReconnect ? (
+                  <span className="text-xs font-medium text-amber-600 dark:text-amber-400">
+                    Reconnect needed — connection expired
+                  </span>
+                ) : status?.connected ? (
                   <span className="text-xs font-medium text-success">Connected</span>
                 ) : definition.comingSoon ? (
                   <span className="text-xs text-muted-foreground">Coming soon</span>
+                ) : browseOnly ? (
+                  <span className="text-xs text-muted-foreground">Browse-only — not connectable yet</span>
                 ) : null}
-                {status?.connected && status.label ? (
+                {status?.connected && !status.needsReconnect && status.label ? (
                   <span className="truncate text-xs text-muted-foreground">
                     {status.label}
+                  </span>
+                ) : null}
+                {status?.connected && !status.needsReconnect ? (
+                  <span className="text-xs text-muted-foreground">
+                    {status.lastActivityAt
+                      ? `Last capture ${formatDistanceToNow(new Date(status.lastActivityAt), { addSuffix: true })}`
+                      : "Listening — no captures yet"}
                   </span>
                 ) : null}
               </div>
@@ -633,6 +435,24 @@ export function ConnectorDetailModal({
                 Disconnect
               </Button>
             ) : null}
+            {showReconnectCta ? (
+              <Button
+                type="button"
+                size="sm"
+                className="rounded-full px-4"
+                disabled={loading}
+                onClick={() => onConnect(connectorId)}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    Reconnecting
+                  </>
+                ) : (
+                  "Reconnect"
+                )}
+              </Button>
+            ) : null}
             {showConnectCta ? (
               <Button
                 type="button"
@@ -656,6 +476,11 @@ export function ConnectorDetailModal({
                 Coming soon
               </Button>
             ) : null}
+            {!definition.comingSoon && browseOnly && !status?.connected ? (
+              <Button type="button" size="sm" className="rounded-full px-4" disabled>
+                Browse-only
+              </Button>
+            ) : null}
           </div>
         </div>
 
@@ -673,13 +498,13 @@ export function ConnectorDetailModal({
               </ul>
             </section>
 
-            {hasToggleableTools ? (
+            {hasToolSections ? (
               <ConnectorPermissionsSection
                 isEmailProvider={connectorId === "google" || connectorId === "outlook"}
                 connected={Boolean(status?.connected)}
                 settings={localTrustSettings}
                 saving={savingTrust}
-                disabled={controlsDisabled || !status?.connected}
+                disabled={loading || !status?.connected}
                 onEmailModeChange={handleEmailModeChange}
               />
             ) : null}
@@ -690,7 +515,7 @@ export function ConnectorDetailModal({
                 connected={Boolean(status?.connected)}
                 enabled={localCaptureEnabled}
                 saving={savingCapture}
-                disabled={controlsDisabled || !status?.connected}
+                disabled={loading || !status?.connected}
                 onChange={handleCaptureChange}
               />
             ) : null}
@@ -762,23 +587,7 @@ export function ConnectorDetailModal({
                     Activity
                   </button>
                 </div>
-                {savingPreferences ? (
-                  <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
-                ) : null}
               </div>
-              {panelTab === "tools" && hasToolSections ? (
-                <ToolPermissionsToolbar
-                  variant="modal"
-                  toolQuery={toolQuery}
-                  onToolQueryChange={setToolQuery}
-                  toolRiskFilter={toolRiskFilter}
-                  onToolRiskFilterChange={setToolRiskFilter}
-                  readCount={readCount}
-                  writeCount={writeCount}
-                  filteredReadCount={filteredRead.length}
-                  filteredWriteCount={filteredWrite.length}
-                />
-              ) : null}
             </div>
 
             <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-6 py-3 pb-5">
@@ -796,42 +605,18 @@ export function ConnectorDetailModal({
                     <p className="text-sm text-muted-foreground">
                       Tool permissions will appear here once this connector is available.
                     </p>
-                  ) : noVisibleTools ? (
-                    <p className="text-sm text-muted-foreground">
-                      {buildToolEmptyMessage(toolRiskFilter, toolQuery)}
-                    </p>
                   ) : (
                     <>
-                      {showFilteredRead ? (
-                        <ToolCategorySection
-                          title="Read-only tools"
-                          capabilities={filteredRead}
-                          disabledTools={localDisabledTools}
-                          canManageTools={canManageTools}
-                          controlsDisabled={controlsDisabled}
-                          onBulkChange={handleBulkChange}
-                          onToolChange={handleToolChange}
-                        />
-                      ) : null}
-                      {showFilteredWrite ? (
-                        <ToolCategorySection
-                          title="Write / delete tools"
-                          capabilities={filteredWrite}
-                          disabledTools={localDisabledTools}
-                          canManageTools={canManageTools}
-                          controlsDisabled={controlsDisabled}
-                          onBulkChange={handleBulkChange}
-                          onToolChange={handleToolChange}
-                        />
-                      ) : null}
+                      <ToolCategorySection
+                        title="Read-only tools"
+                        capabilities={capabilities.read}
+                      />
+                      <ToolCategorySection
+                        title="Write / delete tools"
+                        capabilities={capabilities.write}
+                      />
                     </>
                   )}
-
-                  {hasToggleableTools && !canManageTools ? (
-                    <p className="text-xs text-muted-foreground">
-                      Connect {meta.displayName} to manage which tools Salt can use.
-                    </p>
-                  ) : null}
                 </>
               )}
             </div>

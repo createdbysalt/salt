@@ -19,6 +19,7 @@ import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { backgroundSpend, sendLlm } from "@/app/_lib/ai/gpt";
 import { runDailyScan, type DailyScanResult } from "./intelligence";
 import { runRelationshipDiscovery } from "./relationship-discovery";
+import { isDiscoveryDue } from "./discovery-cadence";
 
 const DEFAULT_LOOKBACK_HOURS = 48;
 const DEFAULT_MAX_WORKSPACES_PER_RUN = 50;
@@ -39,18 +40,12 @@ function envInt(name: string, fallback: number): number {
 
 function readBudget() {
   return {
-    maxWorkspaces: envInt(
-      "CAPTURE_INTELLIGENCE_MAX_WORKSPACES",
-      DEFAULT_MAX_WORKSPACES_PER_RUN
-    ),
+    maxWorkspaces: envInt("CAPTURE_INTELLIGENCE_MAX_WORKSPACES", DEFAULT_MAX_WORKSPACES_PER_RUN),
     maxEmailsPerWorkspace: envInt(
       "CAPTURE_INTELLIGENCE_MAX_EMAILS_PER_WORKSPACE",
       DEFAULT_MAX_EMAILS_PER_WORKSPACE
     ),
-    maxEmailsPerRun: envInt(
-      "CAPTURE_INTELLIGENCE_MAX_EMAILS_PER_RUN",
-      DEFAULT_MAX_EMAILS_PER_RUN
-    ),
+    maxEmailsPerRun: envInt("CAPTURE_INTELLIGENCE_MAX_EMAILS_PER_RUN", DEFAULT_MAX_EMAILS_PER_RUN),
   };
 }
 
@@ -64,6 +59,8 @@ export interface CaptureIntelligenceRunResult {
   totalSendersPromoted: number;
   /** Held senders that need a human decision (surfaced in the digest). */
   totalSendersNeedingConfirmation: number;
+  /** Workspaces whose discovery pass was skipped by the plan-tiered cadence (4.4). */
+  discoverySkippedCadence: number;
   /** True when the run stopped early because the email budget ran out. */
   budgetExhausted: boolean;
   failures: Array<{ workspaceId: string; error: string }>;
@@ -75,7 +72,7 @@ interface WorkspaceWithMember {
   userId: string;
 }
 
-function createLlmCall(workspaceId: string, userId: string) {
+export function createLlmCall(workspaceId: string, userId: string) {
   return async (systemPrompt: string, userPrompt: string): Promise<string> => {
     const result = await sendLlm(
       [
@@ -104,9 +101,7 @@ function createLlmCall(workspaceId: string, userId: string) {
  * Find workspaces that have capture-enabled integrations and need scanning.
  * Returns workspace + a user_id for LLM billing.
  */
-async function getWorkspacesWithCaptures(
-  maxWorkspaces: number
-): Promise<WorkspaceWithMember[]> {
+async function getWorkspacesWithCaptures(maxWorkspaces: number): Promise<WorkspaceWithMember[]> {
   const admin = createAdminClient();
 
   const { data: integrations, error: intError } = await admin
@@ -168,6 +163,62 @@ async function getWorkspacesWithCaptures(
 }
 
 /**
+ * Batch the two discovery-cadence gate inputs (4.4): subscription tier and
+ * the last-discovery stamp, one query each for the whole workspace set.
+ * Missing rows read as Starter / never-run — the cheaper cadence.
+ */
+async function getDiscoveryCadenceInputs(
+  workspaceIds: string[],
+): Promise<Map<string, { tier: string | null; lastDiscoveryAt: string | null }>> {
+  const admin = createAdminClient();
+  const inputs = new Map<string, { tier: string | null; lastDiscoveryAt: string | null }>();
+  if (workspaceIds.length === 0) return inputs;
+
+  const [{ data: subscriptions }, { data: settings }] = await Promise.all([
+    admin
+      .from("workspace_subscriptions")
+      .select("workspace_id, tier")
+      .in("workspace_id", workspaceIds),
+    admin
+      .from("workspace_capture_settings")
+      .select("workspace_id, last_discovery_at")
+      .in("workspace_id", workspaceIds),
+  ]);
+
+  const tierByWorkspace = new Map(
+    (subscriptions ?? []).map((row) => [row.workspace_id, row.tier] as const),
+  );
+  const stampByWorkspace = new Map(
+    (settings ?? []).map((row) => [row.workspace_id, row.last_discovery_at] as const),
+  );
+
+  for (const workspaceId of workspaceIds) {
+    inputs.set(workspaceId, {
+      tier: tierByWorkspace.get(workspaceId) ?? null,
+      lastDiscoveryAt: stampByWorkspace.get(workspaceId) ?? null,
+    });
+  }
+  return inputs;
+}
+
+/**
+ * Stamp a completed discovery pass. Advisory marker — a lost update costs at
+ * most one extra run, so a write failure only logs.
+ */
+async function stampDiscoveryRun(workspaceId: string, nowIso: string): Promise<void> {
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("workspace_capture_settings")
+    .upsert(
+      { workspace_id: workspaceId, last_discovery_at: nowIso },
+      { onConflict: "workspace_id" },
+    );
+  if (error) {
+    console.warn(`[capture-intelligence] discovery stamp failed for ${workspaceId}: ${error.message}`);
+  }
+}
+
+/**
  * Run a single workspace's intelligence scan.
  */
 async function scanWorkspace(
@@ -203,6 +254,7 @@ export async function runCaptureIntelligenceScan(options?: {
     totalPeopleResolved: 0,
     totalSendersPromoted: 0,
     totalSendersNeedingConfirmation: 0,
+    discoverySkippedCadence: 0,
     budgetExhausted: false,
     failures: [],
     durationMs: 0,
@@ -225,25 +277,42 @@ export async function runCaptureIntelligenceScan(options?: {
     return result;
   }
 
+  const cadenceInputs = await getDiscoveryCadenceInputs(
+    workspaces.map((w) => w.workspaceId),
+  );
+  const now = Date.now();
+
   for (const { workspaceId, userId } of workspaces) {
     // Relationship discovery runs regardless of the LLM email budget — it is
     // pure DB scoring, and held senders can qualify (e.g. you replied) even
-    // when there is no new mail to scan.
-    try {
-      const discovery = await runRelationshipDiscovery(workspaceId);
-      result.totalSendersPromoted += discovery.promoted;
-      result.totalSendersNeedingConfirmation += discovery.needsConfirmation;
-      if (discovery.errors.length > 0) {
+    // when there is no new mail to scan. It is Lane B work, though: the
+    // plan-tiered cadence (4.4) spaces it Starter 1x/day, paid 4x/day. The
+    // real-time fast path (promoteRepliedRecipients on outbound ingest) is
+    // Lane A and stays ungated.
+    const cadence = cadenceInputs.get(workspaceId) ?? {
+      tier: null,
+      lastDiscoveryAt: null,
+    };
+    if (isDiscoveryDue(cadence.tier, cadence.lastDiscoveryAt, now)) {
+      try {
+        const discovery = await runRelationshipDiscovery(workspaceId);
+        result.totalSendersPromoted += discovery.promoted;
+        result.totalSendersNeedingConfirmation += discovery.needsConfirmation;
+        if (discovery.errors.length > 0) {
+          result.failures.push({
+            workspaceId,
+            error: `discovery: ${discovery.errors.slice(0, 3).join("; ")}`,
+          });
+        }
+        await stampDiscoveryRun(workspaceId, new Date(now).toISOString());
+      } catch (error) {
         result.failures.push({
           workspaceId,
-          error: `discovery: ${discovery.errors.slice(0, 3).join("; ")}`,
+          error: `discovery: ${error instanceof Error ? error.message : "Unknown error"}`,
         });
       }
-    } catch (error) {
-      result.failures.push({
-        workspaceId,
-        error: `discovery: ${error instanceof Error ? error.message : "Unknown error"}`,
-      });
+    } else {
+      result.discoverySkippedCadence++;
     }
 
     // Hard stop once the run-level email budget is spent — remaining

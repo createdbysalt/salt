@@ -4,7 +4,6 @@ import { COMPOSIO_TOOL_SLUGS } from "./tool-slugs";
 import { executeComposioAction } from "./actions";
 import { createPlayRecord } from "@/app/_features/plays/lib/play-record";
 import {
-  ASK_SALT_PRELOAD_TOOL_SLUGS,
   composioToolNameAliases,
   resolveComposioToolName,
   wrapComposioToolsForAskSalt,
@@ -59,21 +58,6 @@ describe("wrapComposioToolsForAskSalt", () => {
     });
 
     expect(wrapped).toEqual({});
-  });
-
-  it("never registers workspace-disabled tools", () => {
-    const wrapped = wrapComposioToolsForAskSalt(
-      {
-        [COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL]: makeTool(),
-        [COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES]: makeTool(),
-      },
-      { disabledTools: [COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL] },
-    );
-
-    expect(Object.keys(wrapped)).toEqual(
-      expect.arrayContaining([COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES]),
-    );
-    expect(Object.keys(wrapped)).toHaveLength(2);
   });
 
   it("requires approval for mutating tools but not read tools (act_with_approval mode)", () => {
@@ -266,23 +250,6 @@ describe("trust ladder and email mode", () => {
     );
 
     expect(wrapped[COMPOSIO_TOOL_SLUGS.GMAIL_SEND_EMAIL]?.needsApproval).toBe(true);
-  });
-});
-
-describe("ASK_SALT_PRELOAD_TOOL_SLUGS", () => {
-  it("only contains slugs for allowlisted per-app toolkits", () => {
-    expect(ASK_SALT_PRELOAD_TOOL_SLUGS.length).toBeGreaterThan(0);
-    for (const slug of ASK_SALT_PRELOAD_TOOL_SLUGS) {
-      expect(slug).toMatch(
-        /^(GMAIL_|GOOGLECALENDAR_|GOOGLEDRIVE_|GOOGLEDOCS_|GOOGLESHEETS_|GOOGLESLIDES_|STRIPE_|CAL_|OUTLOOK_|SLACK_|HUBSPOT_|QUICKBOOKS_|CALENDLY_|DROPBOX_|NOTION_)/,
-      );
-    }
-  });
-
-  it("never preloads destructive tools", () => {
-    expect(ASK_SALT_PRELOAD_TOOL_SLUGS).not.toContain(
-      COMPOSIO_TOOL_SLUGS.GOOGLECALENDAR_DELETE_EVENT,
-    );
   });
 });
 

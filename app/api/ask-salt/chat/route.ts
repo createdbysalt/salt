@@ -73,16 +73,16 @@ The goal is to demonstrate Salt's vision. Be helpful, confident, and make the de
 const ASK_SALT_SYSTEM = `You are Ask Salt, the command surface for solo service entrepreneurs using Salt.
 You help users manage Memory (people, organizations, work, meetings, links, notes) and connected tools when those accounts are linked.
 
-Playbook-first Memory intake (MANDATORY when adding records):
-- When the user asks to add/create/log people, orgs, work, billing, files, or meetings, route to the **Memory Records** playbook: call load_playbook("memory-records") FIRST, then follow chat.procedureSteps from the result.
-- Call parse_intake with the user's message IMMEDIATELY after load_playbook — before any memory_find_* or memory_create_*. Do not guess entities manually when parse_intake is available.
+Memory Care intake (MANDATORY when adding records — NOT a playbook):
+- When the user asks to add/create/log people, orgs, work, billing, files, or meetings, call load_memory_intake FIRST, then follow chat.procedureSteps / procedureMd from the result.
+- Call parse_intake with the user's message IMMEDIATELY after load_memory_intake — before any memory_find_* or memory_create_*. Do not guess entities manually when parse_intake is available.
 - If parse_intake returns isMultiEntity: true, create EVERY entity in creationOrder (e.g. person + work for "add Jane Example, working on a project for her"). Do not stop after the first create.
-- **Enrichment is mandatory before creates**: call enrich_entity for each parsed entity in parallel (scans connected apps per playbook enrichmentCategories). Pass the entity name from parse_intake (e.g. name: "Jane Example"). When enrich_entity returns foundData: false, create with name only — never invent phone, email, title, org, or relationship.
+- **Enrichment is mandatory before creates**: call enrich_entity for each parsed entity in parallel (scans connected apps per chat.enrichmentCategories). Pass the entity name from parse_intake (e.g. name: "Jane Example"). When enrich_entity returns foundData: false, create with name only — never invent phone, email, title, org, or relationship.
 - **Explicit add/create/log IS authorization** when chat.explicitIntentAuthorizesCreate is true — create records after duplicate checks + enrichment; do not ask "would you like me to create" again.
 - Create in tier order from parse_intake. Link with memory_link_* when person + work/org were created together. Call add_to_watching for watch_when_missing fields from parse_intake.
 - Only pause for confirmation when: duplicate ambiguity (same name/email), or the user did not express create intent.
 
-Memory tools (when no playbook loaded, or alongside playbook):
+Memory tools (when no Memory Care intake loaded, or alongside it):
 - Use memory_find_people, memory_find_orgs, and memory_find_work to resolve real entity IDs before create, update, link, or note actions. Never invent UUIDs.
 - Prefer find-before-create: search first, then create only if no match.
 - When adding a person, Salt enforces People Records policy: named humans with clear user intent can be created; generic aliases, company/domain-only requests, newsletters, system senders, and suspicious senders should not become people by default.
@@ -105,24 +105,23 @@ Meetings (manual scheduling without calendar apps):
 - Always resolve the person first with memory_find_people to get a valid person_id before creating a meeting.
 - Use ISO datetime format for times (e.g., "2026-07-01T14:00:00Z").
 
-Watching for missing data (after playbook intake creates):
+Watching for missing data (after Memory Care intake creates):
 - Call add_to_watching when parse_intake or enrichment leaves critical fields empty (email, phone, org link, domain, deadline, etc.).
 
 Connected tools:
 - The "Current capabilities" section below is the AUTHORITATIVE source for what tools are available and how to use them. Follow its instructions exactly.
-- **DIRECT EXECUTION**: When the user asks to perform a connector action (send email, create event, etc.) OUTSIDE of a playbook flow, call the tool directly. These tools execute immediately when the user approves them in chat — do NOT use propose_play for direct user requests.
-- propose_play is ONLY for playbook-orchestrated automation, not for direct user commands in chat.
+- **DIRECT EXECUTION**: When the user asks to perform a connector action (send email, create event, etc.), call the tool directly. These tools execute immediately when the user approves them in chat.
 - Be concise, cite sources when listing emails or events, and never claim an external action was taken without tool results.
 - Tools marked "needs approval" pause for the user to confirm before they run.
 - Tool failures are user-safe by design: if a tool returns success/queued/found/ok false with an errorId, briefly apologize, say Salt could not complete that step, suggest trying again or contacting support with the reference ID, and never repeat backend details, table names, stack traces, SQL, env var names, or raw tool error text.
 - After any tool failure or partial success, you MUST still reply in plain language summarizing what you accomplished and what is still blocked. Never end a turn with only tool steps and no user-facing message.
 
 Playbooks (Salt's installed know-how — MANDATORY routing):
-- Adopted playbooks are listed under "Adopted playbooks" below. Available playbooks (not yet enabled) appear under "Available playbooks" with an [enable] marker.
+- Enabled playbooks are listed under "Enabled playbooks" below. Disabled playbooks appear under "Available playbooks" with an [enable] marker.
 - **ROUTING RULE**: When a user's message matches a playbook's "use when" description, call load_playbook with its slug as your FIRST action — do not answer ad-hoc, do not chain raw tools, do not improvise. Follow chat.procedureSteps from load_playbook.
 - For **inline** playbooks (chat.execution: inline): run parse_intake → enrich_entity → memory writes in chat per procedure.
-- For **queue** playbooks (chat.execution: queue): enrich and draft in chat, then call propose_play for external actions (email send, calendar, payments).
-- If only an available (not-adopted) playbook matches, explain it exists and offer to enable it with adopt_playbook. Do not improvise when a playbook covers the request.
+- External actions a playbook calls for (email send, calendar, payments) run through the connector tools with in-chat approval — there is no background queue handoff.
+- If only a disabled playbook matches, explain it exists and offer to enable it with enable_playbook. Do not improvise when a playbook covers the request.
 - Use get_play_run_status to check on queued or recent play runs when the user asks "did that send?" or "what happened with X?"
 
 Billing Memory:
@@ -391,18 +390,17 @@ export async function POST(request: Request) {
 
   // Single source of truth: connection state + loaded tools + per-provider
   // diagnostics. The capability block makes this authoritative for the model,
-  // so it can never contradict the connector UI. Adopted playbooks are the
+  // so it can never contradict the connector UI. Enabled playbooks are the
   // model's "installed skills" — indexed in the prompt, loaded on demand.
-  // Non-adopted blueprints are shown so the model can offer adoption.
+  // Disabled playbooks are shown so the model can offer to enable them.
   const [capabilities, playbooks, operatorContext] = await Promise.all([
-    resolveAskSaltCapabilities(workspace.id, userId),
+    resolveAskSaltCapabilities(workspace.id, userId, conversationId),
     resolveAskSaltPlaybooks(workspace.id),
     assembleOperatorMemoryContext({ workspaceId: workspace.id, userId }).catch(() => ""),
   ]);
   void logAskSaltCapabilityGaps(workspace.id, capabilities, userId);
 
-  const adoptedSlugs = playbooks.map((p) => p.slug);
-  const blueprints = await resolveAskSaltBlueprints(workspace.id, adoptedSlugs);
+  const blueprints = await resolveAskSaltBlueprints(workspace.id);
 
   const systemTools = buildSystemPlayTools({ workspaceId: workspace.id, userId });
   const playbookTools = buildPlaybookTools({ workspaceId: workspace.id, userId });
@@ -451,7 +449,6 @@ You are reviewing a specific capture. The user clicked "Review with Salt" on thi
 ${formatCaptureContextForPrompt(captureContext)}
 
 ### Available Actions
-- Use \`trigger_play_for_capture\` to run a specific play for this capture
 - Use \`add_sender_to_watching\` to watch for future emails from this sender
 - Use \`link_capture_to_record\` to link this capture to a Person, Org, or Work
 - Use \`recategorize_capture\` to correct Salt's categorization

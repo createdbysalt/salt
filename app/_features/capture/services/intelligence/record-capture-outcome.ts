@@ -31,7 +31,6 @@ export interface LogDecisionInput {
   senderClassification?: CaptureSenderKind | "unknown";
   senderEmail?: string | null;
   senderDomain?: string | null;
-  watchExpressionId?: string;
 }
 
 /**
@@ -64,7 +63,6 @@ export async function logRecordCaptureDecision(
   } else if (input.decision.tier === "watch") {
     insertData.watch_type = input.decision.watchType;
     insertData.watch_target = input.decision.target;
-    insertData.watch_expression_id = input.watchExpressionId;
   }
 
   const { data, error } = await admin
@@ -108,94 +106,6 @@ export async function recordDecisionOutcome(
   }
 
   return true;
-}
-
-/**
- * Find the decision record for a capture event.
- */
-export async function findDecisionForCapture(
-  captureEventId: string
-): Promise<{ id: string; decision_tier: string; outcome: string | null } | null> {
-  const admin = createAdminClient();
-
-  const { data } = await admin
-    .from("record_capture_decisions")
-    .select("id, decision_tier, outcome")
-    .eq("capture_event_id", captureEventId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  return data;
-}
-
-/**
- * Find decisions by watch expression ID.
- */
-export async function findDecisionsForWatch(
-  watchExpressionId: string
-): Promise<{ id: string; decision_tier: string; outcome: string | null }[]> {
-  const admin = createAdminClient();
-
-  const { data } = await admin
-    .from("record_capture_decisions")
-    .select("id, decision_tier, outcome")
-    .eq("watch_expression_id", watchExpressionId)
-    .order("created_at", { ascending: false });
-
-  return data ?? [];
-}
-
-/**
- * Expire watches that have passed their expiry date.
- * Returns the count of expired watches.
- */
-export async function expireStaleWatches(
-  workspaceId?: string
-): Promise<number> {
-  const admin = createAdminClient();
-
-  // Find expired pending_contact watches
-  let query = admin
-    .from("entity_watch_expressions")
-    .select("id, workspace_id")
-    .eq("watch_purpose", "pending_contact")
-    .lt("expires_at", new Date().toISOString());
-
-  if (workspaceId) {
-    query = query.eq("workspace_id", workspaceId);
-  }
-
-  const { data: expiredWatches } = await query;
-
-  if (!expiredWatches || expiredWatches.length === 0) {
-    return 0;
-  }
-
-  // Mark associated decisions as expired
-  const watchIds = expiredWatches.map((w) => w.id);
-
-  await admin
-    .from("record_capture_decisions")
-    .update({
-      outcome: "expired",
-      outcome_at: new Date().toISOString(),
-    })
-    .in("watch_expression_id", watchIds)
-    .is("outcome", null);
-
-  // Delete the expired watches
-  const { error } = await admin
-    .from("entity_watch_expressions")
-    .delete()
-    .in("id", watchIds);
-
-  if (error) {
-    console.error("[record-capture-outcome] Failed to delete expired watches:", error.message);
-    return 0;
-  }
-
-  return expiredWatches.length;
 }
 
 // ============= Auto-Apply Gate =============

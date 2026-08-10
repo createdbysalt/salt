@@ -49,7 +49,7 @@ export async function createNote(
   }
 
   revalidatePath("/me");
-  revalidatePath("/connections");
+  revalidatePath("/memory");
 
   return { data };
 }
@@ -94,7 +94,7 @@ export async function updateNote(
   await syncNoteEntityRelations(supabase, noteId, note.workspace_id, wikilinks);
 
   revalidatePath("/me");
-  revalidatePath("/connections");
+  revalidatePath("/memory");
 
   return { success: true };
 }
@@ -117,7 +117,7 @@ export async function deleteNote(noteId: string) {
   await deleteEdgesFrom(supabase, { source: { type: "note", id: noteId } });
 
   revalidatePath("/me");
-  revalidatePath("/connections");
+  revalidatePath("/memory");
 
   return { success: true };
 }

@@ -1,6 +1,24 @@
 import "server-only";
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import { Constants } from "@/app/_lib/supabase/database.types";
+import type { Database } from "@/app/_lib/supabase/database.types";
+
+type FileCategory = Database["public"]["Enums"]["file_category"];
+type OperatorFactCategory = Database["public"]["Enums"]["operator_fact_category"];
+
+const FILE_CATEGORY_VALUES: readonly string[] =
+  Constants.public.Enums.file_category;
+const OPERATOR_FACT_CATEGORY_VALUES: readonly string[] =
+  Constants.public.Enums.operator_fact_category;
+
+function isFileCategory(value: string): value is FileCategory {
+  return FILE_CATEGORY_VALUES.includes(value);
+}
+
+function isOperatorFactCategory(value: string): value is OperatorFactCategory {
+  return OPERATOR_FACT_CATEGORY_VALUES.includes(value);
+}
 
 export interface PersonLookupRow {
   id: string;
@@ -321,6 +339,9 @@ export async function findFiles(
     .limit(limit);
 
   if (category) {
+    // category is an enum column: a value outside the enum can't match any
+    // row (filtering with it would fail the whole query at Postgres).
+    if (!isFileCategory(category)) return [];
     dbQuery = dbQuery.eq("category", category);
   }
 
@@ -359,6 +380,9 @@ export async function findMeFacts(
     .limit(limit);
 
   if (category) {
+    // category is an enum column: a value outside the enum can't match any
+    // row (filtering with it would fail the whole query at Postgres).
+    if (!isOperatorFactCategory(category)) return [];
     dbQuery = dbQuery.eq("category", category);
   }
 

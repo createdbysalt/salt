@@ -1,9 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { FindingWithContext } from "@/app/_features/capture/types/intelligence-findings";
-import type { QueuePlay } from "@/app/_lib/demo/plays-demo-data";
 import type { PlayRunRow } from "../types";
 import { validatePlayCard } from "./validate-play-card";
-import { mapQueuePlayToCard } from "./map-queue-play-to-card";
 import { mapFindingToCard } from "./map-finding-to-card";
 import { mapHandledFindingToCard } from "./map-handled-finding-to-card";
 import { mapPlayRunToCard } from "./map-play-run-to-card";
@@ -86,34 +84,6 @@ describe("validatePlayCard", () => {
   });
 });
 
-describe("mapQueuePlayToCard", () => {
-  const play: QueuePlay = {
-    id: "p-1",
-    playerId: "billing",
-    state: "approval",
-    source: "From overdue invoice",
-    ageMinutes: 75,
-    recipient: "Priya Shah",
-    channel: "Email",
-    subject: "Brightline payment reminder",
-    summary: "Invoice is 6 days past due.",
-    draftBody: ["Hi Priya"],
-    reasoning: [],
-    context: [],
-    playbook: "Project closeout",
-    confidence: 96,
-  };
-
-  it("produces a valid acting card with To prefix and approve_send", () => {
-    const vm = mapQueuePlayToCard(play);
-    expect(vm.kind).toBe("acting");
-    expect(vm.targetPrefix).toBe("To");
-    expect(vm.primaryAction).toEqual({ label: "Approve & send", kind: "approve_send" });
-    expect(vm.provenance).toEqual({ source: "play_run", playRunId: "p-1" });
-    expect(validatePlayCard(vm).ok).toBe(true);
-  });
-});
-
 describe("mapFindingToCard", () => {
   function finding(overrides: Partial<FindingWithContext> = {}): FindingWithContext {
     return {
@@ -127,10 +97,10 @@ describe("mapFindingToCard", () => {
       evidence: {
         source_type: "email",
         metadata: {
-          keeper_profile: true,
+          memory_care_profile: true,
           profile_field: "relationship_type",
           profile_value: "client",
-          blueprint_slug: "keeper-people-records",
+          blueprint_slug: "memory-records",
           blueprint_name: "People Records",
           because: "Signed an SOW last week.",
         },
@@ -151,15 +121,15 @@ describe("mapFindingToCard", () => {
     };
   }
 
-  it("maps a Keeper profile finding to a profile play (For prefix, keeper_profile apply)", () => {
+  it("maps a Memory Care profile finding to a profile play (For prefix, memory_care apply)", () => {
     const vm = mapFindingToCard(finding());
     expect(vm.kind).toBe("profile");
-    expect(vm.playerSlug).toBe("keeper");
+    expect(vm.playerSlug).toBe("memory-care");
     expect(vm.playbookName).toBe("Memory Records");
     expect(vm.targetPrefix).toBe("For");
     expect(vm.profile?.field).toBe("relationship_type");
     expect(vm.profile?.proposedValue).toBe("client");
-    expect(vm.provenance).toMatchObject({ source: "finding", apply: "keeper_profile" });
+    expect(vm.provenance).toMatchObject({ source: "finding", apply: "memory_care" });
     expect(validatePlayCard(vm).ok).toBe(true);
   });
 
@@ -186,8 +156,8 @@ describe("mapFindingToCard", () => {
         evidence: {
           source_type: "email",
           metadata: {
-            keeper_profile: true,
-            keeper_question: true,
+            memory_care_profile: true,
+            memory_care_question: true,
             question_field: "relationship_type",
             question_options: [
               { value: "client", label: "Client" },
@@ -201,7 +171,7 @@ describe("mapFindingToCard", () => {
     expect(vm.kind).toBe("question");
     expect(vm.primaryAction).toBeNull();
     expect(vm.question?.options).toHaveLength(2);
-    expect(vm.provenance).toMatchObject({ source: "finding", apply: "keeper_profile" });
+    expect(vm.provenance).toMatchObject({ source: "finding", apply: "memory_care" });
     expect(validatePlayCard(vm).ok).toBe(true);
   });
 
@@ -278,17 +248,17 @@ describe("mapPlayRunToCard", () => {
     expect(validatePlayCard(vm).ok).toBe(true);
   });
 
-  it("maps a profile play_run with keeper_profile metadata", () => {
+  it("maps a profile play_run with memory_care_profile metadata", () => {
     const vm = mapPlayRunToCard(
       playRun({
         id: "pr-2",
         draft_body: null,
         title: "Mark as Client",
-        player_slug: "keeper",
+        player_slug: "memory-care",
         player_name: "Memory",
         metadata: {
-          player_slug: "keeper",
-          keeper_profile: true,
+          player_slug: "memory-care",
+          memory_care_profile: true,
           profile_field: "relationship_type",
           profile_value: "client",
           playbook_name: "People Records",
@@ -297,7 +267,7 @@ describe("mapPlayRunToCard", () => {
       }),
     );
     expect(vm.kind).toBe("profile");
-    expect(vm.playerSlug).toBe("keeper");
+    expect(vm.playerSlug).toBe("memory-care");
     expect(vm.targetPrefix).toBe("For");
     expect(vm.profile?.field).toBe("relationship_type");
     expect(vm.profile?.proposedValue).toBe("client");
@@ -312,11 +282,11 @@ describe("mapPlayRunToCard", () => {
         draft_body: null,
         title: "How do you know Priya?",
         preview: "Salt couldn't determine the relationship.",
-        player_slug: "keeper",
+        player_slug: "memory-care",
         player_name: "Memory",
         metadata: {
-          player_slug: "keeper",
-          keeper_question: true,
+          player_slug: "memory-care",
+          memory_care_question: true,
           question_field: "relationship_type",
           question_options: [
             { value: "client", label: "Client" },
@@ -328,7 +298,7 @@ describe("mapPlayRunToCard", () => {
       }),
     );
     expect(vm.kind).toBe("question");
-    expect(vm.playerSlug).toBe("keeper");
+    expect(vm.playerSlug).toBe("memory-care");
     expect(vm.primaryAction).toBeNull();
     expect(vm.question?.options).toHaveLength(3);
     expect(vm.question?.field).toBe("relationship_type");

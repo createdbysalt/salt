@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import type { TablesInsert, TablesUpdate } from "@/app/_lib/supabase/database.types";
 import type { ActionResult } from "@/app/_features/plays/actions";
 import type {
   OperatorFactCategory,
@@ -21,6 +22,8 @@ import { splitFullName } from "@/app/_features/me/utils/profile-name";
 import { writeProfileFieldProvenance } from "@/app/_features/plays/playbooks/records-engine/write-provenance";
 import type { OperatorProfileFieldKey } from "@/app/_features/plays/playbooks/records-engine/types";
 
+// Legacy blueprint slug stored on existing rows — do not rename without a
+// data migration.
 const ME_BLUEPRINT_SLUG = "keeper-me";
 
 /** Provenance parity (keeper-field-contracts 6.5): one applied row per changed field. */
@@ -363,7 +366,7 @@ export async function updateOperatorGoal(input: {
     return { ok: false, errorCode: "UNAUTHORIZED", message: op.message };
   }
 
-  const patch: Record<string, unknown> = {};
+  const patch: TablesUpdate<"operator_goals"> = {};
   if (input.targetValue !== undefined) patch.target_value = input.targetValue;
   if (input.targetPeriod !== undefined) patch.target_period = input.targetPeriod;
   if (input.currentValue !== undefined) patch.current_value = input.currentValue;
@@ -426,7 +429,7 @@ export async function updateOperatorVoiceProfile(input: {
     return { ok: false, errorCode: "UNAUTHORIZED", message: op.message };
   }
 
-  const row: Record<string, unknown> = {
+  const row: TablesInsert<"operator_voice_profile"> = {
     workspace_id: op.workspace.id,
     user_id: op.userId,
     updated_at: new Date().toISOString(),

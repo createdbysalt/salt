@@ -78,6 +78,7 @@ export async function retryCaptureIntelligence(
     }
 
     revalidatePath("/plays");
+    revalidatePath("/sources");
 
     return {
       success: true,

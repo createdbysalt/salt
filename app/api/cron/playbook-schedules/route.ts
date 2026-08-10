@@ -1,15 +1,18 @@
 /**
  * Playbook schedules cron.
  *
- * Runs hourly. Discovers v2 playbooks with `trigger: type: schedule`, matches
- * their cron expression against the current UTC hour, and executes the
- * registered script for each active workspace (respecting per-workspace
- * playbook enablement in profile_playbook_settings).
+ * Runs hourly. Two responsibilities:
+ * 1. Memory Care capabilities with due schedules (runDueCareCapabilities).
+ * 2. Act-layer v2 playbooks with `trigger: type: schedule` (e.g. Daily
+ *    Briefing), matched against the current UTC hour and executed through
+ *    the v2 step executor for each active workspace (respecting
+ *    per-workspace enablement in profile_playbook_settings).
  *
  * Secured with CRON_SECRET. Schedule: hourly (vercel.json).
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { assertInternalSecret } from "@/app/_lib/security/assert-internal-secret";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { discoverV2Playbooks } from "@/app/_features/plays/playbooks/schema/v2/discovery";
 import type { PlaybookDefinitionV2 } from "@/app/_features/plays/playbooks/schema/v2/types";
@@ -18,14 +21,9 @@ import {
   executePlaybookV2,
 } from "@/app/_features/plays/playbooks/schema/v2/executor";
 import { cronMatchesHour } from "@/app/_features/plays/playbooks/schedule-matcher";
-import {
-  hasPlaybookScript,
-  executePlaybookScript,
-  recordPlaybookScriptRun,
-} from "@/app/_features/plays/playbooks/script-registry";
+import { recordPlaybookRun } from "@/app/_features/plays/playbooks/run-recording";
 import { isPlaybookEnabled } from "@/app/_features/plays/playbooks/trigger-dispatch";
-
-const CRON_SECRET = process.env.CRON_SECRET;
+import { runDueCareCapabilities } from "@/app/_features/memory/care/scheduler";
 
 export const maxDuration = 300;
 
@@ -129,7 +127,7 @@ async function runActPlaybook(
 
     const result = await executePlaybookV2(playbook.definition, context);
 
-    await recordPlaybookScriptRun(
+    await recordPlaybookRun(
       playbook.slug,
       { workspaceId, trigger: "schedule" },
       {
@@ -167,25 +165,16 @@ async function runActPlaybook(
 export async function GET(req: NextRequest) {
   const startTime = Date.now();
 
-  if (!CRON_SECRET) {
-    console.error("[Playbook schedules cron] CRON_SECRET not configured");
-    return NextResponse.json(
-      { error: "Server configuration error" },
-      { status: 500 },
-    );
-  }
-
-  const authHeader = req.headers.get("Authorization");
-  const token = authHeader?.replace("Bearer ", "");
-
-  if (!token || token !== CRON_SECRET) {
-    console.warn("[Playbook schedules cron] Unauthorized request attempt");
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const unauthorized = assertInternalSecret(req, "[Playbook schedules cron]");
+  if (unauthorized) return unauthorized;
 
   try {
     const now = new Date();
     const duePlaybooks = findDuePlaybooks(now);
+
+    // Memory Care runs on its own schedules, independent of the playbook
+    // engine (care capabilities are not playbooks).
+    const care = await runDueCareCapabilities(now);
 
     if (duePlaybooks.length === 0) {
       return NextResponse.json({
@@ -193,6 +182,7 @@ export async function GET(req: NextRequest) {
         durationMs: Date.now() - startTime,
         duePlaybooks: [],
         runs: 0,
+        memoryCare: care,
       });
     }
 
@@ -223,15 +213,14 @@ export async function GET(req: NextRequest) {
     for (const playbook of duePlaybooks) {
       perPlaybook[playbook.slug] = { runs: 0, failures: 0 };
 
-      // Learn-layer playbooks run their registry script; act-layer scheduled
-      // playbooks (e.g. Daily Briefing) run through the v2 step executor.
-      const isLearnScript =
-        playbook.layer === "learn" && hasPlaybookScript(playbook.slug);
+      // Act-layer scheduled playbooks (e.g. Daily Briefing) run through the
+      // v2 step executor. Memory Care capabilities are not playbooks — they
+      // run via runDueCareCapabilities above.
       const isActPlaybook =
         playbook.layer === "act" &&
         (playbook.definition.steps?.length ?? 0) > 0;
 
-      if (!isLearnScript && !isActPlaybook) {
+      if (!isActPlaybook) {
         skipped++;
         continue;
       }
@@ -243,26 +232,12 @@ export async function GET(req: NextRequest) {
           continue;
         }
 
-        let result: { success: boolean; skipped?: boolean; error?: string };
-
-        if (isLearnScript) {
-          const scriptResult = await executePlaybookScript(playbook.slug, {
-            workspaceId: workspace.id,
-            trigger: "schedule",
-          });
-          result = {
-            success: scriptResult.success,
-            skipped: Boolean(scriptResult.skipped),
-            error: scriptResult.error,
-          };
-        } else {
-          const userId = billingUsers.get(workspace.id);
-          if (!userId) {
-            skipped++;
-            continue;
-          }
-          result = await runActPlaybook(playbook, workspace.id, userId);
+        const userId = billingUsers.get(workspace.id);
+        if (!userId) {
+          skipped++;
+          continue;
         }
+        const result = await runActPlaybook(playbook, workspace.id, userId);
 
         if (result.skipped) {
           skipped++;
@@ -288,6 +263,7 @@ export async function GET(req: NextRequest) {
       failures,
       skipped,
       perPlaybook,
+      memoryCare: care,
     });
   } catch (error) {
     console.error("[Playbook schedules cron] Run failed:", error);

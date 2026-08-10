@@ -51,7 +51,7 @@ export async function fixConnectorCapture(
       return { success: false, error: result.error };
     }
 
-    revalidatePath("/settings/capture");
+    revalidatePath("/sources");
     return { success: true };
   } catch (error) {
     console.error("[connector-health] Failed to fix provider:", provider, error);

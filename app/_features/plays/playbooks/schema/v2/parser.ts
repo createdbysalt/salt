@@ -21,6 +21,10 @@ import {
   type SectionMetadata,
 } from "./types";
 import { isValidSignalKey } from "@/app/_lib/learning/signals";
+import {
+  validateMemoryMonopoly,
+  type MemoryMutatingSlug,
+} from "../../memory-monopoly";
 
 export interface ParsePlaybookV2Options {
   validateSignals?: boolean;
@@ -152,10 +156,35 @@ export function parsePlaybookV2Yaml(
     }
   }
 
+  // Memory monopoly: no playbook may mutate Memory records — parse-time
+  // rejection (runtime guard lives in the executor's action step).
+  const actionTools: string[] = [];
+  const collectTools = (steps: readonly { step: string; tool?: string; steps?: readonly unknown[] }[]): void => {
+    for (const step of steps) {
+      if (step.step === "action" && step.tool) actionTools.push(step.tool);
+      if (step.step === "branch" && Array.isArray(step.steps)) {
+        collectTools(step.steps as typeof steps);
+      }
+    }
+  };
+  if (definition.steps) {
+    collectTools(definition.steps);
+  }
+  const monopoly = validateMemoryMonopoly(
+    actionTools,
+    definition.section as PlaybookSection
+  );
+  if (!monopoly.ok) {
+    errors.push({
+      path: "steps",
+      message: `Memory-mutating tools are not allowed in playbooks (Memory Care owns Memory writes): ${monopoly.violations.join(", ")}`,
+    });
+  }
+
   if (definition.layer === "learn" && definition.voice) {
     errors.push({
       path: "voice",
-      message: `Learn-layer playbooks (keepers) should not have a voice. Voice is for act-layer playbooks that produce user-facing content.`,
+      message: `Learn-layer definitions should not have a voice. Voice is for act-layer playbooks that produce user-facing content.`,
     });
   }
 
@@ -221,18 +250,4 @@ export function getSectionMetadata(section: PlaybookSection): SectionMetadata {
 
 export function getAllSections(): SectionMetadata[] {
   return Object.values(SECTION_METADATA);
-}
-
-export function getPlaybooksBySectionLayer(
-  section: PlaybookSection,
-  layer: "learn" | "act"
-): string[] {
-  const meta = SECTION_METADATA[section];
-  if (!meta) return [];
-
-  if (layer === "learn") {
-    return ["keeper"];
-  }
-
-  return (meta.templates ?? []).filter((t) => t !== "keeper");
 }

@@ -7,7 +7,7 @@
  *
  * This registry powers:
  * - Dropdown/select UI components
- * - Keeper playbook inference rules
+ * - Memory Care inference rules
  * - Capability readiness validation
  * - AI context injection (record-summary, narrative)
  */

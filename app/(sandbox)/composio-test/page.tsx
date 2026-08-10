@@ -1,11 +1,16 @@
+import { notFound } from "next/navigation";
 import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { resolveAskSaltCapabilities } from "@/app/_lib/composio/ask-salt-capabilities";
 import { getAskSaltConnectionStatuses } from "@/app/_lib/composio/ask-salt-capabilities";
 import { isComposioConfigured } from "@/app/_lib/composio/connections";
-import { CONNECTOR_REGISTRY, getAskSaltManifest } from "@/app/_lib/composio/unified-connector-registry";
+import { listAllEntries, listAskSaltEntries } from "@/app/_lib/composio/connector-registry";
 
 export default async function ComposioTestPage() {
+  if (process.env.NODE_ENV === "production") {
+    notFound();
+  }
+
   const { context } = await getTenantContext();
   const workspace = requireWorkspaceMember(context);
 
@@ -13,26 +18,31 @@ export default async function ComposioTestPage() {
   const connectionStatuses = await getAskSaltConnectionStatuses(workspace.id);
   const capabilities = await resolveAskSaltCapabilities(workspace.id, context.userId ?? undefined);
 
-  // Source of truth: unified registry
-  const allConnectors = Object.entries(CONNECTOR_REGISTRY).map(([key, def]) => ({
-    key,
-    name: def.meta.displayName,
-    category: def.category,
-    askSaltEnabled: def.askSalt.enabled,
-    slugPrefix: def.askSalt.slugPrefix,
-    phase: def.phase,
+  // Source of truth: DB connector registry (connector_catalog + connector_overrides)
+  const [allEntries, askSaltEntries] = await Promise.all([
+    listAllEntries(),
+    listAskSaltEntries(),
+  ]);
+  const askSaltToolkits = new Set(askSaltEntries.map((entry) => entry.toolkitSlug));
+  const allConnectors = allEntries.map((entry) => ({
+    key: entry.providerKey,
+    name: entry.name,
+    category: entry.category,
+    tier: entry.tier,
+    askSaltEnabled: askSaltToolkits.has(entry.toolkitSlug),
+    slugPrefix: entry.askSaltSlugPrefix,
+    phase: entry.phase,
   }));
 
   const askSaltEnabledConnectors = allConnectors.filter((c) => c.askSaltEnabled);
   const askSaltDisabledConnectors = allConnectors.filter((c) => !c.askSaltEnabled);
-  const askSaltManifest = getAskSaltManifest();
 
   return (
     <div className="p-8 font-mono text-sm space-y-8">
       <h1 className="text-2xl font-bold">Composio Connector Diagnostic</h1>
 
       <div className="bg-blue-50 border border-blue-200 p-4 rounded">
-        <strong>Source of Truth:</strong> <code>app/_lib/composio/unified-connector-registry.ts</code>
+        <strong>Source of Truth:</strong> <code>connector_catalog + connector_overrides (DB)</code>
       </div>
 
       <section>
@@ -51,14 +61,14 @@ export default async function ComposioTestPage() {
       </section>
 
       <section>
-        <h2 className="text-lg font-semibold mb-2">Unified Registry Summary</h2>
+        <h2 className="text-lg font-semibold mb-2">Registry Summary</h2>
         <pre className="bg-muted p-4 rounded overflow-auto">
           {JSON.stringify(
             {
               totalConnectors: allConnectors.length,
               askSaltEnabled: askSaltEnabledConnectors.length,
               askSaltDisabled: askSaltDisabledConnectors.length,
-              manifestToolkits: askSaltManifest.map((m) => m.toolkit),
+              manifestToolkits: askSaltEntries.map((entry) => entry.toolkitSlug),
             },
             null,
             2

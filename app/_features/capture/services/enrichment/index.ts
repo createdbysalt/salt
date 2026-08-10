@@ -11,7 +11,6 @@ export { findMatchingRecords } from "./record-matcher";
 export { enrichCapture, enrichAndPersist, reenrichCapture } from "./enrichment-pipeline";
 export {
   evaluateRecordCapture,
-  shouldGraduateWatch,
   buildRecordCaptureInput,
   type RecordCaptureInput,
   type RecordCaptureDecision,

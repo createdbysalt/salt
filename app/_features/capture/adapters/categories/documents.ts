@@ -180,14 +180,14 @@ export function createDocumentsCategoryAdapter(provider: string): CaptureAdapter
     : []; // Unknown providers: triggers come from DB
 
   return {
-    sourceType: provider as CaptureSourceType,
+    sourceType: provider,
     toolkit: provider,
     triggerSlugs,
     deriveSignals: deriveDocumentsSignals,
 
     normalize(payload: unknown): CaptureEnvelope | null {
       // All documents providers currently use generic extraction
-      return normalizeGenericDocuments(payload, provider as CaptureSourceType);
+      return normalizeGenericDocuments(payload, provider);
     },
   };
 }

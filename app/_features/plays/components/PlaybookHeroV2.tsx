@@ -11,24 +11,23 @@ import {
   getPlaybookLayerOutcome,
   PlaybookStatusControl,
 } from "./PlaybookCardShared";
+import { PlaybookConnectorLogos } from "./PlaybookConnectorLogos";
 import type { PlaybookListItem } from "../playbooks/queries-v2";
 import type { PlaybookSection } from "../playbooks/schema/v2/types";
-import type { ProfileProvenanceStats } from "../playbooks/records-engine/types";
-
-const SALT_RUNTIME = "~10s";
-const MANUAL_TIME_RANGE = "2–15m";
-const AVG_MINUTES_SAVED_PER_RUN = 5;
+import type { PlaybookConnectorStats } from "../queries";
+import { formatDurationMs, formatMinutes, type PlaybookRunStats } from "../run-stats";
 
 interface PlaybookHeroV2Props {
   playbook: PlaybookListItem;
-  connectedAppCount?: number;
-  stats?: ProfileProvenanceStats;
+  connectorStats?: PlaybookConnectorStats;
+  /** Real run stats over play_runs (Phase 5b). */
+  runStats: PlaybookRunStats;
 }
 
 export function PlaybookHeroV2({
   playbook,
-  connectedAppCount = 0,
-  stats = { applied: 0, pending: 0, appliedThisWeek: 0 },
+  connectorStats,
+  runStats,
 }: PlaybookHeroV2Props) {
   const sectionMeta = getSectionMeta(playbook.section as PlaybookSection);
   const sectionStyles = getSectionColorStyles(playbook.section as PlaybookSection);
@@ -36,23 +35,50 @@ export function PlaybookHeroV2({
   const isLocked = playbook.origin === "salt_system";
   const layerOutcome = getPlaybookLayerOutcome(playbook.layer, playbook.voice);
 
-  const runsSoFar = stats.applied;
-  const totalMinutesSaved = runsSoFar * AVG_MINUTES_SAVED_PER_RUN;
-  const avgSavedPerRun =
-    runsSoFar > 0 ? `~${Math.round(totalMinutesSaved / runsSoFar)}m` : "—";
+  const isEstimatedRuntime =
+    runStats.medianDurationMs === null && runStats.estimatedDurationMs !== null;
 
   const statItems = [
-    { label: "Apps connected", value: String(connectedAppCount) },
+    {
+      label: "Apps connected",
+      value: String(connectorStats?.connected ?? 0),
+      hint:
+        connectorStats && connectorStats.required > 0
+          ? `${connectorStats.requiredCovered} of ${connectorStats.required} required`
+          : undefined,
+    },
     {
       label: "Runtime",
-      value: SALT_RUNTIME,
-      hint: `vs ${MANUAL_TIME_RANGE} manual`,
+      value:
+        runStats.medianDurationMs !== null
+          ? formatDurationMs(runStats.medianDurationMs)
+          : runStats.estimatedDurationMs !== null
+            ? `~${formatDurationMs(runStats.estimatedDurationMs)}`
+            : "—",
+      hint: [
+        isEstimatedRuntime ? "est." : null,
+        runStats.minutesSavedPerRun !== null
+          ? `vs ~${runStats.minutesSavedPerRun}m manual`
+          : runStats.totalRuns === 0 && !isEstimatedRuntime
+            ? "no runs yet"
+            : null,
+      ]
+        .filter(Boolean)
+        .join(" · ") || undefined,
     },
-    { label: "Runs this week", value: String(stats.appliedThisWeek ?? 0) },
+    { label: "Runs this week", value: String(runStats.runsThisWeek) },
     {
-      label: "Time saved / run",
-      value: avgSavedPerRun,
-      hint: runsSoFar > 0 ? "avg over all runs" : "no runs yet",
+      label: "Time saved",
+      value:
+        runStats.totalMinutesSaved !== null
+          ? formatMinutes(runStats.totalMinutesSaved)
+          : "—",
+      hint:
+        runStats.totalRuns === 0
+          ? "no runs yet"
+          : runStats.minutesSavedPerRun !== null
+            ? `~${runStats.minutesSavedPerRun}m × ${runStats.totalRuns} runs`
+            : undefined,
     },
   ];
 
@@ -120,7 +146,10 @@ export function PlaybookHeroV2({
           {playbook.description}
         </p>
 
-        <p className="mt-3 text-sm text-muted-foreground/80">{layerOutcome}</p>
+        <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
+          <PlaybookConnectorLogos ids={playbook.connectorIds} />
+          <p className="text-sm text-muted-foreground/80">{layerOutcome}</p>
+        </div>
 
         <div className="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-3">
           {statItems.map((item) => (

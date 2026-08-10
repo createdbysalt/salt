@@ -12,13 +12,13 @@ import {
 import {
   approvePlayRun,
   dismissPlayRun,
-  applyKeeperPlayRun,
-  answerKeeperQuestionPlayRun,
+  applyMemoryCarePlayRun,
+  answerMemoryCareQuestionPlayRun,
 } from "@/app/_features/plays/actions";
 import {
   actOnFinding,
   answerRelationshipQuestion,
-  applyKeeperProfileFinding,
+  applyMemoryCareProfileFinding,
   applyMemoryPlan,
   dismissFinding,
   toggleFlagFinding,
@@ -145,8 +145,8 @@ export function PlayQueueList({
   const isBatchEligible = useCallback((vm: PlayCardViewModel) => {
     // email_draft is never batch-eligible — each email needs individual review
     if (vm.outputType === "email_draft" || vm.kind === "acting") return false;
-    // Only memory_update with per_entity or batch approval
-    return vm.approvalMode === "per_entity" || vm.approvalMode === "batch";
+    // Only gated (ask) outputs batch-review; auto outputs surface unreviewed.
+    return vm.approvalMode === "ask";
   }, []);
 
   const batchEligibleIds = useMemo(
@@ -176,22 +176,28 @@ export function PlayQueueList({
     setBatchAction("approve");
 
     const selectedVms = visible.filter((vm) => selected.has(vm.id));
+    // ActionResult (play_run path) and legacy { success } (finding path) both
+    // flow through here — normalize on read until findings standardize too.
+    const resultOk = (value: unknown): boolean =>
+      typeof value === "object" && value !== null &&
+      (("ok" in value && (value as { ok: boolean }).ok) ||
+        ("success" in value && (value as { success: boolean }).success));
     const results = await Promise.allSettled(
       selectedVms.map(async (vm) => {
         if (vm.provenance.source === "play_run") {
-          return applyKeeperPlayRun(vm.provenance.playRunId);
+          return applyMemoryCarePlayRun(vm.provenance.playRunId);
         } else if (vm.provenance.source === "finding") {
-          if (vm.provenance.apply === "keeper_profile") {
-            return applyKeeperProfileFinding(vm.provenance.findingId);
+          if (vm.provenance.apply === "memory_care") {
+            return applyMemoryCareProfileFinding(vm.provenance.findingId);
           }
           return actOnFinding(vm.provenance.findingId);
         }
-        return { success: false };
+        return null;
       }),
     );
 
     const successful = results.filter(
-      (r) => r.status === "fulfilled" && r.value?.success,
+      (r) => r.status === "fulfilled" && resultOk(r.value),
     ).length;
     const failed = results.length - successful;
 
@@ -200,7 +206,7 @@ export function PlayQueueList({
         const next = { ...current };
         selectedVms.forEach((vm) => {
           const result = results[selectedVms.indexOf(vm)];
-          if (result.status === "fulfilled" && result.value?.success) {
+          if (result.status === "fulfilled" && resultOk(result.value)) {
             next[vm.id] = "acted";
           }
         });
@@ -287,24 +293,39 @@ export function PlayQueueList({
     if (source) fireCelebration(source);
 
     if (action.kind === "approve_send" && vm.provenance.source === "play_run") {
+      const { playRunId } = vm.provenance;
       setStatuses((current) => ({ ...current, [vm.id]: "approved" }));
-      void approvePlayRun(vm.provenance.playRunId);
-      toast("Approved & sending");
+      void (async () => {
+        const result = await approvePlayRun(playRunId);
+        if (result.ok) {
+          toast("Approved & sending");
+        } else {
+          // Approval was refused (e.g. ENTITLEMENT_EXHAUSTED — the play
+          // bundle is used up). The run is blocked, not approved, so undo
+          // the optimistic status and say why.
+          setStatuses((current) => {
+            const next = { ...current };
+            delete next[vm.id];
+            return next;
+          });
+          toast.error(result.message);
+        }
+      })();
       return;
     }
 
-    // Keeper profile play_run (Phase 2 path)
+    // Memory Care profile play_run (Phase 2 path)
     if (action.kind === "apply_memory" && vm.provenance.source === "play_run") {
       const { playRunId } = vm.provenance;
       setRowPending(vm.id, true);
       void (async () => {
-        const result = await applyKeeperPlayRun(playRunId);
+        const result = await applyMemoryCarePlayRun(playRunId);
         setRowPending(vm.id, false);
-        if (result.success) {
+        if (result.ok) {
           setStatuses((current) => ({ ...current, [vm.id]: "acted" }));
           toast(action.label);
         } else {
-          toast.error(result.error ?? "Could not apply");
+          toast.error(result.message ?? "Could not apply");
         }
       })();
       return;
@@ -315,8 +336,8 @@ export function PlayQueueList({
       setRowPending(vm.id, true);
       void (async () => {
         const result =
-          vm.provenance.source === "finding" && vm.provenance.apply === "keeper_profile"
-            ? await applyKeeperProfileFinding(findingId)
+          vm.provenance.source === "finding" && vm.provenance.apply === "memory_care"
+            ? await applyMemoryCareProfileFinding(findingId)
             : vm.provenance.source === "finding" && vm.provenance.apply === "memory_plan"
               ? await applyMemoryPlan(findingId)
               : await actOnFinding(findingId);
@@ -361,18 +382,18 @@ export function PlayQueueList({
   const handleAnswer = (vm: PlayCardViewModel, value: string) => {
     const option = vm.question?.options.find((candidate) => candidate.value === value);
 
-    // Keeper question play_run (Phase 2 path)
+    // Memory Care question play_run (Phase 2 path)
     if (vm.provenance.source === "play_run") {
       const { playRunId } = vm.provenance;
       setRowPending(vm.id, true);
       void (async () => {
-        const result = await answerKeeperQuestionPlayRun(playRunId, value);
+        const result = await answerMemoryCareQuestionPlayRun(playRunId, value);
         setRowPending(vm.id, false);
-        if (result.success) {
+        if (result.ok) {
           setStatuses((current) => ({ ...current, [vm.id]: "acted" }));
           toast(option ? `Saved ${option.label}` : "Saved");
         } else {
-          toast.error(result.error ?? "Couldn't save your answer");
+          toast.error(result.message ?? "Couldn't save your answer");
         }
       })();
       return;

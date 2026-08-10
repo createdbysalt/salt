@@ -15,7 +15,7 @@ import { cn } from "@repo/utils";
 import type { SaltLearningRow, LearningsDigest } from "../../actions/salt-learnings";
 import { undoSaltLearning, markLearningsSeen } from "../../actions/salt-learnings";
 import { CorrectionModal } from "../CorrectionModal";
-import type { KeeperEntityType } from "@/app/_features/plays/playbooks/evidence-accumulator";
+import type { LearningEntityType } from "@/app/_lib/learning";
 
 type MeSaltLearnedTabProps = {
   digest: LearningsDigest;
@@ -309,7 +309,7 @@ export function MeSaltLearnedTab({ digest, workspaceId }: MeSaltLearnedTabProps)
           onOpenChange={(open) => !open && setCorrectionLearning(null)}
           learningId={correctionLearning.id}
           workspaceId={workspaceId}
-          entityType={correctionLearning.entity_type as KeeperEntityType}
+          entityType={correctionLearning.entity_type as LearningEntityType}
           entityId={correctionLearning.entity_id}
           entityLabel={correctionLearning.entity_label}
           fieldPath={correctionLearning.field_path}

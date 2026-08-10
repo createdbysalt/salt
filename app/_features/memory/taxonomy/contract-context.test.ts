@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildFieldContractContext,
-  buildKeeperWritableContext,
+  buildCareWritableContext,
   findUnknownVocabularyReferences,
 } from "./contract-context";
 import {
@@ -76,15 +76,15 @@ describe("buildFieldContractContext", () => {
     }
   });
 
-  it("keeper-writable context excludes user_only fields", () => {
-    const context = buildKeeperWritableContext("me");
+  it("care-writable context excludes user_only fields", () => {
+    const context = buildCareWritableContext("me");
     // Me identity/business fields are user_only; only derived/none remain.
     expect(context).not.toContain("legalBusinessName");
     expect(context).not.toContain("preferredName");
   });
 
-  it("keeper-writable context includes auto fields", () => {
-    const context = buildKeeperWritableContext("billing");
+  it("care-writable context includes auto fields", () => {
+    const context = buildCareWritableContext("billing");
     expect(context).toContain("amountPaidCents");
     expect(context).toContain("status");
   });

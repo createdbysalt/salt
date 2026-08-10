@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  emptyPlaysPageData,
-  parsePlaysActivityView,
-  parsePlaysTab,
-} from "./load-plays-page-data";
+import { emptyPlaysPageData, parsePlaysTab } from "./load-plays-page-data";
 
 describe("loadPlaysPageData helpers", () => {
   it("defaults to queue tab", () => {
@@ -12,21 +8,20 @@ describe("loadPlaysPageData helpers", () => {
     expect(parsePlaysTab("queue")).toBe("queue");
   });
 
-  it("parses customize and activity tabs", () => {
-    expect(parsePlaysTab("customize")).toBe("customize");
+  it("parses playbooks and activity tabs", () => {
+    expect(parsePlaysTab("playbooks")).toBe("playbooks");
     expect(parsePlaysTab("activity")).toBe("activity");
   });
 
-  it("parses activity views", () => {
-    expect(parsePlaysActivityView(null)).toBe("actions");
-    expect(parsePlaysActivityView("captures")).toBe("captures");
-    expect(parsePlaysActivityView("stream")).toBe("captures");
+  it("falls back to queue for unknown or legacy tab values", () => {
+    expect(parsePlaysTab("customize")).toBe("queue");
+    expect(parsePlaysTab("something-else")).toBe("queue");
   });
 
   it("returns empty page data defaults", () => {
     const empty = emptyPlaysPageData();
     expect(empty.initialQueue).toEqual([]);
     expect(empty.findingCounts).toEqual({ needs_you: 0, auto_handled: 0 });
-    expect(empty.connectors).toBeNull();
+    expect(empty.playbooksV2).toBeNull();
   });
 });

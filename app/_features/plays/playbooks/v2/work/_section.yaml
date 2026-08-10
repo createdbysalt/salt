@@ -14,5 +14,5 @@ signals:
   - work_has_signed_contract
 
 templates:
-  - keeper
+  - memory
   - blocker-watch

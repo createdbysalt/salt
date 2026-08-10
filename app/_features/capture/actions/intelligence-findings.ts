@@ -110,6 +110,7 @@ export async function updateFindingState(
     }
 
     revalidatePath("/plays");
+    revalidatePath("/sources");
     return { success: true };
   } catch (err) {
     if (isNextRedirectError(err)) {
@@ -169,6 +170,7 @@ export async function applyMemoryPlan(
 
     if (result.success) {
       revalidatePath("/plays");
+      revalidatePath("/sources");
     }
 
     return result;
@@ -184,12 +186,15 @@ export async function applyMemoryPlan(
   }
 }
 
-function parseKeeperPersonProfileMetadata(raw: unknown): {
+function parseMemoryCarePersonProfileMetadata(raw: unknown): {
   field: PersonProfileFieldKey;
 } | null {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
   const metadata = raw as Record<string, unknown>;
-  if (metadata.keeper_profile !== true) return null;
+  // Accepts the retired `keeper_profile` metadata key as a legacy fallback.
+  if (metadata.memory_care_profile !== true && metadata.keeper_profile !== true) {
+    return null;
+  }
   if (metadata.profile_entity_type !== "person") return null;
 
   const field = metadata.profile_field;
@@ -205,9 +210,9 @@ function parseKeeperPersonProfileMetadata(raw: unknown): {
 }
 
 /**
- * Apply a Keeper profile suggestion that was routed into Plays.
+ * Apply a Memory Care profile suggestion that was routed into Plays.
  */
-export async function applyKeeperProfileFinding(
+export async function applyMemoryCareProfileFinding(
   findingId: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -235,13 +240,13 @@ export async function applyKeeperProfileFinding(
 
     const personId = (finding.person_id as string | null) ?? null;
     if (!personId) {
-      return { success: false, error: "Keeper suggestion is not attached to a person" };
+      return { success: false, error: "Memory Care suggestion is not attached to a person" };
     }
 
     const evidence = finding.evidence as { metadata?: unknown } | null;
-    const profileMetadata = parseKeeperPersonProfileMetadata(evidence?.metadata);
+    const profileMetadata = parseMemoryCarePersonProfileMetadata(evidence?.metadata);
     if (!profileMetadata) {
-      return { success: false, error: "Finding is not a Keeper profile suggestion" };
+      return { success: false, error: "Finding is not a Memory Care profile suggestion" };
     }
 
     const result = await approveProfileFieldSuggestion({
@@ -270,12 +275,13 @@ export async function applyKeeperProfileFinding(
     }
 
     revalidatePath("/plays");
+    revalidatePath("/sources");
     return { success: true };
   } catch (err) {
     if (isNextRedirectError(err)) {
       throw err;
     }
-    console.error("applyKeeperProfileFinding error:", err);
+    console.error("applyMemoryCareProfileFinding error:", err);
     return {
       success: false,
       error: err instanceof Error ? err.message : "Unknown error",
@@ -354,6 +360,7 @@ export async function toggleFlagFinding(
     }
 
     revalidatePath("/plays");
+    revalidatePath("/sources");
     return { success: true, flagged: !isFlagged };
   } catch (err) {
     if (isNextRedirectError(err)) {
@@ -435,6 +442,7 @@ export async function dismissFindings(
   }
 
   revalidatePath("/plays");
+    revalidatePath("/sources");
   return { success: true, dismissed: data?.length ?? 0 };
 }
 
@@ -467,7 +475,7 @@ export async function answerRelationshipQuestion(
 
     const personId = (finding.person_id as string | null) ?? null;
     const evidence = finding.evidence as { metadata?: unknown } | null;
-    const profileMetadata = parseKeeperPersonProfileMetadata(evidence?.metadata);
+    const profileMetadata = parseMemoryCarePersonProfileMetadata(evidence?.metadata);
 
     if (!personId || !profileMetadata) {
       return { success: false, error: "This question is no longer answerable" };
@@ -499,6 +507,7 @@ export async function answerRelationshipQuestion(
     }
 
     revalidatePath("/plays");
+    revalidatePath("/sources");
     return { success: true };
   } catch (err) {
     if (isNextRedirectError(err)) {
@@ -513,9 +522,9 @@ export async function answerRelationshipQuestion(
 }
 
 /**
- * Undo an auto-handled Keeper profile change: revert the field to its prior
- * applied value (or clear the guess) and remove it from the handled lane.
- * Activity keeps the full record.
+ * Undo an auto-handled Memory Care profile change: revert the field to its
+ * prior applied value (or clear the guess) and remove it from the handled
+ * lane. Activity keeps the full record.
  */
 export async function undoHandledFinding(
   findingId: string,
@@ -541,7 +550,7 @@ export async function undoHandledFinding(
 
     const personId = (finding.person_id as string | null) ?? null;
     const evidence = finding.evidence as { metadata?: unknown } | null;
-    const profileMetadata = parseKeeperPersonProfileMetadata(evidence?.metadata);
+    const profileMetadata = parseMemoryCarePersonProfileMetadata(evidence?.metadata);
 
     if (personId && profileMetadata) {
       const { field } = profileMetadata;
@@ -591,6 +600,7 @@ export async function undoHandledFinding(
     }
 
     revalidatePath("/plays");
+    revalidatePath("/sources");
     return { success: true };
   } catch (err) {
     if (isNextRedirectError(err)) {

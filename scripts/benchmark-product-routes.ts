@@ -11,11 +11,11 @@ const BASE_URL = process.env.BENCHMARK_BASE_URL ?? "http://localhost:3000";
 const ROUTES = [
   "/hq",
   "/plays",
-  "/plays?tab=activity&view=captures",
+  "/sources?tab=activity",
   "/people",
   "/orgs",
   "/work",
-  "/connections",
+  "/memory",
 ] as const;
 
 async function measureRoute(path: string): Promise<{ path: string; ms: number; status: number }> {

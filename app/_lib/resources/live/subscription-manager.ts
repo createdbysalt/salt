@@ -2,7 +2,8 @@ import "server-only";
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { getComposioClient } from "@/app/_lib/composio/client";
-import type { ResourceType } from "../types";
+import type { Database } from "@/app/_lib/supabase/database.types";
+import type { ResourceMode, ResourceType } from "../types";
 
 /**
  * Resource Live Mode Subscription Manager
@@ -27,6 +28,8 @@ interface TriggersApi {
 function triggersApi(): TriggersApi {
   return getComposioClient().triggers as unknown as TriggersApi;
 }
+
+type FilesUpdate = Database["public"]["Tables"]["files"]["Update"];
 
 const RESOURCE_TYPE_TO_TRIGGER_SLUGS: Partial<Record<ResourceType, string[]>> = {
   github_repo: ["GITHUB_PUSH_EVENT", "GITHUB_PULL_REQUEST_EVENT", "GITHUB_ISSUE_EVENT"],
@@ -142,13 +145,15 @@ export async function enableResourceLiveMode(
 
   const composioTriggerId = createdIds.join(",");
 
+  const liveModeUpdate: FilesUpdate = {
+    mode: "live",
+    composio_trigger_id: composioTriggerId,
+    live_config: liveConfig ?? {},
+  };
+
   const { error: updateError } = await admin
     .from("files")
-    .update({
-      mode: "live",
-      composio_trigger_id: composioTriggerId,
-      live_config: liveConfig ?? {},
-    })
+    .update(liveModeUpdate)
     .eq("id", resourceId)
     .eq("workspace_id", workspaceId);
 
@@ -196,13 +201,15 @@ export async function disableResourceLiveMode(
     }
   }
 
+  const staticModeUpdate: FilesUpdate = {
+    mode: "static",
+    composio_trigger_id: null,
+    live_config: {},
+  };
+
   const { error: updateError } = await admin
     .from("files")
-    .update({
-      mode: "static",
-      composio_trigger_id: null,
-      live_config: {},
-    })
+    .update(staticModeUpdate)
     .eq("id", resourceId)
     .eq("workspace_id", workspaceId);
 

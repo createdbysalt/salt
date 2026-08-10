@@ -25,6 +25,10 @@ import type { PlaybookSection as V2Section } from "../playbooks/schema/v2/types"
 
 const APPLE_EASE = [0.32, 0.72, 0, 1] as const;
 
+// Memory Care capabilities (records, hygiene, connections, notes) surface as
+// capability cards in Memory → Rules and are hidden from the library here.
+// UI-layer filter only — discovery/execution are untouched.
+// `daily-briefing` stays visible.
 const SECTION_ORDER: PlaybookSectionFilter[] = [
   "relationships",
   "work",
@@ -32,8 +36,14 @@ const SECTION_ORDER: PlaybookSectionFilter[] = [
   "files",
   "meetings",
   "me",
-  "_meta",
 ];
+
+const HIDDEN_FROM_LIBRARY = new Set([
+  "memory-records",
+  "memory-hygiene",
+  "connections",
+  "notes",
+]);
 
 const LAYER_OPTIONS: Array<{ id: PlaybookLayerFilter; label: string }> = [
   { id: "learn", label: "Memory" },
@@ -53,7 +63,7 @@ export interface PlaybookTabV2Props {
   };
 }
 
-export function PlaybookTabV2({ playbooks, counts }: PlaybookTabV2Props) {
+export function PlaybookTabV2({ playbooks, counts: _counts }: PlaybookTabV2Props) {
   const router = useRouter();
   const [q, setQ] = useState("");
   const [filters, setFilters] = useState<PlaybookFiltersState>({
@@ -62,16 +72,19 @@ export function PlaybookTabV2({ playbooks, counts }: PlaybookTabV2Props) {
     sources: [],
   });
 
+  const libraryPlaybooks = useMemo(
+    () => playbooks.filter((pb) => !HIDDEN_FROM_LIBRARY.has(pb.slug)),
+    [playbooks],
+  );
+
   const sectionOptions = useMemo(
     () =>
-      SECTION_ORDER.filter(
-        (section) => (counts.bySection[section as V2Section] ?? 0) > 0
-      ).map((section) => ({
+      SECTION_ORDER.map((section) => ({
         id: section,
         label: getSectionMeta(section).label,
-        count: counts.bySection[section as V2Section] ?? 0,
-      })),
-    [counts.bySection]
+        count: libraryPlaybooks.filter((pb) => pb.section === section).length,
+      })).filter((option) => option.count > 0),
+    [libraryPlaybooks]
   );
 
   const sectionLabels = useMemo(
@@ -84,7 +97,7 @@ export function PlaybookTabV2({ playbooks, counts }: PlaybookTabV2Props) {
 
   const sourceOptions = useMemo(() => {
     const counts: Record<PlaybookSourceFilter, number> = { salt: 0, yours: 0 };
-    for (const playbook of playbooks) {
+    for (const playbook of libraryPlaybooks) {
       counts[getPlaybookSource(playbook.origin)]++;
     }
 
@@ -95,13 +108,13 @@ export function PlaybookTabV2({ playbooks, counts }: PlaybookTabV2Props) {
         label: PLAYBOOK_SOURCE_LABELS[source],
         count: counts[source],
       }));
-  }, [playbooks]);
+  }, [libraryPlaybooks]);
 
   const activeFilterCount = countPlaybookFilters(filters);
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
-    return playbooks.filter((pb) => {
+    return libraryPlaybooks.filter((pb) => {
       if (
         filters.sections.length > 0 &&
         !filters.sections.includes(pb.section as PlaybookSectionFilter)
@@ -132,7 +145,7 @@ export function PlaybookTabV2({ playbooks, counts }: PlaybookTabV2Props) {
     router.push(`/plays/playbooks/${slug}`);
   }
 
-  if (playbooks.length === 0) {
+  if (libraryPlaybooks.length === 0) {
     return (
       <div className="glass-card rounded-3xl p-10 text-center">
         <p className="font-display text-xl tracking-tight">
@@ -193,11 +206,13 @@ export function PlaybookTabV2({ playbooks, counts }: PlaybookTabV2Props) {
               name={pb.name}
               description={pb.description}
               section={pb.section}
-              layer={pb.layer}
-              voice={pb.voice}
               origin={pb.origin}
               steps={pb.steps}
               stepCount={pb.stepCount}
+              connectorIds={pb.connectorIds}
+              minutesSavedPerRun={pb.minutesSavedPerRun}
+              approvalMode={pb.approvalMode}
+              triggerType={pb.triggerType}
               enabled={pb.enabled}
               runnable={pb.runnable}
               onClick={() => handleCardClick(pb.slug)}

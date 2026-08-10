@@ -127,7 +127,7 @@ describe("mapBillingProvenanceToActivityEntry", () => {
     expect(entry.detail).toContain("100% sure");
   });
 
-  it("maps non-manual provenance to keeper entries", () => {
+  it("maps non-manual provenance to Salt entries", () => {
     const entry = mapBillingProvenanceToActivityEntry({
       ...baseProvenance,
       field: "dueAt",
@@ -136,8 +136,8 @@ describe("mapBillingProvenanceToActivityEntry", () => {
       confidence: null,
     });
 
-    expect(entry.kind).toBe("keeper");
-    expect(entry.label).toBe("Keeper updated due date");
+    expect(entry.kind).toBe("salt");
+    expect(entry.label).toBe("Salt updated due date");
     expect(entry.detail).toContain("Based on trusted billing-record evidence.");
   });
 });

@@ -7,7 +7,6 @@ import type {
   EnrichmentResult,
   ExtractorResult,
 } from "./types";
-import { getCategoryForConnector } from "./registry";
 import { consolidateResults } from "./consolidator";
 import type { Extractor, ExtractorContext } from "./extractors/base";
 import { emptyResult } from "./extractors/base";
@@ -108,7 +107,7 @@ export async function enrichEntity(request: EnrichmentRequest): Promise<Enrichme
         `(${extractorType})`
       );
       extractorTasks.push({ extractor, provider });
-    } else if (hasConnectorManifest(provider.provider)) {
+    } else if (await hasConnectorManifest(provider.provider)) {
       console.log(
         "[enrichEntity] Provider",
         provider.provider,

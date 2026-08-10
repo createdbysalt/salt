@@ -6,11 +6,13 @@ Section-based, YAML-only playbook definitions.
 
 ## Key Concepts
 
-| Concept | Description | Example |
-|---------|-------------|---------|
-| **Section** | Where the playbook lives | `billing`, `relationships`, `_meta` |
-| **Layer** | What it does | `learn` (memory), `act` (action) |
-| **Voice** | How it sounds | `billing`, `follow-up`, `brief` |
+| Concept     | Description              | Example                                                                 |
+| ----------- | ------------------------ | ----------------------------------------------------------------------- |
+| **Section** | Where the playbook lives | `billing`, `relationships`                                              |
+| **Layer**   | What it does             | `act` (action); `learn` remains in the schema but is unused — see below |
+| **Voice**   | How it sounds            | `billing`, `follow-up`, `brief`                                         |
+
+> **Playbooks are act-layer only.** The `_meta` section and its four learn-layer "system playbooks" (memory-records, memory-hygiene, connections, notes) were retired on 2026-08-06 and replaced by the **Memory Care** module (`app/_features/memory/care/`). Learn-layer enrichment is not a playbook concern — see `docs/architecture/memory-care.md`. The `learn` enum value remains in the schema for backward compatibility, but no shipped playbook uses it.
 
 ## Directory Structure
 
@@ -18,20 +20,19 @@ Section-based, YAML-only playbook definitions.
 playbooks/v2/
 ├── relationships/              # People + Orgs
 │   ├── _section.yaml          # Section metadata
-│   ├── memory.yaml            # LEARN: enriches records
-│   └── health.yaml            # ACT: relationship health alerts
+│   ├── follow-up/             # ACT: follow-up drafts
+│   └── health/                # ACT: relationship health alerts
 │
 ├── billing/                    # Cash flow
 │   ├── _section.yaml
-│   ├── memory.yaml            # LEARN: billing enrichment
-│   ├── invoice-reminder.yaml  # ACT: payment reminders
-│   └── cash-runway.yaml       # ACT: weekly cash alert
+│   ├── invoice-reminder/      # ACT: payment reminders
+│   └── cash-runway/           # ACT: weekly cash alert
 │
-├── _meta/                      # Memory-wide operations
+├── me/                         # Operator
 │   ├── _section.yaml
-│   └── daily-briefing.yaml    # ACT: morning summary
+│   └── daily-briefing/        # ACT: morning summary (moved from retired _meta)
 │
-└── ... (work, files, meetings, convos, me, connections)
+└── ... (work, files, meetings, communication, connections, notes)
 ```
 
 ## YAML Schema
@@ -39,16 +40,16 @@ playbooks/v2/
 ```yaml
 # Required fields
 name: Invoice Reminder
-slug: invoice-reminder          # auto-inferred from name if omitted
+slug: invoice-reminder # auto-inferred from name if omitted
 version: 1.0.0
 description: Drafts payment reminders for overdue invoices
 
-section: billing                # relationships|work|billing|files|meetings|convos|me|connections|_meta
-layer: act                      # learn (memory) | act (action)
-voice: billing                  # required for act-layer, forbidden for learn-layer
+section: billing # relationships|work|billing|files|meetings|communication|me|connections|notes
+layer: act # act (action) — learn is retired to Memory Care
+voice: billing # required for act-layer
 
 trigger:
-  type: signal                  # signal | schedule | manual
+  type: signal # signal | schedule | manual
   signal: billing_due_date_passed
 
 # Optional fields
@@ -80,8 +81,8 @@ steps:
     max_tokens: 200
 
 output:
-  type: email_draft             # email_draft|notification|memory_update|finding|briefing
-  approval: per_entity          # none|per_entity|batch
+  type: email_draft # email_draft|notification|memory_update|finding|briefing
+  approval: per_entity # none|per_entity|batch
 
 value:
   kind: invoice_collected
@@ -104,10 +105,10 @@ instructions:
     - label: Gentle reminder for good client
       content: |
         Hi Sarah,
-        
+
         Quick note about invoice #1234 for $2,500 - it was due last Friday.
         I know things get busy! Let me know if you need anything from my end.
-        
+
         Best,
         [Name]
       context: Use for clients with good payment history
@@ -125,7 +126,7 @@ instructions:
 
 1. **Slug**: Auto-inferred from name if not provided
 2. **Signal**: Must exist in the signal registry
-3. **Voice**: Required for `act` layer, forbidden for `learn` layer
+3. **Voice**: Required for `act` layer (all current playbooks)
 4. **Step IDs**: Must be unique within a playbook
 5. **Step references**: `forEach` must reference an existing fetch step
 6. **value.estimate**: Must be >= 0 (not negative)
@@ -140,7 +141,7 @@ instructions:
 guidelines:
   - Create labels: Action, Money
 
-# ✓ RIGHT - quoted string  
+# ✓ RIGHT - quoted string
 guidelines:
   - "Create labels: Action, Money"
 ```
@@ -175,22 +176,22 @@ console.log(`Found ${allPlaybooks.length} playbooks in ${sections.size} sections
 
 ## Migration from v1
 
-| v1 | v2 |
-|----|-----|
-| `playbook.md` + `definition.yaml` | Single `.yaml` file |
-| `kind: profile` | `layer: learn` |
-| `kind: acting` | `layer: act` |
-| `player_slug: billing` | `voice: billing` |
-| Flat directory | Section-based (`billing/`, `work/`, etc.) |
+| v1                                | v2                                        |
+| --------------------------------- | ----------------------------------------- |
+| `playbook.md` + `definition.yaml` | Single `.yaml` file                       |
+| `kind: profile`                   | `layer: learn`                            |
+| `kind: acting`                    | `layer: act`                              |
+| `player_slug: billing`            | `voice: billing`                          |
+| Flat directory                    | Section-based (`billing/`, `work/`, etc.) |
 
 Use `inferSectionFromSlug()` and `mapV1LayerToV2()` for migration helpers.
 
 ## Files
 
-| File | Purpose |
-|------|---------|
-| `types.ts` | Type definitions |
-| `schema.ts` | Zod schemas |
-| `parser.ts` | YAML parsing and validation |
-| `discovery.ts` | Filesystem playbook discovery |
-| `parser.test.ts` | Unit tests |
+| File             | Purpose                       |
+| ---------------- | ----------------------------- |
+| `types.ts`       | Type definitions              |
+| `schema.ts`      | Zod schemas                   |
+| `parser.ts`      | YAML parsing and validation   |
+| `discovery.ts`   | Filesystem playbook discovery |
+| `parser.test.ts` | Unit tests                    |

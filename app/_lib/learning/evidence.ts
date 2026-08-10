@@ -13,6 +13,7 @@
  */
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import type { Json } from "@/app/_lib/supabase/database.types";
 import { detectAndRecordConflict } from "@/app/_lib/memory-tools/get-conflicts";
 import type {
   LearningEntityType,
@@ -164,10 +165,10 @@ export async function accumulateEvidence(
       entity_type: input.entityType,
       entity_id: input.entityId,
       field_path: input.fieldPath,
-      proposed_value: input.proposedValue,
+      proposed_value: input.proposedValue as Json,
       confidence: input.confidence,
       evidence_type: input.evidenceType,
-      evidence_details: input.evidenceDetails ?? {},
+      evidence_details: (input.evidenceDetails ?? {}) as Json,
       source_type: input.sourceType,
       source_capture_id: input.sourceCaptureId ?? null,
       source_external_id: input.sourceExternalId ?? null,
@@ -296,7 +297,7 @@ export async function resolveEvidence(
     .update({
       resolved_at: new Date().toISOString(),
       resolution,
-      resolution_details: details ?? {},
+      resolution_details: (details ?? {}) as Json,
     })
     .eq("workspace_id", workspaceId)
     .in("id", evidenceIds);

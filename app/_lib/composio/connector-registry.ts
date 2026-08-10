@@ -56,8 +56,6 @@ export interface ConnectorRegistryEntry {
   connectHelp: string | null;
   nativeBadge: string | null;
   phase: string | null;
-  /** OAuth scopes the pinned auth config requests (synced); null = unknown. */
-  grantScopes: string[] | null;
   /** UI metadata from meta column */
   tagline: string | null;
   developedBy: string | null;
@@ -145,11 +143,6 @@ async function loadRegistry(): Promise<Map<string, ConnectorRegistryEntry>> {
       connectHelp: typeof meta.connectHelp === "string" ? meta.connectHelp : null,
       nativeBadge: typeof meta.nativeBadge === "string" ? meta.nativeBadge : null,
       phase: typeof meta.phase === "string" ? meta.phase : null,
-      grantScopes: Array.isArray(meta.grantScopes)
-        ? meta.grantScopes.filter(
-            (scope): scope is string => typeof scope === "string",
-          )
-        : null,
       tagline: typeof meta.tagline === "string" ? meta.tagline : null,
       developedBy: typeof meta.developedBy === "string" ? meta.developedBy : null,
       links: Array.isArray(meta.links)
@@ -213,7 +206,11 @@ export async function isApiKeyConnectorProvider(
 }
 
 /**
- * Connectable = has a resolved auth config and isn't comingSoon/removed.
+ * Connectable = has a resolved auth config, isn't comingSoon/removed, and
+ * isn't catalog_only. catalog_only connectors are shallow-synced — no tools,
+ * no triggers, no capture adapter — so connecting one would produce a
+ * connection that does literally nothing (Sources plan 5.5). They stay
+ * visible in the catalog as browse-only.
  * Replaces the CONNECTABLE_ENTRIES module-scope filter in queries.ts.
  */
 export async function listConnectableEntries(): Promise<
@@ -221,7 +218,10 @@ export async function listConnectableEntries(): Promise<
 > {
   const registry = await loadRegistry();
   return [...registry.values()].filter(
-    (entry) => entry.authConfigId !== "" && !entry.comingSoon,
+    (entry) =>
+      entry.authConfigId !== "" &&
+      !entry.comingSoon &&
+      entry.tier !== "catalog_only",
   );
 }
 
@@ -230,6 +230,20 @@ export async function listAskSaltEntries(): Promise<ConnectorRegistryEntry[]> {
   const registry = await loadRegistry();
   return [...registry.values()].filter(
     (entry) => entry.askSaltSlugPrefix !== null && entry.tier !== "catalog_only",
+  );
+}
+
+/** Ask Salt-enabled toolkit slugs (replaces ASK_SALT_COMPOSIO_TOOLKITS). */
+export async function listAskSaltToolkits(): Promise<string[]> {
+  const entries = await listAskSaltEntries();
+  return entries.map((entry) => entry.toolkitSlug);
+}
+
+/** Toolkit → human label for Ask Salt-exposed connectors. */
+export async function getAskSaltToolkitLabels(): Promise<Record<string, string>> {
+  const entries = await listAskSaltEntries();
+  return Object.fromEntries(
+    entries.map((entry) => [entry.toolkitSlug, entry.askSaltLabel ?? entry.name]),
   );
 }
 

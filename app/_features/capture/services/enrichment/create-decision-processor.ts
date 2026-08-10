@@ -1,14 +1,16 @@
 /**
  * CREATE Decision Processor
  *
- * Processes CREATE decisions from the Record Capture Criteria Engine
- * and creates play_runs for the approval queue.
+ * Processes CREATE decisions from the Record Capture Criteria Engine.
  *
- * Supports auto-apply when workspace has earned it through calibration.
+ * Plays canon Phase 2: proposals route into pending_evidence via
+ * memory/evidence/route-intake-proposal.ts — never play_runs.
+ * Records are created directly only when calibration is earned (P6) AND
+ * the proposal carries a relationship-grade signal (P7); everything else
+ * lands as status='suggested' for the Memory → Filter Watching lane.
  */
 
-import { createAdminClient } from "@/app/_lib/supabase/admin";
-import { createIntakePlayRun } from "@/app/_features/plays/services/create-intake-play-run";
+import { routeIntakeProposal } from "@/app/_features/memory/evidence/route-intake-proposal";
 import {
   shouldAutoApply,
   recordDecisionOutcome,
@@ -25,16 +27,22 @@ interface ProcessCreateDecisionInput {
   senderEmail: string | null;
   senderName: string | null;
   senderDomain: string | null;
+  /**
+   * Signal names backing the decision, in the intake SIGNAL_WEIGHTS
+   * vocabulary, used for the P7 worthiness check under eviction. Callers
+   * that cannot supply them fail closed: the proposal routes to the
+   * suggested lane instead of auto-creating a record.
+   */
+  signals?: string[];
 }
 
 interface ProcessCreateDecisionResult {
-  playRunId: string | null;
   autoApplied: boolean;
   createdRecordId: string | null;
 }
 
 /**
- * Process a CREATE decision and create a play for the approval queue.
+ * Process a CREATE decision: route the proposal into pending_evidence.
  */
 export async function processCreateDecision(
   input: ProcessCreateDecisionInput
@@ -48,47 +56,33 @@ export async function processCreateDecision(
   // For simplicity, we take the first (highest priority) proposal
   const primaryProposal = decision.proposals[0];
   if (!primaryProposal) {
-    return { playRunId: null, autoApplied: false, createdRecordId: null };
+    return { autoApplied: false, createdRecordId: null };
   }
 
   // Convert MemoryProposal to extracted fields format
   const extractedFields = buildExtractedFields(primaryProposal, senderEmail, senderName, senderDomain);
 
-  // Create the play run
-  const result = await createIntakePlayRun({
+  const routed = await routeIntakeProposal({
     workspaceId,
-    evidenceId: captureEventId, // Use capture event ID as evidence reference
     entityType: proposalSurfaceToEntityType(primaryProposal.surface),
     identifier: senderEmail ?? senderDomain ?? "unknown",
     confidence: decision.confidence,
     extractedFields,
-    signalCount: 1, // Single capture
-    autoCreate: autoApply,
+    signals: input.signals ?? [],
+    captureId: captureEventId,
+    autoApply,
   });
 
-  if (!result.ok) {
-    console.error("[create-decision-processor] Failed to create play:", result.error);
-    return { playRunId: null, autoApplied: false, createdRecordId: null };
-  }
-
-  // Record the outcome
-  if (autoApply && result.autoHandled) {
-    await recordDecisionOutcome(
-      decisionId,
-      "auto_applied",
-      undefined,
-      result.createdRecordId
-    );
+  if (routed.outcome === "created") {
+    await recordDecisionOutcome(decisionId, "auto_applied", undefined, routed.recordId);
 
     // Update calibration snapshot (track auto-applies)
     await updateCalibrationSnapshot(workspaceId);
+
+    return { autoApplied: true, createdRecordId: routed.recordId };
   }
 
-  return {
-    playRunId: result.playRunId,
-    autoApplied: result.autoHandled,
-    createdRecordId: result.createdRecordId ?? null,
-  };
+  return { autoApplied: false, createdRecordId: null };
 }
 
 /**

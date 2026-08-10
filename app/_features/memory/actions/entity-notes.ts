@@ -338,7 +338,7 @@ function revalidateEntityPaths(entityType: EntityType, entityId: string) {
       revalidatePath(`/billing/${entityId}`);
       break;
   }
-  revalidatePath("/connections");
+  revalidatePath("/memory");
 }
 
 async function syncNoteWikilinks(

@@ -5,7 +5,7 @@ import "server-only";
  *
  * Write-through from enrichment results to Memory records using the
  * confidence-gated memory tools. Per AD-1/AD-2:
- * - Uses getWorkspaceThreshold() from execution-router (same as Keeper)
+ * - Uses getWorkspaceThreshold() from execution-router (same as Memory Care)
  * - High-confidence fields → memoryUpdateField (may auto-apply)
  * - Low-confidence fields → memoryAccumulateEvidence (gather more signal)
  *
@@ -88,7 +88,7 @@ export async function applyEnrichmentToEntity(
         field,
         value: sourced.value,
         confidence: confidencePercent,
-        because: `Enrichment from ${sourced.source}`,
+        because: `Salt found this through ${sourced.source} enrichment.`,
         source: "enrichment",
         sourceDetails: {
           externalId: sourced.raw,
@@ -165,7 +165,7 @@ export async function accumulateEnrichmentEvidence(
         value: sourced.value,
         confidence: confidencePercent,
         evidenceType: "behavioral_signal",
-        because: `Enrichment from ${sourced.source}`,
+        because: `Salt found this through ${sourced.source} enrichment.`,
         source: "enrichment",
         sourceDetails: {
           externalId: sourced.raw,

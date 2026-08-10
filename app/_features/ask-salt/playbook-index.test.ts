@@ -6,37 +6,45 @@ import {
 
 function playbook(overrides: Partial<AskSaltPlaybook> = {}): AskSaltPlaybook {
   return {
-    templateId: "tpl-1",
     slug: "reengage-quiet-clients",
     name: "Re-engage quiet clients",
     description: "Email clients who have gone quiet.",
     whenToUse: "a client has not replied in 30 days",
     requiredActions: ["GMAIL_CREATE_EMAIL_DRAFT"],
-    playerSlug: "concierge",
+    voice: "concierge",
     ...overrides,
   };
 }
 
 describe("buildAskSaltPlaybookIndexBlock", () => {
-  it("renders nothing when no playbooks are adopted", () => {
+  it("renders nothing when no playbooks are enabled", () => {
     expect(buildAskSaltPlaybookIndexBlock([])).toBe("");
   });
 
   it("lists each playbook with slug, when-to-use, and required apps", () => {
     const block = buildAskSaltPlaybookIndexBlock([playbook()]);
 
-    expect(block).toContain("Adopted playbooks");
+    expect(block).toContain("Enabled playbooks");
     expect(block).toContain("Re-engage quiet clients [slug: reengage-quiet-clients]");
     expect(block).toContain("use when: a client has not replied in 30 days");
     expect(block).toContain("uses: GMAIL_CREATE_EMAIL_DRAFT");
   });
 
-  it("instructs the model to load before acting and to queue via propose_play", () => {
+  it("routes the model to load_playbook first and never mentions retired tools", () => {
     const block = buildAskSaltPlaybookIndexBlock([playbook()]);
 
     expect(block).toContain("load_playbook");
-    expect(block).toContain("propose_play");
-    expect(block).toMatch(/do not improvise/i);
+    expect(block).toContain("load_memory_intake");
+    expect(block).not.toContain("propose_play");
+    expect(block).not.toContain("adopt_playbook");
+  });
+
+  it("lists disabled playbooks as available with the enable marker", () => {
+    const block = buildAskSaltPlaybookIndexBlock([], [playbook()]);
+
+    expect(block).toContain("Available playbooks");
+    expect(block).toContain("[enable]");
+    expect(block).toContain("enable_playbook");
   });
 
   it("omits optional annotations gracefully", () => {

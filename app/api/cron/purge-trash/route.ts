@@ -7,8 +7,7 @@
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { TRASH_RETENTION_DAYS } from "@/app/_features/memory/types/trash";
 import { NextRequest, NextResponse } from "next/server";
-
-const CRON_SECRET = process.env.CRON_SECRET;
+import { assertInternalSecret } from "@/app/_lib/security/assert-internal-secret";
 
 const PURGE_TABLES = ["people", "organizations", "work", "notes"] as const;
 
@@ -21,18 +20,8 @@ function purgeCutoffIso(): string {
 export async function GET(req: NextRequest) {
   const startTime = Date.now();
 
-  if (!CRON_SECRET) {
-    console.error("[Purge trash cron] CRON_SECRET not configured");
-    return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
-  }
-
-  const authHeader = req.headers.get("Authorization");
-  const token = authHeader?.replace("Bearer ", "");
-
-  if (!token || token !== CRON_SECRET) {
-    console.warn("[Purge trash cron] Unauthorized request attempt");
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const unauthorized = assertInternalSecret(req, "[Purge trash cron]");
+  if (unauthorized) return unauthorized;
 
   const admin = createAdminClient();
   const cutoff = purgeCutoffIso();

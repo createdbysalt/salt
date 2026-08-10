@@ -6,8 +6,8 @@
  */
 
 import { createClient } from "@/app/_lib/supabase/server";
-import type { IntakeEntityType } from "@/app/_features/plays/playbooks/v2/_meta/memory-records/scripts";
-import { canonicalizeIdentifier } from "@/app/_features/plays/playbooks/v2/_meta/memory-records/scripts";
+import type { IntakeEntityType } from "@/app/_features/memory/care/intake";
+import { canonicalizeIdentifier } from "@/app/_features/memory/care/intake";
 
 /**
  * A detected signal with extracted data.
@@ -45,7 +45,23 @@ export interface MeetingCaptureData {
   endTime?: string;
   location?: string;
   meetingUrl?: string;
+  /** Source-system event id (the capture's source_external_id) — dedupe key. */
+  externalId?: string;
+  /** Capture source_type (googlecalendar, calcom, fireflies, …). */
+  provider?: string;
 }
+
+/**
+ * Calendar source types whose meeting captures represent calendar events.
+ * Transcript sources (fireflies, granola, …) also emit capture_type
+ * "meeting" but describe past recordings — they never drive record creation.
+ */
+const CALENDAR_SOURCE_TYPES = new Set([
+  "googlecalendar",
+  "outlook_calendar",
+  "calcom",
+  "calendly",
+]);
 
 /**
  * Classify an email capture and detect signals for unknown contacts.
@@ -197,6 +213,23 @@ export async function classifyEmailCapture(
 }
 
 /**
+ * Stable identifier for a document/billing signal: one evidence row per
+ * (sender, subject). A timestamp here would fork a fresh row on every
+ * re-arrival — breaking both evidence accumulation and dismissal.
+ */
+function stableDocumentIdentifier(
+  email: EmailCaptureData,
+  kind: string,
+  prefix: "file" | "billing" = "file"
+): string {
+  const subject = (email.subject || "")
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, " ");
+  return `${prefix}:${email.from.toLowerCase().trim()}:${subject || kind}`;
+}
+
+/**
  * Detect solopreneur-critical documents from email content.
  * These are the non-negotiable files for independent professionals.
  */
@@ -227,7 +260,7 @@ function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
   ) {
     signals.push({
       entityType: "file",
-      identifier: `msa-${email.from}-${Date.now()}`,
+      identifier: stableDocumentIdentifier(email, "msa"),
       signal: "msa_detected",
       extractedData: { ...baseData, category: "contract", document_type: "msa" },
     });
@@ -241,7 +274,7 @@ function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
   ) {
     signals.push({
       entityType: "file",
-      identifier: `nda-${email.from}-${Date.now()}`,
+      identifier: stableDocumentIdentifier(email, "nda"),
       signal: "nda_detected",
       extractedData: { ...baseData, category: "contract", document_type: "nda" },
     });
@@ -255,7 +288,7 @@ function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
   ) {
     signals.push({
       entityType: "file",
-      identifier: `contract-${email.from}-${Date.now()}`,
+      identifier: stableDocumentIdentifier(email, "contract"),
       signal: "contract_detected",
       extractedData: { ...baseData, category: "contract" },
     });
@@ -273,7 +306,7 @@ function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
   ) {
     signals.push({
       entityType: "file",
-      identifier: `sow-${email.from}-${Date.now()}`,
+      identifier: stableDocumentIdentifier(email, "sow"),
       signal: "sow_detected",
       extractedData: { ...baseData, category: "proposal", document_type: "sow" },
     });
@@ -287,7 +320,7 @@ function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
   ) {
     signals.push({
       entityType: "file",
-      identifier: `proposal-${email.from}-${Date.now()}`,
+      identifier: stableDocumentIdentifier(email, "proposal"),
       signal: "proposal_detected",
       extractedData: { ...baseData, category: "proposal" },
     });
@@ -302,7 +335,7 @@ function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
   ) {
     signals.push({
       entityType: "file",
-      identifier: `brief-${email.from}-${Date.now()}`,
+      identifier: stableDocumentIdentifier(email, "brief"),
       signal: "brief_detected",
       extractedData: { ...baseData, category: "reference", document_type: "brief" },
     });
@@ -319,7 +352,7 @@ function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
   ) {
     signals.push({
       entityType: "billing",
-      identifier: `invoice-${email.from}-${Date.now()}`,
+      identifier: stableDocumentIdentifier(email, "invoice", "billing"),
       signal: "invoice_attachment_detected",
       extractedData: { subject: email.subject || "", from: email.from },
     });
@@ -328,7 +361,7 @@ function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
   if (combined.includes("receipt") || combined.includes("payment received")) {
     signals.push({
       entityType: "file",
-      identifier: `receipt-${email.from}-${Date.now()}`,
+      identifier: stableDocumentIdentifier(email, "receipt"),
       signal: "receipt_detected",
       extractedData: { ...baseData, category: "invoice", document_type: "receipt" },
     });
@@ -357,7 +390,7 @@ function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
     if (isDesignFile || email.hasAttachments) {
       signals.push({
         entityType: "file",
-        identifier: `deliverable-${email.from}-${Date.now()}`,
+        identifier: stableDocumentIdentifier(email, "deliverable"),
         signal: "deliverable_detected",
         extractedData: { ...baseData, category: "deliverable" },
       });
@@ -375,7 +408,7 @@ function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
   ) {
     signals.push({
       entityType: "file",
-      identifier: `revision-${email.from}-${Date.now()}`,
+      identifier: stableDocumentIdentifier(email, "revision"),
       signal: "revision_detected",
       extractedData: { ...baseData, category: "deliverable", document_type: "revision" },
     });
@@ -396,7 +429,7 @@ function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
   ) {
     signals.push({
       entityType: "file",
-      identifier: `approval-${email.from}-${Date.now()}`,
+      identifier: stableDocumentIdentifier(email, "approval"),
       signal: "approval_detected",
       extractedData: { ...baseData, category: "notes", document_type: "approval" },
     });
@@ -411,7 +444,7 @@ function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
   ) {
     signals.push({
       entityType: "file",
-      identifier: `feedback-${email.from}-${Date.now()}`,
+      identifier: stableDocumentIdentifier(email, "feedback"),
       signal: "feedback_detected",
       extractedData: { ...baseData, category: "notes", document_type: "feedback" },
     });
@@ -430,7 +463,7 @@ function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
   ) {
     signals.push({
       entityType: "file",
-      identifier: `onboarding-${email.from}-${Date.now()}`,
+      identifier: stableDocumentIdentifier(email, "onboarding"),
       signal: "onboarding_doc_detected",
       extractedData: { ...baseData, category: "process", document_type: "onboarding" },
     });
@@ -450,7 +483,7 @@ function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
   ) {
     signals.push({
       entityType: "file",
-      identifier: `signature-${email.from}-${Date.now()}`,
+      identifier: stableDocumentIdentifier(email, "signature"),
       signal: "signature_request_received",
       extractedData: { ...baseData, category: "contract" },
     });
@@ -467,7 +500,7 @@ function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
   ) {
     signals.push({
       entityType: "file",
-      identifier: `drive-${email.from}-${Date.now()}`,
+      identifier: stableDocumentIdentifier(email, "drive"),
       signal: "drive_share_received",
       extractedData: { ...baseData, category: "reference" },
     });
@@ -476,7 +509,7 @@ function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
   if (combined.includes("figma") && combined.includes("shared")) {
     signals.push({
       entityType: "file",
-      identifier: `figma-${email.from}-${Date.now()}`,
+      identifier: stableDocumentIdentifier(email, "figma"),
       signal: "figma_share_received",
       extractedData: { ...baseData, category: "deliverable" },
     });
@@ -485,7 +518,7 @@ function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
   if (combined.includes("notion") && combined.includes("shared")) {
     signals.push({
       entityType: "file",
-      identifier: `notion-${email.from}-${Date.now()}`,
+      identifier: stableDocumentIdentifier(email, "notion"),
       signal: "notion_share_received",
       extractedData: { ...baseData, category: "reference" },
     });
@@ -567,18 +600,53 @@ export async function classifyMeetingCapture(
     });
   }
 
-  // Meeting URL suggests a real meeting
-  if (meeting.meetingUrl) {
+  // Meeting-entity record signal (audit #7): calendar captures mirror into
+  // Memory as meeting records. Gated to calendar sources — transcript
+  // captures (fireflies et al.) describe past recordings, not events, and
+  // keep person-signal-only behavior. A start time is required: without it
+  // the intake tier could never create the record.
+  if (
+    meeting.provider &&
+    CALENDAR_SOURCE_TYPES.has(meeting.provider) &&
+    meeting.startTime
+  ) {
+    // Stable identifier: the source event id when present, else the event's
+    // own coordinates — so repeat syncs accumulate onto one evidence row and
+    // dismissals stick.
+    const identifier = meeting.externalId
+      ? `${meeting.provider}:${meeting.externalId}`
+      : `${meeting.title}:${meeting.startTime}`;
+
+    const extractedData: Record<string, string> = {
+      title: meeting.title,
+      // `name` mirrors title so the New records lane can display it.
+      name: meeting.title,
+      start_time: meeting.startTime,
+      provider: meeting.provider,
+    };
+    if (meeting.endTime) extractedData.end_time = meeting.endTime;
+    if (meeting.location) extractedData.location = meeting.location;
+    if (meeting.meetingUrl) extractedData.meeting_url = meeting.meetingUrl;
+    if (meeting.attendees.length > 0) {
+      extractedData.attendees = JSON.stringify(meeting.attendees);
+    }
+    if (meeting.externalId) extractedData.external_event_id = meeting.externalId;
+
     signals.push({
       entityType: "meeting",
-      identifier: meeting.title,
-      signal: "zoom_invite_detected",
-      extractedData: {
-        title: meeting.title,
-        meeting_url: meeting.meetingUrl,
-        start_time: meeting.startTime,
-      },
+      identifier,
+      signal: "calendar_event_created",
+      extractedData,
     });
+
+    if (meeting.meetingUrl) {
+      signals.push({
+        entityType: "meeting",
+        identifier,
+        signal: "zoom_invite_detected",
+        extractedData,
+      });
+    }
   }
 
   return signals;

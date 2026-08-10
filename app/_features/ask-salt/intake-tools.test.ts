@@ -37,7 +37,14 @@ describe("runPlaybookIntake", () => {
     );
   });
 
-  it("rejects unknown playbook slug", () => {
+  it("accepts memory-care intake id", () => {
+    const result = runPlaybookIntake("memory-care", "add Jane Doe");
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.intakeId).toBe("memory-care");
+  });
+
+  it("rejects unknown intake id", () => {
     const result = runPlaybookIntake("invoice-reminder", "add Jane");
     expect(result.success).toBe(false);
   });

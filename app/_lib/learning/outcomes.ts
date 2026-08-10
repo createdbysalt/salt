@@ -8,6 +8,7 @@
  */
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import type { Json } from "@/app/_lib/supabase/database.types";
 
 export type OutcomeType = "positive" | "negative" | "neutral" | "timeout";
 
@@ -94,7 +95,7 @@ export async function recordOutcome(
     title: `Outcome: ${input.outcomeType}`,
     metadata: {
       outcome_type: input.outcomeType,
-      outcome_value: input.outcomeValue,
+      outcome_value: input.outcomeValue as Json | undefined,
     },
   });
 

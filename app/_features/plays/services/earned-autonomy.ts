@@ -1,25 +1,43 @@
 import "server-only";
 
 /**
- * Earned autonomy (GROW): per-(workspace, playbook, tool) approval counter.
+ * Earned autonomy (GROW): per-(workspace, playbook, tool) approval counter
+ * with an offer-first grant flow.
  *
- * Playbook action steps marked `needsApproval: true` pause for human
- * approval until the workspace has approved that exact playbook+tool
- * combination EARNED_AUTONOMY_THRESHOLD times — then the step runs
- * silently. Steps marked `approval: required` are never earned away
- * (hard gates stay hard).
+ * Playbook action steps marked `approval: "ask"` pause for human approval.
+ * Every time an approval actually executes (resume path), the counter bumps.
+ * Every EARNED_AUTONOMY_THRESHOLD executed approvals, Salt creates an
+ * "autonomy offer" — a queued play_run proposing to relax the gate. Nothing
+ * flips silently: the step runs without asking only after the user grants
+ * the offer (`autonomy_granted_at`), and grants are revocable in
+ * Settings → Plays. Steps marked `approval: "required"` are never offered
+ * or earned away (hard gates stay hard).
  *
  * The counter is bumped only when an approval actually executes
  * (resume path), never on the pause itself.
  */
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import type { Json } from "@/app/_lib/supabase/database.types";
+import { buildPlaybookSourceContext } from "@/app/_features/plays/lib/play-record";
 
 export const EARNED_AUTONOMY_THRESHOLD = 10;
 
+/** Marker on the offer play_run so approve/dismiss can route to grant/decline. */
+export const AUTONOMY_OFFER_KIND = "autonomy_offer";
+
+interface ApprovalRow {
+  id: string;
+  approved_count: number | null;
+  autonomy_granted_at: string | null;
+  autonomy_offered_at: string | null;
+  autonomy_declined_at: string | null;
+}
+
 /**
- * True when the workspace has approved this playbook+tool combination often
- * enough that the step no longer needs a human in the loop.
+ * True when the user has granted autonomy for this playbook+tool combination
+ * from an offer card. Deliberately grant-based, not count-based: reaching the
+ * threshold creates an offer; it never flips the gate on its own.
  */
 export async function hasEarnedAutonomy(
   workspaceId: string,
@@ -29,7 +47,7 @@ export async function hasEarnedAutonomy(
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("playbook_action_approvals")
-    .select("approved_count")
+    .select("autonomy_granted_at")
     .eq("workspace_id", workspaceId)
     .eq("playbook_slug", playbookSlug)
     .eq("tool_slug", toolSlug)
@@ -43,11 +61,13 @@ export async function hasEarnedAutonomy(
     return false;
   }
 
-  return (data?.approved_count ?? 0) >= EARNED_AUTONOMY_THRESHOLD;
+  return Boolean(data?.autonomy_granted_at);
 }
 
 /**
- * Record one executed approval for a playbook+tool combination.
+ * Record one executed approval for a playbook+tool combination, creating an
+ * autonomy offer every time the count crosses a multiple of the threshold
+ * (unless autonomy is already granted or an offer is currently open).
  */
 export async function recordActionApproval(
   workspaceId: string,
@@ -59,37 +79,216 @@ export async function recordActionApproval(
 
   const { data: existing } = await admin
     .from("playbook_action_approvals")
-    .select("id, approved_count")
+    .select(
+      "id, approved_count, autonomy_granted_at, autonomy_offered_at, autonomy_declined_at"
+    )
     .eq("workspace_id", workspaceId)
     .eq("playbook_slug", playbookSlug)
     .eq("tool_slug", toolSlug)
     .maybeSingle();
 
-  if (existing) {
+  const row = (existing as ApprovalRow | null) ?? null;
+  const newCount = (row?.approved_count ?? 0) + 1;
+
+  if (row) {
     await admin
       .from("playbook_action_approvals")
       .update({
-        approved_count: (existing.approved_count ?? 0) + 1,
+        approved_count: newCount,
         last_approved_at: now,
       })
-      .eq("id", existing.id);
+      .eq("id", row.id);
+  } else {
+    const { error } = await admin.from("playbook_action_approvals").insert({
+      workspace_id: workspaceId,
+      playbook_slug: playbookSlug,
+      tool_slug: toolSlug,
+      approved_count: 1,
+      last_approved_at: now,
+    } as never);
+
+    if (error && error.code === "23505") {
+      // Lost a concurrent-insert race — retry as an update.
+      await recordActionApproval(workspaceId, playbookSlug, toolSlug);
+      return;
+    } else if (error) {
+      console.warn(
+        `[earned-autonomy] failed to record approval for ${playbookSlug}/${toolSlug}: ${error.message}`
+      );
+      return;
+    }
+  }
+
+  await maybeCreateAutonomyOffer({
+    workspaceId,
+    playbookSlug,
+    toolSlug,
+    row,
+    newCount,
+  });
+}
+
+/**
+ * Offer when the count lands on a threshold multiple and autonomy is not
+ * already granted. A decline suppresses re-offers until the next multiple.
+ * An open (still queued) offer run dedups concurrent threshold crossings.
+ */
+async function maybeCreateAutonomyOffer(input: {
+  workspaceId: string;
+  playbookSlug: string;
+  toolSlug: string;
+  row: ApprovalRow | null;
+  newCount: number;
+}): Promise<void> {
+  const { workspaceId, playbookSlug, toolSlug, row, newCount } = input;
+
+  if (newCount % EARNED_AUTONOMY_THRESHOLD !== 0) return;
+  if (row?.autonomy_granted_at) return;
+
+  const admin = createAdminClient();
+
+  const { data: openOffer } = await admin
+    .from("play_runs")
+    .select("id")
+    .eq("workspace_id", workspaceId)
+    .eq("state", "queued")
+    .eq("trigger_evidence->>kind", AUTONOMY_OFFER_KIND)
+    .eq("source_context->>playbook_slug", playbookSlug)
+    .eq("trigger_evidence->>tool_slug", toolSlug)
+    .limit(1)
+    .maybeSingle();
+
+  if (openOffer) return;
+
+  const times = newCount;
+  const { error } = await admin.from("play_runs").insert({
+    workspace_id: workspaceId,
+    state: "queued",
+    title: "Let Salt handle this automatically?",
+    preview: `You've approved this step ${times} times. Salt can run ${formatToolSlugForHumans(toolSlug)} without asking next time — you can turn it off anytime in Settings → Plays.`,
+    trigger_source: "system",
+    source_context: buildPlaybookSourceContext({ playbookSlug }),
+    trigger_evidence: {
+      kind: AUTONOMY_OFFER_KIND,
+      tool_slug: toolSlug,
+      approved_count: times,
+    } as Json,
+  });
+
+  if (error) {
+    console.warn(
+      `[earned-autonomy] failed to create offer for ${playbookSlug}/${toolSlug}: ${error.message}`
+    );
     return;
   }
 
-  const { error } = await admin.from("playbook_action_approvals").insert({
-    workspace_id: workspaceId,
-    playbook_slug: playbookSlug,
-    tool_slug: toolSlug,
-    approved_count: 1,
-    last_approved_at: now,
-  } as never);
+  await admin
+    .from("playbook_action_approvals")
+    .update({ autonomy_offered_at: new Date().toISOString() })
+    .eq("workspace_id", workspaceId)
+    .eq("playbook_slug", playbookSlug)
+    .eq("tool_slug", toolSlug);
+}
 
-  if (error && error.code === "23505") {
-    // Lost a concurrent-insert race — retry as an update.
-    await recordActionApproval(workspaceId, playbookSlug, toolSlug);
-  } else if (error) {
-    console.warn(
-      `[earned-autonomy] failed to record approval for ${playbookSlug}/${toolSlug}: ${error.message}`
-    );
+/**
+ * Grant autonomy (user approved the offer). Future steps run without asking.
+ */
+export async function grantAutonomy(
+  workspaceId: string,
+  playbookSlug: string,
+  toolSlug: string
+): Promise<void> {
+  const admin = createAdminClient();
+  await admin
+    .from("playbook_action_approvals")
+    .update({
+      autonomy_granted_at: new Date().toISOString(),
+      autonomy_declined_at: null,
+    })
+    .eq("workspace_id", workspaceId)
+    .eq("playbook_slug", playbookSlug)
+    .eq("tool_slug", toolSlug);
+}
+
+/**
+ * Decline the current offer. The gate keeps asking; the offer re-appears
+ * after another EARNED_AUTONOMY_THRESHOLD approvals.
+ */
+export async function declineAutonomyOffer(
+  workspaceId: string,
+  playbookSlug: string,
+  toolSlug: string
+): Promise<void> {
+  const admin = createAdminClient();
+  await admin
+    .from("playbook_action_approvals")
+    .update({ autonomy_declined_at: new Date().toISOString() })
+    .eq("workspace_id", workspaceId)
+    .eq("playbook_slug", playbookSlug)
+    .eq("tool_slug", toolSlug);
+}
+
+/**
+ * Revoke a grant (Settings → Plays). The step immediately returns to asking;
+ * the approval count is kept so a fresh offer arrives at the next multiple.
+ */
+export async function revokeAutonomy(
+  workspaceId: string,
+  playbookSlug: string,
+  toolSlug: string
+): Promise<void> {
+  const admin = createAdminClient();
+  await admin
+    .from("playbook_action_approvals")
+    .update({ autonomy_granted_at: null })
+    .eq("workspace_id", workspaceId)
+    .eq("playbook_slug", playbookSlug)
+    .eq("tool_slug", toolSlug);
+}
+
+export interface AutonomyGrant {
+  playbookSlug: string;
+  toolSlug: string;
+  approvedCount: number;
+  grantedAt: string;
+}
+
+/**
+ * Active grants for Settings → Plays. Uses the workspace-scoped server client
+ * so RLS enforces membership.
+ */
+export async function listAutonomyGrants(
+  workspaceId: string
+): Promise<AutonomyGrant[]> {
+  const { createClient } = await import("@/app/_lib/supabase/server");
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("playbook_action_approvals")
+    .select(
+      "playbook_slug, tool_slug, approved_count, autonomy_granted_at"
+    )
+    .eq("workspace_id", workspaceId)
+    .not("autonomy_granted_at", "is", null)
+    .order("autonomy_granted_at", { ascending: false });
+
+  if (error) {
+    console.warn(`[earned-autonomy] failed to list grants: ${error.message}`);
+    return [];
   }
+
+  return (data ?? []).map((row) => ({
+    playbookSlug: row.playbook_slug as string,
+    toolSlug: row.tool_slug as string,
+    approvedCount: (row.approved_count as number) ?? 0,
+    grantedAt: row.autonomy_granted_at as string,
+  }));
+}
+
+function formatToolSlugForHumans(toolSlug: string): string {
+  return toolSlug
+    .toLowerCase()
+    .split("_")
+    .filter(Boolean)
+    .join(" ");
 }

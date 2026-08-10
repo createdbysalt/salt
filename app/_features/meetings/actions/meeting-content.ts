@@ -306,7 +306,7 @@ export async function attachMeetingTranscript(
       return error("DB_ERROR", "Failed to attach transcript");
     }
 
-    // Extract entity notes from meeting transcript (keeper-entity-notes pipeline)
+    // Extract entity notes from meeting transcript (Memory Care entity-notes pipeline)
     if (validated.content) {
       try {
         const { data: meeting } = await supabase

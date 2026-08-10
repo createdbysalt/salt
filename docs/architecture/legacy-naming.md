@@ -5,16 +5,24 @@ Retired product terms and where legacy strings still appear in code. **Do not us
 | Retired (user-facing) | Current | Notes |
 |----------------------|---------|--------|
 | The Bridge | Spaces | Shared client/project workspace |
-| The Table / Roundtables | Spaces | Same surface; "table" and "roundtables" subdomains redirect to `/spaces` |
+| The Table / Roundtables | Spaces (roadmap) | Same surface; "table" and "roundtables" subdomains and `/tables` routes redirect to `/work` while Spaces is unshipped |
 | Client portal | Spaces | Not lead positioning |
 | Studio OS / business OS | Proactive AI for your business | Marketing category |
 | Dashboard (product) | HQ | Command center |
 | Clients / Relationships routes | People | `/people` |
-| Capture (top-level route) | Plays Activity → Captures | `/capture` redirects to `/plays?tab=activity&view=captures` |
+| Capture (top-level route) | Sources → Activity | `/capture` redirects to `/sources?tab=activity` |
+| Connectors (in Plays Customize) | Sources → Connectors | `/plays?tab=customize&customize=connectors` redirects to `/sources` |
+| Watching queue (Plays) | Memory → Activity | `/plays?filter=learning` redirects to `/memory?tab=activity` |
+| Memory → Filter (tab) | Memory → Activity | `?tab=filter` parses as a legacy alias for `?tab=activity` |
 | Notes (top-level route) | Me | `/notes` redirects to `/me` |
 | Strategy / Serve / S-modes | Retired (April 2026) | No new UI labels |
 | SEE → ACT → APPROVE | LEARN → ACT → GROW | Product loop |
 | Creative agencies (ICP) | Solo service entrepreneurs | Audience |
+| Keeper / Keeper playbooks | Memory Care | Learn-layer enrichment; see `docs/architecture/memory-care.md` |
+| System playbooks (`v2/_meta/`) | Memory Care capabilities | records / hygiene / connections / notes — not playbooks |
+| `_meta` playbook section | Removed | `daily-briefing` lives under `me`; Memory Care is `app/_features/memory/care/` |
+| `keeper_auto_execute_threshold` | `memory_care_auto_apply_threshold` | Column on `workspaces`; accessors in `care/settings.ts` |
+| Memory Filter "Pending your call" / approval queue | Watching / Handled / Kept out | Correction replaces learn-layer approval |
 
 ## URL redirects (runtime)
 
@@ -26,19 +34,24 @@ Handled in `middleware.ts` and `app/_features/shell/routes.ts`:
 | `/studio/clients`, `/dashboard/clients`, `/clients/*` | `/people/*` |
 | `/relationships/*` | `/people/*` |
 | `/sales/*` | `/hq` |
-| `/capture` | `/plays?tab=activity&view=captures` |
+| `/capture` | `/sources?tab=activity` |
+| `/plays?tab=customize` | `/plays?tab=playbooks` (connectors → `/sources`) |
+| `/plays?tab=activity&view=captures` | `/sources?tab=activity` |
+| `/plays?filter=learning` | `/memory?tab=activity` |
+| `/memory?tab=filter` | `/memory?tab=activity` (legacy alias, parsed in `memory-tab-routing.ts`) |
 | `/notes` | `/me` |
-| `/roundtables`, `/tables` | `/spaces` |
-| `bridge.*`, `table.*` subdomains | `/spaces` |
+| `/roundtables`, `/tables` | `/work` |
+| `/spaces` | `/work` (Spaces is roadmap, not MVP — redirect until the surface ships) |
+| `bridge.*`, `table.*` subdomains | `/work` |
 | `app.*` subdomain `/` | `/hq` |
 
-**Canonical (not legacy):** `/work` and `/spaces` are active product routes under `app/(product)/`.
+**Canonical (not legacy):** `/work` is an active product route under `app/(product)/`. `/spaces` currently redirects to `/work`.
 
-## Code / DB names (migration planned)
+## Code / DB names (historical — rename landed)
 
 | Legacy identifier | Location | Status |
 |-------------------|----------|--------|
-| `studios`, `studio_id`, `studio_members` | PostgreSQL / Supabase | **Active.** Rename to `workspaces` / `workspace_id` / `workspace_members` planned — see `docs/plans/2026-06-09-workspace-rename-rfc.md` |
+| `studios`, `studio_id`, `studio_members` | PostgreSQL / Supabase | **Renamed 2026-06-10** (`20260610003000_rename_studios_to_workspaces.sql`) to `workspaces` / `workspace_id` / `workspace_members`. `studios` and `studio_members` survive only as deprecated `security_invoker` compatibility views; some FK *constraint names* still carry `_studio_id_` (cosmetic) |
 | `BridgeBrandingConfig`, `bridgeOverviewConfigSchema` | `app/_lib/spaces/` | Type names; legacy Bridge naming in types |
 | `serve` feature module | `app/_features/serve/` | Spaces branding settings implementation |
 | `/studio/settings` URLs | Onboarding setup cards | **Fixed** → `/settings/integrations` |

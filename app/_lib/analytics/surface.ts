@@ -5,7 +5,7 @@ const APP_PATH_PREFIXES = [
   "/roundtables",
   "/plays",
   "/capture",
-  "/connections",
+  "/memory",
   "/conversations",
   "/meetings",
   "/billing",

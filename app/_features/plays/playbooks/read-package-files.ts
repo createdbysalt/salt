@@ -19,7 +19,6 @@ export interface PackageData {
   files: PackageFile[];
   signals: string[];
   fields: string[];
-  tools: Array<{ name: string; description?: string; protection?: string }>;
   ruleCount: number;
   references: Array<{ name: string; path: string }>;
 }
@@ -106,35 +105,10 @@ export function readPackageData(packagePath: string): PackageData | null {
     }
   }
 
-  // Read tools.yaml
-  let tools: Array<{ name: string; description?: string; protection?: string }> = [];
-  const toolsPath = join(packagePath, "tools.yaml");
-  if (existsSync(toolsPath)) {
-    try {
-      const content = readFileSync(toolsPath, "utf-8");
-      const toolsData = parseYaml(content);
-
-      if (toolsData.tools) {
-        tools = toolsData.tools.map((t: { name: string; purpose?: string; description?: string; protected?: boolean }) => ({
-          name: t.name,
-          description: t.purpose ?? t.description,
-          protection: t.protected === true
-            ? "threshold-protected"
-            : t.protected === false
-              ? "read-only"
-              : undefined,
-        }));
-      }
-    } catch {
-      // Ignore parse errors
-    }
-  }
-
   return {
     files,
     signals,
     fields,
-    tools,
     ruleCount,
     references,
   };

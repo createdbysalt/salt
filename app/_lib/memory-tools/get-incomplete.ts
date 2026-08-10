@@ -237,7 +237,7 @@ export async function memoryGetIncompleteRecords(
   if (!entityType || entityType === "file") {
     const { data: files } = await supabase
       .from("files")
-      .select("id, title, filename, category")
+      .select("id, file_name, category")
       .eq("workspace_id", workspaceId)
       .is("deleted_at", null)
       .is("archived_at", null)
@@ -254,7 +254,7 @@ export async function memoryGetIncompleteRecords(
           records.push({
             id: file.id,
             entityType: "file",
-            name: file.title || file.filename || "Unknown",
+            name: file.file_name || "Unknown",
             missingFields: missing.map((m) => m.field),
             signal: topIssue.signal,
             severity: topIssue.severity,

@@ -2,16 +2,14 @@
 
 import { Skeleton } from "@repo/ui";
 import type { PlaysTab } from "@/app/_features/plays/load-plays-page-data";
-import { PlaysCustomizeSkeleton } from "./PlaysCustomizeSkeleton";
 
 export function PlaysPageSkeleton({ tab = "queue" }: { tab?: PlaysTab }) {
-  if (tab === "customize") {
+  if (tab === "playbooks") {
     return (
       <div className="relative min-h-full">
-        <div aria-hidden className="salt-ambient-wash" />
         <div className="mx-auto w-full max-w-[1400px] space-y-8">
           <PlaysTabBarSkeleton />
-          <PlaysCustomizeSkeleton />
+          <PlaysPlaybooksSkeleton />
         </div>
       </div>
     );
@@ -20,7 +18,6 @@ export function PlaysPageSkeleton({ tab = "queue" }: { tab?: PlaysTab }) {
   if (tab === "activity") {
     return (
       <div className="relative min-h-full">
-        <div aria-hidden className="salt-ambient-wash" />
         <div className="mx-auto w-full max-w-[1400px] space-y-8">
           <PlaysTabBarSkeleton />
           <PlaysActivitySkeleton />
@@ -31,7 +28,6 @@ export function PlaysPageSkeleton({ tab = "queue" }: { tab?: PlaysTab }) {
 
   return (
     <div className="relative min-h-full">
-      <div aria-hidden className="salt-ambient-wash" />
       <div className="mx-auto w-full max-w-[1400px] space-y-8">
         <PlaysTabBarSkeleton />
         <PlaysQueueSkeleton />
@@ -70,6 +66,24 @@ function PlaysQueueSkeleton() {
         <Skeleton className="h-48 rounded-2xl" />
       </div>
     </>
+  );
+}
+
+function PlaysPlaybooksSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="space-y-2">
+        <Skeleton className="h-4 w-36" />
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-4 w-full max-w-md" />
+      </div>
+      <Skeleton className="h-10 w-full max-w-3xl rounded-full" />
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Skeleton className="h-44 rounded-2xl" />
+        <Skeleton className="h-44 rounded-2xl" />
+        <Skeleton className="h-44 rounded-2xl" />
+      </div>
+    </div>
   );
 }
 

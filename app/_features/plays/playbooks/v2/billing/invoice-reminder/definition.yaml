@@ -44,9 +44,9 @@ steps:
   - step: draft
     id: reminder_email
     prompt: |
-      Draft a {{tone}} payment reminder for {{invoice.customer}}.
-      Amount: {{invoice.amount}}
-      Days overdue: {{invoice.days_overdue}}
+      Draft a payment reminder for each overdue invoice below.
+      Overdue invoices: {{overdue_invoices}}
+      Tone classification: {{tone}}
 
       Be clear about the amount due and due date.
       If gentle, acknowledge their good payment history.

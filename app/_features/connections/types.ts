@@ -91,6 +91,10 @@ export type GraphNode = {
   recordStatus?: "active" | "inactive";
   /** Color dimension source: canonical relationship slug (people/orgs only). */
   relationship?: string;
+  /** Cached AI "Summary" line (people/orgs/work), same source as the detail page overview. */
+  summary?: string;
+  /** Cached AI "Worth attention" reason (people/orgs/work). */
+  worthAttention?: string;
 };
 
 export type GraphEdge = {
@@ -140,7 +144,7 @@ export const NODE_TYPE_META: Record<
   org: { label: "Orgs", shape: "square" },
   work: { label: "Work", shape: "diamond" },
   billing: { label: "Billing", shape: "rect" },
-  file: { label: "Files", shape: "rect" },
+  file: { label: "Resources", shape: "rect" },
   note: { label: "Notes", shape: "rect" },
   conversation: { label: "Conversations", shape: "rect" },
   meeting: { label: "Meetings", shape: "rect" },
@@ -156,9 +160,9 @@ export const TYPE_META: Record<NodeType, { label: string; color: string }> = {
   org: { label: "Orgs", color: "#E08A5B" },
   work: { label: "Work", color: "#B89BD9" },
   billing: { label: "Billing", color: "#D9A45B" },
-  file: { label: "Files", color: "#E8B4A8" },
+  file: { label: "Resources", color: "#E8B4A8" },
   note: { label: "Notes", color: "#9CA3AF" },
   conversation: { label: "Conversations", color: "#818CF8" },
-  meeting: { label: "Meetings", color: "#F59E0B" },
+  meeting: { label: "Meetings", color: "#6BAE8E" },
   resource: { label: "Resources", color: "#10B981" },
 };

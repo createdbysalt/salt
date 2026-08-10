@@ -4,7 +4,7 @@ import { Search, X } from "lucide-react";
 import { TYPE_META, type NodeType } from "../types";
 import { cn } from "@repo/utils";
 
-const TYPES: NodeType[] = ["person", "org", "work", "billing", "file", "note"];
+const TYPES: NodeType[] = ["person", "org", "work", "billing", "file", "meeting", "note"];
 
 export function GraphFilterBar({
   counts,

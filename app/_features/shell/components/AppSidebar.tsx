@@ -10,11 +10,10 @@ import {
   Check,
   ChevronDown,
   LayoutDashboard,
-  Inbox,
-  Network,
   Play,
   Settings,
   X,
+  Bolt,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@repo/ui";
 import type { User } from "@supabase/supabase-js";
@@ -48,13 +47,13 @@ const SIDEBAR_NAV_ICON =
 /** px-3 + 18px icon + gap-x-3 */
 const MEMORY_SUBNAV_INDENT = "pl-[calc(0.75rem+18px+0.75rem)]";
 
+// Nav order: HQ → Plays → Sources → Memory.
 const TOP_NAV = [
   { title: "HQ", url: "/hq", icon: LayoutDashboard },
   { title: "Plays", url: "/plays", icon: Play },
-  { title: "Connections", url: "/connections", icon: Network },
-  // Connectors live inside Plays → Customize → Connectors (not a top-level nav).
-  // Capture removed from nav (2026-06-13) — stream lives at Plays → Activity → Captures
-  // /capture redirects to /plays?tab=activity&view=captures
+  { title: "Sources", url: "/sources", icon: Bolt },
+  // Connectors + capture stream live under Sources (2026-08-06 reorg).
+  // /capture redirects to /sources?tab=activity
 ] as const;
 
 const MEMORY_NAV = [
@@ -216,7 +215,9 @@ function NavItem({
 function MemoryNav({ onNavigate }: { onNavigate?: () => void }) {
   const isActive = useActiveCheck();
   const pathname = usePathname();
-  const memoryActive = MEMORY_NAV.some((item) => isActive(item.url));
+  const graphActive = isActive("/memory");
+  const memoryActive =
+    graphActive || MEMORY_NAV.some((item) => isActive(item.url));
 
   const [open, setOpen] = React.useState(false);
 
@@ -243,27 +244,43 @@ function MemoryNav({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <div className="flex w-full flex-col gap-0.5">
-      <button
-        type="button"
-        onClick={toggle}
-        aria-expanded={open}
+      <div
         className={cn(
-          SIDEBAR_NAV_ROW,
-          "grid-cols-[18px_1fr_auto] border-0 bg-transparent text-left",
-          SIDEBAR_NAV_ROW_HOVER,
-          memoryActive && !open && "bg-muted/50",
+          "grid w-full grid-cols-[1fr_auto] items-center rounded-xl text-[13px] transition-all duration-200",
+          graphActive
+            ? "bg-foreground font-medium text-background shadow-[var(--shadow-card)]"
+            : SIDEBAR_NAV_ROW_HOVER,
+          memoryActive && !open && !graphActive && "bg-muted/50",
         )}
       >
-        <Brain className={SIDEBAR_NAV_ICON} strokeWidth={1.75} />
-        <span className="min-w-0 truncate">Memory</span>
-        <ChevronDown
-          className={cn(
-            "size-4 shrink-0 place-self-center text-muted-foreground transition-transform",
-            open ? "rotate-0" : "-rotate-90",
-          )}
-          strokeWidth={1.75}
-        />
-      </button>
+        <Link
+          href="/memory"
+          onClick={onNavigate}
+          className="grid min-w-0 grid-cols-[18px_1fr] items-center gap-x-3 px-3 py-2.5 text-left"
+        >
+          <Brain
+            className={cn(SIDEBAR_NAV_ICON, graphActive && "text-background")}
+            strokeWidth={graphActive ? 2.25 : 1.75}
+          />
+          <span className="min-w-0 truncate">Memory</span>
+        </Link>
+        <button
+          type="button"
+          onClick={toggle}
+          aria-expanded={open}
+          aria-label={open ? "Collapse memory sections" : "Expand memory sections"}
+          className="mr-1.5 grid size-8 place-items-center rounded-lg"
+        >
+          <ChevronDown
+            className={cn(
+              "size-4 shrink-0 transition-transform",
+              open ? "rotate-0" : "-rotate-90",
+              graphActive ? "text-background" : "text-muted-foreground",
+            )}
+            strokeWidth={1.75}
+          />
+        </button>
+      </div>
 
       <motion.div
         initial={false}

@@ -5,11 +5,11 @@
  * - entityType: which entity this field applies to
  * - fieldType: the data type (text, email, select, money, date, etc.)
  * - vocabulary: if controlled, which vocabulary validates it
- * - keeperSignal: the signal key the keeper uses to infer this field
+ * - careSignal: the signal key Memory Care uses to infer this field
  * - requiredForCapabilities: which capabilities need this field filled
  *
  * This registry is consumed by:
- * - Keeper playbooks (to know which fields to fill for each capability)
+ * - Memory Care capabilities (to know which fields to fill for each capability)
  * - Capability readiness (to validate vocabulary values)
  * - Field editors (to render appropriate input controls)
  */
@@ -59,18 +59,19 @@ export type ContractEntityType = CapabilityEntityType | "file" | "meeting" | "me
 
 /**
  * Who may write a field, per the field-contract canon
- * (brand-identity/product-internal/features/keeper-field-contracts.md):
- * - keeper_auto:     Keeper applies directly when a rule clears its confidence
- *                    threshold; provenance recorded, undo available.
- * - keeper_ask:      Keeper proposes; the change waits for approval as a play
- *                    card. Default for anything not explicitly decided.
+ * (brand-identity/product-internal/features/memory-care-field-contracts.md):
+ * - care_auto:       Memory Care applies directly when a rule clears its
+ *                    confidence bar; provenance recorded, undo available.
+ * - care_ask:        Memory Care proposes; the change stays visible in
+ *                    Watching until it clears the bar. Default for anything
+ *                    not explicitly decided.
  * - user_only:       Salt never writes it, even with high confidence.
  * - system_derived:  Computed from inputs (health scores, readiness, badges).
- *                    Keeper writes the inputs, never the value.
+ *                    Memory Care writes the inputs, never the value.
  */
 export type WritePolicy =
-  | "keeper_auto"
-  | "keeper_ask"
+  | "care_auto"
+  | "care_ask"
   | "user_only"
   | "system_derived";
 
@@ -104,12 +105,12 @@ export interface FieldDescriptor<TTable extends TableName = TableName> {
   entityType: ContractEntityType | "all";
   fieldType: FieldType;
   vocabulary?: string;
-  keeperSignal?: string;
+  careSignal?: string;
   requiredForCapabilities: CapabilityId[];
   aiDescription: string;
   dbColumn?: ColumnOf<TTable>;
   isReadonly?: boolean;
-  /** Omitted = keeper_ask (conservative default); isReadonly implies system_derived. */
+  /** Omitted = care_ask (conservative default); isReadonly implies system_derived. */
   writePolicy?: WritePolicy;
   /** Format constraint readable by humans and AI (e.g. "E.164", "lowercase", "ISO 4217 uppercase"). */
   formatRule?: string;
@@ -120,7 +121,7 @@ export interface FieldDescriptor<TTable extends TableName = TableName> {
   /**
    * Fill rules define how to infer this field's value from signals.
    * This is the single source of truth for field inference logic.
-   * Required for keeper_auto fields; recommended for keeper_ask fields.
+   * Required for care_auto fields; recommended for care_ask fields.
    */
   fillRules?: FillRule[];
 }
@@ -128,7 +129,7 @@ export interface FieldDescriptor<TTable extends TableName = TableName> {
 /** Resolve the effective write policy with the canon defaults. */
 export function getWritePolicy(field: FieldDescriptor): WritePolicy {
   if (field.writePolicy) return field.writePolicy;
-  return field.isReadonly ? "system_derived" : "keeper_ask";
+  return field.isReadonly ? "system_derived" : "care_ask";
 }
 
 // ============================================================================
@@ -141,7 +142,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     label: "Name",
     entityType: "person",
     fieldType: "text",
-    keeperSignal: "person_name",
+    careSignal: "person_name",
     requiredForCapabilities: ["invoicing"],
     aiDescription: "Full display name of the person",
     dbColumn: "name",
@@ -154,7 +155,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     label: "Email",
     entityType: "person",
     fieldType: "email",
-    keeperSignal: "person_email",
+    careSignal: "person_email",
     requiredForCapabilities: ["email_follow_up", "scheduling"],
     aiDescription: "Primary email address for contact",
     dbColumn: "email",
@@ -168,7 +169,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     label: "Billing Email",
     entityType: "person",
     fieldType: "email",
-    keeperSignal: "person_billing_email",
+    careSignal: "person_billing_email",
     requiredForCapabilities: ["invoicing"],
     aiDescription: "Email address for invoices and billing communications",
     dbColumn: "billing_email",
@@ -181,7 +182,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     label: "Phone",
     entityType: "person",
     fieldType: "phone",
-    keeperSignal: "person_phone",
+    careSignal: "person_phone",
     requiredForCapabilities: [],
     aiDescription: "Phone number for contact",
     dbColumn: "phone",
@@ -195,7 +196,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     entityType: "person",
     fieldType: "timezone",
     vocabulary: "timezone",
-    keeperSignal: "person_timezone",
+    careSignal: "person_timezone",
     requiredForCapabilities: ["scheduling"],
     aiDescription: "IANA timezone for scheduling meetings",
     dbColumn: "timezone",
@@ -208,7 +209,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     label: "Title",
     entityType: "person",
     fieldType: "text",
-    keeperSignal: "person_title",
+    careSignal: "person_title",
     requiredForCapabilities: [],
     aiDescription: "Job title or role at their organization",
     dbColumn: "title",
@@ -222,7 +223,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     entityType: "person",
     fieldType: "select",
     vocabulary: "relationship_type",
-    keeperSignal: "person_relationship_type",
+    careSignal: "person_relationship_type",
     requiredForCapabilities: [],
     aiDescription: "How this person relates to your business",
     dbColumn: "relationship_type",
@@ -240,7 +241,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     label: "Street Address",
     entityType: "person",
     fieldType: "text",
-    keeperSignal: "person_address_line1",
+    careSignal: "person_address_line1",
     requiredForCapabilities: ["invoicing"],
     aiDescription: "Street address line 1",
     dbColumn: "address_line_1",
@@ -253,7 +254,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     label: "Address Line 2",
     entityType: "person",
     fieldType: "text",
-    keeperSignal: "person_address_line2",
+    careSignal: "person_address_line2",
     requiredForCapabilities: [],
     aiDescription: "Street address line 2 (apt, suite, etc.)",
     dbColumn: "address_line_2",
@@ -266,7 +267,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     label: "City",
     entityType: "person",
     fieldType: "text",
-    keeperSignal: "person_city",
+    careSignal: "person_city",
     requiredForCapabilities: ["invoicing"],
     aiDescription: "City name",
     dbColumn: "city",
@@ -279,7 +280,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     label: "State/Province",
     entityType: "person",
     fieldType: "text",
-    keeperSignal: "person_state",
+    careSignal: "person_state",
     requiredForCapabilities: [],
     aiDescription: "State or province",
     dbColumn: "state",
@@ -292,7 +293,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     label: "Postal Code",
     entityType: "person",
     fieldType: "text",
-    keeperSignal: "person_postal_code",
+    careSignal: "person_postal_code",
     requiredForCapabilities: ["invoicing"],
     aiDescription: "ZIP or postal code",
     dbColumn: "postal_code",
@@ -306,7 +307,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     entityType: "person",
     fieldType: "country",
     vocabulary: "country",
-    keeperSignal: "person_country",
+    careSignal: "person_country",
     requiredForCapabilities: ["invoicing"],
     aiDescription: "Country (ISO 3166-1 alpha-2)",
     dbColumn: "country",
@@ -321,11 +322,11 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     entityType: "person",
     fieldType: "select",
     vocabulary: "record_status",
-    keeperSignal: "person_record_status",
+    careSignal: "person_record_status",
     requiredForCapabilities: [],
-    aiDescription: "Whether the relationship is live. Keeper derives it from 90-day activity signals but never overrides a manual choice",
+    aiDescription: "Whether the relationship is live. Memory Care derives it from 90-day activity signals but never overrides a manual choice",
     dbColumn: "record_status",
-    writePolicy: "keeper_auto",
+    writePolicy: "care_auto",
     emptyMeaning: "Defaults to active; a NULL source means no one has explicitly set it",
     fillRules: [
       { signal: "email_count_gte_5", op: "eq", opValue: true, value: "active", confidence: 85, because: "Recent email activity indicates active relationship" },
@@ -337,11 +338,11 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     label: "Last Contacted",
     entityType: "person",
     fieldType: "datetime",
-    keeperSignal: "person_last_contacted",
+    careSignal: "person_last_contacted",
     requiredForCapabilities: [],
     aiDescription: "Most recent contact with this person (email sent/received, meeting attended)",
     dbColumn: "last_contact_at",
-    writePolicy: "keeper_auto",
+    writePolicy: "care_auto",
     fillRules: [
       { signal: "capture_email_received", value: "{{extracted}}", confidence: 100, because: "Email received from this person" },
       { signal: "capture_email_sent", value: "{{extracted}}", confidence: 100, because: "Email sent to this person" },
@@ -360,7 +361,7 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     label: "Name",
     entityType: "org",
     fieldType: "text",
-    keeperSignal: "org_name",
+    careSignal: "org_name",
     requiredForCapabilities: ["invoicing", "proposals_contracts"],
     aiDescription: "Organization display name",
     dbColumn: "name",
@@ -373,7 +374,7 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     label: "Billing Email",
     entityType: "org",
     fieldType: "email",
-    keeperSignal: "org_billing_email",
+    careSignal: "org_billing_email",
     requiredForCapabilities: ["invoicing"],
     aiDescription: "Email address for invoices and billing communications",
     dbColumn: "billing_email",
@@ -387,7 +388,7 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     entityType: "org",
     fieldType: "select",
     vocabulary: "industry_parent",
-    keeperSignal: "org_industry_parent",
+    careSignal: "org_industry_parent",
     requiredForCapabilities: [],
     aiDescription: "Primary industry category",
     dbColumn: "industry_parent",
@@ -401,7 +402,7 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     entityType: "org",
     fieldType: "select",
     vocabulary: "industry_child",
-    keeperSignal: "org_industry_child",
+    careSignal: "org_industry_child",
     requiredForCapabilities: [],
     aiDescription: "Industry sub-category (depends on parent)",
     dbColumn: "industry_child",
@@ -415,7 +416,7 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     entityType: "org",
     fieldType: "select",
     vocabulary: "relationship_type",
-    keeperSignal: "org_relationship_type",
+    careSignal: "org_relationship_type",
     requiredForCapabilities: [],
     aiDescription: "How this organization relates to your business",
     dbColumn: "relationship_status",
@@ -431,7 +432,7 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     label: "Primary Contact",
     entityType: "org",
     fieldType: "reference",
-    keeperSignal: "org_primary_contact",
+    careSignal: "org_primary_contact",
     requiredForCapabilities: [],
     aiDescription: "Main person to contact at this organization",
     fillRules: [
@@ -452,7 +453,7 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     label: "Street Address",
     entityType: "org",
     fieldType: "text",
-    keeperSignal: "org_address_line1",
+    careSignal: "org_address_line1",
     requiredForCapabilities: ["invoicing", "proposals_contracts"],
     aiDescription: "Street address line 1",
     dbColumn: "address_line_1",
@@ -465,7 +466,7 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     label: "Address Line 2",
     entityType: "org",
     fieldType: "text",
-    keeperSignal: "org_address_line2",
+    careSignal: "org_address_line2",
     requiredForCapabilities: [],
     aiDescription: "Street address line 2 (apt, suite, etc.)",
     dbColumn: "address_line_2",
@@ -478,7 +479,7 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     label: "City",
     entityType: "org",
     fieldType: "text",
-    keeperSignal: "org_city",
+    careSignal: "org_city",
     requiredForCapabilities: ["invoicing", "proposals_contracts"],
     aiDescription: "City name",
     dbColumn: "city",
@@ -491,7 +492,7 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     label: "State/Province",
     entityType: "org",
     fieldType: "text",
-    keeperSignal: "org_state",
+    careSignal: "org_state",
     requiredForCapabilities: [],
     aiDescription: "State or province",
     dbColumn: "state",
@@ -504,7 +505,7 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     label: "Postal Code",
     entityType: "org",
     fieldType: "text",
-    keeperSignal: "org_postal_code",
+    careSignal: "org_postal_code",
     requiredForCapabilities: ["invoicing", "proposals_contracts"],
     aiDescription: "ZIP or postal code",
     dbColumn: "postal_code",
@@ -518,7 +519,7 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     entityType: "org",
     fieldType: "country",
     vocabulary: "country",
-    keeperSignal: "org_country",
+    careSignal: "org_country",
     requiredForCapabilities: ["invoicing", "proposals_contracts"],
     aiDescription: "Country (ISO 3166-1 alpha-2)",
     dbColumn: "country",
@@ -531,7 +532,7 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     label: "Tax ID",
     entityType: "org",
     fieldType: "text",
-    keeperSignal: "org_tax_id",
+    careSignal: "org_tax_id",
     requiredForCapabilities: ["invoicing"],
     aiDescription: "Tax identification number (VAT, EIN, etc.)",
     dbColumn: "tax_id",
@@ -544,7 +545,7 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     label: "Website",
     entityType: "org",
     fieldType: "url",
-    keeperSignal: "org_website",
+    careSignal: "org_website",
     requiredForCapabilities: [],
     aiDescription: "Company website URL",
     dbColumn: "website",
@@ -558,11 +559,11 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     entityType: "org",
     fieldType: "select",
     vocabulary: "record_status",
-    keeperSignal: "org_record_status",
+    careSignal: "org_record_status",
     requiredForCapabilities: [],
-    aiDescription: "Whether the relationship is live, aggregated across the org's linked people, work, and billing. Keeper never overrides a manual choice",
+    aiDescription: "Whether the relationship is live, aggregated across the org's linked people, work, and billing. Memory Care never overrides a manual choice",
     dbColumn: "record_status",
-    writePolicy: "keeper_auto",
+    writePolicy: "care_auto",
     emptyMeaning: "Defaults to active; a NULL source means no one has explicitly set it",
     fillRules: [
       { signal: "org_has_people", value: "active", confidence: 80, because: "Org has active linked people" },
@@ -574,11 +575,11 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     label: "Last Contacted",
     entityType: "org",
     fieldType: "datetime",
-    keeperSignal: "org_last_contacted",
+    careSignal: "org_last_contacted",
     requiredForCapabilities: [],
     aiDescription: "Most recent contact with anyone at this org. Aggregated from linked people.",
     dbColumn: "last_contact_at",
-    writePolicy: "keeper_auto",
+    writePolicy: "care_auto",
     fillRules: [
       { signal: "org_person_contacted", value: "{{extracted}}", confidence: 100, because: "Someone at this org was contacted" },
     ],
@@ -595,7 +596,7 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     label: "Name",
     entityType: "work",
     fieldType: "text",
-    keeperSignal: "work_name",
+    careSignal: "work_name",
     requiredForCapabilities: [],
     aiDescription: "Display name for this work item",
     dbColumn: "name",
@@ -609,7 +610,7 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     entityType: "work",
     fieldType: "select",
     vocabulary: "work_status",
-    keeperSignal: "work_status",
+    careSignal: "work_status",
     requiredForCapabilities: [],
     aiDescription: "Current lifecycle state (active, stalled, completed, etc.)",
     dbColumn: "status",
@@ -628,7 +629,7 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     entityType: "work",
     fieldType: "select",
     vocabulary: "work_type",
-    keeperSignal: "work_type",
+    careSignal: "work_type",
     requiredForCapabilities: [],
     aiDescription: "Engagement model (project, retainer, hourly, etc.)",
     dbColumn: "work_type",
@@ -651,7 +652,7 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     entityType: "work",
     fieldType: "select",
     vocabulary: "work_stage",
-    keeperSignal: "work_stage",
+    careSignal: "work_stage",
     requiredForCapabilities: [],
     aiDescription: "Pipeline stage within the work type",
     dbColumn: "stage",
@@ -664,7 +665,7 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     label: "Service",
     entityType: "work",
     fieldType: "reference",
-    keeperSignal: "work_service_id",
+    careSignal: "work_service_id",
     requiredForCapabilities: ["proposals_contracts"],
     aiDescription: "Linked service from the service catalog",
     dbColumn: "service_id",
@@ -677,7 +678,7 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     label: "Billing Contact",
     entityType: "work",
     fieldType: "reference",
-    keeperSignal: "work_billing_contact_id",
+    careSignal: "work_billing_contact_id",
     requiredForCapabilities: ["invoicing", "retainer_renewals"],
     aiDescription: "Person responsible for receiving invoices",
     dbColumn: "billing_contact_id",
@@ -699,7 +700,7 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     label: "Contract Value",
     entityType: "work",
     fieldType: "money",
-    keeperSignal: "work_contract_value",
+    careSignal: "work_contract_value",
     requiredForCapabilities: [],
     aiDescription: "Total contract value in cents",
     dbColumn: "contract_value_cents",
@@ -712,7 +713,7 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     label: "Final Price",
     entityType: "work",
     fieldType: "money",
-    keeperSignal: "work_final_price",
+    careSignal: "work_final_price",
     requiredForCapabilities: [],
     aiDescription: "Final price after discounts in cents",
     dbColumn: "final_price_cents",
@@ -734,7 +735,7 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     label: "Scope Items",
     entityType: "work",
     fieldType: "json",
-    keeperSignal: "work_scope_items",
+    careSignal: "work_scope_items",
     requiredForCapabilities: [],
     aiDescription: "Array of scope line items with descriptions and amounts",
     dbColumn: "scope_items",
@@ -748,7 +749,7 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     entityType: "work",
     fieldType: "select",
     vocabulary: "currency",
-    keeperSignal: "work_currency",
+    careSignal: "work_currency",
     requiredForCapabilities: ["invoicing"],
     aiDescription: "Currency for all monetary values (ISO 4217)",
     dbColumn: "currency",
@@ -762,7 +763,7 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     entityType: "work",
     fieldType: "select",
     vocabulary: "payment_terms",
-    keeperSignal: "work_payment_terms",
+    careSignal: "work_payment_terms",
     requiredForCapabilities: ["invoicing"],
     aiDescription: "When payment is due after invoicing",
     dbColumn: "payment_terms",
@@ -775,7 +776,7 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     label: "Payment Type",
     entityType: "work",
     fieldType: "select",
-    keeperSignal: "work_payment_type",
+    careSignal: "work_payment_type",
     requiredForCapabilities: [],
     aiDescription: "How payment is structured (fixed, hourly, milestone, retainer)",
     dbColumn: "payment_type",
@@ -788,7 +789,7 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     label: "Hourly Rate",
     entityType: "work",
     fieldType: "money",
-    keeperSignal: "work_hourly_rate",
+    careSignal: "work_hourly_rate",
     requiredForCapabilities: [],
     aiDescription: "Hourly rate in cents (for hourly work)",
     dbColumn: "hourly_rate_cents",
@@ -801,7 +802,7 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     label: "Hours Estimate",
     entityType: "work",
     fieldType: "number",
-    keeperSignal: "work_hours_estimate",
+    careSignal: "work_hours_estimate",
     requiredForCapabilities: [],
     aiDescription: "Estimated hours for the work",
     dbColumn: "hours_estimate",
@@ -814,7 +815,7 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     label: "Retainer MRR",
     entityType: "work",
     fieldType: "money",
-    keeperSignal: "work_retainer_mrr",
+    careSignal: "work_retainer_mrr",
     requiredForCapabilities: ["retainer_renewals"],
     aiDescription: "Monthly recurring revenue for retainer in cents",
     dbColumn: "retainer_mrr_cents",
@@ -827,7 +828,7 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     label: "Renewal Date",
     entityType: "work",
     fieldType: "date",
-    keeperSignal: "work_renewal_date",
+    careSignal: "work_renewal_date",
     requiredForCapabilities: ["retainer_renewals"],
     aiDescription: "Date when retainer comes up for renewal",
     dbColumn: "renewal_date",
@@ -841,7 +842,7 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     entityType: "work",
     fieldType: "select",
     vocabulary: "billing_cycle",
-    keeperSignal: "work_billing_cycle",
+    careSignal: "work_billing_cycle",
     requiredForCapabilities: ["retainer_renewals"],
     aiDescription: "How often billing occurs",
     dbColumn: "billing_cycle",
@@ -854,7 +855,7 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     label: "Decision Date",
     entityType: "work",
     fieldType: "date",
-    keeperSignal: "work_decision_date",
+    careSignal: "work_decision_date",
     requiredForCapabilities: ["proposals_contracts"],
     aiDescription: "Expected date for client decision on proposal",
     dbColumn: "decision_date",
@@ -867,7 +868,7 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     label: "Start Date",
     entityType: "work",
     fieldType: "date",
-    keeperSignal: "work_start_date",
+    careSignal: "work_start_date",
     requiredForCapabilities: [],
     aiDescription: "When work begins",
     dbColumn: "start_date",
@@ -881,7 +882,7 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     label: "Deadline",
     entityType: "work",
     fieldType: "date",
-    keeperSignal: "work_deadline",
+    careSignal: "work_deadline",
     requiredForCapabilities: [],
     aiDescription: "Target completion date",
     dbColumn: "deadline",
@@ -895,7 +896,7 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     label: "PO Number",
     entityType: "work",
     fieldType: "text",
-    keeperSignal: "work_po_number",
+    careSignal: "work_po_number",
     requiredForCapabilities: [],
     aiDescription: "Client purchase order number for invoicing",
     dbColumn: "po_number",
@@ -908,7 +909,7 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     label: "Estimated Timeline",
     entityType: "work",
     fieldType: "text",
-    keeperSignal: "work_estimated_timeline",
+    careSignal: "work_estimated_timeline",
     requiredForCapabilities: [],
     aiDescription: "Human-readable timeline estimate",
     dbColumn: "estimated_timeline",
@@ -921,7 +922,7 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     label: "Discount %",
     entityType: "work",
     fieldType: "percent",
-    keeperSignal: "work_discount_percent",
+    careSignal: "work_discount_percent",
     requiredForCapabilities: [],
     aiDescription: "Percentage discount applied",
     dbColumn: "discount_percent",
@@ -934,7 +935,7 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     label: "Discount Amount",
     entityType: "work",
     fieldType: "money",
-    keeperSignal: "work_discount_amount",
+    careSignal: "work_discount_amount",
     requiredForCapabilities: [],
     aiDescription: "Fixed discount amount in cents",
     dbColumn: "discount_amount_cents",
@@ -947,7 +948,7 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     label: "Discount Reason",
     entityType: "work",
     fieldType: "text",
-    keeperSignal: "work_discount_reason",
+    careSignal: "work_discount_reason",
     requiredForCapabilities: [],
     aiDescription: "Reason for applying discount",
     dbColumn: "discount_reason",
@@ -967,7 +968,7 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     label: "Number",
     entityType: "billing",
     fieldType: "text",
-    keeperSignal: "billing_number",
+    careSignal: "billing_number",
     requiredForCapabilities: [],
     aiDescription: "Invoice or bill number as issued",
     dbColumn: "number",
@@ -984,11 +985,11 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     entityType: "billing",
     fieldType: "select",
     vocabulary: "billing_status",
-    keeperSignal: "billing_status",
+    careSignal: "billing_status",
     requiredForCapabilities: [],
     aiDescription: "Payment state; paid/partial transitions come from payment matching",
     dbColumn: "status",
-    writePolicy: "keeper_auto",
+    writePolicy: "care_auto",
     fillRules: [
       { signal: "billing_amount_paid_covers_total", value: "paid", confidence: 98, because: "Payment received covers the invoice amount" },
       { signal: "billing_payment_matched", value: "partial", confidence: 90, because: "Partial payment received" },
@@ -1012,7 +1013,7 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     entityType: "billing",
     fieldType: "select",
     vocabulary: "billing_category",
-    keeperSignal: "billing_category",
+    careSignal: "billing_category",
     requiredForCapabilities: [],
     aiDescription: "Spend category for payables",
     dbColumn: "category",
@@ -1025,7 +1026,7 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     label: "Organization",
     entityType: "billing",
     fieldType: "reference",
-    keeperSignal: "billing_organization",
+    careSignal: "billing_organization",
     requiredForCapabilities: [],
     aiDescription: "Counterparty organization for this record",
     dbColumn: "organization_id",
@@ -1038,7 +1039,7 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     label: "Billing Contact",
     entityType: "billing",
     fieldType: "reference",
-    keeperSignal: "billing_person",
+    careSignal: "billing_person",
     requiredForCapabilities: [],
     aiDescription: "Counterparty person for this record",
     dbColumn: "person_id",
@@ -1051,7 +1052,7 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     label: "Linked Work",
     entityType: "billing",
     fieldType: "reference",
-    keeperSignal: "billing_project",
+    careSignal: "billing_project",
     requiredForCapabilities: [],
     aiDescription: "Work item this billing record belongs to",
     dbColumn: "work_id",
@@ -1064,7 +1065,7 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     label: "Vendor",
     entityType: "billing",
     fieldType: "text",
-    keeperSignal: "billing_vendor_label",
+    careSignal: "billing_vendor_label",
     requiredForCapabilities: [],
     aiDescription: "Free-text counterparty label when no org/person record is linked",
     dbColumn: "vendor_label",
@@ -1077,7 +1078,7 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     label: "Amount",
     entityType: "billing",
     fieldType: "money",
-    keeperSignal: "billing_amount",
+    careSignal: "billing_amount",
     requiredForCapabilities: [],
     aiDescription: "Total amount in cents",
     dbColumn: "amount_cents",
@@ -1092,11 +1093,11 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     label: "Amount Paid",
     entityType: "billing",
     fieldType: "money",
-    keeperSignal: "billing_amount_paid",
+    careSignal: "billing_amount_paid",
     requiredForCapabilities: [],
     aiDescription: "Amount received so far in cents; maintained by payment matching",
     dbColumn: "amount_paid_cents",
-    writePolicy: "keeper_auto",
+    writePolicy: "care_auto",
     fillRules: [
       { signal: "billing_payment_matched", value: "{{extracted}}", confidence: 98, because: "Payment amount matched to invoice" },
       { signal: "billing_stripe_synced", value: "{{extracted}}", confidence: 98, because: "Payment amount from Stripe" },
@@ -1122,7 +1123,7 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     label: "Issued",
     entityType: "billing",
     fieldType: "date",
-    keeperSignal: "billing_issued_at",
+    careSignal: "billing_issued_at",
     requiredForCapabilities: [],
     aiDescription: "Date the invoice/bill was issued",
     dbColumn: "issued_at",
@@ -1136,7 +1137,7 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     label: "Due",
     entityType: "billing",
     fieldType: "date",
-    keeperSignal: "billing_due_at",
+    careSignal: "billing_due_at",
     requiredForCapabilities: [],
     aiDescription: "Date payment is due",
     dbColumn: "due_at",
@@ -1150,11 +1151,11 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     label: "Paid",
     entityType: "billing",
     fieldType: "date",
-    keeperSignal: "billing_paid_at",
+    careSignal: "billing_paid_at",
     requiredForCapabilities: [],
     aiDescription: "Date the record was fully paid; set by payment matching",
     dbColumn: "paid_at",
-    writePolicy: "keeper_auto",
+    writePolicy: "care_auto",
     fillRules: [
       { signal: "billing_amount_paid_covers_total", value: "{{extracted}}", confidence: 98, because: "Paid date from payment matching" },
       { signal: "billing_stripe_synced", value: "{{extracted}}", confidence: 98, because: "Paid date from Stripe" },
@@ -1165,11 +1166,11 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     label: "External Link",
     entityType: "billing",
     fieldType: "url",
-    keeperSignal: "billing_app_url",
+    careSignal: "billing_app_url",
     requiredForCapabilities: [],
     aiDescription: "Link to view this invoice/bill in the external platform (Stripe, QuickBooks, etc.)",
     dbColumn: "app_url",
-    writePolicy: "keeper_auto",
+    writePolicy: "care_auto",
     fillRules: [
       { signal: "billing_stripe_synced", value: "{{extracted}}", confidence: 100, because: "Stripe hosted invoice URL" },
     ],
@@ -1217,11 +1218,11 @@ export const FILE_FIELDS: FieldDescriptor<"files">[] = [
     entityType: "file",
     fieldType: "select",
     vocabulary: "file_category",
-    keeperSignal: "file_category",
+    careSignal: "file_category",
     requiredForCapabilities: [],
     aiDescription: "Business artifact category; AI extraction proposes it on ingest",
     dbColumn: "category",
-    writePolicy: "keeper_auto",
+    writePolicy: "care_auto",
     fillRules: [
       { signal: "file_category_inferred", value: "{{extracted}}", confidence: 85, because: "Category inferred from file content" },
     ],
@@ -1232,11 +1233,11 @@ export const FILE_FIELDS: FieldDescriptor<"files">[] = [
     entityType: "file",
     fieldType: "select",
     vocabulary: "file_document_type",
-    keeperSignal: "file_document_type",
+    careSignal: "file_document_type",
     requiredForCapabilities: [],
     aiDescription: "Specific document type for document-kind files; AI extraction proposes it",
     dbColumn: "document_type",
-    writePolicy: "keeper_auto",
+    writePolicy: "care_auto",
     fillRules: [
       { signal: "file_document_type_inferred", value: "{{extracted}}", confidence: 85, because: "Document type inferred from content" },
     ],
@@ -1246,7 +1247,7 @@ export const FILE_FIELDS: FieldDescriptor<"files">[] = [
     label: "Description",
     entityType: "file",
     fieldType: "text",
-    keeperSignal: "file_description",
+    careSignal: "file_description",
     requiredForCapabilities: [],
     aiDescription: "Short human description of what the file is",
     dbColumn: "description",
@@ -1260,11 +1261,11 @@ export const FILE_FIELDS: FieldDescriptor<"files">[] = [
     entityType: "file",
     fieldType: "select",
     vocabulary: "file_lifecycle_status",
-    keeperSignal: "file_lifecycle_status",
+    careSignal: "file_lifecycle_status",
     requiredForCapabilities: [],
     aiDescription: "Signature/delivery lifecycle for signable documents",
     dbColumn: "lifecycle_status",
-    writePolicy: "keeper_auto",
+    writePolicy: "care_auto",
     fillRules: [
       { signal: "file_signature_event_sent", value: "sent", confidence: 95, because: "Document was sent for signature" },
       { signal: "file_signature_event_viewed", value: "viewed", confidence: 92, because: "Recipient viewed the document" },
@@ -1277,11 +1278,11 @@ export const FILE_FIELDS: FieldDescriptor<"files">[] = [
     label: "Amount",
     entityType: "file",
     fieldType: "money",
-    keeperSignal: "file_total_amount",
+    careSignal: "file_total_amount",
     requiredForCapabilities: [],
     aiDescription: "Total amount extracted from financial documents, in cents",
     dbColumn: "total_amount_cents",
-    writePolicy: "keeper_auto",
+    writePolicy: "care_auto",
     fillRules: [
       { signal: "file_amount_extracted", value: "{{extracted}}", confidence: 90, because: "Amount extracted from financial document" },
     ],
@@ -1305,11 +1306,11 @@ export const FILE_FIELDS: FieldDescriptor<"files">[] = [
     label: "Due Date",
     entityType: "file",
     fieldType: "date",
-    keeperSignal: "file_due_date",
+    careSignal: "file_due_date",
     requiredForCapabilities: [],
     aiDescription: "Due date extracted from the document",
     dbColumn: "due_date",
-    writePolicy: "keeper_auto",
+    writePolicy: "care_auto",
     fillRules: [
       { signal: "file_date_extracted", value: "{{extracted}}", confidence: 88, because: "Due date extracted from document" },
     ],
@@ -1319,11 +1320,11 @@ export const FILE_FIELDS: FieldDescriptor<"files">[] = [
     label: "Expiry Date",
     entityType: "file",
     fieldType: "date",
-    keeperSignal: "file_expiry_date",
+    careSignal: "file_expiry_date",
     requiredForCapabilities: [],
     aiDescription: "Expiration date extracted from the document",
     dbColumn: "expiry_date",
-    writePolicy: "keeper_auto",
+    writePolicy: "care_auto",
     fillRules: [
       { signal: "file_date_extracted", value: "{{extracted}}", confidence: 88, because: "Expiry date extracted from document" },
       { signal: "file_signature_event_expired", value: "{{extracted}}", confidence: 95, because: "Expiry from signature event" },
@@ -1334,11 +1335,11 @@ export const FILE_FIELDS: FieldDescriptor<"files">[] = [
     label: "Signed Date",
     entityType: "file",
     fieldType: "date",
-    keeperSignal: "file_signed_date",
+    careSignal: "file_signed_date",
     requiredForCapabilities: [],
     aiDescription: "Date the document was signed",
     dbColumn: "signed_date",
-    writePolicy: "keeper_auto",
+    writePolicy: "care_auto",
     fillRules: [
       { signal: "file_signature_event_signed", value: "{{extracted}}", confidence: 98, because: "Signed date from signature event" },
     ],
@@ -1348,7 +1349,7 @@ export const FILE_FIELDS: FieldDescriptor<"files">[] = [
     label: "Follow-up Date",
     entityType: "file",
     fieldType: "date",
-    keeperSignal: "file_follow_up_date",
+    careSignal: "file_follow_up_date",
     requiredForCapabilities: [],
     aiDescription: "When to follow up about this document; Salt suggests, you decide",
     dbColumn: "follow_up_date",
@@ -1400,7 +1401,7 @@ export const MEETING_FIELDS: FieldDescriptor<"meetings">[] = [
     entityType: "meeting",
     fieldType: "select",
     vocabulary: "meeting_type",
-    keeperSignal: "meeting_type",
+    careSignal: "meeting_type",
     requiredForCapabilities: [],
     aiDescription: "Purpose of the meeting; inferable from title/agenda",
     dbColumn: "meeting_type",
@@ -1414,11 +1415,11 @@ export const MEETING_FIELDS: FieldDescriptor<"meetings">[] = [
     entityType: "meeting",
     fieldType: "select",
     vocabulary: "meeting_status",
-    keeperSignal: "meeting_status",
+    careSignal: "meeting_status",
     requiredForCapabilities: [],
     aiDescription: "Scheduled/completed/cancelled/no-show; time passing implies completed",
     dbColumn: "status",
-    writePolicy: "keeper_auto",
+    writePolicy: "care_auto",
     fillRules: [
       { signal: "meeting_synced_from_calendar", value: "scheduled", confidence: 95, because: "Meeting synced from calendar" },
       { signal: "meeting_has_attendance_evidence", value: "completed", confidence: 90, because: "Evidence shows the meeting happened" },
@@ -1434,7 +1435,7 @@ export const MEETING_FIELDS: FieldDescriptor<"meetings">[] = [
     requiredForCapabilities: [],
     aiDescription: "Start time; calendar sync owns it for external meetings",
     dbColumn: "start_time",
-    writePolicy: "keeper_auto",
+    writePolicy: "care_auto",
     fillRules: [
       { signal: "meeting_synced_from_calendar", value: "{{extracted}}", confidence: 98, because: "Start time from calendar sync" },
     ],
@@ -1447,7 +1448,7 @@ export const MEETING_FIELDS: FieldDescriptor<"meetings">[] = [
     requiredForCapabilities: [],
     aiDescription: "End time; calendar sync owns it for external meetings",
     dbColumn: "end_time",
-    writePolicy: "keeper_auto",
+    writePolicy: "care_auto",
     fillRules: [
       { signal: "meeting_synced_from_calendar", value: "{{extracted}}", confidence: 98, because: "End time from calendar sync" },
     ],
@@ -1461,7 +1462,7 @@ export const MEETING_FIELDS: FieldDescriptor<"meetings">[] = [
     requiredForCapabilities: [],
     aiDescription: "Medium the meeting happens over; calendar sync can set it",
     dbColumn: "location_type",
-    writePolicy: "keeper_auto",
+    writePolicy: "care_auto",
     fillRules: [
       { signal: "meeting_synced_from_calendar", value: "{{extracted}}", confidence: 90, because: "Location type inferred from calendar event" },
     ],
@@ -1474,7 +1475,7 @@ export const MEETING_FIELDS: FieldDescriptor<"meetings">[] = [
     requiredForCapabilities: [],
     aiDescription: "Join link for video meetings; calendar sync can set it",
     dbColumn: "meeting_url",
-    writePolicy: "keeper_auto",
+    writePolicy: "care_auto",
     fillRules: [
       { signal: "meeting_synced_from_calendar", value: "{{extracted}}", confidence: 95, because: "Meeting URL from calendar event" },
     ],
@@ -1541,11 +1542,11 @@ export const MEETING_FIELDS: FieldDescriptor<"meetings">[] = [
     label: "Attendees",
     entityType: "meeting",
     fieldType: "json",
-    keeperSignal: "meeting_attendees",
+    careSignal: "meeting_attendees",
     requiredForCapabilities: [],
     aiDescription: "Attendee list; calendar sync maintains it for external meetings",
     dbColumn: "attendees",
-    writePolicy: "keeper_auto",
+    writePolicy: "care_auto",
     fillRules: [
       { signal: "meeting_attendees_extracted", value: "{{extracted}}", confidence: 95, because: "Attendees from calendar event" },
     ],
@@ -1735,9 +1736,9 @@ export function isVocabularyField(
   return !!field?.vocabulary;
 }
 
-export function getKeeperSignals(): Array<{ signal: string; field: FieldDescriptor }> {
-  return ALL_CONTRACT_FIELDS.filter((f) => f.keeperSignal).map((f) => ({
-    signal: f.keeperSignal!,
+export function getCareSignals(): Array<{ signal: string; field: FieldDescriptor }> {
+  return ALL_CONTRACT_FIELDS.filter((f) => f.careSignal).map((f) => ({
+    signal: f.careSignal!,
     field: f,
   }));
 }

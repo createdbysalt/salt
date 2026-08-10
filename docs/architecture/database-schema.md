@@ -2,9 +2,9 @@
 
 > **Source of truth:** `supabase/migrations/` + generated types. **Do not guess table names.**
 
-**Last updated:** 2026-07-03 — verified against `supabase/migrations/` through `20260703190000` (clients table drop, entity_links convergence, currency canon, provenance widening)
+**Last updated:** 2026-08-08 — verified against `supabase/migrations/` through `20260808230000`, including `20260807080000` (`keeper_evidence_type` → `memory_evidence_type`; 'keeper' → 'care' provenance vocabularies)
 
-> **Naming canon + rename roadmap:** [docs/plans/2026-07-02-schema-modernization.md](../plans/2026-07-02-schema-modernization.md). Several live tables carry legacy names until the rename waves land: `client_meetings` = the Meetings record table, `projects` = Work, `project_files` = Files, `client_emails` = synced email messages.
+> **Naming canon + rename roadmap:** [docs/plans/2026-07-02-schema-modernization.md](../plans/2026-07-02-schema-modernization.md). Several live tables carry legacy names until the rename waves land: `client_meetings` = the Meetings record table, `projects` = Work, `project_files` = Files. (`client_emails` was dropped 2026-07-04, not renamed — synced email now arrives via the capture pipeline.)
 
 ## Principles
 
@@ -43,6 +43,7 @@ Workspace container and primary tenant boundary. `studios` is a deprecated compa
 | `id` | uuid | PK |
 | `name` | text | Display name |
 | `slug` | text | Unique subdomain slug |
+| `memory_care_auto_apply_threshold` | int | Memory Care standard-tier auto-apply bar (50–100, default 85). Renamed from `keeper_auto_execute_threshold` (`20260806051000`). Read via `app/_lib/memory-tools/get-threshold.ts`; managed by the Rules tab slider. |
 
 ### `workspace_members`
 
@@ -64,7 +65,7 @@ Auth user profile + Stripe SaaS/Connect fields. See migrations under `supabase/m
 
 Per-workspace OAuth connections. Composio fields: `composio_connection_id`, `composio_status`; legacy `studio_integrations` is only a temporary compatibility alias.
 
-Legacy `gmail_connections` table remains for historical rows; **new connects use Composio only.**
+The legacy `gmail_connections` table was **dropped 2026-07-03** (`20260703240000_drop_native_gmail_calendar_tables.sql`); **all connects use Composio only.**
 
 ## Plays & opportunities (Wave 1)
 
@@ -76,7 +77,7 @@ Functional roles: follow-up, brief, client-risk, scope, billing.
 
 ### `play_runs`
 
-State machine: `draft → queued → approved → scheduled → ran → dismissed`
+State machine: `draft → queued → approved → scheduled → executing → ran`, plus terminal `failed`, `blocked` (waiting on toolkit reconnect, added 2026-07-07), `dismissed`
 
 | Column | Purpose |
 |--------|---------|
@@ -166,11 +167,11 @@ One table per Memory record type; children prefixed with the parent noun; worksp
 
 ### Record status (2026-07-02)
 
-`people` and `organizations` carry `record_status` (`active`/`inactive`, default `active`), `record_status_source` (`manual`/`keeper`; NULL = never explicitly set), `record_status_changed_at`. Precedence: a manual value is never silently overridden by Keeper. Definition of *active* lives in the field-contract canon (90-day signal window).
+`people` and `organizations` carry `record_status` (`active`/`inactive`, default `active`), `record_status_source` (`manual`/`keeper` historically — Memory Care writes use care provenance; NULL = never explicitly set), `record_status_changed_at`. Precedence: a manual value is never silently overridden by Memory Care. Definition of *active* lives in the field-contract canon (90-day signal window).
 
 ### Field-contract vocabularies (2026-07-02)
 
-DB constraints are aligned with `app/_features/memory/taxonomy/registry.ts` (single source for dropdowns, Keeper rules, and AI prompts):
+DB constraints are aligned with `app/_features/memory/taxonomy/registry.ts` (single source for dropdowns, Memory Care fill rules, and AI prompts):
 
 | Vocabulary | DB enforcement |
 |---|---|
@@ -180,6 +181,43 @@ DB constraints are aligned with `app/_features/memory/taxonomy/registry.ts` (sin
 | Meeting type (8 values) | `client_meetings` + `meeting_templates` CHECKs |
 | File category (11 values) | `file_category` enum gained `invoice, proposal, reference, media, notes, process` |
 | Currency (10 values, uppercase ISO-4217: `USD, EUR, GBP, CAD, AUD, CHF, JPY, SGD, NZD, INR`) | `20260703180000_currency_uppercase_canon.sql` — CHECKs on `billing_records`, `billing_payments`, `meeting_types`, `proposals`, `projects.currency`, `workspaces.default_currency`; lowercase data uppercased |
+
+### Memory Care tables (2026-08-06)
+
+Memory Care (`app/_features/memory/care/`) replaced the retired Keeper "system playbooks". Its persistence surface:
+
+| Table | Purpose |
+|-------|---------|
+| `entity_evidence` | Evidence accumulation ("Watching"). Unresolved proposals below the bar: `field_path`, `proposed_value`, `confidence`, `evidence_type` (`memory_evidence_type` enum — renamed from `keeper_evidence_type` 2026-08-07), `resolution` / `resolved_at`, `source_capture_id`, `expires_at` / `ttl_days`. Historical `playbook_slug` values (`keeper-*`) are provenance only — display mapping in `records-engine/memory-care-display.ts`. |
+| `salt_learnings` | Lessons from user corrections ("That's wrong" → `memoryRecordCorrection`). Carries the rollback columns (`undo_reason`, `undone_at`, `undone_by`). Historical `playbook_slug` provenance as above. |
+| `profile_playbook_settings` | Per-capability on/off + config rows for the four care capabilities (same rows carried over from the playbook era; read via `care/settings.ts`). |
+| `profile_field_provenance` | Every care write records provenance with `previous_value` for rollback (see Provenance & lifecycle below). Destructive-tier ops also write pre-operation snapshots so Handled "That's wrong" can undo. |
+
+Activity provenance: care scheduler writes activity entries with source `memory-care`; historical rows carry `player_slug: "keeper"`.
+
+### Admission pipeline (capture → Memory)
+
+The capture gate pipeline decides what enters Memory. Three tables form the path:
+
+| Table | Purpose |
+|-------|---------|
+| `capture_events` | Raw events from connectors. `gate_action` = `drop` / `noise` / `candidate` / `signal` after gate evaluation. `gate_result` JSON captures the decision details (blocklist match, admission score, watch hit). |
+| `capture_routing_decisions` | (Optional) Higher-level routing outcomes for capture-to-play routing. |
+| `entity_evidence` | When a capture passes admission and contains learnable signals, proposals land here in `pending` resolution. |
+
+P11 boundary (2026-08-07): "Kept out" (gate_action IN `drop`, `noise`, `held`) is displayed at **Sources → Activity**, not Memory → Filter. Memory Filter shows only Watching + Handled.
+
+### Correction events (2026-08-07)
+
+`correction_events` logs every user correction ("That's wrong" on a Handled item). Read by `care/decision-pipeline.ts:hasCorrectedValue` to prevent re-inference of corrected entity+field+value triplets.
+
+| Column | Purpose |
+|--------|---------|
+| `entity_type`, `entity_id`, `field_path`, `corrected_value` | The corrected cell |
+| `previous_value`, `correction_source` | Provenance |
+| `created_at`, `created_by` | Audit trail |
+
+Corrections inform the decision pipeline but do not yet generalize to pattern-level learning (Phase 5 research).
 
 ### Explicit edges: `entity_links` (converged 2026-07-03)
 
@@ -195,7 +233,7 @@ DB constraints are aligned with `app/_features/memory/taxonomy/registry.ts` (sin
 
 ### `clients` table (DROPPED 2026-07-03)
 
-Bridge-era objects are fully deleted. `20260703170000_drop_clients_table.sql` dropped the `clients` table, **every `client_id` column** (on `projects`, `client_meetings`, `project_files`, `client_emails`, `conversations`, `proposals`, and others), and the `migrated_from_client_id` mapping columns. Counterparties are `person_id`/`organization_id` everywhere. Preceding sweeps: `20260703100000` (orphaned `client_users` auth trigger), `20260703160000` (orphaned `is_client_user_of_client()` + policy). Only the table *names* (`client_meetings`, `client_emails`) remain, pending renames.
+Bridge-era objects are fully deleted. `20260703170000_drop_clients_table.sql` dropped the `clients` table, **every `client_id` column** (on `projects`, `client_meetings`, `project_files`, `client_emails`, `conversations`, `proposals`, and others), and the `migrated_from_client_id` mapping columns. Counterparties are `person_id`/`organization_id` everywhere. Preceding sweeps: `20260703100000` (orphaned `client_users` auth trigger), `20260703160000` (orphaned `is_client_user_of_client()` + policy). `client_emails` itself was **dropped 2026-07-04** (`20260704040000_drop_client_emails.sql`, with `email_file_attachments`) — not renamed. Only the `client_meetings` table *name* remains, pending rename.
 
 ### Retired Bridge-era tables (DROPPED 2026-07-02)
 
@@ -214,7 +252,7 @@ System-level agent operation audit (not tenant-scoped). **`log_agent_operation`*
 | `waitlist_leads` | Upsert via app service role (`saveWaitlistLeadAction`) |
 | `waitlist_leads_sheet` | View, `security_invoker`; **SELECT → `service_role` only** |
 | `marketing_funnel_events` | Funnel analytics events |
-| `pipeline_runs`, `youtube_video_stats` | When present: **`service_role` only** (anon policies removed) |
+| ~~`pipeline_runs`, `youtube_video_stats`~~ | **DROPPED 2026-07-04** (`20260704020000_drop_unmanaged_relic_tables.sql`) |
 
 ## Security hardening (2026-06 batch)
 
@@ -237,7 +275,7 @@ All four credit/audit functions use `search_path = pg_catalog, public`.
 |-------|--------|
 | `client_intakes` | *(table dropped 2026-07-02 with the Bridge retirement)* Historically: public INSERT required tenant context, `website_url`, `primary_goal` (min length), `status = 'submitted'` |
 | `gmail_sync_logs` | INSERT **`service_role` only** |
-| `pipeline_runs`, `youtube_video_stats` | ALL **`service_role` only** |
+| ~~`pipeline_runs`, `youtube_video_stats`~~ | *(tables dropped 2026-07-04 — see Marketing & waitlist above)* |
 
 ### Views & analytics
 

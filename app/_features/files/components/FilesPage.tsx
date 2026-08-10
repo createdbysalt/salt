@@ -27,8 +27,6 @@ export function FilesPage({ initialFiles }: FilesPageProps) {
 
   return (
     <div className="relative min-h-full">
-      <div aria-hidden className="salt-ambient-wash" />
-
       <div className={memoryListShellClass}>
         <PlaysSectionHeader
           eyebrow="Memory"

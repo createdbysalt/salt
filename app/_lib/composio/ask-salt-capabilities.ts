@@ -5,18 +5,13 @@ import { getComposioProviderForToolSlug } from "@/app/_features/connectors/conne
 import { getWorkspaceConnectorPolicy } from "@/app/_features/connectors/queries";
 import { isComposioConfigured, getConnectionStatus } from "./connections";
 import { loadAskSaltComposioToolsDetailed } from "./load-ask-salt-tools";
-import { ASK_SALT_COMPOSIO_TOOLKITS } from "./ask-salt-tools";
 import { getComposioToolPolicy } from "./tool-policy-registry";
 import { COMPOSIO_TOOL_SLUGS } from "./tool-slugs";
-import { getAskSaltLabels, isRegisteredProvider } from "./unified-connector-registry";
+import {
+  getAskSaltToolkitLabels,
+  listAskSaltToolkits,
+} from "./connector-registry";
 import { EMAIL_PROVIDER_CAPABILITIES } from "./capability-config";
-
-/** Human-facing toolkit labels, derived from the unified connector registry. */
-const ASK_SALT_TOOLKIT_LABELS: Record<string, string> = getAskSaltLabels();
-
-function toolkitLabel(toolkit: string): string {
-  return ASK_SALT_TOOLKIT_LABELS[toolkit] ?? toolkit;
-}
 
 /** slug (real Composio value) → Salt semantic key, for readable tool names. */
 const SLUG_TO_SEMANTIC_NAME: Record<string, string> = Object.fromEntries(
@@ -48,15 +43,17 @@ export interface AskSaltConnectionStatus {
 export async function getAskSaltConnectionStatuses(
   workspaceId: string,
 ): Promise<AskSaltConnectionStatus[]> {
+  const [toolkits, labels] = await Promise.all([
+    listAskSaltToolkits(),
+    getAskSaltToolkitLabels(),
+  ]);
+  const labelFor = (toolkit: string): string => labels[toolkit] ?? toolkit;
   return Promise.all(
-    ASK_SALT_COMPOSIO_TOOLKITS.map(async (toolkit): Promise<AskSaltConnectionStatus> => {
-      if (!isRegisteredProvider(toolkit)) {
-        return { toolkit, label: toolkitLabel(toolkit), connected: false, email: null };
-      }
+    toolkits.map(async (toolkit): Promise<AskSaltConnectionStatus> => {
       const status = await getConnectionStatus(toolkit, workspaceId);
       return {
         toolkit,
-        label: toolkitLabel(toolkit),
+        label: labelFor(toolkit),
         connected: status.connected,
         email: status.email,
       };
@@ -127,6 +124,7 @@ function annotateSlug(slug: string): string {
 export async function resolveAskSaltCapabilities(
   workspaceId: string,
   userId?: string,
+  conversationId?: string,
 ): Promise<AskSaltCapabilities> {
   const composioConfigured = isComposioConfigured();
 
@@ -158,7 +156,10 @@ export async function resolveAskSaltCapabilities(
     };
   }
 
-  const load = await loadAskSaltComposioToolsDetailed(workspaceId, { userId });
+  const load = await loadAskSaltComposioToolsDetailed(workspaceId, {
+    userId,
+    conversationId,
+  });
 
   // Two-stage exposure (5.5.2): discovery + generic gated executor on top of
   // the pinned preload. Built from connection state alone, so it works even
@@ -172,7 +173,6 @@ export async function resolveAskSaltCapabilities(
     userId,
     connectedToolkits: load.connectedToolkits,
     connectionIdByToolkit: load.connectionIdByToolkit,
-    disabledTools: connectorPolicy.disabledTools,
   });
 
   const slugsByProvider = new Map<string, string[]>();

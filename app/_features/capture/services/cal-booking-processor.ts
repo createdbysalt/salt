@@ -128,11 +128,13 @@ async function processOne(
 
   if (existing) {
     // Polling sees state: refresh times/location and cancellation status.
+    // start_time/end_time are NOT NULL — a payload missing times must not
+    // clobber (or fail) the existing row, so omit rather than write null.
     const { error } = await supabase
       .from("meetings")
       .update({
-        start_time: booking.start,
-        end_time: booking.end,
+        start_time: booking.start ?? undefined,
+        end_time: booking.end ?? undefined,
         location_type: parseLocationType(booking.location),
         meeting_url: booking.meetingUrl,
         ...(isCancelled(booking.status) ? { status: "cancelled" as const } : {}),
@@ -149,6 +151,13 @@ async function processOne(
 
   // Never-seen cancelled bookings carry nothing to create.
   if (isCancelled(booking.status)) {
+    result.skipped++;
+    return;
+  }
+
+  // start_time/end_time are NOT NULL columns — a booking without times can't
+  // become a meeting row (the insert would fail the constraint anyway).
+  if (!booking.start || !booking.end) {
     result.skipped++;
     return;
   }

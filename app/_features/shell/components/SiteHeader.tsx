@@ -407,7 +407,7 @@ function CapturePanel({
                 Voice
               </Button>
               <Link
-                href="/plays?tab=activity&view=captures"
+                href="/sources?tab=activity"
                 onClick={onClose}
                 className="text-[10px] text-muted-foreground hover:text-foreground transition-colors px-1"
               >

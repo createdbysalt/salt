@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
@@ -60,18 +60,22 @@ describe("memoryAccumulateEvidence", () => {
     vi.clearAllMocks();
   });
 
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("records accumulated evidence as Watching activity", async () => {
     const result = await memoryAccumulateEvidence({
       workspaceId: "ws-1",
       entityType: "person",
       entityId: "person-1",
-      field: "_missing_field",
-      value: { field: "email", reason: "missing_required_field" },
+      field: "company",
+      value: "Acme Inc",
       confidence: 65,
-      evidenceType: "behavioral_signal",
-      because: "Missing required field: email",
-      source: "playbook",
-      sourceDetails: { playbookSlug: "memory-hygiene" },
+      evidenceType: "email_match",
+      because: "Email signature says Acme Inc",
+      source: "care",
+      sourceDetails: { playbookSlug: "memory-records" },
     });
 
     expect(result.evidenceId).toBe("ev-1");
@@ -79,15 +83,15 @@ describe("memoryAccumulateEvidence", () => {
     expect(activityInserts[0]).toMatchObject({
       workspace_id: "ws-1",
       action: "accumulated",
-      title: "Memory Hygiene is watching",
-      detail: "Missing required field: email",
+      title: "Memory Records is watching",
+      detail: "Email signature says Acme Inc",
       metadata: expect.objectContaining({
-        player_slug: "keeper",
+        player_slug: "memory-care",
         evidence_id: "ev-1",
         entity_type: "person",
         entity_id: "person-1",
-        field_path: "_missing_field",
-        playbook_slug: "memory-hygiene",
+        field_path: "company",
+        playbook_slug: "memory-records",
       }),
     });
   });
@@ -100,15 +104,73 @@ describe("memoryAccumulateEvidence", () => {
       entityType: "person",
       entityId: "person-1",
       field: "_link_candidate",
-      value: { reason: "orphan" },
+      value: { targetId: "org-1", targetName: "Acme Inc", reason: "domain_match" },
       confidence: 65,
       evidenceType: "cross_reference",
-      because: "Record has no organization connection",
-      source: "playbook",
+      because: "Email domain acme.com matches Acme Inc",
+      source: "care",
       sourceDetails: { playbookSlug: "memory-hygiene" },
     });
 
     expect(result.evidenceId).toBe("ev-1");
     expect(activityInserts).toHaveLength(0);
+  });
+
+  describe("concrete-value validation gate", () => {
+    const base = {
+      workspaceId: "ws-1",
+      entityType: "person" as const,
+      entityId: "person-1",
+      field: "company",
+      confidence: 65,
+      evidenceType: "email_match" as const,
+      because: "Email signature says Acme Inc",
+      source: "care" as const,
+    };
+
+    it("throws in dev when value is null", async () => {
+      await expect(
+        memoryAccumulateEvidence({ ...base, value: null })
+      ).rejects.toThrow(/concrete value/);
+      expect(coreAccumulate).not.toHaveBeenCalled();
+    });
+
+    it("throws in dev when value is an empty string", async () => {
+      await expect(
+        memoryAccumulateEvidence({ ...base, value: "   " })
+      ).rejects.toThrow(/concrete value/);
+      expect(coreAccumulate).not.toHaveBeenCalled();
+    });
+
+    it("throws in dev when value is an empty object", async () => {
+      await expect(
+        memoryAccumulateEvidence({ ...base, value: {} })
+      ).rejects.toThrow(/concrete value/);
+      expect(coreAccumulate).not.toHaveBeenCalled();
+    });
+
+    it("throws in dev when because is missing", async () => {
+      await expect(
+        memoryAccumulateEvidence({ ...base, value: "Acme Inc", because: "" })
+      ).rejects.toThrow(/because/);
+      expect(coreAccumulate).not.toHaveBeenCalled();
+    });
+
+    it("logs and skips in production instead of throwing", async () => {
+      vi.stubEnv("NODE_ENV", "production");
+      const consoleError = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+
+      const result = await memoryAccumulateEvidence({ ...base, value: null });
+
+      expect(result.evidenceId).toBe("");
+      expect(result.meetsThreshold).toBe(false);
+      expect(coreAccumulate).not.toHaveBeenCalled();
+      expect(activityInserts).toHaveLength(0);
+      expect(consoleError).toHaveBeenCalled();
+
+      consoleError.mockRestore();
+    });
   });
 });

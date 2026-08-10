@@ -9,6 +9,7 @@ import { CheckCircle2, AlertTriangle, TrendingUp, History } from "lucide-react";
 import { getCorrectionAnalytics } from "@/app/_lib/memory-tools";
 import { memoryGetConflicts } from "@/app/_lib/memory-tools";
 import { getTenantContext, requireWorkspaceMember } from "@/app/_lib/tenancy";
+import { countAutoAppliedProfileFields } from "../queries";
 import { TrustMetricCard } from "./TrustMetricCard";
 import { RecentCorrectionsList } from "./RecentCorrectionsList";
 import { PatternAlertsList } from "./PatternAlertsList";
@@ -24,7 +25,7 @@ export async function TrustDashboard() {
     memoryGetConflicts({ workspaceId }),
   ]);
 
-  const totalAutoApplied = await getAutoAppliedCount(workspaceId);
+  const totalAutoApplied = await countAutoAppliedProfileFields(workspaceId);
   const accuracy = totalAutoApplied > 0
     ? Math.round(((totalAutoApplied - analytics.totalCorrections) / totalAutoApplied) * 100)
     : 100;
@@ -149,20 +150,3 @@ export async function TrustDashboard() {
   );
 }
 
-async function getAutoAppliedCount(workspaceId: string): Promise<number> {
-  const { createAdminClient } = await import("@/app/_lib/supabase/admin");
-  const admin = createAdminClient();
-
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-  const { count } = await admin
-    .from("profile_field_provenance")
-    .select("id", { count: "exact", head: true })
-    .eq("workspace_id", workspaceId)
-    .eq("status", "applied")
-    .neq("source", "manual")
-    .gte("set_at", thirtyDaysAgo.toISOString());
-
-  return count ?? 0;
-}

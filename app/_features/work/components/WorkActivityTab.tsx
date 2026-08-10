@@ -62,7 +62,7 @@ export function WorkActivityTab({
     <ProfileActivityTimeline
       entries={entries}
       emptyTitle="No activity yet"
-      emptyDescription="Profile updates, health changes, blockers, tags, lifecycle events, and Keeper fills show up here as they happen."
+      emptyDescription="Profile updates, health changes, blockers, tags, lifecycle events, and Salt fills show up here as they happen."
       getDiscussPrompt={(entry) => {
         if (entry.field && entry.source && entry.status) {
           return buildWorkActivityAskSaltPrompt(entry as WorkActivityEvent, workTitle);

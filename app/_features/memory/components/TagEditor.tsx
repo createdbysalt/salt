@@ -163,11 +163,11 @@ export function TagEditor({
               variant="secondary"
               className={cn(
                 getTagBadgeClasses(tag),
-                assignment.source === "keeper" && "border-dashed border-primary/30"
+                assignment.source === "care" && "border-dashed border-primary/30"
               )}
             >
               {tag.label}
-              {assignment.source === "keeper" && (
+              {assignment.source === "care" && (
                 <span className="ml-1 text-[10px] text-muted-foreground">Salt</span>
               )}
             </Badge>
@@ -187,7 +187,7 @@ export function TagEditor({
 
   function renderTagButton(tag: WorkspaceTag, isAssigned: boolean) {
     const assignment = assignments.find((a) => a.tagId === tag.id);
-    const isKeeper = assignment?.source === "keeper";
+    const isCare = assignment?.source === "care";
 
     return (
       <button
@@ -199,12 +199,12 @@ export function TagEditor({
         className={cn(
           "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition",
           getTagPillClasses(tag, isAssigned),
-          isKeeper && isAssigned && "border-dashed",
+          isCare && isAssigned && "border-dashed",
         )}
       >
         {isAssigned ? <Check className="size-3 shrink-0" strokeWidth={2.5} /> : null}
         <span>{tag.label}</span>
-        {isKeeper ? <span className="text-[10px] opacity-70">Salt</span> : null}
+        {isCare ? <span className="text-[10px] opacity-70">Salt</span> : null}
       </button>
     );
   }
@@ -228,12 +228,12 @@ export function TagEditor({
                   className={cn(
                     "gap-1",
                     getTagBadgeClasses(tag),
-                    assignment.source === "keeper" && "border-dashed border-primary/30",
+                    assignment.source === "care" && "border-dashed border-primary/30",
                   )}
                 >
                   <Check className="size-3" strokeWidth={2.5} />
                   <span>{tag.label}</span>
-                  {assignment.source === "keeper" && (
+                  {assignment.source === "care" && (
                     <span className="text-[10px] text-muted-foreground">Salt</span>
                   )}
                 </Badge>
@@ -297,7 +297,7 @@ export function TagEditor({
 }
 
 interface TagDisplayProps {
-  tags: Array<{ id: string; label: string; source?: "manual" | "keeper" | "system" }>;
+  tags: Array<{ id: string; label: string; source?: "manual" | "care" | "system" }>;
   className?: string;
 }
 
@@ -312,10 +312,10 @@ export function TagDisplay({ tags, className }: TagDisplayProps) {
         <Badge
           key={tag.id}
           variant="secondary"
-          className={cn(tag.source === "keeper" && "border-dashed border-primary/30")}
+          className={cn(tag.source === "care" && "border-dashed border-primary/30")}
         >
           {tag.label}
-          {tag.source === "keeper" && (
+          {tag.source === "care" && (
             <span className="ml-1 text-[10px] text-muted-foreground">Salt</span>
           )}
         </Badge>

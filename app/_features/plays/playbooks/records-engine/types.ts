@@ -138,7 +138,7 @@ export type BillingRecordProfileFieldKey =
   | "personId"
   | "projectId";
 
-/** Meeting — fields managed by keeper-meetings-records. */
+/** Meeting — fields managed by Memory Records (memory-records:meeting). */
 export type MeetingProfileFieldKey =
   | "status"
   | "meeting_type"
@@ -148,7 +148,7 @@ export type MeetingProfileFieldKey =
   | "personId"
   | "workId";
 
-/** File — fields managed by keeper-files-records. */
+/** File — fields managed by Memory Records (memory-records:file). */
 export type FileProfileFieldKey =
   | "category"
   | "document_type"
@@ -478,7 +478,7 @@ export type FileProfileSignalKey = (typeof FILE_PROFILE_SIGNAL_KEYS)[number];
 
 /**
  * Capture signals — fired when capture extracts learnings from content.
- * These signals trigger cross-cutting playbooks like keeper-entity-notes.
+ * These signals feed cross-cutting Memory Care capabilities like entity notes.
  */
 export const CAPTURE_SIGNAL_KEYS = [
   "entity_learning_extracted",
@@ -498,6 +498,16 @@ export const CAPTURE_SIGNAL_KEYS = [
 ] as const;
 
 export type CaptureSignalKey = (typeof CAPTURE_SIGNAL_KEYS)[number];
+
+/**
+ * Workspace-scoped signals — fired for workspace-level events rather than a
+ * Memory entity. The emitted entity is the workspace itself.
+ */
+export const WORKSPACE_SIGNAL_KEYS = [
+  "connector_connected",
+] as const;
+
+export type WorkspaceSignalKey = (typeof WORKSPACE_SIGNAL_KEYS)[number];
 
 /**
  * Email Intelligence signals — fired when email classification detects patterns.
@@ -563,10 +573,10 @@ export const EMAIL_PRIORITY_TIER_VALUES = [
 
 export type EmailPriorityTierValue = (typeof EMAIL_PRIORITY_TIER_VALUES)[number];
 
-/** Note — fields managed by keeper-entity-notes. */
+/** Note — fields managed by Memory Care entity notes. */
 export type NoteProfileFieldKey = "note_kind";
 
-/** Operator fact — fields managed by keeper-me for operator_memory_facts. */
+/** Operator fact — fields managed by Memory Care for operator_memory_facts. */
 export type OperatorFactProfileFieldKey = "fact_category" | "fact_kind";
 
 /** Operator fact category values (what domain the fact belongs to). */
@@ -668,6 +678,7 @@ export const PROFILE_SIGNAL_KEYS = [
   ...OPERATOR_FACT_SIGNAL_KEYS,
   ...CAPTURE_SIGNAL_KEYS,
   ...EMAIL_INTELLIGENCE_SIGNAL_KEYS,
+  ...WORKSPACE_SIGNAL_KEYS,
 ] as const;
 
 export type ProfileSignalKey = (typeof PROFILE_SIGNAL_KEYS)[number];

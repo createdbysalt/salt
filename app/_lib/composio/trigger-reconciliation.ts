@@ -1,8 +1,12 @@
 import "server-only";
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import { applyScopeToSpecs, readCaptureScope } from "./capture-scope";
 import { getComposioClient } from "./client";
-import { getCaptureTriggerSlugs } from "./trigger-subscriptions";
+import {
+  createCaptureTriggerInstance,
+  getCaptureTriggerSpecs,
+} from "./trigger-subscriptions";
 
 /**
  * Trigger Reconciliation (capture-pipeline repair, Phase 2)
@@ -59,13 +63,6 @@ function triggersApi(): TriggersApi {
   return getComposioClient().triggers as unknown as TriggersApi;
 }
 
-interface TriggerStatus {
-  triggerId: string;
-  exists: boolean;
-  status?: string;
-  error?: string;
-}
-
 interface ReconciliationResult {
   connectionsSeen: number;
   instancesSeen: number;
@@ -110,31 +107,6 @@ async function listAllTriggerInstances(): Promise<TriggerInstance[]> {
   }
 
   return instances;
-}
-
-/**
- * Create one trigger instance. Polling triggers on Salt's own OAuth client
- * support 1-minute intervals; fall back to Composio's default when the
- * trigger's config schema rejects it.
- */
-async function createTriggerInstance(
-  workspaceId: string,
-  slug: string,
-  connectedAccountId: string,
-): Promise<string> {
-  const triggers = triggersApi();
-  try {
-    const result = await triggers.create(workspaceId, slug, {
-      connectedAccountId,
-      triggerConfig: { interval: 1 },
-    });
-    return result.triggerId;
-  } catch {
-    const result = await triggers.create(workspaceId, slug, {
-      connectedAccountId,
-    });
-    return result.triggerId;
-  }
 }
 
 function sameIdSet(a: string[], b: string[]): boolean {
@@ -211,18 +183,24 @@ export async function runTriggerReconciliation(): Promise<ReconciliationResult> 
 
     result.connectionsSeen++;
 
-    const enabledSlugs = await getCaptureTriggerSlugs(row.provider);
+    // 4.5: re-created subscriptions carry the workspace's scope, not just
+    // the global filters — healing must not widen delivery.
+    const enabledSpecs = applyScopeToSpecs(
+      row.provider,
+      await getCaptureTriggerSpecs(row.provider),
+      readCaptureScope(row.config),
+    );
     const live = liveByConnection.get(row.composio_connection_id) ?? [];
     const liveSlugs = new Set(live.map((i) => i.triggerName.toUpperCase()));
 
     const createdIds: string[] = [];
-    for (const slug of enabledSlugs) {
-      if (liveSlugs.has(slug.toUpperCase())) continue;
+    for (const spec of enabledSpecs) {
+      if (liveSlugs.has(spec.slug.toUpperCase())) continue;
 
       try {
-        const triggerId = await createTriggerInstance(
+        const { triggerId } = await createCaptureTriggerInstance(
           row.workspace_id,
-          slug,
+          spec,
           row.composio_connection_id,
         );
         createdIds.push(triggerId);
@@ -230,13 +208,13 @@ export async function runTriggerReconciliation(): Promise<ReconciliationResult> 
         result.created.push({
           workspaceId: row.workspace_id,
           provider: row.provider,
-          slug,
+          slug: spec.slug,
         });
       } catch (error) {
         result.failures.push({
           workspaceId: row.workspace_id,
           provider: row.provider,
-          detail: `create ${slug}`,
+          detail: `create ${spec.slug}`,
           error: error instanceof Error ? error.message : "Creation failed",
         });
       }
@@ -274,77 +252,4 @@ export async function runTriggerReconciliation(): Promise<ReconciliationResult> 
   }
 
   return result;
-}
-
-async function verifyTrigger(triggerId: string): Promise<TriggerStatus> {
-  try {
-    const response = await triggersApi().listActive({
-      triggerIds: [triggerId],
-    });
-
-    const found = (response.items ?? []).find((t) => t.id === triggerId);
-
-    if (found) {
-      return {
-        triggerId,
-        exists: true,
-        status: found.status || "active",
-      };
-    }
-
-    return {
-      triggerId,
-      exists: false,
-      error: "Trigger not found in active triggers list",
-    };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return {
-      triggerId,
-      exists: false,
-      error: message,
-    };
-  }
-}
-
-/**
- * Check trigger health for a single connection.
- * Useful for debugging or on-demand verification.
- */
-export async function checkConnectionTriggers(
-  workspaceId: string,
-  provider: string,
-): Promise<{
-  ok: boolean;
-  triggers: TriggerStatus[];
-  needsRepair: boolean;
-}> {
-  const admin = createAdminClient();
-
-  const { data: conn } = await admin
-    .from("workspace_integrations")
-    .select("config")
-    .eq("workspace_id", workspaceId)
-    .eq("provider", provider)
-    .maybeSingle();
-
-  if (!conn) {
-    return { ok: false, triggers: [], needsRepair: false };
-  }
-
-  const config = conn.config as Record<string, unknown> | null;
-  const triggerIds = Array.isArray(config?.captureTriggerIds)
-    ? (config.captureTriggerIds as unknown[]).filter(
-        (id): id is string => typeof id === "string",
-      )
-    : [];
-
-  const triggers: TriggerStatus[] = [];
-  for (const triggerId of triggerIds) {
-    triggers.push(await verifyTrigger(triggerId));
-  }
-
-  const needsRepair = triggers.some((t) => !t.exists);
-
-  return { ok: true, triggers, needsRepair };
 }

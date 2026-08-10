@@ -77,5 +77,5 @@ export async function getGmailConnectionStatus(workspaceId: string) {
 }
 
 export async function revalidateGmailSettings() {
-  revalidatePath("/plays");
+  revalidatePath("/sources");
 }

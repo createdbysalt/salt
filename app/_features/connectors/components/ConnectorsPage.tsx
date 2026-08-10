@@ -17,7 +17,6 @@ import {
 import type { ConnectorCatalogId, ConnectorsPageData } from "@/app/_features/connectors";
 import { catalogById } from "@/app/_features/connectors/catalog-view";
 import { connectorsPageUrl } from "@/app/_features/connectors/constants";
-import { updateConnectorToolPreferences } from "@/app/_features/connectors/actions";
 import { ApiKeyConnectDialog } from "./ApiKeyConnectDialog";
 import { ConnectorsMarketplace } from "./ConnectorsMarketplace";
 import { usesInlineApiKeyConnect } from "../utils/inline-api-key-connect";
@@ -35,7 +34,6 @@ export function ConnectorsPage({ connectors, showHeader = true }: ConnectorsPage
     [connectors.catalog],
   );
   const [loadingId, setLoadingId] = React.useState<ConnectorCatalogId | null>(null);
-  const [savingPreferences, setSavingPreferences] = React.useState(false);
   const [mounted, setMounted] = React.useState(false);
   const [apiKeyConnectorId, setApiKeyConnectorId] =
     React.useState<ConnectorCatalogId | null>(null);
@@ -195,23 +193,6 @@ export function ConnectorsPage({ connectors, showHeader = true }: ConnectorsPage
     }
   };
 
-  const handleSaveToolPreferences = async (
-    id: ConnectorCatalogId,
-    disabledTools: string[],
-  ): Promise<boolean> => {
-    setSavingPreferences(true);
-    const result = await updateConnectorToolPreferences({ connectorId: id, disabledTools });
-    setSavingPreferences(false);
-
-    if (result.success) {
-      router.refresh();
-      return true;
-    }
-
-    toast.error(result.error);
-    return false;
-  };
-
   return (
     <>
       <ApiKeyConnectDialog
@@ -230,9 +211,7 @@ export function ConnectorsPage({ connectors, showHeader = true }: ConnectorsPage
         data={connectors}
         onConnect={handleConnect}
         onDisconnect={handleDisconnect}
-        onSaveToolPreferences={handleSaveToolPreferences}
         loadingId={loadingId}
-        savingPreferences={savingPreferences}
         showHeader={showHeader}
       />
     </>

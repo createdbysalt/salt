@@ -18,7 +18,7 @@ app/
 
 ## Feature Modules (`_features/`)
 
-Primary surfaces: `hq`, `people`, `plays`, `capture` (stream in Plays Activity), `connections`, `meetings`, `shell`, `spaces`, `marketing`, `onboarding`, `messaging`, `relationships` (shared components/actions), `auth`, `billing`.
+Primary surfaces: `hq`, `people`, `sources` (intake: Connectors + Activity), `plays`, `capture` (stream in Sources → Activity), `connections`, `memory`, `meetings`, `shell`, `spaces`, `marketing`, `onboarding`, `messaging`, `relationships` (shared components/actions), `auth`, `billing`.
 
 Each feature module contains:
 - `actions/` or `actions.ts` - Server Actions for mutations (prefer `actions/` directory for multiple files)
@@ -79,10 +79,10 @@ export async function getPeople() {
 |---------|------|
 | HQ | `/hq` |
 | People | `/people` |
-| Spaces | `/spaces` |
-| Plays | `/plays` |
-| Captures (in Plays) | `/plays?tab=activity&view=captures` |
-| Connections | `/connections` |
+| Spaces | `/spaces` — roadmap, not in MVP; redirects to `/work` until it ships |
+| Sources | `/sources` (Connectors + Activity) |
+| Plays | `/plays` (Queue / Playbooks / Activity) |
+| Memory Map | `/memory` (`/connections` redirects here; tabs: Map / Activity / Rules) |
 | Conversations | `/conversations` |
 | Meetings | `/meetings` |
 | Work | `/work` |
@@ -90,7 +90,7 @@ export async function getPeople() {
 | Billing | `/billing` |
 | Settings | `/settings` |
 
-**Legacy URLs** (`/studio`, `/dashboard`, `/clients`, `/relationships`, `/capture`, `/notes`, `/roundtables`, `/tables`) redirect via `middleware.ts` and `app/_features/shell/routes.ts`. Do not add new routes under retired path prefixes.
+**Legacy URLs** (`/studio`, `/dashboard`, `/clients`, `/relationships`, `/capture`, `/notes`, `/roundtables`, `/tables`) redirect via `middleware.ts` and `app/_features/shell/routes.ts` — `/roundtables` and `/tables` land on `/work`, as does `/spaces` itself while the roadmap surface is unshipped. Do not add new routes under retired path prefixes.
 
 ## Import Conventions
 
@@ -108,4 +108,4 @@ import { Button } from '@repo/ui/button'
 ## Testing
 
 - Unit tests co-located: `*.test.ts` / `*.test.tsx`
-- E2E tests in `e2e/` — use `/hq`, `/people`, `/spaces` as entry points
+- E2E tests in `e2e/` — use `/hq`, `/people`, `/work` as entry points

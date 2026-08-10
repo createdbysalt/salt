@@ -1,7 +1,8 @@
 import "server-only";
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
-import type { ResourceType } from "../types";
+import type { Database, Json } from "@/app/_lib/supabase/database.types";
+import type { ResourceMode, ResourceType } from "../types";
 
 /**
  * Resource Signal Router
@@ -9,6 +10,8 @@ import type { ResourceType } from "../types";
  * Routes incoming Composio webhooks for resources to the appropriate entity.
  * Creates signals that playbooks can react to.
  */
+
+type FilesUpdate = Database["public"]["Tables"]["files"]["Update"];
 
 export type ResourceSignalType =
   | "github_pr_opened"
@@ -35,7 +38,7 @@ export interface ResourceSignal {
   evidence: {
     resourceUrl?: string;
     providerEventId?: string;
-    providerPayload?: unknown;
+    providerPayload?: Record<string, Json | undefined>;
     summary?: string;
     prNumber?: number;
     prTitle?: string;
@@ -58,7 +61,7 @@ interface ComposioWebhookPayload {
 
 export async function routeResourceWebhook(
   webhook: ComposioWebhookPayload,
-): Promise<{ success: boolean; signal?: ResourceSignal; error?: string }> {
+): Promise<{ success: boolean; signal?: ResourceSignal; workspaceId?: string; error?: string }> {
   const { triggerName, payload, metadata } = webhook;
 
   if (!metadata?.resourceId) {
@@ -69,13 +72,7 @@ export async function routeResourceWebhook(
 
   const { data: resource } = await admin
     .from("files")
-    .select(`
-      id,
-      workspace_id,
-      resource_type,
-      external_url,
-      mode
-    `)
+    .select("id, workspace_id, resource_type, external_url, mode")
     .eq("id", metadata.resourceId)
     .single();
 
@@ -114,17 +111,16 @@ export async function routeResourceWebhook(
     return { success: false, error: "Could not map trigger to signal" };
   }
 
-  await admin
-    .from("files")
-    .update({
-      last_activity_at: signal.timestamp,
-      last_activity_summary: signal.evidence.summary,
-    })
-    .eq("id", resource.id);
+  const activityUpdate: FilesUpdate = {
+    last_activity_at: signal.timestamp,
+    last_activity_summary: signal.evidence.summary,
+  };
+
+  await admin.from("files").update(activityUpdate).eq("id", resource.id);
 
   await storeSignal(signal);
 
-  return { success: true, signal };
+  return { success: true, signal, workspaceId: resource.workspace_id };
 }
 
 function mapTriggerToSignal(
@@ -147,7 +143,8 @@ function mapTriggerToSignal(
     timestamp,
     evidence: {
       resourceUrl: resourceUrl ?? undefined,
-      providerPayload: payload,
+      // Webhook body is JSON by construction; narrow it to the Json shape once here.
+      providerPayload: payload as Record<string, Json | undefined>,
     },
   };
 
@@ -296,7 +293,7 @@ async function storeSignal(signal: ResourceSignal): Promise<void> {
       title: signal.evidence.summary ?? "Resource activity detected",
       detail: signal.evidence.resourceUrl ?? null,
       metadata: {
-        playerSlug: "keeper",
+        playerSlug: "memory-care",
         signal_key: signal.key,
         resource_id: signal.resourceId,
         resource_type: signal.resourceType,

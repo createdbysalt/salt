@@ -128,7 +128,11 @@ export async function revertProfileField(input: {
     .order("set_at", { ascending: false })
     .limit(2);
 
-  const revertValue = await computeRevertValue(history, input.field);
+  // Boundary cast: provenance `value` is a Json column holding { text } payloads
+  const revertValue = await computeRevertValue(
+    history as ProfileFieldHistoryRow[] | null,
+    input.field,
+  );
 
   const saveResult = await saveProfileField({
     entityType: input.entityType,

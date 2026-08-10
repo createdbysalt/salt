@@ -176,7 +176,7 @@ export function OrgOverviewTab({
     if (!parentSaved) return;
     await saveField("industry_child", child ?? "");
     // Keep the legacy free-text industry column in sync for directory display
-    // until the Keeper backfill retires it as a write target.
+    // until the Memory Care backfill retires it as a write target.
     const label = formatIndustry(parent, child);
     await saveField("industry", parent ? label : "");
   }

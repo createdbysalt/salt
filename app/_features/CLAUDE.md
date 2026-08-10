@@ -51,9 +51,11 @@ _features/[feature]/
 | Feature | Purpose |
 |---------|---------|
 | `hq` | Daily operating home, inbox, insights, dashboard analytics actions |
-| `plays` | Approval outbox, playbooks, players, capture stream in Activity |
+| `plays` | Approval outbox (Queue / Playbooks / Activity) — act-layer only |
+| `sources` | Sources surface shell — Connectors + Activity (capture stream) tabs at `/sources` |
+| `memory` | Memory surface (`/memory` tabs: Map / Activity / Rules) + Memory Care module (`care/`) |
 | `people` | People CRUD, profile fields, activity |
-| `connections` | Relationship and context graph |
+| `connections` | Memory Map graph (`/memory`) + per-record Connections tabs |
 | `spaces` | Role-aware shared workspaces |
 | `work` | Work and project memory |
 | `meetings` | Meeting intelligence |
@@ -62,7 +64,7 @@ _features/[feature]/
 | `billing` | **Client** invoices/payments (`billing_records`). Salt's own SaaS metering lives in `app/_lib/usage/` — see `docs/architecture/billing-metering.md` |
 | `messaging` | Comments, conversations |
 | `relationships` | Shared relationship components/actions (legacy infra) |
-| `capture` | Capture stream components (used inside Plays) |
+| `capture` | Capture intake pipeline (adapters, gates); stream UI renders inside Sources → Activity |
 | `intelligence` | Ambient intelligence generators, feed actions |
 | `marketing` | Public marketing pages and components |
 | `onboarding` | Setup and onboarding flows |

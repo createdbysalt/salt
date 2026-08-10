@@ -100,8 +100,8 @@ export function mapBillingProvenanceToActivityEntry(
   return {
     id: `billing-profile-${provenance.field}-${provenance.setAt}`,
     at: provenance.setAt,
-    kind: "keeper",
-    label: `Keeper ${action} ${field}`,
+    kind: "salt",
+    label: `Salt ${action} ${field}`,
     detail: detailParts.join(" · "),
   };
 }

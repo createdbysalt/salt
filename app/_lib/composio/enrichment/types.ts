@@ -7,8 +7,22 @@ export type EnrichableEntityType =
   | "file"
   | "me";
 
-// Re-export from unified registry to avoid duplication
-export type { ConnectorCategory } from "../unified-connector-registry";
+/**
+ * Salt capture taxonomy — the category that selects the webhook normalizer
+ * adapter and enrichment field schema for a provider. Stored per provider in
+ * `connector_overrides.capture_category` (DB is source of truth; see
+ * app/_lib/composio/capture-categories.ts).
+ */
+export type ConnectorCategory =
+  | "email"
+  | "calendar"
+  | "billing"
+  | "crm"
+  | "meetings"
+  | "documents"
+  | "storage"
+  | "project_management"
+  | "communication";
 
 export interface SourcedField {
   value: string | number | boolean;

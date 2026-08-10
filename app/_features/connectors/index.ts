@@ -12,16 +12,12 @@ export {
 export {
   getComposioProviderForToolSlug,
   getConnectorCapabilities,
-  getGoogleToolPreferenceProviders,
-  supportsToolPreferences,
 } from "./connector-capabilities";
 export type {
   ConnectorCapability,
   ConnectorCapabilityGroups,
 } from "./connector-capabilities";
 export {
-  getDisabledToolsFromConfig,
-  mergeDisabledToolsIntoConfig,
   parseConnectorIntegrationConfig,
 } from "./connector-config";
 export type { ConnectorIntegrationConfig } from "./connector-config";
@@ -31,7 +27,6 @@ export type {
   ConnectorCatalogId,
   ConnectorCategory,
   ConnectorDefinition,
-  ConnectorDetailData,
   ConnectorEmailMode,
   ConnectorOwnership,
   ConnectorPhase,

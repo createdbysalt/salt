@@ -3,6 +3,7 @@
  */
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import type { Json } from "@/app/_lib/supabase/database.types";
 import { sendWaitlistSequenceEmail } from "@/app/_lib/email/waitlist-sequence-send";
 import {
   appendSentWaitlistSequenceSlug,
@@ -118,7 +119,7 @@ export async function processDueWaitlistNurtureEmails(options?: {
       const { error: updateError } = await supabase
         .from("waitlist_leads")
         .update({
-          metadata: buildUpdatedMetadata(rawMetadata, updatedSequence),
+          metadata: buildUpdatedMetadata(rawMetadata, updatedSequence) as Json,
         })
         .eq("id", row.id);
 

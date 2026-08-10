@@ -13,7 +13,7 @@ const AddResourceSchema = z.object({
   displayName: z.string().min(1).max(255).optional(),
   description: z.string().max(1000).optional(),
   mode: z.enum(["static", "live"]).default("static"),
-  source: z.enum(["manual", "keeper", "enrichment", "ask_salt", "capture"]).default("manual"),
+  source: z.enum(["manual", "care", "enrichment", "ask_salt", "capture"]).default("manual"),
   confidence: z.number().min(0).max(100).optional(),
   because: z.string().max(500).optional(),
 });

@@ -6,6 +6,7 @@
  */
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import type { TablesUpdate } from "@/app/_lib/supabase/database.types";
 
 export type FeedbackType =
   | "more_like_this"
@@ -152,7 +153,7 @@ async function updateSenderProfileFromTriage(
 
   if (!existing) return;
 
-  const updates: Record<string, unknown> = {
+  const updates: TablesUpdate<"capture_sender_profiles"> = {
     capture_count: (existing.capture_count ?? 0) + 1,
     last_calculated_at: new Date().toISOString(),
   };
@@ -196,8 +197,8 @@ async function updateSenderProfileFromTriage(
     );
   }
 
-  const captureCount = (updates.capture_count as number) ?? existing.capture_count ?? 1;
-  const repliedCount = (updates.user_replied_count as number) ?? existing.user_replied_count ?? 0;
+  const captureCount = updates.capture_count ?? existing.capture_count ?? 1;
+  const repliedCount = updates.user_replied_count ?? existing.user_replied_count ?? 0;
   if (captureCount > 0) {
     updates.response_rate = repliedCount / captureCount;
   }

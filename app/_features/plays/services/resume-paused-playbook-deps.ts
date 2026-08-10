@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import type { TablesUpdate } from "@/app/_lib/supabase/database.types";
 import { recordPlayExecution } from "@/app/_lib/usage/record-play-usage";
 import { executeConnectorTool } from "./execute-connector-tool";
 import type {
@@ -58,7 +59,9 @@ export function createResumePausedPlaybookDeps(): ResumePausedPlaybookDeps {
       return executeConnectorTool(toolSlug, args, context);
     },
 
-    async finalizeRun(runId, workspaceId, patch) {
+    // Narrower than the deps contract's Record<string, unknown>: every patch
+    // the resume path writes is a real play_runs column set.
+    async finalizeRun(runId, workspaceId, patch: TablesUpdate<"play_runs">) {
       await admin
         .from("play_runs")
         .update(patch)

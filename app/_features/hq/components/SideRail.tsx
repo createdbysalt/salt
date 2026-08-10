@@ -4,14 +4,21 @@ import * as React from "react";
 import Link from "next/link";
 import {
   ArrowUpRight,
+  Brain,
+  Building,
   Calendar,
+  File,
   Lightbulb,
   Loader2,
   PlugZap,
+  Receipt,
   RefreshCw,
   Timer,
   TrendingDown,
   TrendingUp,
+  User,
+  Video,
+  Briefcase,
 } from "lucide-react";
 import { toast } from "sonner";
 import { connectGoogleCalendar } from "@/app/_features/connectors/actions/calendar/connect";
@@ -24,14 +31,32 @@ import {
   connectorHealthImpactCopy,
   shouldShowConnectorHealth,
 } from "@/app/_features/hq/connector-health";
-import type { HqConnectorHealthItem, HqSideRailData } from "@/app/_features/hq/types";
+import type { HqConnectorHealthItem, HqCreatedTodayItem, HqSideRailData } from "@/app/_features/hq/types";
 
 type Props = {
   data: HqSideRailData;
 };
 
+const ENTITY_ICONS: Record<HqCreatedTodayItem["entityType"], React.ElementType> = {
+  person: User,
+  organization: Building,
+  work: Briefcase,
+  billing: Receipt,
+  file: File,
+  meeting: Video,
+};
+
+const ENTITY_LABELS: Record<HqCreatedTodayItem["entityType"], string> = {
+  person: "Contact",
+  organization: "Organization",
+  work: "Project",
+  billing: "Invoice",
+  file: "File",
+  meeting: "Meeting",
+};
+
 export function SideRail({ data }: Props) {
-  const { timeSaved, schedule, headsUp, scheduleContext, connectorHealth } = data;
+  const { timeSaved, schedule, headsUp, createdToday, scheduleContext, connectorHealth } = data;
   const reconnectItems = connectorHealth.items;
   const showConnectorHealth = shouldShowConnectorHealth(reconnectItems.length);
   const [connectingId, setConnectingId] = React.useState<string | null>(null);
@@ -218,10 +243,59 @@ export function SideRail({ data }: Props) {
         </ul>
       </div>
 
-      {showConnectorHealth ? (
+      {createdToday.items.length > 0 ? (
         <div
           className="glass-card animate-rise rounded-3xl p-5"
           style={{ animationDelay: "440ms" }}
+        >
+          <header className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Brain className="size-[18px]" strokeWidth={1.75} />
+              <h3 className="font-semibold tracking-tight">Created today</h3>
+            </div>
+            <span className="chip">{createdToday.items.length}</span>
+          </header>
+          <ul className="space-y-2">
+            {createdToday.items.map((item) => {
+              const Icon = ENTITY_ICONS[item.entityType];
+              const typeLabel = ENTITY_LABELS[item.entityType];
+              return (
+                <li key={item.id}>
+                  <Link
+                    href={item.href}
+                    className="group flex items-center gap-3 rounded-xl border border-border/60 bg-card px-3 py-2.5 transition hover:bg-muted/60"
+                  >
+                    <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border/50 bg-background">
+                      <Icon className="size-4 text-muted-foreground" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[13px] font-semibold leading-5">
+                        {item.name}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {typeLabel} · {item.signalCount} signal{item.signalCount !== 1 ? "s" : ""}
+                      </p>
+                    </div>
+                    <ArrowUpRight className="size-3.5 shrink-0 text-muted-foreground opacity-0 transition group-hover:opacity-100" />
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+          <Link
+            href="/memory?tab=activity"
+            className="mt-3 inline-flex items-center gap-1 text-[11px] font-medium text-foreground hover:underline"
+          >
+            View all in Memory
+            <ArrowUpRight className="size-3" />
+          </Link>
+        </div>
+      ) : null}
+
+      {showConnectorHealth ? (
+        <div
+          className="glass-card animate-rise rounded-3xl p-5"
+          style={{ animationDelay: "520ms" }}
         >
           <header className="mb-1 flex items-center justify-between">
             <div className="flex items-center gap-2">

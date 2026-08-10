@@ -10,9 +10,11 @@ import "server-only";
  * gmail-ingestion.ts service, which normalized to Gmail API shapes and capped
  * at 100 messages with no pagination.
  *
- * Envelope retention stance applies: metadata rows only (include_payload is
- * pinned false in fetchGmailMessagesPage); full bodies are hydrated on demand
- * via the source pointer (Phase 3.7).
+ * Envelope retention stance applies: pages are fetched with
+ * include_payload=true so admitted captures can be analyzed inline on the
+ * transient full body (Sources plan 3.4, decision b), but only the thin
+ * envelope is persisted — the body is discarded after analysis and deep
+ * content is otherwise re-fetched on demand via the source pointer (3.7).
  */
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
@@ -22,6 +24,7 @@ import { getCategoryAdapter } from "../adapters/categories";
 import type { CaptureEnvelope, EnvelopeParticipant } from "../adapters/types";
 import { BOOTSTRAP_LIMITS } from "../types";
 import { ingestEnvelope } from "./ingest-envelope";
+import { runInlineBackfillScan, type AdmittedBackfillCapture } from "./backfill-inline-scan";
 import {
   scoreContactSignal,
   filterHighSignalContacts,
@@ -47,6 +50,12 @@ export interface GmailBackfillResult {
     insertErrors: number;
     /** Rows the adapter declined (no message id / unrecognized shape). */
     declined: number;
+    /** Blocked by the pre-ingest gate (spam/marketing/blocklist) — not inserted. */
+    dropped: number;
+    /** Memory-first hold: thin row kept for discovery, no enrichment. */
+    held: number;
+    /** Admitted captures analyzed inline on their transient bodies (3.4). */
+    inlineScanned: number;
     firstError?: string;
     integrationId: string | null;
   };
@@ -86,7 +95,7 @@ function bumpContact(
   contacts: Map<string, ExtractedContact>,
   participant: EnvelopeParticipant,
   occurredAt: string,
-  isInbound: boolean,
+  isInbound: boolean
 ): void {
   if (!participant.email) return;
   const existing = contacts.get(participant.email);
@@ -114,7 +123,7 @@ function bumpContact(
 function collectContactsFromEnvelope(
   contacts: Map<string, ExtractedContact>,
   envelope: CaptureEnvelope,
-  userEmail: string | null,
+  userEmail: string | null
 ): void {
   const occurredAt = envelope.occurredAt ?? new Date().toISOString();
   const isSentByUser = envelope.extracted.isSentByUser === true;
@@ -136,22 +145,21 @@ function collectContactsFromEnvelope(
 
 function findHighSignalContacts(
   contacts: Map<string, ExtractedContact>,
-  limit: number,
+  limit: number
 ): ContactSignalScore[] {
   const now = Date.now();
   const scores: ContactSignalScore[] = [];
 
   for (const [email, contact] of contacts) {
     const recencyDays = Math.floor(
-      (now - new Date(contact.lastContactDate).getTime()) /
-        (1000 * 60 * 60 * 24),
+      (now - new Date(contact.lastContactDate).getTime()) / (1000 * 60 * 60 * 24)
     );
 
     const score = scoreContactSignal(
       recencyDays,
       contact.messageCount,
       0, // Revenue not known yet
-      contact.isInbound ? contact.messageCount : 0, // Thread count approximation
+      contact.isInbound ? contact.messageCount : 0 // Thread count approximation
     );
 
     scores.push({
@@ -176,7 +184,7 @@ function findHighSignalContacts(
 async function createPeopleFromContacts(
   workspaceId: string,
   contacts: ContactSignalScore[],
-  derivedSignals: Map<string, PersonSignals>,
+  derivedSignals: Map<string, PersonSignals>
 ): Promise<number> {
   let created = 0;
 
@@ -224,7 +232,7 @@ function formatGmailAfterDate(lookbackDays: number): string {
  */
 export async function backfillGmailCaptures(
   workspaceId: string,
-  options: GmailBackfillOptions = {},
+  options: GmailBackfillOptions = {}
 ): Promise<GmailBackfillResult> {
   const {
     lookbackDays = 7,
@@ -246,7 +254,7 @@ export async function backfillGmailCaptures(
     };
   }
 
-  const gmailAdapter = getCategoryAdapter("gmail");
+  const gmailAdapter = await getCategoryAdapter("gmail");
   if (!gmailAdapter) {
     console.error(`[gmail-backfill] No adapter for gmail`);
     return {
@@ -265,7 +273,7 @@ export async function backfillGmailCaptures(
   if (includeInbox) {
     // Avoid category:primary — it often returns 0 rows via Composio/Gmail API.
     queries.push(
-      `in:inbox after:${afterDate} -category:promotions -category:social -from:noreply -from:no-reply`,
+      `in:inbox after:${afterDate} -category:promotions -category:social -from:noreply -from:no-reply`
     );
   }
   if (queries.length === 0) {
@@ -284,15 +292,19 @@ export async function backfillGmailCaptures(
     duplicates: 0,
     insertErrors: 0,
     declined: 0,
+    dropped: 0,
+    held: 0,
+    inlineScanned: 0,
     firstError: undefined as string | undefined,
     integrationId: connection.integrationId,
   };
   let created = 0;
   const contacts = new Map<string, ExtractedContact>();
   const bootstrapEnvelopes: CaptureEnvelope[] = [];
+  const admittedForInlineScan: AdmittedBackfillCapture[] = [];
 
   console.log(
-    `[gmail-backfill] ${queries.length} query/queries for workspace ${workspaceId} (${lookbackDays}d, cap ${maxMessagesPerQuery}/query)`,
+    `[gmail-backfill] ${queries.length} query/queries for workspace ${workspaceId} (${lookbackDays}d, cap ${maxMessagesPerQuery}/query)`
   );
 
   try {
@@ -306,10 +318,14 @@ export async function backfillGmailCaptures(
             query,
             maxResults: Math.min(pageSize, maxMessagesPerQuery - fetched),
             pageToken,
+            // Bodies ride along with the page fetch (same Composio call) so
+            // admitted captures can be analyzed inline; only the thin
+            // envelope is persisted (3.4).
+            includePayload: true,
           },
           connection.composioConnectionId,
           workspaceId, // Composio entity ID = workspace ID
-          { skipAuthCheck: true, workspaceId, unattended: true },
+          { skipAuthCheck: true, workspaceId, unattended: true }
         );
         debug.pagesFetched++;
 
@@ -324,16 +340,27 @@ export async function backfillGmailCaptures(
           }
           envelope.raw = { ...envelope.raw, source: "composio_backfill" };
 
-          const result = await ingestEnvelope(
-            workspaceId,
-            connection.integrationId,
-            envelope,
-            { isBootstrap },
-          );
+          // Gate-pipeline parity (Sources plan 2.6): the same message must get
+          // the same treatment whether it arrives via webhook or backfill.
+          // Without the gates, backfill rows landed gate_action=null — no
+          // spam/marketing filtering, no known-entity fast-track, no admission
+          // scoring, and Activity could not explain why a row was kept.
+          const result = await ingestEnvelope(workspaceId, connection.integrationId, envelope, {
+            isBootstrap,
+            useGatePipeline: true,
+            userEmail: connection.email ?? null,
+          });
 
           switch (result.outcome) {
             case "created":
               created++;
+              if (result.captureId) {
+                admittedForInlineScan.push({
+                  captureId: result.captureId,
+                  envelope,
+                  row,
+                });
+              }
               break;
             case "duplicate":
               debug.duplicates++;
@@ -341,16 +368,19 @@ export async function backfillGmailCaptures(
             case "noise":
               debug.skippedNoise++;
               break;
+            case "dropped":
+              debug.dropped++;
+              break;
+            case "held":
+              debug.held++;
+              break;
             case "error":
               debug.insertErrors++;
               debug.firstError ??= result.error;
               break;
           }
 
-          if (
-            isBootstrap &&
-            (result.outcome === "created" || result.outcome === "duplicate")
-          ) {
+          if (isBootstrap && (result.outcome === "created" || result.outcome === "duplicate")) {
             collectContactsFromEnvelope(contacts, envelope, connection.email);
             bootstrapEnvelopes.push(envelope);
           }
@@ -373,10 +403,7 @@ export async function backfillGmailCaptures(
 
   let contactsCreated = 0;
   if (isBootstrap) {
-    const highSignalContacts = findHighSignalContacts(
-      contacts,
-      BOOTSTRAP_LIMITS.MAX_PEOPLE,
-    );
+    const highSignalContacts = findHighSignalContacts(contacts, BOOTSTRAP_LIMITS.MAX_PEOPLE);
     const derivedSignals =
       gmailAdapter.deriveSignals?.(bootstrapEnvelopes, {
         userEmail: connection.email ?? null,
@@ -384,7 +411,7 @@ export async function backfillGmailCaptures(
     contactsCreated = await createPeopleFromContacts(
       workspaceId,
       highSignalContacts,
-      derivedSignals,
+      derivedSignals
     );
 
     const admin = createAdminClient();
@@ -396,8 +423,29 @@ export async function backfillGmailCaptures(
     });
   }
 
+  // Inline transient-body analysis (3.4): admitted captures were fetched with
+  // full payloads, so run the shared scan pipeline on them now — full-body
+  // signature parsing and classification at connect time, outcome stamped so
+  // the daily scan skips them afterwards. Failures here must not fail the
+  // backfill: the daily scan remains the safety net.
+  if (admittedForInlineScan.length > 0) {
+    try {
+      const inline = await runInlineBackfillScan(workspaceId, admittedForInlineScan);
+      debug.inlineScanned = inline.scanned;
+      if (inline.errors.length > 0) {
+        console.warn(
+          "[gmail-backfill] Inline scan warnings for workspace:",
+          workspaceId,
+          inline.errors.slice(0, 3).join(" | ")
+        );
+      }
+    } catch (inlineError) {
+      console.error("[gmail-backfill] Inline scan failed (captures still ingested):", inlineError);
+    }
+  }
+
   console.log(
-    `[gmail-backfill] Done: created=${created}, fetched=${debug.messagesFetched}, pages=${debug.pagesFetched}, noise=${debug.skippedNoise}, dupes=${debug.duplicates}, errors=${debug.insertErrors}, contacts=${contactsCreated}`,
+    `[gmail-backfill] Done: created=${created}, fetched=${debug.messagesFetched}, pages=${debug.pagesFetched}, noise=${debug.skippedNoise}, held=${debug.held}, dropped=${debug.dropped}, dupes=${debug.duplicates}, errors=${debug.insertErrors}, contacts=${contactsCreated}, inlineScanned=${debug.inlineScanned}`
   );
 
   return {
@@ -413,9 +461,7 @@ export async function backfillGmailCaptures(
  * discovery. Idempotent — dedupe keys and resolvePerson's existing-email
  * check make disconnect/reconnect safe.
  */
-export async function runGmailBootstrap(
-  workspaceId: string,
-): Promise<GmailBackfillResult> {
+export async function runGmailBootstrap(workspaceId: string): Promise<GmailBackfillResult> {
   console.log(`[gmail-backfill] Running bootstrap for workspace ${workspaceId}`);
 
   return backfillGmailCaptures(workspaceId, {

@@ -99,7 +99,7 @@ function findViolations(): Violation[] {
           file: relativePath,
           line: parseInt(lineNum, 10),
           content: content.trim(),
-          message: "Direct intelligence_findings insert — use play_runs via createKeeperPlayRun() instead",
+          message: "Direct intelligence_findings insert — use play_runs via the create-*-play-run services (e.g. createIntakePlayRun) instead",
         });
       }
     }
@@ -130,8 +130,8 @@ function main() {
     console.log(`    ${v.content}\n`);
   }
 
-  console.log("Fix: Use createKeeperPlayRun() or createKeeperQuestionPlayRun() from");
-  console.log("     app/_features/plays/services/create-keeper-play-run.ts\n");
+  console.log("Fix: Create a play_run via the shared services in");
+  console.log("     app/_features/plays/services/ (e.g. create-play-run.ts)\n");
 
   process.exit(1);
 }

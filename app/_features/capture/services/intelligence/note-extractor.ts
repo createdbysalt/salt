@@ -3,7 +3,7 @@
  *
  * Analyzes emails, meetings, and other capture sources to identify
  * note-worthy facts, preferences, context, and flags about entities.
- * Creates notes via the keeper-entity-notes playbook.
+ * Creates notes via the Memory Care entity-notes pipeline.
  */
 
 import { z } from "zod";

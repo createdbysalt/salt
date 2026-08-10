@@ -1,0 +1,84 @@
+# Upsell Opportunity
+# Rescued 2026-08-07: the original playbook.yaml used invented step types
+# (detect/research/calculate), an unregistered signal, and a fictional
+# web.competitive_analysis source — it never loaded. Rewritten against
+# schema v2: fires when new learning is extracted from a contact's
+# communications and drafts a tiered expansion proposal for clients whose
+# context suggests appetite for more.
+
+name: Upsell Opportunity
+slug: upsell-opportunity
+version: 1.1.0
+description: Drafts a tiered expansion proposal when client context signals appetite for more
+
+section: relationships
+layer: act
+voice: follow-up
+
+trigger:
+  type: signal
+  signal: entity_learning_extracted
+  surface: person
+
+requirements:
+  categories:
+    required:
+      - email
+
+steps:
+  - step: fetch
+    id: contact_context
+    from: memory.person_context
+
+  - step: classify
+    id: expansion_fit
+    forEach: contact_context
+    rules:
+      - if: "relationship_type == 'client'"
+        then: expansion_ready
+      - if: "relationship_type == 'prospect'"
+        then: nurture
+    else: monitor
+
+  - step: draft
+    id: tiered_proposal
+    prompt: |
+      Draft an expansion note for {{contact_context.name}} ({{expansion_fit}}).
+
+      Recent context: {{contact_context.recent_notes}}
+      Last contact: {{contact_context.last_contact_at}}
+
+      If expansion_ready: sketch three ways to go further together —
+      1. Foundation (a small immediate add-on)
+      2. Growth (the recommended next engagement)
+      3. Prestige (the full-service version)
+      Anchor each tier in something specific from their context.
+
+      If nurture or monitor: write a light check-in instead that surfaces
+      the new context without pitching.
+    max_tokens: 500
+
+output:
+  type: email_draft
+  approval: per_entity
+
+value:
+  kind: upsell_drafted
+  estimate: 45
+
+instructions:
+  system: |
+    You are drafting expansion proposals for freelancers and solopreneurs
+    writing to existing clients. The best upsell reads as generosity —
+    "here's more of what's already working" — never as a pitch deck.
+
+  guidelines:
+    - Keep under 250 words
+    - Reference the specific context that prompted the note
+    - Make the middle tier the obvious choice
+    - Price talk stays directional; details belong in the follow-up call
+
+  avoid:
+    - Urgency tactics or fake deadlines
+    - Competitor comparisons
+    - More than three options

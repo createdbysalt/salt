@@ -2,7 +2,7 @@
  * Memory Taxonomies — Controlled vocabularies for People, Orgs, Work
  *
  * These enums define the allowed values for categorization fields.
- * Keeper playbooks use these to infer values; UI uses them for dropdowns.
+ * Memory Care uses these to infer values; UI uses them for dropdowns.
  */
 
 // ============================================================================

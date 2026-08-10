@@ -10,8 +10,8 @@ export type RecordStatusEntity = "person" | "org";
 
 /**
  * Manual record-status change (keeper-field-contracts Phase 1.3).
- * Precedence: source='manual' — Keeper never silently overrides a manual
- * value; it may only raise an ask-first play card on sustained contradiction.
+ * Precedence: source='manual' — Memory Care never silently overrides a manual
+ * value; it may only surface a suggestion on sustained contradiction.
  * Logged to lifecycle_events so the change shows on the Activity tab.
  */
 export async function updateRecordStatus(input: {

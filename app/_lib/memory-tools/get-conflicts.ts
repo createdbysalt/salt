@@ -26,6 +26,7 @@
  */
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import type { Json } from "@/app/_lib/supabase/database.types";
 import type { LearningEntityType } from "./types";
 
 export type ConflictType =
@@ -68,6 +69,15 @@ export interface GetConflictsResult {
 }
 
 /**
+ * Candidates are stored in a Json column; this is the single read boundary.
+ * The cast through unknown is needed because ConflictCandidate carries
+ * `value: unknown`, which Json cannot express.
+ */
+function candidatesFromJson(value: Json): ConflictCandidate[] {
+  return Array.isArray(value) ? (value as unknown as ConflictCandidate[]) : [];
+}
+
+/**
  * Get conflicts for an entity or workspace.
  */
 export async function memoryGetConflicts(
@@ -105,7 +115,7 @@ export async function memoryGetConflicts(
     entityId: row.entity_id,
     field: row.field,
     conflictType: row.conflict_type as ConflictType,
-    candidates: row.candidates as ConflictCandidate[],
+    candidates: candidatesFromJson(row.candidates),
     detectedAt: row.detected_at,
     resolved: row.resolved,
     resolvedBy: row.resolved_by as FieldConflict["resolvedBy"],
@@ -204,7 +214,7 @@ export async function detectAndRecordConflict(input: {
     const { data: updated } = await admin
       .from("field_conflicts")
       .update({
-        candidates,
+        candidates: candidates as unknown as Json,
         conflict_type: conflictType,
       })
       .eq("id", existing.id)
@@ -218,7 +228,7 @@ export async function detectAndRecordConflict(input: {
           entityId: updated.entity_id,
           field: updated.field,
           conflictType: updated.conflict_type as ConflictType,
-          candidates: updated.candidates as ConflictCandidate[],
+          candidates: candidatesFromJson(updated.candidates),
           detectedAt: updated.detected_at,
           resolved: updated.resolved,
         }
@@ -234,7 +244,7 @@ export async function detectAndRecordConflict(input: {
       entity_id: input.entityId,
       field: input.field,
       conflict_type: conflictType,
-      candidates,
+      candidates: candidates as unknown as Json,
     })
     .select()
     .single();
@@ -249,7 +259,7 @@ export async function detectAndRecordConflict(input: {
     entityId: conflict.entity_id,
     field: conflict.field,
     conflictType: conflict.conflict_type as ConflictType,
-    candidates: conflict.candidates as ConflictCandidate[],
+    candidates: candidatesFromJson(conflict.candidates),
     detectedAt: conflict.detected_at,
     resolved: conflict.resolved,
   };
@@ -271,7 +281,9 @@ export async function resolveConflict(input: {
       resolved: true,
       resolved_by: input.resolvedBy,
       resolved_at: new Date().toISOString(),
-      resolution_value: input.resolutionValue,
+      // Cast from unknown at the write boundary; undefined stays undefined so
+      // the column is left untouched when no value is provided.
+      resolution_value: input.resolutionValue as Json | undefined,
     })
     .eq("id", input.conflictId);
 

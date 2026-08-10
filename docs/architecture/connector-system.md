@@ -1,13 +1,13 @@
 # Connector System Architecture
 
-**Last Updated:** 2026-07-13
+**Last Updated:** 2026-08-07
 
 Salt's connector system enables users to connect third-party services (Gmail, Stripe, Slack, etc.) for data capture, AI-assisted actions, and enrichment. This document covers the architecture and how to add new connectors with velocity.
 
 ## Table of Contents
 
 1. [System Overview](#system-overview)
-2. [Architecture Decision: Hybrid Registry](#architecture-decision-hybrid-registry-db--code-fallback)
+2. [Architecture Decision: DB-Backed Registry](#architecture-decision-db-backed-registry)
 3. [Adding a New Connector](#adding-a-new-connector) ← **Start here**
 4. [Capture Adapters](#capture-adapters)
 5. [Ask Salt Integration](#ask-salt-integration)
@@ -25,7 +25,7 @@ Salt's connector system enables users to connect third-party services (Gmail, St
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                         DATABASE (Source of Truth)                           │
 │                                                                              │
-│   connector_catalog     250+ apps synced from Composio                      │
+│   connector_catalog     1,089 toolkits synced from Composio                 │
 │   connector_overrides   Salt metadata: featured, auth_config_id, tier       │
 │   tool_classifications  Risk class + approval requirements                  │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -42,7 +42,7 @@ Salt's connector system enables users to connect third-party services (Gmail, St
         │                             │                             │
         ▼                             ▼                             ▼
 ┌───────────────┐           ┌───────────────┐            ┌───────────────┐
-│   Plays       │           │  Ask Salt     │            │   Memory      │
+│   Sources     │           │  Ask Salt     │            │   Memory      │
 │   Activity    │           │  Chat + Tools │            │   Records     │
 └───────────────┘           └───────────────┘            └───────────────┘
 ```
@@ -58,14 +58,16 @@ Salt's connector system enables users to connect third-party services (Gmail, St
 
 | File | Purpose |
 |------|---------|
-| `app/_lib/composio/connector-registry.ts` | **DB-backed registry** (reads from `connector_catalog` + cache) |
-| `app/_lib/composio/unified-connector-registry.ts` | ⚠️ Deprecated fallback (code-first, kept for transition) |
+| `app/_lib/composio/connector-registry.ts` | **DB-backed registry** (reads from `connector_catalog` + `connector_overrides`, 5-min cache; fails closed on DB outage with no cache) |
+
+> The code-first `unified-connector-registry.ts` fallback was **deleted 2026-08-08** — the DB is the only registry.
 | `app/_lib/composio/classification-store.ts` | Tool classification lookup (DB + heuristic fallback) |
 | `app/_lib/composio/tool-classification-heuristics.ts` | Auto-classify tools by slug pattern |
 | `app/_lib/composio/connections.ts` | OAuth initiate/callback/disconnect |
 | `app/_lib/composio/trigger-subscriptions.ts` | Create/delete Composio triggers |
 | `app/_features/capture/adapters/registry.ts` | Route triggers to adapters |
 | `app/_features/capture/adapters/categories/` | Category-based capture adapters |
+| `app/_features/sources/` | Sources surface shell — hosts the connector UI at `/sources` |
 | `app/_lib/composio/enrichment/registry.ts` | Category → field mapping |
 | `app/_features/connectors/` | UI components and queries |
 
@@ -82,19 +84,19 @@ Salt's connector system enables users to connect third-party services (Gmail, St
 
 ---
 
-## Architecture Decision: Hybrid Registry (DB + Code Fallback)
+## Architecture Decision: DB-Backed Registry
 
 **Decision Date:** 2026-07-13  
-**Updated:** 2026-07-13 (migrated to DB-first with code fallback)
+**Updated:** 2026-08-08 (code fallback deleted; DB-only, fails closed)
 
 ### Current Approach: Database as Source of Truth
 
-The connector registry now lives in the database with a code fallback for resilience:
+The connector registry lives in the database, served through a 5-minute in-memory cache:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                              COMPOSIO API                                    │
-│                         250+ apps, 3000+ tools                               │
+│                       1,089 toolkits, 3000+ tools                            │
 └─────────────────────────────────────────────────────────────────────────────┘
                                       │
                                       │ Nightly sync cron
@@ -112,50 +114,43 @@ The connector registry now lives in the database with a code fallback for resili
                                       │ 5-minute cache
                                       ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│   connector-registry.ts  - DB-backed registry with code fallback            │
+│   connector-registry.ts  - DB-backed registry (5-min cache, fails closed)   │
 │   classification-store.ts - Tool classification with heuristic fallback     │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Why Hybrid?
+### Why DB-backed?
 
 | Layer | Source | Fallback | Why |
 |-------|--------|----------|-----|
-| **Connector catalog** | DB (`connector_catalog`) | Code (`unified-connector-registry.ts`) | Scale to 250+ apps |
+| **Connector catalog** | DB (`connector_catalog`) | Stale in-memory cache (5-min TTL) | 1,089 toolkits synced |
 | **Tool classification** | DB (`tool_classifications`) | Heuristics (`tool-classification-heuristics.ts`) | Auto-classify new tools |
-| **Trigger subscriptions** | DB (`connector_trigger_types`) | Code fallback | Enable new triggers without deploy |
-| **Auth configs** | Env vars | — | Secure, per-environment |
+| **Trigger subscriptions** | DB (`connector_trigger_types`) | — | Enable new triggers without deploy |
+| **Auth configs** | DB (`connector_overrides.auth_config_id`), optional env-var override | — | Per-environment when needed |
 | **User connections** | DB (`workspace_integrations`) | — | User data, must persist |
 
-The code fallback ensures the system keeps working even if the DB sync fails.
+There is no code fallback: if the DB read fails and no warm cache exists, the registry **fails closed** (nothing can connect — the safe direction).
 
 ### Auth Config Resolution
 
-Auth config IDs (required for Composio OAuth) come from environment variables:
+Auth config IDs (required for Composio OAuth) live on `connector_overrides` and resolve in `connector-registry.ts#resolveAuthConfigId`:
 
-```bash
-# .env.1password or Vercel env vars
-COMPOSIO_AUTH_CONFIG_GMAIL=ac_xxx
-COMPOSIO_AUTH_CONFIG_GOOGLECALENDAR=ac_yyy
-COMPOSIO_AUTH_CONFIG_STRIPE=ac_zzz
-```
+1. If `auth_config_env_var` is set and that env var exists (`.env.1password` / Vercel), the env value wins — use this for per-environment overrides.
+2. Otherwise the pinned `auth_config_id` is used.
 
-The unified registry maps provider keys to env var names:
-
-```typescript
-// unified-connector-registry.ts
-gmail: {
-  authConfigEnvVar: "COMPOSIO_AUTH_CONFIG_GMAIL",
-  // ...
-}
+```sql
+UPDATE connector_overrides
+SET auth_config_id = 'ac_xxx',               -- pinned default
+    auth_config_env_var = 'COMPOSIO_AUTH_CONFIG_GMAIL'  -- optional env override
+WHERE provider_key = 'gmail';
 ```
 
 ### What Lives Where
 
 | Data | Location | Why |
 |------|----------|-----|
-| Connector definitions | Code (`unified-connector-registry.ts`) | Version controlled, testable |
-| Auth config IDs | Env vars (1Password → Vercel) | Per-environment, secure |
+| Connector definitions | DB (`connector_catalog` + `connector_overrides`) | 1,089 toolkits — code doesn't scale |
+| Auth config IDs | DB (`auth_config_id`), env override via `auth_config_env_var` | Per-environment when needed |
 | User connections | DB (`workspace_integrations`) | User data, must persist |
 | Tool classifications | DB (`tool_classifications`) | Large dataset, Composio-synced |
 
@@ -205,7 +200,7 @@ getAdapterForCategory("email", "zoho_mail")  // → CaptureAdapter (generic)
 User clicks "Connect"
         │
         ▼
-initiateOAuthConnection()
+initiateConnection()
   └─ Encodes state (workspaceId, provider, returnUrl)
   └─ Gets Composio auth URL
   └─ Redirects to provider (e.g., Google)
@@ -220,7 +215,7 @@ User authorizes in provider
   └─ Creates/updates workspace_integrations row
   └─ Auto-enables capture (if adapter exists)
   └─ Creates triggers in Composio
-  └─ Redirects to /plays?tab=customize&customize=connectors
+  └─ Redirects to /sources
 ```
 
 ### 2. API Key Connection Flow
@@ -646,7 +641,7 @@ interface CaptureEnvelope {
   threadId: string | null;        // For grouping related captures
   extracted: Record<string, unknown>;  // Provider-specific fields
   raw: Record<string, unknown>;   // Debug info
-  noise: NoiseSignals | null;     // For spam detection
+  noise: CaptureNoiseInput | null;  // For spam detection
 }
 ```
 
@@ -893,11 +888,13 @@ op run --env-file=.env.1password -- pnpm tsx .scratch/audit-connector-triggers.t
 
 The audit script:
 1. Queries Composio for all available triggers per toolkit
-2. Compares against `unified-connector-registry.ts`
+2. Compares against our configured trigger set
 3. Reports invalid triggers (configured but don't exist in Composio)
 4. Suggests available triggers we haven't enabled
 
-**Never guess at trigger slugs.** Always verify with the audit script first.
+> ⚠️ `.scratch/audit-connector-triggers.ts` still imports the deleted `unified-connector-registry.ts` — it does not run as-is. The live drift guard is the daily catalog-sync cron's schema-drift watch (`trigger_schema_changed` sync events, Sources plan 5.8); rewrite the script against `connector_trigger_types` if a manual audit is needed.
+
+**Never guess at trigger slugs.** Always verify against Composio's API first.
 
 ---
 
@@ -948,9 +945,9 @@ Some triggers exist but require specific configuration (spreadsheet ID, search q
 
 ## Reference: Connector Summary
 
-> **Canonical source:** `app/_lib/composio/unified-connector-registry.ts`. Update the registry first, then sync this table.
+> **Canonical source:** the DB — `connector_catalog` + `connector_overrides` (read via `app/_lib/composio/connector-registry.ts`). This table is a point-in-time snapshot (2026-07-13); the DB has since grown well beyond these rows.
 >
-> **Triggers** = count of `triggerSlugs` Salt configures for capture. **Ask Salt** = `askSalt.enabled`. **Phase** = rollout status in the registry.
+> **Triggers** = count of trigger slugs Salt configures for capture. **Ask Salt** = `ask_salt_slug_prefix` set. **Phase** = rollout status (`coming_soon` flag / `meta.phase`).
 
 | Provider | Category | Triggers | Ask Salt | Phase |
 |----------|----------|----------|----------|-------|
@@ -994,9 +991,9 @@ workspace_integrations (
 
 The registry defines WHAT connectors exist. The integrations table stores WHO is connected. Changing the registry source doesn't touch user data.
 
-### DB Schema (For Future Reference)
+### DB Schema (live since 2026-07-13)
 
-When ready to migrate, use these tables (already exist, currently unused):
+These tables ARE the registry now:
 
 ```sql
 -- Connector definitions (synced from Composio + manual additions)
@@ -1006,7 +1003,7 @@ connector_catalog (
   name TEXT,                      -- "Gmail"
   description TEXT,
   category TEXT,                  -- "email"
-  auth_method TEXT,               -- "oauth" | "api_key"
+  auth_method TEXT,               -- "oauth" | "api_key" | "no_auth"
   coming_soon BOOLEAN,
   logo_url TEXT,
   meta JSONB                      -- Display copy, links, etc.
@@ -1023,40 +1020,14 @@ connector_overrides (
 )
 ```
 
-### Seed Script Pattern
+### Catalog Sync
 
-```typescript
-// scripts/seed-connector-catalog.ts
-import { CONNECTOR_REGISTRY } from "../app/_lib/composio/unified-connector-registry";
-import { createAdminClient } from "../app/_lib/supabase/admin";
-
-async function seed() {
-  const supabase = createAdminClient();
-  
-  for (const [key, connector] of Object.entries(CONNECTOR_REGISTRY)) {
-    await supabase.from("connector_catalog").upsert({
-      provider_key: connector.providerKey,
-      toolkit_slug: connector.providerKey,
-      name: connector.meta.displayName,
-      description: connector.meta.tagline,
-      category: connector.category,
-      auth_method: connector.authMethod,
-      coming_soon: connector.phase === "coming_soon",
-      meta: connector.meta,
-    });
-    
-    await supabase.from("connector_overrides").upsert({
-      provider_key: connector.providerKey,
-      tier: connector.askSalt.enabled ? "action" : "catalog_only",
-      ask_salt_slug_prefix: connector.askSalt.enabled ? connector.askSalt.slugPrefix : null,
-    });
-  }
-}
-```
+The catalog is maintained by the daily `/api/cron/connector-catalog-sync` cron (`app/_lib/composio/catalog-sync.ts`), which upserts toolkits/triggers from the Composio API and flags schema drift via `connector_sync_events` (`trigger_schema_changed`, Sources plan 5.8). Salt metadata (tier, auth config, Ask Salt exposure) is curated via migrations against `connector_overrides`. The old code-registry seed script (`scripts/generate-connector-seed.ts`) was deleted with the code registry.
 
 ### Decision Log
 
 | Date | Decision | Rationale |
 |------|----------|-----------|
 | 2026-07-13 | Code-first registry | 15 connectors, small team, simplicity wins |
-| TBD | Migrate to DB | When scale triggers above are hit |
+| 2026-07-13 | Migrate to DB-backed registry | Same day — `connector_catalog` + `connector_overrides` became source of truth |
+| 2026-08-08 | Delete code fallback | `unified-connector-registry.ts` removed; registry fails closed on DB outage |

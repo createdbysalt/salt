@@ -13,10 +13,10 @@ Current wedge: solo creative and service professionals with high-context, projec
 | Surface | Route | Purpose |
 |---------|-------|---------|
 | HQ | `/hq` | Daily operating home with Today, Upcoming, Stats, and Insights. |
-| Plays | `/plays` | Approval outbox for work Salt prepares. |
-| Captures | `/plays?tab=activity&view=captures` | Capture audit stream inside Plays Activity (`/capture` redirects here). |
+| Plays | `/plays` | Approval outbox for work Salt prepares (Queue / Playbooks / Activity). |
+| Sources | `/sources` | Intake surface: Connectors (the pipes) + Stream (capture audit stream; `/capture` redirects here). |
 | Ask Salt | Global modal/panel | Natural-language command surface for generating, routing, and acting. |
-| Connections | `/connections` | Relationship and context graph across people, orgs, work, teams, files, and notes. |
+| Memory Map | `/memory` | Relationship and context graph across people, orgs, work, teams, resources, and notes (`/connections` redirects here). |
 | Spaces | `/spaces` | Role-aware project/workspace command centers. |
 | People / Orgs / Teams | `/people`, `/orgs`, `/teams` | Core entity views. |
 | Work / Files / Me | `/work`, `/files`, `/me` | Supporting business memory and private studio knowledge. |
