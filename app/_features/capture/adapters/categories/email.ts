@@ -22,6 +22,7 @@ import type {
   EnvelopeParticipant,
   SignalDerivationContext,
 } from "../types";
+import { emailEntity } from "../feedback-entity";
 import type { PersonSignals } from "@/app/_features/capture/services/system-plays/person-signals";
 import {
   parseAddress as parseAddressShared,
@@ -609,6 +610,10 @@ export function createEmailCategoryAdapter(provider: string): CaptureAdapter {
     toolkit: provider,
     triggerSlugs,
     deriveSignals: deriveEmailSignals,
+
+    extractFeedbackEntity(envelope) {
+      return emailEntity(envelope, "sender_email", "sender_email");
+    },
 
     normalize(payload: unknown): CaptureEnvelope | null {
       // Route known providers to specific parsing

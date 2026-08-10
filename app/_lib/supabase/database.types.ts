@@ -1389,6 +1389,60 @@ export type Database = {
           },
         ]
       }
+      connector_rules: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          entity_key: string
+          entity_type: string
+          id: string
+          provider: string | null
+          reason: string | null
+          rule_type: string
+          source: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          entity_key: string
+          entity_type: string
+          id?: string
+          provider?: string | null
+          reason?: string | null
+          rule_type: string
+          source?: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          entity_key?: string
+          entity_type?: string
+          id?: string
+          provider?: string | null
+          reason?: string | null
+          rule_type?: string
+          source?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "connector_rules_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "studios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "connector_rules_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       connector_sync_events: {
         Row: {
           acknowledged_at: string | null
@@ -10883,7 +10937,9 @@ export type Database = {
         Args: { p_workspace_id: string }
         Returns: undefined
       }
+      verify_billing_rls: { Args: never; Returns: Json }
       verify_studio_domain: { Args: { domain_id: string }; Returns: Json }
+      verify_usage_ledger_immutable: { Args: never; Returns: Json }
       workspace_cogs_micros: {
         Args: { p_since: string; p_until?: string; p_workspace_id: string }
         Returns: number

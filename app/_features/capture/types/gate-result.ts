@@ -24,7 +24,7 @@ export interface EntityRef {
 
 export interface GateResultDrop {
   action: "drop";
-  gate: "pre-ingest" | "blocklist";
+  gate: "pre-ingest" | "blocklist" | "rules";
   reason: string;
   category: "spam" | "marketing" | "automated" | "blocklisted" | "blocked";
 }
@@ -34,6 +34,19 @@ export interface GateResultSignal {
   gate: "known-entity";
   target: EntityRef;
   reason: string;
+}
+
+/**
+ * Explicit user rule match (Connector Rules & Learning, P2). Runs before
+ * every heuristic: deny drops, allow admits at full prominence — bypassing
+ * the memory-first hold, known-entity lookup, and admission scoring.
+ */
+export interface GateResultRule {
+  action: "drop" | "signal";
+  gate: "rules";
+  reason: string;
+  /** Set on deny; allow matches have no noise category. */
+  category?: "blocked";
 }
 
 export interface GateResultCandidate {
@@ -88,12 +101,19 @@ export interface ColdIntentResult {
 export interface GatePipelineResult {
   finalAction: GateAction;
   gateResults: {
+    rules?: GateResultRule | null;
     preIngest?: GateResultDrop | null;
     blocklist?: GateResultDrop | null;
     knownEntity?: GateResultSignal | null;
     admission?: GateResultCandidate | GateResultNoise | null;
   };
-  passedGates: ("pre-ingest" | "blocklist" | "known-entity" | "admission")[];
+  passedGates: (
+    | "rules"
+    | "pre-ingest"
+    | "blocklist"
+    | "known-entity"
+    | "admission"
+  )[];
   shouldIngest: boolean;
   targetEntity?: EntityRef;
   coldIntent?: ColdIntentResult;

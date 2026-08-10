@@ -27,6 +27,47 @@ export interface EnvelopeParticipant {
   role: "from" | "to" | "cc" | "organizer" | "attendee" | "payer" | "other";
 }
 
+/**
+ * Rule-entity vocabulary (Connector Rules & Learning, Phase 2). Category-
+ * defined, NOT an email enum: each category declares which entity kinds its
+ * captures can be ruled on. `connector_rules.entity_type` carries these
+ * values; email's blocklist legacy maps domain/email/sender_pattern onto
+ * domain/sender_email/sender_pattern.
+ */
+export type ConnectorRuleEntityType =
+  // email
+  | "sender_email"
+  | "domain"
+  | "sender_pattern"
+  // communication
+  | "channel"
+  | "author"
+  // calendar
+  | "organizer"
+  // billing
+  | "customer"
+  // storage, documents
+  | "owner"
+  // crm
+  | "contact"
+  // meetings
+  | "host"
+  // project_management
+  | "assignee"
+  | "project";
+
+/**
+ * The entity a capture is attributable to, for rules/corrections/profiles.
+ * Derived ONCE by the category adapter (`CaptureAdapter.extractFeedbackEntity`)
+ * and consumed by the gate (rules check), Kept Out corrections, and learned
+ * profiles — no per-feature re-derivation.
+ */
+export interface FeedbackEntity {
+  type: ConnectorRuleEntityType;
+  /** Normalized entity key (lowercased where email-like; verbatim for ids). */
+  key: string;
+}
+
 export interface CaptureEnvelope {
   /** capture_events.source_type — must match the adapter's sourceType. */
   sourceType: CaptureSourceType;
@@ -78,6 +119,19 @@ export interface CaptureAdapter {
    * Throwing means the payload was malformed — the ingress logs and drops it.
    */
   normalize(payload: unknown): CaptureEnvelope | null;
+  /**
+   * Entity extraction (Connector Rules & Learning, Phase 2): the single
+   * derivation of `feedbackEntity { type, key }` from a normalized envelope,
+   * per the category coverage matrix (email → sender, calendar → organizer,
+   * billing → customer, …). Consumed by the rules gate, Kept Out
+   * corrections, and learned profiles. Returns null when the envelope has
+   * no attributable entity (e.g. meetings payloads carry no host).
+   *
+   * Implementations must read from the normalized envelope only (extracted
+   * fields + participants) so the same method works on a thin envelope
+   * reconstructed from a stored capture_events row.
+   */
+  extractFeedbackEntity(envelope: CaptureEnvelope): FeedbackEntity | null;
   /**
    * Signal derivation (Phase 5.1): fold a batch of ingested envelopes into
    * per-contact profile signals (email → PersonSignals). Only keys this

@@ -31,6 +31,11 @@ export function runAdapterConformance(
   // triggers_types API) — those adapters ingest via backfill + the 3.6 cron.
   expect(Array.isArray(adapter.triggerSlugs)).toBe(true);
 
+  // Entity extraction (Connector Rules & Learning, Phase 2): every adapter
+  // implements the single feedbackEntity derivation; results are null or a
+  // well-formed { type, key }.
+  expect(typeof adapter.extractFeedbackEntity).toBe("function");
+
   // Signal derivation (Phase 5.1): declared signals ⊆ registry set.
   if (adapter.deriveSignals) {
     const envelopes = fixtures
@@ -87,6 +92,14 @@ export function runAdapterConformance(
     if (envelope.captureType === "message") {
       expect(envelope.noise, `${fixture.name}: messages need noise input`).not.toBeNull();
       expect(envelope.noise?.sourceType).toBe(adapter.sourceType);
+    }
+
+    const entity = adapter.extractFeedbackEntity(envelope);
+    if (entity !== null) {
+      expect(
+        entity.type.length > 0 && entity.key.length > 0,
+        `${fixture.name}: feedbackEntity needs non-empty type and key`,
+      ).toBe(true);
     }
 
     // Detail contract (capture-detail-contract.md): declared fields must be

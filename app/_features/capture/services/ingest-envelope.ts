@@ -112,7 +112,10 @@ export async function ingestEnvelope(
     if (!gateResult.shouldIngest) {
       return {
         outcome: "dropped",
-        noiseReason: gateResult.gateResults.preIngest?.reason ?? "Blocked by gate pipeline",
+        noiseReason:
+          gateResult.gateResults.preIngest?.reason ??
+          gateResult.gateResults.rules?.reason ??
+          "Blocked by gate pipeline",
         gateResult,
       };
     }

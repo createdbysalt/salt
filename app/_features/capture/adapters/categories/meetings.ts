@@ -11,6 +11,11 @@ import type {
   EnvelopeParticipant,
   SignalDerivationContext,
 } from "../types";
+import {
+  emailEntity,
+  firstParticipantEmailEntity,
+  verbatimEntity,
+} from "../feedback-entity";
 import type { PersonSignals } from "@/app/_features/capture/services/system-plays/person-signals";
 import type { CaptureSourceType } from "@/app/_features/capture/types";
 
@@ -248,6 +253,12 @@ export function createMeetingsCategoryAdapter(provider: string): CaptureAdapter 
     toolkit: provider,
     triggerSlugs,
     deriveSignals: deriveMeetingsSignals,
+
+    extractFeedbackEntity(envelope) {
+      // Meetings payloads carry attendees, not a host — the matrix's `host`
+      // entity lands when a provider payload actually attests it.
+      return emailEntity(envelope, "host_email", "host");
+    },
 
     normalize(payload: unknown): CaptureEnvelope | null {
       switch (provider) {

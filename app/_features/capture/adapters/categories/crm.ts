@@ -11,6 +11,11 @@ import type {
   EnvelopeParticipant,
   SignalDerivationContext,
 } from "../types";
+import {
+  emailEntity,
+  firstParticipantEmailEntity,
+  verbatimEntity,
+} from "../feedback-entity";
 import { isRecord, pickString, unwrapRecord } from "../normalize-utils";
 import type { PersonSignals } from "@/app/_features/capture/services/system-plays/person-signals";
 import type { CaptureSourceType } from "@/app/_features/capture/types";
@@ -262,6 +267,13 @@ export function createCrmCategoryAdapter(provider: string): CaptureAdapter {
     toolkit: provider,
     triggerSlugs,
     deriveSignals: deriveCrmSignals,
+
+    extractFeedbackEntity(envelope) {
+      return (
+        emailEntity(envelope, "email", "contact") ??
+        firstParticipantEmailEntity(envelope, "contact")
+      );
+    },
 
     normalize(payload: unknown): CaptureEnvelope | null {
       switch (provider) {

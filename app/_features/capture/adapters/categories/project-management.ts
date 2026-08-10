@@ -11,6 +11,11 @@ import type {
   EnvelopeParticipant,
   SignalDerivationContext,
 } from "../types";
+import {
+  emailEntity,
+  firstParticipantEmailEntity,
+  verbatimEntity,
+} from "../feedback-entity";
 import type { PersonSignals } from "@/app/_features/capture/services/system-plays/person-signals";
 import type { CaptureSourceType } from "@/app/_features/capture/types";
 
@@ -129,6 +134,10 @@ export function createProjectManagementCategoryAdapter(provider: string): Captur
     toolkit: provider,
     triggerSlugs,
     deriveSignals: derivePmSignals,
+
+    extractFeedbackEntity(envelope) {
+      return emailEntity(envelope, "assignee_email", "assignee");
+    },
 
     normalize(payload: unknown): CaptureEnvelope | null {
       // All PM providers currently use generic extraction

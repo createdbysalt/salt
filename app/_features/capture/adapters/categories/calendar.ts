@@ -13,6 +13,7 @@ import type {
 } from "../types";
 import type { PersonSignals } from "@/app/_features/capture/services/system-plays/person-signals";
 import type { CaptureSourceType } from "@/app/_features/capture/types";
+import { emailEntity } from "../feedback-entity";
 
 type KnownCalendarProvider = "googlecalendar" | "outlook_calendar" | "cal" | "calendly";
 
@@ -474,6 +475,10 @@ export function createCalendarCategoryAdapter(provider: string): CaptureAdapter 
     toolkit: provider,
     triggerSlugs,
     deriveSignals: deriveCalendarSignals,
+
+    extractFeedbackEntity(envelope) {
+      return emailEntity(envelope, "organizer_email", "organizer");
+    },
 
     normalize(payload: unknown): CaptureEnvelope | null {
       // Route known providers to specific parsing

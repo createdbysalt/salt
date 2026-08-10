@@ -11,6 +11,11 @@ import type {
   EnvelopeParticipant,
   SignalDerivationContext,
 } from "../types";
+import {
+  emailEntity,
+  firstParticipantEmailEntity,
+  verbatimEntity,
+} from "../feedback-entity";
 import { isRecord, pickString, unwrapRecord } from "../normalize-utils";
 import type { PersonSignals } from "@/app/_features/capture/services/system-plays/person-signals";
 import type { CaptureSourceType } from "@/app/_features/capture/types";
@@ -446,6 +451,10 @@ export function createBillingCategoryAdapter(provider: string): CaptureAdapter {
     toolkit: provider,
     triggerSlugs,
     deriveSignals: deriveBillingSignals,
+
+    extractFeedbackEntity(envelope) {
+      return emailEntity(envelope, "customer_email", "customer");
+    },
 
     normalize(payload: unknown): CaptureEnvelope | null {
       // Route known providers to specific parsing

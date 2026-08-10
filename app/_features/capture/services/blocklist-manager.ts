@@ -1,21 +1,35 @@
 import "server-only";
 
 /**
- * Blocklist Manager (Captures V2 Phase 5.3).
+ * Blocklist Manager — facade over the connector rules primitive.
  *
- * Manages custom blocklists for spam filtering:
- * - Workspace-specific domain blocklists
- * - Email pattern blocklists
- * - Sender name pattern blocklists
+ * Captures V2 shipped a workspace blocklist (capture_blocklist). Connector
+ * Rules & Learning (Phase 2) generalizes that into `connector_rules`
+ * (allow/deny, provider-scoped or workspace-wide). This module keeps the
+ * blocklist API stable for existing callers (actions, gates) while every
+ * read/write lands in connector_rules as workspace-wide deny rules.
  *
- * Works alongside the built-in pre-ingest gate blocklists.
+ * Vocabulary mapping: domain → domain, email → sender_email,
+ * sender_pattern → sender_pattern.
+ *
+ * Security invariants preserved from the blocklist era:
+ * - Exact type+value parameterized .eq() lookups — never string-built
+ *   .or() filter expressions (PostgREST filter injection).
+ * - Attacker-controlled sender identifiers that fail shape validation
+ *   fail CLOSED; infrastructure errors fail OPEN (a rules outage must not
+ *   drop all inbound capture).
+ * - sender_pattern rows only ever match sender display names — never
+ *   exact domain/email values.
  */
 
 import {
-  isValidSenderGlobPattern,
-  matchesSenderGlobPattern,
-} from "@repo/security";
-import { createAdminClient } from "@/app/_lib/supabase/admin";
+  getRules,
+  addRule,
+  removeRule,
+  checkRules,
+  type ConnectorRule,
+} from "./rules-manager";
+import type { ConnectorRuleEntityType } from "../adapters/types";
 
 export type BlocklistType = "domain" | "email" | "sender_pattern";
 
@@ -43,82 +57,88 @@ export interface BlocklistStats {
   recentlyAdded: BlocklistEntry[];
 }
 
+const BLOCKLIST_TO_ENTITY_TYPE: Record<
+  BlocklistType,
+  ConnectorRuleEntityType
+> = {
+  domain: "domain",
+  email: "sender_email",
+  sender_pattern: "sender_pattern",
+};
+
+const ENTITY_TO_BLOCKLIST_TYPE: Partial<
+  Record<ConnectorRuleEntityType, BlocklistType>
+> = {
+  domain: "domain",
+  sender_email: "email",
+  sender_pattern: "sender_pattern",
+};
+
+function mapRuleToEntry(rule: ConnectorRule): BlocklistEntry | null {
+  const type = ENTITY_TO_BLOCKLIST_TYPE[rule.entityType];
+  if (!type) return null;
+  return {
+    id: rule.id,
+    workspaceId: rule.workspaceId,
+    type,
+    value: rule.entityKey,
+    reason: rule.reason,
+    createdAt: rule.createdAt,
+    createdBy: rule.createdBy,
+  };
+}
+
 /**
- * Get all blocklist entries for a workspace.
+ * Get all blocklist entries for a workspace (workspace-wide deny rules).
  */
 export async function getBlocklistEntries(
   workspaceId: string,
-  options: { type?: BlocklistType; limit?: number } = {}
+  options: { type?: BlocklistType; limit?: number } = {},
 ): Promise<BlocklistEntry[]> {
   const { type, limit = 100 } = options;
-  const admin = createAdminClient();
 
-  let query = admin
-    .from("capture_blocklist")
-    .select("*")
-    .eq("workspace_id", workspaceId)
-    .order("created_at", { ascending: false })
-    .limit(limit);
+  const rules = await getRules(workspaceId, {
+    provider: null,
+    ruleType: "deny",
+    entityType: type ? BLOCKLIST_TO_ENTITY_TYPE[type] : undefined,
+    limit,
+  });
 
-  if (type) {
-    query = query.eq("type", type);
-  }
-
-  const { data, error } = await query;
-
-  if (error) {
-    console.error("[blocklist-manager] getBlocklistEntries error:", error);
-    return [];
-  }
-
-  return (data ?? []).map(mapBlocklistEntry);
+  return rules
+    .map(mapRuleToEntry)
+    .filter((entry): entry is BlocklistEntry => entry !== null);
 }
 
 /**
  * Add a new blocklist entry.
  */
 export async function addBlocklistEntry(
-  input: AddBlocklistEntryInput
+  input: AddBlocklistEntryInput,
 ): Promise<{ success: boolean; entry?: BlocklistEntry; error?: string }> {
   const { workspaceId, type, value, reason, createdBy } = input;
 
-  const normalizedValue = normalizeBlocklistValue(type, value);
-  if (!normalizedValue) {
-    return { success: false, error: "Invalid value format" };
+  const result = await addRule({
+    workspaceId,
+    provider: null,
+    ruleType: "deny",
+    entityType: BLOCKLIST_TO_ENTITY_TYPE[type],
+    entityKey: value,
+    reason,
+    createdBy,
+  });
+
+  if (!result.success || !result.rule) {
+    return {
+      success: false,
+      error: result.error?.replace(/^Rule already exists$/, "Entry already exists"),
+    };
   }
 
-  const admin = createAdminClient();
-
-  const { data: existing } = await admin
-    .from("capture_blocklist")
-    .select("id")
-    .eq("workspace_id", workspaceId)
-    .eq("type", type)
-    .eq("value", normalizedValue)
-    .maybeSingle();
-
-  if (existing) {
-    return { success: false, error: "Entry already exists" };
+  const entry = mapRuleToEntry(result.rule);
+  if (!entry) {
+    return { success: false, error: "Unexpected rule shape" };
   }
-
-  const { data, error } = await admin
-    .from("capture_blocklist")
-    .insert({
-      workspace_id: workspaceId,
-      type,
-      value: normalizedValue,
-      reason: reason ?? null,
-      created_by: createdBy ?? null,
-    })
-    .select()
-    .single();
-
-  if (error) {
-    console.error("[blocklist-manager] addBlocklistEntry error:", error);
-    return { success: false, error: error.message };
-  }
-
-  return { success: true, entry: mapBlocklistEntry(data) };
+  return { success: true, entry };
 }
 
 /**
@@ -126,67 +146,44 @@ export async function addBlocklistEntry(
  */
 export async function removeBlocklistEntry(
   workspaceId: string,
-  entryId: string
+  entryId: string,
 ): Promise<{ success: boolean; error?: string }> {
-  const admin = createAdminClient();
-
-  const { error } = await admin
-    .from("capture_blocklist")
-    .delete()
-    .eq("id", entryId)
-    .eq("workspace_id", workspaceId);
-
-  if (error) {
-    console.error("[blocklist-manager] removeBlocklistEntry error:", error);
-    return { success: false, error: error.message };
-  }
-
-  return { success: true };
+  return removeRule(workspaceId, entryId);
 }
 
 /**
  * Get blocklist statistics for a workspace.
  */
 export async function getBlocklistStats(
-  workspaceId: string
+  workspaceId: string,
 ): Promise<BlocklistStats> {
-  const admin = createAdminClient();
+  const empty: BlocklistStats = {
+    totalEntries: 0,
+    byType: { domain: 0, email: 0, sender_pattern: 0 },
+    recentlyAdded: [],
+  };
 
-  const { data, error } = await admin
-    .from("capture_blocklist")
-    .select("type, created_at")
-    .eq("workspace_id", workspaceId);
+  const rules = await getRules(workspaceId, {
+    provider: null,
+    ruleType: "deny",
+    limit: 1000,
+  });
 
-  if (error) {
-    console.error("[blocklist-manager] getBlocklistStats error:", error);
-    return {
-      totalEntries: 0,
-      byType: { domain: 0, email: 0, sender_pattern: 0 },
-      recentlyAdded: [],
-    };
-  }
+  const entries = rules
+    .map(mapRuleToEntry)
+    .filter((entry): entry is BlocklistEntry => entry !== null);
 
-  const entries = data ?? [];
   const byType: Record<BlocklistType, number> = {
     domain: 0,
     email: 0,
     sender_pattern: 0,
   };
-
   for (const entry of entries) {
-    const type = entry.type as BlocklistType;
-    if (type in byType) {
-      byType[type]++;
-    }
+    byType[entry.type]++;
   }
 
-  const recentEntries = await getBlocklistEntries(workspaceId, { limit: 5 });
-
-  return {
-    totalEntries: entries.length,
-    byType,
-    recentlyAdded: recentEntries,
-  };
+  // Rules arrive created_at-desc, so the first five are the most recent.
+  return { ...empty, totalEntries: entries.length, byType, recentlyAdded: entries.slice(0, 5) };
 }
 
 // Sender identifiers are attacker-controlled (they arrive on inbound mail).
@@ -199,8 +196,8 @@ const SAFE_EMAIL_PATTERN = /^[^\s,()"'@]+@[\p{L}\p{N}][\p{L}\p{N}._-]*$/u;
 /**
  * Check if a value is blocked by the workspace blocklist.
  *
- * Lookups are exact type+value pairs via parameterized `.eq()` filters —
- * never string-built `.or()` expressions (PostgREST filter injection).
+ * Evaluation order preserves blocklist-era semantics: exact domain, exact
+ * email (plus its derived domain), then sender-name glob patterns.
  */
 export async function isBlocked(
   workspaceId: string,
@@ -208,122 +205,84 @@ export async function isBlocked(
     domain?: string;
     email?: string;
     senderName?: string;
-  }
-): Promise<{ blocked: boolean; reason?: string; matchedEntry?: BlocklistEntry }> {
-  const lookups: Array<{ type: "domain" | "email"; value: string }> = [];
-
-  if (checks.domain) {
-    const domain = checks.domain.trim().toLowerCase();
-    if (!SAFE_DOMAIN_PATTERN.test(domain)) {
-      return { blocked: true, reason: "Sender identifiers failed validation" };
-    }
-    lookups.push({ type: "domain", value: domain });
-  }
-
-  if (checks.email) {
-    const email = checks.email.trim().toLowerCase();
-    if (!SAFE_EMAIL_PATTERN.test(email)) {
-      return { blocked: true, reason: "Sender identifiers failed validation" };
-    }
-    lookups.push({ type: "email", value: email });
-  }
-
-  const admin = createAdminClient();
-
-  if (lookups.length > 0) {
-    const results = await Promise.all(
-      lookups.map((lookup) =>
-        admin
-          .from("capture_blocklist")
-          .select("*")
-          .eq("workspace_id", workspaceId)
-          .eq("type", lookup.type)
-          .eq("value", lookup.value)
-          .limit(1)
-          .maybeSingle()
-      )
-    );
-
-    for (const { data, error } of results) {
-      if (error) {
-        // Fail open on infra errors: a blocklist outage must not drop ALL
-        // inbound mail. Hostile input never reaches this path — it fails
-        // closed at validation above.
-        console.error("[blocklist-manager] isBlocked error:", error);
-        continue;
-      }
-      if (data) {
+  },
+): Promise<{
+  blocked: boolean;
+  reason?: string;
+  matchedEntry?: BlocklistEntry;
+}> {
+  try {
+    if (checks.domain) {
+      const domain = checks.domain.trim().toLowerCase();
+      if (!SAFE_DOMAIN_PATTERN.test(domain)) {
         return {
           blocked: true,
-          reason: data.reason ?? `Blocked by ${data.type} blocklist`,
-          matchedEntry: mapBlocklistEntry(data),
+          reason: "Sender identifiers failed validation",
+        };
+      }
+
+      const domainCheck = await checkRules(workspaceId, {
+        provider: null,
+        entity: { type: "domain", key: domain },
+      });
+      if (domainCheck.verdict === "deny" && domainCheck.rule) {
+        return toBlockedResult(domainCheck.rule);
+      }
+    }
+
+    if (checks.email) {
+      const email = checks.email.trim().toLowerCase();
+      if (!SAFE_EMAIL_PATTERN.test(email)) {
+        return {
+          blocked: true,
+          reason: "Sender identifiers failed validation",
+        };
+      }
+
+      const emailCheck = await checkRules(workspaceId, {
+        provider: null,
+        entity: { type: "sender_email", key: email },
+      });
+      if (emailCheck.verdict === "deny" && emailCheck.rule) {
+        return toBlockedResult(emailCheck.rule);
+      }
+    }
+
+    if (checks.senderName) {
+      const patternCheck = await checkRules(workspaceId, {
+        provider: null,
+        entity: null,
+        patternCandidates: [checks.senderName],
+      });
+      if (patternCheck.verdict === "deny" && patternCheck.rule) {
+        const rule = patternCheck.rule;
+        const entry = mapRuleToEntry(rule);
+        return {
+          blocked: true,
+          reason: rule.reason ?? `Matched sender pattern: ${rule.entityKey}`,
+          matchedEntry: entry ?? undefined,
         };
       }
     }
-  }
 
-  if (checks.senderName) {
-    // Page through ALL sender patterns (2.10): a flat .limit(100) silently
-    // stopped enforcing entries 101+ — a blocklist that quietly un-enforces
-    // is worse than none. Stable order so pages never skip under inserts.
-    const PATTERN_PAGE_SIZE = 100;
-    for (let offset = 0; ; offset += PATTERN_PAGE_SIZE) {
-      const { data: patternData, error: patternError } = await admin
-        .from("capture_blocklist")
-        .select("*")
-        .eq("workspace_id", workspaceId)
-        .eq("type", "sender_pattern")
-        .order("id")
-        .range(offset, offset + PATTERN_PAGE_SIZE - 1);
-
-      if (patternError) {
-        // Fail open on infra errors, same bargain as the exact-match path.
-        console.error(
-          "[blocklist-manager] sender-pattern load error:",
-          patternError,
-        );
-        break;
-      }
-
-      for (const entry of patternData ?? []) {
-        if (matchesSenderGlobPattern(entry.value, checks.senderName)) {
-          return {
-            blocked: true,
-            reason: entry.reason ?? `Matched sender pattern: ${entry.value}`,
-            matchedEntry: mapBlocklistEntry(entry),
-          };
-        }
-      }
-
-      if (!patternData || patternData.length < PATTERN_PAGE_SIZE) break;
-    }
-  }
-
-  return { blocked: false };
-}
-
-function normalizeBlocklistValue(type: BlocklistType, value: string): string | null {
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-
-  switch (type) {
-    case "domain":
-      return trimmed.toLowerCase().replace(/^@/, "");
-    case "email":
-      return trimmed.toLowerCase();
-    case "sender_pattern":
-      return isValidSenderGlobPattern(trimmed) ? trimmed : null;
+    return { blocked: false };
+  } catch {
+    // Fail open on unexpected errors — same bargain as the infra-error path.
+    return { blocked: false };
   }
 }
 
-function mapBlocklistEntry(row: Record<string, unknown>): BlocklistEntry {
+function toBlockedResult(rule: ConnectorRule): {
+  blocked: boolean;
+  reason: string;
+  matchedEntry?: BlocklistEntry;
+} {
+  const entry = mapRuleToEntry(rule);
   return {
-    id: row.id as string,
-    workspaceId: row.workspace_id as string,
-    type: row.type as BlocklistType,
-    value: row.value as string,
-    reason: (row.reason as string) ?? null,
-    createdAt: row.created_at as string,
-    createdBy: (row.created_by as string) ?? null,
+    blocked: true,
+    reason:
+      rule.reason ??
+      `Blocked by ${ENTITY_TO_BLOCKLIST_TYPE[rule.entityType] ?? rule.entityType} blocklist`,
+    matchedEntry: entry ?? undefined,
   };
 }

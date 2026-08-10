@@ -1,9 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CaptureEnvelope } from "../../adapters/types";
-import type { GateResultCandidate, GateResultNoise, GateResultSignal } from "../../types/gate-result";
+import type {
+  GateResultCandidate,
+  GateResultNoise,
+  GateResultSignal,
+} from "../../types/gate-result";
+import type { RuleCheckResult } from "../rules-manager";
 
-vi.mock("../blocklist-manager", () => ({
-  isBlocked: vi.fn(async () => ({ blocked: false })),
+const checkRulesMock = vi.fn<() => Promise<RuleCheckResult>>();
+vi.mock("../rules-manager", () => ({
+  checkRules: (...args: unknown[]) => checkRulesMock(...(args as [])),
+}));
+
+vi.mock("../../adapters/feedback-entity", () => ({
+  extractFeedbackEntityForEnvelope: vi.fn(async (envelope: CaptureEnvelope) => {
+    const sender = (envelope.extracted as Record<string, unknown>)
+      ?.sender_email;
+    return typeof sender === "string"
+      ? { type: "sender_email", key: sender }
+      : null;
+  }),
 }));
 
 const runKnownEntityGateMock = vi.fn<() => Promise<GateResultSignal | null>>();
@@ -69,7 +85,33 @@ const noiseResult: GateResultNoise = {
   category: "cold_inbound",
 };
 
+const denyRule: RuleCheckResult = {
+  verdict: "deny",
+  rule: {
+    id: "rule-1",
+    workspaceId: "ws-1",
+    provider: null,
+    ruleType: "deny",
+    entityType: "sender_email",
+    entityKey: "stranger@somewhere.com",
+    reason: "Keep this sender out",
+    source: "user",
+    createdBy: null,
+    createdAt: "2026-08-10T00:00:00Z",
+  },
+};
+
+const allowRule: RuleCheckResult = {
+  verdict: "allow",
+  rule: {
+    ...denyRule.rule!,
+    ruleType: "allow",
+    reason: "Always let this sender in",
+  },
+};
+
 beforeEach(() => {
+  checkRulesMock.mockReset().mockResolvedValue({ verdict: null });
   runKnownEntityGateMock.mockReset().mockResolvedValue(null);
   runAdmissionGateMock.mockReset().mockResolvedValue(candidateResult);
   classifyColdInboundIntentMock.mockReset().mockResolvedValue({
@@ -77,6 +119,75 @@ beforeEach(() => {
     genuineInquiry: false,
     confidence: 0,
     reason: "Intent read skipped",
+  });
+});
+
+describe("runGatePipeline connector rules precedence", () => {
+  it("explicit deny drops before any heuristic gate runs", async () => {
+    checkRulesMock.mockResolvedValue(denyRule);
+
+    const result = await runGatePipeline({
+      workspaceId: "ws-1",
+      userEmail: "me@myco.com",
+      envelope: emailEnvelope(),
+    });
+
+    expect(result.finalAction).toBe("drop");
+    expect(result.shouldIngest).toBe(false);
+    expect(result.gateResults.rules).toEqual({
+      action: "drop",
+      gate: "rules",
+      reason: "Keep this sender out",
+      category: "blocked",
+    });
+    // Heuristics never ran.
+    expect(result.gateResults.preIngest).toBeUndefined();
+    expect(runKnownEntityGateMock).not.toHaveBeenCalled();
+    expect(runAdmissionGateMock).not.toHaveBeenCalled();
+  });
+
+  it("explicit allow admits as signal, bypassing the memory-first hold", async () => {
+    checkRulesMock.mockResolvedValue(allowRule);
+
+    const result = await runGatePipeline({
+      workspaceId: "ws-1",
+      userEmail: "me@myco.com",
+      envelope: emailEnvelope(),
+    });
+
+    expect(result.finalAction).toBe("signal");
+    expect(result.shouldIngest).toBe(true);
+    expect(result.gateResults.rules).toEqual({
+      action: "signal",
+      gate: "rules",
+      reason: "Always let this sender in",
+    });
+    expect(runAdmissionGateMock).not.toHaveBeenCalled();
+  });
+
+  it("checks rules against the extracted feedback entity and sender name", async () => {
+    await runGatePipeline({
+      workspaceId: "ws-1",
+      userEmail: "me@myco.com",
+      envelope: emailEnvelope(),
+    });
+
+    expect(checkRulesMock).toHaveBeenCalledWith("ws-1", {
+      provider: "gmail",
+      entity: { type: "sender_email", key: "stranger@somewhere.com" },
+      patternCandidates: ["A Stranger"],
+    });
+  });
+
+  it("no rule match continues through the heuristic gates", async () => {
+    const result = await runGatePipeline({
+      workspaceId: "ws-1",
+      userEmail: "me@myco.com",
+      envelope: emailEnvelope(),
+    });
+
+    expect(result.passedGates).toContain("rules");
+    expect(result.gateResults.rules).toBeUndefined();
   });
 });
 

@@ -10,6 +10,11 @@ import type {
   EnvelopeParticipant,
   SignalDerivationContext,
 } from "../types";
+import {
+  emailEntity,
+  firstParticipantEmailEntity,
+  verbatimEntity,
+} from "../feedback-entity";
 import { isRecord, pickString, unwrapRecord } from "../normalize-utils";
 import type { PersonSignals } from "@/app/_features/capture/services/system-plays/person-signals";
 import type { CaptureSourceType } from "@/app/_features/capture/types";
@@ -197,6 +202,16 @@ export function createMessagingCategoryAdapter(provider: string): CaptureAdapter
     toolkit: provider,
     triggerSlugs,
     deriveSignals: deriveMessagingSignals,
+
+    extractFeedbackEntity(envelope) {
+      // Channel-scoped rules win when the capture carries a channel; DMs and
+      // channel-less payloads fall back to the author (member id or email).
+      return (
+        verbatimEntity(envelope, "channel", "channel") ??
+        verbatimEntity(envelope, "sender_id", "author") ??
+        emailEntity(envelope, "sender_email", "author")
+      );
+    },
 
     normalize(payload: unknown): CaptureEnvelope | null {
       // Route known providers to specific parsing

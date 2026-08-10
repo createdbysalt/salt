@@ -3,7 +3,8 @@ import "server-only";
 /**
  * Gate Pipeline Orchestration (Captures V2 Phase 2).
  *
- * Runs the three-gate filtering model:
+ * Explicit connector rules run before the heuristic gates (Connector Rules
+ * & Learning, P2): deny > allow > heuristics. Then the three-gate model:
  * 1. Pre-ingest: Block obvious noise (no DB, fast)
  * 2. Known-entity: Fast-track to known People/Orgs (indexed DB lookup)
  * 3. Admission: Score unknown senders (relationship checks)
@@ -30,7 +31,8 @@ import {
   checkPaymentRelationship,
   checkFileSharing,
 } from "./admission-gate";
-import { isBlocked } from "../blocklist-manager";
+import { checkRules } from "../rules-manager";
+import { extractFeedbackEntityForEnvelope } from "../../adapters/feedback-entity";
 import { extractAdmissionSignals } from "./admission-signals";
 import { classifyColdInboundIntent, intentEarnsAdmission } from "./cold-intent";
 import { EMAIL_SCAN_SOURCE_TYPES } from "../../adapters/categories/email";
@@ -79,6 +81,41 @@ export async function runGatePipeline(input: GatePipelineInput): Promise<GatePip
     shouldIngest: true,
   };
 
+  // Connector rules run first (Connector Rules & Learning, P2). Precedence:
+  // explicit deny > explicit allow > heuristics. A deny drops; an allow
+  // admits at full prominence (signal), bypassing pre-ingest heuristics,
+  // the known-entity lookup, admission scoring, and the memory-first hold.
+  const feedbackEntity = await extractFeedbackEntityForEnvelope(envelope);
+  const ruleCheck = await checkRules(workspaceId, {
+    provider: envelope.sourceType,
+    entity: feedbackEntity,
+    patternCandidates: senderName ? [senderName] : [],
+  });
+
+  if (ruleCheck.verdict === "deny") {
+    result.gateResults.rules = {
+      action: "drop",
+      gate: "rules",
+      reason: ruleCheck.rule?.reason ?? "Blocked by workspace rule",
+      category: "blocked",
+    };
+    result.finalAction = "drop";
+    result.shouldIngest = false;
+    return result;
+  }
+
+  if (ruleCheck.verdict === "allow") {
+    result.gateResults.rules = {
+      action: "signal",
+      gate: "rules",
+      reason: ruleCheck.rule?.reason ?? "Allowed by workspace rule",
+    };
+    result.finalAction = "signal";
+    result.shouldIngest = true;
+    return result;
+  }
+  result.passedGates.push("rules");
+
   const preIngestInput: PreIngestGateInput = {
     senderEmail,
     senderDomain,
@@ -95,26 +132,6 @@ export async function runGatePipeline(input: GatePipelineInput): Promise<GatePip
     return result;
   }
   result.passedGates.push("pre-ingest");
-
-  // Workspace-specific blocklist check (runs after fast pre-ingest, before entity lookup)
-  const blocklistCheck = await isBlocked(workspaceId, {
-    domain: senderDomain ?? undefined,
-    email: senderEmail ?? undefined,
-    senderName: senderName ?? undefined,
-  });
-
-  if (blocklistCheck.blocked) {
-    result.gateResults.blocklist = {
-      action: "drop",
-      gate: "blocklist",
-      reason: blocklistCheck.reason ?? "Blocked by workspace blocklist",
-      category: "blocked",
-    };
-    result.finalAction = "drop";
-    result.shouldIngest = false;
-    return result;
-  }
-  result.passedGates.push("blocklist");
 
   const knownEntityInput: KnownEntityGateInput = {
     workspaceId,

@@ -11,6 +11,11 @@ import type {
   EnvelopeParticipant,
   SignalDerivationContext,
 } from "../types";
+import {
+  emailEntity,
+  firstParticipantEmailEntity,
+  verbatimEntity,
+} from "../feedback-entity";
 import type { PersonSignals } from "@/app/_features/capture/services/system-plays/person-signals";
 import type { CaptureSourceType } from "@/app/_features/capture/types";
 
@@ -321,6 +326,13 @@ export function createStorageCategoryAdapter(provider: string): CaptureAdapter {
     toolkit: provider,
     triggerSlugs,
     deriveSignals: deriveStorageSignals,
+
+    extractFeedbackEntity(envelope) {
+      return (
+        emailEntity(envelope, "owner_email", "owner") ??
+        firstParticipantEmailEntity(envelope, "owner")
+      );
+    },
 
     normalize(payload: unknown): CaptureEnvelope | null {
       // Route known providers to specific parsing

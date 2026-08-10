@@ -2,15 +2,54 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
+/**
+ * Parity suite for the blocklist facade (Connector Rules & Learning, P2).
+ *
+ * The facade's public API and behaviour are unchanged from the
+ * capture_blocklist era; storage is now workspace-wide deny rows in
+ * `connector_rules`. This mock serves connector_rules rows — every test
+ * assertion below is byte-identical to the pre-migration suite.
+ */
+
 type MockRow = {
   id: string;
   workspace_id: string;
-  type: string;
-  value: string;
+  provider: string | null;
+  rule_type: "allow" | "deny";
+  entity_type: string;
+  entity_key: string;
   reason: string | null;
+  source: "user" | "suggested";
   created_at: string;
   created_by: string | null;
 };
+
+const BLOCKLIST_TO_ENTITY_TYPE = {
+  domain: "domain",
+  email: "sender_email",
+  sender_pattern: "sender_pattern",
+} as const;
+
+function ruleRow(input: {
+  id: string;
+  type: "domain" | "email" | "sender_pattern";
+  value: string;
+  reason?: string | null;
+  created_by?: string | null;
+}): MockRow {
+  return {
+    id: input.id,
+    workspace_id: "ws-1",
+    provider: null,
+    rule_type: "deny",
+    entity_type: BLOCKLIST_TO_ENTITY_TYPE[input.type],
+    entity_key: input.value,
+    reason: input.reason ?? null,
+    source: "user",
+    created_at: "2026-07-12T00:00:00Z",
+    created_by: input.created_by ?? null,
+  };
+}
 
 let mockRows: MockRow[] = [];
 let mockQueryError: { message: string } | null = null;
@@ -18,12 +57,13 @@ let mockOrCalls: string[] = [];
 let insertCounter = 0;
 
 /**
- * In-memory capture_blocklist simulation: filters accumulate via eq() and are
- * applied against mockRows at resolution, so tests exercise real query
- * semantics (exact type+value pairs) instead of canned responses.
+ * In-memory connector_rules simulation: filters accumulate via eq()/is()
+ * and are applied against mockRows at resolution, so tests exercise real
+ * query semantics (exact type+value pairs) instead of canned responses.
  */
 function createQueryBuilder() {
   const filters: Array<[string, unknown]> = [];
+  let orderBy: [string, boolean] | null = null;
   let limitCount: number | undefined;
   let rangeBounds: [number, number] | undefined;
   let deleteMode = false;
@@ -41,6 +81,15 @@ function createQueryBuilder() {
       return { data: null, error: null };
     }
     let out = mockRows.filter(matches);
+    if (orderBy) {
+      const [col, ascending] = orderBy;
+      out = [...out].sort((a, b) => {
+        const aVal = String(a[col as keyof MockRow] ?? "");
+        const bVal = String(b[col as keyof MockRow] ?? "");
+        const cmp = aVal.localeCompare(bVal);
+        return ascending ? cmp : -cmp;
+      });
+    }
     if (rangeBounds !== undefined) {
       out = out.slice(rangeBounds[0], rangeBounds[1] + 1);
     }
@@ -56,11 +105,18 @@ function createQueryBuilder() {
       filters.push([col, val]);
       return chain;
     },
+    is: (col: string, val: unknown) => {
+      filters.push([col, val]);
+      return chain;
+    },
     or: (expr: string) => {
       mockOrCalls.push(expr);
       return chain;
     },
-    order: () => chain,
+    order: (col: string, opts?: { ascending?: boolean }) => {
+      orderBy = [col, opts?.ascending ?? true];
+      return chain;
+    },
     limit: (n: number) => {
       limitCount = n;
       return chain;
@@ -74,9 +130,12 @@ function createQueryBuilder() {
       insertedRow = {
         id: `inserted-${insertCounter}`,
         workspace_id: row.workspace_id as string,
-        type: row.type as string,
-        value: row.value as string,
+        provider: (row.provider as string | null) ?? null,
+        rule_type: (row.rule_type as "allow" | "deny") ?? "deny",
+        entity_type: row.entity_type as string,
+        entity_key: row.entity_key as string,
         reason: (row.reason as string | null) ?? null,
+        source: (row.source as "user" | "suggested") ?? "user",
         created_at: "2026-08-07T00:00:00Z",
         created_by: (row.created_by as string | null) ?? null,
       };
@@ -116,20 +175,18 @@ function createQueryBuilder() {
 vi.mock("@/app/_lib/supabase/admin", () => ({
   createAdminClient: vi.fn(() => ({
     from: vi.fn((table: string) =>
-      table === "capture_blocklist" ? createQueryBuilder() : {}
+      table === "connector_rules" ? createQueryBuilder() : {}
     ),
   })),
 }));
 
-const SEED_ENTRY: MockRow = {
+const SEED_ENTRY: MockRow = ruleRow({
   id: "entry-1",
-  workspace_id: "ws-1",
   type: "domain",
   value: "spam.com",
   reason: "Known spam domain",
-  created_at: "2026-07-12T00:00:00Z",
   created_by: "user-1",
-};
+});
 
 describe("Blocklist Manager", () => {
   beforeEach(() => {
@@ -244,15 +301,9 @@ describe("Blocklist Manager", () => {
     });
 
     it("blocks senders whose email is on the blocklist", async () => {
-      mockRows.push({
-        id: "entry-2",
-        workspace_id: "ws-1",
-        type: "email",
-        value: "bad@evil.com",
-        reason: null,
-        created_at: "2026-07-12T00:00:00Z",
-        created_by: null,
-      });
+      mockRows.push(
+        ruleRow({ id: "entry-2", type: "email", value: "bad@evil.com" }),
+      );
       const { isBlocked } = await import("./blocklist-manager");
 
       const result = await isBlocked("ws-1", { email: "Bad@Evil.com" });
@@ -275,15 +326,9 @@ describe("Blocklist Manager", () => {
     it("does not cross-match values across entry types", async () => {
       // A sender_pattern row must only apply to senderName matching — a
       // domain check for the same string must not hit it.
-      mockRows.push({
-        id: "entry-4",
-        workspace_id: "ws-1",
-        type: "sender_pattern",
-        value: "promo.net",
-        reason: null,
-        created_at: "2026-07-12T00:00:00Z",
-        created_by: null,
-      });
+      mockRows.push(
+        ruleRow({ id: "entry-4", type: "sender_pattern", value: "promo.net" }),
+      );
       const { isBlocked } = await import("./blocklist-manager");
 
       const result = await isBlocked("ws-1", { domain: "promo.net" });
@@ -337,15 +382,13 @@ describe("Blocklist Manager", () => {
     });
 
     it("still enforces sender-name glob patterns", async () => {
-      mockRows.push({
-        id: "entry-3",
-        workspace_id: "ws-1",
-        type: "sender_pattern",
-        value: "*newsletter*",
-        reason: null,
-        created_at: "2026-07-12T00:00:00Z",
-        created_by: null,
-      });
+      mockRows.push(
+        ruleRow({
+          id: "entry-3",
+          type: "sender_pattern",
+          value: "*newsletter*",
+        }),
+      );
       const { isBlocked } = await import("./blocklist-manager");
 
       const result = await isBlocked("ws-1", {
@@ -359,25 +402,21 @@ describe("Blocklist Manager", () => {
       // 149 non-matching patterns, the matching one is row #150 — a flat
       // .limit(100) would silently never evaluate it.
       for (let i = 0; i < 149; i++) {
-        mockRows.push({
-          id: `pat-${String(i).padStart(3, "0")}`,
-          workspace_id: "ws-1",
-          type: "sender_pattern",
-          value: `*no-match-${i}*`,
-          reason: null,
-          created_at: "2026-07-12T00:00:00Z",
-          created_by: null,
-        });
+        mockRows.push(
+          ruleRow({
+            id: `pat-${String(i).padStart(3, "0")}`,
+            type: "sender_pattern",
+            value: `*no-match-${i}*`,
+          }),
+        );
       }
-      mockRows.push({
-        id: "pat-150",
-        workspace_id: "ws-1",
-        type: "sender_pattern",
-        value: "*newsletter*",
-        reason: null,
-        created_at: "2026-07-12T00:00:00Z",
-        created_by: null,
-      });
+      mockRows.push(
+        ruleRow({
+          id: "pat-150",
+          type: "sender_pattern",
+          value: "*newsletter*",
+        }),
+      );
       const { isBlocked } = await import("./blocklist-manager");
 
       const result = await isBlocked("ws-1", {
