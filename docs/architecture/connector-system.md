@@ -688,8 +688,11 @@ rules-manager over workspace-wide deny rows; `capture_blocklist` was
 backfilled into `connector_rules` by migration
 `20260810120000_connector_rules.sql`.
 
-User-facing copy is "Always let in" / "Keep out" on the connector detail
-pane's **Customize** tab (`connectors/actions/rules.ts`); engineering
+User-facing copy is "Always let in" / "Keep out" on **Sources → Customize**
+(`/sources?tab=customize`, `connectors/actions/rules.ts`) — intake policy
+organized by capture category, with workspace-wide rules editable under
+"All connectors". The connector detail pane keeps a "Customize →" deep
+link (`?category=<cat>`) from its Activity tab header. Engineering
 vocabulary stays "rules".
 
 ### Learned entity profiles (P6)

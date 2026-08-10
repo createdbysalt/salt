@@ -78,20 +78,16 @@ test.describe("Sources — Activity", () => {
     }
   });
 
-  test("area filter and date range are accessible", async ({ page }) => {
+  test("combined filter popover exposes area and date range", async ({ page }) => {
     await expect(page.getByPlaceholder(/search captures/i)).toBeVisible({ timeout: 15000 });
 
-    // Area filter is a toolbar dropdown next to the date-range picker
-    const areaFilter = page.getByRole("combobox", { name: /filter by area/i });
-    await expect(areaFilter).toBeVisible();
-    await areaFilter.click();
-    await expect(page.getByRole("option", { name: "Email" })).toBeVisible();
-    await page.keyboard.press("Escape");
-
-    // Date range picker opens calendar presets
-    const dateFilter = page.getByRole("button", { name: /date range/i });
-    await expect(dateFilter).toBeVisible();
-    await dateFilter.click();
+    // Area + date range live in one combined Filter popover (matches Memory)
+    const filterButton = page.getByRole("button", { name: /^filter$/i });
+    await expect(filterButton).toBeVisible();
+    await filterButton.click();
+    await expect(
+      page.getByRole("checkbox", { name: /email/i }),
+    ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Today", exact: true }),
     ).toBeVisible();
@@ -215,49 +211,98 @@ test.describe("Sources — legacy redirects", () => {
   });
 });
 
-test.describe("Connector detail — Customize tab (rules)", () => {
-  test("Customize tab renders and adds/removes a rule", async ({ page }) => {
+test.describe("Sources — Customize tab (intake policy)", () => {
+  const CUSTOMIZE_URL = "/sources?tab=customize";
+
+  test("renders as a third tab", async ({ page }) => {
     await gotoAppRoute(page, "/sources");
 
+    const sections = page.getByRole("navigation", { name: "Sources sections" });
+    await expect(sections).toBeVisible({ timeout: 15000 });
+
+    await sections.getByRole("button", { name: "Customize" }).click();
+    await expect(page).toHaveURL(/\/sources\?tab=customize/);
     await expect(
-      page.getByRole("heading", { name: /^connectors$/i, level: 2 }),
+      page.getByRole("heading", { name: /^customize$/i, level: 2 }),
     ).toBeVisible({ timeout: 15000 });
 
-    // Open the first connected connector's detail pane.
-    const connectedCard = page
-      .getByRole("button")
-      .filter({ hasText: /^connected$/i })
-      .first();
-
-    if (!(await connectedCard.isVisible({ timeout: 5_000 }).catch(() => false))) {
-      // No connected connectors in test data — nothing to customize.
-      return;
+    // With no connected capture accounts and no workspace rules the honest
+    // empty state renders instead of the category pills.
+    const pills = page.getByRole("group", { name: "Customize category" });
+    if (await pills.isVisible({ timeout: 5_000 }).catch(() => false)) {
+      await expect(
+        pills.getByRole("button", { name: "All connectors" }),
+      ).toBeVisible();
+    } else {
+      await expect(
+        page.getByText(/nothing to customize yet/i),
+      ).toBeVisible();
     }
-    await connectedCard.click();
+  });
 
-    const customizeTab = page.getByRole("tab", { name: /^customize$/i });
-    await expect(customizeTab).toBeVisible({ timeout: 10_000 });
-    await customizeTab.click();
-
-    // Non-capture connectors render the honest empty state instead.
-    const emptyState = page.getByText(/doesn’t yet learn from it/i);
-    if (await emptyState.isVisible({ timeout: 3_000 }).catch(() => false)) {
-      await expect(emptyState).toBeVisible();
-      return;
-    }
+  test("category pills switch sections and ?category= deep-links", async ({ page }) => {
+    await gotoAppRoute(page, CUSTOMIZE_URL);
 
     await expect(
-      page.getByRole("heading", { name: /^always let in$/i }),
-    ).toBeVisible({ timeout: 10_000 });
+      page.getByRole("heading", { name: /^customize$/i, level: 2 }),
+    ).toBeVisible({ timeout: 15000 });
+
+    const pills = page.getByRole("group", { name: "Customize category" });
+    if (!(await pills.isVisible({ timeout: 5_000 }).catch(() => false))) {
+      // No connected capture accounts in test data — nothing to switch.
+      return;
+    }
+
+    // Switching to "All connectors" shows the workspace-wide rules view and
+    // puts the selection in the URL.
+    await pills.getByRole("button", { name: "All connectors" }).click();
+    await expect(page).toHaveURL(/\/sources\?tab=customize&category=all/);
     await expect(
-      page.getByRole("heading", { name: /^keep out$/i }),
+      page.getByText(/these rules apply to every connected account/i),
     ).toBeVisible();
 
-    // Add a keep-out rule, then remove it.
-    await page.getByRole("button", { name: /^keep out$/i }).first().click();
-    const valueInput = page.getByRole("textbox").last();
-    await valueInput.fill("e2e-rule-probe@example.com");
-    await page.getByRole("button", { name: /^add rule$/i }).click();
+    // A deep link with a category lands on that category's section, which
+    // always leads with the read-only transparency layer.
+    await gotoAppRoute(page, "/sources?tab=customize&category=email");
+    await expect(
+      page.getByRole("heading", { name: /^customize$/i, level: 2 }),
+    ).toBeVisible({ timeout: 15000 });
+    const defaultsHeading = page.getByRole("heading", {
+      name: /what salt does by default/i,
+    });
+    if (await defaultsHeading.isVisible({ timeout: 5_000 }).catch(() => false)) {
+      await expect(defaultsHeading).toBeVisible();
+    }
+  });
+
+  test("smart box adds and removes a workspace-wide rule", async ({ page }) => {
+    await gotoAppRoute(page, CUSTOMIZE_URL);
+
+    await expect(
+      page.getByRole("heading", { name: /^customize$/i, level: 2 }),
+    ).toBeVisible({ timeout: 15000 });
+
+    const pills = page.getByRole("group", { name: "Customize category" });
+    if (!(await pills.isVisible({ timeout: 5_000 }).catch(() => false))) {
+      return;
+    }
+    await pills.getByRole("button", { name: "All connectors" }).click();
+
+    const box = page.getByRole("textbox", { name: "Keep out rule" });
+    await expect(box).toBeVisible();
+
+    // Ambiguous input never enables Add — the box rejects with a hint.
+    await box.fill("???");
+    await expect(
+      page.getByRole("button", { name: "Add", exact: true }).first(),
+    ).toBeDisabled();
+
+    // Valid input shows the live detection line, then submits.
+    await box.fill("e2e-rule-probe@example.com");
+    await expect(
+      page.getByText(/sender · e2e-rule-probe@example\.com/i),
+    ).toBeVisible();
+    await box.press("Enter");
 
     await expect(
       page.getByText("e2e-rule-probe@example.com"),
@@ -271,6 +316,40 @@ test.describe("Connector detail — Customize tab (rules)", () => {
     await expect(
       page.getByText("e2e-rule-probe@example.com"),
     ).toHaveCount(0, { timeout: 10_000 });
+  });
+
+  test("detail pane Activity header deep-links to Customize", async ({ page }) => {
+    await gotoAppRoute(page, "/sources");
+
+    await expect(
+      page.getByRole("heading", { name: /^connectors$/i, level: 2 }),
+    ).toBeVisible({ timeout: 15000 });
+
+    const connectedCard = page
+      .getByRole("button")
+      .filter({ hasText: /^connected$/i })
+      .first();
+    if (!(await connectedCard.isVisible({ timeout: 5_000 }).catch(() => false))) {
+      // No connected connectors in test data — nothing to open.
+      return;
+    }
+    await connectedCard.click();
+
+    const activityTab = page.getByRole("tab", { name: /^activity$/i });
+    await expect(activityTab).toBeVisible({ timeout: 10_000 });
+    await activityTab.click();
+
+    // The link only renders for capture-capable connectors.
+    const deepLink = page.getByRole("link", { name: /^customize$/i });
+    if (!(await deepLink.isVisible({ timeout: 3_000 }).catch(() => false))) {
+      return;
+    }
+    await deepLink.click();
+
+    await expect(page).toHaveURL(/\/sources\?tab=customize&category=/);
+    await expect(
+      page.getByRole("heading", { name: /^customize$/i, level: 2 }),
+    ).toBeVisible({ timeout: 15000 });
   });
 });
 
