@@ -30,7 +30,7 @@ import { createAdminClient } from "@/app/_lib/supabase/admin";
 import type { ConnectorRuleEntityType } from "../adapters/types";
 
 export type ConnectorRuleType = "allow" | "deny";
-export type ConnectorRuleSource = "user" | "suggested";
+export type ConnectorRuleSource = "user" | "suggested" | "correction" | "ask_salt";
 
 export interface ConnectorRule {
   id: string;

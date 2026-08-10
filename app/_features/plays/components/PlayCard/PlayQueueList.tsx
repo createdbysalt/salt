@@ -28,6 +28,7 @@ import { validatePlayCard } from "../../play-card/validate-play-card";
 import { PlayCard } from "./PlayCard";
 import { PlaysTabEmptyState } from "../PlaysTabEmptyState";
 import { BatchActionBar } from "./BatchActionBar";
+import { RememberThisDialog } from "@/app/_features/memory/components/RememberThisDialog";
 import {
   trackPlayActioned,
   trackBatchActioned,
@@ -55,6 +56,7 @@ export function PlayQueueList({
   );
 
   const [statuses, setStatuses] = useState<Record<string, Status>>({});
+  const [rememberDraft, setRememberDraft] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string[]>>({});
   const [editingId, setEditingId] = useState<string | null>(null);
   const [pending, setPending] = useState<Record<string, boolean>>({});
@@ -359,7 +361,14 @@ export function PlayQueueList({
     } else {
       void dismissFinding(vm.provenance.findingId);
     }
-    toast("Dismissed");
+    // The corrections door (Phase M5): a dismissal is the moment of
+    // frustration — offer to turn it into a standing instruction.
+    toast("Dismissed", {
+      action: {
+        label: "Want me to remember this?",
+        onClick: () => setRememberDraft(`Fewer like this: ${vm.subject}`),
+      },
+    });
   };
 
   const handleFlag = (vm: PlayCardViewModel) => {
@@ -475,6 +484,13 @@ export function PlayQueueList({
         onClearSelection={clearSelection}
         isPending={batchPending}
         pendingAction={batchAction}
+      />
+      <RememberThisDialog
+        draft={rememberDraft ?? ""}
+        open={rememberDraft !== null}
+        onOpenChange={(open) => {
+          if (!open) setRememberDraft(null);
+        }}
       />
     </MotionConfig>
   );

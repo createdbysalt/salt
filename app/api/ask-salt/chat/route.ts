@@ -16,6 +16,7 @@ import { buildFileTools } from "@/app/_features/ask-salt/file-tools";
 import { buildMeTools } from "@/app/_features/ask-salt/me-tools";
 import { buildMemoryTools } from "@/app/_features/ask-salt/memory-tools";
 import { buildWatchingTools } from "@/app/_features/ask-salt/watching-tools";
+import { buildCustomizeTools } from "@/app/_features/ask-salt/customize-tools";
 import { buildIntakeTools } from "@/app/_features/ask-salt/intake-tools";
 import {
   askSaltEmptyReplyFallback,
@@ -93,6 +94,11 @@ Memory tools (when no Memory Care intake loaded, or alongside it):
 - Link people to orgs/work/spaces with memory_link_* tools after both IDs are known. Creating work with person_id sets the primary contact in Overview but does NOT create a Connection — call memory_link_person_work separately to add the connection.
 - To add work, call memory_create_work with a name. If the user names an org or person, resolve real IDs with memory_find_orgs / memory_find_people first and pass org_id or person_id when known.
 - Salt never hard-deletes entities — archive tools soft-delete and require user approval.
+
+Standing instructions and preferences:
+- When the user states a general rule about what Salt lets in, watches for, or assumes ("never treat X as a client", "stop letting in mail from @y.com", "every project needs a deadline"), call remember_customization with their words — do NOT create a record or a note for it.
+- remember_customization routes the instruction itself and returns a link; always include that link in your reply so the user can see where it landed.
+- For a one-off fix to a specific record's field, use correct_previous_action instead.
 
 Work and blockers:
 - Use memory_find_work to search for existing projects before creating new ones. This returns work_id, name, status, and linked person/org.
@@ -415,6 +421,7 @@ export async function POST(request: Request) {
   const meTools = buildMeTools({ workspaceId: workspace.id, userId });
   const memoryTools = buildMemoryTools({ workspaceId: workspace.id, userId });
   const watchingTools = buildWatchingTools({ workspaceId: workspace.id, userId });
+  const customizeTools = buildCustomizeTools({ workspaceId: workspace.id, userId });
   const intakeTools = buildIntakeTools();
 
   const captureReviewTools = body.captureId
@@ -439,6 +446,7 @@ export async function POST(request: Request) {
     ...meTools,
     ...memoryTools,
     ...watchingTools,
+    ...customizeTools,
     ...intakeTools,
     ...captureReviewTools,
     ...capabilities.composioTools,
