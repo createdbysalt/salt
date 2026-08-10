@@ -25,6 +25,7 @@ import {
   type CaptureStreamPageFilter,
   type ResolveScanFindingLink,
 } from "./utils/capture-stream-page-filter";
+import type { GateProofRow } from "./utils/gate-proof-counts";
 import { resolveCaptureSourceUrl } from "./utils/capture-source-url";
 import { getTierCapacity } from "@/app/_lib/usage/tiers";
 import { nextDiscoveryDueAt } from "./services/discovery-cadence";
@@ -563,6 +564,39 @@ export async function getSeededCaptureTriggerFilters(
       slug: row.trigger_slug,
       config: row.capture_trigger_config as Record<string, unknown>,
     }));
+}
+
+/**
+ * Gate proof rows (Sources → Customize, Phase S1): one week of
+ * source_type × gate_action pairs for the workspace, summarized into
+ * per-area proof counts by the pure `utils/gate-proof-counts.ts`.
+ * Two columns only, capped — this backs "I skipped 43 promotions this
+ * week", not an export. Errors return [] (the surface shows no proof
+ * line rather than a wrong one).
+ */
+export async function getWeeklyGateProofRows(
+  workspaceId: string,
+): Promise<GateProofRow[]> {
+  const supabase = await createClient();
+  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+  const { data, error } = await supabase
+    .from("capture_events")
+    .select("source_type, gate_action")
+    .eq("workspace_id", workspaceId)
+    .not("gate_action", "is", null)
+    .gte("created_at", weekAgo)
+    .limit(10000);
+
+  if (error) {
+    console.error("[capture-queries] getWeeklyGateProofRows error:", error.message);
+    return [];
+  }
+
+  return (data ?? []).map((row) => ({
+    sourceType: row.source_type,
+    gateAction: row.gate_action,
+  }));
 }
 
 /**

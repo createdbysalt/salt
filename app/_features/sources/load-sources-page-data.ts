@@ -5,12 +5,18 @@ import {
   getCaptureStreamPage,
   getDiscoveryStatus,
   getSeededCaptureTriggerFilters,
+  getWeeklyGateProofRows,
   hasCaptures,
 } from "@/app/_features/capture/queries";
 import { getAdmissionDecisions } from "@/app/_features/memory/queries/admission-decisions";
 import { DEFAULT_CAPTURE_STREAM_PAGE_SIZE } from "@/app/_features/capture/stream-constants";
 import { getCaptureCategoryMap } from "@/app/_lib/composio/capture-categories";
-import { defaultPolicyForArea } from "@/app/_features/capture/adapters/default-policy";
+import {
+  defaultPolicyForArea,
+  renderWhenItSyncs,
+} from "@/app/_features/capture/adapters/default-policy";
+import { summarizeGateProofCounts } from "@/app/_features/capture/utils/gate-proof-counts";
+import { getCaptureGatePolicy } from "@/app/_features/capture/actions/gate-policy";
 import {
   CATEGORY_TO_AREA,
   CUSTOMIZE_AREA_ORDER,
@@ -57,11 +63,20 @@ export function emptySourcesPageData(): SourcesPageData {
 async function loadCustomizeTabData(
   workspaceId: string,
 ): Promise<CustomizeTabData> {
-  const [connectors, categoryMap, allRules] = await Promise.all([
-    getConnectorsPageData(),
-    getCaptureCategoryMap(),
-    getRules(workspaceId, { limit: 500 }),
-  ]);
+  const [connectors, categoryMap, allRules, gatePolicy, proofRows] =
+    await Promise.all([
+      getConnectorsPageData(),
+      getCaptureCategoryMap(),
+      getRules(workspaceId, { limit: 500 }),
+      getCaptureGatePolicy(workspaceId),
+      getWeeklyGateProofRows(workspaceId),
+    ]);
+
+  const resolveArea = (provider: string): CustomizeArea | null => {
+    const category = categoryMap.get(provider);
+    return category ? CATEGORY_TO_AREA[category] : null;
+  };
+  const proofByArea = summarizeGateProofCounts(proofRows, resolveArea);
 
   // Group connected, capture-capable accounts by intake area (engineering
   // categories fold in via CATEGORY_TO_AREA — documents → storage, …).
@@ -103,16 +118,22 @@ async function loadCustomizeTabData(
       policy: defaultPolicyForArea(
         area,
         seededFilters.filter((filter) => providers.has(filter.provider)),
+        gatePolicy,
       ),
       rules: allRules.filter(
         (rule) => rule.provider !== null && providers.has(rule.provider),
       ),
+      proof: proofByArea.get(area) ?? null,
+      whenItSyncs: accounts
+        .map((account) => renderWhenItSyncs(account.provider))
+        .filter((line): line is string => line !== null),
     };
   });
 
   return {
     areas,
     workspaceRules: allRules.filter((rule) => rule.provider === null),
+    gatePolicy,
   };
 }
 

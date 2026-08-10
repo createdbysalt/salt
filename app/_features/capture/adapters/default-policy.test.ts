@@ -3,7 +3,9 @@ import { CUSTOMIZE_AREA_ORDER } from "./rule-entities";
 import {
   defaultPolicyForArea,
   renderSeededTriggerFilter,
+  renderWhenItSyncs,
 } from "./default-policy";
+import { resolveGatePolicy } from "../services/gates/gate-policy";
 
 /**
  * The exact seeded values from
@@ -182,5 +184,118 @@ describe("defaultPolicyForArea", () => {
       expect(policy.upstreamFilters).toEqual([]);
       expect(policy.gateBehavior.length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("defaultPolicyForArea — gate-policy-aware copy (S1/S3)", () => {
+  it("defaults render exactly as before when no policy is passed", () => {
+    const policy = defaultPolicyForArea("email");
+    expect(policy.gateBehavior).toEqual([
+      "Obvious spam, bulk mail, and automated senders are dropped before anything is stored",
+      "Mail from people and companies you already know comes straight in",
+      "Unknown senders are watched until they earn their way in",
+    ]);
+  });
+
+  it("automatedSenders = watched softens the automated-senders line only", () => {
+    const policy = defaultPolicyForArea(
+      "email",
+      [],
+      resolveGatePolicy({ email: { automated_senders: "watched" } }),
+    );
+    expect(policy.gateBehavior[0]).toBe(
+      "Obvious spam and bulk mail are dropped before anything is stored — automated senders (receipts, notifications) are watched",
+    );
+    // The strangers line is untouched.
+    expect(policy.gateBehavior[2]).toBe(
+      "Unknown senders are watched until they earn their way in",
+    );
+  });
+
+  it("automatedSenders = let_in says automated senders come straight in", () => {
+    const policy = defaultPolicyForArea(
+      "email",
+      [],
+      resolveGatePolicy({ email: { automated_senders: "let_in" } }),
+    );
+    expect(policy.gateBehavior[0]).toBe(
+      "Obvious spam and bulk mail are dropped before anything is stored — automated senders (receipts, notifications) come straight in",
+    );
+  });
+
+  it("strangers = let_in replaces the hold line", () => {
+    const policy = defaultPolicyForArea(
+      "email",
+      [],
+      resolveGatePolicy({ email: { strangers: "let_in" } }),
+    );
+    expect(policy.gateBehavior[2]).toBe(
+      "Mail from people you don't know comes straight in",
+    );
+  });
+
+  it("strangers = dropped says stranger mail is dropped", () => {
+    const policy = defaultPolicyForArea(
+      "email",
+      [],
+      resolveGatePolicy({ email: { strangers: "dropped" } }),
+    );
+    expect(policy.gateBehavior[2]).toBe(
+      "Mail from people you don't know is dropped before anything is stored",
+    );
+  });
+
+  it("non-email areas ignore the email policy", () => {
+    const policy = defaultPolicyForArea(
+      "messaging",
+      [],
+      resolveGatePolicy({
+        email: { automated_senders: "let_in", strangers: "dropped" },
+      }),
+    );
+    expect(policy.gateBehavior).toEqual([
+      "Messages from people and channels you already know come straight in",
+      "Messages from people you don't know are watched until they earn their way in",
+    ]);
+  });
+});
+
+describe("renderWhenItSyncs (S1)", () => {
+  it("poll-type providers are checked about every 15 minutes — never real-time", () => {
+    expect(renderWhenItSyncs("gmail")).toBe(
+      "Gmail is checked about every 15 minutes",
+    );
+    expect(renderWhenItSyncs("googlecalendar")).toBe(
+      "Google Calendar is checked about every 15 minutes",
+    );
+  });
+
+  it("webhook providers arrive as they happen", () => {
+    expect(renderWhenItSyncs("stripe")).toBe(
+      "Stripe events arrive as they happen",
+    );
+    expect(renderWhenItSyncs("slack")).toBe(
+      "Slack messages arrive as they happen",
+    );
+  });
+
+  it("reconciler-only providers are checked about every 6 hours", () => {
+    expect(renderWhenItSyncs("quickbooks")).toBe(
+      "QuickBooks is checked about every 6 hours",
+    );
+    expect(renderWhenItSyncs("calendly")).toBe(
+      "Calendly is checked about every 6 hours",
+    );
+  });
+
+  it("never says real-time for email or calendar, even webhook-first Outlook", () => {
+    const line = renderWhenItSyncs("outlook");
+    expect(line).not.toBeNull();
+    expect(line!.toLowerCase()).not.toContain("real-time");
+    expect(line!.toLowerCase()).not.toContain("real time");
+  });
+
+  it("returns null for an unknown provider — honest silence", () => {
+    expect(renderWhenItSyncs("myspace")).toBeNull();
   });
 });

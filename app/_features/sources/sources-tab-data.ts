@@ -7,6 +7,8 @@ import type { CaptureScope } from "@/app/_lib/composio/capture-scope";
 import type { CustomizeArea } from "@/app/_features/capture/adapters/rule-entities";
 import type { DefaultPolicy } from "@/app/_features/capture/adapters/default-policy";
 import type { ConnectorRule } from "@/app/_features/capture/services/rules-manager";
+import type { AreaProofCounts } from "@/app/_features/capture/utils/gate-proof-counts";
+import type { ResolvedGatePolicy } from "@/app/_features/capture/services/gates/gate-policy";
 
 export const EMPTY_CONNECTORS: ConnectorsPageData = {
   workspaceId: null,
@@ -40,12 +42,18 @@ export interface CustomizeAreaData {
   policy: DefaultPolicy;
   /** Provider-scoped rules across this area's accounts. */
   rules: ConnectorRule[];
+  /** S1 proof counts: last 7 days from capture_events.gate_action. */
+  proof: AreaProofCounts | null;
+  /** S1 "When it syncs" lines for this area's connected providers. */
+  whenItSyncs: string[];
 }
 
 export interface CustomizeTabData {
   areas: CustomizeAreaData[];
   /** Workspace-wide rules (provider NULL) — editable on the "all" view. */
   workspaceRules: ConnectorRule[];
+  /** Workspace gate policy (S3) — the email choices render beside their lines. */
+  gatePolicy: ResolvedGatePolicy;
 }
 
 export type SourcesTabData = {

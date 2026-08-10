@@ -92,6 +92,23 @@ Scores unknown senders for candidacy:
 - **Esteemed entity: +20** when the capture's feedback entity has a learned reputation ≥70; **−20** when ≤30 (`entity_reputation` signal — see Learned Entity Profiles below)
 - **Threshold:** ≥30 = candidate, <30 = noise
 
+### Workspace Gate Policy (Customize surfaces, S3)
+
+`workspaces.capture_gate_policy` (jsonb) carries the workspace's plain-language
+gate choices; `gates/gate-policy.ts` resolves partial/invalid json to
+ship-day defaults, and `runGatePipeline` reads it via
+`actions/gate-policy.ts#getCaptureGatePolicy` (a read failure resolves to
+defaults — intake never gates on a policy-read outage). v1 ships two email
+choices: `automated_senders` (softens ONLY the pre-ingest 'automated'
+detections — spam/marketing always drop) and `strangers` (governs the
+memory-first hold; `dropped` drops before the paid cold-intent read).
+
+**The Customize-line rule:** every gate ships with a transparency line on
+Sources → Customize (`adapters/default-policy.ts`), and a gate gets a
+user-facing control only when reasonable users genuinely differ — a named
+choice beside its line, never a numeric knob. A gate without a Customize
+line doesn't ship.
+
 ## Learned Entity Profiles (P6)
 
 Workspace-keyed reputation for the same feedback entities rules match on:

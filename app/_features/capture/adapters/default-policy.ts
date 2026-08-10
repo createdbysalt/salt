@@ -1,5 +1,9 @@
 import type { CustomizeArea } from "./rule-entities";
 import { translateProviderArg } from "@/app/_features/connectors/utils/activity-format";
+import {
+  DEFAULT_GATE_POLICY,
+  type ResolvedGatePolicy,
+} from "../services/gates/gate-policy";
 
 /**
  * Default intake policy per intake area (Sources → Customize, Phase 1).
@@ -157,18 +161,91 @@ const AREA_GATE_BEHAVIOR: Record<CustomizeArea, string[]> = {
 };
 
 /**
+ * Email's gate-behavior lines are policy-aware (S1/S3): the two workspace
+ * choices on Sources → Customize rewrite the lines they govern, so the
+ * transparency copy always matches what the gates actually do. Spam and
+ * bulk mail always drop — no policy softens them.
+ */
+function emailGateBehavior(policy: ResolvedGatePolicy): string[] {
+  const automatedLine =
+    policy.email.automatedSenders === "dropped"
+      ? "Obvious spam, bulk mail, and automated senders are dropped before anything is stored"
+      : policy.email.automatedSenders === "watched"
+        ? "Obvious spam and bulk mail are dropped before anything is stored — automated senders (receipts, notifications) are watched"
+        : "Obvious spam and bulk mail are dropped before anything is stored — automated senders (receipts, notifications) come straight in";
+
+  const strangersLine =
+    policy.email.strangers === "watched"
+      ? "Unknown senders are watched until they earn their way in"
+      : policy.email.strangers === "let_in"
+        ? "Mail from people you don't know comes straight in"
+        : "Mail from people you don't know is dropped before anything is stored";
+
+  return [
+    automatedLine,
+    "Mail from people and companies you already know comes straight in",
+    strangersLine,
+  ];
+}
+
+/**
  * The default intake policy for an area: live-rendered seeded upstream
  * filters plus the curated gate behavior. Seeded filters that render to null
- * are dropped silently — the section shows only claims it can back.
+ * are dropped silently — the section shows only claims it can back. The
+ * workspace gate policy rewrites the email lines it governs; every other
+ * area's copy is policy-independent today.
  */
 export function defaultPolicyForArea(
   area: CustomizeArea,
   seededFilters: readonly SeededTriggerFilter[] = [],
+  gatePolicy: ResolvedGatePolicy = DEFAULT_GATE_POLICY,
 ): DefaultPolicy {
   return {
     upstreamFilters: seededFilters
       .map(renderSeededTriggerFilter)
       .filter((line): line is string => line !== null),
-    gateBehavior: AREA_GATE_BEHAVIOR[area],
+    gateBehavior:
+      area === "email"
+        ? emailGateBehavior(gatePolicy)
+        : AREA_GATE_BEHAVIOR[area],
   };
+}
+
+/**
+ * "When it syncs" (S1) — per-provider delivery timing, rendered from a
+ * Salt-side map because Composio's TS SDK drops the trigger `type` field
+ * (plan caveat 3). Three honest shapes:
+ *
+ * - poll:       Gmail / Google Calendar poll-type triggers — 15-minute
+ *               floor on managed auth. NEVER say "real-time" for email or
+ *               calendar (plan caveat 2).
+ * - webhook:    events arrive as they happen (Stripe, Slack, …).
+ * - reconciler: no trigger coverage — the 6-hour capture-reconciliation
+ *               sweep (vercel.json crons) IS the ingestion.
+ *
+ * Unknown providers render null: honest silence over a guessed cadence.
+ */
+const WHEN_IT_SYNCS: Record<string, string> = {
+  // Poll-type triggers — 15-minute floor on managed auth (plan caveat 2:
+  // never "real-time" for email/calendar).
+  gmail: "Gmail is checked about every 15 minutes",
+  googlecalendar: "Google Calendar is checked about every 15 minutes",
+  // Webhook delivery.
+  outlook: "Outlook mail arrives as it happens",
+  stripe: "Stripe events arrive as they happen",
+  slack: "Slack messages arrive as they happen",
+  notion: "Notion changes arrive as they happen",
+  googledocs: "Google Docs changes arrive as they happen",
+  googlesheets: "Google Sheets changes arrive as they happen",
+  // No trigger coverage — the 6-hour capture-reconciliation sweep IS the
+  // ingestion (see vercel.json crons).
+  googledrive: "Google Drive is checked about every 6 hours",
+  dropbox: "Dropbox is checked about every 6 hours",
+  quickbooks: "QuickBooks is checked about every 6 hours",
+  cal: "Cal.com is checked about every 6 hours",
+  calendly: "Calendly is checked about every 6 hours",
+};
+
+export function renderWhenItSyncs(provider: string): string | null {
+  return WHEN_IT_SYNCS[provider] ?? null;
 }
