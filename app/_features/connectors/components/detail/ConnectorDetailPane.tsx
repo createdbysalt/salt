@@ -75,7 +75,7 @@ import {
   ConnectorCaptureSection,
   ConnectorPermissionsSection,
 } from "./side-sections";
-import { ConnectorCustomizeTab } from "./ConnectorCustomizeTab";
+import { buildSourcesPath } from "@/app/_features/sources/sources-tab-routing";
 import { ConnectorKeptOutCard } from "./ConnectorKeptOutCard";
 import { ConnectorActivityList, ACTIVITY_TIME_FILTERS, filterConnectorActivity, type ActivityTimeFilter } from "./ConnectorActivityList";
 
@@ -708,9 +708,6 @@ export function ConnectorDetailPane({
             <TabsTrigger value="activity" className={memoryTabTriggerClass}>
               Activity
             </TabsTrigger>
-            <TabsTrigger value="customize" className={memoryTabTriggerClass}>
-              Customize
-            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="m-0 space-y-8">
@@ -787,6 +784,15 @@ export function ConnectorDetailPane({
               <div className="min-w-0 space-y-0.5">
                 <p className="text-sm font-medium text-foreground">Activity log</p>
                 <p className="text-xs text-muted-foreground">{activitySummaryLabel}</p>
+                {captureState?.capable && captureState.category ? (
+                  <Link
+                    href={buildSourcesPath("customize", null, captureState.category)}
+                    className="inline-flex items-center gap-1 pt-0.5 text-xs font-medium text-primary hover:underline"
+                  >
+                    Customize
+                    <ChevronRight className="size-3" />
+                  </Link>
+                ) : null}
               </div>
               <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:min-w-[16rem]">
                 <div className="relative">
@@ -851,18 +857,6 @@ export function ConnectorDetailPane({
             />
           </TabsContent>
 
-          <TabsContent value="customize" className="m-0">
-            {definition.providerKey ? (
-              <ConnectorCustomizeTab
-                provider={definition.providerKey}
-                connectorName={definition.name}
-                captureCapable={captureState?.capable ?? false}
-                captureEnabled={localCaptureEnabled}
-                scope={captureState?.scope ?? null}
-                onChanged={refreshConnectorsUi}
-              />
-            ) : null}
-          </TabsContent>
         </Tabs>
 
         <aside className="space-y-6 lg:sticky lg:top-6">

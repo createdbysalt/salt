@@ -17,65 +17,15 @@ import { getCategoryForConnector } from "@/app/_lib/composio/enrichment/registry
 import {
   ALL_RULE_ENTITY_TYPES,
   ruleEntityOptionsForCategory,
-  type RuleEntityOption,
 } from "@/app/_features/capture/adapters/rule-entities";
 import {
   getRules,
   addRule,
   removeRule,
-  type ConnectorRule,
 } from "@/app/_features/capture/services/rules-manager";
 import type { ConnectorRuleEntityType } from "@/app/_features/capture/adapters/types";
 
-export interface ConnectorCustomization {
-  /** Null category = this connector has no capture taxonomy. */
-  captureCapable: boolean;
-  entityOptions: RuleEntityOption[];
-  /** Provider-scoped rules — editable on this pane. */
-  providerRules: ConnectorRule[];
-  /** Workspace-wide rules (provider NULL) — read-only here. */
-  workspaceRules: ConnectorRule[];
-}
-
-type CustomizationResult =
-  | { success: true; data: ConnectorCustomization }
-  | { success: false; error: string };
-
 type ActionResult = { success: true } | { success: false; error: string };
-
-export async function getConnectorCustomization(input: {
-  provider: string;
-}): Promise<CustomizationResult> {
-  const provider = z.string().min(1).safeParse(input.provider);
-  if (!provider.success) {
-    return { success: false, error: "Invalid request." };
-  }
-
-  const member = await requireAuthenticatedWorkspaceMember();
-  if (!member.ok) {
-    return { success: false, error: member.error };
-  }
-
-  const category = await getCategoryForConnector(provider.data);
-  const [providerRules, workspaceRules] = await Promise.all([
-    category
-      ? getRules(member.workspaceId, { provider: provider.data })
-      : Promise.resolve([]),
-    category
-      ? getRules(member.workspaceId, { provider: null })
-      : Promise.resolve([]),
-  ]);
-
-  return {
-    success: true,
-    data: {
-      captureCapable: category !== null,
-      entityOptions: category ? ruleEntityOptionsForCategory(category) : [],
-      providerRules,
-      workspaceRules,
-    },
-  };
-}
 
 const AddRuleSchema = z.object({
   provider: z.string().min(1).nullable(),

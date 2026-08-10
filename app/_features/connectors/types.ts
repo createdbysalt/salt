@@ -3,6 +3,7 @@
  */
 
 import type { CaptureScope } from "@/app/_lib/composio/capture-scope";
+import type { ConnectorCategory as CaptureCategory } from "@/app/_lib/composio/enrichment/types";
 
 export type ConnectorOwnership = "native" | "composio" | "internal";
 
@@ -278,11 +279,18 @@ export interface ConnectorsPageData {
    * Per-connection memory capture (Phase 3.3b): capable = a capture adapter
    * exists for the provider; enabled = the user's explicit opt-in. scope is
    * the 4.5 per-connection upstream filter (null = unscoped/global filters).
+   * category is the capture taxonomy (email, calendar, …) — the detail
+   * pane's "Customize →" deep link targets Sources → Customize with it.
    */
   captureByConnector: Partial<
     Record<
       ConnectorCatalogId,
-      { capable: boolean; enabled: boolean; scope: CaptureScope | null }
+      {
+        capable: boolean;
+        enabled: boolean;
+        scope: CaptureScope | null;
+        category: CaptureCategory | null;
+      }
     >
   >;
   /** Workspace-global trust — the ONE switch in Settings. */

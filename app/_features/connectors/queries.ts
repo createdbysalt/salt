@@ -410,6 +410,7 @@ export async function getConnectorsPageData(): Promise<ConnectorsPageData> {
       capable: captureCategories.has(entry.providerKey),
       enabled: settings?.captureEnabled ?? false,
       scope: readCaptureScope(settings?.rawConfig ?? null),
+      category: captureCategories.get(entry.providerKey) ?? null,
     };
     settingsByConnector[key] =
       entry.providerKey === "gmail"
