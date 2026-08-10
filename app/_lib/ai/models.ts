@@ -22,6 +22,9 @@ export const MODEL_ROUTING = {
   recordSummary: process.env.AI_MODEL_RECORD_SUMMARY ?? "openai/gpt-4o-mini",
   /** Cold-inbound intent read (Sources Lane 1 discriminator) — one short call per unknown human-shaped sender, cheap by design. */
   coldIntent: process.env.AI_MODEL_COLD_INTENT ?? "openai/gpt-4o-mini",
+  /** Tell Salt compile (Sources → Customize) — natural-language instruction → concrete knobs. Cheap classification. */
+  tellSaltCompile:
+    process.env.AI_MODEL_TELL_SALT_COMPILE ?? "openai/gpt-4o-mini",
   /** Tool risk-class proposals for the connector review queue — proposals only, human approves. */
   toolClassification:
     process.env.AI_MODEL_TOOL_CLASSIFICATION ?? "anthropic/claude-sonnet-4",

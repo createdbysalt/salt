@@ -141,6 +141,142 @@ describe("parseRuleInput — workspace-wide (area null)", () => {
       entityKey: "random",
     });
   });
+
+  it("accepts prefixed patterns workspace-wide", () => {
+    expect(parseRuleInput("subject:invoice", null)).toMatchObject({
+      ok: true,
+      entityType: "subject_pattern",
+      entityKey: "*invoice*",
+    });
+    expect(parseRuleInput("title:standup", null)).toMatchObject({
+      ok: true,
+      entityType: "title_pattern",
+    });
+  });
+});
+
+describe("parseRuleInput — S5 vocabulary: area-default patterns", () => {
+  it("maps a bare glob to the area's only pattern type", () => {
+    expect(parseRuleInput("*lunch*", "calendar")).toMatchObject({
+      ok: true,
+      entityType: "title_pattern",
+      entityKey: "*lunch*",
+    });
+    expect(parseRuleInput("*unsubscribe*", "messaging")).toMatchObject({
+      ok: true,
+      entityType: "keyword",
+      entityKey: "*unsubscribe*",
+    });
+    expect(parseRuleInput("*template*", "storage")).toMatchObject({
+      ok: true,
+      entityType: "name_pattern",
+      entityKey: "*template*",
+    });
+    expect(parseRuleInput("*standup*", "meetings")).toMatchObject({
+      ok: true,
+      entityType: "title_pattern",
+    });
+  });
+
+  it("keeps sender_pattern as the email default (two pattern types)", () => {
+    expect(parseRuleInput("*newsletter*", "email")).toMatchObject({
+      ok: true,
+      entityType: "sender_pattern",
+    });
+  });
+
+  it("still rejects a bare glob where the area has no pattern type", () => {
+    expect(parseRuleInput("*newsletter*", "billing").ok).toBe(false);
+    expect(parseRuleInput("*newsletter*", "crm").ok).toBe(false);
+    expect(parseRuleInput("*newsletter*", "projects").ok).toBe(false);
+  });
+});
+
+describe("parseRuleInput — S5 vocabulary: prefixes", () => {
+  it("subject: compiles to a subject pattern, wrapping bare words", () => {
+    expect(parseRuleInput("subject:invoice", "email")).toEqual({
+      ok: true,
+      entityType: "subject_pattern",
+      entityKey: "*invoice*",
+      preview: "Subject pattern · *invoice*",
+    });
+  });
+
+  it("subject: keeps explicit globs verbatim", () => {
+    expect(parseRuleInput("subject:Invoice *", "email")).toMatchObject({
+      ok: true,
+      entityType: "subject_pattern",
+      entityKey: "Invoice *",
+    });
+  });
+
+  it("title: compiles to a title pattern in calendar and meetings", () => {
+    expect(parseRuleInput("title:lunch", "calendar")).toMatchObject({
+      ok: true,
+      entityType: "title_pattern",
+      entityKey: "*lunch*",
+    });
+    expect(parseRuleInput("title:standup", "meetings")).toMatchObject({
+      ok: true,
+      entityType: "title_pattern",
+    });
+  });
+
+  it("keyword: compiles to a keyword in messaging", () => {
+    expect(parseRuleInput("keyword:unsubscribe", "messaging")).toMatchObject({
+      ok: true,
+      entityType: "keyword",
+      entityKey: "*unsubscribe*",
+    });
+  });
+
+  it("name: compiles to a file name pattern in storage", () => {
+    expect(parseRuleInput("name:template", "storage")).toEqual({
+      ok: true,
+      entityType: "name_pattern",
+      entityKey: "*template*",
+      preview: "Name pattern · *template*",
+    });
+  });
+
+  it("attendee: overrides the calendar person default", () => {
+    expect(parseRuleInput("attendee:Bob@Acme.com", "calendar")).toEqual({
+      ok: true,
+      entityType: "attendee",
+      entityKey: "bob@acme.com",
+      preview: "Attendee · bob@acme.com",
+    });
+  });
+
+  it("participant: overrides the meetings person default", () => {
+    expect(parseRuleInput("participant:carol@x.com", "meetings")).toMatchObject({
+      ok: true,
+      entityType: "participant",
+      entityKey: "carol@x.com",
+    });
+  });
+
+  it("rejects a prefix the area's vocabulary doesn't support", () => {
+    expect(parseRuleInput("subject:invoice", "calendar").ok).toBe(false);
+    expect(parseRuleInput("keyword:unsubscribe", "email").ok).toBe(false);
+    expect(parseRuleInput("attendee:bob@acme.com", "email").ok).toBe(false);
+  });
+
+  it("rejects a people prefix with a non-email value", () => {
+    expect(parseRuleInput("attendee:bob", "calendar").ok).toBe(false);
+  });
+
+  it("rejects an invalid prefixed glob with the pattern-syntax hint", () => {
+    const result = parseRuleInput("subject:*inv(oice*", "email");
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.hint).toMatch(/wildcards/i);
+    }
+  });
+
+  it("rejects an empty prefix value", () => {
+    expect(parseRuleInput("subject:", "email").ok).toBe(false);
+  });
 });
 
 describe("parseRuleInput — rejects without guessing", () => {

@@ -46,11 +46,47 @@ const WORKSPACE_ENTITY_OPTIONS: RuleEntityOption[] = [
   { type: "domain", label: "Domain", placeholder: "example.com" },
   { type: "sender_pattern", label: "Sender name pattern", placeholder: "*newsletter*" },
   { type: "channel", label: "Channel", placeholder: "#general" },
+  { type: "subject_pattern", label: "Subject pattern", placeholder: "*invoice*" },
+  { type: "title_pattern", label: "Title pattern", placeholder: "*lunch*" },
+  { type: "keyword", label: "Keyword", placeholder: "*unsubscribe*" },
+  { type: "name_pattern", label: "File name pattern", placeholder: "*template*" },
 ];
 
 const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const DOMAIN_SHAPE =
   /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i;
+
+/**
+ * Explicit type prefixes (S5 vocabulary): "subject:invoice" compiles to a
+ * subject pattern without guessing. Pattern prefixes auto-wrap bare words
+ * as *word* — the preview line shows the compiled form before anything is
+ * saved.
+ */
+const PREFIX_ENTITY_TYPES: Record<string, ConnectorRuleEntityType> = {
+  subject: "subject_pattern",
+  title: "title_pattern",
+  keyword: "keyword",
+  name: "name_pattern",
+  attendee: "attendee",
+  participant: "participant",
+};
+const PATTERN_PREFIXES = new Set(["subject", "title", "keyword", "name"]);
+const PEOPLE_PREFIXES = new Set(["attendee", "participant"]);
+const PREFIX_SHAPE = /^([a-z]+)\s*:\s*(.+)$/is;
+
+/**
+ * Bare globs map to the area's pattern type when the vocabulary has exactly
+ * one — email keeps its established sender_pattern default.
+ */
+const AREA_DEFAULT_PATTERN: Partial<
+  Record<CustomizeArea, ConnectorRuleEntityType>
+> = {
+  email: "sender_pattern",
+  calendar: "title_pattern",
+  messaging: "keyword",
+  storage: "name_pattern",
+  meetings: "title_pattern",
+};
 
 function optionsFor(area: CustomizeArea | null): RuleEntityOption[] {
   return area === null
@@ -126,6 +162,34 @@ export function parseRuleInput(
     return rejectWithCategoryHint(options);
   }
 
+  // Explicit type prefix: "subject:invoice", "attendee:bob@acme.com".
+  const prefixed = PREFIX_SHAPE.exec(value);
+  if (prefixed) {
+    const prefix = prefixed[1].toLowerCase();
+    const entityType = PREFIX_ENTITY_TYPES[prefix];
+    if (entityType) {
+      const inner = prefixed[2].trim();
+      if (!inner) return rejectWithCategoryHint(options);
+      if (PEOPLE_PREFIXES.has(prefix)) {
+        if (!EMAIL_SHAPE.test(inner)) return rejectWithCategoryHint(options);
+        return accept(options, entityType, inner.toLowerCase());
+      }
+      if (PATTERN_PREFIXES.has(prefix)) {
+        const glob = inner.includes("*") || inner.includes("?")
+          ? inner
+          : `*${inner}*`;
+        if (!isValidSenderGlobPattern(glob)) {
+          return {
+            ok: false,
+            hint: "Patterns can use letters, numbers, spaces, and * or ? wildcards.",
+          };
+        }
+        return accept(options, entityType, glob);
+      }
+    }
+    // Unknown prefix — fall through to shape detection on the raw value.
+  }
+
   // Channel: #name. Checked before glob detection so a # never reads as a
   // pattern; ids stay verbatim (channel keys are provider ids).
   if (value.startsWith("#")) {
@@ -135,7 +199,8 @@ export function parseRuleInput(
   }
 
   // Glob pattern: * or ? anywhere. Validated against the same rules the
-  // rules manager enforces at write time.
+  // rules manager enforces at write time. Maps to the area's pattern type
+  // (sender_pattern for email, title_pattern for calendar, …).
   if (value.includes("*") || value.includes("?")) {
     if (!isValidSenderGlobPattern(value)) {
       return {
@@ -143,7 +208,11 @@ export function parseRuleInput(
         hint: "Patterns can use letters, numbers, spaces, and * or ? wildcards.",
       };
     }
-    return accept(options, "sender_pattern", value);
+    const patternType =
+      area === null
+        ? "sender_pattern"
+        : (AREA_DEFAULT_PATTERN[area] ?? "sender_pattern");
+    return accept(options, patternType, value);
   }
 
   // Email-shaped: the area's person entity (sender, organizer, customer…).
