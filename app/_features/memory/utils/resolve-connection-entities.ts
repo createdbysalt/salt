@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { fromDbEntityType } from "@/app/_features/memory/types/entity-type";
 
 export type EntityLinkRow = {
   id: string;
@@ -24,7 +25,8 @@ export const CONNECTION_ENTITY_TYPE_LABELS: Record<string, string> = {
   note: "note",
   conversation: "conversation",
   meeting: "meeting",
-  file: "file",
+  file: "resource",
+  resource: "resource",
   space: "space",
 };
 
@@ -72,7 +74,8 @@ export function connectionEntityHref(entityType: string, entityId: string): stri
     case "conversation":
       return `/conversations/${entityId}`;
     case "file":
-      return `/files?preview=${entityId}`;
+    case "resource":
+      return `/resources?preview=${entityId}`;
     default:
       return "";
   }
@@ -90,7 +93,8 @@ const NOTE_ENTITY_TYPE_TO_SHORT: Record<string, string> = {
   billing_record: "billing",
   billing: "billing",
   conversation: "conversation",
-  file: "file",
+  file: "resource",
+  resource: "resource",
 };
 
 function noteEntityHref(note: {
@@ -116,9 +120,12 @@ export async function buildConnectionEntityNameMap(
   const noteIds: string[] = [];
   const billingIds: string[] = [];
 
+  const thisAppType = fromDbEntityType(thisEntityType) ?? thisEntityType;
+
   for (const row of rows) {
+    const sourceAppType = fromDbEntityType(row.source_type) ?? row.source_type;
     const isOutgoing =
-      row.source_type === thisEntityType && row.source_id === thisEntityId;
+      sourceAppType === thisAppType && row.source_id === thisEntityId;
     const otherType = isOutgoing ? row.target_type : row.source_type;
     const otherId = isOutgoing ? row.target_id : row.source_id;
 

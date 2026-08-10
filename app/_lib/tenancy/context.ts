@@ -164,6 +164,7 @@ function determineActorType(host: string, path: string): ActorType {
     path.startsWith("/me") ||
     path.startsWith("/notes") ||
     path.startsWith("/files") ||
+    path.startsWith("/resources") ||
     path.startsWith("/memory") ||
     path.startsWith("/teams") ||
     path.startsWith("/conversations") ||

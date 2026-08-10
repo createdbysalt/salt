@@ -3,7 +3,7 @@ import type { MemoryEntityType } from "./entity-type";
 /** Memory types the Trash surface handles — a subset of the canon. */
 export type TrashEntityType = Extract<
   MemoryEntityType,
-  "person" | "org" | "work" | "billing" | "file" | "meeting" | "note"
+  "person" | "org" | "work" | "billing" | "resource" | "meeting" | "note"
 >;
 
 export const TRASH_RETENTION_DAYS = 30;
@@ -38,7 +38,7 @@ export const TRASH_ENTITY_LABELS: Record<TrashEntityType, string> = {
   org: "Org",
   work: "Work",
   billing: "Billing",
-  file: "File",
+  resource: "Resource",
   meeting: "Meeting",
   note: "Note",
 };
@@ -48,7 +48,7 @@ const TRASH_ENTITY_TYPES = new Set<TrashEntityType>([
   "org",
   "work",
   "billing",
-  "file",
+  "resource",
   "meeting",
   "note",
 ]);

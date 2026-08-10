@@ -21,6 +21,7 @@
  */
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import { toLearningDbEntityType } from "@/app/_lib/learning";
 import type { Json } from "@/app/_lib/supabase/database.types";
 import type { LearningEntityType } from "./types";
 
@@ -74,7 +75,7 @@ export async function memoryRecordCorrection(
     .from("field_corrections")
     .insert({
       workspace_id: input.workspaceId,
-      entity_type: input.entityType,
+      entity_type: toLearningDbEntityType(input.entityType),
       entity_id: input.entityId,
       field: input.field,
       // Boundary casts from unknown: correction values are Json in practice

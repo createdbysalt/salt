@@ -2,7 +2,10 @@ import "server-only";
 
 import { cache } from "react";
 import { createClient } from "@/app/_lib/supabase/server";
-import type { LearningEntityType } from "@/app/_lib/learning";
+import {
+  fromLearningDbEntityType,
+  type LearningEntityType,
+} from "@/app/_lib/learning";
 import {
   classifyFieldTier,
   isAlwaysAutoField,
@@ -107,8 +110,9 @@ function getEntityHref(entityType: string, entityId: string): string | null {
       return `/meetings/${entityId}`;
     case "billing":
       return `/billing/${entityId}`;
+    case "resource":
     case "file":
-      return "/files";
+      return "/resources";
     case "me":
       return "/me";
     default:
@@ -184,8 +188,9 @@ function getDefaultLabel(entityType: string): string {
       return "Unknown Work";
     case "meeting":
       return "Unknown Meeting";
+    case "resource":
     case "file":
-      return "Unknown File";
+      return "Unknown Resource";
     case "billing":
       return "Billing Record";
     case "me":
@@ -236,7 +241,7 @@ export const getLearningEvidence = cache(
       return [];
     }
 
-    // Collect entity IDs by type for batch lookup
+    // Collect entity IDs by DB spelling for batch lookup (`file` stays DB key)
     const entityIdsByType: Record<string, string[]> = {
       person: [],
       organization: [],
@@ -248,11 +253,12 @@ export const getLearningEvidence = cache(
     const seenIds = new Set<string>();
 
     for (const e of evidence) {
-      const key = `${e.entity_type}:${e.entity_id}`;
+      const dbType = e.entity_type === "resource" ? "file" : e.entity_type;
+      const key = `${dbType}:${e.entity_id}`;
       if (!seenIds.has(key)) {
         seenIds.add(key);
-        if (entityIdsByType[e.entity_type]) {
-          entityIdsByType[e.entity_type].push(e.entity_id);
+        if (entityIdsByType[dbType]) {
+          entityIdsByType[dbType].push(e.entity_id);
         }
       }
     }
@@ -316,27 +322,44 @@ export const getLearningEvidence = cache(
         : Promise.resolve({ data: [] as Array<{ id: string; number: string | null }> }),
     ]);
 
-    // Build lookup maps
+    // Build lookup maps (app `"resource"` + legacy `"file"` share the files map)
+    const fileLabels = new Map(
+      (files ?? []).map((f) => [f.id, f.file_name ?? "Unknown Resource"])
+    );
     const labelMaps: Record<string, Map<string, string>> = {
       person: new Map((people ?? []).map((p) => [p.id, p.name ?? p.email ?? "Unknown Person"])),
       organization: new Map((orgs ?? []).map((o) => [o.id, o.name ?? "Unknown Organization"])),
       work: new Map((work ?? []).map((w) => [w.id, w.name ?? "Unknown Work"])),
       meeting: new Map((meetings ?? []).map((m) => [m.id, m.title ?? "Unknown Meeting"])),
-      file: new Map((files ?? []).map((f) => [f.id, f.file_name ?? "Unknown File"])),
+      file: fileLabels,
+      resource: fileLabels,
       billing: new Map((billing ?? []).map((b) => [b.id, b.number ?? "Billing Record"])),
       me: new Map(),
     };
 
-    const backedEntityTypes = new Set(["person", "organization", "work", "meeting", "file", "billing"]);
+    const backedEntityTypes = new Set([
+      "person",
+      "organization",
+      "work",
+      "meeting",
+      "file",
+      "resource",
+      "billing",
+    ]);
+
+    function appEntityType(raw: string): LearningEntityType {
+      return fromLearningDbEntityType(raw) ?? (raw as LearningEntityType);
+    }
 
     function isInactiveMergeTarget(e: LearningEvidenceRow): boolean {
       if (e.field_path !== "_merge_candidate") return false;
       if (!e.proposed_value || typeof e.proposed_value !== "object") return false;
       const targetId = (e.proposed_value as Record<string, unknown>).targetId;
+      const entityType = appEntityType(e.entity_type);
       return (
         typeof targetId === "string" &&
-        backedEntityTypes.has(e.entity_type) &&
-        !labelMaps[e.entity_type]?.has(targetId)
+        backedEntityTypes.has(entityType) &&
+        !labelMaps[entityType]?.has(targetId)
       );
     }
 
@@ -358,26 +381,27 @@ export const getLearningEvidence = cache(
         continue;
       }
 
-      const key = `${e.entity_type}:${e.entity_id}`;
+      const entityType = appEntityType(e.entity_type);
+      const key = `${entityType}:${e.entity_id}`;
       let group = grouped.get(key);
 
       if (!group) {
         // Look up entity label from the appropriate map
-        const typeMap = labelMaps[e.entity_type];
+        const typeMap = labelMaps[entityType];
         const entityLabel = typeMap?.get(e.entity_id);
 
         // Hide pending evidence for records that have since been archived or
         // deleted. Hygiene may have emitted these before the record left active
         // Memory, but Watching should only show actionable active records.
-        if (!entityLabel && backedEntityTypes.has(e.entity_type)) {
+        if (!entityLabel && backedEntityTypes.has(entityType)) {
           continue;
         }
 
         group = {
-          entityType: e.entity_type as LearningEntityType,
+          entityType,
           entityId: e.entity_id,
-          entityLabel: entityLabel ?? getDefaultLabel(e.entity_type),
-          entityHref: getEntityHref(e.entity_type, e.entity_id),
+          entityLabel: entityLabel ?? getDefaultLabel(entityType),
+          entityHref: getEntityHref(entityType, e.entity_id),
           fields: [],
           totalConfidence: 0,
           latestAt: e.created_at,

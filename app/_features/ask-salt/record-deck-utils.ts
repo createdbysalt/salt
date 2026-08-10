@@ -1,5 +1,5 @@
 import type { BillingRecordDraft } from "@/app/_features/billing/actions/billing-record-draft";
-import type { MemoryFileDraft } from "@/app/_features/files/actions/memory-file-draft";
+import type { MemoryFileDraft } from "@/app/_features/resources/actions/memory-file-draft";
 import type { UserPlaybookDraft } from "@/app/_features/plays/playbooks/user-playbook-draft";
 import { memoryRoutes, peopleRoutes } from "@/app/_features/shell/routes";
 import { extractBillingDraftsFromToolParts } from "./billing-draft-utils";
@@ -355,7 +355,7 @@ export function findNextIncompleteDeckIndex(
 export type RecordDeckCompletionRecordKind =
   | MemoryRecordResultKind
   | "billing"
-  | "file"
+  | "resource"
   | "playbook";
 
 export type RecordDeckCompletionEntry = {
@@ -444,12 +444,12 @@ export function buildDeckCompletionEntries(
       case "file-draft":
         return {
           id: item.id,
-          summary: `Saved ${item.draft.fileName} to Files`,
+          summary: `Saved ${item.draft.fileName} to Resources`,
           linkLabel: item.draft.fileName,
           href: savedHrefs.get(item.id) ?? null,
-          memoryLabel: "Files",
+          memoryLabel: "Resources",
           subtitle: item.draft.category,
-          recordKind: "file",
+          recordKind: "resource",
         };
       case "playbook-draft": {
         const stepCount = item.draft.definition.steps.length;

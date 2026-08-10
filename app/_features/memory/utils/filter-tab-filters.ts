@@ -27,7 +27,7 @@ export const FILTER_ENTITY_TYPE_LABELS: Record<LearningEntityType, string> = {
   organization: "Organizations",
   work: "Projects",
   meeting: "Meetings",
-  file: "Files",
+  resource: "Resources",
   billing: "Billing",
   me: "You",
 };
@@ -38,7 +38,7 @@ export const FILTER_ENTITY_TYPE_ORDER: LearningEntityType[] = [
   "organization",
   "work",
   "meeting",
-  "file",
+  "resource",
   "billing",
   "me",
 ];

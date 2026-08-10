@@ -15,7 +15,7 @@ const VARIANT_CLASS = {
 } as const;
 
 type MemoryCreateLinkButtonProps = {
-  recordKind: "person" | "org" | "work" | "billing" | "meeting" | "file";
+  recordKind: "person" | "org" | "work" | "billing" | "meeting" | "resource";
   recordId: string;
   recordName: string;
   existingConnections: Connection[];

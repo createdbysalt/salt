@@ -22,6 +22,7 @@
  */
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import { toLearningDbEntityType } from "@/app/_lib/learning";
 import type { Json } from "@/app/_lib/supabase/database.types";
 import type { LearningEntityType, TableUpdate } from "./types";
 
@@ -55,11 +56,13 @@ export async function memoryRollbackField(
   const admin = createAdminClient();
 
   // 1. Get the current provenance (most recent applied)
+  const dbEntityType = toLearningDbEntityType(input.entityType);
+
   const { data: currentProvenance, error: currentError } = await admin
     .from("profile_field_provenance")
     .select("id, value, previous_value, previous_provenance_id")
     .eq("workspace_id", input.workspaceId)
-    .eq("entity_type", input.entityType)
+    .eq("entity_type", dbEntityType)
     .eq("entity_id", input.entityId)
     .eq("field", input.field)
     .eq("status", "applied")
@@ -93,7 +96,7 @@ export async function memoryRollbackField(
       .select("id, value")
       .eq("id", input.toProvenanceId)
       .eq("workspace_id", input.workspaceId)
-      .eq("entity_type", input.entityType)
+      .eq("entity_type", dbEntityType)
       .eq("entity_id", input.entityId)
       .eq("field", input.field)
       .maybeSingle();
@@ -146,7 +149,7 @@ export async function memoryRollbackField(
     .from("profile_field_provenance")
     .insert({
       workspace_id: input.workspaceId,
-      entity_type: input.entityType,
+      entity_type: dbEntityType,
       entity_id: input.entityId,
       field: input.field,
       // Boundary cast: the restored value came out of the provenance table's
@@ -236,7 +239,7 @@ async function applyRollback(
         .eq("workspace_id", workspaceId);
       break;
 
-    case "file":
+    case "resource":
       await admin
         .from("files")
         .update({ [field]: value } as TableUpdate<"files">)

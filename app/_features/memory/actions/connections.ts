@@ -3,13 +3,19 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/app/_lib/supabase/server";
 import { getWorkspaceContext } from "@/app/_lib/utils/user-dashboard";
-import { updateMemoryFileConnection } from "@/app/_features/files/actions/file-actions";
+import { updateMemoryFileConnection } from "@/app/_features/resources/actions/file-actions";
 import {
   deleteEdgeBetween,
   upsertEdge,
   type EdgeEntityType,
 } from "@/app/_features/memory/lib/edge-store";
 import type { Connection } from "@/app/_lib/demo/people-demo-data";
+
+/** App `resource` → entity_links short-dialect `file`. */
+function toEdgeEntityType(type: string): EdgeEntityType {
+  if (type === "resource") return "file";
+  return type as EdgeEntityType;
+}
 
 export type LinkCandidateType =
   | "person"
@@ -18,7 +24,7 @@ export type LinkCandidateType =
   | "billing"
   | "conversation"
   | "meeting"
-  | "file";
+  | "resource";
 
 export type LinkCandidate = {
   id: string;
@@ -28,7 +34,7 @@ export type LinkCandidate = {
 };
 
 type FetchCandidatesInput = {
-  recordKind: "person" | "org" | "work" | "billing" | "meeting" | "file";
+  recordKind: "person" | "org" | "work" | "billing" | "meeting" | "resource";
   recordId: string;
   existingConnections: Array<{ id: string; type: string }>;
 };
@@ -159,12 +165,15 @@ export async function fetchLinkCandidates(
 }
 
 type PersistConnectionInput = {
-  recordKind: "person" | "org" | "work" | "billing" | "meeting" | "file";
+  recordKind: "person" | "org" | "work" | "billing" | "meeting" | "resource";
   recordId: string;
   connection: Connection;
 };
 
-function getEntityPath(type: LinkCandidateType, id: string): string {
+function getEntityPath(
+  type: LinkCandidateType | PersistConnectionInput["recordKind"],
+  id: string
+): string {
   switch (type) {
     case "person":
       return `/people/${id}`;
@@ -178,8 +187,8 @@ function getEntityPath(type: LinkCandidateType, id: string): string {
       return `/meetings/${id}`;
     case "conversation":
       return `/conversations/${id}`;
-    case "file":
-      return `/files?preview=${id}`;
+    case "resource":
+      return `/resources?preview=${id}`;
     default:
       return "";
   }
@@ -228,7 +237,7 @@ export async function persistMemoryConnection(
     const result = await upsertEdge(supabase, {
       workspaceId: workspace.id,
       source: { type: "billing", id: input.recordId },
-      target: { type: connectionType, id: input.connection.id },
+      target: { type: toEdgeEntityType(connectionType), id: input.connection.id },
       relationType: "related",
       provenance: { source: "manual" },
     });
@@ -266,10 +275,11 @@ export async function persistMemoryConnection(
     }
   } else if (connectionType === "conversation") {
     return { success: false, error: "Conversations are automatically linked to their participants" };
-  } else if (input.recordKind === "file") {
+  } else if (input.recordKind === "resource") {
     if (connectionType === "person" || connectionType === "org" || connectionType === "work") {
       const linkResult = await upsertEdge(supabase, {
         workspaceId: workspace.id,
+        // entity_links short dialect still stores resources as "file"
         source: { type: "file", id: input.recordId },
         target: { type: connectionType, id: input.connection.id },
         relationType: "attachment",
@@ -277,7 +287,7 @@ export async function persistMemoryConnection(
       });
 
       if (!linkResult.ok) {
-        console.error("Failed to link file connection:", linkResult.message);
+        console.error("Failed to link resource connection:", linkResult.message);
         return { success: false, error: linkResult.message };
       }
 
@@ -287,24 +297,24 @@ export async function persistMemoryConnection(
       });
 
       if (!legacyResult.ok) {
-        console.error("Failed to sync file legacy connection:", legacyResult.message);
+        console.error("Failed to sync resource legacy connection:", legacyResult.message);
         return { success: false, error: legacyResult.message };
       }
 
-      revalidatePath("/files");
+      revalidatePath("/resources");
       return { success: true };
     }
 
     return {
       success: false,
-      error: "Files can only be linked to people, organizations, or work items",
+      error: "Resources can only be linked to people, organizations, or work items",
     };
   } else {
-    // Generic explicit edge between memory records (short dialect throughout)
+    // Generic explicit edge between memory records (DB short dialect at boundary)
     const result = await upsertEdge(supabase, {
       workspaceId: workspace.id,
-      source: { type: input.recordKind, id: input.recordId },
-      target: { type: connectionType as EdgeEntityType, id: input.connection.id },
+      source: { type: toEdgeEntityType(input.recordKind), id: input.recordId },
+      target: { type: toEdgeEntityType(connectionType), id: input.connection.id },
       relationType: "related",
       provenance: { source: "manual" },
     });
@@ -325,7 +335,7 @@ export async function persistMemoryConnection(
 }
 
 type RemoveConnectionInput = {
-  recordKind: "person" | "org" | "work" | "billing" | "meeting" | "file";
+  recordKind: "person" | "org" | "work" | "billing" | "meeting" | "resource";
   recordId: string;
   connectionType: LinkCandidateType;
   connectionId: string;
@@ -337,7 +347,7 @@ export async function removeMemoryConnection(
   const { workspace } = await getWorkspaceContext();
   const supabase = await createClient();
 
-  if (input.recordKind === "file") {
+  if (input.recordKind === "resource") {
     if (
       input.connectionType === "person" ||
       input.connectionType === "org" ||
@@ -347,13 +357,14 @@ export async function removeMemoryConnection(
         .from("entity_links")
         .delete()
         .eq("workspace_id", workspace.id)
+        // entity_links short dialect still stores resources as "file"
         .eq("source_type", "file")
         .eq("source_id", input.recordId)
         .eq("target_type", input.connectionType)
         .eq("target_id", input.connectionId);
 
       if (linkError) {
-        console.error("Failed to remove file entity link:", linkError);
+        console.error("Failed to remove resource entity link:", linkError);
         return { success: false, error: linkError.message };
       }
 
@@ -385,19 +396,19 @@ export async function removeMemoryConnection(
             .eq("workspace_id", workspace.id);
 
           if (legacyError) {
-            console.error("Failed to clear file legacy connection:", legacyError);
+            console.error("Failed to clear resource legacy connection:", legacyError);
             return { success: false, error: legacyError.message };
           }
         }
       }
 
-      revalidatePath("/files");
+      revalidatePath("/resources");
       return { success: true };
     }
 
     return {
       success: false,
-      error: "Only people, organizations, and work connections can be removed from files",
+      error: "Only people, organizations, and work connections can be removed from resources",
     };
   }
 
@@ -407,8 +418,8 @@ export async function removeMemoryConnection(
 
   const result = await deleteEdgeBetween(supabase, {
     workspaceId: workspace.id,
-    a: { type: input.recordKind, id: input.recordId },
-    b: { type: input.connectionType, id: input.connectionId },
+    a: { type: toEdgeEntityType(input.recordKind), id: input.recordId },
+    b: { type: toEdgeEntityType(input.connectionType), id: input.connectionId },
     // Mentions belong to the note that made them and re-sync from its content
     // — only manual/care edges are removable here.
     relationType: "related",

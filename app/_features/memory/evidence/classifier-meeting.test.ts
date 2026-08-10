@@ -137,8 +137,8 @@ describe("classifyEmailCapture — stable document identifiers", () => {
     const first = await classifyEmailCapture("ws-1", contractEmail, "cap-1");
     const second = await classifyEmailCapture("ws-1", contractEmail, "cap-2");
 
-    const firstFile = first.find((s) => s.entityType === "file");
-    const secondFile = second.find((s) => s.entityType === "file");
+    const firstFile = first.find((s) => s.entityType === "resource");
+    const secondFile = second.find((s) => s.entityType === "resource");
 
     expect(firstFile?.signal).toBe("contract_detected");
     expect(firstFile?.identifier).toBeDefined();
@@ -149,7 +149,7 @@ describe("classifyEmailCapture — stable document identifiers", () => {
   it("keys the file evidence row to sender + subject", async () => {
     const signals = await classifyEmailCapture("ws-1", contractEmail, "cap-1");
 
-    const fileSignal = signals.find((s) => s.entityType === "file");
+    const fileSignal = signals.find((s) => s.entityType === "resource");
     expect(fileSignal?.identifier).toBe(
       "file:client@acme.com:contract for acme project"
     );

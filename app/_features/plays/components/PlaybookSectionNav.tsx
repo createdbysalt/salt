@@ -16,7 +16,7 @@ export type PlaybookSection =
   | "relationships"
   | "work"
   | "billing"
-  | "files"
+  | "resources"
   | "meetings"
   | "me"
   | "connections"
@@ -167,7 +167,7 @@ const SECTION_META: Record<Exclude<PlaybookSection, "all">, SectionMeta> = {
     description: "Invoices and payments",
     color: "emerald",
   },
-  files: {
+  resources: {
     label: "Resources",
     icon: File,
     description: "Documents, links, and live-watched repos",

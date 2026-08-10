@@ -164,8 +164,8 @@ function surfaceToEntitySurface(
       return "billing";
     case "meeting":
       return "meeting";
-    case "file":
-      return "file";
+    case "resource":
+      return "resource";
     case "workspace":
       return "workspace";
     case "note":

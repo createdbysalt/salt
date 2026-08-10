@@ -1,10 +1,10 @@
-name: Files
-slug: files
+name: Resources
+slug: resources
 description: Documents, attachments, and external resources
 icon: file
 
 memory_types:
-  - file
+  - resource
 
 signals:
   - file_signature_event_sent

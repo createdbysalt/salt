@@ -259,7 +259,7 @@ function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
     combined.includes("master agreement")
   ) {
     signals.push({
-      entityType: "file",
+      entityType: "resource",
       identifier: stableDocumentIdentifier(email, "msa"),
       signal: "msa_detected",
       extractedData: { ...baseData, category: "contract", document_type: "msa" },
@@ -273,7 +273,7 @@ function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
     combined.includes("confidential agreement")
   ) {
     signals.push({
-      entityType: "file",
+      entityType: "resource",
       identifier: stableDocumentIdentifier(email, "nda"),
       signal: "nda_detected",
       extractedData: { ...baseData, category: "contract", document_type: "nda" },
@@ -287,7 +287,7 @@ function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
     combined.includes("terms and conditions")
   ) {
     signals.push({
-      entityType: "file",
+      entityType: "resource",
       identifier: stableDocumentIdentifier(email, "contract"),
       signal: "contract_detected",
       extractedData: { ...baseData, category: "contract" },
@@ -305,7 +305,7 @@ function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
     combined.includes("project scope")
   ) {
     signals.push({
-      entityType: "file",
+      entityType: "resource",
       identifier: stableDocumentIdentifier(email, "sow"),
       signal: "sow_detected",
       extractedData: { ...baseData, category: "proposal", document_type: "sow" },
@@ -319,7 +319,7 @@ function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
     combined.includes("pricing")
   ) {
     signals.push({
-      entityType: "file",
+      entityType: "resource",
       identifier: stableDocumentIdentifier(email, "proposal"),
       signal: "proposal_detected",
       extractedData: { ...baseData, category: "proposal" },
@@ -334,7 +334,7 @@ function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
     combined.includes("design brief")
   ) {
     signals.push({
-      entityType: "file",
+      entityType: "resource",
       identifier: stableDocumentIdentifier(email, "brief"),
       signal: "brief_detected",
       extractedData: { ...baseData, category: "reference", document_type: "brief" },
@@ -360,7 +360,7 @@ function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
 
   if (combined.includes("receipt") || combined.includes("payment received")) {
     signals.push({
-      entityType: "file",
+      entityType: "resource",
       identifier: stableDocumentIdentifier(email, "receipt"),
       signal: "receipt_detected",
       extractedData: { ...baseData, category: "invoice", document_type: "receipt" },
@@ -389,7 +389,7 @@ function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
 
     if (isDesignFile || email.hasAttachments) {
       signals.push({
-        entityType: "file",
+        entityType: "resource",
         identifier: stableDocumentIdentifier(email, "deliverable"),
         signal: "deliverable_detected",
         extractedData: { ...baseData, category: "deliverable" },
@@ -407,7 +407,7 @@ function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
     combined.includes("changes")
   ) {
     signals.push({
-      entityType: "file",
+      entityType: "resource",
       identifier: stableDocumentIdentifier(email, "revision"),
       signal: "revision_detected",
       extractedData: { ...baseData, category: "deliverable", document_type: "revision" },
@@ -428,7 +428,7 @@ function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
     combined.includes("love it")
   ) {
     signals.push({
-      entityType: "file",
+      entityType: "resource",
       identifier: stableDocumentIdentifier(email, "approval"),
       signal: "approval_detected",
       extractedData: { ...baseData, category: "notes", document_type: "approval" },
@@ -443,7 +443,7 @@ function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
     combined.includes("review")
   ) {
     signals.push({
-      entityType: "file",
+      entityType: "resource",
       identifier: stableDocumentIdentifier(email, "feedback"),
       signal: "feedback_detected",
       extractedData: { ...baseData, category: "notes", document_type: "feedback" },
@@ -462,7 +462,7 @@ function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
     combined.includes("intake form")
   ) {
     signals.push({
-      entityType: "file",
+      entityType: "resource",
       identifier: stableDocumentIdentifier(email, "onboarding"),
       signal: "onboarding_doc_detected",
       extractedData: { ...baseData, category: "process", document_type: "onboarding" },
@@ -482,7 +482,7 @@ function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
     combined.includes("please sign")
   ) {
     signals.push({
-      entityType: "file",
+      entityType: "resource",
       identifier: stableDocumentIdentifier(email, "signature"),
       signal: "signature_request_received",
       extractedData: { ...baseData, category: "contract" },
@@ -499,7 +499,7 @@ function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
     combined.includes("shared folder")
   ) {
     signals.push({
-      entityType: "file",
+      entityType: "resource",
       identifier: stableDocumentIdentifier(email, "drive"),
       signal: "drive_share_received",
       extractedData: { ...baseData, category: "reference" },
@@ -508,7 +508,7 @@ function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
 
   if (combined.includes("figma") && combined.includes("shared")) {
     signals.push({
-      entityType: "file",
+      entityType: "resource",
       identifier: stableDocumentIdentifier(email, "figma"),
       signal: "figma_share_received",
       extractedData: { ...baseData, category: "deliverable" },
@@ -517,7 +517,7 @@ function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
 
   if (combined.includes("notion") && combined.includes("shared")) {
     signals.push({
-      entityType: "file",
+      entityType: "resource",
       identifier: stableDocumentIdentifier(email, "notion"),
       signal: "notion_share_received",
       extractedData: { ...baseData, category: "reference" },

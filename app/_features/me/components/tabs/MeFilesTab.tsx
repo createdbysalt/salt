@@ -13,9 +13,9 @@ import {
 import { toast } from "sonner";
 import { Input } from "@repo/ui";
 import { cn } from "@repo/utils";
-import type { MemoryFile } from "@/app/_features/files/data";
-import { FILE_CATEGORY_LABEL } from "@/app/_features/files/data";
-import { FilesPreviewModal } from "@/app/_features/files/components/FilesPreviewModal";
+import type { MemoryFile } from "@/app/_features/resources/data";
+import { FILE_CATEGORY_LABEL } from "@/app/_features/resources/data";
+import { FilesPreviewModal } from "@/app/_features/resources/components/FilesPreviewModal";
 import { uploadClientFile } from "@/app/_features/people/actions/files/upload-client-file";
 
 function relativeUpdated(iso: string): string {

@@ -64,7 +64,7 @@ export type PlaybookSection =
   | "relationships"
   | "work"
   | "billing"
-  | "files"
+  | "resources"
   | "meetings"
   | "me"
   | "connections"

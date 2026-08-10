@@ -47,20 +47,29 @@ function resolveV2PlaybookFromMetadata(row: PlayRunRow): V2Resolution | null {
 
   // Prefer persisted section metadata, then fall back to the slug pattern.
   let section: PlaybookSection = "work";
-  if (typeof meta?.section === "string" && isPlaybookSection(meta.section)) {
-    section = meta.section;
-  } else if (playbookSlug.includes("person") || playbookSlug.includes("org") || playbookSlug.includes("relationship")) {
-    section = "relationships";
-  } else if (playbookSlug.includes("work") || playbookSlug.includes("project")) {
-    section = "work";
-  } else if (playbookSlug.includes("billing") || playbookSlug.includes("invoice") || playbookSlug.includes("payment")) {
-    section = "billing";
-  } else if (playbookSlug.includes("meeting") || playbookSlug.includes("calendar")) {
-    section = "meetings";
-  } else if (playbookSlug.includes("file")) {
-    section = "files";
-  } else if (playbookSlug.includes("email") || playbookSlug.includes("triage") || playbookSlug.includes("communication")) {
-    section = "communication";
+  let resolvedFromMeta = false;
+  if (typeof meta?.section === "string") {
+    // Legacy runs may persist section "files".
+    const normalized = meta.section === "files" ? "resources" : meta.section;
+    if (isPlaybookSection(normalized)) {
+      section = normalized;
+      resolvedFromMeta = true;
+    }
+  }
+  if (!resolvedFromMeta) {
+    if (playbookSlug.includes("person") || playbookSlug.includes("org") || playbookSlug.includes("relationship")) {
+      section = "relationships";
+    } else if (playbookSlug.includes("work") || playbookSlug.includes("project")) {
+      section = "work";
+    } else if (playbookSlug.includes("billing") || playbookSlug.includes("invoice") || playbookSlug.includes("payment")) {
+      section = "billing";
+    } else if (playbookSlug.includes("meeting") || playbookSlug.includes("calendar")) {
+      section = "meetings";
+    } else if (playbookSlug.includes("file") || playbookSlug.includes("resource")) {
+      section = "resources";
+    } else if (playbookSlug.includes("email") || playbookSlug.includes("triage") || playbookSlug.includes("communication")) {
+      section = "communication";
+    }
   }
 
   const sectionMeta = SECTION_METADATA[section];

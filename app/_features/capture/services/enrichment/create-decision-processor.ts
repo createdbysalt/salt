@@ -90,7 +90,7 @@ export async function processCreateDecision(
  */
 function proposalSurfaceToEntityType(
   surface: MemoryProposal["surface"]
-): "person" | "organization" | "work" | "meeting" | "file" | "billing" {
+): "person" | "organization" | "work" | "meeting" | "resource" | "billing" {
   switch (surface) {
     case "people":
       return "person";
@@ -101,7 +101,7 @@ function proposalSurfaceToEntityType(
     case "meetings":
       return "meeting";
     case "files":
-      return "file";
+      return "resource";
     case "billing":
       return "billing";
     default:

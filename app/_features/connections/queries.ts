@@ -14,6 +14,12 @@ const GRAPH_BILLING_LIMIT = 100;
 const GRAPH_FILE_LIMIT = 100;
 const GRAPH_MEETING_LIMIT = 100;
 
+/** DB short-dialect `file` maps to graph node type `resource` (product noun). */
+function toGraphNodeType(dbType: string): NodeType {
+  if (dbType === "file") return "resource";
+  return dbType as NodeType;
+}
+
 export async function getConnectionsGraphData(
   workspaceId: string
 ): Promise<LegacyConnectionsGraph> {
@@ -69,7 +75,7 @@ export async function getConnectionsGraphData(
       .limit(GRAPH_BILLING_LIMIT),
     supabase
       .from("files")
-      .select("id, file_name, person_id, organization_id, ai_summary")
+      .select("id, file_name, person_id, organization_id, ai_summary, resource_type")
       .is("deleted_at", null)
       .is("archived_at", null)
       .order("created_at", { ascending: false })
@@ -226,12 +232,12 @@ export async function getConnectionsGraphData(
       (f.person_id && personIdSet.has(f.person_id)) ||
       (f.organization_id && orgIdSet.has(f.organization_id));
     if (!linked) continue;
-    nodes.set(nid("file", f.id), {
-      id: nid("file", f.id),
-      type: "file",
+    nodes.set(nid("resource", f.id), {
+      id: nid("resource", f.id),
+      type: "resource",
       label: f.file_name,
-      sublabel: "File",
-      href: `/files?preview=${f.id}`,
+      sublabel: f.resource_type && f.resource_type !== "file" ? "Resource" : "File",
+      href: `/resources?preview=${f.id}`,
       summary: f.ai_summary ?? undefined,
     });
   }
@@ -317,8 +323,8 @@ export async function getConnectionsGraphData(
   // Explicit edges (manual/care links + note mentions) from entity_links
   for (const link of entityLinks) {
     addEdge(
-      nid(link.source_type as NodeType, link.source_id),
-      nid(link.target_type as NodeType, link.target_id),
+      nid(toGraphNodeType(link.source_type), link.source_id),
+      nid(toGraphNodeType(link.target_type), link.target_id),
       (link.relation_type as GraphEdge["edgeType"]) ?? "related"
     );
   }
@@ -346,13 +352,13 @@ export async function getConnectionsGraphData(
     }
   }
 
-  // File edges (attachment via person/org FKs; file→work edges arrive via entity_links)
+  // Resource edges (attachment via person/org FKs; resource→work edges arrive via entity_links)
   for (const f of files) {
     if (f.person_id && personIdSet.has(f.person_id)) {
-      addEdge(nid("file", f.id), nid("person", f.person_id), "attachment");
+      addEdge(nid("resource", f.id), nid("person", f.person_id), "attachment");
     }
     if (f.organization_id && orgIdSet.has(f.organization_id)) {
-      addEdge(nid("file", f.id), nid("org", f.organization_id), "attachment");
+      addEdge(nid("resource", f.id), nid("org", f.organization_id), "attachment");
     }
   }
 
@@ -734,39 +740,41 @@ export async function getEntityConnections(
       .is("archived_at", null);
 
     for (const f of fileRows ?? []) {
-      const isResource = f.file_type === "link" && f.resource_type && f.resource_type !== "file";
-
-      if (isResource) {
-        addConnection({
-          id: nid("resource", f.id),
-          nodeType: "resource",
-          label: f.file_name,
-          sublabel: f.external_url ? new URL(f.external_url).hostname.replace(/^www\./, "") : "Resource",
-          href: f.external_url ?? undefined,
-          metadata: {
-            type: "resource",
-            resourceType: f.resource_type,
-            resourceUrl: f.external_url ?? undefined,
-            mode: (f.mode ?? "static") as "static" | "live",
-            lastActivityAt: f.last_activity_at ?? undefined,
-            lastActivitySummary: f.last_activity_summary ?? undefined,
-          },
-        });
-      } else {
-        addConnection({
-          id: nid("file", f.id),
-          nodeType: "file",
-          label: f.file_name,
-          sublabel: f.mime_type ?? "File",
-          href: `/files?preview=${f.id}`,
-          metadata: {
-            type: "file",
-            fileName: f.file_name,
-            mimeType: f.mime_type ?? undefined,
-            sizeBytes: f.size_bytes ?? undefined,
-          },
-        });
+      const isExternal =
+        f.file_type === "link" && f.resource_type && f.resource_type !== "file";
+      let hostSublabel: string | undefined;
+      if (f.external_url) {
+        try {
+          hostSublabel = new URL(f.external_url).hostname.replace(/^www\./, "");
+        } catch {
+          hostSublabel = undefined;
+        }
       }
+
+      addConnection({
+        id: nid("resource", f.id),
+        nodeType: "resource",
+        label: f.file_name,
+        sublabel: isExternal
+          ? (hostSublabel ?? "Resource")
+          : (f.mime_type ?? "File"),
+        href: `/resources?preview=${f.id}`,
+        metadata: isExternal
+          ? {
+              type: "resource",
+              resourceType: f.resource_type,
+              resourceUrl: f.external_url ?? undefined,
+              mode: (f.mode ?? "static") as "static" | "live",
+              lastActivityAt: f.last_activity_at ?? undefined,
+              lastActivitySummary: f.last_activity_summary ?? undefined,
+            }
+          : {
+              type: "file",
+              fileName: f.file_name,
+              mimeType: f.mime_type ?? undefined,
+              sizeBytes: f.size_bytes ?? undefined,
+            },
+      });
     }
   }
 

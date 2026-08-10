@@ -68,7 +68,7 @@ const SECTION_GRADIENT_LEFT: Record<PlaybookSection, string | null> = {
   work: "bg-[radial-gradient(120%_90%_at_0%_50%,color-mix(in_oklab,var(--sky)_12%,transparent)_0%,transparent_65%),linear-gradient(180deg,var(--card)_0%,var(--card)_100%)]",
   billing:
     "bg-[radial-gradient(120%_90%_at_0%_50%,color-mix(in_oklab,rgb(16_185_129)_11%,transparent)_0%,transparent_65%),linear-gradient(180deg,var(--card)_0%,var(--card)_100%)]",
-  files:
+  resources:
     "bg-[radial-gradient(120%_90%_at_0%_50%,color-mix(in_oklab,rgb(245_158_11)_11%,transparent)_0%,transparent_65%),linear-gradient(180deg,var(--card)_0%,var(--card)_100%)]",
   meetings:
     "bg-[radial-gradient(120%_90%_at_0%_50%,color-mix(in_oklab,var(--flame)_13%,transparent)_0%,transparent_65%),linear-gradient(180deg,var(--card)_0%,var(--card)_100%)]",

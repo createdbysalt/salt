@@ -5,9 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowUpRight, FileText, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import type { MemoryFileDraft } from "@/app/_features/files/actions/memory-file-draft";
-import { saveMemoryFileAction } from "@/app/_features/files/actions/save-memory-file";
-import { FILE_CATEGORY_LABEL } from "@/app/_features/files/data";
+import type { MemoryFileDraft } from "@/app/_features/resources/actions/memory-file-draft";
+import { saveMemoryFileAction } from "@/app/_features/resources/actions/save-memory-file";
+import { FILE_CATEGORY_LABEL } from "@/app/_features/resources/data";
 import type { UserAttachmentRef } from "@/app/_features/ask-salt/file-draft-utils";
 import { validateFile } from "@/app/_features/relationships/lib/file-validation";
 

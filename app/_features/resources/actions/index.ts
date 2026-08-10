@@ -239,3 +239,17 @@ export async function fetchResourcePreview(url: string) {
     metadata,
   };
 }
+
+export {
+  searchFileLinkTargets,
+  updateMemoryFileConnection,
+  archiveMemoryFile,
+  updateMemoryFileCategory,
+  updateMemoryFileField,
+  logFileViewActivity,
+  fetchFileDetailData,
+  type FileLinkTarget,
+  type FileLinkSearchResult,
+  type FileDetailData,
+} from "./file-actions";
+export { saveMemoryFileAction } from "./save-memory-file";

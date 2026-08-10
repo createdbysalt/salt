@@ -2,7 +2,7 @@ import { PEOPLE, type Invoice, type LinkedFile } from "./people-demo-data";
 import { ORGS } from "./orgs-demo-data";
 import { extractWikilinks } from "@/app/_lib/notes";
 
-export type NodeType = "person" | "org" | "work" | "billing" | "file" | "note";
+export type NodeType = "person" | "org" | "work" | "billing" | "file" | "note" | "resource";
 
 export type GraphNode = {
   id: string;
@@ -248,12 +248,12 @@ export function buildConnectionsGraph(): ConnectionsGraph {
   }
 
   for (const f of MEMORY_FILES) {
-    nodes.set(nid("file", f.id), {
-      id: nid("file", f.id),
-      type: "file",
+    nodes.set(nid("resource", f.id), {
+      id: nid("resource", f.id),
+      type: "resource",
       label: f.name,
       sublabel: f.provider,
-      href: "/files",
+      href: "/resources",
     });
   }
 
@@ -285,9 +285,9 @@ export function buildConnectionsGraph(): ConnectionsGraph {
 
   for (const f of MEMORY_FILES) {
     const t = f.linkedTo;
-    if (t.kind === "person") addEdge(nid("file", f.id), nid("person", t.id));
-    else if (t.kind === "org") addEdge(nid("file", f.id), nid("org", t.id));
-    else if (t.kind === "work") addEdge(nid("file", f.id), nid("work", t.id));
+    if (t.kind === "person") addEdge(nid("resource", f.id), nid("person", t.id));
+    else if (t.kind === "org") addEdge(nid("resource", f.id), nid("org", t.id));
+    else if (t.kind === "work") addEdge(nid("resource", f.id), nid("work", t.id));
   }
 
   for (const n of NOTES) {
@@ -307,5 +307,6 @@ export const TYPE_META: Record<NodeType, { label: string; color: string }> = {
   work: { label: "Work", color: "#B89BD9" },
   billing: { label: "Billing", color: "#D9A45B" },
   file: { label: "Resources", color: "#E8B4A8" },
+  resource: { label: "Resources", color: "#10B981" },
   note: { label: "Notes", color: "#9CA3AF" },
 };

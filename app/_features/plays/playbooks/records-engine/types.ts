@@ -10,7 +10,7 @@ export type ProfileEntityType =
   | "workspace"
   | "billing_record"
   | "meeting"
-  | "file";
+  | "resource";
 
 export type PersonProfileFieldKey =
   | "name"

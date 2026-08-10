@@ -9,7 +9,7 @@ import { parseNodeId, TYPE_META, type GraphNode, type NodeType } from "../types"
 const APPLE_EASE = [0.32, 0.72, 0, 1] as const;
 
 // Kinds the create-link dialog can attach to a record
-const LINKABLE_KINDS = new Set(["person", "org", "work", "billing", "meeting", "file"]);
+const LINKABLE_KINDS = new Set(["person", "org", "work", "billing", "meeting", "resource"]);
 
 export function GraphDetailPanel({
   node,
@@ -28,7 +28,7 @@ export function GraphDetailPanel({
   const parsed = parseNodeId(node.id);
   const linkKind =
     parsed && LINKABLE_KINDS.has(parsed.type)
-      ? (parsed.type as "person" | "org" | "work" | "billing" | "meeting" | "file")
+      ? (parsed.type as "person" | "org" | "work" | "billing" | "meeting" | "resource")
       : null;
   const existingConnections = neighbors.map((n) => {
     const p = parseNodeId(n.id);

@@ -16,6 +16,10 @@
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import type { Json } from "@/app/_lib/supabase/database.types";
 import {
+  toLearningDbEntityType,
+  type LearningEntityType,
+} from "@/app/_lib/learning";
+import {
   SIGNAL_WEIGHTS,
   canonicalizeIdentifier,
   probabilityToLogOdds,
@@ -23,6 +27,10 @@ import {
 } from "@/app/_features/memory/care/intake";
 import { autoCreateRecord } from "./auto-create-record";
 import type { ExtractedFieldValue } from "./types";
+
+function toPendingEvidenceDbType(entityType: IntakeEntityType): string {
+  return toLearningDbEntityType(entityType as LearningEntityType);
+}
 
 /**
  * P7: Relationship-grade signals indicate a real relationship worth tracking.
@@ -196,7 +204,7 @@ export async function routeIntakeProposal(
     .from("pending_evidence")
     .select("id, status, log_odds_score, extracted_fields")
     .eq("workspace_id", input.workspaceId)
-    .eq("entity_type", input.entityType)
+    .eq("entity_type", toPendingEvidenceDbType(input.entityType))
     .eq("identifier", canonicalId)
     .single();
 
@@ -236,7 +244,7 @@ export async function routeIntakeProposal(
       .from("pending_evidence")
       .insert({
         workspace_id: input.workspaceId,
-        entity_type: input.entityType,
+        entity_type: toPendingEvidenceDbType(input.entityType),
         identifier: canonicalId,
         log_odds_score: proposalScore,
         status: "suggested",
@@ -266,7 +274,7 @@ export async function routeIntakeProposal(
   // the attempt entirely instead of failing closed on every proposal.
   if (
     input.autoApply &&
-    input.entityType !== "file" &&
+    input.entityType !== "resource" &&
     hasRelationshipGradeSignal(input.signals)
   ) {
     const created = await autoCreateRecord({

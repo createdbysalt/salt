@@ -2,7 +2,7 @@ import "server-only";
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import type { Json } from "@/app/_lib/supabase/database.types";
-import type { EvidenceType } from "@/app/_lib/learning";
+import { toLearningDbEntityType, type EvidenceType } from "@/app/_lib/learning";
 import { scheduleOrgHealthRecompute } from "@/app/_features/orgs/health/recompute";
 import { scheduleRelationshipHealthRecompute } from "@/app/_features/people/health/recompute";
 import { scheduleWorkHealthRecompute } from "@/app/_features/work/health/recompute";
@@ -76,9 +76,13 @@ export async function writeProfileFieldProvenance(input: {
   status: ProfileProvenanceStatus;
 }): Promise<string | null> {
   const admin = createAdminClient();
+  const dbEntityType =
+    input.entityType === "resource"
+      ? toLearningDbEntityType("resource")
+      : input.entityType;
   const row = {
     workspace_id: input.workspaceId,
-    entity_type: input.entityType,
+    entity_type: dbEntityType,
     entity_id: input.entityId,
     field: input.field,
     value: { text: input.value },

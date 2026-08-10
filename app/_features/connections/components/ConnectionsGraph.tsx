@@ -19,7 +19,7 @@ type FGNode = NodeObject &
   };
 type FGLink = LinkObject<FGNode>;
 
-const TYPES: NodeType[] = ["person", "org", "work", "billing", "file", "note", "meeting"];
+const TYPES: NodeType[] = ["person", "org", "work", "billing", "resource", "note", "meeting"];
 
 function nodeRadius(degree: number) {
   return 6.5 + Math.min(10, Math.sqrt(degree) * 2.6);

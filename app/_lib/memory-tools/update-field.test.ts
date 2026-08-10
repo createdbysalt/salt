@@ -76,6 +76,9 @@ vi.mock("@/app/_lib/learning", () => ({
     status: unknown,
     details: unknown
   ) => resolveEvidence(workspaceId, evidenceIds, status, details),
+  toLearningDbEntityType: (type: string) => (type === "resource" ? "file" : type),
+  fromLearningDbEntityType: (value: string | null | undefined) =>
+    value === "file" || value === "resource" ? "resource" : value ?? null,
 }));
 
 vi.mock("./get-threshold", () => ({

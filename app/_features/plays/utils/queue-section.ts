@@ -12,7 +12,7 @@ export const QUEUE_SECTION_ORDER: QueueSectionFilter[] = [
   "relationships",
   "work",
   "billing",
-  "files",
+  "resources",
   "meetings",
   "me",
 ];
@@ -33,11 +33,13 @@ export function getSectionFromFindingType(type: FindingType): QueueSectionFilter
 
 export function getSectionFromPlayRun(play: PlayRunRow): QueueSectionFilter {
   const metadataSection = play.metadata?.section;
-  if (
-    typeof metadataSection === "string" &&
-    QUEUE_SECTION_ORDER.includes(metadataSection as QueueSectionFilter)
-  ) {
-    return metadataSection as QueueSectionFilter;
+  if (typeof metadataSection === "string") {
+    // Legacy play runs may still store section "files".
+    const normalized =
+      metadataSection === "files" ? "resources" : metadataSection;
+    if (QUEUE_SECTION_ORDER.includes(normalized as QueueSectionFilter)) {
+      return normalized as QueueSectionFilter;
+    }
   }
 
   const slug = play.player_slug ?? play.source_context?.playbook_slug;
@@ -52,8 +54,8 @@ export function getSectionFromPlayRun(play: PlayRunRow): QueueSectionFilter {
   if (slug.includes("meeting") || slug.includes("calendar")) {
     return "meetings";
   }
-  if (slug.includes("file")) {
-    return "files";
+  if (slug.includes("file") || slug.includes("resource")) {
+    return "resources";
   }
   return "work";
 }
@@ -69,8 +71,8 @@ export function getSectionFromLearningEntity(
       return "work";
     case "billing":
       return "billing";
-    case "file":
-      return "files";
+    case "resource":
+      return "resources";
     case "meeting":
       return "meetings";
     case "me":

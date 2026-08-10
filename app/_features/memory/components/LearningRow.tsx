@@ -51,7 +51,7 @@ const ENTITY_PLAYBOOK_LABELS: Record<LearningEntityType, string> = {
   organization: "Memory Care · Records",
   work: "Memory Care · Records",
   meeting: "Memory Care · Records",
-  file: "Memory Care · Records",
+  resource: "Memory Care · Records",
   me: "Memory Care · Records",
   billing: "Memory Care · Records",
 };
@@ -91,7 +91,7 @@ function entitySection(entityType: LearningEntityType): Exclude<PlaybookSection,
       return "work";
     case "meeting":
       return "meetings";
-    case "file":
+    case "resource":
       return "files";
     case "me":
       return "me";

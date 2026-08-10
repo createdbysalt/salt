@@ -5,9 +5,9 @@ import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { revalidatePath } from "next/cache";
 import { generateFileSummary } from "./generate-file-summary";
-import { setFileWorkLink } from "@/app/_features/files/utils/work-links";
+import { setFileWorkLink } from "@/app/_features/resources/utils/work-links";
 import { extractAndStoreBrandMetadata } from "@/app/_lib/ai/brand-metadata-extractor";
-import type { FileCategory } from "@/app/_features/files/data";
+import type { FileCategory } from "@/app/_features/resources/data";
 
 export interface UploadClientFileInput {
   personId?: string | null;
@@ -67,7 +67,7 @@ function ownerSegment(input: { personId?: string | null; organizationId?: string
 function revalidateOwnerPaths(input: { personId?: string | null; organizationId?: string | null }): void {
   if (input.personId) revalidatePath(`/people/${input.personId}`);
   if (input.organizationId) revalidatePath(`/orgs/${input.organizationId}`);
-  revalidatePath("/files");
+  revalidatePath("/resources");
 }
 
 /**

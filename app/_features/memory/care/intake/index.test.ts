@@ -184,9 +184,9 @@ describe("ENTITY_TIERS", () => {
     expect(ENTITY_TIERS.organization).toBe(1);
   });
 
-  it("has person and file at tier 2", () => {
+  it("has person and resource at tier 2", () => {
     expect(ENTITY_TIERS.person).toBe(2);
-    expect(ENTITY_TIERS.file).toBe(2);
+    expect(ENTITY_TIERS.resource).toBe(2);
   });
 
   it("has work and meeting at tier 3", () => {

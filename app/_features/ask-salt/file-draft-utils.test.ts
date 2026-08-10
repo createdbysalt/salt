@@ -28,10 +28,10 @@ describe("extractMemoryFileDraftFromToolOutput", () => {
 });
 
 describe("extractMemoryFileDraftsFromToolParts", () => {
-  it("collects available memory_save_file drafts", () => {
+  it("collects available memory_save_resource drafts", () => {
     const drafts = extractMemoryFileDraftsFromToolParts([
       {
-        type: "tool-memory_save_file",
+        type: "tool-memory_save_resource",
         state: "output-available",
         output: {
           drafted: true,
@@ -46,6 +46,26 @@ describe("extractMemoryFileDraftsFromToolParts", () => {
 
     expect(drafts).toHaveLength(1);
     expect(drafts[0]?.fileName).toBe("Proposal.pdf");
+  });
+
+  it("still accepts the memory_save_file alias", () => {
+    const drafts = extractMemoryFileDraftsFromToolParts([
+      {
+        type: "tool-memory_save_file",
+        state: "output-available",
+        output: {
+          drafted: true,
+          draft: {
+            fileName: "Legacy.pdf",
+            fileType: "file",
+            personName: "Harbor & Co",
+          },
+        },
+      },
+    ]);
+
+    expect(drafts).toHaveLength(1);
+    expect(drafts[0]?.fileName).toBe("Legacy.pdf");
   });
 });
 

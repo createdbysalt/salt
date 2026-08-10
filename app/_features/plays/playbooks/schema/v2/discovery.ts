@@ -30,7 +30,7 @@ const SECTIONS: PlaybookSection[] = [
   "relationships",
   "work",
   "billing",
-  "files",
+  "resources",
   "meetings",
   "me",
   "connections",

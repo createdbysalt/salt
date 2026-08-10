@@ -33,7 +33,7 @@ const SECTION_ORDER: PlaybookSectionFilter[] = [
   "relationships",
   "work",
   "billing",
-  "files",
+  "resources",
   "meetings",
   "me",
 ];

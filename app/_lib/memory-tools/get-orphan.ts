@@ -105,7 +105,7 @@ export async function memoryGetOrphanRecords(
     }
   }
 
-  if (!entityType || entityType === "file") {
+  if (!entityType || entityType === "resource") {
     const { data: files } = await supabase
       .from("files")
       .select("id, file_name")
@@ -124,7 +124,7 @@ export async function memoryGetOrphanRecords(
         if ((linkCount || 0) === 0) {
           records.push({
             id: file.id,
-            entityType: "file",
+            entityType: "resource",
             name: file.file_name || "Unknown",
             signal: "file_orphan",
             severity: 60,

@@ -29,7 +29,7 @@ export const tableUrl = {
   projectSeo: (id: string) => `/projects/${id}/seo`,
   messages: "/messages",
   conversation: (id: string) => `/messages/${id}`,
-  files: "/files",
+  files: "/resources",
   billing: "/billing",
   invoices: "/invoices",
   invoice: (token: string) => `/invoices/${token}`,

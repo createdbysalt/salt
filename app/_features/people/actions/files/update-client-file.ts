@@ -5,7 +5,7 @@ import { trashItem } from "@/app/_features/memory/actions/trash";
 import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
 import { createClient } from "@/app/_lib/supabase/server";
-import { setFileWorkLink } from "@/app/_features/files/utils/work-links";
+import { setFileWorkLink } from "@/app/_features/resources/utils/work-links";
 
 // =============================================================================
 // Update File Description
@@ -36,7 +36,7 @@ export async function updateFileDescription(
       return { success: false, error: error.message };
     }
 
-    revalidatePath("/files");
+    revalidatePath("/resources");
     return { success: true };
   } catch (error) {
     console.error("Error in updateFileDescription:", error);
@@ -218,7 +218,7 @@ export interface DeleteFileResult {
 
 export async function deleteFile(fileId: string): Promise<DeleteFileResult> {
   try {
-    const result = await trashItem("file", fileId);
+    const result = await trashItem("resource", fileId);
     if ("error" in result) {
       return { success: false, error: result.error };
     }
@@ -234,7 +234,7 @@ export async function deleteFile(fileId: string): Promise<DeleteFileResult> {
       .maybeSingle();
 
     if (file?.person_id) revalidatePath(`/people/${file.person_id}`);
-    revalidatePath("/files");
+    revalidatePath("/resources");
 
     return { success: true };
   } catch (error) {

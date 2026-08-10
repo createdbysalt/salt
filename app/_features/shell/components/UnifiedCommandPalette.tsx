@@ -37,7 +37,7 @@ const COMMANDS = [
   { type: "nav", icon: LayoutDashboard, label: "Go to HQ", keywords: "hq today briefing command center focus priorities", href: "/hq", shortcut: "G H" },
   { type: "nav", icon: Network, label: "Go to Memory Map", keywords: "memory map connections graph relationships", href: "/memory", shortcut: "G X" },
   { type: "nav", icon: Inbox, label: "Go to Sources", keywords: "sources connectors integrations apps gmail calendar drive stripe accounts tools connect intake", href: "/sources", shortcut: "G R" },
-  { type: "nav", icon: Database, label: "Go to Memory", keywords: "memory people orgs work files me context", href: "/people", shortcut: "G M" },
+  { type: "nav", icon: Database, label: "Go to Memory", keywords: "memory people orgs work resources files me context", href: "/people", shortcut: "G M" },
   { type: "nav", icon: PenLine, label: "Go to Me", keywords: "me notes reports principles private studio knowledge", href: "/me" },
   { type: "nav", icon: Play, label: "Go to Plays", keywords: "actions tasks ai", href: "/plays", shortcut: "G P" },
   { type: "nav", icon: PenLine, label: "Sources — Activity (audit)", keywords: "notes capture quick stream audit log captures activity", href: "/sources?tab=activity" },

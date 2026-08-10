@@ -61,7 +61,7 @@ const getWorkspaceDetails = cache(async (supabase: SupabaseClient, workspaceId: 
  * Used by:
  * - /hq
  * - /plays
- * - /people, /orgs, /work, /files
+ * - /people, /orgs, /work, /resources
  * - /connections, /meetings, /me, /billing
  *
  * Handles:

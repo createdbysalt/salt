@@ -34,7 +34,7 @@ function getSectionLabel(section: PlaybookSection): string {
     relationships: "Relationships",
     work: "Work",
     billing: "Billing",
-    files: "Files",
+    resources: "Resources",
     meetings: "Meetings",
     me: "Me",
     connections: "Connections",

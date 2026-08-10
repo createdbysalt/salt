@@ -19,6 +19,7 @@ export const PRODUCT_APP_ROUTE_PREFIXES = [
   "/billing",
   "/settings",
   "/orgs",
+  "/resources",
   "/files",
   "/teams",
   "/me",

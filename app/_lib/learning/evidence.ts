@@ -15,6 +15,7 @@
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import type { Json } from "@/app/_lib/supabase/database.types";
 import { detectAndRecordConflict } from "@/app/_lib/memory-tools/get-conflicts";
+import { toLearningDbEntityType } from "./entity-type";
 import type {
   LearningEntityType,
   EvidenceType,
@@ -157,12 +158,12 @@ export async function accumulateEvidence(
       ? new Date(now.getTime() + ttlDays * 24 * 60 * 60 * 1000).toISOString()
       : null;
 
-  // Insert the new evidence
+  // Insert the new evidence (DB still stores resources as `"file"`)
   const { data: evidence, error: insertError } = await admin
     .from("entity_evidence")
     .insert({
       workspace_id: input.workspaceId,
-      entity_type: input.entityType,
+      entity_type: toLearningDbEntityType(input.entityType),
       entity_id: input.entityId,
       field_path: input.fieldPath,
       proposed_value: input.proposedValue as Json,
@@ -211,7 +212,7 @@ export async function getAggregatedConfidence(
     .from("entity_evidence")
     .select("*")
     .eq("workspace_id", workspaceId)
-    .eq("entity_type", entityType)
+    .eq("entity_type", toLearningDbEntityType(entityType))
     .eq("entity_id", entityId)
     .eq("field_path", fieldPath)
     .is("resolved_at", null)
@@ -320,7 +321,7 @@ export async function getPendingEvidenceForEntity(
     .from("entity_evidence")
     .select("field_path")
     .eq("workspace_id", workspaceId)
-    .eq("entity_type", entityType)
+    .eq("entity_type", toLearningDbEntityType(entityType))
     .eq("entity_id", entityId)
     .is("resolved_at", null);
 

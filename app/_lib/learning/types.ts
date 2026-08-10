@@ -10,7 +10,7 @@ export type LearningEntityType =
   | "organization"
   | "work"
   | "meeting"
-  | "file"
+  | "resource"
   | "me"
   | "billing";
 
@@ -38,7 +38,7 @@ export type SignalSurface =
   | "work"
   | "billing"
   | "meeting"
-  | "file"
+  | "resource"
   | "note"
   | "operator"
   | "capture"

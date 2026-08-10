@@ -154,7 +154,7 @@ export async function createBlankFileAction(): Promise<CreateBlankRecordResult> 
     await getWorkspaceContext();
 
     const result = await createClientLink({
-      name: "Untitled file",
+      name: "Untitled resource",
       url: PLACEHOLDER_FILE_URL,
       category: "other",
       description: "Add a link or replace this placeholder URL.",
@@ -164,11 +164,11 @@ export async function createBlankFileAction(): Promise<CreateBlankRecordResult> 
       return { ok: false, message: result.error ?? "Could not create file" };
     }
 
-    revalidatePath("/files");
+    revalidatePath("/resources");
 
     return {
       ok: true,
-      data: { id: result.fileId, href: `/files?preview=${result.fileId}` },
+      data: { id: result.fileId, href: `/resources?preview=${result.fileId}` },
     };
   } catch (error) {
     return {

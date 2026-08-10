@@ -2,10 +2,17 @@ import { describe, it, expect } from "vitest";
 import {
   countFilterFilters,
   EMPTY_FILTER_FILTERS,
+  FILTER_ENTITY_TYPE_LABELS,
   matchesDateRange,
   matchesEntityTypeFilter,
   matchesFilterQuery,
 } from "./filter-tab-filters";
+
+describe("FILTER_ENTITY_TYPE_LABELS", () => {
+  it("labels the resource entity type as Resources", () => {
+    expect(FILTER_ENTITY_TYPE_LABELS.resource).toBe("Resources");
+  });
+});
 
 describe("matchesFilterQuery", () => {
   it("matches everything when the query is blank", () => {

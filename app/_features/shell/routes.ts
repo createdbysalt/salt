@@ -86,7 +86,9 @@ export const memoryRoutes = {
     list: "/work",
     detail: (id: string) => `/work/${id}` as const,
   },
-  files: "/files",
+  /** @deprecated Prefer memoryRoutes.resources — kept as alias during Files→Resources migration */
+  files: "/resources",
+  resources: "/resources",
   billing: {
     list: billingRoutes.home,
     detail: billingRoutes.detail,

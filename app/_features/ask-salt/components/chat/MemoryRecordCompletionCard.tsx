@@ -35,7 +35,7 @@ const RECORD_KIND_META: Record<
   blocker: { icon: AlertTriangle, label: "Blockers" },
   meeting: { icon: Calendar, label: "Meetings" },
   billing: { icon: WalletCards, label: "Billing" },
-  file: { icon: FileText, label: "Resources" },
+  resource: { icon: FileText, label: "Resources" },
   playbook: { icon: Play, label: "Playbooks" },
 };
 

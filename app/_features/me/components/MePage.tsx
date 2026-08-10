@@ -19,7 +19,7 @@ import { MeNotesTab } from "./tabs/MeNotesTab";
 import { MeFilesTab } from "./tabs/MeFilesTab";
 import { MeActivityTab } from "./tabs/MeActivityTab";
 import type { MeData, OperatorNote, ICPSegment } from "../types";
-import type { MemoryFile } from "@/app/_features/files/data";
+import type { MemoryFile } from "@/app/_features/resources/data";
 import type { VoiceProfile } from "../voices/queries";
 
 type MePageProps = {
@@ -72,7 +72,7 @@ export function MePage({ data, notes, activity, contextFacts, icpSegments, works
                 <TabsTrigger value="overview" className={memoryTabTriggerClass}>Overview</TabsTrigger>
                 <TabsTrigger value="voice" className={memoryTabTriggerClass}>Voice</TabsTrigger>
                 <TabsTrigger value="notes" className={memoryTabTriggerClass}>Notes</TabsTrigger>
-                <TabsTrigger value="files" className={memoryTabTriggerClass}>Resources</TabsTrigger>
+                <TabsTrigger value="resources" className={memoryTabTriggerClass}>Resources</TabsTrigger>
                 <TabsTrigger value="activity" className={memoryTabTriggerClass}>Activity</TabsTrigger>
               </TabsList>
 
@@ -100,7 +100,7 @@ export function MePage({ data, notes, activity, contextFacts, icpSegments, works
                 <TabsContent value="notes" className="m-0">
                   <MeNotesTab workspaceId={workspaceId} notes={notes} facts={data.facts} />
                 </TabsContent>
-                <TabsContent value="files" className="m-0">
+                <TabsContent value="resources" className="m-0">
                   <MeFilesTab files={files} />
                 </TabsContent>
                 <TabsContent value="activity" className="m-0">

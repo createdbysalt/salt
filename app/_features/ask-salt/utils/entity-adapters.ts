@@ -65,12 +65,12 @@ export const ENTITY_TYPE_CONFIG: Record<EntityContext["type"], EntityTypeConfig>
   },
   file: {
     icon: FileText,
-    actionLabel: "Reviewing File",
+    actionLabel: "Reviewing Resource",
     color: "bg-muted",
   },
   files: {
     icon: Files,
-    actionLabel: "Reviewing Files",
+    actionLabel: "Reviewing Resources",
     color: "bg-muted",
   },
 };

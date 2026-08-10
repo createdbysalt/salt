@@ -294,7 +294,7 @@ describe("autoCreateRecord — file confirm path", () => {
   it("creates the files row with the confirming user as uploaded_by", async () => {
     const result = await autoCreateRecord(
       meetingInput(fileFields, {
-        entityType: "file",
+        entityType: "resource",
         identifier: "file:client@acme.com:contract for acme project",
         actingUserId: "user-1",
       })
@@ -316,7 +316,7 @@ describe("autoCreateRecord — file confirm path", () => {
   it("fails closed without an acting user (background paths)", async () => {
     const result = await autoCreateRecord(
       meetingInput(fileFields, {
-        entityType: "file",
+        entityType: "resource",
         identifier: "file:client@acme.com:contract for acme project",
       })
     );
@@ -331,7 +331,7 @@ describe("autoCreateRecord — file confirm path", () => {
       meetingInput(
         { title: "Mystery doc", category: "not-a-category" },
         {
-          entityType: "file",
+          entityType: "resource",
           identifier: "file:a@b.com:mystery doc",
           actingUserId: "user-1",
         }

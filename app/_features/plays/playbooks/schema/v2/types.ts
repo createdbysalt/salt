@@ -29,7 +29,7 @@ export type PlaybookSection =
   | "relationships"
   | "work"
   | "billing"
-  | "files"
+  | "resources"
   | "meetings"
   | "me"
   | "connections"
@@ -460,12 +460,12 @@ export const SECTION_METADATA: Record<PlaybookSection, SectionMetadata> = {
     ],
     templates: ["memory", "invoice-reminder", "payment-received", "cash-runway"],
   },
-  files: {
-    name: "Files",
-    slug: "files",
-    description: "Documents and attachments",
+  resources: {
+    name: "Resources",
+    slug: "resources",
+    description: "Documents, links, and live-watched artifacts",
     icon: "file",
-    memory_types: ["file"],
+    memory_types: ["resource"],
     signals: [
       "file_signature_event_sent",
       "file_signature_event_signed",

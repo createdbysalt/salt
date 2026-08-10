@@ -985,7 +985,7 @@ export const SIGNAL_REGISTRY: SignalDefinition[] = [
   ),
   ...buildSignalDefinitions(
     FILE_PROFILE_SIGNAL_KEYS,
-    "file",
+    "resource",
     FILE_SIGNAL_DESCRIPTIONS
   ),
   ...buildSignalDefinitions(

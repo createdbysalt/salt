@@ -3,7 +3,7 @@ import { getMeData, getOperatorNotes, getOperatorActivity, getICPSegments } from
 import { getProfilePlaybookSettings } from "@/app/_features/plays/queries";
 import { PEOPLE_PROFILE_SLUG } from "@/app/_features/plays/playbooks/records-engine/apply-person-profile";
 import { getWorkspaceContext } from "@/app/_lib/utils/user-dashboard";
-import { getWorkspaceFiles } from "@/app/_features/files/queries";
+import { getWorkspaceFiles } from "@/app/_features/resources/directory-queries";
 import { getVoices } from "@/app/_features/me/voices/queries";
 
 export default async function MeRoute() {

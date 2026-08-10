@@ -2,7 +2,10 @@ import "server-only";
 
 import { cache } from "react";
 import { createClient } from "@/app/_lib/supabase/server";
-import type { LearningEntityType } from "@/app/_lib/learning";
+import {
+  fromLearningDbEntityType,
+  type LearningEntityType,
+} from "@/app/_lib/learning";
 
 /**
  * Handled items for Memory → Filter → Handled.
@@ -100,7 +103,8 @@ export const getHandledWrites = cache(
 
     return ((data ?? []) as SaltLearningQueryRow[]).map((row) => ({
       learningId: row.id,
-      entityType: row.entity_type,
+      entityType:
+        fromLearningDbEntityType(row.entity_type) ?? row.entity_type,
       entityId: row.entity_id,
       entityLabel: row.entity_label,
       fieldPath: row.field_path,

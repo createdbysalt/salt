@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
-import type { BrandAssetMetadata } from "@/app/_features/files/data";
+import type { BrandAssetMetadata } from "@/app/_features/resources/data";
 
 const MAX_ASSETS = 8;
 const CHAR_BUDGET = 800;

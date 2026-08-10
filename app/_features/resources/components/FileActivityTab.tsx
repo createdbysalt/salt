@@ -11,7 +11,7 @@ import type { FreshRecordNarrative } from "@/app/_features/memory/utils/record-n
 import {
   buildFileActivityAskSaltPrompt,
   mapFileActivityToTimeline,
-} from "@/app/_features/files/utils/activity";
+} from "@/app/_features/resources/utils/activity";
 import type { FileActivityEvent } from "../detail-types";
 
 type FileActivityTabProps = {

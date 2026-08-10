@@ -39,7 +39,7 @@ export interface SignalTriggerContext {
     | "work"
     | "billing"
     | "meeting"
-    | "file"
+    | "resource"
     // Workspace-scoped events (e.g. connector_connected) carry the workspace
     // id as entityId so dispatch dedup is once-per-workspace per cooldown.
     | "workspace";
@@ -547,7 +547,7 @@ export function hasPlaybookForSignal(signalKey: string): boolean {
  */
 export async function processEntitySignals(input: {
   workspaceId: string;
-  entitySurface: "person" | "organization" | "work" | "billing" | "meeting" | "file";
+  entitySurface: "person" | "organization" | "work" | "billing" | "meeting" | "resource";
   entityId: string;
   entityLabel?: string;
   signals: Record<string, boolean | number | string | undefined>;

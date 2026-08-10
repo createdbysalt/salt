@@ -14,11 +14,16 @@
 
 import { createClient } from "@/app/_lib/supabase/server";
 import {
+  toLearningDbEntityType,
+  type LearningEntityType,
+} from "@/app/_lib/learning";
+import {
   SIGNAL_WEIGHTS,
   canonicalizeIdentifier,
   accumulateEvidence,
   evaluateEvidence,
   logOddsToProbability,
+  type IntakeEntityType,
 } from "@/app/_features/memory/care/intake";
 import { autoCreateRecord } from "./auto-create-record";
 import {
@@ -31,6 +36,10 @@ import type {
   AddSignalResult,
   ExtractedFieldValue,
 } from "./types";
+
+function toPendingEvidenceDbType(entityType: IntakeEntityType): string {
+  return toLearningDbEntityType(entityType as LearningEntityType);
+}
 
 /**
  * Add a signal to pending evidence.
@@ -46,12 +55,12 @@ export async function addSignalToEvidence(
   const canonicalId = canonicalizeIdentifier(input.entityType, input.identifier);
   const weight = SIGNAL_WEIGHTS[input.signal] ?? 0;
 
-  // Check for existing evidence
+  // Check for existing evidence (DB still stores resources as `"file"`)
   const { data: existing } = await supabase
     .from("pending_evidence")
     .select("*")
     .eq("workspace_id", input.workspaceId)
-    .eq("entity_type", input.entityType)
+    .eq("entity_type", toPendingEvidenceDbType(input.entityType))
     .eq("identifier", canonicalId)
     .single();
 
@@ -116,7 +125,7 @@ export async function addSignalToEvidence(
       const isWorthy = hasRelationshipGradeSignal(allSignals);
       // Files never auto-create from background paths: files.uploaded_by is
       // NOT NULL and only the confirm path supplies an acting user.
-      const canAutoCreate = isWorthy && input.entityType !== "file";
+      const canAutoCreate = isWorthy && input.entityType !== "resource";
 
       if (action === "auto" && canAutoCreate) {
         // P6 + P7: Auto-create only if relationship-grade worthy
@@ -176,7 +185,7 @@ export async function addSignalToEvidence(
       .from("pending_evidence")
       .insert({
         workspace_id: input.workspaceId,
-        entity_type: input.entityType,
+        entity_type: toPendingEvidenceDbType(input.entityType),
         identifier: canonicalId,
         log_odds_score: newScore,
         status,
@@ -207,7 +216,7 @@ export async function addSignalToEvidence(
     // and the Memory → Filter Watching lane renders it directly.
     const isWorthy = hasRelationshipGradeSignal([input.signal]);
     // Files never auto-create from background paths (see above).
-    const canAutoCreate = isWorthy && input.entityType !== "file";
+    const canAutoCreate = isWorthy && input.entityType !== "resource";
 
     if (action === "auto" && canAutoCreate) {
       // P6 + P7: Auto-create only if relationship-grade worthy

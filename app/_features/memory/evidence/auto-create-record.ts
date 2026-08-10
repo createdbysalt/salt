@@ -126,7 +126,7 @@ async function insertEntityRecord(
       return runInsert(supabase.from("billing_records").insert(insert).select("id").single());
     }
 
-    case "file": {
+    case "resource": {
       // files.uploaded_by is NOT NULL: background evidence paths have no
       // acting user, so only the confirm path (New records lane, which
       // passes actingUserId) creates file records.

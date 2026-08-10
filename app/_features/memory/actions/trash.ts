@@ -29,7 +29,7 @@ const ENTITY_CONFIG: Record<TrashEntityType, EntityConfig> = {
   org: { table: "organizations", tenantColumn: "workspace_id", listPath: "/orgs" },
   work: { table: "work", tenantColumn: "workspace_id", listPath: "/work" },
   billing: { table: "billing_records", tenantColumn: "workspace_id", listPath: "/billing" },
-  file: { table: "files", tenantColumn: "workspace_id", listPath: "/files" },
+  resource: { table: "files", tenantColumn: "workspace_id", listPath: "/resources" },
   meeting: { table: "meetings", tenantColumn: "workspace_id", listPath: "/meetings" },
   note: { table: "notes", tenantColumn: "workspace_id", listPath: "/me" },
 };
@@ -252,7 +252,7 @@ export async function deleteForever(
       await deleteEdgesFrom(admin, { source: { type: "note", id: entityId } });
     }
 
-    if (entityType === "file") {
+    if (entityType === "resource") {
       const { data: fileRow } = await admin
         .from("files")
         .select("bucket_id, object_path")

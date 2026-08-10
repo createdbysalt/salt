@@ -1261,7 +1261,7 @@ type AutoHandledMemoryEntityType =
   | "organization"
   | "work"
   | "billing"
-  | "file"
+  | "resource"
   | "meeting"
   | "me";
 
@@ -1302,7 +1302,7 @@ function sectionForMemoryEntity(entityType: AutoHandledMemoryEntityType): string
       return "relationships";
     case "billing":
       return "billing";
-    case "file":
+    case "resource":
       return "files";
     case "meeting":
       return "meetings";
@@ -1628,9 +1628,9 @@ async function createFileRecord(
 
   const autoHandled: AutoHandledMemoryRunInput = {
     workspaceId,
-    entityType: "file",
+    entityType: "resource",
     entityId: data.id,
-    targetType: "file",
+    targetType: "resource",
     label: input.file_name,
     title: `Added ${input.file_name} to Resources`,
     content: `Salt created a Resource record for ${input.file_name}.`,

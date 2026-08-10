@@ -4,7 +4,7 @@
 
 **Last updated:** 2026-08-08 — verified against `supabase/migrations/` through `20260808230000`, including `20260807080000` (`keeper_evidence_type` → `memory_evidence_type`; 'keeper' → 'care' provenance vocabularies)
 
-> **Naming canon + rename roadmap:** [docs/plans/2026-07-02-schema-modernization.md](../plans/2026-07-02-schema-modernization.md). Several live tables carry legacy names until the rename waves land: `client_meetings` = the Meetings record table, `projects` = Work, `project_files` = Files. (`client_emails` was dropped 2026-07-04, not renamed — synced email now arrives via the capture pipeline.)
+> **Naming canon + rename roadmap:** [docs/plans/2026-07-02-schema-modernization.md](../plans/2026-07-02-schema-modernization.md). Product noun for the former Files Memory record is **Resources**. Live table is `files` (renamed from `project_files` 2026-07-04; compat view `project_files` drops in Phase 6.6). App entity type is `resource`; short-dialect DB spelling remains `file`. (`client_emails` was dropped 2026-07-04 — synced email arrives via the capture pipeline.)
 
 ## Principles
 
@@ -160,7 +160,7 @@ One table per Memory record type; children prefixed with the parent noun; worksp
 | Orgs | `organizations` | `relationship_status` CHECK = same 9-value canon (legacy `other` backfilled to `unknown`, default `unknown`); `industry_parent`/`industry_child` taxonomy columns are live (ledger drift repaired 2026-07-02) |
 | Work | `projects` (rename pending) | Counterparty is `person_id`/`organization_id` FKs (`client_id` dropped 2026-07-03) |
 | Billing | `billing_records` (+ `billing_payments`, `billing_accounts`) | THE billing source. All Bridge `portal_*` reads were migrated here (HQ metrics, health signals) |
-| Files | `project_files` (rename pending) | `person_id`/`organization_id` FKs, `brand_metadata` JSONB (Brand Kit extraction), `is_operator_asset` boolean (Me Files tab scope); Bridge-era `project_files_has_owner` CHECK dropped — files are workspace-scoped, links optional |
+| Resources | `files` (compat view `project_files`) | Product noun Resources; app type `resource`, DB entity_type `file`. `person_id`/`organization_id` FKs, `resource_type`/`mode`/live columns, `brand_metadata` JSONB, `is_operator_asset` (Me Resources tab); workspace-scoped, links optional |
 | Meetings | `client_meetings` (rename pending) | THE live meetings table despite the name. `person_id`/`organization_id` FKs, `address`, `phone_number`; `meeting_type` CHECK widened to 8 values (`discovery, kickoff, check-in, review, presentation, workshop, interview, other`) |
 | Me | `profiles` + `workspaces` + `operator_*` | `operator_goals`, `operator_memory_facts`, `operator_voice_profile` |
 | Notes | `notes` | Wikilinks sync to `entity_links` as `relation_type = 'mention'` edges (edge convergence, 2026-07-03) |
@@ -229,7 +229,7 @@ Corrections inform the decision pipeline but do not yet generalize to pattern-le
 
 ### Provenance & lifecycle (widened 2026-07-03)
 
-`profile_field_provenance` and `lifecycle_events` `entity_type` CHECKs admit: `person, organization, work, operator, workspace, billing_record, meeting, file` (`20260703150000` added operator/workspace; `20260703190000` added billing_record/meeting/file). All person/org/operator/workspace scalar writes record provenance; inline edits on Billing, Meetings, and Files detail pages do too. Field coverage report: [memory-field-coverage.md](../reference/memory-field-coverage.md) (regenerate with `pnpm coverage:fields`).
+`profile_field_provenance` and `lifecycle_events` `entity_type` CHECKs admit: `person, organization, work, operator, workspace, billing_record, meeting, file` (`20260703150000` added operator/workspace; `20260703190000` added billing_record/meeting/file). App code maps `resource` ↔ `file` via `toDbEntityType` / `fromDbEntityType`. All person/org/operator/workspace scalar writes record provenance; inline edits on Billing, Meetings, and Resources detail pages do too. Field coverage report: [memory-field-coverage.md](../reference/memory-field-coverage.md) (regenerate with `pnpm coverage:fields`).
 
 ### `clients` table (DROPPED 2026-07-03)
 

@@ -55,7 +55,7 @@ const RECORD_NOUNS: Record<RecordCandidate["entityType"], string> = {
   work: "project",
   billing: "billing record",
   meeting: "meeting",
-  file: "file",
+  resource: "resource",
 };
 
 export function WatchingSection({

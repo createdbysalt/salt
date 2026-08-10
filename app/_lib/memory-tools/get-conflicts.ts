@@ -26,6 +26,10 @@
  */
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import {
+  fromLearningDbEntityType,
+  toLearningDbEntityType,
+} from "@/app/_lib/learning";
 import type { Json } from "@/app/_lib/supabase/database.types";
 import type { LearningEntityType } from "./types";
 
@@ -92,7 +96,7 @@ export async function memoryGetConflicts(
     .order("detected_at", { ascending: false });
 
   if (input.entityType) {
-    query = query.eq("entity_type", input.entityType);
+    query = query.eq("entity_type", toLearningDbEntityType(input.entityType));
   }
 
   if (input.entityId) {
@@ -111,7 +115,9 @@ export async function memoryGetConflicts(
 
   const conflicts: FieldConflict[] = (data ?? []).map((row) => ({
     id: row.id,
-    entityType: row.entity_type as LearningEntityType,
+    entityType:
+      fromLearningDbEntityType(row.entity_type) ??
+      (row.entity_type as LearningEntityType),
     entityId: row.entity_id,
     field: row.field,
     conflictType: row.conflict_type as ConflictType,
@@ -199,11 +205,13 @@ export async function detectAndRecordConflict(input: {
   candidates.sort((a, b) => b.confidence - a.confidence);
 
   // Check if conflict already exists
+  const dbEntityType = toLearningDbEntityType(input.entityType);
+
   const { data: existing } = await admin
     .from("field_conflicts")
     .select("id")
     .eq("workspace_id", input.workspaceId)
-    .eq("entity_type", input.entityType)
+    .eq("entity_type", dbEntityType)
     .eq("entity_id", input.entityId)
     .eq("field", input.field)
     .eq("resolved", false)
@@ -224,7 +232,8 @@ export async function detectAndRecordConflict(input: {
     return updated
       ? {
           id: updated.id,
-          entityType: updated.entity_type as LearningEntityType,
+          entityType:
+            fromLearningDbEntityType(updated.entity_type) ?? input.entityType,
           entityId: updated.entity_id,
           field: updated.field,
           conflictType: updated.conflict_type as ConflictType,
@@ -240,7 +249,7 @@ export async function detectAndRecordConflict(input: {
     .from("field_conflicts")
     .insert({
       workspace_id: input.workspaceId,
-      entity_type: input.entityType,
+      entity_type: dbEntityType,
       entity_id: input.entityId,
       field: input.field,
       conflict_type: conflictType,
@@ -255,7 +264,8 @@ export async function detectAndRecordConflict(input: {
 
   return {
     id: conflict.id,
-    entityType: conflict.entity_type as LearningEntityType,
+    entityType:
+      fromLearningDbEntityType(conflict.entity_type) ?? input.entityType,
     entityId: conflict.entity_id,
     field: conflict.field,
     conflictType: conflict.conflict_type as ConflictType,

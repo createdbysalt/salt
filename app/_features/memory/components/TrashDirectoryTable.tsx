@@ -41,7 +41,7 @@ const ENTITY_ICONS: Record<
   org: Building2,
   work: Briefcase,
   note: FileText,
-  file: Paperclip,
+  resource: Paperclip,
   meeting: Calendar,
   billing: Receipt,
 };

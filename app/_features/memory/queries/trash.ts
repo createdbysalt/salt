@@ -53,7 +53,7 @@ const ENTITY_QUERIES: EntityQueryConfig[] = [
     sublabelColumn: "vendor_label",
   },
   {
-    entityType: "file",
+    entityType: "resource",
     table: "files",
     tenantColumn: "workspace_id",
     labelColumns: ["file_name"],

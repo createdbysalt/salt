@@ -11,6 +11,9 @@
  * | "provenance" | profile_field_provenance, lifecycle_events, notes, playbooks | person, organization, work (Phase 6 adds operator/workspace) |
  * | "relations"  | entity_relations (retired by Phase 4)                        | person, organization, work, billing_record   |
  *
+ * Product noun: **Resources**. App type is `resource`; short-dialect DB
+ * spelling remains `file` until a hard SQL rename (deferred).
+ *
  * No bulk refactor accompanies this file — existing call sites migrate to
  * the adapters as their surfaces are touched (Phase 4 edge-store rebuild,
  * Phase 6 provenance parity).
@@ -22,7 +25,7 @@ export const MEMORY_ENTITY_TYPES = [
   "work",
   "billing",
   "meeting",
-  "file",
+  "resource",
   "note",
   "me",
 ] as const;
@@ -47,6 +50,7 @@ export function toDbEntityType(
   type: MemoryEntityType,
   dialect: EntityTypeDialect = "short"
 ): string {
+  if (type === "resource") return "file";
   if (dialect === "short") return type;
   if (type === "org") return "organization";
   if (type === "billing" && dialect === "relations") return "billing_record";
@@ -56,6 +60,7 @@ export function toDbEntityType(
 /** Any DB spelling (any dialect) → the canonical app type; null if unknown. */
 export function fromDbEntityType(value: string | null | undefined): MemoryEntityType | null {
   if (!value) return null;
+  if (value === "file") return "resource";
   if (value === "organization") return "org";
   if (value === "billing_record") return "billing";
   // Phase 6 provenance widening: operator facts surface on the Me record.

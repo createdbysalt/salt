@@ -121,7 +121,7 @@ function getRecordName(record: Record<string, unknown>, entityType: LearningEnti
       return (record.number as string) || "Unknown";
     case "meeting":
       return (record.title as string) || "Unknown";
-    case "file":
+    case "resource":
       return (record.title as string) || (record.filename as string) || "Unknown";
     default:
       return "Unknown";

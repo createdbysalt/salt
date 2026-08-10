@@ -34,6 +34,7 @@ import {
   accumulateEvidence,
   getAggregatedConfidence,
   resolveEvidence,
+  toLearningDbEntityType,
 } from "@/app/_lib/learning";
 import { isNeverTouchField } from "@/app/_lib/learning/field-tiers";
 import {
@@ -42,7 +43,12 @@ import {
 } from "@/app/_lib/learning/correction-blocklist";
 import { getWorkspaceThreshold } from "./get-threshold";
 import type { Json } from "@/app/_lib/supabase/database.types";
-import type { TableUpdate, UpdateFieldInput, UpdateFieldResult } from "./types";
+import {
+  toMemoryToolRouteKey,
+  type TableUpdate,
+  type UpdateFieldInput,
+  type UpdateFieldResult,
+} from "./types";
 
 /**
  * Update a Memory field with confidence-gated protection.
@@ -185,7 +191,7 @@ async function applyFieldUpdate(input: UpdateFieldInput): Promise<string> {
   const previous = await getPreviousState(admin, input);
 
   // 2. Map entity types to tables and update
-  switch (input.entityType) {
+  switch (toMemoryToolRouteKey(input.entityType)) {
     case "person":
       await updatePersonField(admin, input);
       break;
@@ -201,7 +207,7 @@ async function applyFieldUpdate(input: UpdateFieldInput): Promise<string> {
     case "meeting":
       await updateMeetingField(admin, input);
       break;
-    case "file":
+    case "resource":
       await updateFileField(admin, input);
       break;
     case "me":
@@ -230,7 +236,7 @@ async function getPreviousState(
     .from("profile_field_provenance")
     .select("id, value")
     .eq("workspace_id", input.workspaceId)
-    .eq("entity_type", input.entityType)
+    .eq("entity_type", toLearningDbEntityType(input.entityType))
     .eq("entity_id", input.entityId)
     .eq("field", input.field)
     .eq("status", "applied")
@@ -558,7 +564,7 @@ async function recordProvenance(
 ): Promise<void> {
   await admin.from("profile_field_provenance").insert({
     workspace_id: input.workspaceId,
-    entity_type: input.entityType,
+    entity_type: toLearningDbEntityType(input.entityType),
     entity_id: input.entityId,
     field: input.field,
     value: String(input.value),

@@ -278,7 +278,7 @@ describe("addSignalToEvidence — file signals are suggested-only (audit #7)", (
   // prevents creation (files.uploaded_by needs a confirming user).
   const fileInput = {
     workspaceId: "ws-1",
-    entityType: "file" as const,
+    entityType: "resource" as const,
     identifier: "file:client@acme.com:contract for acme project",
     signal: "contract_detected",
     captureId: "cap-5",
@@ -326,7 +326,7 @@ describe("dismissal is terminal for stable meeting/file identifiers (audit #7)",
 
     const result = await addSignalToEvidence({
       workspaceId: "ws-1",
-      entityType: "file",
+      entityType: "resource",
       identifier: "file:client@acme.com:contract for acme project",
       signal: "contract_detected",
       captureId: "cap-9",

@@ -12,7 +12,11 @@ import { createClient } from "@/app/_lib/supabase/server";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import type { Json } from "@/app/_lib/supabase/database.types";
 import { getTenantContext } from "@/app/_features/auth/queries";
-import type { LearningEntityType } from "@/app/_lib/learning";
+import {
+  fromLearningDbEntityType,
+  toLearningDbEntityType,
+  type LearningEntityType,
+} from "@/app/_lib/learning";
 
 // ============================================================================
 // Types
@@ -80,7 +84,7 @@ export async function recordSaltLearning(
     .from("salt_learnings")
     .insert({
       workspace_id: input.workspaceId,
-      entity_type: input.entityType,
+      entity_type: toLearningDbEntityType(input.entityType),
       entity_id: input.entityId,
       entity_label: input.entityLabel,
       field_path: input.fieldPath,
@@ -248,7 +252,7 @@ export async function getEntityLearningsCount(
     .from("salt_learnings")
     .select("*", { count: "exact", head: true })
     .eq("workspace_id", workspaceId)
-    .eq("entity_type", entityType)
+    .eq("entity_type", toLearningDbEntityType(entityType))
     .eq("entity_id", entityId)
     .is("undone_at", null);
 
@@ -270,14 +274,18 @@ export async function getEntityLearnings(
     .from("salt_learnings")
     .select("*")
     .eq("workspace_id", workspaceId)
-    .eq("entity_type", entityType)
+    .eq("entity_type", toLearningDbEntityType(entityType))
     .eq("entity_id", entityId)
     .is("undone_at", null)
     .order("created_at", { ascending: false })
     .limit(50);
 
   if (error) throw error;
-  return (data ?? []) as SaltLearningRow[];
+  return ((data ?? []) as SaltLearningRow[]).map((row) => ({
+    ...row,
+    entity_type:
+      fromLearningDbEntityType(row.entity_type) ?? row.entity_type,
+  }));
 }
 
 // ============================================================================

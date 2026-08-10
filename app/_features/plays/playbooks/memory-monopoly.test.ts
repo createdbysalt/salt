@@ -32,7 +32,7 @@ describe("memory-monopoly", () => {
         "relationships",
         "work",
         "billing",
-        "files",
+        "resources",
         "meetings",
         "me",
         "connections",

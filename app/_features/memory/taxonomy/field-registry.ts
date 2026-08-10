@@ -55,7 +55,7 @@ export type FieldType =
  * capabilities only reason about person/org/work/billing, but every memory
  * record type has a field contract.
  */
-export type ContractEntityType = CapabilityEntityType | "file" | "meeting" | "me";
+export type ContractEntityType = CapabilityEntityType | "resource" | "meeting" | "me";
 
 /**
  * Who may write a field, per the field-contract canon
@@ -1185,7 +1185,7 @@ export const FILE_FIELDS: FieldDescriptor<"files">[] = [
   {
     key: "title",
     label: "Title",
-    entityType: "file",
+    entityType: "resource",
     fieldType: "text",
     requiredForCapabilities: [],
     aiDescription: "Display name of the file",
@@ -1195,7 +1195,7 @@ export const FILE_FIELDS: FieldDescriptor<"files">[] = [
   {
     key: "kind",
     label: "Kind",
-    entityType: "file",
+    entityType: "resource",
     fieldType: "select",
     vocabulary: "asset_kind",
     requiredForCapabilities: [],
@@ -1205,7 +1205,7 @@ export const FILE_FIELDS: FieldDescriptor<"files">[] = [
   {
     key: "url",
     label: "URL",
-    entityType: "file",
+    entityType: "resource",
     fieldType: "url",
     requiredForCapabilities: [],
     aiDescription: "External URL for link-kind files",
@@ -1215,7 +1215,7 @@ export const FILE_FIELDS: FieldDescriptor<"files">[] = [
   {
     key: "category",
     label: "Category",
-    entityType: "file",
+    entityType: "resource",
     fieldType: "select",
     vocabulary: "file_category",
     careSignal: "file_category",
@@ -1230,7 +1230,7 @@ export const FILE_FIELDS: FieldDescriptor<"files">[] = [
   {
     key: "documentType",
     label: "Document Type",
-    entityType: "file",
+    entityType: "resource",
     fieldType: "select",
     vocabulary: "file_document_type",
     careSignal: "file_document_type",
@@ -1245,7 +1245,7 @@ export const FILE_FIELDS: FieldDescriptor<"files">[] = [
   {
     key: "description",
     label: "Description",
-    entityType: "file",
+    entityType: "resource",
     fieldType: "text",
     careSignal: "file_description",
     requiredForCapabilities: [],
@@ -1258,7 +1258,7 @@ export const FILE_FIELDS: FieldDescriptor<"files">[] = [
   {
     key: "lifecycleStatus",
     label: "Lifecycle",
-    entityType: "file",
+    entityType: "resource",
     fieldType: "select",
     vocabulary: "file_lifecycle_status",
     careSignal: "file_lifecycle_status",
@@ -1276,7 +1276,7 @@ export const FILE_FIELDS: FieldDescriptor<"files">[] = [
   {
     key: "totalAmountCents",
     label: "Amount",
-    entityType: "file",
+    entityType: "resource",
     fieldType: "money",
     careSignal: "file_total_amount",
     requiredForCapabilities: [],
@@ -1290,7 +1290,7 @@ export const FILE_FIELDS: FieldDescriptor<"files">[] = [
   {
     key: "currency",
     label: "Currency",
-    entityType: "file",
+    entityType: "resource",
     fieldType: "select",
     vocabulary: "currency",
     requiredForCapabilities: [],
@@ -1304,7 +1304,7 @@ export const FILE_FIELDS: FieldDescriptor<"files">[] = [
   {
     key: "dueDate",
     label: "Due Date",
-    entityType: "file",
+    entityType: "resource",
     fieldType: "date",
     careSignal: "file_due_date",
     requiredForCapabilities: [],
@@ -1318,7 +1318,7 @@ export const FILE_FIELDS: FieldDescriptor<"files">[] = [
   {
     key: "expiryDate",
     label: "Expiry Date",
-    entityType: "file",
+    entityType: "resource",
     fieldType: "date",
     careSignal: "file_expiry_date",
     requiredForCapabilities: [],
@@ -1333,7 +1333,7 @@ export const FILE_FIELDS: FieldDescriptor<"files">[] = [
   {
     key: "signedDate",
     label: "Signed Date",
-    entityType: "file",
+    entityType: "resource",
     fieldType: "date",
     careSignal: "file_signed_date",
     requiredForCapabilities: [],
@@ -1347,7 +1347,7 @@ export const FILE_FIELDS: FieldDescriptor<"files">[] = [
   {
     key: "followUpDate",
     label: "Follow-up Date",
-    entityType: "file",
+    entityType: "resource",
     fieldType: "date",
     careSignal: "file_follow_up_date",
     requiredForCapabilities: [],
@@ -1360,7 +1360,7 @@ export const FILE_FIELDS: FieldDescriptor<"files">[] = [
   {
     key: "sharedWithClient",
     label: "Shared with Client",
-    entityType: "file",
+    entityType: "resource",
     fieldType: "boolean",
     requiredForCapabilities: [],
     aiDescription: "Whether the client can see this file",
@@ -1370,7 +1370,7 @@ export const FILE_FIELDS: FieldDescriptor<"files">[] = [
   {
     key: "isOperatorAsset",
     label: "My Business Asset",
-    entityType: "file",
+    entityType: "resource",
     fieldType: "boolean",
     requiredForCapabilities: [],
     aiDescription: "TRUE when the file belongs to the operator's own business (brand kit, templates — shown on the Me Files tab) rather than to a person/org/work record",

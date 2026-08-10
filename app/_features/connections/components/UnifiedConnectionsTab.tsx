@@ -10,7 +10,6 @@ import {
   ChevronRight,
   CreditCard,
   ExternalLink,
-  File,
   Link as LinkIcon,
   Loader2,
   MessageSquare,
@@ -56,7 +55,6 @@ const FILTER_OPTIONS: { value: FilterOption; label: string; icon: typeof User }[
   { value: "meeting", label: "Meetings", icon: Calendar },
   { value: "conversation", label: "Conversations", icon: MessageSquare },
   { value: "resource", label: "Resources", icon: LinkIcon },
-  { value: "file", label: "Files", icon: File },
   { value: "note", label: "Notes", icon: StickyNote },
 ];
 
@@ -65,7 +63,7 @@ const NODE_TYPE_ICONS: Record<NodeType, typeof User> = {
   org: Building2,
   work: Briefcase,
   billing: CreditCard,
-  file: File,
+  file: LinkIcon,
   note: StickyNote,
   conversation: MessageSquare,
   meeting: Calendar,
@@ -282,7 +280,7 @@ function TypeFilterPopover({
 }
 
 type UnifiedConnectionsTabProps = {
-  recordKind: "person" | "org" | "work" | "billing" | "file" | "meeting";
+  recordKind: "person" | "org" | "work" | "billing" | "resource" | "meeting";
   recordId: string;
   recordName: string;
   connections: ConnectionNode[];
@@ -372,7 +370,7 @@ export function UnifiedConnectionsTab({
       title="Connections"
       action={
         <div className="flex items-center gap-2">
-          {recordKind !== "file" && (
+          {recordKind !== "resource" && (
             <AddResourceButton
               variant="panel"
               entityType={recordKind}

@@ -19,7 +19,7 @@ export type MemoryListAddKind =
   | "org"
   | "work"
   | "meeting"
-  | "file"
+  | "resource"
   | { kind: "billing"; direction: BillingDirection };
 
 type MemoryListAddButtonProps = {
@@ -37,7 +37,7 @@ async function runCreateAction(kind: MemoryListAddKind) {
       return createBlankWorkAction();
     case "meeting":
       return createBlankMeetingAction();
-    case "file":
+    case "resource":
       return createBlankFileAction();
     default:
       return createBlankBillingRecordAction(kind.direction);

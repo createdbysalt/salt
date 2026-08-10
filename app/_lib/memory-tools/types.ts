@@ -42,7 +42,8 @@ const MEMORY_ENTITY_TABLES: Partial<Record<LearningEntityType, MemoryEntityTable
   work: "work",
   billing: "billing_records",
   meeting: "meetings",
-  file: "files",
+  // App type is `"resource"`; table stays `public.files` until a hard rename.
+  resource: "files",
 };
 
 /**
@@ -53,6 +54,13 @@ export function getMemoryEntityTable(
   entityType: LearningEntityType
 ): MemoryEntityTable | null {
   return MEMORY_ENTITY_TABLES[entityType] ?? null;
+}
+
+/** Route key for switch routing inside memory tools (same as LearningEntityType). */
+export type MemoryToolRouteKey = LearningEntityType;
+
+export function toMemoryToolRouteKey(entityType: LearningEntityType): MemoryToolRouteKey {
+  return entityType;
 }
 
 /**

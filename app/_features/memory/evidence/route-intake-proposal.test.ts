@@ -171,7 +171,7 @@ describe("routeIntakeProposal — file proposals skip auto-create (audit #7)", (
   it("calibrated + relationship-grade file proposal still lands suggested", async () => {
     const result = await routeIntakeProposal({
       workspaceId: "ws-1",
-      entityType: "file",
+      entityType: "resource",
       identifier: "file:client@acme.com:contract for acme project",
       confidence: 95,
       extractedFields: fileFields,

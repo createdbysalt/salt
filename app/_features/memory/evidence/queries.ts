@@ -5,14 +5,32 @@
  */
 
 import { createClient } from "@/app/_lib/supabase/server";
-import { logOddsToProbability } from "@/app/_features/memory/care/intake";
+import {
+  fromLearningDbEntityType,
+  toLearningDbEntityType,
+  type LearningEntityType,
+} from "@/app/_lib/learning";
+import {
+  logOddsToProbability,
+  type IntakeEntityType,
+} from "@/app/_features/memory/care/intake";
 import type {
   PendingEvidenceRow,
   PendingEvidenceSignalRow,
   PendingEvidenceWithSignals,
   EvidenceStatus,
 } from "./types";
-import type { IntakeEntityType } from "@/app/_features/memory/care/intake";
+
+function toPendingEvidenceDbType(entityType: IntakeEntityType): string {
+  return toLearningDbEntityType(entityType as LearningEntityType);
+}
+
+function normalizePendingEvidenceRow<T extends PendingEvidenceRow>(row: T): T {
+  const entityType =
+    (fromLearningDbEntityType(row.entity_type) as IntakeEntityType | null) ??
+    row.entity_type;
+  return { ...row, entity_type: entityType };
+}
 
 /**
  * Get all pending evidence for a workspace.
@@ -46,7 +64,7 @@ export async function getPendingEvidence(
   }
 
   if (options?.entityType) {
-    query = query.eq("entity_type", options.entityType);
+    query = query.eq("entity_type", toPendingEvidenceDbType(options.entityType));
   }
 
   if (options?.limit) {
@@ -57,11 +75,14 @@ export async function getPendingEvidence(
 
   if (error) throw error;
 
-  return (data || []).map((row: PendingEvidenceRow & { signals?: PendingEvidenceSignalRow[] }) => ({
-    ...row,
-    signals: row.signals || [],
-    confidencePercent: logOddsToProbability(row.log_odds_score),
-  }));
+  return (data || []).map((row: PendingEvidenceRow & { signals?: PendingEvidenceSignalRow[] }) => {
+    const normalized = normalizePendingEvidenceRow(row);
+    return {
+      ...normalized,
+      signals: row.signals || [],
+      confidencePercent: logOddsToProbability(normalized.log_odds_score),
+    };
+  });
 }
 
 /**
@@ -104,10 +125,11 @@ export async function getPendingEvidenceById(
     throw error;
   }
 
+  const normalized = normalizePendingEvidenceRow(data as PendingEvidenceRow);
   return {
-    ...data,
+    ...normalized,
     signals: data.signals || [],
-    confidencePercent: logOddsToProbability(data.log_odds_score),
+    confidencePercent: logOddsToProbability(normalized.log_odds_score),
   };
 }
 
@@ -125,7 +147,7 @@ export async function findEvidenceByIdentifier(
     .from("pending_evidence")
     .select("*")
     .eq("workspace_id", workspaceId)
-    .eq("entity_type", entityType)
+    .eq("entity_type", toPendingEvidenceDbType(entityType))
     .eq("identifier", identifier)
     .single();
 
@@ -134,7 +156,7 @@ export async function findEvidenceByIdentifier(
     throw error;
   }
 
-  return data;
+  return data ? normalizePendingEvidenceRow(data as PendingEvidenceRow) : null;
 }
 
 /**

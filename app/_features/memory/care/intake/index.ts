@@ -22,7 +22,7 @@
 export type IntakeEntityType =
   | "organization"
   | "person"
-  | "file"
+  | "resource"
   | "work"
   | "meeting"
   | "billing";
@@ -30,14 +30,14 @@ export type IntakeEntityType =
 /**
  * Dependency tiers for entity creation order.
  * - Tier 1: No dependencies (org)
- * - Tier 2: Can link to tier 1 (person → org, file → org)
+ * - Tier 2: Can link to tier 1 (person → org, resource → org)
  * - Tier 3: Can link to tier 1 + 2 (work → org + person, meeting → person)
- * - Tier 4: Can link to all (billing → org + person + work + file)
+ * - Tier 4: Can link to all (billing → org + person + work + resource)
  */
 export const ENTITY_TIERS: Record<IntakeEntityType, 1 | 2 | 3 | 4> = {
   organization: 1,
   person: 2,
-  file: 2,
+  resource: 2,
   work: 3,
   meeting: 3,
   billing: 4,
@@ -84,7 +84,7 @@ export const WATCH_TRIGGER_FIELDS: Record<IntakeEntityType, string[]> = {
   organization: ["domain", "website", "billing_email"],
   work: ["deadline", "organization", "contract_value_cents"],
   billing: ["due_at", "linked_work", "amount_cents"],
-  file: ["category", "linked_person", "linked_org", "description"],
+  resource: ["category", "linked_person", "linked_org", "description"],
   meeting: ["attendees", "location", "linked_work"],
 };
 
@@ -170,7 +170,7 @@ export const RECORD_QUALIFIERS: Record<IntakeEntityType, RecordQualifier> = {
     ],
     suggestThreshold: 85,
   },
-  file: {
+  resource: {
     sources: ["email", "drive", "file"],
     signals: [
       // Contracts & Agreements (HIGH priority for solopreneurs)
@@ -343,7 +343,7 @@ export const EVIDENCE_THRESHOLDS: Record<
   organization: { suggest: 3.5, auto: 7.0, dismiss: -3.0 },
   work: { suggest: 5.0, auto: 10.0, dismiss: -2.0 },
   billing: { suggest: 6.0, auto: 12.0, dismiss: -2.0 },
-  file: { suggest: 3.0, auto: 6.0, dismiss: -2.0 },
+  resource: { suggest: 3.0, auto: 6.0, dismiss: -2.0 },
   meeting: { suggest: 2.0, auto: 4.0, dismiss: -2.0 },
 };
 
@@ -407,7 +407,7 @@ export function canonicalizeIdentifier(
 
     case "work":
     case "billing":
-    case "file":
+    case "resource":
     case "meeting":
       // Normalize whitespace, lowercase
       return rawValue.toLowerCase().trim().replace(/\s+/g, " ");
@@ -514,7 +514,7 @@ const ENTITY_PATTERNS: Array<{
     ],
   },
   {
-    type: "file",
+    type: "resource",
     patterns: [
       /(?:save|add|upload|store)\s+(?:the\s+)?(?:file|document|pdf|contract|attachment)/i,
       /(?:this|the)\s+(?:pdf|file|document|contract|attachment)/i,
@@ -734,7 +734,7 @@ export function getCreationOrder(request: ParsedIntakeRequest): ParsedEntity[] {
       return a.tier - b.tier;
     }
     // Within same tier, org before person before file, etc.
-    const order: IntakeEntityType[] = ["organization", "person", "file", "work", "meeting", "billing"];
+    const order: IntakeEntityType[] = ["organization", "person", "resource", "work", "meeting", "billing"];
     return order.indexOf(a.type) - order.indexOf(b.type);
   });
 }

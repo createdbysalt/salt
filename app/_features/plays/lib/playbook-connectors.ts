@@ -30,7 +30,8 @@ const SECTION_LOGO_IDS: Record<string, ConnectorCatalogId[]> = {
   relationships: ["hubspot", "google"],
   work: ["linear", "asana"],
   billing: ["stripe", "quickbooks"],
-  files: ["google-drive", "google-docs"],
+  resources: ["google-drive", "google-docs"],
+  files: ["google-drive", "google-docs"], // legacy section key
   meetings: ["google-calendar", "zoom"],
   communication: ["google", "slack"],
 };

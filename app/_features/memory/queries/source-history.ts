@@ -1,4 +1,5 @@
 import { getWorkspaceContext } from "@/app/_lib/utils/user-dashboard";
+import { toDbEntityType } from "@/app/_features/memory/types/entity-type";
 
 export type SourceHistoryEntry = {
   id: string;
@@ -12,7 +13,13 @@ export type SourceHistoryEntry = {
   actorName: string | null;
 };
 
-export type EntityTypeForSourceHistory = "person" | "org" | "work" | "billing" | "meeting" | "file";
+export type EntityTypeForSourceHistory =
+  | "person"
+  | "org"
+  | "work"
+  | "billing"
+  | "meeting"
+  | "resource";
 
 export async function getEntitySourceHistory(
   entityType: EntityTypeForSourceHistory,
@@ -22,6 +29,7 @@ export async function getEntitySourceHistory(
   if (!ctx) return [];
 
   const { workspace, supabase } = ctx;
+  const dbEntityType = toDbEntityType(entityType);
 
   const { data, error } = await supabase
     .from("entity_source_history")
@@ -37,7 +45,7 @@ export async function getEntitySourceHistory(
       actor_id
     `)
     .eq("workspace_id", workspace.id)
-    .eq("entity_type", entityType)
+    .eq("entity_type", dbEntityType)
     .eq("entity_id", entityId)
     .order("sourced_at", { ascending: false });
 
@@ -97,7 +105,7 @@ export async function addSourceHistoryEntry(input: {
     .from("entity_source_history")
     .insert({
       workspace_id: workspace.id,
-      entity_type: input.entityType,
+      entity_type: toDbEntityType(input.entityType),
       entity_id: input.entityId,
       provider: input.provider,
       source_origin: input.sourceOrigin,

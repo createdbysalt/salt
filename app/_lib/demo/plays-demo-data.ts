@@ -1175,7 +1175,7 @@ function mockEntityHref(entityType: string, entityId: string): string | null {
     case "billing":
       return `/billing/${entityId}`;
     case "file":
-      return "/files";
+      return "/resources";
     case "me":
       return "/me";
     default:

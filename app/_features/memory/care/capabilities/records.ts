@@ -79,8 +79,8 @@ function toContractEntityType(
       return "billing";
     case "meeting":
       return "meeting";
-    case "file":
-      return "file";
+    case "resource":
+      return "resource";
     case "me":
       return "me";
     default:

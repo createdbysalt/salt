@@ -1,7 +1,7 @@
 import {
   MemoryFileDraftSchema,
   type MemoryFileDraft,
-} from "@/app/_features/files/actions/memory-file-draft";
+} from "@/app/_features/resources/actions/memory-file-draft";
 
 type ToolLikePart = {
   type: string;
@@ -28,9 +28,14 @@ export function extractMemoryFileDraftFromToolOutput(output: unknown): MemoryFil
   return parseMemoryFileDraft(record.draft);
 }
 
+const MEMORY_SAVE_RESOURCE_TOOLS = new Set([
+  "memory_save_resource",
+  "memory_save_file", // alias during Files→Resources migration
+]);
+
 export function extractMemoryFileDraftsFromToolParts(parts: ToolLikePart[]): MemoryFileDraft[] {
   return parts.flatMap((part) => {
-    if (toolPartName(part) !== "memory_save_file") return [];
+    if (!MEMORY_SAVE_RESOURCE_TOOLS.has(toolPartName(part))) return [];
     if (part.state !== "output-available") return [];
     const draft = extractMemoryFileDraftFromToolOutput(part.output);
     return draft ? [draft] : [];

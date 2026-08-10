@@ -27,6 +27,14 @@ export type {
   AggregatedEvidence,
 } from "./types";
 
+// Entity-type adapters (app `"resource"` ↔ DB `"file"`)
+export type { LearningDbEntityType } from "./entity-type";
+export {
+  isLearningEntityType,
+  toLearningDbEntityType,
+  fromLearningDbEntityType,
+} from "./entity-type";
+
 // Evidence accumulation
 export {
   FIELD_TTL_DAYS,

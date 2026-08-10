@@ -2,7 +2,7 @@ import "server-only";
 
 import sharp from "sharp";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
-import type { BrandAssetMetadata } from "@/app/_features/files/data";
+import type { BrandAssetMetadata } from "@/app/_features/resources/data";
 
 const EXTRACTOR_VERSION = 1;
 const SAMPLE_SIZE = 48;

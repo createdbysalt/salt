@@ -3,7 +3,7 @@ import "server-only";
 import { z } from "zod";
 import { tool, type ToolSet } from "ai";
 import { logToolExecution } from "@/app/_lib/composio/execution-log";
-import type { MemoryFileDraft } from "@/app/_features/files/actions/memory-file-draft";
+import type { MemoryFileDraft } from "@/app/_features/resources/actions/memory-file-draft";
 
 export interface BuildFileToolsOptions {
   workspaceId: string;
@@ -93,7 +93,7 @@ const SaveMemoryFileToolSchema = SaveMemoryResourceToolSchema;
 export function buildFileTools(options: BuildFileToolsOptions): ToolSet {
   const { workspaceId, userId } = options;
 
-  const memorySaveFile = tool({
+  const memorySaveResource = tool({
     description: `Draft a Resource entry from the conversation. Resources are files, links, and external references that connect to People, Organizations, or Work.
 
 MODES:
@@ -129,7 +129,7 @@ Previews the resource for user confirmation; it does not save until the user tap
 
       void logToolExecution({
         workspaceId,
-        toolSlug: "memory_save_file",
+        toolSlug: "memory_save_resource",
         risk: "mutating",
         source: "ask_salt",
         status: "success",
@@ -155,5 +155,9 @@ Previews the resource for user confirmation; it does not save until the user tap
     },
   });
 
-  return { memory_save_file: memorySaveFile };
+  // Primary tool id + one-release alias so in-flight chats / prompts still resolve.
+  return {
+    memory_save_resource: memorySaveResource,
+    memory_save_file: memorySaveResource,
+  };
 }

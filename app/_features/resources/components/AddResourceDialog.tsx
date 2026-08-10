@@ -73,7 +73,7 @@ const TYPE_META: Record<
   billing: { label: "Billing", icon: CreditCard },
   meeting: { label: "Meeting", icon: Calendar },
   conversation: { label: "Conversation", icon: MessageSquare },
-  file: { label: "File", icon: LinkIcon },
+  resource: { label: "Resource", icon: LinkIcon },
 };
 
 export function AddResourceDialog({
@@ -139,7 +139,7 @@ export function AddResourceDialog({
     if (!showEntityPicker || selectedEntity) return;
     startEntityTransition(async () => {
       const result = await fetchLinkCandidates({
-        recordKind: "file",
+        recordKind: "resource",
         recordId: "new",
         existingConnections: [],
       });
@@ -447,7 +447,7 @@ export function AddResourceDialog({
                     </p>
                   ) : (
                     filteredEntities.slice(0, 10).map((candidate) => {
-                      const meta = TYPE_META[candidate.type] || TYPE_META.file;
+                      const meta = TYPE_META[candidate.type] || TYPE_META.resource;
                       const CandidateIcon = meta.icon;
                       return (
                         <button

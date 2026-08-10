@@ -47,7 +47,7 @@ function toLearningEntityType(entityType: EnrichableEntityType): LearningEntityT
     work: "work",
     billing: "billing",
     meeting: "meeting",
-    file: "file",
+    file: "resource",
     me: "me",
   };
   return mapping[entityType];

@@ -39,7 +39,7 @@ const CREATABLE_TYPES: ReadonlySet<IntakeEntityType> = new Set([
   "organization",
   "work",
   "meeting",
-  "file",
+  "resource",
 ]);
 
 /** The record's required fields must be present for one-tap creation. */
@@ -50,7 +50,7 @@ function hasRequiredFields(
   switch (entityType) {
     case "meeting":
       return Boolean(fields?.title?.value && fields?.start_time?.value);
-    case "file":
+    case "resource":
       return Boolean(fields?.title?.value ?? fields?.name?.value);
     default:
       return true;

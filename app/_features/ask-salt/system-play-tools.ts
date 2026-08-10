@@ -620,7 +620,7 @@ function wrapSpec(
           spec.slug === "system:update-file" ||
           spec.slug === "system:archive-file"
         ) {
-          revalidatePath("/files");
+          revalidatePath("/resources");
         }
         if (
           spec.slug === "system:create-me-fact" ||

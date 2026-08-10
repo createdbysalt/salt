@@ -78,7 +78,7 @@ type FilesDirectoryTableProps = {
 function stubPreviewFile(id: string): MemoryFile {
   return {
     id,
-    name: "Untitled file",
+    name: "Untitled resource",
     kind: "link",
     category: "other",
     updatedAt: new Date().toISOString(),
@@ -103,14 +103,14 @@ export function FilesDirectoryTable({
 
   async function handleBulkArchive(selected: MemoryFile[], reset: () => void) {
     const result = await bulkArchive(
-      selected.map((f) => ({ entityType: "file" as const, id: f.id })),
+      selected.map((f) => ({ entityType: "resource" as const, id: f.id })),
     );
     if ("error" in result) {
       toast.error(result.error);
       return;
     }
     toast.success(
-      `Archived ${selected.length} ${selected.length === 1 ? "file" : "files"}`,
+      `Archived ${selected.length} ${selected.length === 1 ? "resource" : "resources"}`,
     );
     reset();
     router.refresh();
@@ -122,7 +122,7 @@ export function FilesDirectoryTable({
     );
     if (!confirmed) return;
     const result = await bulkTrash(
-      selected.map((f) => ({ entityType: "file" as const, id: f.id })),
+      selected.map((f) => ({ entityType: "resource" as const, id: f.id })),
     );
     if ("error" in result) {
       toast.error(result.error);
@@ -213,7 +213,7 @@ export function FilesDirectoryTable({
         data={files}
         columns={columns}
         filters={filters}
-        searchPlaceholder="Search files, links, people, orgs…"
+        searchPlaceholder="Search resources, links, people, orgs…"
         globalFilterFn={(row, _id, value) => {
           const v = String(value).toLowerCase();
           const f = row.original;
@@ -224,7 +224,7 @@ export function FilesDirectoryTable({
           );
         }}
         onRowClick={(file) => setPreview(file.id)}
-        displayMenuFooter={<MemoryTrashMenuLink entityType="file" />}
+        displayMenuFooter={<MemoryTrashMenuLink entityType="resource" />}
         bulkActions={(selected, reset) => (
           <>
             <button

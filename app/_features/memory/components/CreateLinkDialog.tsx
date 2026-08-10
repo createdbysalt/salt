@@ -39,7 +39,7 @@ const FILTER_OPTIONS: { value: LinkFilter; label: string }[] = [
   { value: "work", label: "Work" },
   { value: "billing", label: "Billing" },
   { value: "meeting", label: "Meetings" },
-  { value: "file", label: "Resources" },
+  { value: "resource", label: "Resources" },
 ];
 
 const TYPE_META: Record<
@@ -52,13 +52,13 @@ const TYPE_META: Record<
   billing: { label: "Billing", icon: CreditCard, tone: "bg-emerald/15 text-emerald-600" },
   meeting: { label: "Meeting", icon: Calendar, tone: "bg-amber/15 text-amber-600" },
   conversation: { label: "Conversation", icon: MessageSquare, tone: "bg-indigo/15 text-indigo-600" },
-  file: { label: "Resource", icon: FileText, tone: "bg-muted text-muted-foreground" },
+  resource: { label: "Resource", icon: FileText, tone: "bg-muted text-muted-foreground" },
 };
 
 type CreateLinkDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  recordKind: "person" | "org" | "work" | "billing" | "meeting" | "file";
+  recordKind: "person" | "org" | "work" | "billing" | "meeting" | "resource";
   recordId: string;
   recordName: string;
   existingConnections: Connection[];

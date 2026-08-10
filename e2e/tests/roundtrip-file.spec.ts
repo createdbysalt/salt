@@ -11,8 +11,8 @@ import {
 test.use({ storageState: "./fixtures/auth.json" });
 
 /**
- * Round-trip persistence: File detail (preview modal at /files?preview=<id>).
- * "Add file" creates a blank link-kind file via UI (no upload needed).
+ * Round-trip persistence: Resource detail (preview modal at /resources?preview=<id>).
+ * "Add Resource" creates a blank link-kind resource via UI (no upload needed).
  *
  * Field contract notes (keeper-field-contracts canon):
  * - Kind is system_derived (read-only editor) — not exercised.
@@ -36,24 +36,24 @@ const FILE_CATEGORY_LABELS = [
 
 const BLANK_FILE_DESCRIPTION = "Add a link or replace this placeholder URL.";
 
-test.describe("Round-trip: File", () => {
-  test("file field edits persist across reload and appear in Activity", async ({ page }) => {
+test.describe("Round-trip: Resource", () => {
+  test("resource field edits persist across reload and appear in Activity", async ({ page }) => {
     test.slow();
     const marker = `RT-file ${Date.now()}`;
     const description = `RT description ${Date.now()}`;
 
-    // 1. Create a blank link-kind file from the directory.
-    await gotoAppRoute(page, "/files");
-    await createBlankRecord(page, /add file/i, /\/files\?preview=/);
+    // 1. Create a blank link-kind resource from the directory.
+    await gotoAppRoute(page, "/resources");
+    await createBlankRecord(page, /add resource/i, /\/resources\?preview=/);
 
-    // The file detail is a modal dialog (first dialog; select popovers stack after it).
+    // The resource detail is a modal dialog (first dialog; select popovers stack after it).
     const modal = page.getByRole("dialog").first();
     await expect(
-      modal.getByRole("button", { name: "Untitled file", exact: true }),
+      modal.getByRole("button", { name: "Untitled resource", exact: true }),
     ).toBeVisible({ timeout: 30_000 });
 
     // 2. Edit: name + description (free text), category (canonical select) Other → Reference.
-    await editInlineText(page, modal, nameOneOf("Untitled file"), marker);
+    await editInlineText(page, modal, nameOneOf("Untitled resource"), marker);
     await editInlineText(
       page,
       modal,
@@ -79,7 +79,7 @@ test.describe("Round-trip: File", () => {
 
     // 4. Activity: inline file field edits write NO provenance yet —
     //    profile_field_provenance's entity_type CHECK does not admit files
-    //    (documented gap in app/_features/files/utils/activity.ts). What IS
+    //    (documented gap in app/_features/resources/utils/activity.ts). What IS
     //    contracted: file_activities / bootstrap entries (creation, metadata
     //    snapshots) render on the Activity tab.
     //    TODO(field-contracts Phase 3): assert "You updated description"

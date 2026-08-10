@@ -1,3 +1,10 @@
 export { AddResourceDialog } from "./AddResourceDialog";
 export { AddResourceButton } from "./AddResourceButton";
 export { ResourceCard } from "./ResourceCard";
+export { FilesPage } from "./FilesPage";
+export { FilesDirectoryTable } from "./FilesDirectoryTable";
+export { FilesPreviewModal } from "./FilesPreviewModal";
+export { FileOverviewTab } from "./FileOverviewTab";
+export { FileActivityTab } from "./FileActivityTab";
+export { FileConnectionPicker } from "./FileConnectionPicker";
+export { FileAssetPreviewPanel } from "./FileAssetPreviewPanel";

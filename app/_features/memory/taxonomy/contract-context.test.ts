@@ -17,7 +17,7 @@ const ENTITY_TYPES: ContractEntityType[] = [
   "org",
   "work",
   "billing",
-  "file",
+  "resource",
   "meeting",
   "me",
 ];

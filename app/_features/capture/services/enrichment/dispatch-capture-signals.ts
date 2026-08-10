@@ -36,14 +36,14 @@ const SIGNAL_ALIASES: Record<string, string> = {
 
 const SURFACE_TO_ENTITY: Record<
   string,
-  "person" | "organization" | "work" | "billing" | "meeting" | "file"
+  "person" | "organization" | "work" | "billing" | "meeting" | "resource"
 > = {
   people: "person",
   orgs: "organization",
   work: "work",
   billing: "billing",
   meetings: "meeting",
-  files: "file",
+  files: "resource",
 };
 
 export interface DispatchCaptureSignalsInput {

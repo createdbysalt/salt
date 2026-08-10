@@ -18,6 +18,7 @@
  */
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import { toLearningDbEntityType } from "@/app/_lib/learning";
 import {
   getMemoryEntityTable,
   type GetFactsInput,
@@ -47,7 +48,7 @@ export async function memoryGetFacts(
     .from("profile_field_provenance")
     .select("field, value, confidence, source, set_at")
     .eq("workspace_id", input.workspaceId)
-    .eq("entity_type", input.entityType)
+    .eq("entity_type", toLearningDbEntityType(input.entityType))
     .eq("entity_id", input.entityId)
     .eq("status", "applied")
     .order("set_at", { ascending: false });
@@ -215,7 +216,7 @@ function extractEntityFields(
         workId: data.work_id,
       };
 
-    case "file":
+    case "resource":
       return {
         name: data.name ?? data.file_name,
         category: data.category,

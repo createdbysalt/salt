@@ -211,6 +211,7 @@ const MEMORY_TOOL_STEPS: Record<string, string> = {
   memory_create_note: "Add note to Memory",
   memory_add_blocker: "Add blocker to work",
   memory_create_meeting: "Schedule meeting",
+  memory_save_resource: "Save to Resources",
   memory_save_file: "Save to Resources",
   memory_link_person_org: "Link person to organization",
   memory_unlink_person_org: "Unlink person from organization",
