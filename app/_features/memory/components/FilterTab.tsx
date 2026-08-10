@@ -3,36 +3,26 @@
 import { useMemo, useState } from "react";
 import { PlaysSectionHeader } from "@/app/_features/plays/components/PlaysSectionHeader";
 import { PlaysSearchField } from "@/app/_features/plays/components/PlaysSearchField";
+import { ActivityCombinedFilterMenu } from "@/app/_features/plays/components/ActivityCombinedFilterMenu";
+import type { ActivityDateRange } from "@/app/_features/plays/components/ActivityDateRangeFilter";
 import type { LearningEntityType } from "@/app/_lib/learning";
 import {
   FilterStatusPill,
   type FilterStatus,
 } from "./FilterStatusPill";
 import {
-  FilterActiveFilterBadges,
-  FilterFilterPanel,
-} from "./FilterFilterMenu";
-import {
-  countFilterFilters,
   EMPTY_FILTER_FILTERS,
   FILTER_ENTITY_TYPE_LABELS,
   FILTER_ENTITY_TYPE_ORDER,
-  FILTER_ITEM_KIND_LABELS,
+  matchesDateRange,
   matchesEntityTypeFilter,
   matchesFilterQuery,
-  matchesKindFilter,
   type FilterEntityTypeOption,
   type FilterFiltersState,
-  type FilterItemKindFilter,
-  type FilterKindOption,
 } from "../utils/filter-tab-filters";
 import { WatchingSection } from "./WatchingSection";
 import { HandledSection } from "./HandledSection";
 import type { GroupedLearningEvidence } from "../queries/learning-evidence";
-import type {
-  AdmissionDecisions,
-  AdmissionItem,
-} from "../queries/admission-decisions";
 import type { HandledWrite } from "../queries/handled-items";
 import type { RecordCandidate } from "../queries/record-candidates";
 
@@ -43,26 +33,16 @@ import type { RecordCandidate } from "../queries/record-candidates";
  * - Watching: what Salt is still gathering confidence on (nudges teach the bar).
  * - Handled: what Salt already applied, with why and one-click rollback.
  *
- * Layout mirrors the Plays queue: header + status pill on one row, search
- * with an item-type / record-type filter popover underneath.
+ * Toolbar mirrors Sources → Activity: search plus a single combined filter
+ * popover (record type / date range), numbered pagination per view.
  */
 
 interface FilterTabProps {
   evidence: GroupedLearningEvidence[];
-  admissions: AdmissionDecisions;
   handledWrites: HandledWrite[];
   recordCandidates?: RecordCandidate[];
   workspaceId: string;
   onUpdate?: () => void;
-}
-
-function admissionSearchTexts(item: AdmissionItem): string[] {
-  return [
-    item.title ?? "",
-    item.fromLabel ?? "",
-    item.sourceType.replace(/_/g, " "),
-    item.reason ?? "",
-  ];
 }
 
 function evidenceSearchTexts(item: GroupedLearningEvidence): string[] {
@@ -89,7 +69,6 @@ function writeSearchTexts(write: HandledWrite): string[] {
 
 export function FilterTab({
   evidence,
-  admissions,
   handledWrites,
   recordCandidates = [],
   workspaceId,
@@ -100,36 +79,14 @@ export function FilterTab({
   const [filters, setFilters] = useState<FilterFiltersState>(
     EMPTY_FILTER_FILTERS,
   );
+  const [dateRange, setDateRange] = useState<ActivityDateRange | null>(null);
 
   const counts: Record<FilterStatus, number> = {
-    watching:
-      evidence.length + admissions.candidates.length + recordCandidates.length,
-    handled: handledWrites.length + admissions.letIn.length,
+    watching: evidence.length + recordCandidates.length,
+    handled: handledWrites.length,
   };
 
-  const activeFilterCount = countFilterFilters(filters);
-
-  // Kind options differ per view, so kinds reset on switch; record types
-  // are meaningful in both and carry over.
-  const handleStatusChange = (next: FilterStatus) => {
-    setStatus(next);
-    setFilters((prev) => ({ ...prev, kinds: [] }));
-  };
-
-  const kindOptions: FilterKindOption[] = useMemo(() => {
-    const watching: Array<[FilterItemKindFilter, number]> = [
-      ["record_update", evidence.length],
-      ["new_record", recordCandidates.length],
-      ["new_capture", admissions.candidates.length],
-    ];
-    const handled: Array<[FilterItemKindFilter, number]> = [
-      ["applied_change", handledWrites.length],
-      ["let_in", admissions.letIn.length],
-    ];
-    return (status === "watching" ? watching : handled)
-      .filter(([, count]) => count > 0)
-      .map(([id, count]) => ({ id, label: FILTER_ITEM_KIND_LABELS[id], count }));
-  }, [status, evidence.length, recordCandidates.length, admissions, handledWrites.length]);
+  const activeFilterCount = filters.entityTypes.length + (dateRange ? 1 : 0);
 
   const entityTypeOptions: FilterEntityTypeOption[] = useMemo(() => {
     const typeCounts = new Map<LearningEntityType, number>();
@@ -151,41 +108,28 @@ export function FilterTab({
   }, [status, evidence, recordCandidates, handledWrites]);
 
   const filtered = useMemo(() => {
-    const kinds = filters.kinds;
     const entityTypes = filters.entityTypes;
     return {
       evidence: evidence.filter(
         (item) =>
-          matchesKindFilter(kinds, "record_update") &&
           matchesEntityTypeFilter(entityTypes, item.entityType) &&
+          matchesDateRange(dateRange, item.latestAt) &&
           matchesFilterQuery(search, evidenceSearchTexts(item)),
       ),
       recordCandidates: recordCandidates.filter(
         (item) =>
-          matchesKindFilter(kinds, "new_record") &&
           matchesEntityTypeFilter(entityTypes, item.entityType) &&
+          matchesDateRange(dateRange, item.lastActivityAt) &&
           matchesFilterQuery(search, [item.displayName, item.identifier]),
-      ),
-      candidates: admissions.candidates.filter(
-        (item) =>
-          matchesKindFilter(kinds, "new_capture") &&
-          matchesEntityTypeFilter(entityTypes, null) &&
-          matchesFilterQuery(search, admissionSearchTexts(item)),
       ),
       writes: handledWrites.filter(
         (write) =>
-          matchesKindFilter(kinds, "applied_change") &&
           matchesEntityTypeFilter(entityTypes, write.entityType) &&
+          matchesDateRange(dateRange, write.createdAt) &&
           matchesFilterQuery(search, writeSearchTexts(write)),
       ),
-      letIn: admissions.letIn.filter(
-        (item) =>
-          matchesKindFilter(kinds, "let_in") &&
-          matchesEntityTypeFilter(entityTypes, null) &&
-          matchesFilterQuery(search, admissionSearchTexts(item)),
-      ),
     };
-  }, [filters, search, evidence, recordCandidates, admissions, handledWrites]);
+  }, [filters, dateRange, search, evidence, recordCandidates, handledWrites]);
 
   const isNarrowing = search.trim().length > 0 || activeFilterCount > 0;
   const tabHasData =
@@ -194,17 +138,24 @@ export function FilterTab({
       : counts.handled > 0;
   const filteredEmpty =
     status === "watching"
-      ? filtered.evidence.length +
-          filtered.recordCandidates.length +
-          filtered.candidates.length ===
-        0
-      : filtered.writes.length + filtered.letIn.length === 0;
+      ? filtered.evidence.length + filtered.recordCandidates.length === 0
+      : filtered.writes.length === 0;
   const showNoMatches = isNarrowing && tabHasData && filteredEmpty;
 
   const clearNarrowing = () => {
     setSearch("");
     setFilters(EMPTY_FILTER_FILTERS);
+    setDateRange(null);
   };
+
+  // Filter/search changes restart pagination at page 1 inside the sections.
+  const resetKey = JSON.stringify({
+    status,
+    filters,
+    q: search.trim(),
+    from: dateRange ? dateRange.from.getTime() : null,
+    to: dateRange ? dateRange.to.getTime() : null,
+  });
 
   return (
     <div className="space-y-6">
@@ -216,36 +167,53 @@ export function FilterTab({
         />
         <FilterStatusPill
           active={status}
-          onChange={handleStatusChange}
+          onChange={setStatus}
           counts={counts}
         />
       </div>
 
-      <div className="space-y-3">
-        <PlaysSearchField
-          value={search}
-          onChange={setSearch}
-          placeholder={
-            status === "watching"
-              ? "Search what Salt is watching"
-              : "Search handled changes"
-          }
-          filterActive={activeFilterCount > 0}
-          filterActiveCount={activeFilterCount}
-          filterTitle=""
-          filterContentClassName="w-72 gap-0 overflow-hidden rounded-2xl border-border/60 p-0"
-          filterContent={
-            <FilterFilterPanel
-              tab={status}
-              state={filters}
-              onChange={setFilters}
-              kindOptions={kindOptions}
-              entityTypeOptions={entityTypeOptions}
-            />
-          }
-        />
-        <FilterActiveFilterBadges state={filters} onChange={setFilters} />
-      </div>
+      <PlaysSearchField
+        value={search}
+        onChange={setSearch}
+        placeholder={
+          status === "watching"
+            ? "Search what Salt is watching"
+            : "Search handled changes"
+        }
+        layout="toolbar-actions"
+        showDisplay={false}
+        filterActive={activeFilterCount > 0}
+        filterActiveCount={activeFilterCount}
+        filterAriaLabel="Filter activity"
+        filterTitle=""
+        filterContentClassName="w-auto gap-0 overflow-hidden rounded-2xl border-border/60 p-0"
+        filterContent={
+          <ActivityCombinedFilterMenu
+            title={status === "watching" ? "Filter watching" : "Filter handled"}
+            facets={[
+              {
+                id: "record-type",
+                label: "Record type",
+                options: entityTypeOptions,
+                selected: filters.entityTypes,
+                onToggle: (id, checked) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    entityTypes: checked
+                      ? [...prev.entityTypes, id as LearningEntityType]
+                      : prev.entityTypes.filter((type) => type !== id),
+                  })),
+              },
+            ]}
+            dateRange={dateRange}
+            onDateRangeChange={setDateRange}
+            onClearAll={() => {
+              setFilters(EMPTY_FILTER_FILTERS);
+              setDateRange(null);
+            }}
+          />
+        }
+      />
 
       {showNoMatches ? (
         <div className="rounded-xl border border-dashed border-border/60 px-4 py-10 text-center">
@@ -266,16 +234,16 @@ export function FilterTab({
       ) : status === "watching" ? (
         <WatchingSection
           evidence={filtered.evidence}
-          candidates={filtered.candidates}
           recordCandidates={filtered.recordCandidates}
           workspaceId={workspaceId}
           onUpdate={onUpdate}
+          resetKey={resetKey}
         />
       ) : (
         <HandledSection
           writes={filtered.writes}
-          letIn={filtered.letIn}
           onUpdate={onUpdate}
+          resetKey={resetKey}
         />
       )}
     </div>

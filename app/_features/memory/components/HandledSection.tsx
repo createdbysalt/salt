@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import {
@@ -16,8 +16,13 @@ import {
 } from "lucide-react";
 import { cn } from "@repo/utils";
 import { PlaysTabEmptyState } from "@/app/_features/plays/components/PlaysTabEmptyState";
+import { ActivityPagination } from "./ActivityPagination";
+import {
+  DEFAULT_MEMORY_ACTIVITY_PAGE_SIZE,
+  paginateItems,
+  type MemoryActivityPageSize,
+} from "../utils/activity-pagination";
 import type { HandledWrite } from "../queries/handled-items";
-import type { AdmissionItem } from "../queries/admission-decisions";
 import { markHandledWriteWrong } from "../actions/handled-items";
 
 /**
@@ -33,8 +38,9 @@ const APPLE_EASE = [0.32, 0.72, 0, 1] as const;
 
 interface HandledSectionProps {
   writes: HandledWrite[];
-  letIn: AdmissionItem[];
   onUpdate?: () => void;
+  /** Changes when toolbar filters/search change — resets pagination. */
+  resetKey?: string;
 }
 
 const CAPABILITY_LABELS: Record<string, string> = {
@@ -257,10 +263,23 @@ function HandledWriteRow({
 
 export function HandledSection({
   writes,
-  letIn,
   onUpdate,
+  resetKey,
 }: HandledSectionProps) {
-  if (writes.length === 0 && letIn.length === 0) {
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<MemoryActivityPageSize>(
+    DEFAULT_MEMORY_ACTIVITY_PAGE_SIZE,
+  );
+
+  // Any filter/search change restarts at the first page (Sources pattern).
+  useEffect(() => {
+    setPage(1);
+  }, [resetKey, pageSize]);
+
+  const handledTotal = writes.length;
+  const pagedWrites = paginateItems(writes, page, pageSize);
+
+  if (writes.length === 0) {
     return (
       <PlaysTabEmptyState
         icon={CheckCircle2}
@@ -272,10 +291,10 @@ export function HandledSection({
 
   return (
     <div className="space-y-6">
-      {writes.length > 0 && (
+      {pagedWrites.pageItems.length > 0 && (
         <section className="space-y-3">
           <ul className="glass-card divide-y divide-border/40 overflow-hidden rounded-3xl">
-            {writes.map((write) => (
+            {pagedWrites.pageItems.map((write) => (
               <HandledWriteRow
                 key={write.learningId}
                 write={write}
@@ -286,38 +305,14 @@ export function HandledSection({
         </section>
       )}
 
-      {letIn.length > 0 && (
-        <section className="space-y-3">
-          <div>
-            <h3 className="text-sm font-semibold text-foreground">Let in</h3>
-            <p className="text-[13px] text-muted-foreground">
-              Captures Salt admitted into your world this week.
-            </p>
-          </div>
-          <ul className="glass-card divide-y divide-border/40 overflow-hidden rounded-3xl">
-            {letIn.map((item) => (
-              <li key={item.captureId} className="group">
-                <div className="grid grid-cols-[56px_36px_1fr] items-center gap-3 px-4 py-3.5 transition hover:bg-muted/40">
-                  <span className="whitespace-nowrap text-[11px] font-medium tabular-nums text-muted-foreground">
-                    {formatTimeAgo(item.createdAt)}
-                  </span>
-                  <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-muted text-foreground">
-                    <CheckCircle2 className="size-3.5" strokeWidth={2.25} />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="truncate text-[13px] font-medium leading-tight text-foreground">
-                      {item.title ?? "Untitled capture"}
-                    </p>
-                    <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
-                      {item.fromLabel ?? item.sourceType.replace(/_/g, " ")}
-                    </p>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      <ActivityPagination
+        page={pagedWrites.page}
+        pageSize={pageSize}
+        totalCount={handledTotal}
+        itemLabel={handledTotal === 1 ? "item" : "items"}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+      />
     </div>
   );
 }

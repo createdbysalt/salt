@@ -7,7 +7,6 @@ import { FilterTab } from "@/app/_features/memory/components/FilterTab";
 import { RulesTab } from "@/app/_features/memory/components/RulesTab";
 import { parseMemoryTab, type MemoryTab } from "@/app/_features/memory/memory-tab-routing";
 import { getLearningEvidence } from "@/app/_features/memory/queries/learning-evidence";
-import { getAdmissionDecisions } from "@/app/_features/memory/queries/admission-decisions";
 import { getHandledWrites } from "@/app/_features/memory/queries/handled-items";
 import { getRecordCandidates } from "@/app/_features/memory/queries/record-candidates";
 import {
@@ -29,17 +28,14 @@ async function MemoryGraphSection({ workspaceId }: { workspaceId: string }) {
 }
 
 async function MemoryFilterSection({ workspaceId }: { workspaceId: string }) {
-  const [evidence, decisions, handledWrites, recordCandidates] =
-    await Promise.all([
-      getLearningEvidence(workspaceId),
-      getAdmissionDecisions(workspaceId),
-      getHandledWrites(workspaceId),
-      getRecordCandidates(workspaceId),
-    ]);
+  const [evidence, handledWrites, recordCandidates] = await Promise.all([
+    getLearningEvidence(workspaceId),
+    getHandledWrites(workspaceId),
+    getRecordCandidates(workspaceId),
+  ]);
   return (
     <FilterTab
       evidence={evidence}
-      admissions={decisions}
       handledWrites={handledWrites}
       recordCandidates={recordCandidates}
       workspaceId={workspaceId}

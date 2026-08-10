@@ -80,14 +80,26 @@ function isSameDay(a: Date, b: Date): boolean {
   );
 }
 
-export function ActivityDateRangeFilter({
+/**
+ * The date-range picker body, shared between the standalone toolbar chip
+ * (`ActivityDateRangeFilter`) and composite filter popovers that embed it
+ * (e.g. Memory → Activity's combined filter menu).
+ *
+ * `compact` stacks the presets above a single-month calendar so the panel
+ * fits inside narrow popovers. `onDone` fires after any commit (apply,
+ * preset, clear) so a wrapping popover can close itself.
+ */
+export function ActivityDateRangePanel({
   value,
   onChange,
+  compact = false,
+  onDone,
 }: {
   value: ActivityDateRange | null;
   onChange: (range: ActivityDateRange | null) => void;
+  compact?: boolean;
+  onDone?: () => void;
 }) {
-  const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<DraftRange | undefined>(value ?? undefined);
 
   // react-day-picker completes a single-day range on the first click
@@ -96,26 +108,97 @@ export function ActivityDateRangeFilter({
     draft?.from && draft?.to ? { from: draft.from, to: draft.to } : null;
   const singleDay = draftComplete && isSameDay(draftComplete.from, draftComplete.to);
 
-  function applyDraft() {
-    if (!draftComplete) return;
-    onChange(draftComplete);
-    setOpen(false);
+  function commit(range: ActivityDateRange | null) {
+    setDraft(range ?? undefined);
+    onChange(range);
+    onDone?.();
   }
 
-  function clear() {
-    setDraft(undefined);
-    onChange(null);
-    setOpen(false);
+  function applyDraft() {
+    if (!draftComplete) return;
+    commit(draftComplete);
   }
 
   return (
-    <Popover
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (next) setDraft(value ?? undefined);
-      }}
-    >
+    <div className={cn("flex flex-col", !compact && "sm:flex-row")}>
+      <div
+        className={cn(
+          "flex flex-row gap-1 border-border/60 p-2",
+          compact
+            ? "border-b"
+            : "border-b sm:flex-col sm:border-b-0 sm:border-r",
+        )}
+      >
+        {PRESETS.map((preset) => (
+          <button
+            key={preset.id}
+            type="button"
+            onClick={() => commit(preset.resolve())}
+            className="whitespace-nowrap rounded-lg px-3 py-1.5 text-left text-sm text-foreground/80 transition hover:bg-muted/60 hover:text-foreground"
+          >
+            {preset.label}
+          </button>
+        ))}
+      </div>
+      <div>
+        <Calendar
+          mode="range"
+          selected={draft}
+          onSelect={setDraft}
+          numberOfMonths={compact ? 1 : 2}
+          defaultMonth={draft?.from ?? draft?.to ?? new Date()}
+          initialFocus
+        />
+        <div className="space-y-1.5 border-t border-border/60 px-3 py-2.5">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-medium text-foreground/80">
+              {draftComplete
+                ? formatActivityDateRange(draftComplete)
+                : "Pick a date"}
+            </p>
+            <div className="flex items-center gap-1">
+              {value || draft?.from ? (
+                <button
+                  type="button"
+                  onClick={() => commit(null)}
+                  className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-sm font-medium text-muted-foreground transition hover:bg-muted/60 hover:text-foreground"
+                >
+                  <X className="size-3.5" />
+                  Clear
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={applyDraft}
+                disabled={!draftComplete}
+                className="rounded-full bg-foreground px-3 py-1 text-sm font-medium text-background transition hover:opacity-90 disabled:opacity-40"
+              >
+                Apply
+              </button>
+            </div>
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            {singleDay
+              ? "Click another day to make it a range, or Apply for just this day."
+              : "Click a start day, then an end day."}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function ActivityDateRangeFilter({
+  value,
+  onChange,
+}: {
+  value: ActivityDateRange | null;
+  onChange: (range: ActivityDateRange | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
           type="button"
@@ -129,69 +212,11 @@ export function ActivityDateRangeFilter({
         </button>
       </PopoverTrigger>
       <PopoverContent align="end" className={calendarPopoverClassName}>
-        <div className="flex flex-col sm:flex-row">
-          <div className="flex flex-row gap-1 border-b border-border/60 p-2 sm:flex-col sm:border-b-0 sm:border-r">
-            {PRESETS.map((preset) => (
-              <button
-                key={preset.id}
-                type="button"
-                onClick={() => {
-                  const range = preset.resolve();
-                  setDraft(range);
-                  onChange(range);
-                  setOpen(false);
-                }}
-                className="whitespace-nowrap rounded-lg px-3 py-1.5 text-left text-sm text-foreground/80 transition hover:bg-muted/60 hover:text-foreground"
-              >
-                {preset.label}
-              </button>
-            ))}
-          </div>
-          <div>
-            <Calendar
-              mode="range"
-              selected={draft}
-              onSelect={setDraft}
-              numberOfMonths={2}
-              defaultMonth={draft?.from ?? draft?.to ?? new Date()}
-              initialFocus
-            />
-            <div className="space-y-1.5 border-t border-border/60 px-3 py-2.5">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-xs font-medium text-foreground/80">
-                  {draftComplete
-                    ? formatActivityDateRange(draftComplete)
-                    : "Pick a date"}
-                </p>
-                <div className="flex items-center gap-1">
-                  {value || draft?.from ? (
-                    <button
-                      type="button"
-                      onClick={clear}
-                      className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-sm font-medium text-muted-foreground transition hover:bg-muted/60 hover:text-foreground"
-                    >
-                      <X className="size-3.5" />
-                      Clear
-                    </button>
-                  ) : null}
-                  <button
-                    type="button"
-                    onClick={applyDraft}
-                    disabled={!draftComplete}
-                    className="rounded-full bg-foreground px-3 py-1 text-sm font-medium text-background transition hover:opacity-90 disabled:opacity-40"
-                  >
-                    Apply
-                  </button>
-                </div>
-              </div>
-              <p className="text-[11px] text-muted-foreground">
-                {singleDay
-                  ? "Click another day to make it a range, or Apply for just this day."
-                  : "Click a start day, then an end day."}
-              </p>
-            </div>
-          </div>
-        </div>
+        <ActivityDateRangePanel
+          value={value}
+          onChange={onChange}
+          onDone={() => setOpen(false)}
+        />
       </PopoverContent>
     </Popover>
   );

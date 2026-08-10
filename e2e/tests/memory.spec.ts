@@ -48,6 +48,20 @@ test.describe("Memory surface tabs", () => {
     await expect(views).toBeVisible();
     await expect(views.getByRole("tab", { name: /Watching/i })).toBeVisible();
     await expect(views.getByRole("tab", { name: /Handled/i })).toBeVisible();
+
+    // Sources-style toolbar: search + one combined filter popover.
+    await expect(
+      page.getByLabel(/search what salt is watching/i),
+    ).toBeVisible();
+    const filterButton = page.getByRole("button", { name: /^filter$/i });
+    await expect(filterButton).toBeVisible();
+
+    // The popover groups all facets: item type, record type, date range.
+    await filterButton.click();
+    await expect(
+      page.getByRole("button", { name: "This week" }),
+    ).toBeVisible();
+    await page.keyboard.press("Escape");
   });
 
   test("Rules tab shows care capabilities and admission policy", async ({ page }) => {

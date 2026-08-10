@@ -64,10 +64,8 @@ import {
   type CaptureStreamCounts,
 } from "../utils/capture-stream-page-filter";
 import { PlaysSearchField } from "@/app/_features/plays/components/PlaysSearchField";
-import {
-  ActivityDateRangeFilter,
-  type ActivityDateRange,
-} from "@/app/_features/plays/components/ActivityDateRangeFilter";
+import { ActivityCombinedFilterMenu } from "@/app/_features/plays/components/ActivityCombinedFilterMenu";
+import type { ActivityDateRange } from "@/app/_features/plays/components/ActivityDateRangeFilter";
 import { dayGroupFromIso } from "@/app/_features/plays/utils/map-play-run-to-activity";
 import {
   Pagination,
@@ -620,6 +618,9 @@ export function CaptureStreamTab({
 
   const activeFilterCount =
     (state !== "all" ? 1 : 0) + (area !== "all" ? 1 : 0) + (dateRange ? 1 : 0);
+  // The Filter button badge only counts what the popover itself controls —
+  // state comes from the stat tiles above the toolbar.
+  const popoverFilterCount = (area !== "all" ? 1 : 0) + (dateRange ? 1 : 0);
 
   const tileValues: Record<CaptureCategory, number> = {
     queued: counts.queued,
@@ -670,31 +671,35 @@ export function CaptureStreamTab({
         value={q}
         onChange={updateSearch}
         placeholder="Search captures…"
-        trailingAction={
-          <div className="flex shrink-0 items-center gap-2">
-            <Select
-              value={area}
-              onValueChange={(value) => updateArea(value as StreamAreaFilter)}
-            >
-              <SelectTrigger
-                aria-label="Filter by area"
-                className={cn(
-                  "h-9 w-auto gap-1.5 rounded-full border-border/60 bg-card px-3.5 text-sm font-medium text-foreground/80 shadow-none hover:border-border",
-                  area !== "all" && "border-border bg-muted/70 text-foreground",
-                )}
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent align="end" className="rounded-2xl border-border/60">
-                {STREAM_AREA_OPTIONS.map((option) => (
-                  <SelectItem key={option.id} value={option.id}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <ActivityDateRangeFilter value={dateRange} onChange={updateDateRange} />
-          </div>
+        layout="toolbar-actions"
+        showDisplay={false}
+        filterActive={popoverFilterCount > 0}
+        filterActiveCount={popoverFilterCount}
+        filterAriaLabel="Filter captures"
+        filterTitle=""
+        filterContentClassName="w-auto gap-0 overflow-hidden rounded-2xl border-border/60 p-0"
+        filterContent={
+          <ActivityCombinedFilterMenu
+            title="Filter captures"
+            facets={[
+              {
+                id: "area",
+                label: "Area",
+                options: STREAM_AREA_OPTIONS.filter(
+                  (option) => option.id !== "all",
+                ),
+                selected: area === "all" ? [] : [area],
+                onToggle: (id, checked) =>
+                  updateArea(checked ? (id as StreamAreaFilter) : "all"),
+              },
+            ]}
+            dateRange={dateRange}
+            onDateRangeChange={updateDateRange}
+            onClearAll={() => {
+              updateArea("all");
+              updateDateRange(null);
+            }}
+          />
         }
       />
 

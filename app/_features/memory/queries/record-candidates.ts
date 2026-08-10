@@ -22,6 +22,8 @@ export interface RecordCandidate {
   identifier: string;
   confidencePercent: number;
   signalCount: number;
+  /** Most recent signal — drives the Activity date-range filter. */
+  lastActivityAt: string;
   /**
    * Whether one-tap creation is possible. Meetings and files are creatable
    * when the evidence carries the fields their insert requires (title +
@@ -71,6 +73,7 @@ export async function getRecordCandidates(
     identifier: row.identifier,
     confidencePercent: Math.round(row.confidencePercent),
     signalCount: row.signals.length,
+    lastActivityAt: row.last_signal_at,
     canCreate:
       CREATABLE_TYPES.has(row.entity_type) &&
       hasRequiredFields(row.entity_type, row.extracted_fields),

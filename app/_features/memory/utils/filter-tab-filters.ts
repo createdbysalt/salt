@@ -3,43 +3,23 @@ import type { LearningEntityType } from "@/app/_lib/learning";
 /**
  * Pure filter logic for Memory → Filter (Watching / Handled).
  *
- * Item-kind and record-type filter state plus the search matcher. Kept
- * JSX-free so it stays unit-testable (the Vitest setup has no JSX transform);
- * `components/FilterFilterMenu.tsx` renders the panel and badges on top.
+ * Record-type filter state plus the search/date matchers.
+ * Kept JSX-free so it stays unit-testable (the Vitest setup has no JSX
+ * transform); `components/FilterTab.tsx` renders the filter popover on top.
  */
 
-export type WatchingKindFilter = "record_update" | "new_record" | "new_capture";
-export type HandledKindFilter = "applied_change" | "let_in";
-export type FilterItemKindFilter = WatchingKindFilter | HandledKindFilter;
-
 export type FilterFiltersState = {
-  kinds: FilterItemKindFilter[];
   entityTypes: LearningEntityType[];
 };
 
 export const EMPTY_FILTER_FILTERS: FilterFiltersState = {
-  kinds: [],
   entityTypes: [],
-};
-
-export type FilterKindOption = {
-  id: FilterItemKindFilter;
-  label: string;
-  count: number;
 };
 
 export type FilterEntityTypeOption = {
   id: LearningEntityType;
   label: string;
   count: number;
-};
-
-export const FILTER_ITEM_KIND_LABELS: Record<FilterItemKindFilter, string> = {
-  record_update: "Record updates",
-  new_record: "New records",
-  new_capture: "New captures",
-  applied_change: "Applied changes",
-  let_in: "Let in",
 };
 
 export const FILTER_ENTITY_TYPE_LABELS: Record<LearningEntityType, string> = {
@@ -64,14 +44,7 @@ export const FILTER_ENTITY_TYPE_ORDER: LearningEntityType[] = [
 ];
 
 export function countFilterFilters(state: FilterFiltersState): number {
-  return state.kinds.length + state.entityTypes.length;
-}
-
-export function matchesKindFilter(
-  kinds: FilterItemKindFilter[],
-  kind: FilterItemKindFilter,
-): boolean {
-  return kinds.length === 0 || kinds.includes(kind);
+  return state.entityTypes.length;
 }
 
 /**
@@ -96,4 +69,30 @@ export function matchesFilterQuery(
   const q = query.trim().toLowerCase();
   if (!q) return true;
   return texts.some((text) => text?.toLowerCase().includes(q));
+}
+
+/** Inclusive local-day range — same contract as the Sources date filter. */
+export interface ActivityLocalDateRange {
+  from: Date;
+  to: Date;
+}
+
+/**
+ * Matches an ISO timestamp against an inclusive local-day range. Items
+ * without a timestamp are excluded while a range is active (strict
+ * intersection, same as the record-type filter).
+ */
+export function matchesDateRange(
+  range: ActivityLocalDateRange | null,
+  iso: string | null | undefined,
+): boolean {
+  if (!range) return true;
+  if (!iso) return false;
+  const time = new Date(iso).getTime();
+  if (Number.isNaN(time)) return false;
+  const from = new Date(range.from);
+  from.setHours(0, 0, 0, 0);
+  const to = new Date(range.to);
+  to.setHours(23, 59, 59, 999);
+  return time >= from.getTime() && time <= to.getTime();
 }

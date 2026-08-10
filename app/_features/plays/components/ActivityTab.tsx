@@ -24,7 +24,6 @@ import {
 } from "lucide-react";
 import {
   Badge,
-  Checkbox,
   Pagination,
   PaginationContent,
   PaginationEllipsis,
@@ -56,8 +55,8 @@ import { getActivityPage } from "@/app/_features/plays/actions/get-activity-page
 import { undoAutoAppliedAction } from "@/app/_features/plays/actions";
 import { cn } from "@repo/utils";
 import { PlaysSearchField } from "./PlaysSearchField";
+import { ActivityCombinedFilterMenu } from "./ActivityCombinedFilterMenu";
 import {
-  ActivityDateRangeFilter,
   formatActivityDateRange,
   type ActivityDateRange,
 } from "./ActivityDateRangeFilter";
@@ -306,17 +305,38 @@ export function ActivityTab({
           value={q}
           onChange={updateSearch}
           placeholder="Search activity…"
+          layout="toolbar-actions"
+          showDisplay={false}
           filterActive={activeFilterCount > 0}
           filterActiveCount={activeFilterCount}
+          filterAriaLabel="Filter activity"
           filterTitle=""
-          filterContentClassName="w-72 gap-0 overflow-hidden rounded-2xl border-border/60 p-0"
+          filterContentClassName="w-auto gap-0 overflow-hidden rounded-2xl border-border/60 p-0"
           filterContent={
-            <ActivityFilterPanel state={filters} onChange={updateFilters} />
-          }
-          trailingAction={
-            <ActivityDateRangeFilter
-              value={filters.dateRange}
-              onChange={(dateRange) => updateFilters({ ...filters, dateRange })}
+            <ActivityCombinedFilterMenu
+              title="Filter activity"
+              facets={[
+                {
+                  id: "category",
+                  label: "Category",
+                  options: CATEGORY_OPTIONS,
+                  selected: filters.categories,
+                  onToggle: (id, checked) =>
+                    updateFilters({
+                      ...filters,
+                      categories: toggleValue(
+                        filters.categories,
+                        id as PlayActivityCategory,
+                        checked,
+                      ),
+                    }),
+                },
+              ]}
+              dateRange={filters.dateRange}
+              onDateRangeChange={(dateRange) =>
+                updateFilters({ ...filters, dateRange })
+              }
+              onClearAll={() => updateFilters({ categories: [], dateRange: null })}
             />
           }
         />
@@ -855,83 +875,6 @@ function TimelineRow({ entry: e }: { entry: PlayActivityItem }) {
         </ul>
       }
     />
-  );
-}
-
-function ActivityFilterPanel({
-  state,
-  onChange,
-}: {
-  state: ActivityFiltersState;
-  onChange: (state: ActivityFiltersState) => void;
-}) {
-  const activeCount = state.categories.length;
-
-  function updateCategories(category: PlayActivityCategory, checked: boolean) {
-    onChange({
-      ...state,
-      categories: toggleValue(state.categories, category, checked),
-    });
-  }
-
-  function clearCategories() {
-    onChange({ ...state, categories: [] });
-  }
-
-  return (
-    <div className="flex flex-col">
-      {activeCount > 0 ? (
-        <div className="flex items-center justify-between border-b border-border/60 px-3 py-2.5">
-          <p className="text-xs text-muted-foreground">
-            {activeCount} filter{activeCount === 1 ? "" : "s"} active
-          </p>
-          <button
-            type="button"
-            onClick={clearCategories}
-            className="text-xs font-medium text-foreground/80 hover:text-foreground transition"
-          >
-            Clear all
-          </button>
-        </div>
-      ) : (
-        <div className="border-b border-border/60 px-3 py-2.5">
-          <p className="text-xs font-medium text-foreground">Filter activity</p>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">
-            Narrow by category — dates live in the Date range picker
-          </p>
-        </div>
-      )}
-
-      <div className="max-h-[min(52vh,420px)] overflow-y-auto">
-        <div className="p-2">
-          <p className="px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-            Category
-          </p>
-          <div className="mt-1 space-y-0.5">
-            {CATEGORY_OPTIONS.map((option) => {
-              const checked = state.categories.includes(option.id);
-              const catStyle = CATEGORY_STYLES[option.id];
-              return (
-                <label
-                  key={option.id}
-                  className="flex items-center gap-2.5 rounded-lg px-2 py-2 hover:bg-muted/60 cursor-pointer text-sm"
-                >
-                  <Checkbox
-                    className="rounded-[4px]"
-                    checked={checked}
-                    onCheckedChange={(value) => updateCategories(option.id, value === true)}
-                  />
-                  <span className="min-w-0 flex-1 flex items-center gap-2">
-                    {option.label}
-                    <catStyle.icon className="size-3 text-muted-foreground" />
-                  </span>
-                </label>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    </div>
   );
 }
 
