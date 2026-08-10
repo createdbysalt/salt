@@ -395,6 +395,26 @@ export async function handleConnectionCallback(
     const email = extractConnectionEmail(connection);
 
     const admin = createAdminClient();
+
+    // Reconnect must not wipe customizations: merge over the existing row's
+    // config so captureScope (and anything else the user tuned) survives.
+    // setCaptureState(true) below re-subscribes with that merged scope and
+    // rewrites captureTriggerIds. The API-key path already preserves config
+    // by omitting it from its upsert payload.
+    const { data: existingIntegration } = await admin
+      .from("workspace_integrations")
+      .select("config")
+      .eq("workspace_id", stateData.workspaceId)
+      .eq("provider", stateData.provider)
+      .maybeSingle();
+
+    const existingConfig =
+      existingIntegration?.config &&
+      typeof existingIntegration.config === "object" &&
+      !Array.isArray(existingIntegration.config)
+        ? (existingIntegration.config as Record<string, unknown>)
+        : {};
+
     const { error: upsertError } = await admin.from("workspace_integrations").upsert(
       {
         workspace_id: stateData.workspaceId,
@@ -405,7 +425,7 @@ export async function handleConnectionCallback(
         connected_by: stateData.userId,
         connected_at: new Date().toISOString(),
         last_error: composioStatus === "error" ? "Connection not active" : null,
-        config: email ? { email } : {},
+        config: { ...existingConfig, ...(email ? { email } : {}) },
       },
       { onConflict: "workspace_id,provider" },
     );
