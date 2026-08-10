@@ -43,6 +43,7 @@ import { loadEntityReputation } from "../entity-profiles";
 import { getCategoryForConnector } from "@/app/_lib/composio/enrichment/registry";
 import { extractAdmissionSignals } from "./admission-signals";
 import { classifyColdInboundIntent, intentEarnsAdmission } from "./cold-intent";
+import { getCustomizePromptBlock } from "@/app/_features/memory/customize/queries";
 import { EMAIL_SCAN_SOURCE_TYPES } from "../../adapters/categories/email";
 
 /**
@@ -260,12 +261,20 @@ export async function runGatePipeline(input: GatePipelineInput): Promise<GatePip
     if (!bypassHold) {
       if (input.coldIntentRead) {
         const extracted = envelope.extracted as Record<string, unknown>;
+        // Track A (Phase M4): the workspace's person/work customizations
+        // steer the paid intent read. Loaded only on this path; a read
+        // failure yields null and the read proceeds without them.
+        const customizeContext = await getCustomizePromptBlock(workspaceId, [
+          "person",
+          "work",
+        ]).catch(() => null);
         const intent = await classifyColdInboundIntent({
           workspaceId,
           senderEmail,
           senderName,
           subject: (extracted?.subject as string | null) ?? envelope.title,
           snippet: (extracted?.snippet as string | null) ?? null,
+          customizeContext,
         });
         result.coldIntent = intent;
 

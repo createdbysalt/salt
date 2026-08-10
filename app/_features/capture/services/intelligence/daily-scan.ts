@@ -21,6 +21,7 @@ import {
 } from "./finding-target";
 import { classifyCapture } from "./capture-classifier";
 import { createScopedMemoryLoader, buildMemoryContextBlock } from "./scoped-memory-context";
+import { getCustomizePromptBlock } from "@/app/_features/memory/customize/queries";
 import { persistCaptureIntelligenceOutcome } from "./capture-intelligence-persistence";
 import {
   readIntelligenceMeta,
@@ -431,6 +432,12 @@ export interface ScanPipelineContext {
   senderRegistry: SenderProfileRegistry;
   scopedMemory: ReturnType<typeof createScopedMemoryLoader>;
   /**
+   * Track A (Phase M4): the workspace's active Memory customizations, loaded
+   * once per run and passed to every classification. Null when the load
+   * failed — scans proceed without the block rather than failing.
+   */
+  customizeContext: string | null;
+  /**
    * Per-run provider-fetch budget for body hydration. Null disables
    * hydration — the inline backfill path already carries the transient body
    * and must not pay for a second fetch.
@@ -450,11 +457,15 @@ export async function createScanPipelineContext(options: {
   supabase?: ReturnType<typeof createAdminClient>;
 }): Promise<ScanPipelineContext> {
   const supabase = options.supabase ?? createAdminClient();
-  const [knownEntities, senderRegistry, scopedMemory] = await Promise.all([
-    loadKnownWorkspaceEntities(supabase, options.workspaceId),
-    loadSenderProfileRegistry(supabase, options.workspaceId),
-    createScopedMemoryLoader(supabase, options.workspaceId, options.userId),
-  ]);
+  const [knownEntities, senderRegistry, scopedMemory, customizeContext] =
+    await Promise.all([
+      loadKnownWorkspaceEntities(supabase, options.workspaceId),
+      loadSenderProfileRegistry(supabase, options.workspaceId),
+      createScopedMemoryLoader(supabase, options.workspaceId, options.userId),
+      // Track A (Phase M4): one load per run; a failure degrades to no
+      // customization rather than failing the scan.
+      getCustomizePromptBlock(options.workspaceId).catch(() => null),
+    ]);
   return {
     supabase,
     workspaceId: options.workspaceId,
@@ -475,6 +486,7 @@ export async function createScanPipelineContext(options: {
     knownEntities,
     senderRegistry,
     scopedMemory,
+    customizeContext,
     hydration: options.enableHydration ? { used: 0, max: MAX_HYDRATIONS_PER_RUN } : null,
   };
 }
@@ -505,6 +517,7 @@ export async function processCaptureForScan(
     knownEntities,
     senderRegistry,
     scopedMemory,
+    customizeContext,
   } = ctx;
 
   const existingMeta = readIntelligenceMeta(rawEmail.extracted_data);
@@ -625,6 +638,7 @@ export async function processCaptureForScan(
       bidirectionalThread: email.has_prior_thread && !email.is_sent_by_user,
       senderRegistry,
       memoryContext: buildMemoryContextBlock(memoryItems),
+      customizeContext,
     });
 
     if (!classification || classification.isNoise || !classification.analysis) {

@@ -67,6 +67,13 @@ const h = vi.hoisted(() => {
         filters.push([column, value]);
         return builder;
       },
+      maybeSingle: async () => ({
+        data:
+          db.rows.find((row) =>
+            filters.every(([c, v]) => row[c as keyof EntryRow] === v),
+          ) ?? null,
+        error: null,
+      }),
       order: async () => ({
         data: db.rows.filter((row) =>
           filters.every(([c, v]) => row[c as keyof EntryRow] === v),
@@ -103,10 +110,68 @@ vi.mock("@/app/_lib/composio/workspace-auth", () => ({
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
+// Track B fakes: the rules-manager is mocked at the module boundary; the
+// fake store proves the compiled deny rule is written on add and removed
+// on revert. The eval that the compiled rule actually changes gate
+// decisions lives in rules-manager's own tests (real matcher).
+const rulesFake = vi.hoisted(() => {
+  interface FakeRule {
+    id: string;
+    workspaceId: string;
+    provider: string | null;
+    ruleType: string;
+    entityType: string;
+    entityKey: string;
+  }
+  const rules: FakeRule[] = [];
+  let counter = 0;
+  return { rules, nextId: () => `rule-${++counter}` };
+});
+
+vi.mock("@/app/_features/capture/services/rules-manager", () => ({
+  addRule: async (input: {
+    workspaceId: string;
+    provider?: string | null;
+    ruleType: string;
+    entityType: string;
+    entityKey: string;
+  }) => {
+    const rule = {
+      id: rulesFake.nextId(),
+      workspaceId: input.workspaceId,
+      provider: input.provider ?? null,
+      ruleType: input.ruleType,
+      entityType: input.entityType,
+      entityKey: input.entityKey,
+    };
+    rulesFake.rules.push(rule);
+    return { success: true, rule };
+  },
+  getRules: async (
+    workspaceId: string,
+    options: { provider?: string | null; ruleType?: string; entityType?: string },
+  ) =>
+    rulesFake.rules.filter(
+      (rule) =>
+        rule.workspaceId === workspaceId &&
+        (options.provider === undefined || rule.provider === options.provider) &&
+        (!options.ruleType || rule.ruleType === options.ruleType) &&
+        (!options.entityType || rule.entityType === options.entityType),
+    ),
+  removeRule: async (workspaceId: string, ruleId: string) => {
+    const index = rulesFake.rules.findIndex(
+      (rule) => rule.id === ruleId && rule.workspaceId === workspaceId,
+    );
+    if (index >= 0) rulesFake.rules.splice(index, 1);
+    return { success: index >= 0 };
+  },
+}));
+
 import { addCustomizeEntry, revertCustomizeEntry } from "./actions";
 
 beforeEach(() => {
   h.db.rows.length = 0;
+  rulesFake.rules.length = 0;
   h.member.ok = true;
 });
 
@@ -199,5 +264,71 @@ describe("revertCustomizeEntry", () => {
   it("rejects a non-uuid id", async () => {
     const result = await revertCustomizeEntry("not-a-uuid");
     expect(result.success).toBe(false);
+  });
+});
+
+describe("Track B — hard exclusions compile to workspace deny rules", () => {
+  it("an enforced entry writes the deny rule and says so", async () => {
+    const result = await addCustomizeEntry({
+      entityType: "person",
+      body: "never let in anything from @spammy-agency.com",
+      source: "user",
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) throw new Error("unreachable");
+    expect(result.enforcement).toBe("enforced");
+    expect(rulesFake.rules).toHaveLength(1);
+    expect(rulesFake.rules[0]).toMatchObject({
+      workspaceId: "ws-1",
+      provider: null,
+      ruleType: "deny",
+      entityType: "domain",
+      entityKey: "spammy-agency.com",
+    });
+  });
+
+  it("a generalization stays advisory and writes no rule", async () => {
+    const result = await addCustomizeEntry({
+      entityType: "person",
+      body: "never treat my accountant as a client",
+      source: "user",
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) throw new Error("unreachable");
+    expect(result.enforcement).toBe("advisory");
+    expect(rulesFake.rules).toHaveLength(0);
+  });
+
+  it("reverting an enforced entry removes its deny rule", async () => {
+    const added = await addCustomizeEntry({
+      entityType: "person",
+      body: "keep out newsletters@spammy.io",
+      source: "user",
+    });
+    if (!added.success) throw new Error("setup failed");
+    expect(rulesFake.rules).toHaveLength(1);
+
+    const result = await revertCustomizeEntry(added.data.id);
+
+    expect(result).toEqual({ success: true });
+    expect(rulesFake.rules).toHaveLength(0);
+  });
+});
+
+describe("write-time validation — never-touch fields", () => {
+  it("refuses instructions that demand Salt write a user_only field", async () => {
+    // Meeting title is user_only in the field registry.
+    const result = await addCustomizeEntry({
+      entityType: "meeting",
+      body: "Always fill in Title from the email subject",
+      source: "user",
+    });
+
+    expect(result.success).toBe(false);
+    if (result.success) throw new Error("unreachable");
+    expect(result.error).toContain("never write");
+    expect(h.db.rows).toHaveLength(0);
   });
 });

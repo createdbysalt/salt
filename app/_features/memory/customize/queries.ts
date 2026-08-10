@@ -10,6 +10,8 @@ import "server-only";
 
 import { createClient } from "@/app/_lib/supabase/server";
 import type { MemoryCustomizeEntityType } from "./default-guidance";
+import { MEMORY_CUSTOMIZE_ENTITY_TYPES } from "./default-guidance";
+import { formatCustomizePromptBlock } from "./prompt-block";
 
 export type CustomizeEntrySource =
   | "user"
@@ -97,4 +99,20 @@ export async function listActiveCustomizeEntriesByType(
     (grouped[entry.entityType] ??= []).push(entry);
   }
   return grouped;
+}
+
+/**
+ * The fenced prompt block for Track A injection (Phase M4) — active
+ * entries for the given record types (default: all), formatted with the
+ * entry/char budget. Returns null when there's nothing to inject, so call
+ * sites can skip cleanly. One DB read per decision, not per type.
+ */
+export async function getCustomizePromptBlock(
+  workspaceId: string,
+  types?: readonly MemoryCustomizeEntityType[],
+): Promise<string | null> {
+  const grouped = await listActiveCustomizeEntriesByType(workspaceId);
+  const selected = types ?? MEMORY_CUSTOMIZE_ENTITY_TYPES;
+  const entries = selected.flatMap((type) => grouped[type] ?? []);
+  return formatCustomizePromptBlock(entries);
 }

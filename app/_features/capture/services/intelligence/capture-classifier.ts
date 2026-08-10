@@ -31,6 +31,8 @@ export interface ClassifierContext {
   senderRegistry?: SenderProfileRegistry;
   /** Fenced advisory block of confirmed memory (see scoped-memory-context.ts). */
   memoryContext?: string | null;
+  /** Track A (Phase M4): owner customizations block (instructions). */
+  customizeContext?: string | null;
 }
 
 interface CaptureEventRow {
@@ -120,6 +122,7 @@ async function classifyEmailCapture(
     },
     senderRegistry: ctx.senderRegistry,
     memoryContext: ctx.memoryContext,
+    customizeContext: ctx.customizeContext,
   });
 
   if (

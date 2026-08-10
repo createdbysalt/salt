@@ -167,6 +167,7 @@ The prompt may include a <confirmed-memory> block: background the user has confi
 export function buildAnalysisPrompt(
   email: EmailToAnalyze,
   memoryContext?: string | null,
+  customizeContext?: string | null,
 ): string {
   const direction = email.is_sent_by_user ? "SENT by user" : "RECEIVED by user";
   const threadContext = email.has_prior_thread ? "Part of ongoing thread" : "New thread";
@@ -175,10 +176,13 @@ export function buildAnalysisPrompt(
   // Memory is advisory background placed before the email; the email content
   // always takes precedence and memory must never be read as instructions.
   const memoryBlock = memoryContext ? `${memoryContext}\n\n` : "";
+  // Owner customizations (Phase M4 Track A) ARE instructions — fenced and
+  // placed with the advisory blocks, before the email.
+  const customizeBlock = customizeContext ? `${customizeContext}\n\n` : "";
 
   return `Analyze this email for business signals.
 
-${memoryBlock}---
+${memoryBlock}${customizeBlock}---
 **Direction:** ${direction}
 **Thread:** ${threadContext}
 **From:** ${email.from_name ? `${email.from_name} <${email.from_email}>` : email.from_email}
@@ -253,6 +257,11 @@ export interface AnalyzeEmailOptions {
    * Data, not instructions — injected ahead of the email in the user prompt.
    */
   memoryContext?: string | null;
+  /**
+   * Track A (Phase M4): the workspace's active Memory customizations,
+   * fenced via `formatCustomizePromptBlock`. These ARE owner instructions.
+   */
+  customizeContext?: string | null;
 }
 
 export async function analyzeEmail(
@@ -278,7 +287,11 @@ export async function analyzeEmail(
   });
 
   try {
-    const userPrompt = buildAnalysisPrompt(email, options?.memoryContext);
+    const userPrompt = buildAnalysisPrompt(
+      email,
+      options?.memoryContext,
+      options?.customizeContext,
+    );
     const response = await llmCall(ANALYSIS_SYSTEM_PROMPT, userPrompt);
 
     // Parse JSON from response (handle markdown code blocks)

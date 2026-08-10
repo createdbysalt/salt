@@ -116,8 +116,64 @@ describe("classifyColdInboundIntent", () => {
   });
 });
 
-describe("intentEarnsAdmission", () => {
-  it("requires checked AND genuine AND threshold confidence", () => {
+describe("Track A eval (M4) — a customization measurably changes the decision", () => {
+  // Anti-prompt-theater guard: an instruction-following model must flip
+  // its verdict when the owner's customization is present. The fake model
+  // "follows instructions" — it says not-an-inquiry exactly when the
+  // customization block reaches the prompt.
+  function instructionFollowingModel(messages: unknown): string {
+    const system = (messages as { role: string; content: string }[])[0]
+      .content;
+    const seesInstruction = system.includes(
+      "Accountants are never clients",
+    );
+    return JSON.stringify({
+      genuine_inquiry: !seesInstruction,
+      confidence: 0.9,
+      reason: seesInstruction
+        ? "Owner instruction: accountants are never clients"
+        : "Service inquiry",
+    });
+  }
+
+  it("the same email is admitted without the customization and held with it", async () => {
+    sendLlmMock.mockImplementation(async (messages: unknown) =>
+      instructionFollowingModel(messages),
+    );
+
+    const without = await classifyColdInboundIntent(INPUT);
+    expect(intentEarnsAdmission(without)).toBe(true);
+
+    const withBlock = await classifyColdInboundIntent({
+      ...INPUT,
+      customizeContext:
+        '<workspace-customizations>\n- "Accountants are never clients"\n</workspace-customizations>',
+    });
+    expect(intentEarnsAdmission(withBlock)).toBe(false);
+    expect(withBlock.checked).toBe(true);
+  });
+
+  it("the block is appended to the system prompt, not the email content", async () => {
+    sendLlmMock.mockResolvedValue(
+      '{"genuine_inquiry": true, "confidence": 0.9, "reason": "x"}',
+    );
+
+    await classifyColdInboundIntent({
+      ...INPUT,
+      customizeContext: "<workspace-customizations>\n- \"x\"\n</workspace-customizations>",
+    });
+
+    const [messages] = sendLlmMock.mock.calls[0] as [
+      { role: string; content: string }[],
+      ...unknown[],
+    ];
+    expect(messages[0].role).toBe("system");
+    expect(messages[0].content).toContain("<workspace-customizations>");
+    expect(messages[1].content).not.toContain("<workspace-customizations>");
+  });
+});
+
+describe("intentEarnsAdmission", () => {  it("requires checked AND genuine AND threshold confidence", () => {
     const base = { checked: true, genuineInquiry: true, reason: "r" };
     expect(
       intentEarnsAdmission({ ...base, confidence: COLD_INTENT_ADMIT_CONFIDENCE }),

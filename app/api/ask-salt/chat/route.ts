@@ -35,6 +35,7 @@ import {
   resolveAskSaltBlueprints,
   buildAskSaltPlaybookIndexBlock,
 } from "@/app/_features/ask-salt/playbook-index";
+import { getCustomizePromptBlock } from "@/app/_features/memory/customize/queries";
 import { getAskSaltLanguageModel } from "@/app/_lib/ai/ask-salt-model";
 import { UNTRUSTED_CONTENT_SYSTEM_SECTION } from "@/app/_lib/ai/safety";
 import { assembleOperatorMemoryContext } from "@/app/_lib/ai/assembleOperatorContext";
@@ -393,10 +394,13 @@ export async function POST(request: Request) {
   // so it can never contradict the connector UI. Enabled playbooks are the
   // model's "installed skills" — indexed in the prompt, loaded on demand.
   // Disabled playbooks are shown so the model can offer to enable them.
-  const [capabilities, playbooks, operatorContext] = await Promise.all([
+  const [capabilities, playbooks, operatorContext, customizeBlock] = await Promise.all([
     resolveAskSaltCapabilities(workspace.id, userId, conversationId),
     resolveAskSaltPlaybooks(workspace.id),
     assembleOperatorMemoryContext({ workspaceId: workspace.id, userId }).catch(() => ""),
+    // Track A (Phase M4): the owner's Memory customizations steer the chat.
+    // A load failure degrades to no block rather than failing the turn.
+    getCustomizePromptBlock(workspace.id).catch(() => null),
   ]);
   void logAskSaltCapabilityGaps(workspace.id, capabilities, userId);
 
@@ -469,6 +473,10 @@ Start by acknowledging what the capture is and asking how you can help.`
     // the full argument preview.
     UNTRUSTED_CONTENT_SYSTEM_SECTION,
     captureReviewSection,
+    // Track A (Phase M4): owner customizations are instructions, so they
+    // sit in the system sections — but AFTER the untrusted-content guard so
+    // the guard's precedence rules still frame them.
+    customizeBlock,
     operatorContext,
     isDemoMode ? null : buildAskSaltCapabilityBlock(capabilities),
     isDemoMode ? null : buildAskSaltPlaybookIndexBlock(playbooks, blueprints),

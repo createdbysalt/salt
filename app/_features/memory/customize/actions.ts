@@ -12,12 +12,25 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { requireAuthenticatedWorkspaceMember } from "@/app/_lib/composio/workspace-auth";
+import { addRule, getRules, removeRule } from "@/app/_features/capture/services/rules-manager";
 import { MEMORY_CUSTOMIZE_ENTITY_TYPES } from "./default-guidance";
+import { detectHardExclusion } from "./hard-exclusion";
+import { findNeverTouchConflict } from "./write-validation";
 import type { CustomizeEntry } from "./queries";
 
 type ActionResult = { success: true } | { success: false; error: string };
 type AddEntryResult =
-  | { success: true; data: CustomizeEntry }
+  | {
+      success: true;
+      data: CustomizeEntry;
+      /**
+       * Track B (Phase M4): "enforced" when the entry compiled to a
+       * workspace deny rule (guaranteed at intake); "advisory" when it
+       * steers decisions through prompt injection only. The UI badges the
+       * line accordingly — never claim enforcement without the mechanism.
+       */
+      enforcement: "enforced" | "advisory";
+    }
   | { success: false; error: string };
 
 const AddEntrySchema = z.object({
@@ -42,6 +55,43 @@ export async function addCustomizeEntry(input: {
   const member = await requireAuthenticatedWorkspaceMember();
   if (!member.ok) {
     return { success: false, error: member.error };
+  }
+
+  // Write-time validation: instructions that demand Salt write a
+  // never-touch field can't compile to a real mechanism — refuse plainly.
+  const conflict = findNeverTouchConflict(
+    parsed.data.entityType,
+    parsed.data.body,
+  );
+  if (conflict) {
+    return {
+      success: false,
+      error: `${conflict} is yours alone — I never write it, so I can't promise to. Rephrase as what I should watch for instead.`,
+    };
+  }
+
+  // Track B: a hard exclusion with a parseable target compiles to a
+  // workspace deny rule BEFORE the entry is stored — an enforced line
+  // without its rule would be a lie.
+  const exclusion = detectHardExclusion(parsed.data.body);
+  if (exclusion) {
+    const ruleResult = await addRule({
+      workspaceId: member.workspaceId,
+      provider: null,
+      ruleType: "deny",
+      entityType: exclusion.entityType,
+      entityKey: exclusion.entityKey,
+      reason: parsed.data.body,
+      source: "user",
+      createdBy: member.userId,
+    });
+    // A duplicate means the deny rule already exists — still enforced.
+    if (!ruleResult.success && ruleResult.error !== "Rule already exists") {
+      return {
+        success: false,
+        error: `I couldn't enforce that — ${ruleResult.error ?? "try again"}.`,
+      };
+    }
   }
 
   const admin = createAdminClient();
@@ -82,12 +132,15 @@ export async function addCustomizeEntry(input: {
       status: row.status as CustomizeEntry["status"],
       createdAt: row.created_at,
     },
+    enforcement: exclusion ? "enforced" : "advisory",
   };
 }
 
 /**
  * Revert an entry — status flips to 'reverted' (audit-only); the row is
- * never deleted, so the surface can show what was undone.
+ * never deleted, so the surface can show what was undone. When the entry
+ * had compiled to a workspace deny rule (Track B), the rule is removed too
+ * — a reverted line must stop enforcing.
  */
 export async function revertCustomizeEntry(
   entryId: string,
@@ -103,6 +156,16 @@ export async function revertCustomizeEntry(
   }
 
   const admin = createAdminClient();
+
+  // Load the entry first: Track B revert needs the body to find its rule.
+  const { data: entry } = await admin
+    .from("memory_customize_entries")
+    .select("body")
+    .eq("id", parsed.data)
+    .eq("workspace_id", member.workspaceId)
+    .eq("status", "active")
+    .maybeSingle();
+
   const { error } = await admin
     .from("memory_customize_entries")
     .update({
@@ -116,6 +179,27 @@ export async function revertCustomizeEntry(
   if (error) {
     console.error("[memory-customize] revert failed:", error);
     return { success: false, error: "Failed to revert." };
+  }
+
+  const exclusion = entry
+    ? detectHardExclusion((entry as { body: string }).body)
+    : null;
+  if (exclusion) {
+    const rules = await getRules(member.workspaceId, {
+      provider: null,
+      ruleType: "deny",
+      entityType: exclusion.entityType,
+    });
+    const match = rules.find((rule) => rule.entityKey === exclusion.entityKey);
+    if (match) {
+      const removed = await removeRule(member.workspaceId, match.id);
+      if (!removed.success) {
+        console.error(
+          "[memory-customize] revert: deny rule removal failed:",
+          removed.error,
+        );
+      }
+    }
   }
 
   revalidatePath("/memory");

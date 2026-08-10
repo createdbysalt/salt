@@ -23,7 +23,7 @@ const absorbInferredSignalsMock = vi.fn(
   async (
     _workspaceId: string,
     _envelopes: CaptureEnvelope[],
-    _context: { userEmail: string | null },
+    _context: { userEmail: string | null; customizeContext?: string | null },
     _llmCall: unknown,
   ) => ({ contactsProposed: 0 }),
 );
@@ -31,6 +31,17 @@ vi.mock("./generic-signal-extractor", () => ({
   absorbInferredSignals: (...args: unknown[]) =>
     absorbInferredSignalsMock(
       ...(args as Parameters<typeof absorbInferredSignalsMock>),
+    ),
+}));
+
+const getCustomizePromptBlockMock = vi.fn(
+  async (_workspaceId: string, _types?: readonly string[]) =>
+    null as string | null,
+);
+vi.mock("@/app/_features/memory/customize/queries", () => ({
+  getCustomizePromptBlock: (...args: unknown[]) =>
+    getCustomizePromptBlockMock(
+      ...(args as Parameters<typeof getCustomizePromptBlockMock>),
     ),
 }));
 
@@ -163,8 +174,25 @@ describe("backfill LLM signal supplement", () => {
     expect(absorbInferredSignalsMock).toHaveBeenCalledTimes(1);
     const [, envelopes, context, call] = absorbInferredSignalsMock.mock.calls[0];
     expect(envelopes.map((e) => e.externalId)).toEqual(["new-1"]);
-    expect(context).toEqual({ userEmail: "me@usesalt.io" });
+    expect(context).toEqual({ userEmail: "me@usesalt.io", customizeContext: null });
     expect(call).toBe(llmCall);
+  });
+
+  it("Track A (M4): the workspace's person/work customizations ride the extraction", async () => {
+    hasHandWrittenParsingMock.mockReturnValue(false);
+    getCustomizePromptBlockMock.mockResolvedValue(
+      '<workspace-customizations>\n- "x"\n</workspace-customizations>',
+    );
+    const llmCall = vi.fn(async () => "{}");
+
+    await backfillDropboxCaptures("ws-1", { llmCall });
+
+    expect(getCustomizePromptBlockMock).toHaveBeenCalledWith("ws-1", [
+      "person",
+      "work",
+    ]);
+    const [, , context] = absorbInferredSignalsMock.mock.calls[0];
+    expect(context.customizeContext).toContain("workspace-customizations");
   });
 
   it("skips the LLM supplement for hand-written providers", async () => {

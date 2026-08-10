@@ -29,6 +29,7 @@ import {
   absorbInferredSignals,
   type LlmCall,
 } from "./generic-signal-extractor";
+import { getCustomizePromptBlock } from "@/app/_features/memory/customize/queries";
 
 export interface ConnectorBackfillResult {
   success: boolean;
@@ -211,10 +212,16 @@ async function absorbDerivedSignals(
 
   if (llmCall && newEnvelopes.length > 0 && !hasHandWrittenParsing(adapter.toolkit)) {
     try {
+      // Track A (Phase M4): owner customizations steer the extraction.
+      // Loaded once per absorb call; a failure degrades to no block.
+      const customizeContext = await getCustomizePromptBlock(workspaceId, [
+        "person",
+        "work",
+      ]).catch(() => null);
       const { contactsProposed } = await absorbInferredSignals(
         workspaceId,
         newEnvelopes,
-        { userEmail },
+        { userEmail, customizeContext },
         llmCall,
       );
       if (contactsProposed > 0) {

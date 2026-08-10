@@ -48,6 +48,12 @@ vi.mock("./cold-intent", () => ({
   }) => r.checked && r.genuineInquiry && r.confidence >= 0.6,
 }));
 
+const getCustomizePromptBlockMock = vi.fn<() => Promise<string | null>>();
+vi.mock("@/app/_features/memory/customize/queries", () => ({
+  getCustomizePromptBlock: (...args: unknown[]) =>
+    getCustomizePromptBlockMock(...(args as [])),
+}));
+
 import { runGatePipeline } from "./index";
 import { resolveGatePolicy } from "./gate-policy";
 
@@ -115,6 +121,7 @@ beforeEach(() => {
   checkRulesMock.mockReset().mockResolvedValue({ verdict: null });
   runKnownEntityGateMock.mockReset().mockResolvedValue(null);
   runAdmissionGateMock.mockReset().mockResolvedValue(candidateResult);
+  getCustomizePromptBlockMock.mockReset().mockResolvedValue(null);
   classifyColdInboundIntentMock.mockReset().mockResolvedValue({
     checked: false,
     genuineInquiry: false,
@@ -405,6 +412,59 @@ describe("runGatePipeline Lane 1 discriminator (cold-inbound intent read)", () =
     const admission = result.gateResults.admission as GateResultCandidate;
     expect(admission.confidence).toBe(85); // 45 + 40
     expect(admission.signals.map((s) => s.type)).toContain("intent_inquiry");
+  });
+
+  it("Track A (M4): the workspace's person/work customizations ride the intent read", async () => {
+    getCustomizePromptBlockMock.mockResolvedValue(
+      '<workspace-customizations>\n- "Never treat my accountant as a client"\n</workspace-customizations>',
+    );
+    classifyColdInboundIntentMock.mockResolvedValue({
+      checked: true,
+      genuineInquiry: true,
+      confidence: 0.8,
+      reason: "Service inquiry",
+    });
+
+    await runGatePipeline({
+      workspaceId: "ws-1",
+      userEmail: "me@myco.com",
+      envelope: emailEnvelope(),
+      coldIntentRead: true,
+    });
+
+    expect(getCustomizePromptBlockMock).toHaveBeenCalledWith("ws-1", [
+      "person",
+      "work",
+    ]);
+    expect(classifyColdInboundIntentMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        customizeContext: expect.stringContaining(
+          "Never treat my accountant as a client",
+        ),
+      }),
+    );
+  });
+
+  it("Track A (M4): a customization-load failure never blocks the read", async () => {
+    getCustomizePromptBlockMock.mockRejectedValue(new Error("db down"));
+    classifyColdInboundIntentMock.mockResolvedValue({
+      checked: true,
+      genuineInquiry: true,
+      confidence: 0.8,
+      reason: "Service inquiry",
+    });
+
+    const result = await runGatePipeline({
+      workspaceId: "ws-1",
+      userEmail: "me@myco.com",
+      envelope: emailEnvelope(),
+      coldIntentRead: true,
+    });
+
+    expect(result.finalAction).toBe("candidate");
+    expect(classifyColdInboundIntentMock).toHaveBeenCalledWith(
+      expect.objectContaining({ customizeContext: null }),
+    );
   });
 });
 

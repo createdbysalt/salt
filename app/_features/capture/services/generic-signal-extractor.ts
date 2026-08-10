@@ -107,7 +107,7 @@ function validateSignals(raw: unknown): PersonSignals | null {
  */
 export async function extractSignalsGeneric(
   envelopes: readonly CaptureEnvelope[],
-  context: { userEmail: string | null },
+  context: { userEmail: string | null; customizeContext?: string | null },
   llmCall: LlmCall,
 ): Promise<Map<string, PersonSignals>> {
   const result = new Map<string, PersonSignals>();
@@ -130,7 +130,12 @@ export async function extractSignalsGeneric(
 
   let parsed: unknown;
   try {
-    const response = await llmCall(SYSTEM_PROMPT, userPrompt);
+    // Track A (Phase M4): owner customizations steer the extraction; they
+    // ride the same call, so metering is unchanged.
+    const systemPrompt = context.customizeContext
+      ? `${SYSTEM_PROMPT}\n\n${context.customizeContext}`
+      : SYSTEM_PROMPT;
+    const response = await llmCall(systemPrompt, userPrompt);
     parsed = JSON.parse(response.trim().replace(/^```(?:json)?|```$/g, ""));
   } catch (error) {
     console.warn(
@@ -161,7 +166,7 @@ export async function extractSignalsGeneric(
 export async function absorbInferredSignals(
   workspaceId: string,
   envelopes: readonly CaptureEnvelope[],
-  context: { userEmail: string | null },
+  context: { userEmail: string | null; customizeContext?: string | null },
   llmCall: LlmCall,
 ): Promise<{ contactsProposed: number }> {
   const derived = await extractSignalsGeneric(envelopes, context, llmCall);

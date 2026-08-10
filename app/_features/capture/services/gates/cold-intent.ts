@@ -53,6 +53,13 @@ export interface ColdIntentInput {
   senderName: string | null;
   subject: string | null;
   snippet: string | null;
+  /**
+   * Track A (Phase M4): fenced block of the workspace's active Memory
+   * customizations (person/work). Loaded by the caller only on this paid
+   * path; appended to the system prompt so owner instructions steer the
+   * read. Metering is unchanged — the block rides the same sendLlm call.
+   */
+  customizeContext?: string | null;
 }
 
 function parseIntentResponse(raw: string): ColdIntentResult | null {
@@ -95,9 +102,13 @@ export async function classifyColdInboundIntent(
     .join(" — ");
 
   try {
+    const systemPrompt = input.customizeContext
+      ? `${SYSTEM_PROMPT}\n\n${input.customizeContext}`
+      : SYSTEM_PROMPT;
+
     const raw = await sendLlm(
       [
-        { role: "system", content: SYSTEM_PROMPT },
+        { role: "system", content: systemPrompt },
         {
           role: "user",
           content: [

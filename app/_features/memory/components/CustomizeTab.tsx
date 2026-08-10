@@ -18,6 +18,7 @@ import {
   addCustomizeEntry,
   revertCustomizeEntry,
 } from "../customize/actions";
+import { detectHardExclusion } from "../customize/hard-exclusion";
 import type { CustomizeEntry } from "../customize/queries";
 import { buildMemoryPath } from "../memory-tab-routing";
 import { updateMemoryCareThreshold } from "../care/actions";
@@ -192,7 +193,11 @@ function CustomizationsZone({
     setBusy(false);
     if (result.success) {
       setValue("");
-      toast.success("I'll remember that.");
+      toast.success(
+        result.enforcement === "enforced"
+          ? "I'll always keep that out."
+          : "I'll remember that.",
+      );
       router.refresh();
     } else {
       toast.error(result.error);
@@ -241,6 +246,10 @@ function CustomizationsZone({
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {SOURCE_BADGES[entry.source]}
+                  {" · "}
+                  {detectHardExclusion(entry.body)
+                    ? "I always keep this out"
+                    : "I keep this in mind"}
                 </p>
               </div>
               <button
