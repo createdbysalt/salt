@@ -59,3 +59,20 @@ export function summarizeGateProofCounts(
 
   return counts;
 }
+
+/**
+ * The quiet evidence line under an area's defaults — "This week: 43 kept
+ * out · 2 watching · 18 let in". Returns null when there's nothing to
+ * prove yet (no rows this week); an all-zero week says so plainly.
+ */
+export function renderProofLine(proof: AreaProofCounts | null): string | null {
+  if (!proof) return null;
+  const segments: string[] = [];
+  if (proof.keptOut > 0) segments.push(`${proof.keptOut} kept out`);
+  if (proof.watching > 0) segments.push(`${proof.watching} watching`);
+  if (proof.letIn > 0) segments.push(`${proof.letIn} let in`);
+  if (segments.length === 0) {
+    return "This week: nothing needed keeping out.";
+  }
+  return `This week: ${segments.join(" · ")}`;
+}

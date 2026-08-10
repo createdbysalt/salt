@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  renderProofLine,
   summarizeGateProofCounts,
   type GateProofRow,
 } from "./gate-proof-counts";
@@ -83,5 +84,41 @@ describe("summarizeGateProofCounts", () => {
 
   it("returns an empty map for no rows", () => {
     expect(summarizeGateProofCounts([], resolveArea).size).toBe(0);
+  });
+});
+
+describe("renderProofLine", () => {
+  it("renders the week's evidence in surface vocabulary", () => {
+    expect(renderProofLine({ keptOut: 43, watching: 2, letIn: 18 })).toBe(
+      "This week: 43 kept out · 2 watching · 18 let in",
+    );
+  });
+
+  it("omits zero segments", () => {
+    expect(renderProofLine({ keptOut: 43, watching: 0, letIn: 0 })).toBe(
+      "This week: 43 kept out",
+    );
+  });
+
+  it("says so plainly when nothing needed keeping out", () => {
+    expect(renderProofLine({ keptOut: 0, watching: 0, letIn: 0 })).toBe(
+      "This week: nothing needed keeping out.",
+    );
+  });
+
+  it("returns null when there is no data", () => {
+    expect(renderProofLine(null)).toBeNull();
+  });
+
+  it("never uses banned words", () => {
+    const banned = /\b(trigger|webhook|sync|scope|rule|adapter|pipeline|config)\b/i;
+    const lines = [
+      renderProofLine({ keptOut: 43, watching: 2, letIn: 18 }),
+      renderProofLine({ keptOut: 0, watching: 0, letIn: 0 }),
+    ];
+    for (const line of lines) {
+      expect(line).not.toBeNull();
+      expect(line).not.toMatch(banned);
+    }
   });
 });
