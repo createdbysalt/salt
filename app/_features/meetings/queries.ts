@@ -71,6 +71,30 @@ export type MeetingAttendee = {
   email?: string;
 };
 
+// Cal.com ingestion persists host/guest roles ("organizer"/"attendee");
+// the product vocabulary is team (host) / client (guest).
+function normalizeAttendeeRole(role: unknown): MeetingAttendee["role"] {
+  return role === "organizer" || role === "team" ? "team" : "client";
+}
+
+function normalizeAttendees(raw: unknown): MeetingAttendee[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter(
+      (a): a is { name?: unknown; role?: unknown; email?: unknown } =>
+        typeof a === "object" && a !== null,
+    )
+    .map((a) => {
+      const name = typeof a.name === "string" && a.name ? a.name : typeof a.email === "string" ? a.email : "";
+      return {
+        name,
+        role: normalizeAttendeeRole(a.role),
+        email: typeof a.email === "string" ? a.email : undefined,
+      };
+    })
+    .filter((a) => a.name.length > 0);
+}
+
 export type MeetingAgendaItem = {
   id: string;
   title: string;
@@ -159,7 +183,7 @@ function mapMeetingRow(row: Record<string, unknown>): MeetingDetailRecord {
     visibility: row.visibility as string,
     externalProvider: row.external_provider as string | undefined,
     origin: row.origin as string | undefined,
-    attendees: (row.attendees as MeetingAttendee[] | null) ?? [],
+    attendees: normalizeAttendees(row.attendees),
     agenda: (row.agenda as MeetingAgendaItem[] | null) ?? null,
     notes: row.notes as string | undefined,
     createdAt: row.created_at as string,

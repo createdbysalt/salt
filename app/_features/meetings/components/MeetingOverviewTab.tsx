@@ -13,18 +13,22 @@ import {
 import { MemoryOverviewSection } from "@/app/_features/memory/components/MemoryOverviewSection";
 import { getVocabularyOptions } from "@/app/_features/memory/taxonomy/registry";
 import type { ResolvedEntity } from "@/app/_lib/notes";
+import type { Connection } from "@/app/_lib/demo/people-demo-data";
+import type { ConnectionNode } from "@/app/_features/connections/types";
 import type {
   MeetingDetailRecord,
   MeetingSummaryRecord,
   MeetingDecisionRecord,
   MeetingActionItemRecord,
   MeetingAttendee,
+  MeetingSource,
 } from "../queries";
 import { updateMeetingField } from "../actions";
 import { MeetingDecisionsCard } from "./MeetingDecisionsCard";
 import { MeetingActionItemsCard } from "./MeetingActionItemsCard";
 import { MeetingAttendeesEditor } from "./MeetingAttendeesEditor";
 import { MeetingAgendaCard } from "./MeetingAgendaCard";
+import { MeetingNotesSection } from "./MeetingNotesSection";
 
 type MeetingOverviewTabProps = {
   meeting: MeetingDetailRecord;
@@ -33,6 +37,11 @@ type MeetingOverviewTabProps = {
   decisions: MeetingDecisionRecord[];
   actionItems: MeetingActionItemRecord[];
   entities?: ResolvedEntity[];
+  linkedFileSources: MeetingSource[];
+  resourceConnections: ConnectionNode[];
+  existingConnections: Connection[];
+  onLinkResource: (connection: Connection) => void;
+  onUnlinkResource: (node: ConnectionNode) => void;
 };
 
 const MEETING_TYPE_OPTIONS = [
@@ -72,6 +81,11 @@ export function MeetingOverviewTab({
   decisions,
   actionItems,
   entities = [],
+  linkedFileSources,
+  resourceConnections,
+  existingConnections,
+  onLinkResource,
+  onUnlinkResource,
 }: MeetingOverviewTabProps) {
   const [title, setTitle] = useState(meeting.title);
   const description = meeting.description ?? "";
@@ -104,7 +118,7 @@ export function MeetingOverviewTab({
   const saveMeetingField = useCallback(
     async (
       field: string,
-      value: string | Array<{ name: string; email?: string }> | null,
+      value: string | Array<{ name: string; email?: string; role?: "client" | "team" }> | null,
     ) => {
       const result = await updateMeetingField(meetingId, field, value);
       if (result.error) {
@@ -340,7 +354,11 @@ export function MeetingOverviewTab({
             setAttendees(next);
             void saveMeetingField(
               "attendees",
-              next.map((attendee) => ({ name: attendee.name, email: attendee.email })),
+              next.map((attendee) => ({
+                name: attendee.name,
+                email: attendee.email,
+                role: attendee.role,
+              })),
             );
           }}
         />
@@ -351,6 +369,17 @@ export function MeetingOverviewTab({
           meetingId={meetingId}
           meetingType={meetingType}
           agenda={meeting.agenda}
+        />
+      </MemoryOverviewSection>
+
+      <MemoryOverviewSection title="Meeting Notes" variant="heading" id="meeting-notes">
+        <MeetingNotesSection
+          meetingId={meetingId}
+          resourceConnections={resourceConnections}
+          linkedFileSources={linkedFileSources}
+          existingConnections={existingConnections}
+          onLinkResource={onLinkResource}
+          onUnlinkResource={onUnlinkResource}
         />
       </MemoryOverviewSection>
 

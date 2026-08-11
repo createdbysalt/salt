@@ -23,7 +23,3 @@ export { MeetingSummaryTab } from "./MeetingSummaryTab";
 export { MeetingDecisionsList } from "./MeetingDecisionsList";
 export { MeetingActionItemsTab } from "./MeetingActionItemsTab";
 export { MeetingTranscriptTab } from "./MeetingTranscriptTab";
-
-// Connected files
-export { ConnectedFilesSection } from "./ConnectedFilesSection";
-export { LinkFileSheet } from "./LinkFileSheet";

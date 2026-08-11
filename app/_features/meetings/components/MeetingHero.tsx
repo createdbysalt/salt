@@ -138,12 +138,6 @@ export function MeetingHero({
                   </a>
                 )}
             </div>
-            {(meeting.person || meeting.org) && (
-              <p className="mt-3 text-sm text-white/70">
-                {meeting.person?.name ?? meeting.org?.name}
-                {meeting.project && ` · ${meeting.project.name}`}
-              </p>
-            )}
 
             <div className="mt-5 sm:mt-7 flex flex-wrap items-center gap-2">
           <button

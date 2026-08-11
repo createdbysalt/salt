@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { format, parseISO } from "date-fns";
-import { ArrowLeft, ExternalLink, Play, Users } from "lucide-react";
+import { ArrowLeft, ExternalLink, Play } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@repo/ui";
 import { cn } from "@repo/utils";
 import { safeHttpUrl } from "@/app/_lib/security/safe-url";
@@ -25,7 +25,7 @@ import type { MeetingDetailData } from "../queries";
 import { MeetingHero, type MeetingQuickAction } from "./MeetingHero";
 import { MeetingOverviewTab } from "./MeetingOverviewTab";
 import { MeetingActivityTab } from "./MeetingActivityTab";
-import { MeetingDocsTab } from "./MeetingDocsTab";
+import { MeetingDocumentViewer, type MeetingDocumentType } from "./MeetingDocumentViewer";
 import { MeetingQuickLinksCard } from "./MeetingQuickLinksCard";
 import { MeetingPlaysCard } from "./MeetingPlaysCard";
 
@@ -35,7 +35,7 @@ type MeetingDetailPageProps = {
   linkableEntities?: import("@/app/_lib/notes").ResolvedEntity[];
 };
 
-const MEETING_DETAIL_TABS = ["overview", "docs", "connections", "notes", "activity"] as const;
+const MEETING_DETAIL_TABS = ["overview", "connections", "notes", "activity"] as const;
 
 export function MeetingDetailPage({
   meetingId,
@@ -44,6 +44,7 @@ export function MeetingDetailPage({
 }: MeetingDetailPageProps) {
   const router = useRouter();
   const [tab, setTab] = useState("overview");
+  const [viewingDocument, setViewingDocument] = useState<MeetingDocumentType | null>(null);
   const meeting = detailData.meeting;
   const [connections, setConnections] = useState<Connection[]>(() => {
     return detailData.connections.map((c) => ({
@@ -75,6 +76,7 @@ export function MeetingDetailPage({
         billing: "billing",
         meeting: "meetings",
         conversation: "conversations",
+        resource: "resources",
       };
       const pathSegment = hrefMap[nodeType] ?? nodeType;
       return [
@@ -84,7 +86,10 @@ export function MeetingDetailPage({
           nodeType,
           label: connection.name,
           sublabel: connection.subtitle,
-          href: `/${pathSegment}/${connection.id}`,
+          href:
+            nodeType === "resource"
+              ? `/resources?preview=${connection.id}`
+              : `/${pathSegment}/${connection.id}`,
         },
       ];
     });
@@ -131,7 +136,13 @@ export function MeetingDetailPage({
       return;
     }
     if (action === "doc") {
-      setTab("docs");
+      setTab("overview");
+      requestAnimationFrame(() => {
+        document.getElementById("meeting-notes")?.scrollIntoView({ behavior: "smooth", block: "center" });
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent("meeting:link-resource"));
+        }, 400);
+      });
       return;
     }
   }, []);
@@ -151,6 +162,8 @@ export function MeetingDetailPage({
   }
 
   const currentSummary = detailData.summaries.find((s) => s.isCurrent) ?? detailData.summaries[0];
+  const linkedFileSources = detailData.sources.filter((s) => s.kind === "linked_file");
+  const resourceConnections = unifiedConnections.filter((n) => n.nodeType === "resource");
 
   return (
     <div className="relative min-h-full">
@@ -193,6 +206,11 @@ export function MeetingDetailPage({
                       decisions={detailData.decisions}
                       actionItems={detailData.actionItems}
                       entities={linkableEntities}
+                      linkedFileSources={linkedFileSources}
+                      resourceConnections={resourceConnections}
+                      existingConnections={connections}
+                      onLinkResource={handleLink}
+                      onUnlinkResource={handleUnlink}
                     />
                   </div>
                 </div>
@@ -216,15 +234,11 @@ export function MeetingDetailPage({
                       decisions={detailData.decisions}
                       actionItems={detailData.actionItems}
                       entities={linkableEntities}
-                    />
-                  </TabsContent>
-                  <TabsContent value="docs" className="m-0">
-                    <MeetingDocsTab
-                      meetingId={meetingId}
-                      meetingTitle={meeting.title}
-                      detailData={detailData}
+                      linkedFileSources={linkedFileSources}
+                      resourceConnections={resourceConnections}
                       existingConnections={connections}
-                      onLink={handleLink}
+                      onLinkResource={handleLink}
+                      onUnlinkResource={handleUnlink}
                     />
                   </TabsContent>
                   <TabsContent value="connections" className="m-0">
@@ -263,22 +277,22 @@ export function MeetingDetailPage({
           <MeetingDetailSidebar
             meeting={meeting}
             detailData={detailData}
-            onPrepClick={() => {
-              setTab("docs");
-              // TODO: Open prep document viewer directly
-            }}
-            onSummaryClick={() => {
-              setTab("docs");
-              // TODO: Open summary document viewer directly
-            }}
-            onTranscriptClick={() => {
-              setTab("docs");
-              // TODO: Open transcript document viewer directly
-            }}
+            onPrepClick={() => setViewingDocument("prep")}
+            onSummaryClick={() => setViewingDocument("summary")}
+            onTranscriptClick={() => setViewingDocument("transcript")}
             onNotesClick={() => setTab("notes")}
           />
         </div>
       </div>
+
+      {viewingDocument && (
+        <MeetingDocumentViewer
+          open
+          onOpenChange={(open) => !open && setViewingDocument(null)}
+          documentType={viewingDocument}
+          detailData={detailData}
+        />
+      )}
     </div>
   );
 }
@@ -316,43 +330,6 @@ function MeetingDetailSidebar({
 
   return (
     <div className="space-y-4">
-      {meeting.attendees.length > 0 && (
-        <div className="rounded-2xl border border-border/60 bg-card/60 p-4">
-          <div className="mb-4 flex items-start gap-2.5">
-            <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-foreground/8">
-              <Users className="size-4 text-foreground" strokeWidth={2.25} />
-            </span>
-            <div className="min-w-0">
-              <h2 className="font-display text-xl leading-tight tracking-tight">Attendees</h2>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {meeting.attendees.length} {meeting.attendees.length === 1 ? "person" : "people"}
-              </p>
-            </div>
-          </div>
-          <ul className="space-y-2">
-            {meeting.attendees.map((attendee, i) => (
-              <li
-                key={i}
-                className="flex w-full items-center gap-3 rounded-xl border border-border/60 px-3 py-2.5"
-              >
-                <div className="grid size-8 shrink-0 place-items-center rounded-lg bg-muted text-xs font-medium">
-                  {attendee.name
-                    .split(" ")
-                    .map((n) => n[0])
-                    .join("")
-                    .slice(0, 2)
-                    .toUpperCase()}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-foreground">{attendee.name}</p>
-                  <p className="text-xs capitalize text-muted-foreground">{attendee.role}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
       <MeetingQuickLinksCard
         meeting={meeting}
         detailData={detailData}

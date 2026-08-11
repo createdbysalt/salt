@@ -17,7 +17,8 @@ import {
   MeetingTranscriptDocument,
 } from "./documents";
 import type { MeetingDetailData } from "../queries";
-import type { MeetingDocumentType } from "./MeetingDocumentCard";
+
+export type MeetingDocumentType = "prep" | "summary" | "transcript";
 import { exportToPdf, exportToDocx } from "../utils/document-export";
 
 type MeetingDocumentViewerProps = {

@@ -26,7 +26,13 @@ const updateMeetingSchema = z.object({
   address: z.string().max(500).nullable().optional(),
   phone_number: z.string().max(50).nullable().optional(),
   attendees: z
-    .array(z.object({ name: z.string().max(200), email: z.string().max(320).optional() }))
+    .array(
+      z.object({
+        name: z.string().max(200),
+        email: z.string().max(320).optional(),
+        role: z.enum(["client", "team"]).optional(),
+      }),
+    )
     .max(100)
     .nullable()
     .optional(),
@@ -121,7 +127,7 @@ type AllowedField = (typeof ALLOWED_FIELDS)[number];
 export async function updateMeetingField(
   meetingId: string,
   field: string,
-  value: string | Array<{ name: string; email?: string }> | null,
+  value: string | Array<{ name: string; email?: string; role?: "client" | "team" }> | null,
 ) {
   if (!ALLOWED_FIELDS.includes(field as AllowedField)) {
     return { error: `Invalid field: ${field}` };
