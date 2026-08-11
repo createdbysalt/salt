@@ -46,6 +46,15 @@ const CARE_SCHEDULES: Array<{ capability: CareCapability; cron: string }> = [
 const CARE_SIGNAL_MAP: Record<string, CareCapability[]> = {
   // Records: fill rules react to extracted entity learnings
   entity_learning_extracted: ["records"],
+  // Records: Phase 4 person field producers (connector payloads carry the
+  // extracted value in evidence.signalValues — see
+  // capture/services/producers/person-field-producer.ts)
+  person_name_extracted: ["records"],
+  person_email_extracted: ["records"],
+  person_phone_extracted: ["records"],
+  person_title_extracted: ["records"],
+  person_timezone_detected: ["records"],
+  person_billing_email_extracted: ["records"],
   // Hygiene: data-quality signals
   person_duplicate_email: ["hygiene"],
   person_duplicate_phone: ["hygiene"],
@@ -80,6 +89,31 @@ export function getCareSignalKeys(): string[] {
   return Object.keys(CARE_SIGNAL_MAP);
 }
 
+/**
+ * Read producer-carried signal values out of a dispatch's evidence payload.
+ * Producers place them under `signalValues` (see
+ * capture/services/producers/person-field-producer.ts).
+ */
+function readSignalValues(
+  triggerData: Record<string, unknown> | undefined
+): Record<string, boolean | number | string> | undefined {
+  const values = triggerData?.signalValues;
+  if (!values || typeof values !== "object" || Array.isArray(values)) {
+    return undefined;
+  }
+  const out: Record<string, boolean | number | string> = {};
+  for (const [key, value] of Object.entries(values)) {
+    if (
+      typeof value === "string" ||
+      typeof value === "number" ||
+      typeof value === "boolean"
+    ) {
+      out[key] = value;
+    }
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
 export function signalHasCareCapability(signalKey: string): boolean {
   return signalKey in CARE_SIGNAL_MAP;
 }
@@ -101,6 +135,7 @@ async function executeCapability(
           entityType: ctx.entityType as never,
           entityId: ctx.entityId,
           entityLabel: ctx.entityLabel,
+          signalValues: readSignalValues(ctx.triggerData),
         });
         return {
           success: true,

@@ -12,6 +12,7 @@ import type {
   SignalDerivationContext,
 } from "../types";
 import type { PersonSignals } from "@/app/_features/capture/services/system-plays/person-signals";
+import type { DerivedPersonFields } from "@/app/_features/capture/services/producers/person-field-types";
 import type { CaptureSourceType } from "@/app/_features/capture/types";
 import { emailEntity } from "../feedback-entity";
 
@@ -282,6 +283,11 @@ function normalizeCal(payload: unknown): CaptureEnvelope | null {
 
   const attendees = (record.attendees as Array<Record<string, unknown>>) ?? [];
   const participants: EnvelopeParticipant[] = [];
+  const attendeeDetails: Array<{
+    email: string;
+    timezone?: string;
+    phone?: string;
+  }> = [];
 
   for (const attendee of attendees) {
     const email = (attendee.email as string)?.toLowerCase();
@@ -291,6 +297,17 @@ function normalizeCal(payload: unknown): CaptureEnvelope | null {
       name: (attendee.name as string) ?? null,
       role: "attendee",
     });
+    const timezone =
+      (attendee.timeZone as string) ?? (attendee.timezone as string);
+    const phone =
+      (attendee.phoneNumber as string) ?? (attendee.phone as string);
+    if (timezone || phone) {
+      attendeeDetails.push({
+        email,
+        ...(timezone ? { timezone } : {}),
+        ...(phone ? { phone } : {}),
+      });
+    }
   }
 
   return {
@@ -310,6 +327,7 @@ function normalizeCal(payload: unknown): CaptureEnvelope | null {
       attendee_count: attendees.length,
       status: (record.status as string) ?? null,
       eventType: (record.eventTypeSlug as string) ?? null,
+      attendee_details: attendeeDetails,
     },
     raw: {
       bookingId: externalId,
@@ -362,8 +380,27 @@ function normalizeCalendly(payload: unknown): CaptureEnvelope | null {
   }
   // Invitees merged by the backfill (the people who booked)
   const invitees = (record.invitees as Array<Record<string, unknown>>) ?? [];
+  const inviteeDetails: Array<{
+    email: string;
+    timezone?: string;
+    phone?: string;
+  }> = [];
   for (const invitee of invitees) {
     pushParticipant(invitee.email, invitee.name, "attendee");
+    const email =
+      typeof invitee.email === "string" ? invitee.email.toLowerCase() : null;
+    if (!email) continue;
+    const timezone = invitee.timezone as string | undefined;
+    const phone =
+      (invitee.text_reminder_number as string | undefined) ??
+      (invitee.phone_number as string | undefined);
+    if (timezone || phone) {
+      inviteeDetails.push({
+        email,
+        ...(timezone ? { timezone } : {}),
+        ...(phone ? { phone } : {}),
+      });
+    }
   }
   // Extra guests added to the booking
   const guests = (record.event_guests as Array<Record<string, unknown>>) ?? [];
@@ -393,6 +430,7 @@ function normalizeCalendly(payload: unknown): CaptureEnvelope | null {
           : invitees.length,
       location:
         (location?.location as string) ?? (location?.type as string) ?? null,
+      invitee_details: inviteeDetails,
     },
     raw: {
       calendlyEventUri: uri ?? externalId,
@@ -450,6 +488,57 @@ function normalizeGenericCalendar(
 }
 
 /**
+ * Field-signal derivation (registry-wiring Phase 4): scheduling payloads
+ * attest the invitee's timezone (Cal.com `timeZone`, Calendly `timezone`)
+ * and, when collected, their phone number. The connected user's own details
+ * are excluded — their profile belongs to the Me surface, not a contact.
+ */
+function deriveCalendarFieldSignals(
+  envelopes: readonly CaptureEnvelope[],
+  context: SignalDerivationContext,
+): Map<string, DerivedPersonFields> {
+  const contacts = new Map<string, DerivedPersonFields>();
+  const userEmail = context.userEmail?.toLowerCase() ?? null;
+
+  const add = (
+    email: string,
+    patch: Partial<DerivedPersonFields["signalValues"]>,
+  ): void => {
+    if (userEmail && email === userEmail) return;
+    const existing = contacts.get(email) ?? { signalValues: {} };
+    Object.assign(existing.signalValues, patch);
+    contacts.set(email, existing);
+  };
+
+  for (const envelope of envelopes) {
+    const details = [
+      ...((envelope.extracted.attendee_details as Array<{
+        email: string;
+        timezone?: string;
+        phone?: string;
+      }>) ?? []),
+      ...((envelope.extracted.invitee_details as Array<{
+        email: string;
+        timezone?: string;
+        phone?: string;
+      }>) ?? []),
+    ];
+    for (const detail of details) {
+      if (!detail.email?.includes("@")) continue;
+      const email = detail.email.toLowerCase();
+      if (detail.timezone) {
+        add(email, { person_timezone_detected: detail.timezone });
+      }
+      if (detail.phone) {
+        add(email, { person_phone_extracted: detail.phone });
+      }
+    }
+  }
+
+  return contacts;
+}
+
+/**
  * Providers whose Composio toolkit key differs from the capture-layer
  * source type ('cal' toolkit → 'calcom' captures). adapter.sourceType must
  * match what normalize() emits — connector-health queries capture_events
@@ -475,6 +564,7 @@ export function createCalendarCategoryAdapter(provider: string): CaptureAdapter 
     toolkit: provider,
     triggerSlugs,
     deriveSignals: deriveCalendarSignals,
+    deriveFieldSignals: deriveCalendarFieldSignals,
 
     extractFeedbackEntity(envelope) {
       return emailEntity(envelope, "organizer_email", "organizer");

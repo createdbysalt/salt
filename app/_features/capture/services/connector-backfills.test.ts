@@ -11,6 +11,21 @@ vi.mock("./system-plays", () => ({ resolvePerson: vi.fn() }));
 vi.mock("./ingest-envelope", () => ({ ingestEnvelope: vi.fn() }));
 vi.mock("./cal-booking-processor", () => ({ processCalBookings: vi.fn() }));
 
+const producePersonFieldSignalsMock = vi.fn(
+  async (_input: unknown) => ({ dispatched: [], addressWrites: 0 }),
+);
+vi.mock("./producers/person-field-producer", () => ({
+  producePersonFieldSignals: (input: unknown) =>
+    producePersonFieldSignalsMock(input),
+}));
+
+const producePersonTagFitsMock = vi.fn(
+  async (_input: unknown) => ({ assigned: [] }),
+);
+vi.mock("./producers/person-tag-fit-producer", () => ({
+  producePersonTagFits: (input: unknown) => producePersonTagFitsMock(input),
+}));
+
 const getCategoryAdapterMock = vi.fn(async (_provider: string) => null as unknown);
 const hasHandWrittenParsingMock = vi.fn((_provider: string) => true);
 vi.mock("../adapters/categories", () => ({
@@ -49,6 +64,7 @@ import { unwrapItems, backfillDropboxCaptures } from "./connector-backfills";
 import { getConnectionStatusAdmin } from "@/app/_lib/composio/connections";
 import { executeComposioAction } from "@/app/_lib/composio/actions";
 import { ingestEnvelope } from "./ingest-envelope";
+import { resolvePerson } from "./system-plays";
 import type { CaptureEnvelope } from "../adapters/types";
 
 /**
@@ -209,5 +225,118 @@ describe("backfill LLM signal supplement", () => {
     await backfillDropboxCaptures("ws-1");
 
     expect(absorbInferredSignalsMock).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Field-signal absorption (registry-wiring Phase 4): adapters that derive
+ * person FIELD values hand them to the person-field producer after the
+ * contact resolves to a person record.
+ */
+describe("backfill field-signal absorption", () => {
+  const stubAdapter = {
+    sourceType: "dropbox",
+    toolkit: "dropbox",
+    triggerSlugs: [],
+    deriveSignals: () => new Map(),
+    deriveFieldSignals: () =>
+      new Map([
+        [
+          "jane@acme.com",
+          { signalValues: { person_phone_extracted: "+1 415 555 0100" } },
+        ],
+      ]),
+    normalize(row: unknown): CaptureEnvelope | null {
+      const record = row as { id?: string; email?: string };
+      if (!record.id) return null;
+      return {
+        sourceType: "dropbox",
+        captureType: "file",
+        externalId: record.id,
+        title: record.id,
+        occurredAt: "2026-08-08T00:00:00Z",
+        participants: record.email
+          ? [{ email: record.email, name: null, role: "from" as const }]
+          : [],
+        threadId: null,
+        extracted: {},
+        raw: {},
+        noise: null,
+      };
+    },
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    hasHandWrittenParsingMock.mockReturnValue(true);
+    getCategoryAdapterMock.mockResolvedValue(stubAdapter);
+    vi.mocked(getConnectionStatusAdmin).mockResolvedValue({
+      connected: true,
+      composioConnectionId: "conn-1",
+      integrationId: "int-1",
+      email: "me@usesalt.io",
+    } as never);
+    vi.mocked(executeComposioAction).mockResolvedValue({
+      entries: [
+        {
+          ".tag": "file",
+          id: "new-1",
+          email: "jane@acme.com",
+          server_modified: new Date().toISOString(),
+        },
+      ],
+    } as never);
+    vi.mocked(ingestEnvelope).mockImplementation(
+      async () => ({ outcome: "created" }) as never,
+    );
+  });
+
+  it("resolves the contact and produces person field signals", async () => {
+    vi.mocked(resolvePerson).mockResolvedValue({
+      resolved: true,
+      person_id: "person-1",
+      is_new: false,
+      confidence: 90,
+      confidence_reason: "exact email match",
+      needs_confirmation: false,
+    });
+
+    await backfillDropboxCaptures("ws-1");
+
+    expect(resolvePerson).toHaveBeenCalledWith(
+      "ws-1",
+      expect.objectContaining({ email: "jane@acme.com" }),
+    );
+    expect(producePersonFieldSignalsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: "ws-1",
+        personId: "person-1",
+        source: "dropbox",
+        fields: expect.objectContaining({
+          signalValues: { person_phone_extracted: "+1 415 555 0100" },
+        }),
+      }),
+    );
+    expect(producePersonTagFitsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: "ws-1",
+        personId: "person-1",
+        source: "dropbox",
+      }),
+    );
+  });
+
+  it("skips production when the contact does not resolve to a person", async () => {
+    vi.mocked(resolvePerson).mockResolvedValue({
+      resolved: false,
+      is_new: false,
+      confidence: 0,
+      confidence_reason: "insufficient signals",
+      needs_confirmation: true,
+    });
+
+    await backfillDropboxCaptures("ws-1");
+
+    expect(producePersonFieldSignalsMock).not.toHaveBeenCalled();
   });
 });

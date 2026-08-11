@@ -31,6 +31,7 @@ import {
 import { loadPeopleProfilePlaybook } from "@/app/_features/plays/playbooks/records-engine/load-profile-playbook";
 import { applyProfileFieldResults } from "@/app/_features/plays/playbooks/records-engine/write-provenance";
 import { executeSystemPlay } from "./executor";
+import { countCorroboratingCategories } from "./corroboration";
 import type { RelationshipType, SystemPlayResult } from "./types";
 
 // ============================================================================
@@ -123,8 +124,15 @@ export async function resolvePerson(
       title: person.title,
     })),
   });
+  // Cross-app corroboration (registry-wiring Phase 4): only the creation
+  // band reads confidence — exact matches and merge suggestions short-circuit
+  // before it, so skip the evidence probes for them.
+  const corroborationCount =
+    duplicates.length === 0
+      ? await countCorroboratingCategories(workspaceId, email)
+      : 0;
   const decision = evaluateAdmission({
-    recordsInput,
+    recordsInput: { ...recordsInput, corroborationCount },
     classification,
     duplicates,
   });

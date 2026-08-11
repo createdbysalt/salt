@@ -25,6 +25,8 @@ import { parseQuickbooksBalanceDetailReport } from "../adapters/categories/billi
 import { ingestEnvelope } from "./ingest-envelope";
 import { logBackfillSummaryExecution } from "./backfill-summary";
 import { processCalBookings } from "./cal-booking-processor";
+import { producePersonFieldSignals } from "./producers/person-field-producer";
+import { producePersonTagFits } from "./producers/person-tag-fit-producer";
 import {
   absorbInferredSignals,
   type LlmCall,
@@ -204,6 +206,49 @@ async function absorbDerivedSignals(
       } catch (error) {
         console.warn(
           `[connector-backfill] signal absorption failed for ${adapter.sourceType}:`,
+          error instanceof Error ? error.message : error,
+        );
+      }
+    }
+  }
+
+  // Field-signal absorption (registry-wiring Phase 4): adapters that derive
+  // person FIELD values (billing address/email, invitee timezone/phone, CRM
+  // name/title/phone) hand them to the person-field producer once the contact
+  // resolves to a person record. Admission still gates creation — fills only
+  // land on persons that exist or qualify.
+  if (envelopes.length > 0 && adapter.deriveFieldSignals) {
+    const derivedFields = adapter.deriveFieldSignals(envelopes, { userEmail });
+    let processed = 0;
+    for (const [email, fields] of derivedFields) {
+      if (processed >= MAX_SIGNAL_CONTACTS_PER_RUN) break;
+      processed++;
+      try {
+        const name = envelopes
+          .flatMap((e) => e.participants)
+          .find((p) => p.email === email && p.name)?.name;
+        const resolution = await resolvePerson(workspaceId, {
+          email,
+          name: name ?? undefined,
+        });
+        if (resolution.resolved && resolution.person_id) {
+          await producePersonFieldSignals({
+            workspaceId,
+            personId: resolution.person_id,
+            fields,
+            source: adapter.sourceType,
+          });
+          // Fresh field evidence can complete a tag fit (e.g. a first
+          // payment landing on someone you meet regularly).
+          await producePersonTagFits({
+            workspaceId,
+            personId: resolution.person_id,
+            source: adapter.sourceType,
+          });
+        }
+      } catch (error) {
+        console.warn(
+          `[connector-backfill] field-signal absorption failed for ${adapter.sourceType}:`,
           error instanceof Error ? error.message : error,
         );
       }

@@ -78,6 +78,12 @@ export function calculateAdmissionConfidence(
     confidence += 10;
     reasons.push("Human name provided");
   }
+  if ((input.corroborationCount ?? 0) >= 2) {
+    confidence += 15;
+    reasons.push(
+      `Corroborated across ${input.corroborationCount} connected apps`,
+    );
+  }
 
   if (classification.entityType !== "person") {
     confidence = Math.min(confidence, RECORDS_CONFIDENCE_NEEDS_CONFIRMATION);

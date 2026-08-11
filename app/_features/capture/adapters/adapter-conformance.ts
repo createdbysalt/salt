@@ -1,5 +1,6 @@
 import { expect } from "vitest";
 import { PERSON_SIGNAL_KEYS } from "@/app/_features/capture/services/system-plays/person-signals";
+import { PERSON_FIELD_SIGNAL_KEYS } from "@/app/_features/capture/services/producers/person-field-types";
 import type { CaptureAdapter, CaptureEnvelope } from "./types";
 
 /**
@@ -47,6 +48,25 @@ export function runAdapterConformance(
       expect(email.includes("@")).toBe(true);
       for (const key of Object.keys(signals)) {
         expect(registrySet.has(key), `signal '${key}' not in registry set`).toBe(true);
+      }
+    }
+  }
+
+  // Field-signal derivation (registry-wiring Phase 4): declared field
+  // signals ⊆ PERSON_FIELD_SIGNAL_KEYS.
+  if (adapter.deriveFieldSignals) {
+    const envelopes = fixtures
+      .map((fixture) => adapter.normalize(fixture.payload))
+      .filter((envelope): envelope is CaptureEnvelope => envelope !== null);
+    const derived = adapter.deriveFieldSignals(envelopes, { userEmail: null });
+    const fieldSignalSet = new Set<string>(PERSON_FIELD_SIGNAL_KEYS);
+    for (const [email, fields] of derived) {
+      expect(email.includes("@")).toBe(true);
+      for (const key of Object.keys(fields.signalValues)) {
+        expect(
+          fieldSignalSet.has(key),
+          `field signal '${key}' not in registry set`
+        ).toBe(true);
       }
     }
   }

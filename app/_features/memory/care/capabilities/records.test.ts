@@ -109,6 +109,58 @@ describe("records capability — work and billing coverage (7.4)", () => {
     );
   });
 
+  it("resolves {{extracted}} from a trigger-carried signal value", async () => {
+    const result = await runRecordsCapability({
+      workspaceId: "ws-1",
+      signal: "person_timezone_detected",
+      entityType: "person",
+      entityId: "person-1",
+      signalValues: { person_timezone_detected: "America/New_York" },
+    });
+
+    expect(result.rulesMatched).toBeGreaterThan(0);
+    const tzWrite = memoryUpdateField.mock.calls
+      .map((call) => call[0] as { field: string; value: string })
+      .find((input) => input.field === "timezone");
+    expect(tzWrite?.value).toBe("America/New_York");
+  });
+
+  it("trigger-carried values win over computed signals", async () => {
+    memoryGetFacts.mockResolvedValue({
+      facts: {},
+      signals: { person_timezone_detected: "America/Los_Angeles" },
+    });
+
+    await runRecordsCapability({
+      workspaceId: "ws-1",
+      signal: "person_timezone_detected",
+      entityType: "person",
+      entityId: "person-1",
+      signalValues: { person_timezone_detected: "America/New_York" },
+    });
+
+    const tzWrite = memoryUpdateField.mock.calls
+      .map((call) => call[0] as { field: string; value: string })
+      .find((input) => input.field === "timezone");
+    expect(tzWrite?.value).toBe("America/New_York");
+  });
+
+  it("fills billing_email from the billing-email signal, never from a boolean", async () => {
+    const result = await runRecordsCapability({
+      workspaceId: "ws-1",
+      signal: "person_billing_email_extracted",
+      entityType: "person",
+      entityId: "person-1",
+      signalValues: { person_billing_email_extracted: "ap@acme.com" },
+    });
+
+    const emailWrite = memoryUpdateField.mock.calls
+      .map((call) => call[0] as { field: string; value: string })
+      .find((input) => input.field === "billing_email");
+    expect(emailWrite?.value).toBe("ap@acme.com");
+    expect(result.rulesMatched).toBeGreaterThan(0);
+  });
+
   it("completes past meetings from the end-passed signal", async () => {
     memoryGetFacts.mockResolvedValue({
       facts: {},

@@ -18,6 +18,7 @@ import {
 } from "../feedback-entity";
 import { isRecord, pickString, unwrapRecord } from "../normalize-utils";
 import type { PersonSignals } from "@/app/_features/capture/services/system-plays/person-signals";
+import type { DerivedPersonFields } from "@/app/_features/capture/services/producers/person-field-types";
 import type { CaptureSourceType } from "@/app/_features/capture/types";
 
 type KnownBillingProvider = "stripe" | "quickbooks" | "xero";
@@ -88,6 +89,90 @@ function deriveBillingSignals(
 }
 
 // Billing adapters already filter by category - no need for source type check
+
+/** Provider address shapes (Stripe billing_details.address, QBO BillAddr). */
+interface RawAddress {
+  line1?: unknown;
+  line2?: unknown;
+  Line1?: unknown;
+  Line2?: unknown;
+  city?: unknown;
+  City?: unknown;
+  state?: unknown;
+  CountrySubDivisionCode?: unknown;
+  postal_code?: unknown;
+  PostalCode?: unknown;
+  country?: unknown;
+  Country?: unknown;
+}
+
+function str(value: unknown): string | undefined {
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+/**
+ * Normalize a provider address into the snake_case `customer_address`
+ * extracted contract. Returns null when the address carries no content.
+ */
+function extractCustomerAddress(raw: unknown): Record<string, string> | null {
+  if (!isRecord(raw)) return null;
+  const address = raw as RawAddress;
+  const normalized: Record<string, string> = {};
+  const line1 = str(address.line1) ?? str(address.Line1);
+  const line2 = str(address.line2) ?? str(address.Line2);
+  const city = str(address.city) ?? str(address.City);
+  const state = str(address.state) ?? str(address.CountrySubDivisionCode);
+  const postalCode = str(address.postal_code) ?? str(address.PostalCode);
+  const country = str(address.country) ?? str(address.Country);
+  if (line1) normalized.line1 = line1;
+  if (line2) normalized.line2 = line2;
+  if (city) normalized.city = city;
+  if (state) normalized.state = state;
+  if (postalCode) normalized.postal_code = postalCode;
+  if (country) normalized.country = country;
+  return Object.keys(normalized).length > 0 ? normalized : null;
+}
+
+/**
+ * Field-signal derivation (registry-wiring Phase 4): a billing payload
+ * attests the customer's billing email (the address invoices go to) and,
+ * when the provider carries it, the billing address. Consumed by the
+ * person-field producer after resolvePerson.
+ */
+function deriveBillingFieldSignals(
+  envelopes: readonly CaptureEnvelope[],
+): Map<string, DerivedPersonFields> {
+  const contacts = new Map<string, DerivedPersonFields>();
+
+  for (const envelope of envelopes) {
+    const email = envelope.extracted.customer_email as string | null;
+    if (!email) continue;
+
+    const existing = contacts.get(email) ?? { signalValues: {} };
+    existing.signalValues.person_billing_email_extracted = email;
+
+    if (!existing.address) {
+      const address = envelope.extracted.customer_address as
+        | Record<string, string>
+        | null
+        | undefined;
+      if (address) {
+        existing.address = {
+          line1: address.line1,
+          line2: address.line2,
+          city: address.city,
+          state: address.state,
+          postalCode: address.postal_code,
+          country: address.country,
+        };
+      }
+    }
+
+    contacts.set(email, existing);
+  }
+
+  return contacts;
+}
 
 function normalizeStripe(payload: unknown): CaptureEnvelope | null {
   if (!payload || typeof payload !== "object") return null;
@@ -169,6 +254,9 @@ function normalizeStripe(payload: unknown): CaptureEnvelope | null {
       status: (obj.status as string) ?? null,
       invoice_number: (obj.number as string) ?? null,
       due_date: dueDate,
+      customer_address: extractCustomerAddress(
+        billingDetails?.address ?? customerDetails?.address
+      ),
     },
     raw: {
       stripeEventId: externalId,
@@ -371,6 +459,7 @@ function normalizeQuickbooks(payload: unknown): CaptureEnvelope | null {
       invoice_number: (record.DocNumber as string) ?? null,
       due_date: (record.DueDate as string) ?? null,
       balance: (record.Balance as number) ?? null,
+      customer_address: extractCustomerAddress(record.BillAddr),
     },
     raw: {
       quickbooksId: externalId,
@@ -451,6 +540,7 @@ export function createBillingCategoryAdapter(provider: string): CaptureAdapter {
     toolkit: provider,
     triggerSlugs,
     deriveSignals: deriveBillingSignals,
+    deriveFieldSignals: deriveBillingFieldSignals,
 
     extractFeedbackEntity(envelope) {
       return emailEntity(envelope, "customer_email", "customer");

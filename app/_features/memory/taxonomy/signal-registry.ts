@@ -29,6 +29,7 @@ export type SignalId =
   | "email_domain_in_vendor_list"
   | "person_name_extracted"
   | "person_email_extracted"
+  | "person_billing_email_extracted"
   | "person_phone_extracted"
   | "person_title_extracted"
   | "person_timezone_detected"
@@ -246,6 +247,13 @@ export const SIGNALS: SignalDescriptor[] = [
     entityTypes: ["person"],
     description: "Email address extracted",
     sources: ["email"],
+  },
+  {
+    id: "person_billing_email_extracted",
+    label: "Billing Email Extracted",
+    entityTypes: ["person"],
+    description: "Email address invoices are sent to, from a billing payload",
+    sources: ["billing"],
   },
   {
     id: "person_phone_extracted",

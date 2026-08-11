@@ -186,7 +186,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     aiDescription: "Email address for invoices and billing communications",
     dbColumn: "billing_email",
     fillRules: [
-      { signal: "has_invoice_sent", value: "{{extracted}}", confidence: 85, because: "Email used for invoice delivery" },
+      { signal: "person_billing_email_extracted", value: "{{extracted}}", confidence: 85, because: "Email used for invoice delivery" },
     ],
   },
   {

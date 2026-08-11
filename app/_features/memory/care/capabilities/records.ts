@@ -34,6 +34,13 @@ export interface RecordsRunInput {
   entityType: LearningEntityType;
   entityId: string;
   entityLabel?: string;
+  /**
+   * Values carried by the triggering dispatch (Phase 4 producers). Merged
+   * over the computed facts signals — trigger-carried values are fresher
+   * than anything a DB scan can derive, and they are the only way an
+   * extraction signal's {{extracted}} value reaches the evaluator.
+   */
+  signalValues?: Record<string, boolean | number | string>;
 }
 
 export interface RecordsRunResult {
@@ -142,6 +149,13 @@ export async function runRecordsCapability(
     entityType: input.entityType,
     entityId: input.entityId,
   });
+
+  // Trigger-carried values override computed signals (see RecordsRunInput).
+  if (input.signalValues) {
+    for (const [key, value] of Object.entries(input.signalValues)) {
+      signals[key] = value;
+    }
+  }
 
   // 2. Load fill rules for this entity type
   const rules = getFillRulesForEntityType(input.entityType);

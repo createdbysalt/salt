@@ -129,3 +129,42 @@ describe("records engine", () => {
     expect(decision.suggestedRelationshipType).toBe("client");
   });
 });
+
+describe("cross-app corroboration (registry-wiring Phase 4)", () => {
+  // Base: calendar (30) + bidirectional thread (25) + email identity (10) +
+  // company domain (5) + name (10) = 80 → needs_confirmation without the
+  // corroboration bonus.
+  const borderline: RecordsInput = {
+    name: "Maya Chen",
+    email: "maya@acme.com",
+    signals: { has_calendar_meeting: true, is_bidirectional_thread: true },
+  };
+
+  it("lifts borderline candidates corroborated across connected apps", () => {
+    const decision = decide({ ...borderline, corroborationCount: 2 });
+
+    expect(decision.action).toBe("create");
+    expect(decision.confidence).toBe(95);
+    expect(
+      decision.reasons.some((reason) => reason.includes("Corroborated")),
+    ).toBe(true);
+  });
+
+  it("single-source evidence earns no corroboration bonus", () => {
+    const decision = decide({ ...borderline, corroborationCount: 1 });
+
+    expect(decision.action).toBe("needs_confirmation");
+    expect(decision.confidence).toBe(80);
+  });
+
+  it("LLM-inferred signals stay capped even with corroboration", () => {
+    const decision = decide({
+      ...borderline,
+      signalsInferred: true,
+      corroborationCount: 4,
+    });
+
+    expect(decision.action).toBe("needs_confirmation");
+    expect(decision.confidence).toBeLessThanOrEqual(50);
+  });
+});

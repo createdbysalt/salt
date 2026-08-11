@@ -18,7 +18,20 @@ import {
 } from "../feedback-entity";
 import { isRecord, pickString, unwrapRecord } from "../normalize-utils";
 import type { PersonSignals } from "@/app/_features/capture/services/system-plays/person-signals";
+import type { DerivedPersonFields } from "@/app/_features/capture/services/producers/person-field-types";
 import type { CaptureSourceType } from "@/app/_features/capture/types";
+
+/**
+ * Pipedrive persons carry email/phone as arrays of { value, primary }.
+ * Returns the primary entry's value (fallback: first entry).
+ */
+function pickFirstValue(value: unknown): string | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const entries = value.filter(isRecord);
+  const primary = entries.find((entry) => entry.primary === true) ?? entries[0];
+  const picked = primary?.value;
+  return typeof picked === "string" && picked.length > 0 ? picked : undefined;
+}
 
 // hubspot is dormant: demoted to action-only (Sources plan 5.7, 2026-08-08)
 // because its triggers require the user's own developer-app credentials. Its
@@ -58,6 +71,41 @@ function deriveCrmSignals(
     contacts.set(contactEmail, {
       ...contacts.get(contactEmail),
     });
+  }
+
+  return contacts;
+}
+
+/**
+ * Field-signal derivation (registry-wiring Phase 4): CRM contact rows
+ * attest the person's name, job title, and phone. Organization-shaped rows
+ * (entity_type "organization") are skipped — org fields are a Phase 5
+ * producer.
+ */
+function deriveCrmFieldSignals(
+  envelopes: readonly CaptureEnvelope[],
+): Map<string, DerivedPersonFields> {
+  const contacts = new Map<string, DerivedPersonFields>();
+
+  for (const envelope of envelopes) {
+    if (envelope.extracted.entity_type === "organization") continue;
+    const email = envelope.extracted.email as string | null;
+    if (!email) continue;
+
+    const existing = contacts.get(email) ?? { signalValues: {} };
+    const name = envelope.extracted.name as string | null;
+    const jobTitle = envelope.extracted.job_title as string | null;
+    const phone = envelope.extracted.phone as string | null;
+    if (name && !existing.signalValues.person_name_extracted) {
+      existing.signalValues.person_name_extracted = name;
+    }
+    if (jobTitle && !existing.signalValues.person_title_extracted) {
+      existing.signalValues.person_title_extracted = jobTitle;
+    }
+    if (phone && !existing.signalValues.person_phone_extracted) {
+      existing.signalValues.person_phone_extracted = phone;
+    }
+    contacts.set(email, existing);
   }
 
   return contacts;
@@ -133,7 +181,7 @@ function parseDealValue(value: unknown): number | null {
  */
 function normalizePipedrive(payload: unknown): CaptureEnvelope | null {
   if (!isRecord(payload)) return null;
-  const record = unwrapRecord(payload, ["deal", "organization", "data"]);
+  const record = unwrapRecord(payload, ["deal", "organization", "person", "data"]);
 
   const externalId = pickString(record, ["id"]) ?? pickString(payload, ["id"]);
   if (!externalId) return null;
@@ -163,6 +211,46 @@ function normalizePipedrive(payload: unknown): CaptureEnvelope | null {
         stage: pickString(record, ["stage_id", "stage_name"]),
         deal_value: parseDealValue(record.value),
         currency: pickString(record, ["currency"]),
+        company: pickString(record, ["org_name"]),
+      },
+      raw: {
+        crmId: externalId,
+        source: "composio_trigger",
+      },
+      noise: null,
+    };
+  }
+
+  // Person shape: Pipedrive persons carry email/phone as arrays of
+  // { value, primary } and a job_title — organization rows never do.
+  const isPerson =
+    record.job_title !== undefined ||
+    record.phone !== undefined ||
+    Array.isArray(record.email);
+
+  if (isPerson) {
+    const name = pickString(record, ["name"]);
+    const email = pickFirstValue(record.email) ?? pickString(record, ["email"]);
+    const phone = pickFirstValue(record.phone) ?? pickString(record, ["phone"]);
+    const jobTitle = pickString(record, ["job_title"]);
+
+    return {
+      sourceType: "pipedrive",
+      captureType: "contact",
+      externalId: `person:${externalId}`,
+      title: name,
+      occurredAt: pickString(record, ["add_time", "created_at"]) ?? null,
+      participants: email
+        ? [{ email: email.toLowerCase(), name, role: "other" }]
+        : [],
+      threadId: null,
+      extracted: {
+        entity_type: "contact",
+        entity_name: name,
+        name,
+        email: email?.toLowerCase() ?? null,
+        phone: phone ?? null,
+        job_title: jobTitle ?? null,
         company: pickString(record, ["org_name"]),
       },
       raw: {
@@ -218,6 +306,15 @@ function normalizeGenericCrm(
 
   const name = pickString(record, ["name", "Name", "title"]);
   const email = pickString(record, ["email", "Email"]);
+  const phone =
+    pickString(record, ["phone", "Phone", "phone_number", "PhoneNumber"]) ??
+    pickFirstValue(record.phone);
+  const jobTitle = pickString(record, [
+    "job_title",
+    "jobTitle",
+    "Title",
+    "JobTitle",
+  ]);
   const dealValue = parseDealValue(record.value ?? record.amount ?? record.Amount);
   const isDealLike = dealValue !== null || record.stage_id !== undefined;
 
@@ -244,6 +341,8 @@ function normalizeGenericCrm(
       stage: pickString(record, ["stage", "stage_id", "StageName", "dealstage"]),
       deal_value: dealValue,
       currency: pickString(record, ["currency", "CurrencyIsoCode"]),
+      phone: phone ?? null,
+      job_title: jobTitle ?? null,
     },
     raw: {
       crmId: externalId,
@@ -267,6 +366,7 @@ export function createCrmCategoryAdapter(provider: string): CaptureAdapter {
     toolkit: provider,
     triggerSlugs,
     deriveSignals: deriveCrmSignals,
+    deriveFieldSignals: deriveCrmFieldSignals,
 
     extractFeedbackEntity(envelope) {
       return (

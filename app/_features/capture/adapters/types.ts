@@ -4,6 +4,7 @@ import type {
 } from "@/app/_features/capture/types";
 import type { CaptureNoiseInput } from "@/app/_features/capture/services/intelligence/capture-noise";
 import type { PersonSignals } from "@/app/_features/capture/services/system-plays/person-signals";
+import type { DerivedPersonFields } from "@/app/_features/capture/services/producers/person-field-types";
 
 /**
  * Capture adapter contract (connector-platform Phase 3.2).
@@ -149,4 +150,16 @@ export interface CaptureAdapter {
     envelopes: readonly CaptureEnvelope[],
     context: SignalDerivationContext,
   ): Map<string, PersonSignals>;
+  /**
+   * Field-signal derivation (registry-wiring Phase 4): fold a batch of
+   * ingested envelopes into per-contact person FIELD values — billing
+   * customer addresses + billing emails, scheduling invitee timezone/phone,
+   * CRM contact name/title/phone. Only keys this source can attest; the
+   * conformance harness enforces the PERSON_FIELD_SIGNAL_KEYS set. Consumed
+   * by the person-field producer after resolvePerson.
+   */
+  deriveFieldSignals?(
+    envelopes: readonly CaptureEnvelope[],
+    context: SignalDerivationContext,
+  ): Map<string, DerivedPersonFields>;
 }

@@ -36,6 +36,12 @@ export interface RecordsInput {
    * inferred evidence can never auto-create a record (ask-first only).
    */
   signalsInferred?: boolean;
+  /**
+   * Distinct connector categories with capture evidence for this email
+   * (registry-wiring Phase 4). Computed by the resolver from capture_events;
+   * ≥ 2 categories earns a corroboration bonus in admission confidence.
+   */
+  corroborationCount?: number;
   explicitRequest?: boolean;
   userInsistsPerson?: boolean;
 }

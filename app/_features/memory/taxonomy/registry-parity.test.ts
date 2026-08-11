@@ -85,12 +85,6 @@ const ALL_FILL_RULE_SIGNALS = [
  */
 const SIGNALS_AWAITING_PRODUCER: Record<string, string> = {
   // Phase 4 — People producers for the sourcing matrix
-  person_name_extracted: "Phase 4: extraction pipeline emits person signals",
-  person_email_extracted: "Phase 4: extraction pipeline emits person signals",
-  person_phone_extracted: "Phase 4: extraction pipeline emits person signals",
-  person_timezone_detected: "Phase 4: people producers",
-  person_address_extracted: "Phase 4: extraction pipeline emits person signals",
-  person_tag_fit_detected: "Phase 4: people producers",
   person_observation_detected: "Phase 4: people producers",
   email_count_gte_5: "Phase 4: people producers",
   // Phase 5 — Orgs
