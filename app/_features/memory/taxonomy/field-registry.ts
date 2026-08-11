@@ -136,12 +136,22 @@ export function getWritePolicy(field: FieldDescriptor): WritePolicy {
 // PERSON FIELDS
 // ============================================================================
 
+/**
+ * People opts out of the conservative canon default (care_ask): with
+ * provenance + undo and the workspace boldness setting as the safety net,
+ * Salt fills person fields directly once a fill rule clears its bar.
+ * Declared per field (not as a changed global default) so the choice stays
+ * explicit at the declaration site.
+ */
+const PERSON_CARE_AUTO = { writePolicy: "care_auto" as const };
+
 export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
   {
     key: "name",
     label: "Name",
     entityType: "person",
     fieldType: "text",
+    ...PERSON_CARE_AUTO,
     careSignal: "person_name",
     requiredForCapabilities: ["invoicing"],
     aiDescription: "Full display name of the person",
@@ -155,6 +165,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     label: "Email",
     entityType: "person",
     fieldType: "email",
+    ...PERSON_CARE_AUTO,
     careSignal: "person_email",
     requiredForCapabilities: ["email_follow_up", "scheduling"],
     aiDescription: "Primary email address for contact",
@@ -169,6 +180,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     label: "Billing Email",
     entityType: "person",
     fieldType: "email",
+    ...PERSON_CARE_AUTO,
     careSignal: "person_billing_email",
     requiredForCapabilities: ["invoicing"],
     aiDescription: "Email address for invoices and billing communications",
@@ -182,6 +194,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     label: "Phone",
     entityType: "person",
     fieldType: "phone",
+    ...PERSON_CARE_AUTO,
     careSignal: "person_phone",
     requiredForCapabilities: [],
     aiDescription: "Phone number for contact",
@@ -195,6 +208,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     label: "Timezone",
     entityType: "person",
     fieldType: "timezone",
+    ...PERSON_CARE_AUTO,
     vocabulary: "timezone",
     careSignal: "person_timezone",
     requiredForCapabilities: ["scheduling"],
@@ -209,6 +223,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     label: "Title",
     entityType: "person",
     fieldType: "text",
+    ...PERSON_CARE_AUTO,
     careSignal: "person_title",
     requiredForCapabilities: [],
     aiDescription: "Job title or role at their organization",
@@ -222,6 +237,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     label: "Relationship",
     entityType: "person",
     fieldType: "select",
+    ...PERSON_CARE_AUTO,
     vocabulary: "relationship_type",
     careSignal: "person_relationship_type",
     requiredForCapabilities: [],
@@ -241,6 +257,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     label: "Street Address",
     entityType: "person",
     fieldType: "text",
+    ...PERSON_CARE_AUTO,
     careSignal: "person_address_line1",
     requiredForCapabilities: ["invoicing"],
     aiDescription: "Street address line 1",
@@ -254,6 +271,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     label: "Address Line 2",
     entityType: "person",
     fieldType: "text",
+    ...PERSON_CARE_AUTO,
     careSignal: "person_address_line2",
     requiredForCapabilities: [],
     aiDescription: "Street address line 2 (apt, suite, etc.)",
@@ -267,6 +285,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     label: "City",
     entityType: "person",
     fieldType: "text",
+    ...PERSON_CARE_AUTO,
     careSignal: "person_city",
     requiredForCapabilities: ["invoicing"],
     aiDescription: "City name",
@@ -280,6 +299,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     label: "State/Province",
     entityType: "person",
     fieldType: "text",
+    ...PERSON_CARE_AUTO,
     careSignal: "person_state",
     requiredForCapabilities: [],
     aiDescription: "State or province",
@@ -293,6 +313,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     label: "Postal Code",
     entityType: "person",
     fieldType: "text",
+    ...PERSON_CARE_AUTO,
     careSignal: "person_postal_code",
     requiredForCapabilities: ["invoicing"],
     aiDescription: "ZIP or postal code",
@@ -306,6 +327,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     label: "Country",
     entityType: "person",
     fieldType: "country",
+    ...PERSON_CARE_AUTO,
     vocabulary: "country",
     careSignal: "person_country",
     requiredForCapabilities: ["invoicing"],
@@ -314,6 +336,22 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     fillRules: [
       { signal: "person_address_extracted", value: "{{extracted}}", confidence: 82, because: "Country extracted from address" },
       { signal: "person_timezone_detected", value: "{{extracted}}", confidence: 70, because: "Country inferred from timezone" },
+    ],
+  },
+  {
+    key: "tags",
+    label: "Tags",
+    entityType: "person",
+    fieldType: "multi_select",
+    ...PERSON_CARE_AUTO,
+    careSignal: "person_tags",
+    requiredForCapabilities: [],
+    aiDescription:
+      "Workspace tags for this person (via entity_tag_assignments, not a column). Salt assigns existing tags when a fit clears the bar; coining a new tag is still gated by tag_auto_create_threshold and tag_max_ai_created in profile_playbook_settings",
+    fillRules: [
+      { signal: "person_tag_fit_detected", value: "{{extracted}}", confidence: 80, because: "An existing tag clearly fits — like VIP when payments stack up, or At Risk when a client goes quiet" },
+      { signal: "person_tag_fit_detected", value: "{{extracted}}", confidence: 80, because: "A brand-new tag only gets coined when I'm at least 80% sure, and I cap how many I create so your list stays clean" },
+      { signal: "person_tag_fit_detected", value: "{{extracted}}", confidence: 100, because: "Near-duplicates get merged instead of piling up, and tags you stop using archive themselves" },
     ],
   },
   {
@@ -347,6 +385,23 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
       { signal: "capture_email_received", value: "{{extracted}}", confidence: 100, because: "Email received from this person" },
       { signal: "capture_email_sent", value: "{{extracted}}", confidence: 100, because: "Email sent to this person" },
       { signal: "capture_meeting_completed", value: "{{extracted}}", confidence: 100, because: "Meeting with this person completed" },
+    ],
+  },
+  {
+    key: "notes",
+    label: "Notes",
+    entityType: "person",
+    fieldType: "text",
+    careSignal: "person_notes",
+    requiredForCapabilities: [],
+    aiDescription:
+      "Dated observations about this person (entity notes via the notes blueprint, not a column). Worth a note: decisions in their own words, commitments with dates, role or company changes, relationship milestones, life context they volunteered. Never worth a note: scheduling logistics, small talk, anything stale within a month. Salt appends its own notes with evidence links; notes the user writes are never edited or removed",
+    ...PERSON_CARE_AUTO,
+    fillRules: [
+      { signal: "person_observation_detected", value: "{{extracted}}", confidence: 90, because: "They said it themselves — a decision, a life update, a new role, in their own words" },
+      { signal: "person_observation_detected", value: "{{extracted}}", confidence: 85, because: "A commitment with a date attached — 'I'll have the signed contract back Friday'" },
+      { signal: "person_observation_detected", value: "{{extracted}}", confidence: 85, because: "A milestone the systems confirm — first payment, signed contract, a CRM stage move" },
+      { signal: "person_observation_detected", value: "{{extracted}}", confidence: 100, because: "Notes you write yourself stay yours — I never edit or remove them" },
     ],
   },
 ];
@@ -1181,7 +1236,7 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
 // FILE FIELDS (files)
 // ============================================================================
 
-export const FILE_FIELDS: FieldDescriptor<"files">[] = [
+export const FILE_FIELDS: FieldDescriptor<"resources">[] = [
   {
     key: "title",
     label: "Title",

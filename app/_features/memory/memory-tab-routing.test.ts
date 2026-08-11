@@ -48,12 +48,19 @@ describe("customize type param", () => {
     expect(parseCustomizeType("meeting")).toBe("meeting");
   });
 
+  it("parses the general scope", () => {
+    expect(parseCustomizeType("general")).toBe("general");
+  });
+
   it("round-trips through buildMemoryPath", () => {
     expect(buildMemoryPath("customize", "org")).toBe(
       "/memory?tab=customize&type=org",
     );
     expect(buildMemoryPath("customize", "meeting")).toBe(
       "/memory?tab=customize&type=meeting",
+    );
+    expect(buildMemoryPath("customize", "general")).toBe(
+      "/memory?tab=customize&type=general",
     );
     // The default type is omitted from the URL.
     expect(buildMemoryPath("customize", "person")).toBe(

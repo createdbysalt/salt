@@ -221,7 +221,8 @@ describe("addCustomizeEntry", () => {
 
     expect(result).toEqual({
       success: false,
-      error: "Entries are 1–500 characters and belong to a record type.",
+      error:
+        "Entries are 1–500 characters and belong to a record type or General.",
     });
     expect(h.db.rows).toHaveLength(0);
   });

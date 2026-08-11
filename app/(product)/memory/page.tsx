@@ -10,7 +10,7 @@ import {
   parseMemoryTab,
   type MemoryTab,
 } from "@/app/_features/memory/memory-tab-routing";
-import type { MemoryCustomizeEntityType } from "@/app/_features/memory/customize/default-guidance";
+import type { MemoryCustomizeScope } from "@/app/_features/memory/customize/default-guidance";
 import { listActiveCustomizeEntriesByType } from "@/app/_features/memory/customize/queries";
 import { getLearningEvidence } from "@/app/_features/memory/queries/learning-evidence";
 import { getHandledWrites } from "@/app/_features/memory/queries/handled-items";
@@ -47,7 +47,7 @@ async function MemoryCustomizeSection({
   type,
 }: {
   workspaceId: string;
-  type: MemoryCustomizeEntityType;
+  type: MemoryCustomizeScope;
 }) {
   const [entriesByType, threshold, learnedWeights] = await Promise.all([
     listActiveCustomizeEntriesByType(workspaceId),

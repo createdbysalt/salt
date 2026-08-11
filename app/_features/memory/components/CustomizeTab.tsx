@@ -1,19 +1,56 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
+import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { ChevronDown, Loader2, RotateCcw } from "lucide-react";
+import {
+  Building2,
+  Briefcase,
+  CalendarDays,
+  FileText,
+  Gauge,
+  Layers,
+  Loader2,
+  Plus,
+  Sparkles,
+  Users,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@repo/utils";
-import { Button, Label, Slider } from "@repo/ui";
-import { PlaysSectionHeader } from "@/app/_features/plays/components/PlaysSectionHeader";
 import {
-  MEMORY_CUSTOMIZE_ENTITY_LABELS,
-  MEMORY_CUSTOMIZE_ENTITY_TYPES,
-  defaultGuidanceForType,
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+  Button,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Slider,
+} from "@repo/ui";
+import { PlaysSectionHeader } from "@/app/_features/plays/components/PlaysSectionHeader";
+import { useClientMounted } from "@/app/_lib/hooks/use-client-mounted";
+import {
+  EXAMPLE_ENTRIES,
+  MEMORY_CUSTOMIZE_GENERAL_SCOPE,
+  MEMORY_CUSTOMIZE_SCOPE_LABELS,
+  MEMORY_CUSTOMIZE_SCOPE_TITLES,
+  MEMORY_CUSTOMIZE_SCOPES,
+  defaultGuidanceForScope,
+  headerDescriptionForScope,
+  type DefaultGuidance,
   type MemoryCustomizeEntityType,
+  type MemoryCustomizeScope,
 } from "../customize/default-guidance";
+import {
+  getFieldsForEntity,
+  getWritePolicy,
+  type WritePolicy,
+} from "../taxonomy/field-registry";
 import {
   addCustomizeEntry,
   revertCustomizeEntry,
@@ -31,19 +68,31 @@ import { LearnedWeightsSection } from "./LearnedWeightsSection";
  * Two-zone doc, no overwriting:
  * - Zone 1 ("What I look for") is Salt-authored and read-only, rendered
  *   from the live field registry so the copy can't drift from behavior.
+ *   Fields render as chip groups, not sentences — transparency you can
+ *   scan.
  * - Zone 2 ("Your customizations") is writable: free-text lines the intake
  *   pipeline reads when deciding what becomes a record. Every line carries
  *   its source and a revert.
  *
- * The trust card (how boldly Salt acts) and the learned-weights list live
- * here too. Care itself is always on — you steer it, you don't switch it
- * off.
+ * Layout is doc + rail: the doc (both zones) fills the main column; the
+ * trust card (All Types only — it is one workspace-wide threshold) and the
+ * learned-weights list sit in a sticky rail. Care itself is always on —
+ * you steer it, you don't switch it off.
  */
+
+const SCOPE_ICONS: Record<MemoryCustomizeScope, LucideIcon> = {
+  general: Layers,
+  person: Users,
+  org: Building2,
+  work: Briefcase,
+  resource: FileText,
+  meeting: CalendarDays,
+};
 
 interface CustomizeTabProps {
   workspaceId: string;
-  activeType: MemoryCustomizeEntityType;
-  entriesByType: Partial<Record<MemoryCustomizeEntityType, CustomizeEntry[]>>;
+  activeType: MemoryCustomizeScope;
+  entriesByType: Partial<Record<MemoryCustomizeScope, CustomizeEntry[]>>;
   initialThreshold: number;
   learnedWeights: SignalSourceWeight[];
 }
@@ -55,132 +104,314 @@ export function CustomizeTab({
   initialThreshold,
   learnedWeights,
 }: CustomizeTabProps) {
-  const guidance = defaultGuidanceForType(activeType);
+  const router = useRouter();
+  // Defer the Radix Select until after hydration — its generated
+  // aria-controls id mismatches under streamed SSR (vercel/next.js#84029).
+  const selectMounted = useClientMounted();
+  const guidance = defaultGuidanceForScope(activeType);
   const entries = entriesByType[activeType] ?? [];
 
   return (
-    <div className="max-w-3xl space-y-10">
+    <div className="space-y-10">
       <PlaysSectionHeader
-        eyebrow="Steer what Salt remembers"
-        title="Customize"
-        description="Here's what I look for when I decide what becomes a record — tell me when it's wrong."
-      />
-
-      <div
-        role="group"
-        aria-label="Record type"
-        className="flex flex-wrap items-center gap-1.5"
-      >
-        {MEMORY_CUSTOMIZE_ENTITY_TYPES.map((type) => (
-          <Link
-            key={type}
-            href={buildMemoryPath("customize", type)}
-            aria-current={type === activeType ? "page" : undefined}
-            className={cn(
-              "rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition",
-              type === activeType
-                ? "border-foreground/20 bg-muted text-foreground"
-                : "border-border/60 text-muted-foreground hover:text-foreground",
+        eyebrow="Customize what Salt remembers"
+        title={MEMORY_CUSTOMIZE_SCOPE_TITLES[activeType]}
+        description={headerDescriptionForScope(activeType)}
+        action={
+          <div className="flex flex-col gap-1.5">
+            <span className="pl-1 text-[10px] font-bold tracking-[0.22em] uppercase text-muted-foreground">
+              Record type
+            </span>
+            {selectMounted ? (
+              <Select
+                value={activeType}
+                onValueChange={(value) =>
+                  router.push(
+                    buildMemoryPath("customize", value as MemoryCustomizeScope),
+                  )
+                }
+              >
+                <SelectTrigger
+                  aria-label="Record type"
+                  className="h-10 w-[240px] rounded-full border-foreground/20 bg-muted px-4 text-sm font-semibold text-foreground shadow-sm"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {MEMORY_CUSTOMIZE_SCOPES.map((scope) => {
+                    const ScopeIcon = SCOPE_ICONS[scope];
+                    return (
+                      <SelectItem key={scope} value={scope}>
+                        <span className="flex items-center gap-2">
+                          <ScopeIcon className="size-3.5 text-muted-foreground" />
+                          {scope === MEMORY_CUSTOMIZE_GENERAL_SCOPE
+                            ? "All Types"
+                            : MEMORY_CUSTOMIZE_SCOPE_LABELS[scope]}
+                        </span>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            ) : (
+              <div
+                aria-hidden
+                className="h-10 w-[240px] rounded-full border border-foreground/20 bg-muted shadow-sm"
+              />
             )}
-          >
-            {MEMORY_CUSTOMIZE_ENTITY_LABELS[type]}
-          </Link>
-        ))}
-      </div>
-
-      <DefaultZone guidance={guidance} />
-
-      <CustomizationsZone entityType={activeType} entries={entries} />
-
-      <TrustCard workspaceId={workspaceId} initialThreshold={initialThreshold} />
-
-      <LearnedWeightsSection
-        workspaceId={workspaceId}
-        initialWeights={learnedWeights}
+          </div>
+        }
       />
+
+      <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="max-w-3xl space-y-10">
+          {/* The composer is the parent; an aurora thread ties the suggestions
+              and the doc to it as its children — you write above, the line
+              lands below. */}
+          <div className="relative">
+            <TellSaltComposer entityType={activeType} />
+            <div
+              aria-hidden
+              className="absolute bottom-2 left-[21px] top-[50px] w-0.5 rounded-full bg-[linear-gradient(180deg,oklch(0.58_0.16_200_/_0.5),oklch(0.78_0.16_75_/_0.3)_60%,transparent)]"
+            />
+            <div className="mt-5 space-y-8 pl-10">
+              <SuggestionRow entityType={activeType} entries={entries} />
+              <CustomizationsZone
+                entityType={activeType}
+                entries={entries}
+                heading={
+                  activeType === MEMORY_CUSTOMIZE_GENERAL_SCOPE
+                    ? "What I'll remember across every type"
+                    : "What I'll remember"
+                }
+              />
+            </div>
+          </div>
+
+        </div>
+
+        <aside className="space-y-10 lg:sticky lg:top-6 lg:self-start">
+          {/* One workspace-wide threshold — it lives on All Types so it can
+              never read as a per-type setting. Per-type pages carry the
+              record's fill logic in the same aurora shell instead. */}
+          {activeType === MEMORY_CUSTOMIZE_GENERAL_SCOPE ? (
+            <TrustCard
+              workspaceId={workspaceId}
+              initialThreshold={initialThreshold}
+            />
+          ) : (
+            <RecordLogicCard guidance={guidance} scope={activeType} />
+          )}
+
+          <LearnedWeightsSection
+            workspaceId={workspaceId}
+            initialWeights={learnedWeights}
+          />
+        </aside>
+      </div>
     </div>
   );
 }
 
-/** Zone 1 — read-only. Summary by default; the curious expand the detail. */
-function DefaultZone({
+/** Per-field tier badge copy — same write-policy canon the registry uses. */
+function tierLabel(policy: WritePolicy): string {
+  switch (policy) {
+    case "care_auto":
+      return "I fill it in";
+    case "care_ask":
+      return "I suggest";
+    case "user_only":
+      return "Yours";
+    case "system_derived":
+      return "Derived";
+  }
+}
+
+/** Zone 1, per-type rail — the aurora counterpart to the All Types trust
+ *  card. Read-only transparency: how a record is born, then one dropdown
+ *  per field with the exact logic that fills it. Everything renders live
+ *  from the field registry, so the copy can't drift from pipeline behavior. */
+function RecordLogicCard({
   guidance,
+  scope,
 }: {
-  guidance: ReturnType<typeof defaultGuidanceForType>;
+  guidance: DefaultGuidance;
+  scope: MemoryCustomizeEntityType;
 }) {
-  const [open, setOpen] = React.useState(false);
+  const birthSections = guidance.sections.filter(
+    (section) => section.kind === "birth",
+  );
+  const fields = getFieldsForEntity(scope).filter((field) => !field.isReadonly);
 
   return (
-    <section className="space-y-2.5">
-      <h2 className="text-sm font-semibold text-foreground">
-        What I look for
-      </h2>
-      <p className="text-[13px] leading-relaxed text-muted-foreground">
-        {guidance.summary}
-      </p>
-      <div className="space-y-1.5">
-        <button
-          type="button"
-          aria-expanded={open}
-          onClick={() => setOpen((prev) => !prev)}
-          className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground transition hover:text-foreground"
+    <section className="surface-aurora relative overflow-hidden rounded-3xl p-6 text-white">
+      <div className="relative z-10 space-y-4">
+        <h2 className="font-display text-xl font-semibold leading-tight text-white">
+          The logic I run on
+        </h2>
+        <p className="text-[13px] leading-snug text-white/70">
+          {guidance.summary}
+        </p>
+
+        <Accordion
+          type="multiple"
+          className="aurora-scroll max-h-[440px] overflow-y-auto pr-2"
         >
-          <ChevronDown
-            className={cn("size-3 transition-transform", open && "rotate-180")}
-          />
-          See exactly what I do
-        </button>
-        {open ? (
-          <div className="space-y-4 rounded-xl border border-border/60 bg-muted/30 p-4">
-            {guidance.sections.map((section) => (
-              <div key={section.heading} className="space-y-1.5">
-                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                  {section.heading}
-                </p>
+          {birthSections.map((section) => (
+            <AccordionItem
+              key={section.heading}
+              value={`birth-${section.heading}`}
+              className="border-white/15"
+            >
+              <AccordionTrigger className="py-2.5 text-[13px] text-white/90 hover:no-underline [&_svg]:text-white/60!">
+                {section.heading}
+              </AccordionTrigger>
+              <AccordionContent className="text-xs leading-snug text-white/70">
                 <ul className="space-y-1.5">
                   {section.lines.map((line) => (
-                    <li
-                      key={line}
-                      className="text-[13px] leading-snug text-muted-foreground"
-                    >
-                      {line}
-                    </li>
+                    <li key={line}>{line}</li>
                   ))}
                 </ul>
-              </div>
-            ))}
-            <p className="text-xs leading-snug text-muted-foreground/80">
-              These are my defaults — changing them means changing how Salt
-              works, not text on this page. Your customizations below steer me
-              without touching the defaults.
-            </p>
-          </div>
-        ) : null}
+              </AccordionContent>
+            </AccordionItem>
+          ))}
+
+          {fields.map((field) => {
+            const policy = getWritePolicy(field);
+            return (
+              <AccordionItem
+                key={field.key}
+                value={field.key}
+                className="border-white/15"
+              >
+                <AccordionTrigger className="py-2.5 text-[13px] text-white/90 hover:no-underline [&_svg]:text-white/60!">
+                  <span className="flex items-center gap-2">
+                    {field.label}
+                    <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-medium text-white/70">
+                      {tierLabel(policy)}
+                    </span>
+                  </span>
+                </AccordionTrigger>
+                <AccordionContent className="text-xs leading-snug text-white/70">
+                  {policy === "user_only" ? (
+                    <p>Yours alone — I never write it.</p>
+                  ) : field.fillRules && field.fillRules.length > 0 ? (
+                    <ul className="space-y-1.5">
+                      {field.fillRules.map((rule, index) => (
+                        <li key={`${field.key}-${index}`}>
+                          {rule.because} · {rule.confidence}%
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p>When I spot it, I suggest it — you decide.</p>
+                  )}
+                </AccordionContent>
+              </AccordionItem>
+            );
+          })}
+        </Accordion>
       </div>
     </section>
   );
 }
 
-const SOURCE_BADGES: Record<CustomizeEntry["source"], string> = {
-  user: "You added this",
-  ask_salt: "From your chat with me",
-  correction: "From a correction",
-  reflection: "I learned this",
-};
-
-/** Zone 2 — the writable doc. Every line is attributed and revertible. */
-function CustomizationsZone({
+/** Subtle one-click ideas under the composer — they hide themselves once the
+ *  same line already lives in the doc. */
+function SuggestionRow({
   entityType,
   entries,
 }: {
-  entityType: MemoryCustomizeEntityType;
+  entityType: MemoryCustomizeScope;
   entries: CustomizeEntry[];
 }) {
+  const router = useRouter();
+  const [pending, setPending] = React.useState<string | null>(null);
+  const pendingRef = React.useRef(false);
+
+  const remaining = EXAMPLE_ENTRIES[entityType].filter(
+    (example) =>
+      !entries.some(
+        (entry) => entry.body.trim().toLowerCase() === example.toLowerCase(),
+      ),
+  );
+
+  if (remaining.length === 0) return null;
+
+  const pick = async (body: string) => {
+    if (pendingRef.current) return;
+    pendingRef.current = true;
+    setPending(body);
+    const result = await addCustomizeEntry({
+      entityType,
+      body,
+      source: "user",
+    });
+    pendingRef.current = false;
+    setPending(null);
+    if (result.success) {
+      toast.success(
+        result.enforcement === "enforced"
+          ? "I'll always keep that out."
+          : "I'll remember that.",
+      );
+      router.refresh();
+    } else {
+      toast.error(result.error);
+    }
+  };
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 pl-2">
+      <span className="text-xs text-muted-foreground/70">Try:</span>
+      {remaining.map((example) => (
+        <button
+          key={example}
+          type="button"
+          disabled={pending !== null}
+          onClick={() => void pick(example)}
+          className="inline-flex items-center gap-1 rounded-full border border-dashed border-border/60 px-3 py-1 text-xs text-muted-foreground transition hover:border-foreground/30 hover:bg-muted/50 hover:text-foreground disabled:opacity-50"
+        >
+          {pending === example ? (
+            <Loader2 className="size-3 animate-spin" />
+          ) : (
+            <Plus className="size-3" />
+          )}
+          {example}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Each line carries a small provenance dot — lines Salt learned on its own
+ *  glow aurora; the rest are quiet. */
+const SOURCE_ANNOTATIONS: Record<
+  CustomizeEntry["source"],
+  { label: string; dotClassName: string }
+> = {
+  user: { label: "You wrote this", dotClassName: "bg-muted-foreground/40" },
+  ask_salt: { label: "From your chat with me", dotClassName: "bg-primary" },
+  correction: {
+    label: "Learned from a correction",
+    dotClassName: "bg-amber-500",
+  },
+  reflection: { label: "I noticed this", dotClassName: "surface-aurora" },
+};
+
+const DOC_DATE_FORMAT = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+});
+
+/** The one text box on the surface, hoisted to the top. Styled after the HQ
+ *  tab tray: an inset rounded-full pill with a flame spark, an active-pill
+ *  submit, and a tray that turns solid on focus. */
+function TellSaltComposer({ entityType }: { entityType: MemoryCustomizeScope }) {
   const router = useRouter();
   const [value, setValue] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const busyRef = React.useRef(false);
-  const [revertingId, setRevertingId] = React.useState<string | null>(null);
 
   const submit = async () => {
     const body = value.trim();
@@ -207,6 +438,58 @@ function CustomizationsZone({
     }
   };
 
+  const placeholder =
+    entityType === MEMORY_CUSTOMIZE_GENERAL_SCOPE
+      ? "Tell Salt something that applies to every record type…"
+      : `Tell Salt what to look for in ${MEMORY_CUSTOMIZE_SCOPE_LABELS[entityType].toLowerCase()}…`;
+
+  return (
+    <div className="flex items-center gap-2 rounded-full border border-border/60 bg-muted/70 p-1.5 pl-1.5 shadow-[inset_0_1px_2px_rgba(0,0,0,0.04)] transition focus-within:border-foreground/25 focus-within:bg-background dark:border-border dark:bg-background/60 dark:focus-within:bg-muted/40">
+      <span className="surface-aurora grid size-8 shrink-0 place-items-center rounded-full">
+        <Sparkles className="relative z-10 size-4 text-white" />
+      </span>
+      <input
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            void submit();
+          }
+        }}
+        placeholder={placeholder}
+        aria-label="Tell Salt what to remember"
+        maxLength={500}
+        className="min-w-0 flex-1 bg-transparent py-1.5 text-sm text-foreground outline-none placeholder:text-muted-foreground"
+      />
+      <button
+        type="button"
+        onClick={() => void submit()}
+        disabled={busy || value.trim().length === 0}
+        className="surface-aurora shrink-0 rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:brightness-105 hover:shadow disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        <span className="relative z-10 inline-flex items-center">
+          {busy ? <Loader2 className="size-4 animate-spin" /> : "Remember this"}
+        </span>
+      </button>
+    </div>
+  );
+}
+
+/** Zone 2 — the living doc. Entries read as lines in a document, oldest to
+ *  newest, each with quiet provenance and a hover-revealed revert. */
+function CustomizationsZone({
+  entityType,
+  entries,
+  heading,
+}: {
+  entityType: MemoryCustomizeScope;
+  entries: CustomizeEntry[];
+  heading?: string;
+}) {
+  const router = useRouter();
+  const [revertingId, setRevertingId] = React.useState<string | null>(null);
+
   const revert = async (entry: CustomizeEntry) => {
     setRevertingId(entry.id);
     const result = await revertCustomizeEntry(entry.id);
@@ -220,83 +503,73 @@ function CustomizationsZone({
   };
 
   return (
-    <section className="space-y-2.5">
-      <div className="space-y-1">
+    <section className="space-y-4">
+      <div className="flex items-center gap-2">
         <h2 className="text-sm font-semibold text-foreground">
-          Your customizations
+          {heading ?? "Your customizations"}
         </h2>
-        <p className="text-xs leading-snug text-muted-foreground">
-          Anything here steers what I look for in{" "}
-          {MEMORY_CUSTOMIZE_ENTITY_LABELS[entityType].toLowerCase()}. Write it
-          the way you&apos;d say it.
-        </p>
+        {entries.length > 0 ? (
+          <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium tabular-nums text-muted-foreground">
+            {entries.length}
+          </span>
+        ) : null}
       </div>
 
-      {entries.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          Nothing yet — the defaults above are running the show.
-        </p>
-      ) : (
-        <ul className="space-y-1.5">
-          {entries.map((entry) => (
-            <li
-              key={entry.id}
-              className="flex items-start justify-between gap-3 rounded-lg border border-border/60 bg-background px-3 py-2"
-            >
-              <div className="min-w-0 space-y-0.5">
-                <p className="text-[13px] leading-snug text-foreground">
-                  {entry.body}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {SOURCE_BADGES[entry.source]}
-                  {" · "}
-                  {detectHardExclusion(entry.body)
-                    ? "I always keep this out"
-                    : "I keep this in mind"}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => void revert(entry)}
-                disabled={revertingId === entry.id}
-                aria-label="Revert this customization"
-                className="inline-flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted/60 hover:text-foreground disabled:opacity-50"
-              >
-                {revertingId === entry.id ? (
-                  <Loader2 className="size-3.5 animate-spin" />
-                ) : (
-                  <RotateCcw className="size-3.5" />
-                )}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <div className="flex items-center gap-2">
-        <input
-          value={value}
-          onChange={(event) => setValue(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.preventDefault();
-              void submit();
-            }
-          }}
-          placeholder="Tell Salt what to look for…"
-          aria-label="Tell Salt what to look for"
-          maxLength={500}
-          className="h-9 min-w-0 flex-1 rounded-full border border-border/60 bg-background px-4 text-sm outline-none transition hover:border-border focus:ring-4 focus:ring-foreground/5"
-        />
-        <Button
-          type="button"
-          size="sm"
-          className="rounded-full px-4"
-          disabled={busy || value.trim().length === 0}
-          onClick={() => void submit()}
-        >
-          {busy ? <Loader2 className="size-4 animate-spin" /> : "Remember this"}
-        </Button>
+      <div className="rounded-2xl border border-border/60 bg-card px-4 py-2 sm:px-5">
+        {entries.length === 0 ? (
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            Nothing here yet. This page fills in as you correct me or tell me
+            what matters — every line becomes part of how I work.
+          </p>
+        ) : (
+          <ul className="divide-y divide-border/40">
+            {entries.map((entry) => {
+              const annotation = SOURCE_ANNOTATIONS[entry.source];
+              const hardExclusion = detectHardExclusion(entry.body);
+              return (
+                <motion.li
+                  key={entry.id}
+                  layout
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                  className="group flex items-start justify-between gap-4 py-2.5 first:pt-1 last:pb-1"
+                >
+                  <div className="min-w-0 space-y-1">
+                    <p className="text-sm leading-snug text-foreground">
+                      {entry.body}
+                    </p>
+                    <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted-foreground/80">
+                      <span
+                        className={cn(
+                          "inline-block size-1.5 rounded-full",
+                          annotation.dotClassName,
+                        )}
+                      />
+                      {annotation.label}
+                      {hardExclusion ? " · always kept out" : null}
+                      {" · "}
+                      {DOC_DATE_FORMAT.format(new Date(entry.createdAt))}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void revert(entry)}
+                    disabled={revertingId === entry.id}
+                    aria-label="Remove this line"
+                    className="mt-1 inline-flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground opacity-0 transition hover:bg-muted/60 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 disabled:opacity-50"
+                  >
+                    {revertingId === entry.id ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <X className="size-3.5" />
+                    )}
+                  </button>
+                </motion.li>
+              );
+            })}
+          </ul>
+        )}
       </div>
     </section>
   );
@@ -332,6 +605,8 @@ function getThresholdMeta(value: number) {
 /**
  * The trust card — the one control that governs how boldly Salt acts on
  * this whole surface, including anything Salt writes to the doc itself.
+ * Rendered in the aurora language of the HQ pulse card: chip label, one
+ * big display number, one line of description. Nothing else.
  */
 function TrustCard({
   workspaceId,
@@ -361,56 +636,48 @@ function TrustCard({
   };
 
   return (
-    <section className="space-y-4">
-      <h2 className="text-sm font-semibold text-foreground">
-        How boldly I act
-      </h2>
-      <div className="rounded-2xl border border-border/60 bg-card p-6">
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <Label className="text-base font-medium">
-              Act on my own when I&apos;m this sure
-            </Label>
-            <span className="text-2xl font-semibold tabular-nums">
-              {threshold}%
-            </span>
-          </div>
+    <section className="surface-aurora relative overflow-hidden rounded-3xl p-6 text-white">
+      <div className="relative z-10 space-y-5">
+        <span className="chip">
+          <Gauge className="size-3" /> How boldly I act
+        </span>
 
-          <Slider
-            value={[threshold]}
-            onValueChange={([value]) => setThreshold(value)}
-            min={50}
-            max={100}
-            step={5}
-            className="w-full"
-          />
+        <div className="flex items-end gap-3">
+          <p className="font-display text-5xl leading-none tabular-nums tracking-tight">
+            {threshold}%
+          </p>
+          <p className="pb-0.5 text-sm font-medium text-white/80">
+            {thresholdMeta.label}
+          </p>
+        </div>
 
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>More autonomous</span>
+        <p className="text-[13px] leading-snug text-white/70">
+          {thresholdMeta.description}
+        </p>
+
+        <Slider
+          value={[threshold]}
+          onValueChange={([value]) => setThreshold(value)}
+          min={50}
+          max={100}
+          step={5}
+          aria-label="Act on my own when I'm this sure"
+          className="w-full [&_[data-slot=slider-range]]:bg-white [&_[data-slot=slider-thumb]]:border-white [&_[data-slot=slider-track]]:bg-white/20"
+        />
+
+        <div className="flex items-center justify-between text-[11px] text-white/60">
+          <span>More autonomous</span>
+          {hasChanges ? (
+            <Button
+              size="sm"
+              onClick={() => void save()}
+              disabled={saving}
+              className="h-7 rounded-full bg-white px-3 text-xs font-semibold text-black hover:bg-white/90"
+            >
+              {saving ? <Loader2 className="size-3.5 animate-spin" /> : "Save"}
+            </Button>
+          ) : (
             <span>Always ask</span>
-          </div>
-
-          <div className="rounded-lg bg-muted/50 p-4">
-            <p className="font-medium text-sm">{thresholdMeta.label}</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              {thresholdMeta.description}
-            </p>
-          </div>
-
-          {hasChanges && (
-            <div className="flex justify-end pt-1">
-              <Button
-                onClick={() => void save()}
-                disabled={saving}
-                className="min-w-[100px]"
-              >
-                {saving ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  "Save"
-                )}
-              </Button>
-            </div>
           )}
         </div>
       </div>

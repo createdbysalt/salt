@@ -1,6 +1,6 @@
 import {
-  MEMORY_CUSTOMIZE_ENTITY_TYPES,
-  type MemoryCustomizeEntityType,
+  isMemoryCustomizeScope,
+  type MemoryCustomizeScope,
 } from "./customize/default-guidance";
 
 export type MemoryTab = "map" | "activity" | "customize";
@@ -13,22 +13,17 @@ export function parseMemoryTab(value: string | null | undefined): MemoryTab {
   return "map";
 }
 
-/** The Customize tab's record-type param; defaults to People. */
+/** The Customize tab's scope param (a record type or "general"); defaults to People. */
 export function parseCustomizeType(
   value: string | null | undefined,
-): MemoryCustomizeEntityType {
-  if (
-    value != null &&
-    (MEMORY_CUSTOMIZE_ENTITY_TYPES as readonly string[]).includes(value)
-  ) {
-    return value as MemoryCustomizeEntityType;
-  }
+): MemoryCustomizeScope {
+  if (isMemoryCustomizeScope(value)) return value;
   return "person";
 }
 
 export function buildMemoryPath(
   tab: MemoryTab,
-  customizeType?: MemoryCustomizeEntityType,
+  customizeType?: MemoryCustomizeScope,
 ): string {
   if (tab === "map") return "/memory";
   if (tab === "customize") {

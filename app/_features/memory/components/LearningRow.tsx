@@ -92,7 +92,7 @@ function entitySection(entityType: LearningEntityType): Exclude<PlaybookSection,
     case "meeting":
       return "meetings";
     case "resource":
-      return "files";
+      return "resources";
     case "me":
       return "me";
     case "billing":

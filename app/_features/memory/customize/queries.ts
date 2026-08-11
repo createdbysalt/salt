@@ -9,8 +9,11 @@ import "server-only";
  */
 
 import { createClient } from "@/app/_lib/supabase/server";
-import type { MemoryCustomizeEntityType } from "./default-guidance";
-import { MEMORY_CUSTOMIZE_ENTITY_TYPES } from "./default-guidance";
+import type {
+  MemoryCustomizeEntityType,
+  MemoryCustomizeScope,
+} from "./default-guidance";
+import { scopesForPrompt } from "./default-guidance";
 import { formatCustomizePromptBlock } from "./prompt-block";
 
 export type CustomizeEntrySource =
@@ -21,7 +24,7 @@ export type CustomizeEntrySource =
 
 export interface CustomizeEntry {
   id: string;
-  entityType: MemoryCustomizeEntityType;
+  entityType: MemoryCustomizeScope;
   body: string;
   source: CustomizeEntrySource;
   status: "active" | "reverted";
@@ -40,7 +43,7 @@ interface EntryRow {
 function toEntry(row: EntryRow): CustomizeEntry {
   return {
     id: row.id,
-    entityType: row.entity_type as MemoryCustomizeEntityType,
+    entityType: row.entity_type as MemoryCustomizeScope,
     body: row.body,
     source: row.source as CustomizeEntrySource,
     status: row.status as CustomizeEntry["status"],
@@ -54,7 +57,7 @@ function toEntry(row: EntryRow): CustomizeEntry {
  */
 export async function listCustomizeEntries(
   workspaceId: string,
-  entityType: MemoryCustomizeEntityType,
+  entityType: MemoryCustomizeScope,
 ): Promise<CustomizeEntry[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -78,7 +81,7 @@ export async function listCustomizeEntries(
  */
 export async function listActiveCustomizeEntriesByType(
   workspaceId: string,
-): Promise<Partial<Record<MemoryCustomizeEntityType, CustomizeEntry[]>>> {
+): Promise<Partial<Record<MemoryCustomizeScope, CustomizeEntry[]>>> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("memory_customize_entries")
@@ -92,7 +95,7 @@ export async function listActiveCustomizeEntriesByType(
     return {};
   }
 
-  const grouped: Partial<Record<MemoryCustomizeEntityType, CustomizeEntry[]>> =
+  const grouped: Partial<Record<MemoryCustomizeScope, CustomizeEntry[]>> =
     {};
   for (const row of data as EntryRow[]) {
     const entry = toEntry(row);
@@ -104,15 +107,18 @@ export async function listActiveCustomizeEntriesByType(
 /**
  * The fenced prompt block for Track A injection (Phase M4) — active
  * entries for the given record types (default: all), formatted with the
- * entry/char budget. Returns null when there's nothing to inject, so call
- * sites can skip cleanly. One DB read per decision, not per type.
+ * entry/char budget. General entries apply to every record type, so they
+ * are always included, first in line for the budget. Returns null when
+ * there's nothing to inject, so call sites can skip cleanly. One DB read
+ * per decision, not per type.
  */
 export async function getCustomizePromptBlock(
   workspaceId: string,
   types?: readonly MemoryCustomizeEntityType[],
 ): Promise<string | null> {
   const grouped = await listActiveCustomizeEntriesByType(workspaceId);
-  const selected = types ?? MEMORY_CUSTOMIZE_ENTITY_TYPES;
-  const entries = selected.flatMap((type) => grouped[type] ?? []);
+  const entries = scopesForPrompt(types).flatMap(
+    (scope) => grouped[scope] ?? [],
+  );
   return formatCustomizePromptBlock(entries);
 }

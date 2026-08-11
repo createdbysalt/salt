@@ -13,7 +13,7 @@ import { z } from "zod";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { requireAuthenticatedWorkspaceMember } from "@/app/_lib/composio/workspace-auth";
 import { addRule, getRules, removeRule } from "@/app/_features/capture/services/rules-manager";
-import { MEMORY_CUSTOMIZE_ENTITY_TYPES } from "./default-guidance";
+import { MEMORY_CUSTOMIZE_SCOPES } from "./default-guidance";
 import { detectHardExclusion } from "./hard-exclusion";
 import { findNeverTouchConflict } from "./write-validation";
 import type { CustomizeEntry } from "./queries";
@@ -34,7 +34,7 @@ type AddEntryResult =
   | { success: false; error: string };
 
 const AddEntrySchema = z.object({
-  entityType: z.enum(MEMORY_CUSTOMIZE_ENTITY_TYPES),
+  entityType: z.enum(MEMORY_CUSTOMIZE_SCOPES),
   body: z.string().trim().min(1).max(500),
   source: z.enum(["user", "ask_salt", "correction"]),
 });
@@ -48,7 +48,8 @@ export async function addCustomizeEntry(input: {
   if (!parsed.success) {
     return {
       success: false,
-      error: "Entries are 1–500 characters and belong to a record type.",
+      error:
+        "Entries are 1–500 characters and belong to a record type or General.",
     };
   }
 

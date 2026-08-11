@@ -15,7 +15,11 @@ import {
   getFieldsForEntity,
   getWritePolicy,
 } from "../taxonomy/field-registry";
-import type { MemoryCustomizeEntityType } from "./default-guidance";
+import {
+  MEMORY_CUSTOMIZE_ENTITY_TYPES,
+  MEMORY_CUSTOMIZE_GENERAL_SCOPE,
+  type MemoryCustomizeScope,
+} from "./default-guidance";
 
 const WRITE_INTENT =
   /\b(fill|fill in|update|change|set|write|edit|overwrite|complete|correct)\b/i;
@@ -29,16 +33,24 @@ function keyToWords(key: string): string {
  * The label of the never-touch field the instruction conflicts with, or
  * null when the entry is acceptable. Only fires on write intent — "my
  * billing email is wrong, ask me first" names the field without demanding
- * Salt write it.
+ * Salt write it. The general scope checks every record type's never-touch
+ * fields, since its lines steer all of them.
  */
 export function findNeverTouchConflict(
-  entityType: MemoryCustomizeEntityType,
+  entityType: MemoryCustomizeScope,
   body: string,
 ): string | null {
   if (!WRITE_INTENT.test(body)) return null;
   const lower = body.toLowerCase();
 
-  for (const field of getFieldsForEntity(entityType)) {
+  const fields =
+    entityType === MEMORY_CUSTOMIZE_GENERAL_SCOPE
+      ? MEMORY_CUSTOMIZE_ENTITY_TYPES.flatMap((type) =>
+          getFieldsForEntity(type),
+        )
+      : getFieldsForEntity(entityType);
+
+  for (const field of fields) {
     if (getWritePolicy(field) !== "user_only") continue;
     const label = field.label.toLowerCase();
     const words = keyToWords(field.key);

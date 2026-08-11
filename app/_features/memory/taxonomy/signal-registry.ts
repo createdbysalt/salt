@@ -33,6 +33,8 @@ export type SignalId =
   | "person_title_extracted"
   | "person_timezone_detected"
   | "person_address_extracted"
+  | "person_tag_fit_detected"
+  | "person_observation_detected"
   | "capture_email_received"
   | "capture_email_sent"
   | "capture_meeting_completed"
@@ -272,6 +274,22 @@ export const SIGNALS: SignalDescriptor[] = [
     entityTypes: ["person"],
     description: "Address extracted from signature or documents",
     sources: ["email", "documents"],
+  },
+  {
+    id: "person_tag_fit_detected",
+    label: "Tag Fit Detected",
+    entityTypes: ["person"],
+    description:
+      "An existing workspace tag clearly fits this person, or the evidence supports coining a new one",
+    sources: ["email", "calendar", "billing"],
+  },
+  {
+    id: "person_observation_detected",
+    label: "Observation Detected",
+    entityTypes: ["person"],
+    description:
+      "Something note-worthy changed for this person — a new role, a decision, a promise — worth a dated entity note with its source",
+    sources: ["email", "calendar", "documents"],
   },
   {
     id: "capture_email_received",

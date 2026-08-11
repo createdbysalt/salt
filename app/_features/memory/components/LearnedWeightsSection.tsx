@@ -2,8 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { AlertTriangle, Loader2, RotateCcw, Sparkles } from "lucide-react";
-import { Button } from "@repo/ui";
+import { Loader2, RotateCcw, Sparkles } from "lucide-react";
 import {
   resetLearnedWeight,
   resetAllLearnedWeights,
@@ -44,6 +43,7 @@ interface LearnedWeightCardProps {
 
 function LearnedWeightCard({ weight, workspaceId, onReset }: LearnedWeightCardProps) {
   const [isPending, startTransition] = useTransition();
+  const confidence = Math.round(weight.weightAdjustment * 100);
 
   function handleReset() {
     startTransition(async () => {
@@ -62,37 +62,44 @@ function LearnedWeightCard({ weight, workspaceId, onReset }: LearnedWeightCardPr
   }
 
   return (
-    <div className="flex items-center justify-between gap-4 rounded-lg border border-border/60 bg-muted/30 px-4 py-3">
-      <div className="flex items-start gap-3">
-        <span className="mt-0.5 grid size-7 place-items-center rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400">
-          <AlertTriangle className="size-3.5" strokeWidth={2} />
-        </span>
-        <div className="space-y-0.5">
-          <p className="text-sm text-foreground">
-            Be more careful about{" "}
-            <span className="font-medium">{formatSignalSource(weight.signalSource)}</span>
-            {" "}for{" "}
-            <span className="font-medium">{formatFieldType(weight.fieldType)}</span>
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Confidence reduced to {formatWeight(weight.weightAdjustment)} · {weight.correctionCount} correction{weight.correctionCount === 1 ? "" : "s"}
-          </p>
-        </div>
+    <div className="space-y-2.5 rounded-xl border border-border/60 bg-card p-3.5">
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-[13px] leading-snug text-foreground">
+          More careful with{" "}
+          <span className="font-medium">{formatSignalSource(weight.signalSource)}</span>
+          {" "}for{" "}
+          <span className="font-medium">{formatFieldType(weight.fieldType)}</span>
+        </p>
+        <button
+          type="button"
+          onClick={handleReset}
+          disabled={isPending}
+          aria-label="Reset this pattern"
+          className="inline-flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted/60 hover:text-foreground disabled:opacity-50"
+        >
+          {isPending ? (
+            <Loader2 className="size-3.5 animate-spin" />
+          ) : (
+            <RotateCcw className="size-3.5" />
+          )}
+        </button>
       </div>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={handleReset}
-        disabled={isPending}
-        className="shrink-0 text-muted-foreground hover:text-foreground"
-      >
-        {isPending ? (
-          <Loader2 className="size-4 animate-spin" />
-        ) : (
-          <RotateCcw className="size-4" />
-        )}
-        <span className="sr-only">Reset</span>
-      </Button>
+      <div className="space-y-1">
+        <div
+          role="img"
+          aria-label={`Confidence ${confidence}%`}
+          className="h-1 overflow-hidden rounded-full bg-muted"
+        >
+          <div
+            className="h-full rounded-full bg-[image:var(--gradient-aurora)]"
+            style={{ width: `${confidence}%` }}
+          />
+        </div>
+        <p className="text-[11px] text-muted-foreground">
+          {formatWeight(weight.weightAdjustment)} confidence ·{" "}
+          {weight.correctionCount} correction{weight.correctionCount === 1 ? "" : "s"}
+        </p>
+      </div>
     </div>
   );
 }
@@ -125,20 +132,27 @@ export function LearnedWeightsSection({
     setWeights((prev) => prev.filter((w) => w.id !== id));
   }
 
+  const heading = (
+    <div className="flex items-center gap-2">
+      <span className="surface-aurora grid size-6 shrink-0 place-items-center rounded-lg">
+        <Sparkles className="relative z-10 size-3 text-white" />
+      </span>
+      <h2 className="text-sm font-semibold text-foreground">
+        Patterns I&apos;m picking up
+      </h2>
+    </div>
+  );
+
   if (weights.length === 0) {
     return (
       <section className="space-y-4">
-        <h2 className="text-sm font-semibold text-foreground">
-          What Salt has learned
-        </h2>
-        <div className="rounded-2xl border border-border/60 bg-card p-6">
-          <div className="flex items-center gap-3 text-muted-foreground">
-            <Sparkles className="size-5" />
-            <p className="text-sm">
-              Salt hasn't learned any patterns yet. As you correct mistakes in Handled items,
-              Salt will learn to be more careful about unreliable sources.
-            </p>
-          </div>
+        {heading}
+        <div className="rounded-2xl border border-dashed border-border/60 bg-muted/20 p-4">
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            Nothing yet. As you correct mistakes in Handled items, I learn to
+            be more careful about unreliable sources — each pattern shows up
+            here.
+          </p>
         </div>
       </section>
     );
@@ -146,25 +160,22 @@ export function LearnedWeightsSection({
 
   return (
     <section className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-foreground">
-          What Salt has learned
-        </h2>
+      <div className="flex items-center justify-between gap-2">
+        {heading}
         {weights.length > 1 && (
-          <Button
-            variant="ghost"
-            size="sm"
+          <button
+            type="button"
             onClick={handleResetAll}
             disabled={isPending}
-            className="text-muted-foreground hover:text-foreground"
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground transition hover:text-foreground disabled:opacity-50"
           >
             {isPending ? (
-              <Loader2 className="size-4 animate-spin mr-1.5" />
+              <Loader2 className="size-3 animate-spin" />
             ) : (
-              <RotateCcw className="size-4 mr-1.5" />
+              <RotateCcw className="size-3" />
             )}
             Reset all
-          </Button>
+          </button>
         )}
       </div>
 
@@ -178,11 +189,6 @@ export function LearnedWeightsSection({
           />
         ))}
       </div>
-
-      <p className="text-xs text-muted-foreground">
-        These patterns are learned from your corrections in Filter → Handled.
-        Reset to let Salt trust this source again.
-      </p>
     </section>
   );
 }

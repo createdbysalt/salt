@@ -51,4 +51,26 @@ describe("findNeverTouchConflict", () => {
       findNeverTouchConflict("work", "Inquiries alone are not work"),
     ).toBeNull();
   });
+
+  it("checks every record type's never-touch fields for the general scope", () => {
+    const type = MEMORY_CUSTOMIZE_ENTITY_TYPES.find((entityType) =>
+      getFieldsForEntity(entityType).some(
+        (f) => getWritePolicy(f) === "user_only",
+      ),
+    )!;
+    const field = getFieldsForEntity(type).find(
+      (f) => getWritePolicy(f) === "user_only",
+    )!;
+    const conflict = findNeverTouchConflict(
+      "general",
+      `Always fill in ${field.label} from my emails`,
+    );
+    expect(conflict).toBe(field.label);
+  });
+
+  it("allows ordinary guidance on the general scope", () => {
+    expect(
+      findNeverTouchConflict("general", "Never treat my accountant as a client"),
+    ).toBeNull();
+  });
 });
