@@ -151,4 +151,53 @@ describe("records capability — work and billing coverage (7.4)", () => {
     expect(writes.find((w) => w.field === "status")?.value).toBe("scheduled");
     expect(result.rulesMatched).toBe(1);
   });
+
+  it("fires {{extracted}} rules on the signal's string value (existence-based)", async () => {
+    // Extraction signals carry the extracted string as their value. The
+    // evaluator's default condition for {{extracted}} rules must be
+    // existence — the old eq:true default could never match a string.
+    memoryGetFacts.mockResolvedValue({
+      facts: {},
+      signals: { person_name_extracted: "Jane Doe" },
+    });
+
+    const result = await runRecordsCapability({
+      workspaceId: "ws-1",
+      signal: "person_name_extracted",
+      entityType: "person",
+      entityId: "person-1",
+    });
+
+    expect(result.rulesMatched).toBeGreaterThan(0);
+    const nameWrite = memoryUpdateField.mock.calls
+      .map((call) => call[0] as { field: string; value: string })
+      .find((input) => input.field === "name");
+    expect(nameWrite?.value).toBe("Jane Doe");
+  });
+
+  it("does not fire {{extracted}} rules when the signal is absent", async () => {
+    memoryGetFacts.mockResolvedValue({
+      facts: {},
+      signals: { person_email_extracted: "jane@acme.com" },
+    });
+
+    const result = await runRecordsCapability({
+      workspaceId: "ws-1",
+      signal: "person_email_extracted",
+      entityType: "person",
+      entityId: "person-1",
+    });
+
+    const writes = memoryUpdateField.mock.calls.map(
+      (call) => call[0] as { field: string; value: string }
+    );
+    // Only the email rule's signal is present — name/phone/title/etc.
+    // extraction rules must stay silent.
+    expect(writes.find((w) => w.field === "email")?.value).toBe(
+      "jane@acme.com"
+    );
+    expect(writes.some((w) => w.field === "name")).toBe(false);
+    expect(writes.some((w) => w.field === "phone")).toBe(false);
+    expect(result.rulesMatched).toBe(writes.length);
+  });
 });

@@ -82,7 +82,7 @@ export type WritePolicy =
 export interface FillRule {
   /** Signal that triggers this rule */
   signal: SignalId;
-  /** Condition operator (default: eq true) */
+  /** Condition operator (default: eq true; exists for {{extracted}} rules) */
   op?: "eq" | "gte" | "exists";
   /** Value to compare against (for eq/gte) */
   opValue?: boolean | number | string;

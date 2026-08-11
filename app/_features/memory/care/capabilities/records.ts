@@ -103,7 +103,10 @@ function getFillRulesForEntityType(entityType: LearningEntityType): FillRule[] {
     if (!field.fillRules?.length || !field.dbColumn) continue;
 
     field.fillRules.forEach((rule: RegistryFillRule, index: number) => {
-      const op = rule.op ?? "eq";
+      // Extraction rules carry their value on the signal itself, so their
+      // default condition is existence — the eq:true default could never
+      // match a string signal value and left every {{extracted}} rule inert.
+      const op = rule.op ?? (rule.value === "{{extracted}}" ? "exists" : "eq");
       const opValue =
         rule.opValue !== undefined
           ? rule.opValue
