@@ -107,7 +107,7 @@ export async function extractAndStoreBrandMetadata(fileId: string): Promise<void
   try {
     const admin = createAdminClient();
     const { data: file } = await admin
-      .from("files")
+      .from("resources")
       .select("id, bucket_id, object_path, mime_type, brand_metadata")
       .eq("id", fileId)
       .maybeSingle();
@@ -129,7 +129,7 @@ export async function extractAndStoreBrandMetadata(fileId: string): Promise<void
         : {};
 
     await admin
-      .from("files")
+      .from("resources")
       .update({
         brand_metadata: { ...extracted, ...existing, colors: extracted.colors, resolution: extracted.resolution, extracted_at: extracted.extracted_at, extractor_version: EXTRACTOR_VERSION },
         updated_at: new Date().toISOString(),
