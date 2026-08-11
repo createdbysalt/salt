@@ -6,6 +6,14 @@ import { ChevronDown, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@repo/utils";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@repo/ui";
+import { PlaysSectionHeader } from "@/app/_features/plays/components/PlaysSectionHeader";
+import {
   AREA_LABELS,
   ENTITY_TYPE_LABELS,
 } from "@/app/_features/capture/adapters/rule-entities";
@@ -42,7 +50,9 @@ import { TellSaltBox } from "./TellSaltBox";
  *   Always let in /    what's been learned, removable
  *   Keep out
  *
- * The "All connectors" pill holds the workspace-wide rules (provider NULL).
+ * The "All connectors" option holds the workspace-wide rules (provider
+ * NULL). Area switching is a dropdown in the header, mirroring Memory →
+ * Customize's record-type picker.
  *
  * Banned words on this surface: trigger, webhook, sync, scope, rule,
  * adapter, pipeline, config. The vocabulary is: watch, skip, keep out,
@@ -78,18 +88,25 @@ export function SourcesCustomizeTab({
 
   if (data.areas.length === 0 && data.workspaceRules.length === 0) {
     return (
-      <div className="max-w-xl rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          Nothing to customize yet — connect an account Salt can learn from
-          and its intake policy shows up here. Corrections from the Kept Out
-          section land here too, as workspace-wide rules.
-        </p>
-        <Link
-          href="/sources"
-          className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-        >
-          Open Connectors
-        </Link>
+      <div className="space-y-6">
+        <PlaysSectionHeader
+          eyebrow="Customize what Salt captures"
+          title="Customize"
+          description="What Salt does by default, and the rules you've added on top."
+        />
+        <div className="max-w-xl rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            Nothing to customize yet — connect an account Salt can learn from
+            and its intake policy shows up here. Corrections from the Kept Out
+            section land here too, as workspace-wide rules.
+          </p>
+          <Link
+            href="/sources"
+            className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+          >
+            Open Connectors
+          </Link>
+        </div>
       </div>
     );
   }
@@ -100,66 +117,51 @@ export function SourcesCustomizeTab({
       : (data.areas.find((entry) => entry.area === selected) ?? null);
 
   return (
-    <div className="max-w-3xl space-y-8">
-      <div
-        role="group"
-        aria-label="Customize area"
-        className="flex flex-wrap items-center gap-1.5"
-      >
-        <AreaPill
-          label="All connectors"
-          active={selected === "all"}
-          onSelect={() => select("all")}
-        />
-        {data.areas.map((entry) => (
-          <AreaPill
-            key={entry.area}
-            label={AREA_LABELS[entry.area]}
-            active={selected === entry.area}
-            onSelect={() => select(entry.area)}
+    <div className="space-y-10">
+      <PlaysSectionHeader
+        eyebrow="Customize what Salt captures"
+        title={activeArea ? AREA_LABELS[activeArea.area] : "All connectors"}
+        description="What Salt does by default, and the rules you've added on top."
+        action={
+          <div className="flex flex-col gap-1.5">
+            <span className="pl-1 text-[10px] font-bold tracking-[0.22em] uppercase text-muted-foreground">
+              Area
+            </span>
+            <Select value={selected} onValueChange={select}>
+              <SelectTrigger
+                aria-label="Customize area"
+                className="h-10 w-[240px] rounded-full border-foreground/20 bg-muted px-4 text-sm font-semibold text-foreground shadow-sm"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All connectors</SelectItem>
+                {data.areas.map((entry) => (
+                  <SelectItem key={entry.area} value={entry.area}>
+                    {AREA_LABELS[entry.area]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        }
+      />
+
+      <div className="max-w-3xl">
+        {activeArea ? (
+          <AreaSection
+            data={activeArea}
+            gatePolicy={data.gatePolicy}
+            onChanged={onChanged}
           />
-        ))}
+        ) : (
+          <WorkspaceRulesView
+            rules={data.workspaceRules}
+            onChanged={onChanged}
+          />
+        )}
       </div>
-
-      {activeArea ? (
-        <AreaSection
-          data={activeArea}
-          gatePolicy={data.gatePolicy}
-          onChanged={onChanged}
-        />
-      ) : (
-        <WorkspaceRulesView
-          rules={data.workspaceRules}
-          onChanged={onChanged}
-        />
-      )}
     </div>
-  );
-}
-
-function AreaPill({
-  label,
-  active,
-  onSelect,
-}: {
-  label: string;
-  active: boolean;
-  onSelect: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      onClick={onSelect}
-      className={cn(
-        "rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition",
-        active
-          ? "border-foreground/20 bg-muted text-foreground"
-          : "border-border/60 text-muted-foreground hover:text-foreground",
-      )}
-    >
-      {label}
-    </button>
   );
 }
 
@@ -478,10 +480,6 @@ function WorkspaceRulesView({
 
   return (
     <div className="space-y-8">
-      <p className="max-w-xl text-[13px] leading-relaxed text-muted-foreground">
-        These apply to every connected account. What you correct from the
-        Kept Out section lands here too.
-      </p>
       <section className="space-y-2.5">
         <h3 className="text-sm font-semibold text-foreground">Tell Salt</h3>
         <TellSaltBox area={null} provider={null} onApplied={onChanged} />

@@ -222,17 +222,15 @@ test.describe("Sources — Customize tab (intake policy)", () => {
 
     await sections.getByRole("button", { name: "Customize" }).click();
     await expect(page).toHaveURL(/\/sources\?tab=customize/);
-    await expect(
-      page.getByRole("heading", { name: /^customize$/i, level: 2 }),
-    ).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText("Customize what Salt captures")).toBeVisible({
+      timeout: 15000,
+    });
 
     // With no connected capture accounts and no workspace rules the honest
-    // empty state renders instead of the category pills.
-    const pills = page.getByRole("group", { name: "Customize area" });
-    if (await pills.isVisible({ timeout: 5_000 }).catch(() => false)) {
-      await expect(
-        pills.getByRole("button", { name: "All connectors" }),
-      ).toBeVisible();
+    // empty state renders instead of the area dropdown.
+    const areaSelect = page.getByRole("combobox", { name: "Customize area" });
+    if (await areaSelect.isVisible({ timeout: 5_000 }).catch(() => false)) {
+      await expect(areaSelect).toBeVisible();
     } else {
       await expect(
         page.getByText(/nothing to customize yet/i),
@@ -240,33 +238,34 @@ test.describe("Sources — Customize tab (intake policy)", () => {
     }
   });
 
-  test("category pills switch sections and ?category= deep-links", async ({ page }) => {
+  test("area dropdown switches sections and ?category= deep-links", async ({ page }) => {
     await gotoAppRoute(page, CUSTOMIZE_URL);
 
-    await expect(
-      page.getByRole("heading", { name: /^customize$/i, level: 2 }),
-    ).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText("Customize what Salt captures")).toBeVisible({
+      timeout: 15000,
+    });
 
-    const pills = page.getByRole("group", { name: "Customize area" });
-    if (!(await pills.isVisible({ timeout: 5_000 }).catch(() => false))) {
+    const areaSelect = page.getByRole("combobox", { name: "Customize area" });
+    if (!(await areaSelect.isVisible({ timeout: 5_000 }).catch(() => false))) {
       // No connected capture accounts in test data — nothing to switch.
       return;
     }
 
     // Switching to "All connectors" shows the workspace-wide rules view and
     // puts the selection in the URL.
-    await pills.getByRole("button", { name: "All connectors" }).click();
+    await areaSelect.click();
+    await page.getByRole("option", { name: "All connectors" }).click();
     await expect(page).toHaveURL(/\/sources\?tab=customize&category=all/);
     await expect(
-      page.getByText(/these rules apply to every connected account/i),
+      page.getByRole("heading", { name: /always let in/i }),
     ).toBeVisible();
 
     // A deep link with a category lands on that category's section, which
     // always leads with the read-only transparency layer.
     await gotoAppRoute(page, "/sources?tab=customize&category=email");
-    await expect(
-      page.getByRole("heading", { name: /^customize$/i, level: 2 }),
-    ).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText("Customize what Salt captures")).toBeVisible({
+      timeout: 15000,
+    });
     const defaultsHeading = page.getByRole("heading", {
       name: /what salt does by default/i,
     });
@@ -278,15 +277,16 @@ test.describe("Sources — Customize tab (intake policy)", () => {
   test("smart box adds and removes a workspace-wide rule", async ({ page }) => {
     await gotoAppRoute(page, CUSTOMIZE_URL);
 
-    await expect(
-      page.getByRole("heading", { name: /^customize$/i, level: 2 }),
-    ).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText("Customize what Salt captures")).toBeVisible({
+      timeout: 15000,
+    });
 
-    const pills = page.getByRole("group", { name: "Customize area" });
-    if (!(await pills.isVisible({ timeout: 5_000 }).catch(() => false))) {
+    const areaSelect = page.getByRole("combobox", { name: "Customize area" });
+    if (!(await areaSelect.isVisible({ timeout: 5_000 }).catch(() => false))) {
       return;
     }
-    await pills.getByRole("button", { name: "All connectors" }).click();
+    await areaSelect.click();
+    await page.getByRole("option", { name: "All connectors" }).click();
 
     const box = page.getByRole("textbox", { name: "Keep out rule" });
     await expect(box).toBeVisible();
@@ -321,9 +321,9 @@ test.describe("Sources — Customize tab (intake policy)", () => {
   test("email area shows gate choices and a Check for new items button", async ({ page }) => {
     await gotoAppRoute(page, "/sources?tab=customize&category=email");
 
-    await expect(
-      page.getByRole("heading", { name: /^customize$/i, level: 2 }),
-    ).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText("Customize what Salt captures")).toBeVisible({
+      timeout: 15000,
+    });
 
     // Requires a connected email account in test data.
     const doing = page.getByRole("heading", { name: /what i'm doing/i });
@@ -378,9 +378,9 @@ test.describe("Sources — Customize tab (intake policy)", () => {
     await deepLink.click();
 
     await expect(page).toHaveURL(/\/sources\?tab=customize&category=/);
-    await expect(
-      page.getByRole("heading", { name: /^customize$/i, level: 2 }),
-    ).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText("Customize what Salt captures")).toBeVisible({
+      timeout: 15000,
+    });
   });
 });
 

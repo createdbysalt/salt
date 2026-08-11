@@ -140,11 +140,6 @@ export function SourcesPage({
                 exit={{ opacity: 0 }}
                 className="space-y-6"
               >
-                <PlaysSectionHeader
-                  eyebrow="Intake policy"
-                  title="Customize"
-                  description="What Salt does by default, and the rules you've added on top."
-                />
                 {customize ? (
                   <SourcesCustomizeTab
                     data={customize}
@@ -152,9 +147,16 @@ export function SourcesPage({
                     onChanged={invalidateActiveTab}
                   />
                 ) : (
-                  <p className="text-sm text-muted-foreground">
-                    Sign in to manage intake rules.
-                  </p>
+                  <>
+                    <PlaysSectionHeader
+                      eyebrow="Customize what Salt captures"
+                      title="Customize"
+                      description="What Salt does by default, and the rules you've added on top."
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      Sign in to manage intake rules.
+                    </p>
+                  </>
                 )}
               </motion.div>
             )}

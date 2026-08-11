@@ -57,14 +57,19 @@ function SourcesConnectorsSkeleton() {
 
 function SourcesCustomizeSkeleton() {
   return (
-    <div className="max-w-3xl space-y-6">
-      <div className="flex gap-1.5">
-        <Skeleton className="h-8 w-24 rounded-full" />
-        <Skeleton className="h-8 w-16 rounded-full" />
-        <Skeleton className="h-8 w-20 rounded-full" />
+    <div className="space-y-10">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
+        <div className="space-y-3">
+          <Skeleton className="h-3 w-28" />
+          <Skeleton className="h-12 w-64" />
+          <Skeleton className="h-4 w-full max-w-md" />
+        </div>
+        <Skeleton className="h-10 w-[240px] rounded-full" />
       </div>
-      <Skeleton className="h-24 rounded-2xl" />
-      <Skeleton className="h-40 rounded-2xl" />
+      <div className="max-w-3xl space-y-6">
+        <Skeleton className="h-24 rounded-2xl" />
+        <Skeleton className="h-40 rounded-2xl" />
+      </div>
     </div>
   );
 }
