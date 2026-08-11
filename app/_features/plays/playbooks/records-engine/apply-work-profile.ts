@@ -29,6 +29,8 @@ function buildWorkFacts(input: {
     inferred_deadline: input.signals?.inferred_deadline ?? input.currentDeadline ?? null,
     inferred_start_date: input.signals?.inferred_start_date ?? input.currentStartDate ?? null,
     work_created: Boolean(input.signals?.work_created),
+    work_proposal_sent: Boolean(input.signals?.work_proposal_sent),
+    work_proposal_accepted: Boolean(input.signals?.work_proposal_accepted),
     work_has_signed_contract: Boolean(input.signals?.work_has_signed_contract),
     work_has_kickoff: Boolean(input.signals?.work_has_kickoff),
     work_is_blocked: Boolean(input.signals?.work_is_blocked),

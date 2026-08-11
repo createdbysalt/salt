@@ -670,12 +670,12 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     aiDescription: "Current lifecycle state (active, stalled, completed, etc.)",
     dbColumn: "status",
     fillRules: [
-      { signal: "work_proposal_sent", value: "proposed", confidence: 90, because: "Proposal sent — awaiting decision" },
-      { signal: "work_proposal_accepted", value: "won", confidence: 95, because: "Client accepted the proposal" },
+      { signal: "work_proposal_sent", value: "draft", confidence: 90, because: "Proposal sent — awaiting decision" },
+      { signal: "work_proposal_accepted", value: "signed", confidence: 95, because: "Client accepted the proposal" },
       { signal: "work_has_signed_contract", value: "signed", confidence: 95, because: "Contract was signed" },
       { signal: "work_has_kickoff", value: "active", confidence: 90, because: "Kickoff meeting occurred — work is active" },
       { signal: "work_has_completed_deliverable", value: "completed", confidence: 85, because: "Final deliverable was completed" },
-      { signal: "work_is_blocked", value: "stalled", confidence: 80, because: "Work appears blocked or waiting" },
+      { signal: "work_is_blocked", value: "on_hold", confidence: 80, because: "Work appears blocked or waiting" },
     ],
   },
   {

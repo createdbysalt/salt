@@ -70,7 +70,9 @@ describe("records capability — work and billing coverage (7.4)", () => {
     const statusWrite = memoryUpdateField.mock.calls
       .map((call) => call[0] as { field: string; value: string })
       .find((input) => input.field === "status");
-    expect(statusWrite?.value).toBe("won");
+    // Stored canon: an accepted proposal is "signed" ("won" was never a
+    // storable work status — canon is draft/signed/active/on_hold/…).
+    expect(statusWrite?.value).toBe("signed");
   });
 
   it("fires the registry's billing paid rule when payment covers the total", async () => {

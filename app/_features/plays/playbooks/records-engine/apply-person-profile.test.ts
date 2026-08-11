@@ -13,7 +13,7 @@ describe("evaluatePersonProfileFields", () => {
 
     expect(result.relationshipType).toBe("client");
     expect(result.results[0]?.field).toBe("relationship_type");
-    expect(result.results[0]?.ruleId).toBe("rel-payment-client");
+    expect(result.results[0]?.ruleId).toBe("relationship_type:has_payment_received");
   });
 
   it("classifies workspace domain as team when context fact matches", () => {

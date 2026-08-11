@@ -1,5 +1,10 @@
 import type { RelationshipType } from "@/app/_features/capture/services/system-plays/types";
 import {
+  orgDefaultsFromRegistry,
+  peopleDefaultsFromRegistry,
+  workDefaultsFromRegistry,
+} from "./registry-defaults";
+import {
   PROFILE_ORG_RELATIONSHIP_VALUES,
   PROFILE_RELATIONSHIP_VALUES,
   PROFILE_SIGNAL_KEYS,
@@ -271,215 +276,21 @@ export function validateProfileRules(input: unknown): ProfileRulesValidation {
   };
 }
 
+/**
+ * Default fill rules are READS of the field registry (the same source the
+ * Memory → Customize card renders), translated for creation-time evaluation
+ * by ./registry-defaults. Never hardcode rules here — edit the registry.
+ */
 export function defaultPeopleProfileRules(): ProfileFillRulesDocument {
-  return {
-    version: 1,
-    fields: ["relationship_type", "title", "org_link"],
-    rules: [
-      {
-        id: "rel-payment-client",
-        field: "relationship_type",
-        when: { signal: "has_payment_received", op: "eq", value: true },
-        set: { value: "client" },
-        confidence: 95,
-        because: "A finance source shows they paid you",
-      },
-      {
-        id: "rel-invoice-client",
-        field: "relationship_type",
-        when: { signal: "has_invoice_sent", op: "eq", value: true },
-        set: { value: "client" },
-        confidence: 90,
-        because: "A billing source shows you invoiced them",
-      },
-      {
-        id: "rel-workspace-team",
-        field: "relationship_type",
-        when: { signal: "email_domain_matches_workspace", op: "eq", value: true },
-        set: { value: "team" },
-        confidence: 92,
-        because: "Their email uses your company domain",
-      },
-      {
-        id: "rel-partner-domain",
-        field: "relationship_type",
-        when: { signal: "email_domain_in_partner_list", op: "eq", value: true },
-        set: { value: "partner" },
-        confidence: 90,
-        because: "Their domain is on your partner list",
-      },
-      {
-        id: "rel-vendor-domain",
-        field: "relationship_type",
-        when: { signal: "email_domain_in_vendor_list", op: "eq", value: true },
-        set: { value: "vendor" },
-        confidence: 88,
-        because: "Their domain is on your vendor list",
-      },
-      {
-        id: "rel-you-initiated-prospect",
-        field: "relationship_type",
-        when: { signal: "you_initiated", op: "eq", value: true },
-        set: { value: "prospect" },
-        confidence: 75,
-        because: "You initiated contact",
-      },
-      {
-        id: "title-signature",
-        field: "title",
-        when: { signal: "has_signature", op: "eq", value: true },
-        set: { value: "{{extracted_title}}" },
-        confidence: 80,
-        because: "Job title found in email signature",
-      },
-      {
-        id: "org-company-domain",
-        field: "org_link",
-        when: { signal: "email_domain_is_personal", op: "eq", value: false },
-        set: { value: "{{org_domain}}" },
-        confidence: 85,
-        because: "Company email domain implies an organization",
-      },
-    ],
-  };
+  return peopleDefaultsFromRegistry();
 }
 
 export function defaultOrgProfileRules(): ProfileFillRulesDocument {
-  return {
-    version: 1,
-    fields: ["website", "industry", "relationship_status", "key_contact"],
-    rules: [
-      {
-        id: "org-website-domain",
-        field: "website",
-        when: { signal: "org_domain_known", op: "eq", value: true },
-        set: { value: "https://{{org_domain}}" },
-        confidence: 85,
-        because: "The organization has a trusted company domain",
-      },
-      {
-        id: "org-payment-client",
-        field: "relationship_status",
-        when: { signal: "org_has_payment_received", op: "eq", value: true },
-        set: { value: "client" },
-        confidence: 95,
-        because: "Finance evidence shows this organization paid you",
-      },
-      {
-        id: "org-invoice-client",
-        field: "relationship_status",
-        when: { signal: "org_has_invoice_sent", op: "eq", value: true },
-        set: { value: "client" },
-        confidence: 90,
-        because: "Billing evidence shows you invoiced this organization",
-      },
-      {
-        id: "org-partner-domain",
-        field: "relationship_status",
-        when: { signal: "org_domain_in_partner_list", op: "eq", value: true },
-        set: { value: "partner" },
-        confidence: 90,
-        because: "The organization domain is on your partner list",
-      },
-      {
-        id: "org-vendor-domain",
-        field: "relationship_status",
-        when: { signal: "org_domain_in_vendor_list", op: "eq", value: true },
-        set: { value: "vendor" },
-        confidence: 88,
-        because: "The organization domain is on your vendor list",
-      },
-      {
-        id: "org-industry-inferred",
-        field: "industry",
-        when: { signal: "inferred_industry", op: "exists" },
-        set: { value: "{{inferred_industry}}" },
-        confidence: 80,
-        because: "Direct organization context includes an industry label",
-      },
-      {
-        id: "org-key-contact-inferred",
-        field: "key_contact",
-        when: { signal: "org_has_primary_contact", op: "eq", value: true },
-        set: { value: "{{inferred_key_contact}}" },
-        confidence: 82,
-        because: "The linked person is the clearest primary contact for this organization",
-      },
-    ],
-  };
+  return orgDefaultsFromRegistry();
 }
 
 export function defaultWorkProfileRules(): ProfileFillRulesDocument {
-  return {
-    version: 1,
-    fields: ["status", "description", "deadline", "start_date"],
-    rules: [
-      {
-        id: "work-created-active",
-        field: "status",
-        when: { signal: "work_created", op: "eq", value: true },
-        set: { value: "active" },
-        confidence: 90,
-        because: "New work created from an explicit memory action starts active",
-      },
-      {
-        id: "work-signed-contract",
-        field: "status",
-        when: { signal: "work_has_signed_contract", op: "eq", value: true },
-        set: { value: "signed" },
-        confidence: 92,
-        because: "Contract evidence shows the work is signed",
-      },
-      {
-        id: "work-kickoff-active",
-        field: "status",
-        when: { signal: "work_has_kickoff", op: "eq", value: true },
-        set: { value: "active" },
-        confidence: 88,
-        because: "Kickoff evidence shows the work is underway",
-      },
-      {
-        id: "work-blocked-on-hold",
-        field: "status",
-        when: { signal: "work_is_blocked", op: "eq", value: true },
-        set: { value: "on_hold" },
-        confidence: 80,
-        because: "Direct work evidence says progress is blocked",
-      },
-      {
-        id: "work-completed-deliverable",
-        field: "status",
-        when: { signal: "work_has_completed_deliverable", op: "eq", value: true },
-        set: { value: "completed" },
-        confidence: 85,
-        because: "A completed deliverable is linked to this work",
-      },
-      {
-        id: "work-description-inferred",
-        field: "description",
-        when: { signal: "inferred_description", op: "exists" },
-        set: { value: "{{inferred_description}}" },
-        confidence: 80,
-        because: "Direct work context includes a concise description",
-      },
-      {
-        id: "work-deadline-inferred",
-        field: "deadline",
-        when: { signal: "inferred_deadline", op: "exists" },
-        set: { value: "{{inferred_deadline}}" },
-        confidence: 85,
-        because: "Direct work context includes a deadline",
-      },
-      {
-        id: "work-start-date-inferred",
-        field: "start_date",
-        when: { signal: "inferred_start_date", op: "exists" },
-        set: { value: "{{inferred_start_date}}" },
-        confidence: 85,
-        because: "Direct work context includes a start date",
-      },
-    ],
-  };
+  return workDefaultsFromRegistry();
 }
 
 export function resolveRuleSetValue(

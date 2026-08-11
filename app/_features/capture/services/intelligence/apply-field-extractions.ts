@@ -24,43 +24,58 @@ import "server-only";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { memoryUpdateField } from "@/app/_lib/memory-tools";
 import {
-  getFieldDescriptor,
+  getFieldsForEntity,
   getWritePolicy,
   type ContractEntityType,
 } from "@/app/_features/memory/taxonomy/field-registry";
 import type { FieldExtraction } from "./email-analyzer";
 
 interface ExtractableField {
-  /** Field registry key (camelCase) used to resolve the write policy. */
+  /** Field registry key (camelCase), for diagnostics. */
   registryKey: string;
   /** DB column used to check whether the field already holds a value. */
   column: string;
+  /** Registry-derived provenance id for the write. */
+  ruleId: string;
+  /**
+   * Max confidence across the field's {{extracted}} fill rules — the
+   * canonical ceiling for how sure an automated extraction of this field
+   * may claim to be.
+   */
+  confidenceCap: number;
 }
 
-const PERSON_EXTRACTABLE: Record<string, ExtractableField> = {
-  phone: { registryKey: "phone", column: "phone" },
-  title: { registryKey: "title", column: "title" },
-  billing_email: { registryKey: "billingEmail", column: "billing_email" },
-  timezone: { registryKey: "timezone", column: "timezone" },
-  address_line_1: { registryKey: "addressLine1", column: "address_line_1" },
-  address_line_2: { registryKey: "addressLine2", column: "address_line_2" },
-  city: { registryKey: "city", column: "city" },
-  state: { registryKey: "state", column: "state" },
-  postal_code: { registryKey: "postalCode", column: "postal_code" },
-  country: { registryKey: "country", column: "country" },
-};
+/**
+ * Derive the extraction allow-list from the field registry: a field is
+ * extraction-writable exactly when the registry declares an {{extracted}}
+ * fill rule for it and its write policy allows automated writes. This is
+ * the same source of truth the Memory → Customize card renders, so the
+ * write path can never drift from the advertised logic.
+ */
+export function buildExtractableFields(
+  entityType: ContractEntityType
+): Record<string, ExtractableField> {
+  const map: Record<string, ExtractableField> = {};
+  for (const field of getFieldsForEntity(entityType)) {
+    if (!field.dbColumn) continue;
+    const policy = getWritePolicy(field);
+    if (policy === "user_only" || policy === "system_derived") continue;
+    const extractionRules = (field.fillRules ?? []).filter(
+      (rule) => rule.value === "{{extracted}}"
+    );
+    if (extractionRules.length === 0) continue;
+    map[field.dbColumn] = {
+      registryKey: field.key,
+      column: field.dbColumn,
+      ruleId: `${field.entityType}-${field.key}-${extractionRules[0]?.signal}`,
+      confidenceCap: Math.max(...extractionRules.map((rule) => rule.confidence)),
+    };
+  }
+  return map;
+}
 
-const ORG_EXTRACTABLE: Record<string, ExtractableField> = {
-  billing_email: { registryKey: "billingEmail", column: "billing_email" },
-  website: { registryKey: "website", column: "website" },
-  address_line_1: { registryKey: "addressLine1", column: "address_line_1" },
-  address_line_2: { registryKey: "addressLine2", column: "address_line_2" },
-  city: { registryKey: "city", column: "city" },
-  state: { registryKey: "state", column: "state" },
-  postal_code: { registryKey: "postalCode", column: "postal_code" },
-  country: { registryKey: "country", column: "country" },
-  tax_id: { registryKey: "taxId", column: "tax_id" },
-};
+const PERSON_EXTRACTABLE = buildExtractableFields("person");
+const ORG_EXTRACTABLE = buildExtractableFields("org");
 
 /** LLM output uses a few spellings for address lines — normalize them. */
 const FIELD_ALIASES: Record<string, string> = {
@@ -76,19 +91,6 @@ const FIELD_ALIASES: Record<string, string> = {
 function normalizeFieldKey(field: string): string {
   const key = field.trim().toLowerCase().replace(/\s+/g, "_");
   return FIELD_ALIASES[key] ?? key;
-}
-
-/**
- * The registry fill-rule confidence is the canonical ceiling for how sure
- * an automated extraction of this field may claim to be.
- */
-function registryConfidenceCap(
-  entityType: ContractEntityType,
-  registryKey: string
-): number {
-  const descriptor = getFieldDescriptor(entityType, registryKey);
-  const ruleConfidences = (descriptor?.fillRules ?? []).map((r) => r.confidence);
-  return ruleConfidences.length > 0 ? Math.max(...ruleConfidences) : 80;
 }
 
 export interface ApplyFieldExtractionsInput {
@@ -160,20 +162,6 @@ export async function applyFieldExtractions(
       continue;
     }
 
-    // Registry write policy is the canon: never write user_only or derived.
-    const registryEntityType: ContractEntityType = isPerson ? "person" : "org";
-    const registryField = getFieldDescriptor(
-      registryEntityType,
-      descriptor.registryKey
-    );
-    if (registryField) {
-      const policy = getWritePolicy(registryField);
-      if (policy === "user_only" || policy === "system_derived") {
-        result.skipped++;
-        continue;
-      }
-    }
-
     // Fill gaps only — an existing value is never overwritten by extraction.
     const existing = (currentRow as Record<string, unknown>)[descriptor.column];
     if (existing !== null && existing !== undefined && existing !== "") {
@@ -183,7 +171,7 @@ export async function applyFieldExtractions(
 
     const confidence = Math.min(
       Math.max(0, Math.round(extraction.confidence)),
-      registryConfidenceCap(registryEntityType, descriptor.registryKey)
+      descriptor.confidenceCap
     );
 
     try {
@@ -201,7 +189,7 @@ export async function applyFieldExtractions(
         sourceDetails: {
           playbookSlug: "memory-records",
           captureId: input.captureId,
-          ruleId: "llm-field-extraction",
+          ruleId: descriptor.ruleId,
         },
       });
 

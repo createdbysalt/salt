@@ -390,6 +390,8 @@ export type OrgProfileSignalKey = (typeof ORG_PROFILE_SIGNAL_KEYS)[number];
 export const WORK_PROFILE_SIGNAL_KEYS = [
   "work_created",
   "work_updated",
+  "work_proposal_sent",
+  "work_proposal_accepted",
   "work_has_signed_contract",
   "work_has_kickoff",
   "work_is_blocked",
@@ -771,6 +773,8 @@ export interface WorkProfileFacts extends ProfileFacts {
   inferred_deadline?: string | null;
   inferred_start_date?: string | null;
   work_created?: boolean;
+  work_proposal_sent?: boolean;
+  work_proposal_accepted?: boolean;
   work_has_signed_contract?: boolean;
   work_has_kickoff?: boolean;
   work_is_blocked?: boolean;
