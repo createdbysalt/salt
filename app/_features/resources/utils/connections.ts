@@ -1,8 +1,8 @@
-import { nodeId, type ConnectionNode, type NodeType } from "@/app/_features/connections/types";
+import { nodeId, type ConnectionNode } from "@/app/_features/connections/types";
 import { hasDisplayableFileConnection, type MemoryFile } from "../data";
 import type { FileDetailRecord } from "../detail-types";
 
-function hrefForKind(kind: Extract<NodeType, "person" | "org" | "work">, id: string): string {
+function hrefForKind(kind: MemoryFile["linkedTo"]["kind"], id: string): string {
   switch (kind) {
     case "person":
       return `/people/${id}`;
@@ -10,6 +10,10 @@ function hrefForKind(kind: Extract<NodeType, "person" | "org" | "work">, id: str
       return `/orgs/${id}`;
     case "work":
       return `/work/${id}`;
+    case "billing":
+      return `/billing/${id}`;
+    case "meeting":
+      return `/meetings/${id}`;
   }
 }
 

@@ -33,6 +33,7 @@ import {
   linkTypeToGuardType,
 } from "./workspace-guard";
 import { toDbEntityType } from "@/app/_features/memory/types/entity-type";
+import { attachArtifactToEntity } from "@/app/_features/resources/actions/attach-artifact";
 import type {
   SystemPlaySlug,
   SystemPlayResult,
@@ -1498,6 +1499,7 @@ async function createBilling(
       organization_id: input.organization_id ?? null,
       work_id: input.work_id ?? null,
       tags: input.tags ?? [],
+      app_url: input.app_url ?? null,
       source: "ask_salt",
       // billing_origin enum is "found" | "added"; user-added extraction rows
       // use "added" (matches billing/utils/db-mapper.ts).
@@ -1508,6 +1510,24 @@ async function createBilling(
 
   if (error) {
     return { success: false, error: error.message };
+  }
+
+  // Artifact-first: the hosted invoice page becomes a link Resource
+  // attached to the record. app_url on the row is a projection of it.
+  if (input.app_url) {
+    const artifact = await attachArtifactToEntity(admin, {
+      workspaceId,
+      targetType: "billing",
+      targetId: data.id,
+      externalUrl: input.app_url,
+      displayName: input.number ? `Invoice ${input.number}` : undefined,
+      source: "capture",
+      confidence: 98,
+      because: "Hosted invoice page from the billing app",
+    });
+    if (!artifact.success) {
+      console.error("create-billing artifact attach failed:", artifact.error);
+    }
   }
 
   const autoHandled: AutoHandledMemoryRunInput = {

@@ -200,6 +200,15 @@ describe("billing category adapter", () => {
       expect(envelope?.participants[0]?.role).toBe("payer");
     });
 
+    it("carries the hosted invoice URL through the extracted payload", () => {
+      // Artifact-first (Phase 7): the hosted invoice page becomes the
+      // billing record's link Resource.
+      const envelope = adapter.normalize(STRIPE_TRIGGER_INVOICE_PAYMENT_SUCCEEDED);
+      expect(envelope?.extracted.hosted_invoice_url).toBe(
+        "https://invoice.stripe.com/i/acct_test/in_1PZq8c",
+      );
+    });
+
     it("reads checkout sessions from customer_details and amount_total", () => {
       const envelope = adapter.normalize(STRIPE_TRIGGER_CHECKOUT_SESSION_COMPLETED);
       expect(envelope?.extracted.customer_email).toBe("billing@northwind.com");

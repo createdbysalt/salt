@@ -41,7 +41,7 @@ export type ConnectionMetadata =
       status: string;
       direction: "receivable" | "payable";
     }
-  | { type: "file"; fileName: string; mimeType?: string; sizeBytes?: number }
+  | { type: "file"; fileName: string; mimeType?: string; sizeBytes?: number; aiSummary?: string }
   | { type: "note"; excerpt: string }
   | { type: "meeting"; startTime: string; status: string }
   | { type: "conversation"; preview?: string }
@@ -52,6 +52,8 @@ export type ConnectionMetadata =
       mode: "static" | "live";
       lastActivityAt?: string;
       lastActivitySummary?: string;
+      /** AI summary preview for artifact cards (notes docs, transcripts). */
+      aiSummary?: string;
     };
 
 /**

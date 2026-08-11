@@ -19,6 +19,8 @@ import { OrgSearchCombobox } from "@/app/_features/memory/components/OrgSearchCo
 import { PersonSearchCombobox } from "@/app/_features/memory/components/PersonSearchCombobox";
 import { WorkSearchCombobox } from "@/app/_features/memory/components/WorkSearchCombobox";
 import type { BillingDetailViewModel } from "../detail-types";
+import type { ConnectionNode } from "@/app/_features/connections/types";
+import { AttachedResourcesSection } from "@/app/_features/resources/components/AttachedResourcesSection";
 import {
   updateBillingRecordField,
   type BillingRecordField,
@@ -33,6 +35,8 @@ import { ensureBillingTagPresets } from "../tags/ensure-presets";
 
 type BillingOverviewTabProps = {
   billing: BillingDetailViewModel;
+  resourceConnections?: ConnectionNode[];
+  onUnlinkResource?: (node: ConnectionNode) => void;
 };
 
 const STATUS_OPTIONS = getVocabularyOptions("billing_status");
@@ -45,7 +49,11 @@ const CURRENCY_OPTIONS = getVocabularyOptions("currency").map((o) => ({
   label: o.value,
 }));
 
-export function BillingOverviewTab({ billing }: BillingOverviewTabProps) {
+export function BillingOverviewTab({
+  billing,
+  resourceConnections = [],
+  onUnlinkResource,
+}: BillingOverviewTabProps) {
   const isPayable = billing.direction === "payable";
 
   const [number, setNumber] = useState(billing.number);
@@ -279,6 +287,16 @@ export function BillingOverviewTab({ billing }: BillingOverviewTabProps) {
       </MemoryOverviewSection>
 
       <BillingLineItemsSection billing={billing} />
+
+      <MemoryOverviewSection title="Resources" variant="heading">
+        <AttachedResourcesSection
+          entityType="billing"
+          entityId={billing.id}
+          entityName={billing.title}
+          resources={resourceConnections}
+          onUnlink={onUnlinkResource}
+        />
+      </MemoryOverviewSection>
 
       <MemoryOverviewSection title="Tags" variant="heading">
         <TagEditor entityType="billing" entityId={billing.id} scope="billing" />

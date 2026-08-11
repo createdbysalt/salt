@@ -14,6 +14,7 @@ export { updateMeeting, updateMeetingField } from "./update-meeting";
 // Meeting content (sources, summaries, decisions, action items, transcripts)
 export {
   addMeetingSource,
+  linkUrlToMeeting,
   addMeetingSummary,
   addMeetingDecision,
   addMeetingActionItem,

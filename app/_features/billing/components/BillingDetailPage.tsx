@@ -144,7 +144,13 @@ export function BillingDetailPage({ billingRecordId, detailData = null }: Billin
                     ))}
                   </div>
                   <div className={memoryTabPanelClass}>
-                    <BillingOverviewTab billing={billing} />
+                    <BillingOverviewTab
+                      billing={billing}
+                      resourceConnections={unifiedConnections.filter(
+                        (n) => n.nodeType === "resource",
+                      )}
+                      onUnlinkResource={handleUnlink}
+                    />
                   </div>
                 </div>
               }
@@ -160,7 +166,13 @@ export function BillingDetailPage({ billingRecordId, detailData = null }: Billin
 
                 <div className={memoryTabPanelClass}>
                   <TabsContent value="overview" className="m-0">
-                    <BillingOverviewTab billing={billing} />
+                    <BillingOverviewTab
+                      billing={billing}
+                      resourceConnections={unifiedConnections.filter(
+                        (n) => n.nodeType === "resource",
+                      )}
+                      onUnlinkResource={handleUnlink}
+                    />
                   </TabsContent>
                   <TabsContent value="connections" className="m-0">
                     <UnifiedConnectionsTab

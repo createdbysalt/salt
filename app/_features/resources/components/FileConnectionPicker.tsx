@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Briefcase, Building2, ChevronRight, Loader2, Search, User } from "lucide-react";
+import { Briefcase, Building2, CalendarClock, ChevronRight, Loader2, Receipt, Search, User } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@repo/utils";
 import {
@@ -24,12 +24,16 @@ const KIND_LABEL: Record<MemoryFile["linkedTo"]["kind"], string> = {
   person: "Person",
   org: "Organization",
   work: "Work",
+  billing: "Billing",
+  meeting: "Meeting",
 };
 
 const KIND_ICON: Record<MemoryFile["linkedTo"]["kind"], typeof User> = {
   person: User,
   org: Building2,
   work: Briefcase,
+  billing: Receipt,
+  meeting: CalendarClock,
 };
 
 const SCROLL_INTO_VIEW_PADDING_PX = 12;

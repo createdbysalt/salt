@@ -64,6 +64,50 @@ describe("mapProjectFileToMemoryFile", () => {
     });
   });
 
+  it("resolves billing attachment backlinks (INV-0042)", () => {
+    const mapped = mapProjectFileToMemoryFile(
+      baseRow({
+        person_id: null,
+        organization_id: null,
+        person: null,
+        org: null,
+        billing: { id: "bill-1", name: "INV-0042" },
+      }),
+    );
+
+    expect(mapped.linkedTo).toEqual({ kind: "billing", id: "bill-1", name: "INV-0042" });
+  });
+
+  it("resolves meeting attachment backlinks (Q3 Kickoff)", () => {
+    const mapped = mapProjectFileToMemoryFile(
+      baseRow({
+        person_id: null,
+        organization_id: null,
+        person: null,
+        org: null,
+        meeting: { id: "meeting-1", name: "Q3 Kickoff" },
+      }),
+    );
+
+    expect(mapped.linkedTo).toEqual({
+      kind: "meeting",
+      id: "meeting-1",
+      name: "Q3 Kickoff",
+    });
+  });
+
+  it("keeps work/person/org priority over billing and meeting backlinks", () => {
+    const mapped = mapProjectFileToMemoryFile(
+      baseRow({
+        project: { id: "project-1", name: "Marketing site relaunch" },
+        billing: { id: "bill-1", name: "INV-0042" },
+        meeting: { id: "meeting-1", name: "Q3 Kickoff" },
+      }),
+    );
+
+    expect(mapped.linkedTo.kind).toBe("work");
+  });
+
   it("maps image mime types to photo assets", () => {
     const mapped = mapProjectFileToMemoryFile(
       baseRow({

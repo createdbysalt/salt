@@ -21,6 +21,7 @@ import {
   type TablesInsert,
 } from "@/app/_lib/supabase/database.types";
 import { ensureUniqueProjectSlug } from "@/app/_features/capture/services/system-plays/project-fields";
+import { attachArtifactToEntity } from "@/app/_features/resources/actions/attach-artifact";
 import type { IntakeEntityType } from "@/app/_features/memory/care/intake";
 import type { ExtractedFieldValue } from "./types";
 
@@ -123,7 +124,31 @@ async function insertEntityRecord(
       };
       if (fields.number?.value) insert.number = fields.number.value;
       if (fields.due_at?.value) insert.due_at = fields.due_at.value;
-      return runInsert(supabase.from("billing_records").insert(insert).select("id").single());
+      // app_url is a projection of the attached artifact Resource below.
+      if (fields.app_url?.value) insert.app_url = fields.app_url.value;
+      const outcome = await runInsert(supabase.from("billing_records").insert(insert).select("id").single());
+      // Artifact-first: the hosted invoice page becomes a link Resource
+      // attached to the new record. Failure to attach never blocks the
+      // record — the lightweight fallback is "Add a link" on the record.
+      if ("id" in outcome && fields.app_url?.value) {
+        const artifact = await attachArtifactToEntity(supabase, {
+          workspaceId,
+          targetType: "billing",
+          targetId: outcome.id,
+          externalUrl: fields.app_url.value,
+          displayName: fields.number?.value
+            ? `Invoice ${fields.number.value}`
+            : undefined,
+          source: "capture",
+          confidence: fields.app_url.confidence,
+          because: "Hosted invoice page from the billing app",
+          captureEventId: input.captureId,
+        });
+        if (!artifact.success) {
+          console.error("auto-create billing artifact attach failed:", artifact.error);
+        }
+      }
+      return outcome;
     }
 
     case "resource": {

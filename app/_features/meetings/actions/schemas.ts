@@ -129,6 +129,22 @@ export const AddMeetingSourceSchema = z.object({
 });
 export type AddMeetingSourceInput = z.infer<typeof AddMeetingSourceSchema>;
 
+/**
+ * Artifact-first "Link URL": creates a link Resource + attachment edge
+ * instead of a meeting_sources kind='linked_file' row.
+ */
+export const LinkUrlToMeetingSchema = z.object({
+  meetingId: z.string().uuid(),
+  url: z
+    .string()
+    .min(1)
+    .refine((value) => safeHttpUrl(value) !== null, {
+      message: "URL must use http or https",
+    }),
+  displayName: z.string().max(255).optional(),
+});
+export type LinkUrlToMeetingInput = z.infer<typeof LinkUrlToMeetingSchema>;
+
 export const AddMeetingSummarySchema = z.object({
   meetingId: z.string().uuid(),
   content: z.string().min(1, "Summary content required"),

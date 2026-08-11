@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ColumnDef, FilterFn } from "@tanstack/react-table";
 import {
@@ -27,6 +28,7 @@ import {
   relativeDays,
   type AssetKind,
   hasDisplayableFileConnection,
+  memoryConnectionHref,
   type MemoryFile,
 } from "../data";
 import { FilesPreviewModal } from "./FilesPreviewModal";
@@ -174,10 +176,27 @@ export function FilesDirectoryTable({
       header: "Connected to",
       cell: ({ row }) => {
         const linkedTo = row.original.linkedTo;
-        return (
-          <span className="text-sm text-foreground/80">
-            {hasDisplayableFileConnection(linkedTo) ? linkedTo.name : "—"}
+        if (!hasDisplayableFileConnection(linkedTo)) {
+          return <span className="text-sm text-foreground/80">—</span>;
+        }
+        const href = memoryConnectionHref(linkedTo);
+        const chip = (
+          <span className="inline-flex max-w-56 items-center gap-1.5 truncate rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-foreground/80">
+            {linkedTo.name}
           </span>
+        );
+        // Row click opens the preview — stop propagation so the chip can
+        // navigate to the attached record instead.
+        return href ? (
+          <Link
+            href={href}
+            onClick={(event) => event.stopPropagation()}
+            className="inline-flex transition hover:opacity-80"
+          >
+            {chip}
+          </Link>
+        ) : (
+          chip
         );
       },
     },

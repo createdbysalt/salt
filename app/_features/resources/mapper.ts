@@ -29,6 +29,9 @@ export type ProjectFileRow = {
   person?: { id: string; name: string | null } | null;
   org?: { id: string; name: string | null } | null;
   project?: { id: string; name: string | null } | null;
+  /** Attachment-edge backlink targets (entity_links relation_type='attachment'). */
+  billing?: { id: string; name: string | null } | null;
+  meeting?: { id: string; name: string | null } | null;
 };
 
 export type FileTagRow = {
@@ -75,6 +78,12 @@ function resolveLinkedTo(row: ProjectFileRow): MemoryFile["linkedTo"] {
   }
   if (row.org?.id) {
     return { kind: "org", id: row.org.id, name: row.org.name?.trim() ?? "" };
+  }
+  if (row.billing?.id) {
+    return { kind: "billing", id: row.billing.id, name: row.billing.name?.trim() ?? "" };
+  }
+  if (row.meeting?.id) {
+    return { kind: "meeting", id: row.meeting.id, name: row.meeting.name?.trim() ?? "" };
   }
   if (row.person_id) {
     return { kind: "person", id: row.person_id, name: "" };

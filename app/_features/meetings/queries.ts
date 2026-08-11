@@ -7,6 +7,7 @@ import type { LifecycleEventDisplay } from "@/app/_features/memory/queries/lifec
 import type { SourceHistoryEntry } from "@/app/_features/memory/queries/source-history";
 import type { EntityNoteWithProvenance } from "@/app/_features/memory/types/taxonomies";
 import type { ProfileActivityTimelineEntry } from "@/app/_features/people/utils/activity";
+import { projectRecordingUrl } from "./utils/recording-projection";
 
 // ============================================================================
 // Types
@@ -20,6 +21,12 @@ export type MeetingSource = {
   sourceUrl?: string;
   displayName?: string;
   importedAt: string;
+  /**
+   * True when the 20260811180000 migration moved this linked_file row to
+   * resources + entity_links — the row stays for audit but must not render
+   * (the Resource card already does).
+   */
+  migratedToResource?: boolean;
 };
 
 export type MeetingSummaryRecord = {
@@ -195,6 +202,7 @@ function mapMeetingRow(row: Record<string, unknown>): MeetingDetailRecord {
 }
 
 function mapSourceRow(row: Record<string, unknown>): MeetingSource {
+  const metadata = row.metadata as { migrated_to_resource?: boolean } | null;
   return {
     id: row.id as string,
     provider: row.provider as string,
@@ -203,6 +211,7 @@ function mapSourceRow(row: Record<string, unknown>): MeetingSource {
     sourceUrl: row.source_url as string | undefined,
     displayName: row.display_name as string | undefined,
     importedAt: row.imported_at as string,
+    migratedToResource: metadata?.migrated_to_resource === true,
   };
 }
 
@@ -350,9 +359,38 @@ export const getMeetingDetailData = cache(async (meetingId: string): Promise<Mee
   const summaries = (summariesResult.data ?? []).map((r) => mapSummaryRow(r as Record<string, unknown>));
   const decisions = (decisionsResult.data ?? []).map((r) => mapDecisionRow(r as Record<string, unknown>));
   const actionItems = (actionItemsResult.data ?? []).map((r) => mapActionItemRow(r as Record<string, unknown>));
-  const transcript = transcriptResult.data
+  let transcript = transcriptResult.data
     ? mapTranscriptRow(transcriptResult.data as Record<string, unknown>)
     : null;
+
+  // recording_url projection: artifact-first rows attach the provider's
+  // recording page as a Resource instead of writing the column. Only query
+  // when the column is empty (read-compat fast path).
+  if (transcript && !transcript.recordingUrl) {
+    const { data: artifactEdges } = await supabase
+      .from("entity_links")
+      .select("resources:source_id(external_url, resource_type)")
+      .eq("workspace_id", workspace.id)
+      .eq("source_type", "resource")
+      .eq("target_type", "meeting")
+      .eq("target_id", meetingId)
+      .eq("relation_type", "attachment");
+
+    const artifacts = (artifactEdges ?? []).map((edge) => {
+      const resource = (edge as Record<string, unknown>).resources as
+        | { external_url?: string | null; resource_type?: string | null }
+        | Array<{ external_url?: string | null; resource_type?: string | null }>
+        | null;
+      const row = Array.isArray(resource) ? resource[0] : resource;
+      return {
+        externalUrl: row?.external_url,
+        resourceType: row?.resource_type,
+      };
+    });
+
+    const projected = projectRecordingUrl(transcript.recordingUrl, artifacts);
+    if (projected) transcript = { ...transcript, recordingUrl: projected };
+  }
 
   return {
     meeting,

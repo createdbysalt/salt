@@ -162,7 +162,11 @@ export function MeetingDetailPage({
   }
 
   const currentSummary = detailData.summaries.find((s) => s.isCurrent) ?? detailData.summaries[0];
-  const linkedFileSources = detailData.sources.filter((s) => s.kind === "linked_file");
+  // Migrated linked_file rows render as Resource cards via resourceConnections —
+  // filter them out of the legacy list so they don't appear twice.
+  const linkedFileSources = detailData.sources.filter(
+    (s) => s.kind === "linked_file" && !s.migratedToResource,
+  );
   const resourceConnections = unifiedConnections.filter((n) => n.nodeType === "resource");
 
   return (

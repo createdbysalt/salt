@@ -367,3 +367,83 @@ describe("executeSystemPlay archive-person", () => {
     expect(payload).not.toHaveProperty("deleted_at");
   });
 });
+
+describe("executeSystemPlay create-billing (artifact-first)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  function setupCreateBillingMocks() {
+    const billingInsert = createQueryBuilder({
+      data: { id: "bill-1" },
+      error: null,
+    });
+    // No existing resource or edge; inserts return fresh rows.
+    const resourcesBuilder = createQueryBuilder({ data: null, error: null });
+    resourcesBuilder.single = vi.fn(async () => ({
+      data: { id: "res-1" },
+      error: null,
+    }));
+    const linksBuilder = createQueryBuilder({ data: null, error: null });
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "billing_records") return billingInsert;
+      if (table === "resources") return resourcesBuilder;
+      if (table === "entity_links") return linksBuilder;
+      return createQueryBuilder({ data: null, error: null });
+    });
+
+    return { billingInsert, resourcesBuilder, linksBuilder };
+  }
+
+  it("creates a link resource + attachment edge when app_url is present", async () => {
+    const { billingInsert, resourcesBuilder, linksBuilder } =
+      setupCreateBillingMocks();
+
+    const result = await executeSystemPlay("ws-1", "system:create-billing", {
+      direction: "receivable",
+      amount_cents: 175000,
+      number: "SALT-0044",
+      app_url: "https://invoice.stripe.com/i/acct_test/in_1PZq8c",
+    });
+
+    expect(result.success).toBe(true);
+    // app_url stays on the record as a projection of the attached Resource.
+    expect(billingInsert.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        app_url: "https://invoice.stripe.com/i/acct_test/in_1PZq8c",
+      }),
+    );
+    expect(resourcesBuilder.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspace_id: "ws-1",
+        file_type: "link",
+        external_url: "https://invoice.stripe.com/i/acct_test/in_1PZq8c",
+        created_by_system: true,
+      }),
+    );
+    expect(linksBuilder.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspace_id: "ws-1",
+        source_type: "resource",
+        source_id: "res-1",
+        target_type: "billing",
+        target_id: "bill-1",
+        relation_type: "attachment",
+      }),
+    );
+  });
+
+  it("creates no artifact when app_url is absent", async () => {
+    const { resourcesBuilder, linksBuilder } = setupCreateBillingMocks();
+
+    const result = await executeSystemPlay("ws-1", "system:create-billing", {
+      direction: "receivable",
+      amount_cents: 5000,
+    });
+
+    expect(result.success).toBe(true);
+    expect(resourcesBuilder.insert).not.toHaveBeenCalled();
+    expect(linksBuilder.insert).not.toHaveBeenCalled();
+  });
+});

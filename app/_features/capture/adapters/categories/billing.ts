@@ -254,6 +254,10 @@ function normalizeStripe(payload: unknown): CaptureEnvelope | null {
       status: (obj.status as string) ?? null,
       invoice_number: (obj.number as string) ?? null,
       due_date: dueDate,
+      // Artifact-first (Phase 7): the hosted invoice page becomes the
+      // billing record's link Resource on creation.
+      hosted_invoice_url: (obj.hosted_invoice_url as string) ?? null,
+      invoice_pdf_url: (obj.invoice_pdf as string) ?? null,
       customer_address: extractCustomerAddress(
         billingDetails?.address ?? customerDetails?.address
       ),
@@ -517,6 +521,8 @@ function normalizeGenericBilling(
       currency,
       status: pickString(record, ["status", "state"]) ?? null,
       due_date: pickString(record, ["due_date", "dueDate"]) ?? null,
+      hosted_invoice_url:
+        pickString(record, ["hosted_invoice_url", "invoice_url", "invoiceUrl"]) ?? null,
     },
     raw: {
       paymentId: externalId,

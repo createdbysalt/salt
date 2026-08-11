@@ -95,7 +95,7 @@ export type MemoryFile = {
   kind: AssetKind;
   category: FileCategory;
   updatedAt: string;
-  linkedTo: { kind: "person" | "org" | "work"; id: string; name: string };
+  linkedTo: { kind: "person" | "org" | "work" | "billing" | "meeting"; id: string; name: string };
   source: SourceKind;
   tags: string[];
   provider?: Provider;
@@ -145,6 +145,10 @@ export function memoryConnectionHref(
       return `/orgs/${linkedTo.id}`;
     case "work":
       return `/work/${linkedTo.id}`;
+    case "billing":
+      return `/billing/${linkedTo.id}`;
+    case "meeting":
+      return `/meetings/${linkedTo.id}`;
     default:
       return null;
   }

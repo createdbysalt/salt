@@ -236,6 +236,23 @@ const URL_PATTERNS: UrlPattern[] = [
     suggestName: () => "Dropbox File",
   },
 
+  // Meeting intelligence
+  {
+    pattern: /^https?:\/\/(?:app\.)?fireflies\.ai\/view\/([^/?]+)/,
+    type: "fireflies_transcript",
+    extract: (m) => ({ transcriptSlug: m[1] }),
+    suggestName: (m) => {
+      const title = m[1].split("::")[0];
+      return title ? decodeURIComponent(title.replace(/-/g, " ")) : "Fireflies Transcript";
+    },
+  },
+  {
+    pattern: /^https?:\/\/(?:www\.)?otter\.ai\/u\/([^/?]+)/,
+    type: "otter_transcript",
+    extract: (m) => ({ conversationId: m[1] }),
+    suggestName: () => "Otter Conversation",
+  },
+
   // Twitter/X
   {
     pattern: /^https?:\/\/(?:www\.)?(?:twitter|x)\.com\/([^/?]+)/,

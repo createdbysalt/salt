@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ExternalLink,
@@ -13,7 +12,6 @@ import {
   Plus,
   Search,
   Video,
-  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@repo/ui";
@@ -21,13 +19,13 @@ import { safeHttpUrl } from "@/app/_lib/security/safe-url";
 import {
   fetchLinkCandidates,
   persistMemoryConnection,
-  removeMemoryConnection,
   type LinkCandidate,
 } from "@/app/_features/memory/actions/connections";
 import type { Connection } from "@/app/_lib/demo/people-demo-data";
 import type { ConnectionNode } from "@/app/_features/connections/types";
+import { AttachedResourcesSection } from "@/app/_features/resources/components/AttachedResourcesSection";
 import type { MeetingSource } from "../queries";
-import { addMeetingSource } from "../actions";
+import { linkUrlToMeeting } from "../actions";
 import type { SourceProvider } from "../actions/schemas";
 
 type MeetingNotesSectionProps = {
@@ -273,11 +271,9 @@ function UrlLinkForm({
     }
 
     startTransition(async () => {
-      const result = await addMeetingSource({
+      const result = await linkUrlToMeeting({
         meetingId,
-        provider: detectProvider(trimmedUrl),
-        kind: "linked_file",
-        sourceUrl: trimmedUrl,
+        url: trimmedUrl,
         displayName: displayName.trim() || undefined,
       });
 
@@ -356,8 +352,6 @@ export function MeetingNotesSection({
   onUnlinkResource,
 }: MeetingNotesSectionProps) {
   const [adding, setAdding] = useState<"resource" | "url" | null>(null);
-  const [unlinkingId, setUnlinkingId] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
     const openPicker = () => setAdding("resource");
@@ -365,66 +359,21 @@ export function MeetingNotesSection({
     return () => window.removeEventListener("meeting:link-resource", openPicker);
   }, []);
 
-  const handleUnlink = (node: ConnectionNode) => {
-    const entityId = node.id.split(":")[1] ?? node.id;
-    setUnlinkingId(node.id);
-    startTransition(async () => {
-      const result = await removeMemoryConnection({
-        recordKind: "meeting",
-        recordId: meetingId,
-        connectionType: "resource",
-        connectionId: entityId,
-      });
-      setUnlinkingId(null);
-      if (result.success) {
-        toast.success(`Unlinked ${node.label}`);
-        onUnlinkResource(node);
-      } else {
-        toast.error(result.error ?? "Could not unlink resource");
-      }
-    });
-  };
-
-  const hasLinkedItems = resourceConnections.length > 0 || linkedFileSources.length > 0;
-
   return (
     <div className="space-y-4">
-      {hasLinkedItems && (
+      {resourceConnections.length > 0 && (
+        <AttachedResourcesSection
+          entityType="meeting"
+          entityId={meetingId}
+          entityName="this meeting"
+          resources={resourceConnections}
+          onUnlink={onUnlinkResource}
+          hideAddAction
+        />
+      )}
+
+      {linkedFileSources.length > 0 && (
         <ul className="divide-y divide-border/40 rounded-xl border border-border/50 px-3">
-          {resourceConnections.map((node) => {
-            const entityId = node.id.split(":")[1] ?? node.id;
-            return (
-              <li key={node.id} className="group flex items-center gap-3 py-2">
-                <div className="grid size-8 shrink-0 place-items-center rounded-lg bg-muted">
-                  <FileText className="size-4 text-muted-foreground" strokeWidth={1.75} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <Link
-                    href={node.href ?? `/resources?preview=${entityId}`}
-                    className="truncate text-sm font-medium text-foreground hover:underline"
-                  >
-                    {node.label}
-                  </Link>
-                  {node.sublabel && (
-                    <p className="text-xs text-muted-foreground">{node.sublabel}</p>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleUnlink(node)}
-                  disabled={isPending && unlinkingId === node.id}
-                  aria-label={`Unlink ${node.label}`}
-                  className="flex size-6 items-center justify-center rounded-md text-muted-foreground/60 opacity-0 transition hover:bg-muted hover:text-foreground group-hover:opacity-100 disabled:opacity-50"
-                >
-                  {isPending && unlinkingId === node.id ? (
-                    <Loader2 className="size-3.5 animate-spin" />
-                  ) : (
-                    <X className="size-3.5" strokeWidth={2} />
-                  )}
-                </button>
-              </li>
-            );
-          })}
           {linkedFileSources.map((source) => {
             const config = PROVIDER_CONFIG[source.provider] ?? PROVIDER_CONFIG.other;
             const Icon = config.icon;

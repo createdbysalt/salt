@@ -857,7 +857,7 @@ export async function getEntityConnections(
   if (linkedFileIds.length > 0) {
     const { data: fileRows } = await supabase
       .from("resources")
-      .select("id, file_name, file_type, mime_type, size_bytes, external_url, mode, resource_type, last_activity_at, last_activity_summary")
+      .select("id, file_name, file_type, mime_type, size_bytes, external_url, mode, resource_type, last_activity_at, last_activity_summary, ai_summary")
       .in("id", linkedFileIds)
       .is("deleted_at", null)
       .is("archived_at", null);
@@ -890,12 +890,14 @@ export async function getEntityConnections(
               mode: (f.mode ?? "static") as "static" | "live",
               lastActivityAt: f.last_activity_at ?? undefined,
               lastActivitySummary: f.last_activity_summary ?? undefined,
+              aiSummary: f.ai_summary ?? undefined,
             }
           : {
               type: "file",
               fileName: f.file_name,
               mimeType: f.mime_type ?? undefined,
               sizeBytes: f.size_bytes ?? undefined,
+              aiSummary: f.ai_summary ?? undefined,
             },
       });
     }

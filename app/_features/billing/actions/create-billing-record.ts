@@ -14,6 +14,21 @@ import {
 } from "../utils/db-mapper";
 import { error, success, type ActionResponse } from "./schemas";
 import { emitEntitySignal } from "@/app/_lib/learning";
+import { attachArtifactToEntity } from "@/app/_features/resources/actions/attach-artifact";
+import {
+  BILLING_DOCUMENTS_BUCKET,
+  resolveBillingDocumentStoragePath,
+} from "../utils/billing-document-url";
+
+/**
+ * Sentinel sourceDocIds mark drafts that never touched storage ("manual",
+ * "ask-salt"). Anything else is a real billing-documents object path whose
+ * PDF/image becomes a file Resource attached to the record.
+ */
+function isStorageSourceDocId(sourceDocId: string | undefined): sourceDocId is string {
+  if (!sourceDocId?.trim()) return false;
+  return !["manual", "ask-salt"].includes(sourceDocId.trim());
+}
 
 async function findExistingManualBillingRecord(
   supabase: Awaited<ReturnType<typeof getWorkspaceContext>>["supabase"],
@@ -88,6 +103,35 @@ export async function createBillingRecordAction(
         currency: draft.currency,
       },
     });
+
+    // Artifact-first: the uploaded invoice PDF/image becomes a file Resource
+    // attached to the record. Failure never blocks the save — the record
+    // already carries extraction.sourceDocId as the lightweight fallback.
+    const sourceDocId = draft.extraction?.sourceDocId;
+    if (isStorageSourceDocId(sourceDocId)) {
+      const objectPath = resolveBillingDocumentStoragePath(sourceDocId);
+      const fileName = objectPath.split("/").pop() ?? "invoice.pdf";
+      const artifact = await attachArtifactToEntity(supabase, {
+        workspaceId: workspace.id,
+        targetType: "billing",
+        targetId: data.id,
+        file: {
+          bucketId: BILLING_DOCUMENTS_BUCKET,
+          objectPath,
+          fileName,
+          mimeType: "application/pdf",
+        },
+        displayName: draft.number ? `Invoice ${draft.number}` : fileName,
+        source: "manual",
+        category: "invoice",
+        confidence: draft.extraction?.confidence,
+        because: "Uploaded invoice document",
+        actingUserId: userId,
+      });
+      if (!artifact.success) {
+        console.error("billing document artifact attach failed:", artifact.error);
+      }
+    }
 
     revalidatePath("/billing");
     revalidatePath(`/billing/${data.id}`);

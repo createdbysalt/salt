@@ -1254,8 +1254,11 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     aiDescription: "Link to view this invoice/bill in the external platform (Stripe, QuickBooks, etc.)",
     dbColumn: "app_url",
     writePolicy: "care_auto",
+    // Artifact-first (Phase 7): the hosted invoice URL is sourced from the
+    // attached link Resource (entity_links relation_type='attachment');
+    // app_url is a projection of that artifact, not the source of truth.
     fillRules: [
-      { signal: "billing_stripe_synced", value: "{{extracted}}", confidence: 100, because: "Stripe hosted invoice URL" },
+      { signal: "billing_stripe_synced", value: "{{extracted}}", confidence: 100, because: "Stripe hosted invoice URL (attached as a Resource)" },
     ],
   },
   {
@@ -1494,6 +1497,11 @@ export const FILE_FIELDS: FieldDescriptor<"resources">[] = [
 // ============================================================================
 // MEETING FIELDS (meetings)
 // ============================================================================
+//
+// Artifact-first (Phase 7): recordings, transcripts, and linked notes are
+// attached Resources (entity_links relation_type='attachment'), not fields.
+// meeting_transcripts.recording_url is a read-compat projection of the
+// attached recording Resource (see meetings/utils/recording-projection.ts).
 
 export const MEETING_FIELDS: FieldDescriptor<"meetings">[] = [
   {

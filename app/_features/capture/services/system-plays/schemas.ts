@@ -395,6 +395,7 @@ export const createBillingInputSchema = z.object({
   organization_id: optionalUuidSchema.describe("Link to an organization"),
   work_id: optionalUuidSchema.describe("Link to a work/project"),
   tags: z.array(z.string()).optional().describe("Tags for categorization"),
+  app_url: z.string().url().optional().describe("Hosted invoice/bill page (e.g. Stripe hosted_invoice_url) — attached to the record as a link Resource"),
 });
 
 export const updateBillingInputSchema = z.object({

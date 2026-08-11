@@ -9,12 +9,14 @@ import {
   success,
   error,
   AddMeetingSourceSchema,
+  LinkUrlToMeetingSchema,
   AddMeetingSummarySchema,
   AddMeetingDecisionSchema,
   AddMeetingActionItemSchema,
   ToggleMeetingActionItemSchema,
   AttachMeetingTranscriptSchema,
   type AddMeetingSourceInput,
+  type LinkUrlToMeetingInput,
   type AddMeetingSummaryInput,
   type AddMeetingDecisionInput,
   type AddMeetingActionItemInput,
@@ -23,6 +25,7 @@ import {
 } from "./schemas";
 import { extractAndPersistNotes } from "@/app/_features/capture/services/intelligence/persist-extracted-notes";
 import type { NoteExtractionInput } from "@/app/_features/capture/services/intelligence/note-extractor";
+import { attachArtifactToEntity } from "@/app/_features/resources/actions/attach-artifact";
 
 // ============================================================================
 // Helpers
@@ -85,6 +88,54 @@ export async function addMeetingSource(
     return success({ id: data.id });
   } catch (err) {
     console.error("Unexpected error in addMeetingSource:", err);
+    return error("UNEXPECTED", "An unexpected error occurred");
+  }
+}
+
+/**
+ * Artifact-first "Link URL" (Phase 7): the URL becomes a link Resource
+ * (gdrive_doc, fireflies_transcript, …) attached to the meeting via
+ * entity_links — meeting_sources stays for sync provenance only.
+ */
+export async function linkUrlToMeeting(
+  input: LinkUrlToMeetingInput,
+): Promise<ActionResponse<{ resourceId: string }>> {
+  try {
+    const { context } = await getTenantContext();
+    const workspace = requireWorkspaceMember(context);
+    const supabase = await createClient();
+
+    const validated = LinkUrlToMeetingSchema.parse(input);
+
+    if (!(await verifyMeetingAccess(supabase, workspace.id, validated.meetingId))) {
+      return error("NOT_FOUND", "Meeting not found");
+    }
+
+    const artifact = await attachArtifactToEntity(supabase, {
+      workspaceId: workspace.id,
+      targetType: "meeting",
+      targetId: validated.meetingId,
+      externalUrl: validated.url,
+      displayName: validated.displayName,
+      source: "manual",
+      because: "Linked from the meeting",
+      actingUserId: context.userId ?? undefined,
+    });
+
+    if (!artifact.success) {
+      return error("DB_ERROR", artifact.error);
+    }
+
+    revalidatePath(`/meetings/${validated.meetingId}`);
+    return success({ resourceId: artifact.resourceId });
+  } catch (err) {
+    // Log the message, not the error object — jsdom's console chokes on
+    // ZodError instances ("reading 'value'"), which would mask the real
+    // failure in tests.
+    console.error(
+      "Unexpected error in linkUrlToMeeting:",
+      err instanceof Error ? err.message : String(err),
+    );
     return error("UNEXPECTED", "An unexpected error occurred");
   }
 }
@@ -304,6 +355,26 @@ export async function attachMeetingTranscript(
     if (dbError) {
       console.error("Error attaching transcript:", dbError);
       return error("DB_ERROR", "Failed to attach transcript");
+    }
+
+    // Artifact-first: the provider's recording/transcript page becomes a
+    // link Resource attached to the meeting (fireflies_transcript /
+    // otter_transcript via URL detection). meeting_transcripts keeps the
+    // content; the Resource is the graph-visible artifact.
+    if (validated.recordingUrl) {
+      const artifact = await attachArtifactToEntity(supabase, {
+        workspaceId: workspace.id,
+        targetType: "meeting",
+        targetId: validated.meetingId,
+        externalUrl: validated.recordingUrl,
+        displayName: "Meeting recording",
+        source: "capture",
+        because: "Recording from the meeting intelligence provider",
+        actingUserId: context.userId ?? undefined,
+      });
+      if (!artifact.success) {
+        console.error("meeting recording artifact attach failed:", artifact.error);
+      }
     }
 
     // Extract entity notes from meeting transcript (Memory Care entity-notes pipeline)

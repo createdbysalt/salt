@@ -168,6 +168,28 @@ describe("detectResourceFromUrl", () => {
     });
   });
 
+  describe("Meeting intelligence URLs", () => {
+    it("detects a Fireflies transcript", () => {
+      const result = detectResourceFromUrl(
+        "https://app.fireflies.ai/view/Q3-Kickoff::abc123XYZ"
+      );
+      expect(result).toMatchObject({
+        resourceType: "fireflies_transcript",
+        category: "media",
+      });
+    });
+
+    it("detects an Otter conversation", () => {
+      const result = detectResourceFromUrl(
+        "https://otter.ai/u/abc123def456"
+      );
+      expect(result).toMatchObject({
+        resourceType: "otter_transcript",
+        category: "media",
+      });
+    });
+  });
+
   describe("Slack URLs", () => {
     it("detects Slack channel", () => {
       const result = detectResourceFromUrl("https://acme.slack.com/archives/C01234567");

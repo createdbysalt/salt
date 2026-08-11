@@ -464,6 +464,12 @@ export interface CreateBillingInput {
   organization_id?: string;
   work_id?: string;
   tags?: string[];
+  /**
+   * Hosted invoice/bill page (Stripe hosted_invoice_url et al.). When
+   * present, creation also attaches a link Resource to the record
+   * (artifact-first) and this column stays a projection of it.
+   */
+  app_url?: string;
 }
 
 export interface UpdateBillingInput {

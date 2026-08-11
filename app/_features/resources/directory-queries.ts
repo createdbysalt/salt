@@ -26,6 +26,7 @@ import {
   mapFileRecordBootstrapActivity,
 } from "./utils/activity";
 import { getFileWorkLinkMap } from "./utils/work-links";
+import { getFileAttachmentBacklinkMap } from "./utils/attachment-backlinks";
 
 type TagAssignmentRow = {
   resource_id: string;
@@ -140,6 +141,11 @@ export const getWorkspaceFiles = cache(async (): Promise<MemoryFile[]> => {
     workspace.id,
     rows.map((row) => row.id),
   );
+  const backlinkMap = await getFileAttachmentBacklinkMap(
+    supabase,
+    workspace.id,
+    rows.map((row) => row.id),
+  );
   const projectIds = [...new Set(workLinkMap.values())];
 
   const [peopleResult, orgsResult, projectsResult, tagAssignmentsResult] = await Promise.all([
@@ -203,8 +209,16 @@ export const getWorkspaceFiles = cache(async (): Promise<MemoryFile[]> => {
     const org = row.organization_id ? (orgMap.get(row.organization_id) ?? null) : null;
     const linkedWorkId = workLinkMap.get(row.id);
     const project = linkedWorkId ? (projectMap.get(linkedWorkId) ?? null) : null;
+    const backlink = backlinkMap.get(row.id);
     return mapProjectFileToMemoryFile(
-      { ...row, person, org, project },
+      {
+        ...row,
+        person,
+        org,
+        project,
+        billing: backlink?.billing ?? null,
+        meeting: backlink?.meeting ?? null,
+      },
       tagsByFile.get(row.id) ?? [],
     );
   });
