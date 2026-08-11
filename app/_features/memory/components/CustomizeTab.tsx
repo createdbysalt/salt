@@ -12,6 +12,7 @@ import {
   Layers,
   Loader2,
   Plus,
+  Receipt,
   Sparkles,
   Users,
   X,
@@ -87,6 +88,7 @@ const SCOPE_ICONS: Record<MemoryCustomizeScope, LucideIcon> = {
   work: Briefcase,
   resource: FileText,
   meeting: CalendarDays,
+  billing: Receipt,
 };
 
 interface CustomizeTabProps {

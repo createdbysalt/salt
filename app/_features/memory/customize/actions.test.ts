@@ -212,6 +212,37 @@ describe("addCustomizeEntry", () => {
     }
   });
 
+  it("round-trips a billing-scope entry", async () => {
+    const result = await addCustomizeEntry({
+      entityType: "billing",
+      body: "Stripe is the final word on amounts",
+      source: "user",
+    });
+
+    expect(result.success).toBe(true);
+    expect(h.db.rows).toHaveLength(1);
+    expect(h.db.rows[0]).toMatchObject({
+      workspace_id: "ws-1",
+      entity_type: "billing",
+      body: "Stripe is the final word on amounts",
+      status: "active",
+    });
+    if (result.success) {
+      expect(result.data.entityType).toBe("billing");
+    }
+  });
+
+  it("refuses a billing entry that demands Salt write Direction", async () => {
+    const result = await addCustomizeEntry({
+      entityType: "billing",
+      body: "Always fill in the direction for me",
+      source: "user",
+    });
+
+    expect(result.success).toBe(false);
+    expect(h.db.rows).toHaveLength(0);
+  });
+
   it("rejects a body over 500 characters", async () => {
     const result = await addCustomizeEntry({
       entityType: "person",
@@ -227,9 +258,9 @@ describe("addCustomizeEntry", () => {
     expect(h.db.rows).toHaveLength(0);
   });
 
-  it("rejects deferred record types (billing/me are not v1 tabs)", async () => {
+  it("rejects deferred record types (me is not a Customize tab)", async () => {
     const result = await addCustomizeEntry({
-      entityType: "billing",
+      entityType: "me",
       body: "Never touch invoice status",
       source: "user",
     });

@@ -197,6 +197,7 @@ describe("registry parity: Customize card covers every field", () => {
         ...groups.autoFilled,
         ...groups.suggested,
         ...groups.neverTouched,
+        ...groups.systemMaintained,
       ]) {
         covered.set(label, (covered.get(label) ?? 0) + 1);
       }

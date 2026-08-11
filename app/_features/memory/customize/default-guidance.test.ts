@@ -14,20 +14,21 @@ import {
 import { getFieldsForEntity } from "../taxonomy/field-registry";
 
 describe("MEMORY_CUSTOMIZE_ENTITY_TYPES", () => {
-  it("ships exactly the v1 tabs: People, Orgs, Work, Resources, Meetings", () => {
+  it("ships the tabs: People, Orgs, Work, Resources, Meetings, Billing", () => {
     expect(MEMORY_CUSTOMIZE_ENTITY_TYPES).toEqual([
       "person",
       "org",
       "work",
       "resource",
       "meeting",
+      "billing",
     ]);
   });
 
-  it("excludes deferred types (billing, me, note)", () => {
-    expect(isMemoryCustomizeEntityType("billing")).toBe(false);
+  it("excludes deferred types (me, note)", () => {
     expect(isMemoryCustomizeEntityType("me")).toBe(false);
     expect(isMemoryCustomizeEntityType("note")).toBe(false);
+    expect(isMemoryCustomizeEntityType("billing")).toBe(true);
     expect(isMemoryCustomizeEntityType("person")).toBe(true);
   });
 });
@@ -44,7 +45,8 @@ describe("general scope", () => {
     expect(isMemoryCustomizeScope("general")).toBe(true);
     expect(isMemoryCustomizeEntityType("general")).toBe(false);
     expect(isMemoryCustomizeScope("person")).toBe(true);
-    expect(isMemoryCustomizeScope("billing")).toBe(false);
+    expect(isMemoryCustomizeScope("billing")).toBe(true);
+    expect(isMemoryCustomizeScope("me")).toBe(false);
   });
 
   it("ships first-person guidance with no banned machinery words", () => {
@@ -140,6 +142,25 @@ describe("defaultGuidanceForType", () => {
     expect(text).toMatch(/organization/i);
     expect(text).toMatch(/work/i);
     expect(text).toMatch(/billing/i);
+  });
+
+  it("billing copy honors the system-of-record principle", () => {
+    const guidance = defaultGuidanceForType("billing");
+    // The billing app owns the numbers; payment matching keeps status
+    // honest; direction is set by the user once and never rewritten.
+    expect(guidance.summary).toMatch(/payment matching/i);
+    const allLines = guidance.sections.flatMap((s) => s.lines).join("\n");
+    expect(allLines).toContain("Direction");
+    expect(allLines).toMatch(/never/i);
+  });
+
+  it("billing keeps payment-matched fields out of what Salt fills", () => {
+    const guidance = defaultGuidanceForType("billing");
+    // Amount Paid and Paid are system_derived — payment matching writes
+    // them, Memory Care never does, so they can't appear as auto-filled.
+    expect(guidance.fieldGroups!.autoFilled).not.toContain("Amount Paid");
+    expect(guidance.fieldGroups!.autoFilled).not.toContain("Paid");
+    expect(guidance.fieldGroups!.neverTouched).toContain("Direction");
   });
 
   it("never uses banned machinery words in any line", () => {

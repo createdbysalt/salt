@@ -27,6 +27,7 @@ export const MEMORY_CUSTOMIZE_ENTITY_TYPES = [
   "work",
   "resource",
   "meeting",
+  "billing",
 ] as const;
 
 export type MemoryCustomizeEntityType =
@@ -77,6 +78,7 @@ export const MEMORY_CUSTOMIZE_ENTITY_LABELS: Record<
   work: "Work",
   resource: "Resources",
   meeting: "Meetings",
+  billing: "Billing",
 };
 
 export const MEMORY_CUSTOMIZE_SCOPE_LABELS: Record<
@@ -98,6 +100,7 @@ export const MEMORY_CUSTOMIZE_SCOPE_TITLES: Record<
   work: "Work Records",
   resource: "Resource Records",
   meeting: "Meeting Records",
+  billing: "Billing Records",
 };
 
 /**
@@ -118,7 +121,7 @@ export function scopesForPrompt(
  * like the General page's explainer.
  */
 export interface DefaultGuidanceSection {
-  kind: "birth" | "connections" | "fields" | "never" | "custom";
+  kind: "birth" | "connections" | "fields" | "never" | "system" | "custom";
   heading: string;
   lines: string[];
 }
@@ -135,6 +138,8 @@ export interface FieldGroups {
   suggested: string[];
   /** user_only — "Yours alone". */
   neverTouched: string[];
+  /** system_derived — "Kept honest by the system" (e.g. payment matching). */
+  systemMaintained: string[];
 }
 
 export interface DefaultGuidance {
@@ -155,6 +160,8 @@ const TYPE_SUMMARIES: Record<MemoryCustomizeEntityType, string> = {
     "I read documents that arrive through your connected apps and pull out what they are, amounts, and dates.",
   meeting:
     "My meeting memory is still growing — for now I keep titles, times, and attendees up to date from your calendar.",
+  billing:
+    "The billing app is the system of record — it issued the document, so its numbers win. You set the direction once when the record is created; after that, payment matching keeps the status, amount paid, and paid date honest. A parsed invoice can confirm a value, never override it.",
 };
 
 const TYPE_BIRTH_LINES: Record<MemoryCustomizeEntityType, string[]> = {
@@ -175,6 +182,10 @@ const TYPE_BIRTH_LINES: Record<MemoryCustomizeEntityType, string[]> = {
   ],
   meeting: [
     "Meetings on your calendar become records with their attendees attached.",
+  ],
+  billing: [
+    "Invoices and bills from your billing app become records, matched to the people and organizations behind them.",
+    "An invoice that arrives by email becomes a record too — the document corroborates the billing app, never overrides it.",
   ],
 };
 
@@ -208,6 +219,10 @@ const TYPE_CONNECTION_LINES: Record<MemoryCustomizeEntityType, string[]> = {
     "I connect a meeting to its attendees and to the work or organization it concerns.",
     CONNECTIONS_PRINCIPLE_LINE,
   ],
+  billing: [
+    "I connect a billing record to the organization and person behind it, and to the work the money was for.",
+    CONNECTIONS_PRINCIPLE_LINE,
+  ],
 };
 
 /** Cap the rendered sentence lists — the curious get the full picture as chips. */
@@ -235,11 +250,15 @@ function renderFieldData(entityType: MemoryCustomizeEntityType): {
   const neverTouched = fields.filter(
     (f) => getWritePolicy(f) === "user_only",
   );
+  const systemMaintained = fields.filter(
+    (f) => getWritePolicy(f) === "system_derived",
+  );
 
   const groups: FieldGroups = {
     autoFilled: autoFilled.map((f) => f.label),
     suggested: suggested.map((f) => f.label),
     neverTouched: neverTouched.map((f) => f.label),
+    systemMaintained: systemMaintained.map((f) => f.label),
   };
 
   const autoLines: string[] = [];
@@ -307,6 +326,8 @@ const HEADER_DESCRIPTIONS: Record<MemoryCustomizeScope, string> = {
     "Here's what I look for before a document becomes a resource — tell me when it's wrong.",
   meeting:
     "Here's what I look for before a calendar event becomes a meeting — tell me when it's wrong.",
+  billing:
+    "Here's what I look for before an invoice becomes a billing record — tell me when it's wrong.",
 };
 
 export function headerDescriptionForScope(
@@ -351,6 +372,15 @@ export function defaultGuidanceForType(
   if (neverLine) {
     sections.push({ kind: "never", heading: "What I never touch", lines: [neverLine] });
   }
+  if (groups.systemMaintained.length > 0) {
+    sections.push({
+      kind: "system",
+      heading: "Kept honest on their own",
+      lines: [
+        `These stay current from what your connected apps already know: ${groups.systemMaintained.join(", ")}.`,
+      ],
+    });
+  }
 
   return {
     entityType,
@@ -389,5 +419,9 @@ export const EXAMPLE_ENTRIES: Record<MemoryCustomizeScope, string[]> = {
   meeting: [
     "Standups aren't worth remembering",
     "Only keep meetings with clients",
+  ],
+  billing: [
+    "Stripe is the final word on amounts",
+    "Receipts under $50 aren't worth tracking",
   ],
 };

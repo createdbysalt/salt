@@ -85,7 +85,15 @@ describe("buildFieldContractContext", () => {
 
   it("care-writable context includes auto fields", () => {
     const context = buildCareWritableContext("billing");
-    expect(context).toContain("amountPaidCents");
+    expect(context).toContain("amountCents");
     expect(context).toContain("status");
+  });
+
+  it("care-writable context excludes system_derived fields", () => {
+    const context = buildCareWritableContext("billing");
+    // Payment matching owns Amount Paid / Paid — Care writes the inputs,
+    // never the value.
+    expect(context).not.toContain("amountPaidCents");
+    expect(context).not.toContain("paidAt");
   });
 });

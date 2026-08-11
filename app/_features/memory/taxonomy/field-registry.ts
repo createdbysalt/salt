@@ -1180,7 +1180,7 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     requiredForCapabilities: [],
     aiDescription: "Amount received so far in cents; maintained by payment matching",
     dbColumn: "amount_paid_cents",
-    writePolicy: "care_auto",
+    writePolicy: "system_derived",
     fillRules: [
       { signal: "billing_payment_matched", value: "{{extracted}}", confidence: 98, because: "Payment amount matched to invoice" },
       { signal: "billing_stripe_synced", value: "{{extracted}}", confidence: 98, because: "Payment amount from Stripe" },
@@ -1238,7 +1238,7 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     requiredForCapabilities: [],
     aiDescription: "Date the record was fully paid; set by payment matching",
     dbColumn: "paid_at",
-    writePolicy: "care_auto",
+    writePolicy: "system_derived",
     fillRules: [
       { signal: "billing_amount_paid_covers_total", value: "{{extracted}}", confidence: 98, because: "Paid date from payment matching" },
       { signal: "billing_stripe_synced", value: "{{extracted}}", confidence: 98, because: "Paid date from Stripe" },

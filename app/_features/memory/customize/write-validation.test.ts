@@ -73,4 +73,16 @@ describe("findNeverTouchConflict", () => {
       findNeverTouchConflict("general", "Never treat my accountant as a client"),
     ).toBeNull();
   });
+
+  it("refuses write intent against billing Direction (user_only)", () => {
+    expect(
+      findNeverTouchConflict("billing", "Always fill in the direction for me"),
+    ).toBe("Direction");
+  });
+
+  it("allows billing guidance that respects payment matching", () => {
+    expect(
+      findNeverTouchConflict("billing", "Stripe is the final word on amounts"),
+    ).toBeNull();
+  });
 });
