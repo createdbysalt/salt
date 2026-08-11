@@ -257,7 +257,7 @@ export async function searchMentions(
 
   // Search files (with person/org join for context)
   let filesQuery = admin
-    .from("files")
+    .from("resources")
     .select(`
       id, file_name, category,
       person:people(name),

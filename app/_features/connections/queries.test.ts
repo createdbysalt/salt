@@ -74,7 +74,7 @@ function mockGraphTable(table: string) {
   if (table === "billing_records") {
     return createChainableQuery({ data: [], error: null }, "limit");
   }
-  if (table === "files") {
+  if (table === "resources") {
     return createChainableQuery({ data: [], error: null }, "limit");
   }
   if (table === "meetings") {
@@ -158,7 +158,7 @@ describe("getConnectionsGraphData", () => {
           table === "work" ||
           table === "notes" ||
           table === "billing_records" ||
-          table === "files" ||
+          table === "resources" ||
           table === "meetings"
         ) {
           return createChainableQuery({ data: [], error: null }, "limit");

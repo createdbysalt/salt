@@ -1597,7 +1597,7 @@ async function createFileRecord(
   actorUserId?: string
 ): Promise<SystemPlayResult> {
   const { data, error } = await admin
-    .from("files")
+    .from("resources")
     .insert({
       workspace_id: workspaceId,
       file_name: input.file_name,
@@ -1666,7 +1666,7 @@ async function updateFileRecord(
   input: UpdateFileRecordInput
 ): Promise<SystemPlayResult> {
   const { error } = await admin
-    .from("files")
+    .from("resources")
     .update({
       ...input.fields,
       updated_at: new Date().toISOString(),
@@ -1687,7 +1687,7 @@ async function archiveFileRecord(
   input: ArchiveFileRecordInput
 ): Promise<SystemPlayResult> {
   const { error } = await admin
-    .from("files")
+    .from("resources")
     .update({
       archived_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),

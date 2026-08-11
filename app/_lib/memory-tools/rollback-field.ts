@@ -241,8 +241,8 @@ async function applyRollback(
 
     case "resource":
       await admin
-        .from("files")
-        .update({ [field]: value } as TableUpdate<"files">)
+        .from("resources")
+        .update({ [field]: value } as TableUpdate<"resources">)
         .eq("id", entityId)
         .eq("workspace_id", workspaceId);
       break;

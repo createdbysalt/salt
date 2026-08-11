@@ -97,7 +97,7 @@ const h = vi.hoisted(() => {
     return {
       from: (table: string) => {
         if (table === "meetings") return meetingsQuery();
-        if (table === "files") return filesQuery();
+        if (table === "resources") return filesQuery();
         if (table === "pending_evidence") return pendingEvidenceQuery();
         throw new Error(`unexpected table ${table}`);
       },

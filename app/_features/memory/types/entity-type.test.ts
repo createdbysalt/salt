@@ -6,10 +6,10 @@ import {
 } from "./entity-type";
 
 describe("toDbEntityType", () => {
-  it("maps resource → file in every dialect (short-dialect CHECK)", () => {
-    expect(toDbEntityType("resource", "short")).toBe("file");
-    expect(toDbEntityType("resource", "provenance")).toBe("file");
-    expect(toDbEntityType("resource", "relations")).toBe("file");
+  it("passthroughs resource in every dialect (DB matches app after rename)", () => {
+    expect(toDbEntityType("resource", "short")).toBe("resource");
+    expect(toDbEntityType("resource", "provenance")).toBe("resource");
+    expect(toDbEntityType("resource", "relations")).toBe("resource");
   });
 
   it("keeps other short-dialect types unchanged", () => {

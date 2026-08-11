@@ -51,7 +51,7 @@ export async function fetchLinkCandidates(
     input.existingConnections.map((c) => `${c.type}:${c.id}`)
   );
 
-  const [peopleResult, orgsResult, workResult, billingResult, conversationsResult, meetingsResult] = await Promise.all([
+  const [peopleResult, orgsResult, workResult, billingResult, conversationsResult, meetingsResult, resourcesResult] = await Promise.all([
     supabase
       .from("people")
       .select("id, name, title")
@@ -88,6 +88,14 @@ export async function fetchLinkCandidates(
       .from("meetings")
       .select("id, title, start_time, status")
       .order("start_time", { ascending: false })
+      .limit(CANDIDATE_LIMIT),
+    supabase
+      .from("resources")
+      .select("id, file_name, resource_type")
+      .eq("workspace_id", workspace.id)
+      .is("deleted_at", null)
+      .is("archived_at", null)
+      .order("created_at", { ascending: false })
       .limit(CANDIDATE_LIMIT),
   ]);
 
@@ -158,6 +166,17 @@ export async function fetchLinkCandidates(
       name: meeting.title,
       type: "meeting",
       subtitle: `${new Date(meeting.start_time).toLocaleDateString()} · ${meeting.status}`,
+    });
+  }
+
+  for (const resource of resourcesResult.data ?? []) {
+    if (input.recordKind === "resource" && resource.id === input.recordId) continue;
+    if (existingKeys.has(`resource:${resource.id}`)) continue;
+    candidates.push({
+      id: resource.id,
+      name: resource.file_name,
+      type: "resource",
+      subtitle: resource.resource_type && resource.resource_type !== "file" ? "Resource" : "File",
     });
   }
 
@@ -275,6 +294,28 @@ export async function persistMemoryConnection(
     }
   } else if (connectionType === "conversation") {
     return { success: false, error: "Conversations are automatically linked to their participants" };
+  } else if (connectionType === "resource") {
+    // Linking TO a resource — entity_links canonically stores the resource
+    // (short dialect "file") on the SOURCE side; getEntityConnections only
+    // resolves resource connections in that direction.
+    const result = await upsertEdge(supabase, {
+      workspaceId: workspace.id,
+      source: { type: "file", id: input.connection.id },
+      target: { type: toEdgeEntityType(input.recordKind), id: input.recordId },
+      relationType: "attachment",
+      provenance: { source: "manual" },
+    });
+
+    if (!result.ok) {
+      console.error("Failed to link resource:", result.message);
+      return { success: false, error: result.message };
+    }
+
+    const sourcePath = getEntityPath(input.recordKind, input.recordId);
+    const targetPath = getEntityPath(connectionType, input.connection.id);
+    if (sourcePath) revalidatePath(sourcePath);
+    if (targetPath) revalidatePath(targetPath);
+    return { success: true };
   } else if (input.recordKind === "resource") {
     if (connectionType === "person" || connectionType === "org" || connectionType === "work") {
       const linkResult = await upsertEdge(supabase, {
@@ -369,7 +410,7 @@ export async function removeMemoryConnection(
       }
 
       const { data: fileRow } = await supabase
-        .from("files")
+        .from("resources")
         .select("person_id, organization_id")
         .eq("id", input.recordId)
         .eq("workspace_id", workspace.id)
@@ -390,7 +431,7 @@ export async function removeMemoryConnection(
 
         if (Object.keys(legacyUpdate).length > 1) {
           const { error: legacyError } = await supabase
-            .from("files")
+            .from("resources")
             .update(legacyUpdate)
             .eq("id", input.recordId)
             .eq("workspace_id", workspace.id);
@@ -414,6 +455,28 @@ export async function removeMemoryConnection(
 
   if (input.connectionType === "conversation") {
     return { success: false, error: "Conversations are automatically linked to their participants" };
+  }
+
+  if (input.connectionType === "resource") {
+    // No relationType scoping: resource↔entity edges are written as
+    // "attachment" (see persistMemoryConnection), and deleteEdgeBetween is
+    // direction-agnostic so either creation direction is removed.
+    const result = await deleteEdgeBetween(supabase, {
+      workspaceId: workspace.id,
+      a: { type: "file", id: input.connectionId },
+      b: { type: toEdgeEntityType(input.recordKind), id: input.recordId },
+    });
+
+    if (!result.ok) {
+      console.error("Failed to remove resource connection:", result.message);
+      return { success: false, error: result.message };
+    }
+
+    const sourcePath = getEntityPath(input.recordKind, input.recordId);
+    const targetPath = getEntityPath(input.connectionType, input.connectionId);
+    if (sourcePath) revalidatePath(sourcePath);
+    if (targetPath) revalidatePath(targetPath);
+    return { success: true };
   }
 
   const result = await deleteEdgeBetween(supabase, {

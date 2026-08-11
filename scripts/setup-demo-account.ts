@@ -667,7 +667,7 @@ async function clearDemoData(workspaceId: string) {
   await supabase.from("opportunity_gaps").delete().eq("workspace_id", workspaceId);
   await supabase.from("meetings").delete().eq("workspace_id", workspaceId);
   await supabase.from("work").delete().eq("workspace_id", workspaceId);
-  await supabase.from("files").delete().eq("workspace_id", workspaceId);
+  await supabase.from("resources").delete().eq("workspace_id", workspaceId);
   await supabase.from("entity_links").delete().eq("workspace_id", workspaceId);
   await supabase.from("notes").delete().eq("workspace_id", workspaceId);
   await supabase.from("people").delete().eq("workspace_id", workspaceId);

@@ -6,8 +6,8 @@ import {
 } from "./entity-type";
 
 describe("toLearningDbEntityType", () => {
-  it("maps resource → file", () => {
-    expect(toLearningDbEntityType("resource")).toBe("file");
+  it("passthroughs resource (DB spelling matches app after rename)", () => {
+    expect(toLearningDbEntityType("resource")).toBe("resource");
   });
 
   it("passthroughs other Learning entity types", () => {

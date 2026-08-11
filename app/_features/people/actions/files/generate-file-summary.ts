@@ -46,7 +46,7 @@ export async function generateFileSummary(
 
     // Get file details
     const { data: file, error: fetchError } = await supabase
-      .from("files")
+      .from("resources")
       .select("id, object_path, bucket_id, file_name, mime_type, person_id, file_type, external_url")
       .eq("id", fileId)
       .eq("workspace_id", workspace.id)
@@ -63,7 +63,7 @@ export async function generateFileSummary(
     if (!isSummarizationSupported(file.mime_type, isLink)) {
       // Update status to unsupported
       await supabase
-        .from("files")
+        .from("resources")
         .update({
           ai_status: "unsupported",
           ai_error: `File type '${file.mime_type || "unknown"}' is not supported for AI summarization`,
@@ -78,7 +78,7 @@ export async function generateFileSummary(
 
     // Update status to processing
     await supabase
-      .from("files")
+      .from("resources")
       .update({ ai_status: "processing", ai_error: null })
       .eq("id", fileId);
 
@@ -96,7 +96,7 @@ export async function generateFileSummary(
       if (urlError || !urlData?.signedUrl) {
         console.error("Error creating signed URL:", urlError);
         await supabase
-          .from("files")
+          .from("resources")
           .update({
             ai_status: "failed",
             ai_error: "Failed to access file",
@@ -131,7 +131,7 @@ export async function generateFileSummary(
       // Update status to failed or unsupported
       const status = result.code === "UNSUPPORTED_TYPE" ? "unsupported" : "failed";
       await supabase
-        .from("files")
+        .from("resources")
         .update({
           ai_status: status,
           ai_error: result.error,
@@ -147,7 +147,7 @@ export async function generateFileSummary(
       : result.summary;
 
     await supabase
-      .from("files")
+      .from("resources")
       .update({
         ai_status: "completed",
         ai_summary: summaryText,
@@ -194,7 +194,7 @@ export async function getFileAIStatus(fileId: string): Promise<FileAIStatus | nu
     const supabase = await createClient();
 
     const { data, error } = await supabase
-      .from("files")
+      .from("resources")
       .select("ai_status, ai_summary, ai_error, ai_extracted_at")
       .eq("id", fileId)
       .eq("workspace_id", workspace.id)

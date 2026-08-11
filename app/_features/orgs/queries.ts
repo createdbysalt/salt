@@ -479,7 +479,7 @@ export const getOrgFiles = cache(async (orgId: string): Promise<LinkedFile[]> =>
   const { workspace, supabase } = await getWorkspaceContext();
 
   const { data, error } = await supabase
-    .from("files")
+    .from("resources")
     .select("id, file_name, created_at, mime_type")
     .eq("workspace_id", workspace.id)
     .eq("organization_id", orgId)

@@ -306,7 +306,7 @@ export const getLearningEvidence = cache(
         : Promise.resolve({ data: [] as Array<{ id: string; title: string | null }> }),
       entityIdsByType.file.length > 0
         ? supabase
-            .from("files")
+            .from("resources")
             .select("id, file_name")
             .in("id", entityIdsByType.file)
             .is("deleted_at", null)

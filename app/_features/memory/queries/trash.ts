@@ -12,7 +12,7 @@ type TrashTable =
   | "organizations"
   | "work"
   | "billing_records"
-  | "files"
+  | "resources"
   | "meetings"
   | "notes";
 
@@ -54,7 +54,7 @@ const ENTITY_QUERIES: EntityQueryConfig[] = [
   },
   {
     entityType: "resource",
-    table: "files",
+    table: "resources",
     tenantColumn: "workspace_id",
     labelColumns: ["file_name"],
   },

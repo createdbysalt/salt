@@ -29,7 +29,7 @@ function triggersApi(): TriggersApi {
   return getComposioClient().triggers as unknown as TriggersApi;
 }
 
-type FilesUpdate = Database["public"]["Tables"]["files"]["Update"];
+type FilesUpdate = Database["public"]["Tables"]["resources"]["Update"];
 
 const RESOURCE_TYPE_TO_TRIGGER_SLUGS: Partial<Record<ResourceType, string[]>> = {
   github_repo: ["GITHUB_PUSH_EVENT", "GITHUB_PULL_REQUEST_EVENT", "GITHUB_ISSUE_EVENT"],
@@ -152,7 +152,7 @@ export async function enableResourceLiveMode(
   };
 
   const { error: updateError } = await admin
-    .from("files")
+    .from("resources")
     .update(liveModeUpdate)
     .eq("id", resourceId)
     .eq("workspace_id", workspaceId);
@@ -178,7 +178,7 @@ export async function disableResourceLiveMode(
   const admin = createAdminClient();
 
   const { data: resource } = await admin
-    .from("files")
+    .from("resources")
     .select("composio_trigger_id")
     .eq("id", resourceId)
     .eq("workspace_id", workspaceId)
@@ -208,7 +208,7 @@ export async function disableResourceLiveMode(
   };
 
   const { error: updateError } = await admin
-    .from("files")
+    .from("resources")
     .update(staticModeUpdate)
     .eq("id", resourceId)
     .eq("workspace_id", workspaceId);

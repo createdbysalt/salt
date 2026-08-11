@@ -287,7 +287,7 @@ describe("addSignalToEvidence — file signals are suggested-only (audit #7)", (
 
   it("auto-tier file evidence lands suggested, never calls autoCreateRecord", async () => {
     const row = seedEvidence({
-      entity_type: "file",
+      entity_type: "resource",
       identifier: "file:client@acme.com:contract for acme project",
       log_odds_score: 3.0,
     });
@@ -318,7 +318,7 @@ describe("addSignalToEvidence — file signals are suggested-only (audit #7)", (
 describe("dismissal is terminal for stable meeting/file identifiers (audit #7)", () => {
   it("dismissed file evidence stays dismissed through addSignalToEvidence", async () => {
     const row = seedEvidence({
-      entity_type: "file",
+      entity_type: "resource",
       identifier: "file:client@acme.com:contract for acme project",
       status: "dismissed",
       log_odds_score: 4.0,

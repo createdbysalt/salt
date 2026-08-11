@@ -131,7 +131,7 @@ export async function uploadClientFile(
 
     // Insert file record into database
     const { data: fileRecord, error: insertError } = await supabase
-      .from("files")
+      .from("resources")
       .insert({
         workspace_id: workspace.id,
         person_id: input.personId ?? null,
@@ -181,7 +181,7 @@ export async function uploadClientFile(
       }));
 
       const { error: tagError } = await supabase
-        .from("file_tag_assignments")
+        .from("resource_tag_assignments")
         .insert(tagAssignments);
 
       if (tagError) {
@@ -253,7 +253,7 @@ export async function createClientLink(
 
     // Insert link record into database
     const { data: linkRecord, error: insertError } = await supabase
-      .from("files")
+      .from("resources")
       .insert({
         workspace_id: workspace.id,
         person_id: input.personId ?? null,
@@ -302,7 +302,7 @@ export async function createClientLink(
       }));
 
       const { error: tagError } = await supabase
-        .from("file_tag_assignments")
+        .from("resource_tag_assignments")
         .insert(tagAssignments);
 
       if (tagError) {

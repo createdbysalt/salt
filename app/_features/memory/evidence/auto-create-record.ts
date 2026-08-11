@@ -135,7 +135,7 @@ async function insertEntityRecord(
       }
       const fileName = fields.title?.value ?? fields.name?.value;
       if (!fileName) return { error: "Missing required field: title" };
-      const insert: TablesInsert<"files"> = {
+      const insert: TablesInsert<"resources"> = {
         workspace_id: workspaceId,
         file_name: fileName,
         uploaded_by: input.actingUserId,
@@ -147,7 +147,7 @@ async function insertEntityRecord(
       if (category) insert.category = category;
       if (fields.document_type?.value) insert.document_type = fields.document_type.value;
       if (input.captureId) insert.capture_event_id = input.captureId;
-      return runInsert(supabase.from("files").insert(insert).select("id").single());
+      return runInsert(supabase.from("resources").insert(insert).select("id").single());
     }
 
     case "meeting": {

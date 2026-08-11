@@ -236,7 +236,7 @@ export async function memoryGetIncompleteRecords(
 
   if (!entityType || entityType === "resource") {
     const { data: files } = await supabase
-      .from("files")
+      .from("resources")
       .select("id, file_name, category")
       .eq("workspace_id", workspaceId)
       .is("deleted_at", null)

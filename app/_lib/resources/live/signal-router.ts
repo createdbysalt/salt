@@ -11,7 +11,7 @@ import type { ResourceMode, ResourceType } from "../types";
  * Creates signals that playbooks can react to.
  */
 
-type FilesUpdate = Database["public"]["Tables"]["files"]["Update"];
+type FilesUpdate = Database["public"]["Tables"]["resources"]["Update"];
 
 export type ResourceSignalType =
   | "github_pr_opened"
@@ -71,7 +71,7 @@ export async function routeResourceWebhook(
   const admin = createAdminClient();
 
   const { data: resource } = await admin
-    .from("files")
+    .from("resources")
     .select("id, workspace_id, resource_type, external_url, mode")
     .eq("id", metadata.resourceId)
     .single();
@@ -116,7 +116,7 @@ export async function routeResourceWebhook(
     last_activity_summary: signal.evidence.summary,
   };
 
-  await admin.from("files").update(activityUpdate).eq("id", resource.id);
+  await admin.from("resources").update(activityUpdate).eq("id", resource.id);
 
   await storeSignal(signal);
 

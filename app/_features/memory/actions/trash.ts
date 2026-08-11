@@ -14,7 +14,7 @@ type TrashTable =
   | "organizations"
   | "work"
   | "billing_records"
-  | "files"
+  | "resources"
   | "meetings"
   | "notes";
 
@@ -29,7 +29,7 @@ const ENTITY_CONFIG: Record<TrashEntityType, EntityConfig> = {
   org: { table: "organizations", tenantColumn: "workspace_id", listPath: "/orgs" },
   work: { table: "work", tenantColumn: "workspace_id", listPath: "/work" },
   billing: { table: "billing_records", tenantColumn: "workspace_id", listPath: "/billing" },
-  resource: { table: "files", tenantColumn: "workspace_id", listPath: "/resources" },
+  resource: { table: "resources", tenantColumn: "workspace_id", listPath: "/resources" },
   meeting: { table: "meetings", tenantColumn: "workspace_id", listPath: "/meetings" },
   note: { table: "notes", tenantColumn: "workspace_id", listPath: "/me" },
 };
@@ -254,7 +254,7 @@ export async function deleteForever(
 
     if (entityType === "resource") {
       const { data: fileRow } = await admin
-        .from("files")
+        .from("resources")
         .select("bucket_id, object_path")
         .eq("id", entityId)
         .eq(config.tenantColumn, workspace.id)
@@ -264,7 +264,7 @@ export async function deleteForever(
         await admin.storage.from(fileRow.bucket_id).remove([fileRow.object_path]);
       }
 
-      await admin.from("file_tag_assignments").delete().eq("file_id", entityId);
+      await admin.from("resource_tag_assignments").delete().eq("resource_id", entityId);
     }
 
     const { error } = await admin

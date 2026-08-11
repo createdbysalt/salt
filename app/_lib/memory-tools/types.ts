@@ -25,7 +25,7 @@ export type { LearningEntityType, EvidenceType };
  */
 export type MemoryEntityTable = keyof Pick<
   Database["public"]["Tables"],
-  "people" | "organizations" | "work" | "billing_records" | "meetings" | "files"
+  "people" | "organizations" | "work" | "billing_records" | "meetings" | "resources"
 >;
 
 /**
@@ -42,8 +42,7 @@ const MEMORY_ENTITY_TABLES: Partial<Record<LearningEntityType, MemoryEntityTable
   work: "work",
   billing: "billing_records",
   meeting: "meetings",
-  // App type is `"resource"`; table stays `public.files` until a hard rename.
-  resource: "files",
+  resource: "resources",
 };
 
 /**

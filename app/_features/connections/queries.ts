@@ -74,7 +74,7 @@ export async function getConnectionsGraphData(
       .order("created_at", { ascending: false })
       .limit(GRAPH_BILLING_LIMIT),
     supabase
-      .from("files")
+      .from("resources")
       .select("id, file_name, person_id, organization_id, ai_summary, resource_type")
       .is("deleted_at", null)
       .is("archived_at", null)
@@ -733,7 +733,7 @@ export async function getEntityConnections(
   ];
   if (linkedFileIds.length > 0) {
     const { data: fileRows } = await supabase
-      .from("files")
+      .from("resources")
       .select("id, file_name, file_type, mime_type, size_bytes, external_url, mode, resource_type, last_activity_at, last_activity_summary")
       .in("id", linkedFileIds)
       .is("deleted_at", null)

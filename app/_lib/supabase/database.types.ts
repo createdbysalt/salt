@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       activity_entries: {
@@ -2351,412 +2326,6 @@ export type Database = {
           },
         ]
       }
-      file_activities: {
-        Row: {
-          activity_type: string
-          actor_id: string | null
-          actor_label: string | null
-          created_at: string
-          file_id: string
-          id: string
-          metadata: Json | null
-          workspace_id: string
-        }
-        Insert: {
-          activity_type: string
-          actor_id?: string | null
-          actor_label?: string | null
-          created_at?: string
-          file_id: string
-          id?: string
-          metadata?: Json | null
-          workspace_id: string
-        }
-        Update: {
-          activity_type?: string
-          actor_id?: string | null
-          actor_label?: string | null
-          created_at?: string
-          file_id?: string
-          id?: string
-          metadata?: Json | null
-          workspace_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "file_activities_file_id_fkey"
-            columns: ["file_id"]
-            isOneToOne: false
-            referencedRelation: "files"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "file_activities_file_id_fkey"
-            columns: ["file_id"]
-            isOneToOne: false
-            referencedRelation: "project_files"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "file_activities_workspace_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "studios"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "file_activities_workspace_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "workspaces"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      file_tag_assignments: {
-        Row: {
-          created_at: string
-          file_id: string
-          id: string
-          tag_id: string
-        }
-        Insert: {
-          created_at?: string
-          file_id: string
-          id?: string
-          tag_id: string
-        }
-        Update: {
-          created_at?: string
-          file_id?: string
-          id?: string
-          tag_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "file_tag_assignments_file_id_fkey"
-            columns: ["file_id"]
-            isOneToOne: false
-            referencedRelation: "files"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "file_tag_assignments_file_id_fkey"
-            columns: ["file_id"]
-            isOneToOne: false
-            referencedRelation: "project_files"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "file_tag_assignments_tag_id_fkey"
-            columns: ["tag_id"]
-            isOneToOne: false
-            referencedRelation: "file_tags"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      file_tags: {
-        Row: {
-          color: string | null
-          created_at: string
-          default_direction:
-            | Database["public"]["Enums"]["file_direction"]
-            | null
-          display_order: number
-          id: string
-          is_system: boolean
-          label: string
-          system_tag_id: string | null
-          updated_at: string
-          workspace_id: string | null
-        }
-        Insert: {
-          color?: string | null
-          created_at?: string
-          default_direction?:
-            | Database["public"]["Enums"]["file_direction"]
-            | null
-          display_order?: number
-          id?: string
-          is_system?: boolean
-          label: string
-          system_tag_id?: string | null
-          updated_at?: string
-          workspace_id?: string | null
-        }
-        Update: {
-          color?: string | null
-          created_at?: string
-          default_direction?:
-            | Database["public"]["Enums"]["file_direction"]
-            | null
-          display_order?: number
-          id?: string
-          is_system?: boolean
-          label?: string
-          system_tag_id?: string | null
-          updated_at?: string
-          workspace_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "file_tags_studio_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "studios"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "file_tags_studio_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "workspaces"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "file_tags_system_tag_id_fkey"
-            columns: ["system_tag_id"]
-            isOneToOne: false
-            referencedRelation: "file_tags"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      files: {
-        Row: {
-          ai_error: string | null
-          ai_extracted_at: string | null
-          ai_status: Database["public"]["Enums"]["file_ai_status"] | null
-          ai_summary: string | null
-          app_url: string | null
-          archived_at: string | null
-          because: string | null
-          brand_metadata: Json | null
-          bucket_id: string
-          capture_event_id: string | null
-          capture_source_url: string | null
-          category: Database["public"]["Enums"]["file_category"]
-          composio_trigger_id: string | null
-          confidence: number | null
-          created_at: string
-          currency: string | null
-          deleted_at: string | null
-          deleted_by: string | null
-          description: string | null
-          direction: Database["public"]["Enums"]["file_direction"] | null
-          document_type: string | null
-          due_date: string | null
-          expiry_date: string | null
-          external_url: string | null
-          extracted_data: Json | null
-          extraction_status: string | null
-          extraction_version: number | null
-          file_name: string
-          file_type: string
-          follow_up_date: string | null
-          follow_up_reason: string | null
-          follow_up_suggested: boolean | null
-          id: string
-          is_operator_asset: boolean
-          last_activity_at: string | null
-          last_activity_summary: string | null
-          lifecycle_status: string | null
-          live_config: Json | null
-          mime_type: string | null
-          mode: string | null
-          object_path: string | null
-          organization_id: string | null
-          person_id: string | null
-          provider: Database["public"]["Enums"]["entity_provider"] | null
-          provider_metadata: Json | null
-          provider_metadata_at: string | null
-          resource_id: string | null
-          resource_type: string | null
-          shared_with_client: boolean | null
-          signed_date: string | null
-          size_bytes: number | null
-          source: string | null
-          source_external_id: string | null
-          source_origin:
-            | Database["public"]["Enums"]["entity_source_origin"]
-            | null
-          source_provider: string | null
-          source_reclassified_as_manual: boolean | null
-          source_type: string | null
-          total_amount_cents: number | null
-          updated_at: string
-          uploaded_by: string
-          workspace_id: string
-        }
-        Insert: {
-          ai_error?: string | null
-          ai_extracted_at?: string | null
-          ai_status?: Database["public"]["Enums"]["file_ai_status"] | null
-          ai_summary?: string | null
-          app_url?: string | null
-          archived_at?: string | null
-          because?: string | null
-          brand_metadata?: Json | null
-          bucket_id?: string
-          capture_event_id?: string | null
-          capture_source_url?: string | null
-          category?: Database["public"]["Enums"]["file_category"]
-          composio_trigger_id?: string | null
-          confidence?: number | null
-          created_at?: string
-          currency?: string | null
-          deleted_at?: string | null
-          deleted_by?: string | null
-          description?: string | null
-          direction?: Database["public"]["Enums"]["file_direction"] | null
-          document_type?: string | null
-          due_date?: string | null
-          expiry_date?: string | null
-          external_url?: string | null
-          extracted_data?: Json | null
-          extraction_status?: string | null
-          extraction_version?: number | null
-          file_name: string
-          file_type?: string
-          follow_up_date?: string | null
-          follow_up_reason?: string | null
-          follow_up_suggested?: boolean | null
-          id?: string
-          is_operator_asset?: boolean
-          last_activity_at?: string | null
-          last_activity_summary?: string | null
-          lifecycle_status?: string | null
-          live_config?: Json | null
-          mime_type?: string | null
-          mode?: string | null
-          object_path?: string | null
-          organization_id?: string | null
-          person_id?: string | null
-          provider?: Database["public"]["Enums"]["entity_provider"] | null
-          provider_metadata?: Json | null
-          provider_metadata_at?: string | null
-          resource_id?: string | null
-          resource_type?: string | null
-          shared_with_client?: boolean | null
-          signed_date?: string | null
-          size_bytes?: number | null
-          source?: string | null
-          source_external_id?: string | null
-          source_origin?:
-            | Database["public"]["Enums"]["entity_source_origin"]
-            | null
-          source_provider?: string | null
-          source_reclassified_as_manual?: boolean | null
-          source_type?: string | null
-          total_amount_cents?: number | null
-          updated_at?: string
-          uploaded_by: string
-          workspace_id: string
-        }
-        Update: {
-          ai_error?: string | null
-          ai_extracted_at?: string | null
-          ai_status?: Database["public"]["Enums"]["file_ai_status"] | null
-          ai_summary?: string | null
-          app_url?: string | null
-          archived_at?: string | null
-          because?: string | null
-          brand_metadata?: Json | null
-          bucket_id?: string
-          capture_event_id?: string | null
-          capture_source_url?: string | null
-          category?: Database["public"]["Enums"]["file_category"]
-          composio_trigger_id?: string | null
-          confidence?: number | null
-          created_at?: string
-          currency?: string | null
-          deleted_at?: string | null
-          deleted_by?: string | null
-          description?: string | null
-          direction?: Database["public"]["Enums"]["file_direction"] | null
-          document_type?: string | null
-          due_date?: string | null
-          expiry_date?: string | null
-          external_url?: string | null
-          extracted_data?: Json | null
-          extraction_status?: string | null
-          extraction_version?: number | null
-          file_name?: string
-          file_type?: string
-          follow_up_date?: string | null
-          follow_up_reason?: string | null
-          follow_up_suggested?: boolean | null
-          id?: string
-          is_operator_asset?: boolean
-          last_activity_at?: string | null
-          last_activity_summary?: string | null
-          lifecycle_status?: string | null
-          live_config?: Json | null
-          mime_type?: string | null
-          mode?: string | null
-          object_path?: string | null
-          organization_id?: string | null
-          person_id?: string | null
-          provider?: Database["public"]["Enums"]["entity_provider"] | null
-          provider_metadata?: Json | null
-          provider_metadata_at?: string | null
-          resource_id?: string | null
-          resource_type?: string | null
-          shared_with_client?: boolean | null
-          signed_date?: string | null
-          size_bytes?: number | null
-          source?: string | null
-          source_external_id?: string | null
-          source_origin?:
-            | Database["public"]["Enums"]["entity_source_origin"]
-            | null
-          source_provider?: string | null
-          source_reclassified_as_manual?: boolean | null
-          source_type?: string | null
-          total_amount_cents?: number | null
-          updated_at?: string
-          uploaded_by?: string
-          workspace_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "files_capture_event_id_fkey"
-            columns: ["capture_event_id"]
-            isOneToOne: false
-            referencedRelation: "capture_events"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "files_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "files_person_id_fkey"
-            columns: ["person_id"]
-            isOneToOne: false
-            referencedRelation: "people"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "files_studio_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "studios"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "files_studio_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "workspaces"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       inbox_read_states: {
         Row: {
           archived_at: string | null
@@ -3847,6 +3416,57 @@ export type Database = {
             columns: ["work_id"]
             isOneToOne: false
             referencedRelation: "work"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      memory_customize_entries: {
+        Row: {
+          body: string
+          created_at: string
+          created_by: string | null
+          entity_type: string
+          id: string
+          source: string
+          status: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          created_by?: string | null
+          entity_type: string
+          id?: string
+          source: string
+          status?: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          entity_type?: string
+          id?: string
+          source?: string
+          status?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "memory_customize_entries_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "studios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "memory_customize_entries_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
         ]
@@ -6321,6 +5941,61 @@ export type Database = {
           },
         ]
       }
+      resource_activities: {
+        Row: {
+          activity_type: string
+          actor_id: string | null
+          actor_label: string | null
+          created_at: string
+          id: string
+          metadata: Json | null
+          resource_id: string
+          workspace_id: string
+        }
+        Insert: {
+          activity_type: string
+          actor_id?: string | null
+          actor_label?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          resource_id: string
+          workspace_id: string
+        }
+        Update: {
+          activity_type?: string
+          actor_id?: string | null
+          actor_label?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          resource_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "file_activities_file_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "resources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "file_activities_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "studios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "file_activities_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       resource_signals: {
         Row: {
           created_at: string
@@ -6366,14 +6041,7 @@ export type Database = {
             foreignKeyName: "resource_signals_resource_id_fkey"
             columns: ["resource_id"]
             isOneToOne: false
-            referencedRelation: "files"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "resource_signals_resource_id_fkey"
-            columns: ["resource_id"]
-            isOneToOne: false
-            referencedRelation: "project_files"
+            referencedRelation: "resources"
             referencedColumns: ["id"]
           },
           {
@@ -6385,6 +6053,343 @@ export type Database = {
           },
           {
             foreignKeyName: "resource_signals_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      resource_tag_assignments: {
+        Row: {
+          created_at: string
+          id: string
+          resource_id: string
+          tag_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          resource_id: string
+          tag_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          resource_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "file_tag_assignments_file_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "resources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "file_tag_assignments_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "resource_tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      resource_tags: {
+        Row: {
+          color: string | null
+          created_at: string
+          default_direction:
+            | Database["public"]["Enums"]["file_direction"]
+            | null
+          display_order: number
+          id: string
+          is_system: boolean
+          label: string
+          system_tag_id: string | null
+          updated_at: string
+          workspace_id: string | null
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          default_direction?:
+            | Database["public"]["Enums"]["file_direction"]
+            | null
+          display_order?: number
+          id?: string
+          is_system?: boolean
+          label: string
+          system_tag_id?: string | null
+          updated_at?: string
+          workspace_id?: string | null
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          default_direction?:
+            | Database["public"]["Enums"]["file_direction"]
+            | null
+          display_order?: number
+          id?: string
+          is_system?: boolean
+          label?: string
+          system_tag_id?: string | null
+          updated_at?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "file_tags_studio_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "studios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "file_tags_studio_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "file_tags_system_tag_id_fkey"
+            columns: ["system_tag_id"]
+            isOneToOne: false
+            referencedRelation: "resource_tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      resources: {
+        Row: {
+          ai_error: string | null
+          ai_extracted_at: string | null
+          ai_status: Database["public"]["Enums"]["file_ai_status"] | null
+          ai_summary: string | null
+          app_url: string | null
+          archived_at: string | null
+          because: string | null
+          brand_metadata: Json | null
+          bucket_id: string
+          capture_event_id: string | null
+          capture_source_url: string | null
+          category: Database["public"]["Enums"]["file_category"]
+          composio_trigger_id: string | null
+          confidence: number | null
+          created_at: string
+          currency: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          description: string | null
+          direction: Database["public"]["Enums"]["file_direction"] | null
+          document_type: string | null
+          due_date: string | null
+          expiry_date: string | null
+          external_url: string | null
+          extracted_data: Json | null
+          extraction_status: string | null
+          extraction_version: number | null
+          file_name: string
+          file_type: string
+          follow_up_date: string | null
+          follow_up_reason: string | null
+          follow_up_suggested: boolean | null
+          id: string
+          is_operator_asset: boolean
+          last_activity_at: string | null
+          last_activity_summary: string | null
+          lifecycle_status: string | null
+          live_config: Json | null
+          mime_type: string | null
+          mode: string | null
+          object_path: string | null
+          organization_id: string | null
+          person_id: string | null
+          provider: Database["public"]["Enums"]["entity_provider"] | null
+          provider_metadata: Json | null
+          provider_metadata_at: string | null
+          resource_id: string | null
+          resource_type: string | null
+          shared_with_client: boolean | null
+          signed_date: string | null
+          size_bytes: number | null
+          source: string | null
+          source_external_id: string | null
+          source_origin:
+            | Database["public"]["Enums"]["entity_source_origin"]
+            | null
+          source_provider: string | null
+          source_reclassified_as_manual: boolean | null
+          source_type: string | null
+          total_amount_cents: number | null
+          updated_at: string
+          uploaded_by: string
+          workspace_id: string
+        }
+        Insert: {
+          ai_error?: string | null
+          ai_extracted_at?: string | null
+          ai_status?: Database["public"]["Enums"]["file_ai_status"] | null
+          ai_summary?: string | null
+          app_url?: string | null
+          archived_at?: string | null
+          because?: string | null
+          brand_metadata?: Json | null
+          bucket_id?: string
+          capture_event_id?: string | null
+          capture_source_url?: string | null
+          category?: Database["public"]["Enums"]["file_category"]
+          composio_trigger_id?: string | null
+          confidence?: number | null
+          created_at?: string
+          currency?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          description?: string | null
+          direction?: Database["public"]["Enums"]["file_direction"] | null
+          document_type?: string | null
+          due_date?: string | null
+          expiry_date?: string | null
+          external_url?: string | null
+          extracted_data?: Json | null
+          extraction_status?: string | null
+          extraction_version?: number | null
+          file_name: string
+          file_type?: string
+          follow_up_date?: string | null
+          follow_up_reason?: string | null
+          follow_up_suggested?: boolean | null
+          id?: string
+          is_operator_asset?: boolean
+          last_activity_at?: string | null
+          last_activity_summary?: string | null
+          lifecycle_status?: string | null
+          live_config?: Json | null
+          mime_type?: string | null
+          mode?: string | null
+          object_path?: string | null
+          organization_id?: string | null
+          person_id?: string | null
+          provider?: Database["public"]["Enums"]["entity_provider"] | null
+          provider_metadata?: Json | null
+          provider_metadata_at?: string | null
+          resource_id?: string | null
+          resource_type?: string | null
+          shared_with_client?: boolean | null
+          signed_date?: string | null
+          size_bytes?: number | null
+          source?: string | null
+          source_external_id?: string | null
+          source_origin?:
+            | Database["public"]["Enums"]["entity_source_origin"]
+            | null
+          source_provider?: string | null
+          source_reclassified_as_manual?: boolean | null
+          source_type?: string | null
+          total_amount_cents?: number | null
+          updated_at?: string
+          uploaded_by: string
+          workspace_id: string
+        }
+        Update: {
+          ai_error?: string | null
+          ai_extracted_at?: string | null
+          ai_status?: Database["public"]["Enums"]["file_ai_status"] | null
+          ai_summary?: string | null
+          app_url?: string | null
+          archived_at?: string | null
+          because?: string | null
+          brand_metadata?: Json | null
+          bucket_id?: string
+          capture_event_id?: string | null
+          capture_source_url?: string | null
+          category?: Database["public"]["Enums"]["file_category"]
+          composio_trigger_id?: string | null
+          confidence?: number | null
+          created_at?: string
+          currency?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          description?: string | null
+          direction?: Database["public"]["Enums"]["file_direction"] | null
+          document_type?: string | null
+          due_date?: string | null
+          expiry_date?: string | null
+          external_url?: string | null
+          extracted_data?: Json | null
+          extraction_status?: string | null
+          extraction_version?: number | null
+          file_name?: string
+          file_type?: string
+          follow_up_date?: string | null
+          follow_up_reason?: string | null
+          follow_up_suggested?: boolean | null
+          id?: string
+          is_operator_asset?: boolean
+          last_activity_at?: string | null
+          last_activity_summary?: string | null
+          lifecycle_status?: string | null
+          live_config?: Json | null
+          mime_type?: string | null
+          mode?: string | null
+          object_path?: string | null
+          organization_id?: string | null
+          person_id?: string | null
+          provider?: Database["public"]["Enums"]["entity_provider"] | null
+          provider_metadata?: Json | null
+          provider_metadata_at?: string | null
+          resource_id?: string | null
+          resource_type?: string | null
+          shared_with_client?: boolean | null
+          signed_date?: string | null
+          size_bytes?: number | null
+          source?: string | null
+          source_external_id?: string | null
+          source_origin?:
+            | Database["public"]["Enums"]["entity_source_origin"]
+            | null
+          source_provider?: string | null
+          source_reclassified_as_manual?: boolean | null
+          source_type?: string | null
+          total_amount_cents?: number | null
+          updated_at?: string
+          uploaded_by?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resources_capture_event_id_fkey"
+            columns: ["capture_event_id"]
+            isOneToOne: false
+            referencedRelation: "capture_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resources_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resources_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resources_studio_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "studios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "resources_studio_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -9142,6 +9147,7 @@ export type Database = {
           business_email: string | null
           business_phone: string | null
           business_type: string | null
+          capture_gate_policy: Json
           created_at: string
           default_currency: string | null
           description: string | null
@@ -9182,6 +9188,7 @@ export type Database = {
           business_email?: string | null
           business_phone?: string | null
           business_type?: string | null
+          capture_gate_policy?: Json
           created_at?: string
           default_currency?: string | null
           description?: string | null
@@ -9222,6 +9229,7 @@ export type Database = {
           business_email?: string | null
           business_phone?: string | null
           business_type?: string | null
+          capture_gate_policy?: Json
           created_at?: string
           default_currency?: string | null
           description?: string | null
@@ -9451,201 +9459,6 @@ export type Database = {
           },
         ]
       }
-      project_files: {
-        Row: {
-          ai_error: string | null
-          ai_extracted_at: string | null
-          ai_status: Database["public"]["Enums"]["file_ai_status"] | null
-          ai_summary: string | null
-          app_url: string | null
-          archived_at: string | null
-          brand_metadata: Json | null
-          bucket_id: string | null
-          capture_event_id: string | null
-          capture_source_url: string | null
-          category: Database["public"]["Enums"]["file_category"] | null
-          created_at: string | null
-          currency: string | null
-          description: string | null
-          direction: Database["public"]["Enums"]["file_direction"] | null
-          document_type: string | null
-          due_date: string | null
-          expiry_date: string | null
-          external_url: string | null
-          extracted_data: Json | null
-          extraction_status: string | null
-          extraction_version: number | null
-          file_name: string | null
-          file_type: string | null
-          follow_up_date: string | null
-          follow_up_reason: string | null
-          follow_up_suggested: boolean | null
-          id: string | null
-          is_operator_asset: boolean | null
-          lifecycle_status: string | null
-          mime_type: string | null
-          object_path: string | null
-          organization_id: string | null
-          person_id: string | null
-          project_id: string | null
-          provider: Database["public"]["Enums"]["entity_provider"] | null
-          shared_with_client: boolean | null
-          signed_date: string | null
-          size_bytes: number | null
-          source_external_id: string | null
-          source_origin:
-            | Database["public"]["Enums"]["entity_source_origin"]
-            | null
-          source_provider: string | null
-          source_reclassified_as_manual: boolean | null
-          source_type: string | null
-          total_amount_cents: number | null
-          updated_at: string | null
-          uploaded_by: string | null
-          workspace_id: string | null
-        }
-        Insert: {
-          ai_error?: string | null
-          ai_extracted_at?: string | null
-          ai_status?: Database["public"]["Enums"]["file_ai_status"] | null
-          ai_summary?: string | null
-          app_url?: string | null
-          archived_at?: string | null
-          brand_metadata?: Json | null
-          bucket_id?: string | null
-          capture_event_id?: string | null
-          capture_source_url?: string | null
-          category?: Database["public"]["Enums"]["file_category"] | null
-          created_at?: string | null
-          currency?: string | null
-          description?: string | null
-          direction?: Database["public"]["Enums"]["file_direction"] | null
-          document_type?: string | null
-          due_date?: string | null
-          expiry_date?: string | null
-          external_url?: string | null
-          extracted_data?: Json | null
-          extraction_status?: string | null
-          extraction_version?: number | null
-          file_name?: string | null
-          file_type?: string | null
-          follow_up_date?: string | null
-          follow_up_reason?: string | null
-          follow_up_suggested?: boolean | null
-          id?: string | null
-          is_operator_asset?: boolean | null
-          lifecycle_status?: string | null
-          mime_type?: string | null
-          object_path?: string | null
-          organization_id?: string | null
-          person_id?: string | null
-          project_id?: never
-          provider?: Database["public"]["Enums"]["entity_provider"] | null
-          shared_with_client?: boolean | null
-          signed_date?: string | null
-          size_bytes?: number | null
-          source_external_id?: string | null
-          source_origin?:
-            | Database["public"]["Enums"]["entity_source_origin"]
-            | null
-          source_provider?: string | null
-          source_reclassified_as_manual?: boolean | null
-          source_type?: string | null
-          total_amount_cents?: number | null
-          updated_at?: string | null
-          uploaded_by?: string | null
-          workspace_id?: string | null
-        }
-        Update: {
-          ai_error?: string | null
-          ai_extracted_at?: string | null
-          ai_status?: Database["public"]["Enums"]["file_ai_status"] | null
-          ai_summary?: string | null
-          app_url?: string | null
-          archived_at?: string | null
-          brand_metadata?: Json | null
-          bucket_id?: string | null
-          capture_event_id?: string | null
-          capture_source_url?: string | null
-          category?: Database["public"]["Enums"]["file_category"] | null
-          created_at?: string | null
-          currency?: string | null
-          description?: string | null
-          direction?: Database["public"]["Enums"]["file_direction"] | null
-          document_type?: string | null
-          due_date?: string | null
-          expiry_date?: string | null
-          external_url?: string | null
-          extracted_data?: Json | null
-          extraction_status?: string | null
-          extraction_version?: number | null
-          file_name?: string | null
-          file_type?: string | null
-          follow_up_date?: string | null
-          follow_up_reason?: string | null
-          follow_up_suggested?: boolean | null
-          id?: string | null
-          is_operator_asset?: boolean | null
-          lifecycle_status?: string | null
-          mime_type?: string | null
-          object_path?: string | null
-          organization_id?: string | null
-          person_id?: string | null
-          project_id?: never
-          provider?: Database["public"]["Enums"]["entity_provider"] | null
-          shared_with_client?: boolean | null
-          signed_date?: string | null
-          size_bytes?: number | null
-          source_external_id?: string | null
-          source_origin?:
-            | Database["public"]["Enums"]["entity_source_origin"]
-            | null
-          source_provider?: string | null
-          source_reclassified_as_manual?: boolean | null
-          source_type?: string | null
-          total_amount_cents?: number | null
-          updated_at?: string | null
-          uploaded_by?: string | null
-          workspace_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "files_capture_event_id_fkey"
-            columns: ["capture_event_id"]
-            isOneToOne: false
-            referencedRelation: "capture_events"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "files_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "files_person_id_fkey"
-            columns: ["person_id"]
-            isOneToOne: false
-            referencedRelation: "people"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "files_studio_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "studios"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "files_studio_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "workspaces"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       project_milestones: {
         Row: {
           client_visible: boolean | null
@@ -9726,13 +9539,6 @@ export type Database = {
           },
           {
             foreignKeyName: "work_delivery_milestones_work_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "work_delivery_milestones_work_id_fkey"
             columns: ["work_id"]
             isOneToOne: false
             referencedRelation: "projects"
@@ -9741,13 +9547,20 @@ export type Database = {
           {
             foreignKeyName: "work_delivery_milestones_work_id_fkey"
             columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_delivery_milestones_work_id_fkey"
+            columns: ["work_id"]
             isOneToOne: false
             referencedRelation: "work"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "work_delivery_milestones_work_id_fkey"
-            columns: ["work_id"]
+            columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "work"
             referencedColumns: ["id"]
@@ -10084,13 +9897,6 @@ export type Database = {
           },
           {
             foreignKeyName: "work_time_entries_work_id_fkey"
-            columns: ["work_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "work_time_entries_work_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
@@ -10099,13 +9905,20 @@ export type Database = {
           {
             foreignKeyName: "work_time_entries_work_id_fkey"
             columns: ["work_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_time_entries_work_id_fkey"
+            columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "work"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "work_time_entries_work_id_fkey"
-            columns: ["project_id"]
+            columns: ["work_id"]
             isOneToOne: false
             referencedRelation: "work"
             referencedColumns: ["id"]
@@ -11341,9 +11154,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       billing_category: ["contractor", "software", "other"],

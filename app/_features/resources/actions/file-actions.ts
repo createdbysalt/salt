@@ -172,7 +172,7 @@ export async function updateMemoryFileConnection(
     }
 
     const { error: updateError } = await supabase
-      .from("files")
+      .from("resources")
       .update({
         person_id: personId,
         organization_id: organizationId,
@@ -209,7 +209,7 @@ export async function archiveMemoryFile(fileId: string): Promise<ActionResult> {
     const supabase = await createClient();
 
     const { error } = await supabase
-      .from("files")
+      .from("resources")
       .update({ archived_at: new Date().toISOString() })
       .eq("id", fileId)
       .eq("workspace_id", workspace.id)
@@ -238,7 +238,7 @@ export async function updateMemoryFileCategory(
     const supabase = await createClient();
 
     const { error } = await supabase
-      .from("files")
+      .from("resources")
       .update({ category, updated_at: new Date().toISOString() })
       .eq("id", fileId)
       .eq("workspace_id", workspace.id);
@@ -343,7 +343,7 @@ export async function updateMemoryFileField(
     const supabase = await createClient();
 
     const { error } = await supabase
-      .from("files")
+      .from("resources")
       .update({
         [FILE_FIELD_TO_COLUMN[allowedField]]: normalized.value,
         updated_at: new Date().toISOString(),
@@ -383,7 +383,7 @@ export async function logFileViewActivity(fileId: string): Promise<ActionResult>
   try {
     const { workspace, supabase, userId } = await getWorkspaceContext();
 
-    const { error } = await supabase.from("file_activities").insert({
+    const { error } = await supabase.from("resource_activities").insert({
       workspace_id: workspace.id,
       file_id: fileId,
       activity_type: "viewed",

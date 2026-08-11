@@ -37,7 +37,7 @@ export async function addResource(input: AddResourceInput) {
   const name = data.displayName || detection.suggestedName || new URL(data.resourceUrl).hostname;
 
   const { data: existing } = await supabase
-    .from("files")
+    .from("resources")
     .select("id")
     .eq("workspace_id", workspace.id)
     .eq("external_url", data.resourceUrl)
@@ -48,7 +48,7 @@ export async function addResource(input: AddResourceInput) {
   }
 
   const { data: resource, error } = await supabase
-    .from("files")
+    .from("resources")
     .insert({
       workspace_id: workspace.id,
       file_name: name,
@@ -116,7 +116,7 @@ export async function updateResourceMode(input: z.infer<typeof UpdateResourceMod
   const data = parsed.data;
 
   const { error } = await supabase
-    .from("files")
+    .from("resources")
     .update({
       mode: data.mode,
       live_config: data.liveConfig ?? {},
@@ -164,7 +164,7 @@ export async function removeResource(input: z.infer<typeof RemoveResourceSchema>
 
   if (!remainingLinks || remainingLinks.length === 0) {
     await supabase
-      .from("files")
+      .from("resources")
       .update({ deleted_at: new Date().toISOString() })
       .eq("id", data.resourceId)
       .eq("workspace_id", workspace.id);
@@ -179,7 +179,7 @@ export async function refreshResourceMetadata(resourceId: string) {
   const { workspace, supabase } = await getWorkspaceContext();
 
   const { data: resource } = await supabase
-    .from("files")
+    .from("resources")
     .select("id, external_url, resource_type")
     .eq("id", resourceId)
     .eq("workspace_id", workspace.id)
@@ -201,7 +201,7 @@ export async function refreshResourceMetadata(resourceId: string) {
   );
 
   const { error } = await supabase
-    .from("files")
+    .from("resources")
     .update({
       resource_type: detection.resourceType,
       resource_id: detection.resourceId,
@@ -240,16 +240,62 @@ export async function fetchResourcePreview(url: string) {
   };
 }
 
-export {
-  searchFileLinkTargets,
-  updateMemoryFileConnection,
-  archiveMemoryFile,
-  updateMemoryFileCategory,
-  updateMemoryFileField,
-  logFileViewActivity,
-  fetchFileDetailData,
+// Turbopack rejects `export { x } from "./y"` re-exports in "use server"
+// files, so these are explicit wrappers. Types (FileLinkTarget,
+// FileLinkSearchResult, FileDetailData) must be imported from
+// "./file-actions" directly — a "use server" module cannot re-export types
+// when it is reachable from client components.
+import {
+  searchFileLinkTargets as searchFileLinkTargetsImpl,
+  updateMemoryFileConnection as updateMemoryFileConnectionImpl,
+  archiveMemoryFile as archiveMemoryFileImpl,
+  updateMemoryFileCategory as updateMemoryFileCategoryImpl,
+  updateMemoryFileField as updateMemoryFileFieldImpl,
+  logFileViewActivity as logFileViewActivityImpl,
+  fetchFileDetailData as fetchFileDetailDataImpl,
   type FileLinkTarget,
-  type FileLinkSearchResult,
-  type FileDetailData,
 } from "./file-actions";
-export { saveMemoryFileAction } from "./save-memory-file";
+import type { FileCategory } from "../data";
+import { saveMemoryFileAction as saveMemoryFileActionImpl } from "./save-memory-file";
+
+export async function searchFileLinkTargets(query: string) {
+  return searchFileLinkTargetsImpl(query);
+}
+
+export async function updateMemoryFileConnection(
+  fileId: string,
+  targetInput: FileLinkTarget,
+) {
+  return updateMemoryFileConnectionImpl(fileId, targetInput);
+}
+
+export async function archiveMemoryFile(fileId: string) {
+  return archiveMemoryFileImpl(fileId);
+}
+
+export async function updateMemoryFileCategory(
+  fileId: string,
+  category: FileCategory,
+) {
+  return updateMemoryFileCategoryImpl(fileId, category);
+}
+
+export async function updateMemoryFileField(
+  fileId: string,
+  field: string,
+  value: unknown,
+) {
+  return updateMemoryFileFieldImpl(fileId, field, value);
+}
+
+export async function logFileViewActivity(fileId: string) {
+  return logFileViewActivityImpl(fileId);
+}
+
+export async function fetchFileDetailData(fileId: string) {
+  return fetchFileDetailDataImpl(fileId);
+}
+
+export async function saveMemoryFileAction(...args: Parameters<typeof saveMemoryFileActionImpl>) {
+  return saveMemoryFileActionImpl(...args);
+}

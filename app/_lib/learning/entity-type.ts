@@ -1,18 +1,16 @@
 /**
  * Learning entity-type adapters (app ↔ DB).
  *
- * App code speaks `LearningEntityType` with `"resource"`. Several DB CHECKs
- * (pending_evidence, salt_learnings, profile_field_provenance, …) still store
- * the legacy spelling `"file"`. Map at every read/write boundary — never rename
- * the `public.files` table as part of this migration.
+ * App code speaks `LearningEntityType` with `"resource"`. After the
+ * `20260810150000_rename_files_to_resources` migration, the DB spelling is
+ * also `"resource"`. `fromLearningDbEntityType` still normalizes the legacy
+ * `"file"` spelling for reads against pre-migration rows.
  */
 
 import type { LearningEntityType } from "./types";
 
-/** Spelling stored in Learning-related DB columns that still admit `'file'`. */
-export type LearningDbEntityType =
-  | Exclude<LearningEntityType, "resource">
-  | "file";
+/** Spelling stored in Learning-related DB columns. */
+export type LearningDbEntityType = LearningEntityType;
 
 const LEARNING_ENTITY_TYPES: readonly LearningEntityType[] = [
   "person",
@@ -34,23 +32,23 @@ export function isLearningEntityType(
 }
 
 /**
- * App type → DB spelling for entity_evidence / pending_evidence / salt_learnings /
- * profile_field_provenance / field_conflicts (and similar CHECKs that admit `'file'`).
+ * App type → DB spelling. Post-rename this is the identity; kept as a
+ * function so call sites have a single seam if the DB ever diverges again.
  */
 export function toLearningDbEntityType(
   type: LearningEntityType
 ): LearningDbEntityType {
-  return type === "resource" ? "file" : type;
+  return type;
 }
 
 /**
  * Any DB spelling → app `LearningEntityType`.
- * Accepts legacy `"file"` and passthrough `"resource"` if already stored.
+ * Normalizes legacy `"file"` rows written before the rename.
  */
 export function fromLearningDbEntityType(
   value: string | null | undefined
 ): LearningEntityType | null {
   if (!value) return null;
-  if (value === "file" || value === "resource") return "resource";
+  if (value === "file") return "resource";
   return isLearningEntityType(value) ? value : null;
 }

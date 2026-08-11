@@ -374,7 +374,7 @@ async function matchByFileName(
     if (baseName.length < 3) continue;
 
     const { data: files } = await supabase
-      .from("files")
+      .from("resources")
       .select("id, file_name")
       .eq("workspace_id", context.workspaceId)
       .is("deleted_at", null)

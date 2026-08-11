@@ -485,7 +485,7 @@ async function updateFileField(
 ): Promise<void> {
   // Note: files has no work_id column — a former workId → work_id mapping
   // targeted a nonexistent column and could never have applied.
-  const fieldMap: Record<string, keyof TableUpdate<"files">> = {
+  const fieldMap: Record<string, keyof TableUpdate<"resources">> = {
     category: "category",
     document_type: "document_type",
     lifecycle_status: "lifecycle_status",
@@ -502,8 +502,8 @@ async function updateFileField(
   }
 
   await admin
-    .from("files")
-    .update({ [dbField]: input.value } as TableUpdate<"files">)
+    .from("resources")
+    .update({ [dbField]: input.value } as TableUpdate<"resources">)
     .eq("id", input.entityId)
     .eq("workspace_id", input.workspaceId);
 }

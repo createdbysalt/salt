@@ -80,7 +80,7 @@ export const getEntityResources = cache(
     const fileIds = links.map((link) => link.source_id);
 
     const { data: files, error } = await supabase
-      .from("files")
+      .from("resources")
       .select(`
         id,
         workspace_id,
@@ -125,7 +125,7 @@ export const getLiveResources = cache(async (): Promise<Resource[]> => {
   const { workspace, supabase } = await getWorkspaceContext();
 
   const { data: files, error } = await supabase
-    .from("files")
+    .from("resources")
     .select(`
       id,
       workspace_id,
@@ -287,7 +287,7 @@ export const getResourceById = cache(
     const { workspace, supabase } = await getWorkspaceContext();
 
     const { data: file, error } = await supabase
-      .from("files")
+      .from("resources")
       .select(`
         id,
         workspace_id,

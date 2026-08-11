@@ -26,7 +26,7 @@ export async function updateFileDescription(
     const supabase = await createClient();
 
     const { error } = await supabase
-      .from("files")
+      .from("resources")
       .update({ description: description || null })
       .eq("id", fileId)
       .eq("workspace_id", workspace.id);
@@ -69,7 +69,7 @@ export async function updateFileDirection(
     const sharedWithClient = direction === "to_client";
 
     const { error } = await supabase
-      .from("files")
+      .from("resources")
       .update({
         direction,
         shared_with_client: sharedWithClient,
@@ -146,7 +146,7 @@ export async function addFileTag(
     const supabase = await createClient();
 
     const { error } = await supabase
-      .from("file_tag_assignments")
+      .from("resource_tag_assignments")
       .insert({ file_id: fileId, tag_id: tagId });
 
     if (error) {
@@ -187,9 +187,9 @@ export async function removeFileTag(
     const supabase = await createClient();
 
     const { error } = await supabase
-      .from("file_tag_assignments")
+      .from("resource_tag_assignments")
       .delete()
-      .eq("file_id", fileId)
+      .eq("resource_id", fileId)
       .eq("tag_id", tagId);
 
     if (error) {
@@ -227,7 +227,7 @@ export async function deleteFile(fileId: string): Promise<DeleteFileResult> {
     const workspace = requireWorkspaceMember(context);
     const supabase = await createClient();
     const { data: file } = await supabase
-      .from("files")
+      .from("resources")
       .select("person_id")
       .eq("id", fileId)
       .eq("workspace_id", workspace.id)
@@ -266,7 +266,7 @@ export async function getFileDownloadUrl(
 
     // Get file details
     const { data: file, error: fetchError } = await supabase
-      .from("files")
+      .from("resources")
       .select("object_path, bucket_id, file_name")
       .eq("id", fileId)
       .eq("workspace_id", workspace.id)
@@ -321,7 +321,7 @@ export async function getFilePreviewUrl(
 
     // Get file details
     const { data: file, error: fetchError } = await supabase
-      .from("files")
+      .from("resources")
       .select("object_path, bucket_id, file_name, mime_type")
       .eq("id", fileId)
       .eq("workspace_id", workspace.id)

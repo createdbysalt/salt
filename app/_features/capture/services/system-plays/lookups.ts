@@ -330,7 +330,7 @@ export async function findFiles(
   const trimmed = query.trim();
 
   let dbQuery = admin
-    .from("files")
+    .from("resources")
     .select("id, file_name, category, description, document_type, external_url")
     .eq("workspace_id", workspaceId)
     .is("deleted_at", null)

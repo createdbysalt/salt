@@ -198,7 +198,12 @@ export type FileCTA = {
 // Detail View Types
 // ============================================================================
 
-export type FileDetailData = {
+/**
+ * Legacy detail shape (pre server-action `fetchFileDetailData`). Prefer
+ * `FileDetailData` from `./actions/file-actions` for live detail fetches;
+ * this is retained for consumers of the older detail record assembly.
+ */
+export type LegacyFileDetailData = {
   file: FileDetailRecord | null;
   activities?: FileActivityEvent[];
   plays?: FilePlaySummary[];

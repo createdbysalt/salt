@@ -97,7 +97,7 @@ export const getWorkspaceFiles = cache(async (): Promise<MemoryFile[]> => {
   const { workspace, supabase } = await getWorkspaceContext();
 
   const { data: files, error } = await supabase
-    .from("files")
+    .from("resources")
     .select(
       `
       id,
@@ -159,7 +159,7 @@ export const getWorkspaceFiles = cache(async (): Promise<MemoryFile[]> => {
       .eq("workspace_id", workspace.id)
       .in("id", projectIds.length > 0 ? projectIds : [EMPTY_UUID]),
     supabase
-      .from("file_tag_assignments")
+      .from("resource_tag_assignments")
       .select("file_id, tag:file_tags(id, label)")
       .in("file_id", rows.map((row) => row.id)),
   ]);
@@ -218,7 +218,7 @@ export const getFileDetail = cache(async (fileId: string): Promise<FileDetailRec
   const { workspace, supabase } = await getWorkspaceContext();
 
   const { data: file, error } = await supabase
-    .from("files")
+    .from("resources")
     .select(
       `
       id,
@@ -270,9 +270,9 @@ export const getFileDetail = cache(async (fileId: string): Promise<FileDetailRec
 
   // Fetch tags
   const { data: tagAssignments } = await supabase
-    .from("file_tag_assignments")
+    .from("resource_tag_assignments")
     .select("tag:file_tags(id, label)")
-    .eq("file_id", fileId);
+    .eq("resource_id", fileId);
 
   const tags: string[] = [];
   for (const assignment of tagAssignments ?? []) {
@@ -398,7 +398,7 @@ export const getFileActivities = cache(
     const { workspace, supabase } = await getWorkspaceContext();
 
     const { data: activities, error } = await supabase
-      .from("file_activities")
+      .from("resource_activities")
       .select(
         `
         id,
@@ -410,7 +410,7 @@ export const getFileActivities = cache(
         created_at
       `,
       )
-      .eq("file_id", fileId)
+      .eq("resource_id", fileId)
       .eq("workspace_id", workspace.id)
       .order("created_at", { ascending: false })
       .limit(100);
@@ -438,9 +438,9 @@ export const getFileSupplementalActivity = cache(
 
     const [tagRows, linkRows, noteRows] = await Promise.all([
       supabase
-        .from("file_tag_assignments")
+        .from("resource_tag_assignments")
         .select("id, created_at, tag:file_tags(label)")
-        .eq("file_id", fileId)
+        .eq("resource_id", fileId)
         .order("created_at", { ascending: false }),
       supabase
         .from("entity_links")
