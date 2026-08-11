@@ -118,7 +118,7 @@ export function scopesForPrompt(
  * like the General page's explainer.
  */
 export interface DefaultGuidanceSection {
-  kind: "birth" | "fields" | "never" | "custom";
+  kind: "birth" | "connections" | "fields" | "never" | "custom";
   heading: string;
   lines: string[];
 }
@@ -175,6 +175,38 @@ const TYPE_BIRTH_LINES: Record<MemoryCustomizeEntityType, string[]> = {
   ],
   meeting: [
     "Meetings on your calendar become records with their attendees attached.",
+  ],
+};
+
+/**
+ * How connections form per record type — the "connections logic" entry on
+ * each type's logic card. A reference field IS a connection: anything
+ * linked in a field appears in the graph and in both records' connections
+ * automatically, carrying the field's reason and confidence.
+ */
+const CONNECTIONS_PRINCIPLE_LINE =
+  "Anything linked in a field appears in the graph and in both records' connections automatically — with the reason attached.";
+
+const TYPE_CONNECTION_LINES: Record<MemoryCustomizeEntityType, string[]> = {
+  person: [
+    "I connect a person to their organization by email domain, to the work they take part in, and to billing where they're the contact.",
+    CONNECTIONS_PRINCIPLE_LINE,
+  ],
+  org: [
+    "I connect an organization to its people, its work, and its billing — anything sharing the same domain.",
+    CONNECTIONS_PRINCIPLE_LINE,
+  ],
+  work: [
+    "I connect work to the organization and people behind it — including the billing contact named on the proposal.",
+    CONNECTIONS_PRINCIPLE_LINE,
+  ],
+  resource: [
+    "I connect a resource to the record it belongs to — a person, an organization, or the work it's about.",
+    CONNECTIONS_PRINCIPLE_LINE,
+  ],
+  meeting: [
+    "I connect a meeting to its attendees and to the work or organization it concerns.",
+    CONNECTIONS_PRINCIPLE_LINE,
   ],
 };
 
@@ -306,6 +338,12 @@ export function defaultGuidanceForType(
           },
         ]
       : [];
+
+  sections.push({
+    kind: "connections",
+    heading: "How I connect these",
+    lines: TYPE_CONNECTION_LINES[entityType],
+  });
 
   if (autoLines.length > 0) {
     sections.push({ kind: "fields", heading: "What I fill in", lines: autoLines });

@@ -101,6 +101,14 @@ export type GraphEdge = {
   source: string;
   target: string;
   edgeType?: "employment" | "payment" | "attachment" | "mention" | "related" | "structural";
+  /**
+   * Why these two records connect — pulled from profile_field_provenance
+   * for FK-projected edges (the field write that set the FK). Undefined
+   * for edges with no field write on record (manual links, junction rows).
+   */
+  because?: string;
+  /** Confidence of the field write that formed this edge, when known. */
+  confidence?: number;
 };
 
 /**

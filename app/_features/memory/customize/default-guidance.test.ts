@@ -124,6 +124,24 @@ describe("defaultGuidanceForType", () => {
     expect(guidance.summary).toMatch(/still growing|growing/i);
   });
 
+  it("every type ships a connections section describing how it links", () => {
+    for (const type of MEMORY_CUSTOMIZE_ENTITY_TYPES) {
+      const guidance = defaultGuidanceForType(type);
+      const section = guidance.sections.find((s) => s.kind === "connections");
+      expect(section, `${type} connections section`).toBeDefined();
+      expect(section!.lines.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("person connections name the records a person links to", () => {
+    const guidance = defaultGuidanceForType("person");
+    const section = guidance.sections.find((s) => s.kind === "connections")!;
+    const text = section.lines.join("\n");
+    expect(text).toMatch(/organization/i);
+    expect(text).toMatch(/work/i);
+    expect(text).toMatch(/billing/i);
+  });
+
   it("never uses banned machinery words in any line", () => {
     const banned = /\b(trigger|webhook|sync|scope|rule|adapter|pipeline|config)\b/i;
     for (const type of MEMORY_CUSTOMIZE_ENTITY_TYPES) {

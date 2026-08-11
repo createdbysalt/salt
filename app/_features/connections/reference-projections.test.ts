@@ -135,6 +135,65 @@ describe("reference-field projections", () => {
         edgeType: "structural",
       });
     });
+
+    it("attaches field provenance to FK-projected edges", async () => {
+      mockClient((table) => {
+        if (table === "people") return { data: [personRow], error: null };
+        if (table === "work") {
+          return {
+            data: [{ ...workRow, organization_id: null, person_id: null, billing_contact_id: PERSON_ID }],
+            error: null,
+          };
+        }
+        if (table === "profile_field_provenance") {
+          return {
+            data: [
+              {
+                entity_type: "work",
+                entity_id: WORK_ID,
+                field: "billing_contact_id",
+                confidence: 98,
+                because: "Invoice counterparty from payment matching",
+                set_at: "2026-08-10T00:00:00Z",
+              },
+            ],
+            error: null,
+          };
+        }
+        return empty;
+      });
+
+      const graph = await getConnectionsGraphData(WORKSPACE_ID);
+
+      expect(graph.edges).toContainEqual({
+        source: `work:${WORK_ID}`,
+        target: `person:${PERSON_ID}`,
+        edgeType: "structural",
+        because: "Invoice counterparty from payment matching",
+        confidence: 98,
+      });
+    });
+
+    it("leaves provenance off edges with no field write on record", async () => {
+      mockClient((table) => {
+        if (table === "people") return { data: [personRow], error: null };
+        if (table === "work") {
+          return {
+            data: [{ ...workRow, organization_id: null, person_id: null, billing_contact_id: PERSON_ID }],
+            error: null,
+          };
+        }
+        return empty;
+      });
+
+      const graph = await getConnectionsGraphData(WORKSPACE_ID);
+
+      expect(graph.edges).toContainEqual({
+        source: `work:${WORK_ID}`,
+        target: `person:${PERSON_ID}`,
+        edgeType: "structural",
+      });
+    });
   });
 
   describe("getEntityConnections", () => {

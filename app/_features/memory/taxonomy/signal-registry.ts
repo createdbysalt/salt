@@ -53,6 +53,7 @@ export type SignalId =
   | "org_address_extracted"
   | "org_tax_id_extracted"
   | "org_person_contacted"
+  | "org_tag_fit_detected"
   // Work signals
   | "work_has_signed_contract"
   | "work_has_kickoff"
@@ -68,6 +69,7 @@ export type SignalId =
   | "work_timeline_mentioned"
   | "work_type_inferred"
   | "work_stage_inferred"
+  | "work_tag_fit_detected"
   // Billing signals
   | "billing_payment_matched"
   | "billing_amount_paid_covers_total"
@@ -76,6 +78,7 @@ export type SignalId =
   | "billing_invoice_parsed"
   | "billing_receipt_parsed"
   | "billing_stripe_synced"
+  | "billing_tag_fit_detected"
   // Meeting signals
   | "meeting_synced_from_calendar"
   | "meeting_end_passed"
@@ -92,6 +95,7 @@ export type SignalId =
   | "file_document_type_inferred"
   | "file_amount_extracted"
   | "file_date_extracted"
+  | "resource_tag_fit_detected"
   // Me signals (operator profile & workspace)
   | "calendar_timezone_detected"
   | "operator_signature_has_title"
@@ -413,6 +417,14 @@ export const SIGNALS: SignalDescriptor[] = [
     description: "Someone at this organization was contacted",
     sources: ["email", "calendar"],
   },
+  {
+    id: "org_tag_fit_detected",
+    label: "Tag Fit Detected",
+    entityTypes: ["org"],
+    description:
+      "An existing workspace tag clearly fits this organization",
+    sources: ["email", "calendar", "billing"],
+  },
 
   // Work signals
   {
@@ -513,6 +525,13 @@ export const SIGNALS: SignalDescriptor[] = [
     description: "Work stage inferred from activity",
     sources: ["email", "calendar", "billing"],
   },
+  {
+    id: "work_tag_fit_detected",
+    label: "Tag Fit Detected",
+    entityTypes: ["work"],
+    description: "An existing workspace tag clearly fits this work",
+    sources: ["email", "calendar", "billing"],
+  },
 
   // Billing signals
   {
@@ -562,6 +581,14 @@ export const SIGNALS: SignalDescriptor[] = [
     label: "Stripe Synced",
     entityTypes: ["billing"],
     description: "Record synced from Stripe",
+    sources: ["billing"],
+  },
+  {
+    id: "billing_tag_fit_detected",
+    label: "Tag Fit Detected",
+    entityTypes: ["billing"],
+    description:
+      "An existing workspace tag clearly fits this billing record",
     sources: ["billing"],
   },
 
@@ -665,6 +692,13 @@ export const SIGNALS: SignalDescriptor[] = [
     entityTypes: ["file"],
     description: "Important date extracted from document",
     sources: ["documents"],
+  },
+  {
+    id: "resource_tag_fit_detected",
+    label: "Tag Fit Detected",
+    entityTypes: ["file"],
+    description: "An existing workspace tag clearly fits this resource",
+    sources: ["documents", "email"],
   },
 
   // Me signals

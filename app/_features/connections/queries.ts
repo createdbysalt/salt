@@ -128,17 +128,48 @@ export async function getConnectionsGraphData(
     .eq("workspace_id", workspaceId);
   entityLinks = linksData ?? [];
 
+  // Projected-edge provenance: FK-projected edges below inherit the
+  // because/confidence of the field write that set the FK, so the graph can
+  // say why two records connect. Latest applied write per field wins.
+  const { data: provenanceRows } = await supabase
+    .from("profile_field_provenance")
+    .select("entity_type, entity_id, field, confidence, because, set_at")
+    .eq("workspace_id", workspaceId)
+    .eq("status", "applied")
+    .in("entity_type", ["work", "billing"])
+    .in("field", ["billing_contact_id", "organization_id", "person_id", "work_id"])
+    .order("set_at", { ascending: false })
+    .limit(500);
+
+  const edgeProvenance = new Map<
+    string,
+    { because?: string; confidence?: number }
+  >();
+  for (const row of provenanceRows ?? []) {
+    const key = `${row.entity_type}:${row.entity_id}:${row.field}`;
+    if (edgeProvenance.has(key)) continue;
+    edgeProvenance.set(key, {
+      because: row.because ?? undefined,
+      confidence: row.confidence ?? undefined,
+    });
+  }
+
   const nodes = new Map<string, GraphNode>();
   const edges: GraphEdge[] = [];
   const seenEdge = new Set<string>();
 
-  const addEdge = (a: string, b: string, edgeType?: GraphEdge["edgeType"]) => {
+  const addEdge = (
+    a: string,
+    b: string,
+    edgeType?: GraphEdge["edgeType"],
+    provenance?: { because?: string; confidence?: number }
+  ) => {
     if (a === b) return;
     if (!nodes.has(a) || !nodes.has(b)) return;
     const key = a < b ? `${a}|${b}` : `${b}|${a}`;
     if (seenEdge.has(key)) return;
     seenEdge.add(key);
-    edges.push({ source: a, target: b, edgeType });
+    edges.push({ source: a, target: b, edgeType, ...provenance });
   };
 
   for (const p of people) {
@@ -339,20 +370,40 @@ export async function getConnectionsGraphData(
       addEdge(nid("work", w.id), nid("person", w.person_id), "structural");
     }
     if (w.billing_contact_id && personIdSet.has(w.billing_contact_id)) {
-      addEdge(nid("work", w.id), nid("person", w.billing_contact_id), "structural");
+      addEdge(
+        nid("work", w.id),
+        nid("person", w.billing_contact_id),
+        "structural",
+        edgeProvenance.get(`work:${w.id}:billing_contact_id`)
+      );
     }
   }
 
   // Billing edges (payment, structured FKs)
   for (const b of billing) {
     if (b.organization_id && orgIdSet.has(b.organization_id)) {
-      addEdge(nid("billing", b.id), nid("org", b.organization_id), "payment");
+      addEdge(
+        nid("billing", b.id),
+        nid("org", b.organization_id),
+        "payment",
+        edgeProvenance.get(`billing:${b.id}:organization_id`)
+      );
     }
     if (b.person_id) {
-      addEdge(nid("billing", b.id), nid("person", b.person_id), "payment");
+      addEdge(
+        nid("billing", b.id),
+        nid("person", b.person_id),
+        "payment",
+        edgeProvenance.get(`billing:${b.id}:person_id`)
+      );
     }
     if (b.work_id && workIdSet.has(b.work_id)) {
-      addEdge(nid("billing", b.id), nid("work", b.work_id), "payment");
+      addEdge(
+        nid("billing", b.id),
+        nid("work", b.work_id),
+        "payment",
+        edgeProvenance.get(`billing:${b.id}:work_id`)
+      );
     }
   }
 

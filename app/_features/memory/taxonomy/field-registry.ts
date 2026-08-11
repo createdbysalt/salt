@@ -609,6 +609,20 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     ],
   },
   {
+    key: "tags",
+    label: "Tags",
+    entityType: "org",
+    fieldType: "multi_select",
+    writePolicy: "care_auto",
+    careSignal: "org_tags",
+    requiredForCapabilities: [],
+    aiDescription:
+      "Workspace tags for this organization (via entity_tag_assignments, not a column). Salt assigns existing tags when a fit clears the bar; coining a new tag is still gated by tag_auto_create_threshold and tag_max_ai_created in profile_playbook_settings",
+    fillRules: [
+      { signal: "org_tag_fit_detected", value: "{{extracted}}", confidence: 80, because: "An existing tag clearly fits this organization" },
+    ],
+  },
+  {
     key: "recordStatus",
     label: "Record Status",
     entityType: "org",
@@ -1011,6 +1025,20 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
       { signal: "work_value_extracted", value: "{{extracted}}", confidence: 75, because: "Discount reason mentioned in proposal" },
     ],
   },
+  {
+    key: "tags",
+    label: "Tags",
+    entityType: "work",
+    fieldType: "multi_select",
+    writePolicy: "care_auto",
+    careSignal: "work_tags",
+    requiredForCapabilities: [],
+    aiDescription:
+      "Workspace tags for this work item (via entity_tag_assignments, not a column). Salt assigns existing tags when a fit clears the bar; coining a new tag is still gated by tag_auto_create_threshold and tag_max_ai_created in profile_playbook_settings",
+    fillRules: [
+      { signal: "work_tag_fit_detected", value: "{{extracted}}", confidence: 80, because: "An existing tag clearly fits this work" },
+    ],
+  },
 ];
 
 // ============================================================================
@@ -1230,6 +1258,20 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
       { signal: "billing_stripe_synced", value: "{{extracted}}", confidence: 100, because: "Stripe hosted invoice URL" },
     ],
   },
+  {
+    key: "tags",
+    label: "Tags",
+    entityType: "billing",
+    fieldType: "multi_select",
+    writePolicy: "care_auto",
+    careSignal: "billing_tags",
+    requiredForCapabilities: [],
+    aiDescription:
+      "Workspace tags for this billing record (via entity_tag_assignments, not a column). Salt assigns existing tags when a fit clears the bar; coining a new tag is still gated by tag_auto_create_threshold and tag_max_ai_created in profile_playbook_settings",
+    fillRules: [
+      { signal: "billing_tag_fit_detected", value: "{{extracted}}", confidence: 80, because: "An existing tag clearly fits this billing record" },
+    ],
+  },
 ];
 
 // ============================================================================
@@ -1410,6 +1452,20 @@ export const FILE_FIELDS: FieldDescriptor<"resources">[] = [
     dbColumn: "follow_up_date",
     fillRules: [
       { signal: "file_date_extracted", value: "{{extracted}}", confidence: 75, because: "Follow-up date suggested based on document context" },
+    ],
+  },
+  {
+    key: "tags",
+    label: "Tags",
+    entityType: "resource",
+    fieldType: "multi_select",
+    writePolicy: "care_auto",
+    careSignal: "resource_tags",
+    requiredForCapabilities: [],
+    aiDescription:
+      "Workspace tags for this resource (via entity_tag_assignments, not a column). Salt assigns existing tags when a fit clears the bar; coining a new tag is still gated by tag_auto_create_threshold and tag_max_ai_created in profile_playbook_settings",
+    fillRules: [
+      { signal: "resource_tag_fit_detected", value: "{{extracted}}", confidence: 80, because: "An existing tag clearly fits this resource" },
     ],
   },
   {
