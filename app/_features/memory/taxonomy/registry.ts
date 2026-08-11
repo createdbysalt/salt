@@ -22,7 +22,7 @@ export type VocabularyScope =
   | "work"
   | "billing"
   | "meeting"
-  | "file"
+  | "resource"
   | "me"
   | "note"
   | "all";
@@ -994,7 +994,7 @@ export const MEETING_LOCATION_TYPE_VALUES = defineValues("meeting", "classificat
   ["custom", "Custom", "Any other meeting medium or link"],
 ]);
 
-export const FILE_CATEGORY_VALUES = defineValues("file", "classification", [
+export const FILE_CATEGORY_VALUES = defineValues("resource", "classification", [
   ["brand_asset", "Brand Asset", "Logos, fonts, brand guidelines, and identity files"],
   ["deliverable", "Deliverable", "Work product delivered to a client"],
   ["contract", "Contract", "Signed or signable agreement"],
@@ -1008,7 +1008,7 @@ export const FILE_CATEGORY_VALUES = defineValues("file", "classification", [
   ["other", "Other", "Anything that fits no other category"],
 ]);
 
-export const FILE_DOCUMENT_TYPE_VALUES = defineValues("file", "classification", [
+export const FILE_DOCUMENT_TYPE_VALUES = defineValues("resource", "classification", [
   ["proposal", "Proposal", "Proposal or pitch"],
   ["contract", "Contract", "Agreement requiring signatures"],
   ["invoice", "Invoice", "Billing document"],
@@ -1021,7 +1021,7 @@ export const FILE_DOCUMENT_TYPE_VALUES = defineValues("file", "classification", 
   ["other", "Other", "Any other document type"],
 ]);
 
-export const FILE_LIFECYCLE_STATUS_VALUES = defineValues("file", "status", [
+export const FILE_LIFECYCLE_STATUS_VALUES = defineValues("resource", "status", [
   ["draft", "Draft", "Being prepared, not yet sent"],
   ["sent", "Sent", "Delivered to the counterparty"],
   ["viewed", "Viewed", "Opened by the counterparty"],
@@ -1031,7 +1031,7 @@ export const FILE_LIFECYCLE_STATUS_VALUES = defineValues("file", "status", [
   ["archived", "Archived", "No longer active; kept for records"],
 ]);
 
-export const ASSET_KIND_VALUES = defineValues("file", "classification", [
+export const ASSET_KIND_VALUES = defineValues("resource", "classification", [
   ["document", "Document", "Text or office document"],
   ["link", "Link", "External URL rather than a stored file"],
   ["photo", "Photo", "Image file"],
@@ -1239,29 +1239,29 @@ export const VOCABULARY_REGISTRY: Record<string, VocabularyDefinition> = {
   },
   file_category: {
     name: "File Category",
-    description: "What kind of business artifact a file is",
-    scope: "file",
+    description: "What kind of business artifact a resource is",
+    scope: "resource",
     category: "classification",
     values: FILE_CATEGORY_VALUES,
   },
   file_document_type: {
     name: "Document Type",
-    description: "Specific document type for document-kind files",
-    scope: "file",
+    description: "Specific document type for document-kind resources",
+    scope: "resource",
     category: "classification",
     values: FILE_DOCUMENT_TYPE_VALUES,
   },
   file_lifecycle_status: {
     name: "File Lifecycle Status",
     description: "Signature/delivery lifecycle for signable documents",
-    scope: "file",
+    scope: "resource",
     category: "status",
     values: FILE_LIFECYCLE_STATUS_VALUES,
   },
   asset_kind: {
     name: "Asset Kind",
-    description: "Storage/media kind of a file",
-    scope: "file",
+    description: "Storage/media kind of a resource",
+    scope: "resource",
     category: "classification",
     values: ASSET_KIND_VALUES,
   },

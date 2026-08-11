@@ -1,4 +1,5 @@
 import { createClient } from "@/app/_lib/supabase/server";
+import { fromDbEntityType } from "@/app/_features/memory/types/entity-type";
 import {
   type NodeType,
   type ConnectionNode,
@@ -214,12 +215,12 @@ export async function getConnectionsGraphData(
 
   const personIdSet = new Set(people.map((p) => p.id));
 
-  // File → work linkage lives in entity_links (files.project_id dropped in 6.4)
+  // Resource → work linkage lives in entity_links (files.project_id dropped in 6.4)
   const workLinkedFileIds = new Set(
     entityLinks
       .filter(
         (link) =>
-          link.source_type === "file" &&
+          fromDbEntityType(link.source_type) === "resource" &&
           link.target_type === "work" &&
           workIdSet.has(link.target_id)
       )
@@ -493,7 +494,8 @@ export async function getEntityConnections(
         .from("entity_links")
         .select("source_id")
         .eq("workspace_id", workspaceId)
-        .eq("source_type", "file")
+        // Dual-read: legacy rows may still carry the pre-rename "file" spelling
+        .in("source_type", ["resource", "file"])
         .eq("target_type", entityType)
         .eq("target_id", entityId),
 

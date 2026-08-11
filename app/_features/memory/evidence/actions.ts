@@ -123,8 +123,8 @@ export async function addSignalToEvidence(
       const signalCount = (signalRows?.length ?? 0) + 1;
       const allSignals = [...(signalRows?.map((r) => r.signal as string) ?? []), input.signal];
       const isWorthy = hasRelationshipGradeSignal(allSignals);
-      // Files never auto-create from background paths: files.uploaded_by is
-      // NOT NULL and only the confirm path supplies an acting user.
+      // Resources never auto-create from background paths: they stay
+      // confirm-only (only the confirm path supplies an acting user).
       const canAutoCreate = isWorthy && input.entityType !== "resource";
 
       if (action === "auto" && canAutoCreate) {

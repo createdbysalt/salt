@@ -180,7 +180,8 @@ const ENTITY_TYPE_LABELS: Record<string, string> = {
   conversation: "conversation",
   meeting: "meeting",
   client_meeting: "meeting",
-  file: "file",
+  file: "resource",
+  resource: "resource",
   space: "space",
 };
 

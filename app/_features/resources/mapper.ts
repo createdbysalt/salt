@@ -22,7 +22,7 @@ export type ProjectFileRow = {
   updated_at: string;
   person_id: string | null;
   organization_id: string | null;
-  uploaded_by: string;
+  uploaded_by: string | null;
   ai_summary: string | null;
   brand_metadata?: unknown;
   is_operator_asset?: boolean | null;

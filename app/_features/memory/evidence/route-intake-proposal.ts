@@ -270,8 +270,8 @@ export async function routeIntakeProposal(
 
   // P6 + P7: auto-create only with earned calibration AND relationship-grade
   // evidence. On failure (e.g. missing name), fall back to the suggested lane.
-  // Files are confirm-only (files.uploaded_by needs an acting user) — skip
-  // the attempt entirely instead of failing closed on every proposal.
+  // Resources are confirm-only — skip the attempt entirely instead of
+  // failing closed on every proposal.
   if (
     input.autoApply &&
     input.entityType !== "resource" &&

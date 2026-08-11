@@ -571,8 +571,8 @@ export interface ArchiveMeFactInput {
 }
 
 // Tag operations
-export type TagEntityType = "person" | "org" | "work" | "billing" | "file";
-export type TagScope = "person" | "org" | "work" | "billing" | "file" | "all";
+export type TagEntityType = "person" | "org" | "work" | "billing" | "resource";
+export type TagScope = "person" | "org" | "work" | "billing" | "resource" | "all";
 export type TagCategory = "segment" | "signal" | "priority" | "custom";
 
 export interface AssignTagInput {
@@ -618,7 +618,12 @@ export interface SystemPlayResult<T = unknown> {
   error?: string;
   error_id?: string;
   entity_id?: string;
-  entity_type?: SystemPlayTarget;
+  /**
+   * In-memory canon spelling. `SystemPlayTarget` mirrors the
+   * `system_play_target` DB enum, which still says `file` — resource plays
+   * report `resource` here (the enum itself is a separate migration).
+   */
+  entity_type?: SystemPlayTarget | "resource";
 }
 
 // ============================================================================

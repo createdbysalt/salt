@@ -221,7 +221,8 @@ const ENTITY_TYPE_LABELS: Record<string, string> = {
   conversation: "conversation",
   client_meeting: "meeting",
   meeting: "meeting",
-  file: "file",
+  file: "resource",
+  resource: "resource",
   space: "space",
 };
 

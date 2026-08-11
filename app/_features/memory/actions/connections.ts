@@ -9,12 +9,12 @@ import {
   upsertEdge,
   type EdgeEntityType,
 } from "@/app/_features/memory/lib/edge-store";
+import { toDbEntityType } from "@/app/_features/memory/types/entity-type";
 import type { Connection } from "@/app/_lib/demo/people-demo-data";
 
-/** App `resource` → entity_links short-dialect `file`. */
+/** App entity type → entity_links short dialect (`resource` stays `resource`). */
 function toEdgeEntityType(type: string): EdgeEntityType {
-  if (type === "resource") return "file";
-  return type as EdgeEntityType;
+  return toDbEntityType(type as Parameters<typeof toDbEntityType>[0], "short") as EdgeEntityType;
 }
 
 export type LinkCandidateType =
@@ -296,11 +296,11 @@ export async function persistMemoryConnection(
     return { success: false, error: "Conversations are automatically linked to their participants" };
   } else if (connectionType === "resource") {
     // Linking TO a resource — entity_links canonically stores the resource
-    // (short dialect "file") on the SOURCE side; getEntityConnections only
-    // resolves resource connections in that direction.
+    // on the SOURCE side; getEntityConnections only resolves resource
+    // connections in that direction.
     const result = await upsertEdge(supabase, {
       workspaceId: workspace.id,
-      source: { type: "file", id: input.connection.id },
+      source: { type: "resource", id: input.connection.id },
       target: { type: toEdgeEntityType(input.recordKind), id: input.recordId },
       relationType: "attachment",
       provenance: { source: "manual" },
@@ -320,8 +320,7 @@ export async function persistMemoryConnection(
     if (connectionType === "person" || connectionType === "org" || connectionType === "work") {
       const linkResult = await upsertEdge(supabase, {
         workspaceId: workspace.id,
-        // entity_links short dialect still stores resources as "file"
-        source: { type: "file", id: input.recordId },
+        source: { type: "resource", id: input.recordId },
         target: { type: connectionType, id: input.connection.id },
         relationType: "attachment",
         provenance: { source: "manual" },
@@ -398,8 +397,8 @@ export async function removeMemoryConnection(
         .from("entity_links")
         .delete()
         .eq("workspace_id", workspace.id)
-        // entity_links short dialect still stores resources as "file"
-        .eq("source_type", "file")
+        // Dual-read: legacy rows may still carry the pre-rename "file" spelling
+        .in("source_type", ["resource", "file"])
         .eq("source_id", input.recordId)
         .eq("target_type", input.connectionType)
         .eq("target_id", input.connectionId);
@@ -463,7 +462,7 @@ export async function removeMemoryConnection(
     // direction-agnostic so either creation direction is removed.
     const result = await deleteEdgeBetween(supabase, {
       workspaceId: workspace.id,
-      a: { type: "file", id: input.connectionId },
+      a: { type: "resource", id: input.connectionId },
       b: { type: toEdgeEntityType(input.recordKind), id: input.recordId },
     });
 

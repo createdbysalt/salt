@@ -28,7 +28,7 @@ import {
 import { getFileWorkLinkMap } from "./utils/work-links";
 
 type TagAssignmentRow = {
-  file_id: string;
+  resource_id: string;
   tag: { id: string; label: string } | { id: string; label: string }[] | null;
 };
 
@@ -83,7 +83,7 @@ function normalizeProjectFileRow(row: Record<string, unknown>): ProjectFileRow {
     updated_at: String(row.updated_at ?? row.created_at),
     person_id: (row.person_id as string | null) ?? null,
     organization_id: (row.organization_id as string | null) ?? null,
-    uploaded_by: String(row.uploaded_by),
+    uploaded_by: (row.uploaded_by as string | null) ?? null,
     ai_summary: (row.ai_summary as string | null) ?? null,
     brand_metadata: row.brand_metadata ?? null,
     is_operator_asset: (row.is_operator_asset as boolean | null) ?? false,
@@ -160,8 +160,8 @@ export const getWorkspaceFiles = cache(async (): Promise<MemoryFile[]> => {
       .in("id", projectIds.length > 0 ? projectIds : [EMPTY_UUID]),
     supabase
       .from("resource_tag_assignments")
-      .select("file_id, tag:file_tags(id, label)")
-      .in("file_id", rows.map((row) => row.id)),
+      .select("resource_id, tag:resource_tags(id, label)")
+      .in("resource_id", rows.map((row) => row.id)),
   ]);
 
   if (peopleResult.error) {
@@ -193,9 +193,9 @@ export const getWorkspaceFiles = cache(async (): Promise<MemoryFile[]> => {
       (assignment as TagAssignmentRow).tag as { id: string; label: string } | null,
     );
     if (!tag?.label) continue;
-    const existing = tagsByFile.get(assignment.file_id) ?? [];
+    const existing = tagsByFile.get(assignment.resource_id) ?? [];
     existing.push(tag.label);
-    tagsByFile.set(assignment.file_id, existing);
+    tagsByFile.set(assignment.resource_id, existing);
   }
 
   return rows.map((row) => {
@@ -271,7 +271,7 @@ export const getFileDetail = cache(async (fileId: string): Promise<FileDetailRec
   // Fetch tags
   const { data: tagAssignments } = await supabase
     .from("resource_tag_assignments")
-    .select("tag:file_tags(id, label)")
+    .select("tag:resource_tags(id, label)")
     .eq("resource_id", fileId);
 
   const tags: string[] = [];
@@ -289,7 +289,8 @@ export const getFileDetail = cache(async (fileId: string): Promise<FileDetailRec
     .from("entity_links")
     .select("target_type, target_id")
     .eq("workspace_id", workspace.id)
-    .eq("source_type", "file")
+    // Dual-read: legacy rows may still carry the pre-rename "file" spelling
+    .in("source_type", ["resource", "file"])
     .eq("source_id", fileId);
 
   const linkedPeopleIds: string[] = [];
@@ -369,7 +370,7 @@ export const getFileDetail = cache(async (fileId: string): Promise<FileDetailRec
     followUpReason: (row.follow_up_reason as string) ?? undefined,
     isOperatorAsset: (row.is_operator_asset as boolean | null) ?? false,
     projectId: linkedWorkIds[0] ?? undefined,
-    uploadedBy: String(row.uploaded_by),
+    uploadedBy: (row.uploaded_by as string | null) ?? null,
     linkedPeople: (peopleResult.data ?? []).map((p) => ({
       id: p.id,
       name: p.name,
@@ -402,7 +403,7 @@ export const getFileActivities = cache(
       .select(
         `
         id,
-        file_id,
+        resource_id,
         activity_type,
         actor_id,
         actor_label,
@@ -422,7 +423,7 @@ export const getFileActivities = cache(
 
     return (activities ?? []).map((row) => ({
       id: String(row.id),
-      fileId: String(row.file_id),
+      fileId: String(row.resource_id),
       activityType: row.activity_type as FileActivityType,
       actorId: (row.actor_id as string) ?? undefined,
       actorLabel: (row.actor_label as string) ?? undefined,
@@ -439,7 +440,7 @@ export const getFileSupplementalActivity = cache(
     const [tagRows, linkRows, noteRows] = await Promise.all([
       supabase
         .from("resource_tag_assignments")
-        .select("id, created_at, tag:file_tags(label)")
+        .select("id, created_at, tag:resource_tags(label)")
         .eq("resource_id", fileId)
         .order("created_at", { ascending: false }),
       supabase
@@ -448,8 +449,10 @@ export const getFileSupplementalActivity = cache(
           "id, source_type, source_id, target_type, target_id, relation_type, created_at, created_by",
         )
         .eq("workspace_id", workspace.id)
+        // Dual-read: legacy rows may still carry the pre-rename "file" spelling
         .or(
-          `and(source_type.eq.file,source_id.eq.${fileId}),and(target_type.eq.file,target_id.eq.${fileId})`,
+          `and(source_type.eq.resource,source_id.eq.${fileId}),and(target_type.eq.resource,target_id.eq.${fileId}),` +
+            `and(source_type.eq.file,source_id.eq.${fileId}),and(target_type.eq.file,target_id.eq.${fileId})`,
         )
         .order("created_at", { ascending: false }),
       supabase
@@ -458,7 +461,8 @@ export const getFileSupplementalActivity = cache(
           "id, entity_type, entity_id, title, content, note_kind, source, source_ref, confidence, status, author_type, is_pinned, tags, created_at",
         )
         .eq("workspace_id", workspace.id)
-        .eq("entity_type", "file")
+        // Dual-read: notes on resources predate the rename (free-text column)
+        .in("entity_type", ["resource", "file"])
         .eq("entity_id", fileId)
         .is("deleted_at", null)
         .order("created_at", { ascending: false }),
@@ -499,7 +503,9 @@ export const getFileSupplementalActivity = cache(
       const nameMap = await buildConnectionEntityNameMap(supabase, links, "resource", fileId);
 
       linkEntries = links.map((link) => {
-        const isOutgoing = link.source_type === "file" && link.source_id === fileId;
+        const isOutgoing =
+          (link.source_type === "resource" || link.source_type === "file") &&
+          link.source_id === fileId;
         const otherType = isOutgoing ? link.target_type : link.source_type;
         const otherId = isOutgoing ? link.target_id : link.source_id;
         const resolved = resolveConnectionEntityFromMap(nameMap, otherType, otherId);

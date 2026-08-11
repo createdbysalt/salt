@@ -176,7 +176,7 @@ export async function uploadClientFile(
     // If tags were provided, create tag assignments
     if (input.tagIds && input.tagIds.length > 0 && fileRecord) {
       const tagAssignments = input.tagIds.map((tagId) => ({
-        file_id: fileRecord.id,
+        resource_id: fileRecord.id,
         tag_id: tagId,
       }));
 
@@ -297,7 +297,7 @@ export async function createClientLink(
     // If tags were provided, create tag assignments
     if (input.tagIds && input.tagIds.length > 0 && linkRecord) {
       const tagAssignments = input.tagIds.map((tagId) => ({
-        file_id: linkRecord.id,
+        resource_id: linkRecord.id,
         tag_id: tagId,
       }));
 

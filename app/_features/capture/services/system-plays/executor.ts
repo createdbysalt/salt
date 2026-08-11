@@ -1616,7 +1616,8 @@ async function createFileRecord(
       is_operator_asset: input.is_operator_asset ?? false,
       person_id: input.person_id ?? null,
       organization_id: input.organization_id ?? null,
-      uploaded_by: actorUserId ?? "system",
+      uploaded_by: actorUserId ?? null,
+      created_by_system: !actorUserId,
       source_type: "ask_salt",
     })
     .select("id")
@@ -1644,7 +1645,7 @@ async function createFileRecord(
     input.file_name,
     actorUserId,
     {
-      entity_type: "file",
+      entity_type: "resource",
       entity_id: data.id,
       playbook_slug: "memory-records",
       ...autoHandledActivityMetadata(autoHandled),
@@ -1655,7 +1656,7 @@ async function createFileRecord(
   return {
     success: true,
     entity_id: data.id,
-    entity_type: "file",
+    entity_type: "resource",
     data,
   };
 }
@@ -1678,7 +1679,7 @@ async function updateFileRecord(
     return { success: false, error: error.message };
   }
 
-  return { success: true, entity_id: input.file_id, entity_type: "file" };
+  return { success: true, entity_id: input.file_id, entity_type: "resource" };
 }
 
 async function archiveFileRecord(
@@ -1699,7 +1700,7 @@ async function archiveFileRecord(
     return { success: false, error: error.message };
   }
 
-  return { success: true, entity_id: input.file_id, entity_type: "file" };
+  return { success: true, entity_id: input.file_id, entity_type: "resource" };
 }
 
 // ============================================================================

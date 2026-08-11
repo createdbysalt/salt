@@ -18,7 +18,7 @@ import {
 import { getTagBadgeClasses, getTagPillClasses } from "@/app/_features/memory/tags/tag-styles";
 
 interface TagEditorProps {
-  entityType: "person" | "org" | "work" | "billing" | "file";
+  entityType: "person" | "org" | "work" | "billing" | "resource";
   entityId: string;
   scope?: TagScope;
   className?: string;

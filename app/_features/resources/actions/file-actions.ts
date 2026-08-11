@@ -385,7 +385,7 @@ export async function logFileViewActivity(fileId: string): Promise<ActionResult>
 
     const { error } = await supabase.from("resource_activities").insert({
       workspace_id: workspace.id,
-      file_id: fileId,
+      resource_id: fileId,
       activity_type: "viewed",
       actor_id: userId,
     });

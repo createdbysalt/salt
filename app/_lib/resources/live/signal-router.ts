@@ -87,7 +87,8 @@ export async function routeResourceWebhook(
   const { data: entityLink } = await admin
     .from("entity_links")
     .select("target_type, target_id")
-    .eq("source_type", "file")
+    // Dual-read: legacy rows may still carry the pre-rename "file" spelling
+    .in("source_type", ["resource", "file"])
     .eq("source_id", resource.id)
     .limit(1)
     .single();

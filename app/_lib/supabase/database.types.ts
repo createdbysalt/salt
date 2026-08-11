@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       activity_entries: {
@@ -6180,6 +6205,7 @@ export type Database = {
           composio_trigger_id: string | null
           confidence: number | null
           created_at: string
+          created_by_system: boolean
           currency: string | null
           deleted_at: string | null
           deleted_by: string | null
@@ -6226,7 +6252,7 @@ export type Database = {
           source_type: string | null
           total_amount_cents: number | null
           updated_at: string
-          uploaded_by: string
+          uploaded_by: string | null
           workspace_id: string
         }
         Insert: {
@@ -6245,6 +6271,7 @@ export type Database = {
           composio_trigger_id?: string | null
           confidence?: number | null
           created_at?: string
+          created_by_system?: boolean
           currency?: string | null
           deleted_at?: string | null
           deleted_by?: string | null
@@ -6291,7 +6318,7 @@ export type Database = {
           source_type?: string | null
           total_amount_cents?: number | null
           updated_at?: string
-          uploaded_by: string
+          uploaded_by?: string | null
           workspace_id: string
         }
         Update: {
@@ -6310,6 +6337,7 @@ export type Database = {
           composio_trigger_id?: string | null
           confidence?: number | null
           created_at?: string
+          created_by_system?: boolean
           currency?: string | null
           deleted_at?: string | null
           deleted_by?: string | null
@@ -6356,7 +6384,7 @@ export type Database = {
           source_type?: string | null
           total_amount_cents?: number | null
           updated_at?: string
-          uploaded_by?: string
+          uploaded_by?: string | null
           workspace_id?: string
         }
         Relationships: [
@@ -11154,6 +11182,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       billing_category: ["contractor", "software", "other"],

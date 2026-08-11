@@ -477,7 +477,7 @@ export function FileOverviewTab({ file, onFieldUpdate }: FileOverviewTabProps) {
 
       {/* Tags */}
       <MemoryOverviewSection title="Tags" variant="heading">
-        <TagEditor entityType="file" entityId={file.id} scope="file" />
+        <TagEditor entityType="resource" entityId={file.id} scope="resource" />
       </MemoryOverviewSection>
     </div>
   );

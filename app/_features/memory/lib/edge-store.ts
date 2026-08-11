@@ -7,8 +7,10 @@
  * tables and are PROJECTED at query time; they never write here.
  *
  * All entity types use the short dialect (person, org, work, billing,
- * meeting, file, note, space) — adapt other spellings at the boundary with
- * memory/types/entity-type.ts before calling in.
+ * meeting, resource, note, space) — adapt other spellings at the boundary with
+ * memory/types/entity-type.ts before calling in. Reads and deletes dual-read
+ * the legacy `file` spelling for rows written before the
+ * `20260810150000_rename_files_to_resources` backfill.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -20,7 +22,7 @@ export type EdgeEntityType =
   | "work"
   | "billing"
   | "meeting"
-  | "file"
+  | "resource"
   | "note"
   | "space";
 
@@ -51,6 +53,14 @@ export type UpsertEdgeInput = {
 type AnySupabase = SupabaseClient<Database>;
 
 export type EdgeResult = { ok: true } | { ok: false; message: string };
+
+/**
+ * Canon spelling plus the pre-rename legacy spelling, for dual-read of rows
+ * written before the `20260810150000` backfill. Writes always use canon.
+ */
+function dbSpellings(type: EdgeEntityType): string[] {
+  return type === "resource" ? ["resource", "file"] : [type];
+}
 
 /** Insert an edge; an existing identical edge counts as success. */
 export async function upsertEdge(
@@ -94,11 +104,21 @@ export async function deleteEdgeBetween(
   let query = client
     .from("entity_links")
     .delete()
-    .eq("workspace_id", input.workspaceId)
-    .or(
-      `and(source_type.eq.${input.a.type},source_id.eq.${input.a.id},target_type.eq.${input.b.type},target_id.eq.${input.b.id}),` +
-        `and(source_type.eq.${input.b.type},source_id.eq.${input.b.id},target_type.eq.${input.a.type},target_id.eq.${input.a.id})`
-    );
+    .eq("workspace_id", input.workspaceId);
+
+  const clauses = new Set<string>();
+  for (const aType of dbSpellings(input.a.type)) {
+    for (const bType of dbSpellings(input.b.type)) {
+      clauses.add(
+        `and(source_type.eq.${aType},source_id.eq.${input.a.id},target_type.eq.${bType},target_id.eq.${input.b.id})`
+      );
+      clauses.add(
+        `and(source_type.eq.${bType},source_id.eq.${input.b.id},target_type.eq.${aType},target_id.eq.${input.a.id})`
+      );
+    }
+  }
+  query = query.or([...clauses].join(","));
+
   if (input.relationType) {
     query = query.eq("relation_type", input.relationType);
   }
@@ -116,11 +136,15 @@ export async function deleteEdgesFrom(
     relationType?: EdgeRelationType;
   }
 ): Promise<EdgeResult> {
+  const spellings = dbSpellings(input.source.type);
   let query = client
     .from("entity_links")
     .delete()
-    .eq("source_type", input.source.type)
     .eq("source_id", input.source.id);
+  query =
+    spellings.length === 1
+      ? query.eq("source_type", spellings[0]!)
+      : query.in("source_type", spellings);
   if (input.workspaceId) query = query.eq("workspace_id", input.workspaceId);
   if (input.relationType) query = query.eq("relation_type", input.relationType);
   const { error } = await query;

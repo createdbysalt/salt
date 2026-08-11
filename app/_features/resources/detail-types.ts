@@ -262,7 +262,7 @@ export type FileDetailRecord = {
 
   // Relationships
   projectId?: string;
-  uploadedBy: string;
+  uploadedBy: string | null;
 
   // Linked entities
   linkedPeople?: Array<{ id: string; name: string }>;

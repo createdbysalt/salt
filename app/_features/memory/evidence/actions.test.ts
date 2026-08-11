@@ -274,8 +274,8 @@ describe("addSignalToEvidence — new identifier crossing suggest immediately", 
 describe("addSignalToEvidence — file signals are suggested-only (audit #7)", () => {
   // file auto threshold is 6.0; contract_detected (4.0) on a fresh row stays
   // below it, so seed an existing row at 3.0 to cross: 3.0 + 4.0 = 7.0 ≥ 6.0.
-  // contract_detected IS relationship-grade — only the file fail-closed rule
-  // prevents creation (files.uploaded_by needs a confirming user).
+  // contract_detected IS relationship-grade — only the resource fail-closed
+  // rule prevents creation (resources are confirm-only).
   const fileInput = {
     workspaceId: "ws-1",
     entityType: "resource" as const,

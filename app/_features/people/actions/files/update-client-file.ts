@@ -147,7 +147,7 @@ export async function addFileTag(
 
     const { error } = await supabase
       .from("resource_tag_assignments")
-      .insert({ file_id: fileId, tag_id: tagId });
+      .insert({ resource_id: fileId, tag_id: tagId });
 
     if (error) {
       // Handle duplicate (unique constraint violation)

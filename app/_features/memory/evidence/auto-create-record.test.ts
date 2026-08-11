@@ -7,8 +7,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * existing insert paths (cal-booking-processor keys on cal_booking_id;
  * calendar events carry external_event_id / source_external_id). A match
  * links the evidence to the existing record instead of inserting.
- * Files: uploaded_by is NOT NULL, so creation only happens with an acting
- * user (the New records lane confirm); background paths fail closed.
+ * Resources: creation only happens with an acting user (the New records
+ * lane confirm); background paths fail closed.
  */
 
 const h = vi.hoisted(() => {

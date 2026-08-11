@@ -70,7 +70,7 @@ export async function addRecordCandidate(
     confidence: Math.round(evidence.confidencePercent),
     extractedFields: evidence.extracted_fields ?? {},
     signalCount: evidence.signals.length,
-    // The confirming user is the acting user — files.uploaded_by requires it.
+    // The confirming user is the acting user — resources are confirm-only.
     actingUserId: userId,
     captureId:
       evidence.signals.find((signal) => signal.capture_id)?.capture_id ??

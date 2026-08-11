@@ -71,7 +71,8 @@ export const getEntityResources = cache(
       .from("entity_links")
       .select("source_id")
       .eq("workspace_id", workspace.id)
-      .eq("source_type", "file")
+      // Dual-read: legacy rows may still carry the pre-rename "file" spelling
+      .in("source_type", ["resource", "file"])
       .eq("target_type", entityType)
       .eq("target_id", entityId);
 

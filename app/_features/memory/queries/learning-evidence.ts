@@ -241,24 +241,25 @@ export const getLearningEvidence = cache(
       return [];
     }
 
-    // Collect entity IDs by DB spelling for batch lookup (`file` stays DB key)
+    // Collect entity IDs by app type for batch lookup (legacy "file" rows
+    // normalize to "resource" via fromLearningDbEntityType)
     const entityIdsByType: Record<string, string[]> = {
       person: [],
       organization: [],
       work: [],
       meeting: [],
-      file: [],
+      resource: [],
       billing: [],
     };
     const seenIds = new Set<string>();
 
     for (const e of evidence) {
-      const dbType = e.entity_type === "resource" ? "file" : e.entity_type;
-      const key = `${dbType}:${e.entity_id}`;
+      const appType = fromLearningDbEntityType(e.entity_type) ?? e.entity_type;
+      const key = `${appType}:${e.entity_id}`;
       if (!seenIds.has(key)) {
         seenIds.add(key);
-        if (entityIdsByType[dbType]) {
-          entityIdsByType[dbType].push(e.entity_id);
+        if (entityIdsByType[appType]) {
+          entityIdsByType[appType].push(e.entity_id);
         }
       }
     }
@@ -304,11 +305,11 @@ export const getLearningEvidence = cache(
             .is("deleted_at", null)
             .is("archived_at", null)
         : Promise.resolve({ data: [] as Array<{ id: string; title: string | null }> }),
-      entityIdsByType.file.length > 0
+      entityIdsByType.resource.length > 0
         ? supabase
             .from("resources")
             .select("id, file_name")
-            .in("id", entityIdsByType.file)
+            .in("id", entityIdsByType.resource)
             .is("deleted_at", null)
             .is("archived_at", null)
         : Promise.resolve({ data: [] as Array<{ id: string; file_name: string | null }> }),

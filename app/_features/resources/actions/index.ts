@@ -75,7 +75,7 @@ export async function addResource(input: AddResourceInput) {
   if (data.entityType && data.entityId) {
     await supabase.from("entity_links").insert({
       workspace_id: workspace.id,
-      source_type: "file",
+      source_type: "resource",
       source_id: resource.id,
       target_type: data.entityType === "space" ? "space" : data.entityType,
       target_id: data.entityId,
@@ -151,7 +151,8 @@ export async function removeResource(input: z.infer<typeof RemoveResourceSchema>
     .from("entity_links")
     .delete()
     .eq("workspace_id", workspace.id)
-    .eq("source_type", "file")
+    // Dual-read: legacy rows may still carry the pre-rename "file" spelling
+    .in("source_type", ["resource", "file"])
     .eq("source_id", data.resourceId)
     .eq("target_type", data.entityType === "space" ? "space" : data.entityType)
     .eq("target_id", data.entityId);

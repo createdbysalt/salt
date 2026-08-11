@@ -34,7 +34,7 @@ export interface AutoCreateRecordInput {
   signalCount: number;
   /**
    * Confirming user, when creation is driven by an explicit confirm (New
-   * records lane). Required for files — files.uploaded_by is NOT NULL, so
+   * records lane). Required for resources — they stay confirm-only, so
    * background paths (no acting user) fail closed.
    */
   actingUserId?: string;
@@ -127,11 +127,12 @@ async function insertEntityRecord(
     }
 
     case "resource": {
-      // files.uploaded_by is NOT NULL: background evidence paths have no
-      // acting user, so only the confirm path (New records lane, which
-      // passes actingUserId) creates file records.
+      // Resources stay confirm-only from background evidence paths (Phase 7
+      // carves out artifact creation alongside billing/meeting records).
+      // uploaded_by is nullable post-20260811120000, but only the confirm
+      // path (New records lane, which passes actingUserId) creates them.
       if (!input.actingUserId) {
-        return { error: "File records cannot be auto-created without an uploader" };
+        return { error: "Resource records cannot be auto-created without an uploader" };
       }
       const fileName = fields.title?.value ?? fields.name?.value;
       if (!fileName) return { error: "Missing required field: title" };

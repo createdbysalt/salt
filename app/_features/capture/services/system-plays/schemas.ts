@@ -584,7 +584,7 @@ export const tagEntityTypeSchema = z.enum([
   "org",
   "work",
   "billing",
-  "file",
+  "resource",
 ]);
 
 export const tagScopeSchema = z.enum([
@@ -592,7 +592,7 @@ export const tagScopeSchema = z.enum([
   "org",
   "work",
   "billing",
-  "file",
+  "resource",
   "all",
 ]);
 
@@ -604,7 +604,7 @@ export const tagCategorySchema = z.enum([
 ]);
 
 export const findTagsInputSchema = z.object({
-  scope: tagScopeSchema.optional().describe("Filter tags by scope (person, org, work, billing, file, all)"),
+  scope: tagScopeSchema.optional().describe("Filter tags by scope (person, org, work, billing, resource, all)"),
   category: tagCategorySchema.optional().describe("Filter by category"),
 });
 
