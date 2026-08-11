@@ -140,8 +140,8 @@ describe("cross-app corroboration (registry-wiring Phase 4)", () => {
     signals: { has_calendar_meeting: true, is_bidirectional_thread: true },
   };
 
-  it("lifts borderline candidates corroborated across connected apps", () => {
-    const decision = decide({ ...borderline, corroborationCount: 2 });
+  it("lifts borderline candidates corroborated across 3+ connected apps", () => {
+    const decision = decide({ ...borderline, corroborationCount: 3 });
 
     expect(decision.action).toBe("create");
     expect(decision.confidence).toBe(95);
@@ -150,8 +150,8 @@ describe("cross-app corroboration (registry-wiring Phase 4)", () => {
     ).toBe(true);
   });
 
-  it("single-source evidence earns no corroboration bonus", () => {
-    const decision = decide({ ...borderline, corroborationCount: 1 });
+  it("two-category evidence stays below the corroboration bar", () => {
+    const decision = decide({ ...borderline, corroborationCount: 2 });
 
     expect(decision.action).toBe("needs_confirmation");
     expect(decision.confidence).toBe(80);

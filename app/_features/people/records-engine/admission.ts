@@ -78,7 +78,7 @@ export function calculateAdmissionConfidence(
     confidence += 10;
     reasons.push("Human name provided");
   }
-  if ((input.corroborationCount ?? 0) >= 2) {
+  if ((input.corroborationCount ?? 0) >= 3) {
     confidence += 15;
     reasons.push(
       `Corroborated across ${input.corroborationCount} connected apps`,
