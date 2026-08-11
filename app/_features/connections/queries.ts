@@ -51,7 +51,7 @@ export async function getConnectionsGraphData(
       .limit(GRAPH_ENTITY_LIMIT),
     supabase
       .from("work")
-      .select("id, name, status, organization_id, person_id, ai_summary, ai_worth_attention")
+      .select("id, name, status, organization_id, person_id, billing_contact_id, ai_summary, ai_worth_attention")
       .eq("workspace_id", workspaceId)
       .is("deleted_at", null)
       .order("updated_at", { ascending: false })
@@ -330,13 +330,16 @@ export async function getConnectionsGraphData(
     );
   }
 
-  // Work edges (structured: projects.organization_id / person_id)
+  // Work edges (structured: projects.organization_id / person_id / billing_contact_id)
   for (const w of work) {
     if (w.organization_id && orgIdSet.has(w.organization_id)) {
       addEdge(nid("work", w.id), nid("org", w.organization_id), "structural");
     }
     if (w.person_id && personIdSet.has(w.person_id)) {
       addEdge(nid("work", w.id), nid("person", w.person_id), "structural");
+    }
+    if (w.billing_contact_id && personIdSet.has(w.billing_contact_id)) {
+      addEdge(nid("work", w.id), nid("person", w.billing_contact_id), "structural");
     }
   }
 
@@ -398,14 +401,18 @@ export async function getEntityConnections(
 ): Promise<ConnectionNode[]> {
   const supabase = await createClient();
 
-  // For work items, fetch the primary org via organization_id
+  // For work items, fetch the primary org via organization_id and the
+  // billing contact via billing_contact_id (reference-field projection)
   let workPrimaryOrg: { id: string; name: string; industry?: string } | null = null;
+  let workBillingContactId: string | null = null;
   if (entityType === "work") {
     const { data: project } = await supabase
       .from("work")
-      .select("organization_id")
+      .select("organization_id, billing_contact_id")
       .eq("id", entityId)
       .maybeSingle();
+
+    workBillingContactId = project?.billing_contact_id ?? null;
 
     if (project?.organization_id) {
       const { data: orgRow } = await supabase
@@ -447,7 +454,15 @@ export async function getEntityConnections(
     }
   }
 
-  const [relationsResult, billingResult, filesResult, meetingsResult] =
+  const [
+    relationsResult,
+    billingResult,
+    filesResult,
+    meetingsResult,
+    billingContactWorkResult,
+    orgPeopleResult,
+    billingSelfResult,
+  ] =
     await Promise.all([
       // Entity links (explicit connections to people, orgs, work + note mentions)
       supabase
@@ -479,15 +494,17 @@ export async function getEntityConnections(
               .eq("organization_id", entityId)
               .is("deleted_at", null)
               .is("archived_at", null)
-          : supabase
-              .from("billing_records")
-              .select(
-                "id, number, amount_cents, currency, status, direction, organization_id, person_id, work_id"
-              )
-              .eq("workspace_id", workspaceId)
-              .eq("work_id", entityId)
-              .is("deleted_at", null)
-              .is("archived_at", null),
+          : entityType === "work"
+            ? supabase
+                .from("billing_records")
+                .select(
+                  "id, number, amount_cents, currency, status, direction, organization_id, person_id, work_id"
+                )
+                .eq("workspace_id", workspaceId)
+                .eq("work_id", entityId)
+                .is("deleted_at", null)
+                .is("archived_at", null)
+            : Promise.resolve({ data: [], error: null }),
 
       // Files and Resources (linkage lives in entity_links; applies to all entity types)
       supabase
@@ -522,6 +539,35 @@ export async function getEntityConnections(
                 .is("deleted_at", null)
                 .is("archived_at", null)
             : Promise.resolve({ data: [], error: null }),
+
+      // Work items this person is the billing contact for
+      // (reference-field projection: work.billingContactId)
+      entityType === "person"
+        ? supabase
+            .from("work")
+            .select("id, name, status")
+            .eq("billing_contact_id", entityId)
+            .is("deleted_at", null)
+        : Promise.resolve({ data: [], error: null }),
+
+      // People linked to this org via the junction
+      // (reference-field projection: org.primaryContact and teammates)
+      entityType === "org"
+        ? supabase
+            .from("organization_people")
+            .select("person_id")
+            .eq("organization_id", entityId)
+        : Promise.resolve({ data: [], error: null }),
+
+      // The billing record's own counterparty FKs
+      // (reference-field projections: organization / billingContact / linkedWork)
+      entityType === "billing"
+        ? supabase
+            .from("billing_records")
+            .select("organization_id, person_id, work_id")
+            .eq("id", entityId)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
     ]);
 
   const connections: ConnectionNode[] = [];
@@ -582,6 +628,17 @@ export async function getEntityConnections(
   const workIds = relatedEntityIds
     .filter((e) => e.type === "work")
     .map((e) => e.id);
+
+  // Reference-field projections merge into the hydration lists so the
+  // linked records render as connections on both records.
+  if (workBillingContactId) personIds.push(workBillingContactId);
+  for (const row of orgPeopleResult.data ?? []) {
+    personIds.push(row.person_id);
+  }
+  const billingSelf = billingSelfResult.data;
+  if (billingSelf?.organization_id) orgIds.push(billingSelf.organization_id);
+  if (billingSelf?.person_id) personIds.push(billingSelf.person_id);
+  if (billingSelf?.work_id) workIds.push(billingSelf.work_id);
   const billingIds = relatedEntityIds
     .filter((e) => e.type === "billing")
     .map((e) => e.id);
@@ -645,6 +702,19 @@ export async function getEntityConnections(
   }
 
   for (const w of workData.data ?? []) {
+    addConnection({
+      id: nid("work", w.id),
+      nodeType: "work",
+      label: w.name,
+      sublabel: w.status ?? undefined,
+      href: `/work/${w.id}`,
+      metadata: { type: "work", status: w.status ?? "unknown" },
+    });
+  }
+
+  // Work items where this person is the billing contact
+  // (reference-field projection: work.billingContactId)
+  for (const w of billingContactWorkResult.data ?? []) {
     addConnection({
       id: nid("work", w.id),
       nodeType: "work",
