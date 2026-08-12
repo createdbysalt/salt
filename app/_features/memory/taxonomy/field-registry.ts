@@ -167,8 +167,8 @@ const PERSON_CARE_AUTO = { writePolicy: "care_auto" as const };
  */
 const PERSON_ADDRESS_SOURCING = {
   best: "Billing — customers keep billing addresses current because money depends on it",
-  today: "Email signature",
-  gap: true,
+  today: "Stripe / QuickBooks customer record",
+  gap: false,
 } as const;
 
 export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
@@ -408,6 +408,11 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     requiredForCapabilities: [],
     aiDescription:
       "Workspace tags for this person (via entity_tag_assignments, not a column). Salt assigns existing tags when a fit clears the bar; coining a new tag is still gated by tag_auto_create_threshold and tag_max_ai_created in profile_playbook_settings",
+    sourcing: {
+      best: "Salt's judgment across every connector — payments, activity, silence",
+      today: "Tag-fit detection across payment and activity patterns",
+      gap: false,
+    },
     fillRules: [
       { signal: "person_tag_fit_detected", value: "{{extracted}}", confidence: 80, because: "An existing tag clearly fits — like VIP when payments stack up, or At Risk when a client goes quiet" },
       { signal: "person_tag_fit_detected", value: "{{extracted}}", confidence: 80, because: "A brand-new tag only gets coined when I'm at least 80% sure, and I cap how many I create so your list stays clean" },
@@ -428,7 +433,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     emptyMeaning: "Defaults to active; a NULL source means no one has explicitly set it",
     sourcing: {
       best: "Activity across every source, not just email",
-      today: "90-day email + meeting activity",
+      today: "Meetings, payments, and thread activity (email-count signals aren't wired)",
       gap: true,
     },
     fillRules: [
@@ -485,6 +490,17 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
 // ORG FIELDS
 // ============================================================================
 
+/**
+ * Same canvas treatment as person address: one row ("street → country"),
+ * six registry fields. org_address_extracted is whitelisted in the parity
+ * test — the rule exists but no producer emits it yet (Phase 5 scope).
+ */
+const ORG_ADDRESS_SOURCING = {
+  best: "Billing — the org's billing address is current because money depends on it",
+  today: "No producer yet — the rule exists, extraction doesn't",
+  gap: true,
+} as const;
+
 export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
   {
     key: "name",
@@ -495,6 +511,11 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     requiredForCapabilities: ["invoicing", "proposals_contracts"],
     aiDescription: "Organization display name",
     dbColumn: "name",
+    sourcing: {
+      best: "CRM account name — human-curated, correctly capitalized",
+      today: "Derived from email domain",
+      gap: true,
+    },
     fillRules: [
       { signal: "org_created_from_domain", value: "{{extracted}}", confidence: 85, because: "Name derived from email domain" },
     ],
@@ -508,6 +529,11 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     requiredForCapabilities: ["invoicing"],
     aiDescription: "Email address for invoices and billing communications",
     dbColumn: "billing_email",
+    sourcing: {
+      best: "Billing — the address invoices to this org actually go to",
+      today: "Extracted when an invoice is sent",
+      gap: true,
+    },
     fillRules: [
       { signal: "org_has_invoice_sent", value: "{{extracted}}", confidence: 85, because: "Email used for org invoice delivery" },
     ],
@@ -522,6 +548,11 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     requiredForCapabilities: [],
     aiDescription: "Primary industry category",
     dbColumn: "industry_parent",
+    sourcing: {
+      best: "CRM industry field — someone picked it deliberately",
+      today: "Inferred from domain or context",
+      gap: true,
+    },
     fillRules: [
       { signal: "org_industry_inferred", value: "{{extracted}}", confidence: 75, because: "Industry inferred from domain or context" },
     ],
@@ -536,6 +567,11 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     requiredForCapabilities: [],
     aiDescription: "Industry sub-category (depends on parent)",
     dbColumn: "industry_child",
+    sourcing: {
+      best: "CRM industry field — someone picked it deliberately",
+      today: "Inferred from domain or context",
+      gap: true,
+    },
     fillRules: [
       { signal: "org_industry_inferred", value: "{{extracted}}", confidence: 70, because: "Sub-industry inferred from context" },
     ],
@@ -550,6 +586,11 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     requiredForCapabilities: [],
     aiDescription: "How this organization relates to your business",
     dbColumn: "relationship_status",
+    sourcing: {
+      best: "Billing — money settles it: they pay you → client, you pay them → vendor",
+      today: "Payments, invoices, domain lists",
+      gap: false,
+    },
     fillRules: [
       { signal: "org_has_payment_received", value: "client", confidence: 95, because: "This organization paid you" },
       { signal: "org_has_invoice_sent", value: "client", confidence: 90, because: "You invoiced this organization" },
@@ -565,6 +606,11 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     careSignal: "org_primary_contact",
     requiredForCapabilities: [],
     aiDescription: "Main person to contact at this organization",
+    sourcing: {
+      best: "CRM contact roles — account owner, decision maker, billing contact are explicit",
+      today: "Identified from activity",
+      gap: true,
+    },
     fillRules: [
       { signal: "org_has_primary_contact", value: "{{extracted}}", confidence: 85, because: "Primary contact identified from activity" },
     ],
@@ -587,6 +633,7 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     requiredForCapabilities: ["invoicing", "proposals_contracts"],
     aiDescription: "Street address line 1",
     dbColumn: "address_line_1",
+   sourcing: ORG_ADDRESS_SOURCING,
     fillRules: [
       { signal: "org_address_extracted", value: "{{extracted}}", confidence: 82, because: "Address extracted from documents or invoices" },
     ],
@@ -600,6 +647,7 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     requiredForCapabilities: [],
     aiDescription: "Street address line 2 (apt, suite, etc.)",
     dbColumn: "address_line_2",
+   sourcing: ORG_ADDRESS_SOURCING,
     fillRules: [
       { signal: "org_address_extracted", value: "{{extracted}}", confidence: 82, because: "Address line 2 extracted from documents" },
     ],
@@ -613,6 +661,7 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     requiredForCapabilities: ["invoicing", "proposals_contracts"],
     aiDescription: "City name",
     dbColumn: "city",
+   sourcing: ORG_ADDRESS_SOURCING,
     fillRules: [
       { signal: "org_address_extracted", value: "{{extracted}}", confidence: 82, because: "City extracted from org address" },
     ],
@@ -626,6 +675,7 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     requiredForCapabilities: [],
     aiDescription: "State or province",
     dbColumn: "state",
+   sourcing: ORG_ADDRESS_SOURCING,
     fillRules: [
       { signal: "org_address_extracted", value: "{{extracted}}", confidence: 82, because: "State extracted from org address" },
     ],
@@ -639,6 +689,7 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     requiredForCapabilities: ["invoicing", "proposals_contracts"],
     aiDescription: "ZIP or postal code",
     dbColumn: "postal_code",
+   sourcing: ORG_ADDRESS_SOURCING,
     fillRules: [
       { signal: "org_address_extracted", value: "{{extracted}}", confidence: 82, because: "Postal code extracted from org address" },
     ],
@@ -653,6 +704,7 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     requiredForCapabilities: ["invoicing", "proposals_contracts"],
     aiDescription: "Country (ISO 3166-1 alpha-2)",
     dbColumn: "country",
+   sourcing: ORG_ADDRESS_SOURCING,
     fillRules: [
       { signal: "org_address_extracted", value: "{{extracted}}", confidence: 82, because: "Country extracted from org address" },
     ],
@@ -679,6 +731,11 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     requiredForCapabilities: [],
     aiDescription: "Company website URL",
     dbColumn: "website",
+    sourcing: {
+      best: "CRM website field",
+      today: "Discovered from email domain",
+      gap: false,
+    },
     fillRules: [
       { signal: "org_website_found", value: "{{extracted}}", confidence: 85, because: "Website discovered from domain or email" },
     ],
@@ -696,6 +753,11 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     fillRules: [
       { signal: "org_tag_fit_detected", value: "{{extracted}}", confidence: 80, because: "An existing tag clearly fits this organization" },
     ],
+    sourcing: {
+      best: "Salt's judgment across this org's activity — same tag-fit bar as people",
+      today: "No org tag-fit producer yet — the rule exists, detection doesn't",
+      gap: true,
+    },
   },
   {
     key: "recordStatus",
@@ -709,6 +771,11 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     dbColumn: "record_status",
     writePolicy: "care_auto",
     emptyMeaning: "Defaults to active; a NULL source means no one has explicitly set it",
+   sourcing: {
+      best: "Money + lifecycle: active subscription or open deal = alive; cancelled plan or churned stage = fading",
+      today: "Aggregated from linked people + payments",
+      gap: true,
+    },
     fillRules: [
       { signal: "org_has_people", value: "active", confidence: 80, because: "Org has active linked people" },
       { signal: "org_has_payment_received", value: "active", confidence: 90, because: "Recent payment indicates active relationship" },
@@ -724,6 +791,11 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     aiDescription: "Most recent contact with anyone at this org. Aggregated from linked people.",
     dbColumn: "last_contact_at",
     writePolicy: "care_auto",
+   sourcing: {
+      best: "Any touchpoint with anyone at the domain, newest wins",
+      today: "Aggregated from linked people's email, meetings, and DMs",
+      gap: true,
+    },
     fillRules: [
       { signal: "org_person_contacted", value: "{{extracted}}", confidence: 100, because: "Someone at this org was contacted" },
     ],
