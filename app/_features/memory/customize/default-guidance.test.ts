@@ -288,13 +288,21 @@ describe("field sourcing (people-field-sourcing canvas)", () => {
       (byKey.get(key)?.fillRules ?? []).map((rule) => rule.because).join("\n");
 
     // CRM produces name/title/phone; scheduling bookings produce
-    // phone/timezone; billing produces billing email + address.
+    // phone/timezone; billing produces billing email + address; Slack
+    // profiles produce name/title/phone/timezone; meeting attendee lists
+    // corroborate name.
     expect(text("name")).toMatch(/CRM/i);
+    expect(text("name")).toMatch(/Slack/i);
+    expect(text("name")).toMatch(/meeting/i);
     expect(text("title")).toMatch(/CRM/i);
+    expect(text("title")).toMatch(/Slack/i);
     expect(text("phone")).toMatch(/CRM/i);
     expect(text("phone")).toMatch(/booking/i);
+    expect(text("phone")).toMatch(/Slack/i);
     expect(text("timezone")).toMatch(/booking/i);
+    expect(text("timezone")).toMatch(/Slack/i);
     expect(text("billingEmail")).toMatch(/billing/i);
     expect(text("addressLine1")).toMatch(/billing/i);
+    expect(text("lastContactedAt")).toMatch(/direct message/i);
   });
 });

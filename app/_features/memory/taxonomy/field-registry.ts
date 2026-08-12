@@ -187,7 +187,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
       today: "CRM contact record, Slack profile, or email signature",
     },
     fillRules: [
-      { signal: "person_name_extracted", value: "{{extracted}}", confidence: 90, because: "From your CRM contact record, or extracted from an email signature" },
+      { signal: "person_name_extracted", value: "{{extracted}}", confidence: 90, because: "From your CRM contact record, a Slack profile, a meeting attendee list, or an email signature" },
     ],
   },
   {
@@ -242,7 +242,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
       today: "CRM contact record, scheduling booking form, Slack profile, or email signature",
     },
     fillRules: [
-      { signal: "person_phone_extracted", value: "{{extracted}}", confidence: 85, because: "From your CRM or a scheduling booking form, or an email signature" },
+      { signal: "person_phone_extracted", value: "{{extracted}}", confidence: 85, because: "From your CRM, a scheduling booking form, a Slack profile, or an email signature" },
     ],
   },
   {
@@ -261,7 +261,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
       today: "Scheduling booking confirmation or Slack profile",
     },
     fillRules: [
-      { signal: "person_timezone_detected", value: "{{extracted}}", confidence: 88, because: "Confirmed by the invitee on a scheduling booking, or detected from email headers and calendar" },
+      { signal: "person_timezone_detected", value: "{{extracted}}", confidence: 88, because: "Confirmed by the invitee on a scheduling booking, or from their Slack profile" },
     ],
   },
   {
@@ -279,7 +279,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
       today: "CRM contact record, Slack profile, or email signature",
     },
     fillRules: [
-      { signal: "person_title_extracted", value: "{{extracted}}", confidence: 80, because: "From your CRM, or extracted from an email signature" },
+      { signal: "person_title_extracted", value: "{{extracted}}", confidence: 80, because: "From your CRM, a Slack profile, or an email signature" },
     ],
   },
   {

@@ -321,14 +321,19 @@ function RecordLogicCard({
                     <p>When I spot it, I suggest it — you decide.</p>
                   )}
                   {field.sourcing && (
-                    <p className="mt-2 border-t border-white/10 pt-2 text-white/55">
-                      Best source: {field.sourcing.best}
-                      {field.sourcing.gap && (
-                        <span className="ml-1.5 rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] font-medium text-white/70">
-                          new source
-                        </span>
+                    <div className="mt-2 space-y-1 border-t border-white/10 pt-2 text-white/55">
+                      <p>
+                        Best source: {field.sourcing.best}
+                        {field.sourcing.gap && (
+                          <span className="ml-1.5 rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] font-medium text-white/70">
+                            new source
+                          </span>
+                        )}
+                      </p>
+                      {field.sourcing.today && (
+                        <p>Today: {field.sourcing.today}</p>
                       )}
-                    </p>
+                    </div>
                   )}
                 </AccordionContent>
               </AccordionItem>
