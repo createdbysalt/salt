@@ -22,6 +22,7 @@ import "server-only";
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { memoryUpdateField } from "@/app/_lib/memory-tools";
+import { runCareForSignal } from "@/app/_features/memory/care/scheduler";
 import {
   classifyEntity,
   completePersonFields,
@@ -183,6 +184,15 @@ export async function resolvePerson(
     };
   }
 
+  // Name-only twin adoption: a person created without an email (meeting
+  // attendee, manual entry) should adopt this address instead of spawning
+  // a duplicate. Unique exact-name match only — ambiguity falls through
+  // to normal creation.
+  if (input.name) {
+    const adopted = await adoptNameOnlyPerson(workspaceId, input.name, email, input);
+    if (adopted) return adopted;
+  }
+
   const profilePlaybook = await loadPeopleProfilePlaybook(workspaceId);
   const profileEvaluation = completePersonFields({
     email,
@@ -232,6 +242,62 @@ export async function resolvePerson(
     is_new: true,
     confidence: decision.confidence,
     confidence_reason: decision.reasons.join("; "),
+    needs_confirmation: false,
+  };
+}
+
+/**
+ * Adopt a name-only person record for an incoming email address. Fires
+ * when the email lookup missed but exactly one email-less person carries
+ * this exact name — the record was born from a source that didn't know
+ * the address (a meeting invite list, a manual entry), and this source
+ * does. The write goes through the registry's person_email_extracted
+ * fillRule so the card's sourcing story and the write path can't drift.
+ */
+async function adoptNameOnlyPerson(
+  workspaceId: string,
+  name: string,
+  email: string,
+  input: PersonResolutionInput
+): Promise<PersonResolutionResult | null> {
+  const admin = createAdminClient();
+  // ilike without wildcards is a case-insensitive exact match; escape
+  // pattern metacharacters so a name like "50%_off" can't widen the net.
+  const escapedName = name.trim().replace(/[%_\\]/g, (m) => `\\${m}`);
+  if (!escapedName) return null;
+
+  const { data: matches } = await admin
+    .from("people")
+    .select("id, name")
+    .eq("workspace_id", workspaceId)
+    .is("email", null)
+    .ilike("name", escapedName)
+    .is("deleted_at", null)
+    .is("archived_at", null)
+    .limit(2);
+
+  if (!matches || matches.length !== 1) return null;
+  const person = matches[0];
+
+  await runCareForSignal({
+    workspaceId,
+    signalKey: "person_email_extracted",
+    entityType: "person",
+    entityId: person.id,
+    evidence: {
+      signalValues: { person_email_extracted: email },
+      producer: input.sourceType ?? "resolver",
+      captureId: input.sourceCaptureId,
+    },
+  });
+
+  return {
+    resolved: true,
+    person_id: person.id,
+    person_name: person.name ?? name,
+    is_new: false,
+    confidence: 95,
+    confidence_reason: "Existing name-only record adopted this email address",
     needs_confirmation: false,
   };
 }

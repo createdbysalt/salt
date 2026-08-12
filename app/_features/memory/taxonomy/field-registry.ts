@@ -204,7 +204,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
       best: "CRM contact email — canonical address on file",
     },
     fillRules: [
-      { signal: "person_email_extracted", value: "{{extracted}}", confidence: 95, because: "Email address extracted from thread" },
+      { signal: "person_email_extracted", value: "{{extracted}}", confidence: 95, because: "The address they first reached you from — email, CRM, billing, or a booking" },
     ],
   },
   {

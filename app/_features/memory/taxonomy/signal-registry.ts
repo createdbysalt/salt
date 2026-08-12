@@ -254,8 +254,9 @@ export const SIGNALS: SignalDescriptor[] = [
     id: "person_email_extracted",
     label: "Email Extracted",
     entityTypes: ["person"],
-    description: "Email address extracted",
-    sources: ["email"],
+    description:
+      "Email address identified from a thread, CRM contact, billing customer, or booking",
+    sources: ["email", "crm", "billing", "calendar"],
   },
   {
     id: "person_billing_email_extracted",
