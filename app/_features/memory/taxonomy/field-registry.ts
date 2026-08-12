@@ -188,7 +188,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
       gap: true,
     },
     fillRules: [
-      { signal: "person_name_extracted", value: "{{extracted}}", confidence: 90, because: "Name extracted from email or signature" },
+      { signal: "person_name_extracted", value: "{{extracted}}", confidence: 90, because: "From your CRM contact record, or extracted from an email signature" },
     ],
   },
   {
@@ -226,7 +226,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
       gap: true,
     },
     fillRules: [
-      { signal: "person_billing_email_extracted", value: "{{extracted}}", confidence: 85, because: "Email used for invoice delivery" },
+      { signal: "person_billing_email_extracted", value: "{{extracted}}", confidence: 85, because: "The address your billing app actually sends invoices to" },
     ],
   },
   {
@@ -245,7 +245,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
       gap: true,
     },
     fillRules: [
-      { signal: "person_phone_extracted", value: "{{extracted}}", confidence: 85, because: "Phone extracted from email signature" },
+      { signal: "person_phone_extracted", value: "{{extracted}}", confidence: 85, because: "From your CRM or a scheduling booking form, or an email signature" },
     ],
   },
   {
@@ -265,7 +265,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
       gap: true,
     },
     fillRules: [
-      { signal: "person_timezone_detected", value: "{{extracted}}", confidence: 88, because: "Timezone detected from email headers or calendar" },
+      { signal: "person_timezone_detected", value: "{{extracted}}", confidence: 88, because: "Confirmed by the invitee on a scheduling booking, or detected from email headers and calendar" },
     ],
   },
   {
@@ -284,7 +284,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
       gap: true,
     },
     fillRules: [
-      { signal: "person_title_extracted", value: "{{extracted}}", confidence: 80, because: "Title extracted from email signature" },
+      { signal: "person_title_extracted", value: "{{extracted}}", confidence: 80, because: "From your CRM, or extracted from an email signature" },
     ],
   },
   {
@@ -323,7 +323,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     dbColumn: "address_line_1",
     sourcing: PERSON_ADDRESS_SOURCING,
     fillRules: [
-      { signal: "person_address_extracted", value: "{{extracted}}", confidence: 82, because: "Address extracted from signature or documents" },
+      { signal: "person_address_extracted", value: "{{extracted}}", confidence: 82, because: "From the customer's billing address, or extracted from a signature or document" },
     ],
   },
   {
@@ -338,7 +338,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     dbColumn: "address_line_2",
     sourcing: PERSON_ADDRESS_SOURCING,
     fillRules: [
-      { signal: "person_address_extracted", value: "{{extracted}}", confidence: 82, because: "Address line 2 extracted from signature" },
+      { signal: "person_address_extracted", value: "{{extracted}}", confidence: 82, because: "From the customer's billing address, or extracted from a signature" },
     ],
   },
   {
@@ -353,7 +353,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     dbColumn: "city",
     sourcing: PERSON_ADDRESS_SOURCING,
     fillRules: [
-      { signal: "person_address_extracted", value: "{{extracted}}", confidence: 82, because: "City extracted from address" },
+      { signal: "person_address_extracted", value: "{{extracted}}", confidence: 82, because: "From the customer's billing address" },
     ],
   },
   {
@@ -368,7 +368,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     dbColumn: "state",
     sourcing: PERSON_ADDRESS_SOURCING,
     fillRules: [
-      { signal: "person_address_extracted", value: "{{extracted}}", confidence: 82, because: "State extracted from address" },
+      { signal: "person_address_extracted", value: "{{extracted}}", confidence: 82, because: "From the customer's billing address" },
     ],
   },
   {
@@ -383,7 +383,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     dbColumn: "postal_code",
     sourcing: PERSON_ADDRESS_SOURCING,
     fillRules: [
-      { signal: "person_address_extracted", value: "{{extracted}}", confidence: 82, because: "Postal code extracted from address" },
+      { signal: "person_address_extracted", value: "{{extracted}}", confidence: 82, because: "From the customer's billing address" },
     ],
   },
   {
@@ -399,7 +399,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     dbColumn: "country",
     sourcing: PERSON_ADDRESS_SOURCING,
     fillRules: [
-      { signal: "person_address_extracted", value: "{{extracted}}", confidence: 82, because: "Country extracted from address" },
+      { signal: "person_address_extracted", value: "{{extracted}}", confidence: 82, because: "From the customer's billing address" },
       { signal: "person_timezone_detected", value: "{{extracted}}", confidence: 70, because: "Country inferred from timezone" },
     ],
   },

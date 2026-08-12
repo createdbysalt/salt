@@ -279,4 +279,22 @@ describe("field sourcing (people-field-sourcing canvas)", () => {
       expect(text, `${field.key} sourcing`).not.toMatch(banned);
     }
   });
+
+  it("fill-rule copy credits every producer, not just email", () => {
+    const byKey = new Map(
+      getFieldsForEntity("person").map((field) => [field.key, field]),
+    );
+    const text = (key: string) =>
+      (byKey.get(key)?.fillRules ?? []).map((rule) => rule.because).join("\n");
+
+    // CRM produces name/title/phone; scheduling bookings produce
+    // phone/timezone; billing produces billing email + address.
+    expect(text("name")).toMatch(/CRM/i);
+    expect(text("title")).toMatch(/CRM/i);
+    expect(text("phone")).toMatch(/CRM/i);
+    expect(text("phone")).toMatch(/booking/i);
+    expect(text("timezone")).toMatch(/booking/i);
+    expect(text("billingEmail")).toMatch(/billing/i);
+    expect(text("addressLine1")).toMatch(/billing/i);
+  });
 });
