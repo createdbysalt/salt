@@ -240,8 +240,15 @@ function RecordLogicCard({
   guidance: DefaultGuidance;
   scope: MemoryCustomizeEntityType;
 }) {
-  const birthSections = guidance.sections.filter(
-    (section) => section.kind === "birth",
+  // Record-level logic (birth + connections) reads as one story, so those
+  // sections lead the accordion; the system-maintained note closes it,
+  // after the per-field dropdowns it refers to. fields/never sections stay
+  // off the card — the per-field dropdowns carry that detail.
+  const logicSections = guidance.sections.filter(
+    (section) => section.kind === "birth" || section.kind === "connections",
+  );
+  const systemSections = guidance.sections.filter(
+    (section) => section.kind === "system",
   );
   const fields = getFieldsForEntity(scope).filter((field) => !field.isReadonly);
 
@@ -259,10 +266,10 @@ function RecordLogicCard({
           type="multiple"
           className="aurora-scroll max-h-[440px] overflow-y-auto pr-2"
         >
-          {birthSections.map((section) => (
+          {logicSections.map((section) => (
             <AccordionItem
               key={section.heading}
-              value={`birth-${section.heading}`}
+              value={`${section.kind}-${section.heading}`}
               className="border-white/15"
             >
               <AccordionTrigger className="py-2.5 text-[13px] text-white/90 hover:no-underline [&_svg]:text-white/60!">
@@ -312,6 +319,25 @@ function RecordLogicCard({
               </AccordionItem>
             );
           })}
+
+          {systemSections.map((section) => (
+            <AccordionItem
+              key={section.heading}
+              value={`${section.kind}-${section.heading}`}
+              className="border-white/15"
+            >
+              <AccordionTrigger className="py-2.5 text-[13px] text-white/90 hover:no-underline [&_svg]:text-white/60!">
+                {section.heading}
+              </AccordionTrigger>
+              <AccordionContent className="text-xs leading-snug text-white/70">
+                <ul className="space-y-1.5">
+                  {section.lines.map((line) => (
+                    <li key={line}>{line}</li>
+                  ))}
+                </ul>
+              </AccordionContent>
+            </AccordionItem>
+          ))}
         </Accordion>
       </div>
     </section>
