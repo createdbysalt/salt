@@ -38,7 +38,29 @@ export interface PersonAddressExtraction {
   country?: string;
 }
 
+/**
+ * Touchpoint attestation a payload carries (a DM, a completed meeting). The
+ * signal names the registry fillRule on lastContactedAt whose confidence /
+ * because govern the write — per-source copy stays in the registry, not in
+ * adapters.
+ */
+export type PersonContactSignal =
+  | "capture_message_received"
+  | "capture_meeting_completed";
+
+export interface PersonContactAttestation {
+  /** ISO timestamp of the touchpoint. */
+  at: string;
+  signal: PersonContactSignal;
+}
+
 export interface DerivedPersonFields {
   signalValues: PersonFieldSignalValues;
   address?: PersonAddressExtraction;
+  /**
+   * Newest touchpoint this batch attests. Direct-written to
+   * first/last_contact_at with min/max semantics (never regresses) — the
+   * same bookkeeping person-resolver does for email, registry-governed.
+   */
+  contactAt?: PersonContactAttestation;
 }

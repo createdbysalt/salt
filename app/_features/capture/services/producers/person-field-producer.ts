@@ -18,10 +18,14 @@ import "server-only";
  *   memoryUpdateField with the registry rule's confidence/because, because
  *   a single signal value cannot fan out to per-column values. Provenance
  *   ruleIds still name the `person_address_extracted` rule.
+ * - Contact timestamps (DMs, completed meetings): direct min/max writes to
+ *   first/last_contact_at — low-stakes bookkeeping that must never regress
+ *   the relationship clock during backfills.
  */
 
 import { runCareForSignal } from "@/app/_features/memory/care/scheduler";
 import { memoryUpdateField } from "@/app/_lib/memory-tools";
+import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { getFieldsForEntity } from "@/app/_features/memory/taxonomy/field-registry";
 import {
   PERSON_FIELD_SIGNAL_KEYS,
@@ -34,6 +38,8 @@ export {
   type PersonFieldSignalKey,
   type PersonFieldSignalValues,
   type PersonAddressExtraction,
+  type PersonContactAttestation,
+  type PersonContactSignal,
   type DerivedPersonFields,
 } from "./person-field-types";
 
@@ -42,6 +48,8 @@ export interface ProducePersonFieldsResult {
   dispatched: string[];
   /** Address component writes attempted. */
   addressWrites: number;
+  /** Contact-timestamp writes (first/last contact bookkeeping). */
+  contactWrites: number;
 }
 
 /** Registry field key → address component. */
@@ -82,8 +90,75 @@ export async function producePersonFieldSignals(input: {
   }
 
   const addressWrites = await writeAddressComponents(input);
+  const contactWrites = await writeContactTimestamps(input);
 
-  return { dispatched, addressWrites };
+  return { dispatched, addressWrites, contactWrites };
+}
+
+/**
+ * Contact-timestamp bookkeeping (DMs, completed meetings). Mirrors
+ * person-resolver's email path: low-stakes timestamps with min/max semantics
+ * so backfills never regress the relationship clock. last_contact_at goes
+ * through memoryUpdateField with the registry fillRule's confidence/because
+ * for the attesting signal (capture_message_received,
+ * capture_meeting_completed); first_contact_at is a plain direct write.
+ */
+async function writeContactTimestamps(input: {
+  workspaceId: string;
+  personId: string;
+  fields: DerivedPersonFields;
+  captureId?: string;
+}): Promise<number> {
+  const contact = input.fields.contactAt;
+  if (!contact) return 0;
+
+  const admin = createAdminClient();
+  const { data: person } = await admin
+    .from("people")
+    .select("first_contact_at, last_contact_at")
+    .eq("id", input.personId)
+    .eq("workspace_id", input.workspaceId)
+    .maybeSingle();
+  if (!person) return 0;
+
+  let writes = 0;
+
+  if (!person.first_contact_at || contact.at < person.first_contact_at) {
+    await admin
+      .from("people")
+      .update({ first_contact_at: contact.at })
+      .eq("id", input.personId)
+      .eq("workspace_id", input.workspaceId);
+    writes++;
+  }
+
+  if (!person.last_contact_at || contact.at > person.last_contact_at) {
+    const field = getFieldsForEntity("person").find(
+      (f) => f.key === "lastContactedAt"
+    );
+    const rule = (field?.fillRules ?? []).find(
+      (r) => r.signal === contact.signal
+    );
+
+    await memoryUpdateField({
+      workspaceId: input.workspaceId,
+      entityType: "person",
+      entityId: input.personId,
+      field: "last_contact_at",
+      value: contact.at,
+      confidence: rule?.confidence ?? 100,
+      because: rule?.because ?? "Touchpoint with this person",
+      source: "enrichment",
+      sourceDetails: {
+        playbookSlug: "memory-records",
+        captureId: input.captureId,
+        ruleId: `person-lastContactedAt-${contact.signal}`,
+      },
+    });
+    writes++;
+  }
+
+  return writes;
 }
 
 /**

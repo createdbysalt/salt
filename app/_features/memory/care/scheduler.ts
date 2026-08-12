@@ -71,6 +71,7 @@ const CARE_SIGNAL_MAP: Record<string, CareCapability[]> = {
   capture_email_received: ["connections"],
   capture_email_sent: ["connections"],
   capture_meeting_completed: ["connections"],
+  capture_message_received: ["connections"],
   billing_payment_matched: ["connections"],
   file_shared: ["connections"],
   connection_inferred: ["connections"],

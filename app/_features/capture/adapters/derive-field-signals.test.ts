@@ -10,6 +10,7 @@ import { describe, it, expect } from "vitest";
 import { createBillingCategoryAdapter } from "./categories/billing";
 import { createCalendarCategoryAdapter } from "./categories/calendar";
 import { createCrmCategoryAdapter } from "./categories/crm";
+import { createMessagingCategoryAdapter } from "./categories/communication";
 import { PERSON_FIELD_SIGNAL_KEYS } from "../services/producers/person-field-types";
 import type { CaptureEnvelope } from "./types";
 
@@ -225,6 +226,125 @@ describe("crm adapter field signals", () => {
   });
 });
 
+describe("messaging adapter field signals", () => {
+  it("derives profile fields from an enriched slack user object", () => {
+    const adapter = createMessagingCategoryAdapter("slack");
+    const envelope = adapter.normalize({
+      channel: "D0987654321",
+      channel_type: "im",
+      ts: "1754410500.000101",
+      text: "sounds good, talk tomorrow",
+      user: {
+        id: "U0AB12CD3",
+        email: "jane@acme.com",
+        real_name: "Jane Doe",
+        title: "VP of Operations",
+        tz: "America/New_York",
+        profile: { phone: "+1 212 555 0100" },
+      },
+    }) as CaptureEnvelope;
+
+    expect(envelope.extracted.sender_title).toBe("VP of Operations");
+    expect(envelope.extracted.sender_timezone).toBe("America/New_York");
+    expect(envelope.extracted.sender_phone).toBe("+1 212 555 0100");
+
+    const derived = adapter.deriveFieldSignals?.([envelope], {
+      userEmail: null,
+    });
+
+    const jane = derived?.get("jane@acme.com");
+    expect(jane?.signalValues.person_name_extracted).toBe("Jane Doe");
+    expect(jane?.signalValues.person_title_extracted).toBe("VP of Operations");
+    expect(jane?.signalValues.person_timezone_detected).toBe(
+      "America/New_York"
+    );
+    expect(jane?.signalValues.person_phone_extracted).toBe("+1 212 555 0100");
+  });
+
+  it("attests contact recency from a direct message", () => {
+    const adapter = createMessagingCategoryAdapter("slack");
+    const envelope = adapter.normalize({
+      channel: "D0987654321",
+      channel_type: "im",
+      ts: "1754410500.000101",
+      text: "thanks!",
+      user: { id: "U0AB12CD3", email: "jane@acme.com", real_name: "Jane" },
+    }) as CaptureEnvelope;
+
+    const derived = adapter.deriveFieldSignals?.([envelope], {
+      userEmail: null,
+    });
+
+    const jane = derived?.get("jane@acme.com");
+    expect(jane?.contactAt).toEqual({
+      at: envelope.occurredAt,
+      signal: "capture_message_received",
+    });
+  });
+
+  it("does not attest recency from channel chatter", () => {
+    const adapter = createMessagingCategoryAdapter("slack");
+    const envelope = adapter.normalize({
+      channel: "C0123456789",
+      channel_type: "channel",
+      ts: "1754407800.000200",
+      text: "shipping today",
+      user: { id: "U0AB12CD3", email: "jane@acme.com", real_name: "Jane" },
+    }) as CaptureEnvelope;
+
+    const derived = adapter.deriveFieldSignals?.([envelope], {
+      userEmail: null,
+    });
+
+    const jane = derived?.get("jane@acme.com");
+    expect(jane?.signalValues.person_name_extracted).toBe("Jane");
+    expect(jane?.contactAt).toBeUndefined();
+  });
+
+  it("keeps the newest DM timestamp across envelopes", () => {
+    const adapter = createMessagingCategoryAdapter("slack");
+    const older = adapter.normalize({
+      channel: "D0987654321",
+      channel_type: "im",
+      ts: "1754400000.000000",
+      text: "first",
+      user: { id: "U0AB12CD3", email: "jane@acme.com" },
+    }) as CaptureEnvelope;
+    const newer = adapter.normalize({
+      channel: "D0987654321",
+      channel_type: "im",
+      ts: "1754410500.000101",
+      text: "second",
+      user: { id: "U0AB12CD3", email: "jane@acme.com" },
+    }) as CaptureEnvelope;
+
+    const derived = adapter.deriveFieldSignals?.([newer, older], {
+      userEmail: null,
+    });
+
+    expect(derived?.get("jane@acme.com")?.contactAt?.at).toBe(
+      newer.occurredAt
+    );
+  });
+
+  it("skips senders without an email (member-ID-only trigger payloads)", () => {
+    const adapter = createMessagingCategoryAdapter("slack");
+    const envelope = adapter.normalize({
+      channel: "D0987654321",
+      channel_type: "im",
+      ts: "1754410500.000101",
+      text: "hello",
+      user: "U0AB12CD3",
+    }) as CaptureEnvelope;
+
+    const derived = adapter.deriveFieldSignals?.([envelope], {
+      userEmail: null,
+    });
+
+    expect(derived?.size ?? 0).toBe(0);
+  });
+});
+
 describe("field-signal conformance", () => {
   it("derived field signal keys stay within the registry set", () => {
     const adapters = [
@@ -233,6 +353,7 @@ describe("field-signal conformance", () => {
       createCalendarCategoryAdapter("calendly"),
       createCrmCategoryAdapter("salesforce"),
       createCrmCategoryAdapter("pipedrive"),
+      createMessagingCategoryAdapter("slack"),
     ];
 
     for (const adapter of adapters) {

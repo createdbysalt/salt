@@ -226,12 +226,12 @@ describe("field sourcing (people-field-sourcing canvas)", () => {
     const byKey = new Map(fields.map((field) => [field.key, field]));
 
     const expected: Record<string, { gap: boolean }> = {
-      name: { gap: true },
+      name: { gap: false },
       email: { gap: false },
-      billingEmail: { gap: true },
-      phone: { gap: true },
-      timezone: { gap: true },
-      title: { gap: true },
+      billingEmail: { gap: false },
+      phone: { gap: false },
+      timezone: { gap: false },
+      title: { gap: false },
       relationshipType: { gap: false },
       recordStatus: { gap: true },
       lastContactedAt: { gap: true },

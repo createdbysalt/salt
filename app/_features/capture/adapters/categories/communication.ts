@@ -17,6 +17,7 @@ import {
 } from "../feedback-entity";
 import { isRecord, pickString, unwrapRecord } from "../normalize-utils";
 import type { PersonSignals } from "@/app/_features/capture/services/system-plays/person-signals";
+import type { DerivedPersonFields } from "@/app/_features/capture/services/producers/person-field-types";
 import type { CaptureSourceType } from "@/app/_features/capture/types";
 
 type KnownMessagingProvider = "slack";
@@ -57,6 +58,57 @@ function deriveMessagingSignals(
 // Messaging adapters already filter by category - no need for source type check
 
 /**
+ * Field-signal derivation (producer roadmap track 1): a messaging profile is
+ * a mini-CRM — real name, title, timezone, sometimes phone, maintained by
+ * the person themselves. Enriched payloads carry those as sender_* keys.
+ *
+ * Recency: only DMs attest contact. Channel chatter isn't addressed to you,
+ * so it doesn't move the relationship clock.
+ */
+function deriveMessagingFieldSignals(
+  envelopes: readonly CaptureEnvelope[],
+): Map<string, DerivedPersonFields> {
+  const contacts = new Map<string, DerivedPersonFields>();
+
+  for (const envelope of envelopes) {
+    const email = envelope.extracted.sender_email as string | null;
+    if (!email) continue;
+
+    const existing = contacts.get(email) ?? { signalValues: {} };
+    const name = envelope.extracted.sender_name as string | null;
+    const title = envelope.extracted.sender_title as string | null;
+    const phone = envelope.extracted.sender_phone as string | null;
+    const timezone = envelope.extracted.sender_timezone as string | null;
+    if (name && !existing.signalValues.person_name_extracted) {
+      existing.signalValues.person_name_extracted = name;
+    }
+    if (title && !existing.signalValues.person_title_extracted) {
+      existing.signalValues.person_title_extracted = title;
+    }
+    if (phone && !existing.signalValues.person_phone_extracted) {
+      existing.signalValues.person_phone_extracted = phone;
+    }
+    if (timezone && !existing.signalValues.person_timezone_detected) {
+      existing.signalValues.person_timezone_detected = timezone;
+    }
+
+    if (envelope.extracted.is_dm === true && envelope.occurredAt) {
+      const current = existing.contactAt;
+      if (!current || envelope.occurredAt > current.at) {
+        existing.contactAt = {
+          at: envelope.occurredAt,
+          signal: "capture_message_received",
+        };
+      }
+    }
+
+    contacts.set(email, existing);
+  }
+
+  return contacts;
+}
+
+/**
  * Slack trigger payloads — verified against the live Composio trigger
  * schemas 2026-08-05 (__fixtures__/composio-trigger-schemas.json):
  * { channel, channel_type, ts, text, user, team_id, thread_ts?, bot_id? }.
@@ -88,16 +140,35 @@ function normalizeSlack(payload: unknown): CaptureEnvelope | null {
         : null;
 
   // Legacy shape support: user as an object with email (enriched payloads).
+  // Slack users.info-shaped objects also carry profile.title / profile.phone
+  // / tz — the mini-CRM fields the field producer harvests.
   const participants: EnvelopeParticipant[] = [];
+  let senderTitle: string | null = null;
+  let senderPhone: string | null = null;
+  let senderTimezone: string | null = null;
   if (isRecord(record.user)) {
-    const email = pickString(record.user, ["email"]);
+    const profile = isRecord(record.user.profile) ? record.user.profile : null;
+    const email =
+      pickString(record.user, ["email"]) ??
+      (profile ? pickString(profile, ["email"]) : null);
     if (email && email.includes("@")) {
       participants.push({
         email: email.toLowerCase(),
-        name: pickString(record.user, ["name", "real_name"]),
+        name:
+          pickString(record.user, ["name", "real_name"]) ??
+          (profile ? pickString(profile, ["real_name", "display_name"]) : null),
         role: "from",
       });
     }
+    senderTitle =
+      pickString(record.user, ["title"]) ??
+      (profile ? pickString(profile, ["title"]) : null);
+    senderPhone =
+      pickString(record.user, ["phone"]) ??
+      (profile ? pickString(profile, ["phone"]) : null);
+    senderTimezone =
+      pickString(record.user, ["tz", "timezone"]) ??
+      (profile ? pickString(profile, ["tz"]) : null);
   }
 
   // ts is only unique within a channel — scope the dedupe key.
@@ -125,6 +196,9 @@ function normalizeSlack(payload: unknown): CaptureEnvelope | null {
       sender_id: senderId,
       sender_email: participants[0]?.email ?? null,
       sender_name: participants[0]?.name ?? null,
+      sender_title: senderTitle,
+      sender_phone: senderPhone,
+      sender_timezone: senderTimezone,
       // Trigger payloads carry only the member ID; the display name needs a
       // member-cache/enrichment fetch (capture-detail-contract.md).
       needs_hydration: participants.length === 0 && senderId !== null,
@@ -162,6 +236,18 @@ function normalizeGenericMessaging(
 
   const text = pickString(record, ["text", "content", "body"]);
 
+  // Sender shapes vary by app (from/sender/user/author); fold whatever is
+  // present into the shared sender_* keys the field producer reads.
+  const sender = ["from", "sender", "user", "author"]
+    .map((key) => record[key])
+    .find(isRecord);
+  const senderEmailRaw = sender ? pickString(sender, ["email"]) : null;
+  const senderEmail =
+    senderEmailRaw && senderEmailRaw.includes("@")
+      ? senderEmailRaw.toLowerCase()
+      : null;
+  const channelType = pickString(record, ["channel_type", "channelType"]);
+
   return {
     sourceType,
     captureType: "message",
@@ -169,11 +255,31 @@ function normalizeGenericMessaging(
     title: text?.slice(0, 100) ?? null,
     occurredAt:
       pickString(record, ["timestamp", "created_at", "createdAt"]) ?? null,
-    participants: [],
+    participants: senderEmail
+      ? [
+          {
+            email: senderEmail,
+            name: sender ? pickString(sender, ["name", "real_name", "username"]) : null,
+            role: "from",
+          },
+        ]
+      : [],
     threadId:
       pickString(record, ["threadId", "thread_id", "thread_ts", "channel"]) ?? null,
     extracted: {
       text,
+      is_dm:
+        record.is_dm === true ||
+        channelType === "dm" ||
+        channelType === "im" ||
+        channelType === "mpim",
+      sender_email: senderEmail,
+      sender_name: sender
+        ? pickString(sender, ["name", "real_name", "username"])
+        : null,
+      sender_title: sender ? pickString(sender, ["title"]) : null,
+      sender_phone: sender ? pickString(sender, ["phone"]) : null,
+      sender_timezone: sender ? pickString(sender, ["tz", "timezone"]) : null,
     },
     raw: {
       messageId: externalId,
@@ -202,6 +308,7 @@ export function createMessagingCategoryAdapter(provider: string): CaptureAdapter
     toolkit: provider,
     triggerSlugs,
     deriveSignals: deriveMessagingSignals,
+    deriveFieldSignals: deriveMessagingFieldSignals,
 
     extractFeedbackEntity(envelope) {
       // Channel-scoped rules win when the capture carries a channel; DMs and

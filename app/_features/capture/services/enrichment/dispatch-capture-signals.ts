@@ -24,6 +24,7 @@ const DISPATCHABLE_SIGNALS = new Set([
   "capture_email_received",
   "capture_email_sent",
   "capture_meeting_completed",
+  "capture_message_received",
   "billing_payment_matched",
   "file_shared",
   "capture_processed",
@@ -71,6 +72,16 @@ export async function dispatchCaptureSignals(
   for (const signal of input.signals) {
     const key = SIGNAL_ALIASES[signal] ?? signal;
     if (DISPATCHABLE_SIGNALS.has(key)) normalized.add(key);
+  }
+
+  // DM-gated alias: the extractor emits message_received for every messaging
+  // capture, but only a direct message is a person-to-person touchpoint the
+  // connections capability should react to. Channel chatter stays metadata.
+  if (
+    input.signals.includes("message_received") &&
+    input.signals.includes("is_direct_message")
+  ) {
+    normalized.add("capture_message_received");
   }
 
   if (normalized.size === 0 || input.linkedRecords.length === 0) {

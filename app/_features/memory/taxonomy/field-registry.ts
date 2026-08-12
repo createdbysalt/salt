@@ -184,8 +184,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     dbColumn: "name",
     sourcing: {
       best: "CRM contact record — human-curated, correctly formatted",
-      today: "Email signature / From header",
-      gap: true,
+      today: "CRM contact record, Slack profile, or email signature",
     },
     fillRules: [
       { signal: "person_name_extracted", value: "{{extracted}}", confidence: 90, because: "From your CRM contact record, or extracted from an email signature" },
@@ -222,8 +221,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     dbColumn: "billing_email",
     sourcing: {
       best: "Billing — the address invoices actually go to (Stripe customer, QBO billing)",
-      today: "Extracted when an invoice is sent",
-      gap: true,
+      today: "Stripe / QuickBooks customer record",
     },
     fillRules: [
       { signal: "person_billing_email_extracted", value: "{{extracted}}", confidence: 85, because: "The address your billing app actually sends invoices to" },
@@ -241,8 +239,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     dbColumn: "phone",
     sourcing: {
       best: "CRM phone / mobile fields",
-      today: "Email signature",
-      gap: true,
+      today: "CRM contact record, scheduling booking form, Slack profile, or email signature",
     },
     fillRules: [
       { signal: "person_phone_extracted", value: "{{extracted}}", confidence: 85, because: "From your CRM or a scheduling booking form, or an email signature" },
@@ -261,8 +258,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     dbColumn: "timezone",
     sourcing: {
       best: "Scheduling — booking confirmations carry the invitee's explicit timezone",
-      today: "Email headers / calendar inference",
-      gap: true,
+      today: "Scheduling booking confirmation or Slack profile",
     },
     fillRules: [
       { signal: "person_timezone_detected", value: "{{extracted}}", confidence: 88, because: "Confirmed by the invitee on a scheduling booking, or detected from email headers and calendar" },
@@ -280,8 +276,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     dbColumn: "title",
     sourcing: {
       best: "CRM job title field",
-      today: "Email signature",
-      gap: true,
+      today: "CRM contact record, Slack profile, or email signature",
     },
     fillRules: [
       { signal: "person_title_extracted", value: "{{extracted}}", confidence: 80, because: "From your CRM, or extracted from an email signature" },
@@ -460,6 +455,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
       { signal: "capture_email_received", value: "{{extracted}}", confidence: 100, because: "Email received from this person" },
       { signal: "capture_email_sent", value: "{{extracted}}", confidence: 100, because: "Email sent to this person" },
       { signal: "capture_meeting_completed", value: "{{extracted}}", confidence: 100, because: "Meeting with this person completed" },
+      { signal: "capture_message_received", value: "{{extracted}}", confidence: 100, because: "Direct message from this person" },
     ],
   },
   {

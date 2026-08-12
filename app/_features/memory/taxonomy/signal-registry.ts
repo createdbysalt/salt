@@ -39,6 +39,7 @@ export type SignalId =
   | "capture_email_received"
   | "capture_email_sent"
   | "capture_meeting_completed"
+  | "capture_message_received"
   // Organization signals
   | "org_domain_known"
   | "org_created_from_domain"
@@ -131,7 +132,7 @@ export interface SignalDescriptor {
   label: string;
   entityTypes: Array<"person" | "org" | "work" | "billing" | "file" | "meeting" | "me">;
   description: string;
-  sources: Array<"email" | "calendar" | "billing" | "documents" | "crm" | "social">;
+  sources: Array<"email" | "calendar" | "billing" | "documents" | "crm" | "social" | "messaging">;
 }
 
 // ============================================================================
@@ -323,6 +324,13 @@ export const SIGNALS: SignalDescriptor[] = [
     entityTypes: ["person"],
     description: "Meeting with this person completed",
     sources: ["calendar"],
+  },
+  {
+    id: "capture_message_received",
+    label: "Message Received",
+    entityTypes: ["person"],
+    description: "Direct message received from this person",
+    sources: ["messaging"],
   },
 
   // Organization signals
