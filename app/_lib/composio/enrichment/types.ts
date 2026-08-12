@@ -22,7 +22,8 @@ export type ConnectorCategory =
   | "documents"
   | "storage"
   | "project_management"
-  | "communication";
+  | "communication"
+  | "finance";
 
 export interface SourcedField {
   value: string | number | boolean;

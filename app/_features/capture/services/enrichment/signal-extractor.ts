@@ -256,6 +256,30 @@ function extractStorageSignals(
   return signals;
 }
 
+/**
+ * Extract signals from a finance (banking) capture envelope.
+ * Money vocabulary is shared with billing — a bank credit IS a payment
+ * received — but debits must not misclassify, so finance is its own area.
+ */
+function extractFinanceSignals(
+  envelope: CaptureEnvelope,
+  _userEmail: string | null
+): CaptureSignalKey[] {
+  const signals: CaptureSignalKey[] = [];
+  const extracted = envelope.extracted as Record<string, unknown>;
+
+  if (extracted.direction === "credit") {
+    signals.push("billing_payment_received");
+  }
+
+  const amount = typeof extracted.amount === "number" ? Math.abs(extracted.amount) : undefined;
+  if (amount && amount >= 1000) {
+    signals.push("billing_large_amount");
+  }
+
+  return signals;
+}
+
 /** Capture area (category) */
 type CaptureArea =
   | "email"
@@ -266,7 +290,8 @@ type CaptureArea =
   | "crm"
   | "meetings"
   | "documents"
-  | "project_management";
+  | "project_management"
+  | "finance";
 
 const SOURCE_TO_AREA: Record<string, CaptureArea> = {
   gmail: "email",
@@ -280,6 +305,7 @@ const SOURCE_TO_AREA: Record<string, CaptureArea> = {
   stripe: "billing",
   quickbooks: "billing",
   xero: "billing",
+  mercury: "finance",
   googledrive: "storage",
   dropbox: "storage",
   onedrive: "storage",
@@ -316,6 +342,8 @@ export function extractCaptureSignals(
       return extractCommunicationSignals(envelope, userEmail);
     case "billing":
       return extractBillingSignals(envelope, userEmail);
+    case "finance":
+      return extractFinanceSignals(envelope, userEmail);
     case "storage":
       return extractStorageSignals(envelope, userEmail);
     default:

@@ -93,6 +93,9 @@ export const CATEGORY_RULE_ENTITY_OPTIONS: Record<
     { type: "assignee", label: "Assignee", placeholder: "name@example.com" },
     { type: "project", label: "Project", placeholder: "project name or id" },
   ],
+  finance: [
+    { type: "customer", label: "Counterparty", placeholder: "name@example.com" },
+  ],
 };
 
 /** Short row labels — "domain · spam.com". */
@@ -183,13 +186,14 @@ export const CATEGORY_TO_AREA: Record<ConnectorCategory, CustomizeArea> = {
   storage: "storage",
   project_management: "projects",
   communication: "messaging",
+  finance: "billing",
 };
 
 /** The categories folded into each area, primary first. */
 export const AREA_CATEGORIES: Record<CustomizeArea, readonly ConnectorCategory[]> = {
   email: ["email"],
   calendar: ["calendar"],
-  billing: ["billing"],
+  billing: ["billing", "finance"],
   storage: ["storage", "documents"],
   messaging: ["communication"],
   meetings: ["meetings"],

@@ -88,6 +88,7 @@ export const connectorManifestSchema = z.object({
       "project_management",
       "storage",
       "communication",
+      "finance",
     ] as const satisfies readonly ConnectorCategory[]),
     apiVersion: z.string().optional(),
   }),

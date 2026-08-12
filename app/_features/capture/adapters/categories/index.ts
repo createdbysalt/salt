@@ -27,6 +27,7 @@ import { getMeetingsAdapter } from "./meetings";
 import { getDocumentsAdapter } from "./documents";
 import { getProjectManagementAdapter } from "./project-management";
 import { getCommunicationAdapter } from "./communication";
+import { getFinanceAdapter } from "./finance";
 
 /**
  * Category → adapter getter mapping.
@@ -44,6 +45,7 @@ const CATEGORY_ADAPTERS: Record<ConnectorCategory, CategoryAdapterGetter> = {
   documents: getDocumentsAdapter,
   project_management: getProjectManagementAdapter,
   communication: getCommunicationAdapter,
+  finance: getFinanceAdapter,
 };
 
 /**
@@ -114,6 +116,7 @@ const HAND_WRITTEN_PARSING_PROVIDERS: ReadonlySet<string> = new Set([
   "pipedrive",
   "fireflies",
   "slack",
+  "mercury",
 ]);
 
 /** Whether a provider has hand-written normalize parsing in its category adapter. */
@@ -139,5 +142,6 @@ export function listCategoryAdapters(): { category: ConnectorCategory; providers
     { category: "documents", providers: ["notion", "googledocs", "googlesheets", "googleslides"] },
     { category: "project_management", providers: ["asana", "linear", "jira", "trello", "monday"] },
     { category: "communication", providers: ["slack"] },
+    { category: "finance", providers: ["mercury"] },
   ];
 }

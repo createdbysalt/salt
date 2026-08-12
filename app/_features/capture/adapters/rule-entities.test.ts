@@ -17,6 +17,7 @@ const ALL_CATEGORIES: ConnectorCategory[] = [
   "storage",
   "project_management",
   "communication",
+  "finance",
 ];
 
 describe("rule entity vocabulary", () => {
@@ -66,6 +67,11 @@ describe("rule entity vocabulary", () => {
       (o) => o.type,
     );
     expect(types).toEqual(["assignee", "project"]);
+  });
+
+  it("finance offers the counterparty", () => {
+    const types = ruleEntityOptionsForCategory("finance").map((o) => o.type);
+    expect(types).toEqual(["customer"]);
   });
 
   it("options carry user-facing labels and input placeholders", () => {

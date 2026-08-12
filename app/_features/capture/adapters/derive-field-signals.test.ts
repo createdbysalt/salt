@@ -12,6 +12,7 @@ import { createCalendarCategoryAdapter } from "./categories/calendar";
 import { createCrmCategoryAdapter } from "./categories/crm";
 import { createMessagingCategoryAdapter } from "./categories/communication";
 import { createMeetingsCategoryAdapter } from "./categories/meetings";
+import { createFinanceCategoryAdapter } from "./categories/finance";
 import { PERSON_FIELD_SIGNAL_KEYS } from "../services/producers/person-field-types";
 import type { CaptureEnvelope } from "./types";
 
@@ -470,6 +471,7 @@ describe("field-signal conformance", () => {
       createCrmCategoryAdapter("pipedrive"),
       createMessagingCategoryAdapter("slack"),
       createMeetingsCategoryAdapter("fireflies"),
+      createFinanceCategoryAdapter("mercury"),
     ];
 
     for (const adapter of adapters) {

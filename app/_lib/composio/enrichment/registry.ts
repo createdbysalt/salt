@@ -115,6 +115,17 @@ export const CATEGORY_PROVIDES_FIELDS: Record<ConnectorCategory, Partial<Record<
     file: [],
     me: [],
   },
+  finance: {
+    // Bank transactions witness the relationship (money in ⇒ client) and
+    // corroborate the counterparty's name; they don't carry contact fields.
+    person: ["name", "relationship_type"],
+    org: ["name"],
+    work: [],
+    billing: [],
+    meeting: [],
+    file: [],
+    me: [],
+  },
 };
 
 export function getCategoriesForEntity(entityType: EnrichableEntityType): ConnectorCategory[] {

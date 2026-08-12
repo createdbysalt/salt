@@ -17,6 +17,7 @@ const CATEGORY_LOGO_IDS: Record<ConnectorCategory, ConnectorCatalogId[]> = {
   storage: ["google-drive", "dropbox"],
   project_management: ["asana", "linear"],
   communication: ["slack"],
+  finance: ["mercury"],
 };
 
 const MAX_PER_CATEGORY = 2;

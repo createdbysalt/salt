@@ -23,6 +23,7 @@ const KNOWN_CATEGORIES: ReadonlySet<string> = new Set<ConnectorCategory>([
   "storage",
   "project_management",
   "communication",
+  "finance",
 ]);
 
 /**
@@ -46,7 +47,7 @@ export const FALLBACK_PROVIDER_CATEGORIES: Readonly<Record<string, ConnectorCate
   googlesheets: "documents",
   googleslides: "documents",
   linear: "project_management",
-  mercury: "billing",
+  mercury: "finance",
   notion: "documents",
   outlook: "email",
   pipedrive: "crm",
