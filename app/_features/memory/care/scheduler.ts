@@ -70,6 +70,9 @@ const CARE_SIGNAL_MAP: Record<string, CareCapability[]> = {
   meeting_type_inferred: ["records"],
   meeting_summary_extracted: ["records"],
   meeting_has_attendance_evidence: ["records"],
+  // Records: email activity rollup (Track D) — the 90-day count clearing
+  // the bar attests an active relationship (recordStatus rule).
+  email_count_gte_5: ["records"],
   // Hygiene: data-quality signals
   person_duplicate_email: ["hygiene"],
   person_duplicate_phone: ["hygiene"],

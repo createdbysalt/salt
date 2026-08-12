@@ -433,8 +433,8 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     emptyMeaning: "Defaults to active; a NULL source means no one has explicitly set it",
     sourcing: {
       best: "Activity across every source, not just email",
-      today: "Meetings, payments, and thread activity (email-count signals aren't wired)",
-      gap: true,
+      today: "Meetings, payments, and thread activity",
+      gap: false,
     },
     fillRules: [
       { signal: "email_count_gte_5", op: "eq", opValue: true, value: "active", confidence: 85, because: "Recent email activity indicates active relationship" },
@@ -801,7 +801,7 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
    sourcing: {
       best: "Any touchpoint with anyone at the domain, newest wins",
       today: "Aggregated from linked people's email, meetings, and DMs",
-      gap: true,
+      gap: false,
     },
     fillRules: [
       { signal: "org_person_contacted", value: "{{extracted}}", confidence: 100, because: "Someone at this org was contacted" },

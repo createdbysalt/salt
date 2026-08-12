@@ -233,7 +233,7 @@ describe("field sourcing (people-field-sourcing canvas)", () => {
       timezone: { gap: false },
       title: { gap: false },
       relationshipType: { gap: false },
-      recordStatus: { gap: true },
+      recordStatus: { gap: false },
       lastContactedAt: { gap: false },
       notes: { gap: true },
     };
@@ -304,7 +304,7 @@ describe("field sourcing (people-field-sourcing canvas)", () => {
     // its best-source producer lands (Tracks A-G); Track H (signing apps)
     // keeps lifecycleStatus/signedDate pilled until connectors exist.
     const expectedGaps: Record<string, string[]> = {
-      person: ["recordStatus", "notes"],
+      person: ["notes"],
       org: [
         "addressLine1",
         "addressLine2",
@@ -314,7 +314,6 @@ describe("field sourcing (people-field-sourcing canvas)", () => {
         "country",
         "taxId",
         "recordStatus",
-        "lastContactedAt",
       ],
       work: [
         "workType",

@@ -31,6 +31,8 @@ import { produceOrgFieldSignals } from "./producers/org-field-producer";
 import { produceWorkFieldSignals } from "./producers/work-field-producer";
 import { produceMeetingFieldSignals } from "./producers/meeting-field-producer";
 import { produceRecordTagFits } from "./producers/record-tag-fit-producer";
+import { produceEmailActivityRollup } from "./producers/email-activity-producer";
+import { produceOrgRecencyRollup } from "./producers/org-recency-producer";
 import {
   absorbInferredSignals,
   type LlmCall,
@@ -249,6 +251,21 @@ async function absorbDerivedSignals(
             personId: resolution.person_id,
             source: adapter.sourceType,
           });
+          // Track D: email activity rollup feeds recordStatus; a fresh
+          // touchpoint rolls up to the person's orgs (newest wins).
+          await produceEmailActivityRollup({
+            workspaceId,
+            personId: resolution.person_id,
+            source: adapter.sourceType,
+          });
+          if (fields.contactAt) {
+            await produceOrgRecencyRollup({
+              workspaceId,
+              personId: resolution.person_id,
+              contactAt: fields.contactAt.at,
+              source: adapter.sourceType,
+            });
+          }
         }
       } catch (error) {
         console.warn(

@@ -85,8 +85,8 @@ const ALL_FILL_RULE_SIGNALS = [
  */
 const SIGNALS_AWAITING_PRODUCER: Record<string, string> = {
   // Phase 4 — People producers for the sourcing matrix
+  // (email_count_gte_5 shipped in Track D — email-activity-producer.ts)
   person_observation_detected: "Phase 4: people producers",
-  email_count_gte_5: "Phase 4: people producers",
   // Phase 5 — Orgs
   org_address_extracted: "Phase 5: org producers",
   org_tax_id_extracted: "Phase 5: org producers",
