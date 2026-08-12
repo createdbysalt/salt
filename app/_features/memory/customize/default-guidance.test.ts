@@ -290,10 +290,103 @@ describe("field sourcing (people-field-sourcing canvas)", () => {
 
   it("sourcing copy stays free of banned machinery words", () => {
     const banned = /\b(trigger|webhook|sync|scope|rule|adapter|pipeline|config)\b/i;
-    for (const field of getFieldsForEntity("person")) {
-      if (!field.sourcing) continue;
-      const text = [field.sourcing.best, field.sourcing.today ?? ""].join("\n");
-      expect(text, `${field.key} sourcing`).not.toMatch(banned);
+    for (const type of MEMORY_CUSTOMIZE_ENTITY_TYPES) {
+      for (const field of getFieldsForEntity(type)) {
+        if (!field.sourcing) continue;
+        const text = [field.sourcing.best, field.sourcing.today ?? ""].join("\n");
+        expect(text, `${type}.${field.key} sourcing`).not.toMatch(banned);
+      }
+    }
+  });
+
+  it("gap flags match the plan's gap inventory per record type", () => {
+    // The "new source" pill scoreboard. A field leaves this list only when
+    // its best-source producer lands (Tracks A-G); Track H (signing apps)
+    // keeps lifecycleStatus/signedDate pilled until connectors exist.
+    const expectedGaps: Record<string, string[]> = {
+      person: ["recordStatus", "notes"],
+      org: [
+        "name",
+        "billingEmail",
+        "industryParent",
+        "industryChild",
+        "primaryContact",
+        "addressLine1",
+        "addressLine2",
+        "city",
+        "state",
+        "postalCode",
+        "country",
+        "taxId",
+        "tags",
+        "recordStatus",
+        "lastContactedAt",
+      ],
+      work: [
+        "workType",
+        "stage",
+        "contractValueCents",
+        "finalPriceCents",
+        "currency",
+        "paymentType",
+        "hourlyRateCents",
+        "retainerMrrCents",
+        "decisionDate",
+        "estimatedTimeline",
+        "discountPercent",
+        "discountAmountCents",
+        "discountReason",
+        "tags",
+      ],
+      resource: [
+        "category",
+        "documentType",
+        "description",
+        "lifecycleStatus",
+        "totalAmountCents",
+        "currency",
+        "dueDate",
+        "expiryDate",
+        "signedDate",
+        "followUpDate",
+        "tags",
+      ],
+      meeting: ["meetingType", "status", "description", "attendees"],
+      billing: [
+        "category",
+        "organization",
+        "billingContact",
+        "linkedWork",
+        "vendorLabel",
+        "tags",
+      ],
+    };
+
+    for (const [type, gapKeys] of Object.entries(expectedGaps)) {
+      const fields = getFieldsForEntity(
+        type as (typeof MEMORY_CUSTOMIZE_ENTITY_TYPES)[number],
+      );
+      const actualGaps = fields
+        .filter((field) => field.sourcing?.gap)
+        .map((field) => field.key)
+        .sort();
+      expect(actualGaps, `${type} gap inventory`).toEqual([...gapKeys].sort());
+    }
+  });
+
+  it("every gapped field names its best source and today's reality", () => {
+    for (const type of MEMORY_CUSTOMIZE_ENTITY_TYPES) {
+      for (const field of getFieldsForEntity(type)) {
+        if (!field.sourcing?.gap) continue;
+        expect(
+          field.sourcing.best.length,
+          `${type}.${field.key} best`,
+        ).toBeGreaterThan(0);
+        expect(
+          field.sourcing.today?.length ?? 0,
+          `${type}.${field.key} today`,
+        ).toBeGreaterThan(0);
+      }
     }
   });
 

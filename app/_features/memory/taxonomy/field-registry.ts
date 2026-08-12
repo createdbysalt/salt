@@ -497,7 +497,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
  */
 const ORG_ADDRESS_SOURCING = {
   best: "Billing — the org's billing address is current because money depends on it",
-  today: "No producer yet — the rule exists, extraction doesn't",
+  today: "No producer yet — the fill bar exists, extraction doesn't",
   gap: true,
 } as const;
 
@@ -718,6 +718,11 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     requiredForCapabilities: ["invoicing"],
     aiDescription: "Tax identification number (VAT, EIN, etc.)",
     dbColumn: "tax_id",
+    sourcing: {
+      best: "Billing documents — the tax ID printed on the org's invoices",
+      today: "No producer yet — the fill bar exists, extraction doesn't",
+      gap: true,
+    },
     fillRules: [
       { signal: "org_tax_id_extracted", value: "{{extracted}}", confidence: 90, because: "Tax ID extracted from invoice or documents" },
     ],
@@ -755,7 +760,7 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     ],
     sourcing: {
       best: "Salt's judgment across this org's activity — same tag-fit bar as people",
-      today: "No org tag-fit producer yet — the rule exists, detection doesn't",
+      today: "No org tag-fit producer yet — the fit bar exists, detection doesn't",
       gap: true,
     },
   },
@@ -806,6 +811,39 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
 // WORK FIELDS
 // ============================================================================
 
+/**
+ * Value fields (contractValue → discounts) share one row on the sourcing
+ * canvas: the signed contract or proposal is the authority, and no
+ * producer reads those documents yet (work_value_extracted is whitelisted
+ * in the parity test — Track E wires it).
+ */
+const WORK_VALUE_SOURCING = {
+  best: "The signed contract or proposal — the number on paper",
+  today: "No producer yet — value reading isn't wired",
+  gap: true,
+} as const;
+
+/** workType + paymentType: one inference, two columns. */
+const WORK_TYPE_SOURCING = {
+  best: "The contract or proposal terms",
+  today: "No producer yet — type inference isn't wired",
+  gap: true,
+} as const;
+
+/** decisionDate + estimatedTimeline: dates the client says out loud. */
+const WORK_TIMELINE_SOURCING = {
+  best: "The email or call where the client names a date",
+  today: "No producer yet — date mentions aren't wired",
+  gap: true,
+} as const;
+
+/** Fields the proposal/contract reader already attests (work_scope_extracted). */
+const WORK_TERMS_SOURCING = {
+  best: "The proposal or contract",
+  today: "Read from proposals and contracts",
+  gap: false,
+} as const;
+
 export const WORK_FIELDS: FieldDescriptor<"work">[] = [
   {
     key: "name",
@@ -816,6 +854,7 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: [],
     aiDescription: "Display name for this work item",
     dbColumn: "name",
+    sourcing: WORK_TERMS_SOURCING,
     fillRules: [
       { signal: "work_scope_extracted", value: "{{extracted}}", confidence: 80, because: "Name derived from proposal/contract title" },
     ],
@@ -830,6 +869,11 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: [],
     aiDescription: "Current lifecycle state (active, stalled, completed, etc.)",
     dbColumn: "status",
+    sourcing: {
+      best: "Signature, kickoff, and delivery evidence across your apps",
+      today: "Proposal, contract, and kickoff evidence",
+      gap: false,
+    },
     fillRules: [
       { signal: "work_proposal_sent", value: "draft", confidence: 90, because: "Proposal sent — awaiting decision" },
       { signal: "work_proposal_accepted", value: "signed", confidence: 95, because: "Client accepted the proposal" },
@@ -849,6 +893,7 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: [],
     aiDescription: "Engagement model (project, retainer, hourly, etc.)",
     dbColumn: "work_type",
+    sourcing: WORK_TYPE_SOURCING,
     fillRules: [
       { signal: "work_type_inferred", value: "{{extracted}}", confidence: 75, because: "Work type inferred from proposal or context" },
     ],
@@ -872,6 +917,11 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: [],
     aiDescription: "Pipeline stage within the work type",
     dbColumn: "stage",
+    sourcing: {
+      best: "CRM deal stage — the deal board your CRM maintains",
+      today: "No producer yet — CRM deals aren't wired",
+      gap: true,
+    },
     fillRules: [
       { signal: "work_stage_inferred", value: "{{extracted}}", confidence: 75, because: "Stage inferred from activity pattern" },
     ],
@@ -885,6 +935,7 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: ["proposals_contracts"],
     aiDescription: "Linked service from the service catalog",
     dbColumn: "service_id",
+    sourcing: WORK_TERMS_SOURCING,
     fillRules: [
       { signal: "work_scope_extracted", value: "{{extracted}}", confidence: 70, because: "Service matched from scope description" },
     ],
@@ -898,6 +949,11 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: ["invoicing", "retainer_renewals"],
     aiDescription: "Person responsible for receiving invoices",
     dbColumn: "billing_contact_id",
+    sourcing: {
+      best: "The invoice recipient — the address invoices actually go to",
+      today: "Identified when an invoice is created",
+      gap: false,
+    },
     fillRules: [
       { signal: "work_invoice_created", value: "{{extracted}}", confidence: 85, because: "Invoice recipient identified as billing contact" },
     ],
@@ -920,6 +976,7 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: [],
     aiDescription: "Total contract value in cents",
     dbColumn: "contract_value_cents",
+    sourcing: WORK_VALUE_SOURCING,
     fillRules: [
       { signal: "work_value_extracted", value: "{{extracted}}", confidence: 88, because: "Value extracted from proposal or contract" },
     ],
@@ -933,6 +990,7 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: [],
     aiDescription: "Final price after discounts in cents",
     dbColumn: "final_price_cents",
+    sourcing: WORK_VALUE_SOURCING,
     fillRules: [
       { signal: "work_value_extracted", value: "{{extracted}}", confidence: 88, because: "Final price extracted from contract" },
     ],
@@ -955,6 +1013,7 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: [],
     aiDescription: "Array of scope line items with descriptions and amounts",
     dbColumn: "scope_items",
+    sourcing: WORK_TERMS_SOURCING,
     fillRules: [
       { signal: "work_scope_extracted", value: "{{extracted}}", confidence: 85, because: "Scope items extracted from proposal" },
     ],
@@ -969,6 +1028,7 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: ["invoicing"],
     aiDescription: "Currency for all monetary values (ISO 4217)",
     dbColumn: "currency",
+    sourcing: WORK_VALUE_SOURCING,
     fillRules: [
       { signal: "work_value_extracted", value: "{{extracted}}", confidence: 90, because: "Currency detected from monetary values" },
     ],
@@ -983,6 +1043,7 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: ["invoicing"],
     aiDescription: "When payment is due after invoicing",
     dbColumn: "payment_terms",
+    sourcing: WORK_TERMS_SOURCING,
     fillRules: [
       { signal: "work_scope_extracted", value: "{{extracted}}", confidence: 80, because: "Payment terms extracted from contract" },
     ],
@@ -996,6 +1057,7 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: [],
     aiDescription: "How payment is structured (fixed, hourly, milestone, retainer)",
     dbColumn: "payment_type",
+    sourcing: WORK_TYPE_SOURCING,
     fillRules: [
       { signal: "work_type_inferred", value: "{{extracted}}", confidence: 75, because: "Payment type inferred from work type" },
     ],
@@ -1009,6 +1071,7 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: [],
     aiDescription: "Hourly rate in cents (for hourly work)",
     dbColumn: "hourly_rate_cents",
+    sourcing: WORK_VALUE_SOURCING,
     fillRules: [
       { signal: "work_value_extracted", value: "{{extracted}}", confidence: 85, because: "Hourly rate extracted from proposal" },
     ],
@@ -1022,6 +1085,7 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: [],
     aiDescription: "Estimated hours for the work",
     dbColumn: "hours_estimate",
+    sourcing: WORK_TERMS_SOURCING,
     fillRules: [
       { signal: "work_scope_extracted", value: "{{extracted}}", confidence: 80, because: "Hours estimate extracted from proposal" },
     ],
@@ -1035,6 +1099,7 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: ["retainer_renewals"],
     aiDescription: "Monthly recurring revenue for retainer in cents",
     dbColumn: "retainer_mrr_cents",
+    sourcing: WORK_VALUE_SOURCING,
     fillRules: [
       { signal: "work_value_extracted", value: "{{extracted}}", confidence: 88, because: "MRR extracted from retainer contract" },
     ],
@@ -1048,6 +1113,7 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: ["retainer_renewals"],
     aiDescription: "Date when retainer comes up for renewal",
     dbColumn: "renewal_date",
+    sourcing: WORK_TERMS_SOURCING,
     fillRules: [
       { signal: "work_scope_extracted", value: "{{extracted}}", confidence: 85, because: "Renewal date extracted from retainer terms" },
     ],
@@ -1062,6 +1128,7 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: ["retainer_renewals"],
     aiDescription: "How often billing occurs",
     dbColumn: "billing_cycle",
+    sourcing: WORK_TERMS_SOURCING,
     fillRules: [
       { signal: "work_scope_extracted", value: "{{extracted}}", confidence: 82, because: "Billing cycle extracted from contract" },
     ],
@@ -1075,6 +1142,7 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: ["proposals_contracts"],
     aiDescription: "Expected date for client decision on proposal",
     dbColumn: "decision_date",
+    sourcing: WORK_TIMELINE_SOURCING,
     fillRules: [
       { signal: "work_timeline_mentioned", value: "{{extracted}}", confidence: 75, because: "Decision deadline mentioned in email" },
     ],
@@ -1088,6 +1156,11 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: [],
     aiDescription: "When work begins",
     dbColumn: "start_date",
+    sourcing: {
+      best: "The kickoff or the contract",
+      today: "Kickoff meeting or contract terms",
+      gap: false,
+    },
     fillRules: [
       { signal: "work_has_kickoff", value: "{{extracted}}", confidence: 90, because: "Start date from kickoff meeting" },
       { signal: "work_scope_extracted", value: "{{extracted}}", confidence: 80, because: "Start date extracted from contract" },
@@ -1102,6 +1175,11 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: [],
     aiDescription: "Target completion date",
     dbColumn: "deadline",
+    sourcing: {
+      best: "The contract or the client's stated deadline",
+      today: "Read from contracts and stated due dates",
+      gap: false,
+    },
     fillRules: [
       { signal: "work_has_due_date", value: "{{extracted}}", confidence: 88, because: "Deadline mentioned or set" },
       { signal: "work_scope_extracted", value: "{{extracted}}", confidence: 82, because: "Deadline extracted from contract" },
@@ -1116,6 +1194,7 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: [],
     aiDescription: "Client purchase order number for invoicing",
     dbColumn: "po_number",
+    sourcing: WORK_TERMS_SOURCING,
     fillRules: [
       { signal: "work_scope_extracted", value: "{{extracted}}", confidence: 90, because: "PO number extracted from documents" },
     ],
@@ -1129,6 +1208,7 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: [],
     aiDescription: "Human-readable timeline estimate",
     dbColumn: "estimated_timeline",
+    sourcing: WORK_TIMELINE_SOURCING,
     fillRules: [
       { signal: "work_timeline_mentioned", value: "{{extracted}}", confidence: 78, because: "Timeline mentioned in email or proposal" },
     ],
@@ -1142,6 +1222,7 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: [],
     aiDescription: "Percentage discount applied",
     dbColumn: "discount_percent",
+    sourcing: WORK_VALUE_SOURCING,
     fillRules: [
       { signal: "work_value_extracted", value: "{{extracted}}", confidence: 85, because: "Discount percentage extracted from proposal" },
     ],
@@ -1155,6 +1236,7 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: [],
     aiDescription: "Fixed discount amount in cents",
     dbColumn: "discount_amount_cents",
+    sourcing: WORK_VALUE_SOURCING,
     fillRules: [
       { signal: "work_value_extracted", value: "{{extracted}}", confidence: 85, because: "Discount amount extracted from proposal" },
     ],
@@ -1168,6 +1250,7 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: [],
     aiDescription: "Reason for applying discount",
     dbColumn: "discount_reason",
+    sourcing: WORK_VALUE_SOURCING,
     fillRules: [
       { signal: "work_value_extracted", value: "{{extracted}}", confidence: 75, because: "Discount reason mentioned in proposal" },
     ],
@@ -1182,6 +1265,11 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     requiredForCapabilities: [],
     aiDescription:
       "Workspace tags for this work item (via entity_tag_assignments, not a column). Salt assigns existing tags when a fit clears the bar; coining a new tag is still gated by tag_auto_create_threshold and tag_max_ai_created in profile_playbook_settings",
+    sourcing: {
+      best: "Salt's judgment across this work's activity — same tag-fit bar as people",
+      today: "No work tag-fit producer yet — the fit bar exists, detection doesn't",
+      gap: true,
+    },
     fillRules: [
       { signal: "work_tag_fit_detected", value: "{{extracted}}", confidence: 80, because: "An existing tag clearly fits this work" },
     ],
@@ -1191,6 +1279,31 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
 // ============================================================================
 // BILLING FIELDS (billing_records)
 // ============================================================================
+
+/**
+ * The billing app is the system of record for everything it issued —
+ * numbers, amounts, currencies, dates. Its values win over anything a
+ * parsed document claims (the document corroborates, never overrides).
+ */
+const BILLING_APP_SOURCING = {
+  best: "The billing app — it issued the document, so its numbers win",
+  today: "From Stripe or QuickBooks",
+  gap: false,
+} as const;
+
+/** Payment-matched fields: the money itself is the authority. */
+const BILLING_PAYMENT_SOURCING = {
+  best: "The money itself — payment matching settles it",
+  today: "Payment matching against the invoice",
+  gap: false,
+} as const;
+
+/** Invoice-content fields: nothing reads the document yet (Track E). */
+const BILLING_INVOICE_READ_SOURCING = {
+  best: "The invoice content — what the document actually says",
+  today: "No producer yet — invoice reading isn't wired",
+  gap: true,
+} as const;
 
 export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
   {
@@ -1204,6 +1317,7 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     dbColumn: "number",
     dedupeRole: "primary",
     formatRule: "Exactly as printed on the document; no normalization",
+    sourcing: BILLING_APP_SOURCING,
     fillRules: [
       { signal: "billing_invoice_parsed", value: "{{extracted}}", confidence: 95, because: "Invoice number extracted from document" },
       { signal: "billing_stripe_synced", value: "{{extracted}}", confidence: 98, because: "Invoice number from Stripe" },
@@ -1220,6 +1334,7 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     aiDescription: "Payment state; paid/partial transitions come from payment matching",
     dbColumn: "status",
     writePolicy: "care_auto",
+    sourcing: BILLING_PAYMENT_SOURCING,
     fillRules: [
       { signal: "billing_amount_paid_covers_total", value: "paid", confidence: 98, because: "Payment received covers the invoice amount" },
       { signal: "billing_payment_matched", value: "partial", confidence: 90, because: "Partial payment received" },
@@ -1247,6 +1362,7 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     requiredForCapabilities: [],
     aiDescription: "Spend category for payables",
     dbColumn: "category",
+    sourcing: BILLING_INVOICE_READ_SOURCING,
     fillRules: [
       { signal: "billing_invoice_parsed", value: "{{extracted}}", confidence: 75, because: "Category inferred from invoice content" },
     ],
@@ -1260,6 +1376,11 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     requiredForCapabilities: [],
     aiDescription: "Counterparty organization for this record",
     dbColumn: "organization_id",
+    sourcing: {
+      best: "CRM account match — the counterparty on the deal",
+      today: "Matched from the billing email domain",
+      gap: true,
+    },
     fillRules: [
       { signal: "billing_party_email_match", value: "{{extracted}}", confidence: 88, because: "Organization matched from billing email domain" },
     ],
@@ -1273,6 +1394,11 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     requiredForCapabilities: [],
     aiDescription: "Counterparty person for this record",
     dbColumn: "person_id",
+    sourcing: {
+      best: "CRM contact on the account",
+      today: "Matched from the billing email",
+      gap: true,
+    },
     fillRules: [
       { signal: "billing_party_email_match", value: "{{extracted}}", confidence: 88, because: "Person matched from billing email" },
     ],
@@ -1286,6 +1412,11 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     requiredForCapabilities: [],
     aiDescription: "Work item this billing record belongs to",
     dbColumn: "work_id",
+    sourcing: {
+      best: "The CRM deal or contract the invoice references",
+      today: "No producer yet — invoice-to-work linking isn't wired",
+      gap: true,
+    },
     fillRules: [
       { signal: "billing_invoice_parsed", value: "{{extracted}}", confidence: 80, because: "Work linked from invoice description or PO" },
     ],
@@ -1299,6 +1430,11 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     requiredForCapabilities: [],
     aiDescription: "Free-text counterparty label when no org/person record is linked",
     dbColumn: "vendor_label",
+    sourcing: {
+      best: "The invoice itself — the vendor name on the document",
+      today: "No producer yet — invoice reading isn't wired",
+      gap: true,
+    },
     fillRules: [
       { signal: "billing_invoice_parsed", value: "{{extracted}}", confidence: 85, because: "Vendor name extracted from bill" },
     ],
@@ -1313,6 +1449,7 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     aiDescription: "Total amount in cents",
     dbColumn: "amount_cents",
     formatRule: "Integer cents in the record's currency",
+    sourcing: BILLING_APP_SOURCING,
     fillRules: [
       { signal: "billing_invoice_parsed", value: "{{extracted}}", confidence: 95, because: "Amount extracted from invoice" },
       { signal: "billing_stripe_synced", value: "{{extracted}}", confidence: 98, because: "Amount from Stripe" },
@@ -1328,6 +1465,7 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     aiDescription: "Amount received so far in cents; maintained by payment matching",
     dbColumn: "amount_paid_cents",
     writePolicy: "system_derived",
+    sourcing: BILLING_PAYMENT_SOURCING,
     fillRules: [
       { signal: "billing_payment_matched", value: "{{extracted}}", confidence: 98, because: "Payment amount matched to invoice" },
       { signal: "billing_stripe_synced", value: "{{extracted}}", confidence: 98, because: "Payment amount from Stripe" },
@@ -1343,6 +1481,7 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     aiDescription: "Currency of all amounts on this record (ISO 4217)",
     dbColumn: "currency",
     formatRule: "Uppercase ISO 4217 (DB currently stores lowercase until Phase 3.3 lands)",
+    sourcing: BILLING_APP_SOURCING,
     fillRules: [
       { signal: "billing_invoice_parsed", value: "{{extracted}}", confidence: 95, because: "Currency detected from invoice" },
       { signal: "billing_stripe_synced", value: "{{extracted}}", confidence: 98, because: "Currency from Stripe" },
@@ -1357,6 +1496,7 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     requiredForCapabilities: [],
     aiDescription: "Date the invoice/bill was issued",
     dbColumn: "issued_at",
+    sourcing: BILLING_APP_SOURCING,
     fillRules: [
       { signal: "billing_invoice_parsed", value: "{{extracted}}", confidence: 92, because: "Issue date extracted from invoice" },
       { signal: "billing_stripe_synced", value: "{{extracted}}", confidence: 98, because: "Issue date from Stripe" },
@@ -1371,6 +1511,7 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     requiredForCapabilities: [],
     aiDescription: "Date payment is due",
     dbColumn: "due_at",
+    sourcing: BILLING_APP_SOURCING,
     fillRules: [
       { signal: "billing_invoice_parsed", value: "{{extracted}}", confidence: 92, because: "Due date extracted from invoice" },
       { signal: "billing_stripe_synced", value: "{{extracted}}", confidence: 98, because: "Due date from Stripe" },
@@ -1386,6 +1527,7 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     aiDescription: "Date the record was fully paid; set by payment matching",
     dbColumn: "paid_at",
     writePolicy: "system_derived",
+    sourcing: BILLING_PAYMENT_SOURCING,
     fillRules: [
       { signal: "billing_amount_paid_covers_total", value: "{{extracted}}", confidence: 98, because: "Paid date from payment matching" },
       { signal: "billing_stripe_synced", value: "{{extracted}}", confidence: 98, because: "Paid date from Stripe" },
@@ -1404,6 +1546,11 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     // Artifact-first (Phase 7): the hosted invoice URL is sourced from the
     // attached link Resource (entity_links relation_type='attachment');
     // app_url is a projection of that artifact, not the source of truth.
+    sourcing: {
+      best: "The billing app's hosted page for the document",
+      today: "From the attached invoice link",
+      gap: false,
+    },
     fillRules: [
       { signal: "billing_stripe_synced", value: "{{extracted}}", confidence: 100, because: "Stripe hosted invoice URL (attached as a Resource)" },
     ],
@@ -1418,6 +1565,11 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     requiredForCapabilities: [],
     aiDescription:
       "Workspace tags for this billing record (via entity_tag_assignments, not a column). Salt assigns existing tags when a fit clears the bar; coining a new tag is still gated by tag_auto_create_threshold and tag_max_ai_created in profile_playbook_settings",
+    sourcing: {
+      best: "Salt's judgment across this record's activity — same tag-fit bar as people",
+      today: "No billing tag-fit producer yet — the fit bar exists, detection doesn't",
+      gap: true,
+    },
     fillRules: [
       { signal: "billing_tag_fit_detected", value: "{{extracted}}", confidence: 80, because: "An existing tag clearly fits this billing record" },
     ],
@@ -1427,6 +1579,43 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
 // ============================================================================
 // FILE FIELDS (files)
 // ============================================================================
+
+/**
+ * Content-analysis fields (category, documentType, description): the
+ * authority is reading the document itself — no extraction producer exists
+ * yet (Track E wires it; the file_* signals are whitelisted in the parity
+ * test until then).
+ */
+const RESOURCE_CONTENT_SOURCING = {
+  best: "Reading the document itself",
+  today: "No producer yet — document reading isn't wired",
+  gap: true,
+} as const;
+
+/**
+ * Signing lifecycle fields: the signing app witnessed the event. Stays
+ * gapped until signing connectors (DocuSign/PandaDoc) exist — an honest
+ * gap, not a missing one.
+ */
+const RESOURCE_SIGNING_SOURCING = {
+  best: "The signing app — it witnessed the signature",
+  today: "No producer yet — signing apps aren't connected",
+  gap: true,
+} as const;
+
+/** Amount fields: the document, corroborated by the money that moved. */
+const RESOURCE_AMOUNT_SOURCING = {
+  best: "The document, corroborated by the money that moved",
+  today: "No producer yet — amount reading isn't wired",
+  gap: true,
+} as const;
+
+/** Date fields read off the document. */
+const RESOURCE_DATE_SOURCING = {
+  best: "The document itself",
+  today: "No producer yet — date reading isn't wired",
+  gap: true,
+} as const;
 
 export const FILE_FIELDS: FieldDescriptor<"resources">[] = [
   {
@@ -1470,6 +1659,7 @@ export const FILE_FIELDS: FieldDescriptor<"resources">[] = [
     aiDescription: "Business artifact category; AI extraction proposes it on ingest",
     dbColumn: "category",
     writePolicy: "care_auto",
+    sourcing: RESOURCE_CONTENT_SOURCING,
     fillRules: [
       { signal: "file_category_inferred", value: "{{extracted}}", confidence: 85, because: "Category inferred from file content" },
     ],
@@ -1485,6 +1675,7 @@ export const FILE_FIELDS: FieldDescriptor<"resources">[] = [
     aiDescription: "Specific document type for document-kind files; AI extraction proposes it",
     dbColumn: "document_type",
     writePolicy: "care_auto",
+    sourcing: RESOURCE_CONTENT_SOURCING,
     fillRules: [
       { signal: "file_document_type_inferred", value: "{{extracted}}", confidence: 85, because: "Document type inferred from content" },
     ],
@@ -1498,6 +1689,7 @@ export const FILE_FIELDS: FieldDescriptor<"resources">[] = [
     requiredForCapabilities: [],
     aiDescription: "Short human description of what the file is",
     dbColumn: "description",
+    sourcing: RESOURCE_CONTENT_SOURCING,
     fillRules: [
       { signal: "file_document_type_inferred", value: "{{extracted}}", confidence: 75, because: "Description generated from document analysis" },
     ],
@@ -1513,6 +1705,7 @@ export const FILE_FIELDS: FieldDescriptor<"resources">[] = [
     aiDescription: "Signature/delivery lifecycle for signable documents",
     dbColumn: "lifecycle_status",
     writePolicy: "care_auto",
+    sourcing: RESOURCE_SIGNING_SOURCING,
     fillRules: [
       { signal: "file_signature_event_sent", value: "sent", confidence: 95, because: "Document was sent for signature" },
       { signal: "file_signature_event_viewed", value: "viewed", confidence: 92, because: "Recipient viewed the document" },
@@ -1530,6 +1723,7 @@ export const FILE_FIELDS: FieldDescriptor<"resources">[] = [
     aiDescription: "Total amount extracted from financial documents, in cents",
     dbColumn: "total_amount_cents",
     writePolicy: "care_auto",
+    sourcing: RESOURCE_AMOUNT_SOURCING,
     fillRules: [
       { signal: "file_amount_extracted", value: "{{extracted}}", confidence: 90, because: "Amount extracted from financial document" },
     ],
@@ -1544,6 +1738,7 @@ export const FILE_FIELDS: FieldDescriptor<"resources">[] = [
     aiDescription: "Currency for the extracted amount (ISO 4217)",
     dbColumn: "currency",
     formatRule: "Uppercase ISO 4217",
+    sourcing: RESOURCE_AMOUNT_SOURCING,
     fillRules: [
       { signal: "file_amount_extracted", value: "{{extracted}}", confidence: 90, because: "Currency detected from document amounts" },
     ],
@@ -1558,6 +1753,7 @@ export const FILE_FIELDS: FieldDescriptor<"resources">[] = [
     aiDescription: "Due date extracted from the document",
     dbColumn: "due_date",
     writePolicy: "care_auto",
+    sourcing: RESOURCE_DATE_SOURCING,
     fillRules: [
       { signal: "file_date_extracted", value: "{{extracted}}", confidence: 88, because: "Due date extracted from document" },
     ],
@@ -1572,6 +1768,7 @@ export const FILE_FIELDS: FieldDescriptor<"resources">[] = [
     aiDescription: "Expiration date extracted from the document",
     dbColumn: "expiry_date",
     writePolicy: "care_auto",
+    sourcing: RESOURCE_DATE_SOURCING,
     fillRules: [
       { signal: "file_date_extracted", value: "{{extracted}}", confidence: 88, because: "Expiry date extracted from document" },
       { signal: "file_signature_event_expired", value: "{{extracted}}", confidence: 95, because: "Expiry from signature event" },
@@ -1587,6 +1784,7 @@ export const FILE_FIELDS: FieldDescriptor<"resources">[] = [
     aiDescription: "Date the document was signed",
     dbColumn: "signed_date",
     writePolicy: "care_auto",
+    sourcing: RESOURCE_SIGNING_SOURCING,
     fillRules: [
       { signal: "file_signature_event_signed", value: "{{extracted}}", confidence: 98, because: "Signed date from signature event" },
     ],
@@ -1600,6 +1798,11 @@ export const FILE_FIELDS: FieldDescriptor<"resources">[] = [
     requiredForCapabilities: [],
     aiDescription: "When to follow up about this document; Salt suggests, you decide",
     dbColumn: "follow_up_date",
+    sourcing: {
+      best: "Salt's judgment from the document's context",
+      today: "No producer yet — follow-up suggestions aren't wired",
+      gap: true,
+    },
     fillRules: [
       { signal: "file_date_extracted", value: "{{extracted}}", confidence: 75, because: "Follow-up date suggested based on document context" },
     ],
@@ -1614,6 +1817,11 @@ export const FILE_FIELDS: FieldDescriptor<"resources">[] = [
     requiredForCapabilities: [],
     aiDescription:
       "Workspace tags for this resource (via entity_tag_assignments, not a column). Salt assigns existing tags when a fit clears the bar; coining a new tag is still gated by tag_auto_create_threshold and tag_max_ai_created in profile_playbook_settings",
+    sourcing: {
+      best: "Salt's judgment across this resource's context — same tag-fit bar as people",
+      today: "No resource tag-fit producer yet — the fit bar exists, detection doesn't",
+      gap: true,
+    },
     fillRules: [
       { signal: "resource_tag_fit_detected", value: "{{extracted}}", confidence: 80, because: "An existing tag clearly fits this resource" },
     ],
@@ -1650,6 +1858,16 @@ export const FILE_FIELDS: FieldDescriptor<"resources">[] = [
 // meeting_transcripts.recording_url is a read-compat projection of the
 // attached recording Resource (see meetings/utils/recording-projection.ts).
 
+/**
+ * Calendar-owned logistics (times, location, links): the calendar event is
+ * the authority and calendar-derived writes already land.
+ */
+const MEETING_CALENDAR_SOURCING = {
+  best: "Your calendar — it owns the logistics",
+  today: "From your calendar",
+  gap: false,
+} as const;
+
 export const MEETING_FIELDS: FieldDescriptor<"meetings">[] = [
   {
     key: "title",
@@ -1671,6 +1889,11 @@ export const MEETING_FIELDS: FieldDescriptor<"meetings">[] = [
     requiredForCapabilities: [],
     aiDescription: "Purpose of the meeting; inferable from title/agenda",
     dbColumn: "meeting_type",
+    sourcing: {
+      best: "Meeting intelligence — what the call actually was",
+      today: "No producer yet — type inference isn't wired",
+      gap: true,
+    },
     fillRules: [
       { signal: "meeting_type_inferred", value: "{{extracted}}", confidence: 80, because: "Meeting type inferred from title or description" },
     ],
@@ -1686,6 +1909,11 @@ export const MEETING_FIELDS: FieldDescriptor<"meetings">[] = [
     aiDescription: "Scheduled/completed/cancelled/no-show; time passing implies completed",
     dbColumn: "status",
     writePolicy: "care_auto",
+    sourcing: {
+      best: "Attendance evidence — who actually showed up",
+      today: "Calendar status and time passing",
+      gap: true,
+    },
     fillRules: [
       { signal: "meeting_synced_from_calendar", value: "scheduled", confidence: 95, because: "Meeting synced from calendar" },
       { signal: "meeting_has_attendance_evidence", value: "completed", confidence: 90, because: "Evidence shows the meeting happened" },
@@ -1702,6 +1930,7 @@ export const MEETING_FIELDS: FieldDescriptor<"meetings">[] = [
     aiDescription: "Start time; calendar sync owns it for external meetings",
     dbColumn: "start_time",
     writePolicy: "care_auto",
+    sourcing: MEETING_CALENDAR_SOURCING,
     fillRules: [
       { signal: "meeting_synced_from_calendar", value: "{{extracted}}", confidence: 98, because: "Start time from calendar sync" },
     ],
@@ -1715,6 +1944,7 @@ export const MEETING_FIELDS: FieldDescriptor<"meetings">[] = [
     aiDescription: "End time; calendar sync owns it for external meetings",
     dbColumn: "end_time",
     writePolicy: "care_auto",
+    sourcing: MEETING_CALENDAR_SOURCING,
     fillRules: [
       { signal: "meeting_synced_from_calendar", value: "{{extracted}}", confidence: 98, because: "End time from calendar sync" },
     ],
@@ -1729,6 +1959,7 @@ export const MEETING_FIELDS: FieldDescriptor<"meetings">[] = [
     aiDescription: "Medium the meeting happens over; calendar sync can set it",
     dbColumn: "location_type",
     writePolicy: "care_auto",
+    sourcing: MEETING_CALENDAR_SOURCING,
     fillRules: [
       { signal: "meeting_synced_from_calendar", value: "{{extracted}}", confidence: 90, because: "Location type inferred from calendar event" },
     ],
@@ -1742,6 +1973,7 @@ export const MEETING_FIELDS: FieldDescriptor<"meetings">[] = [
     aiDescription: "Join link for video meetings; calendar sync can set it",
     dbColumn: "meeting_url",
     writePolicy: "care_auto",
+    sourcing: MEETING_CALENDAR_SOURCING,
     fillRules: [
       { signal: "meeting_synced_from_calendar", value: "{{extracted}}", confidence: 95, because: "Meeting URL from calendar event" },
     ],
@@ -1754,6 +1986,7 @@ export const MEETING_FIELDS: FieldDescriptor<"meetings">[] = [
     requiredForCapabilities: [],
     aiDescription: "Physical address for in-person meetings",
     dbColumn: "address",
+    sourcing: MEETING_CALENDAR_SOURCING,
     fillRules: [
       { signal: "meeting_synced_from_calendar", value: "{{extracted}}", confidence: 88, because: "Address from calendar event location" },
     ],
@@ -1767,6 +2000,7 @@ export const MEETING_FIELDS: FieldDescriptor<"meetings">[] = [
     aiDescription: "Dial-in number for phone meetings",
     dbColumn: "phone_number",
     formatRule: "E.164 preferred; stored as entered",
+    sourcing: MEETING_CALENDAR_SOURCING,
     fillRules: [
       { signal: "meeting_synced_from_calendar", value: "{{extracted}}", confidence: 85, because: "Dial-in number from calendar event" },
     ],
@@ -1779,6 +2013,11 @@ export const MEETING_FIELDS: FieldDescriptor<"meetings">[] = [
     requiredForCapabilities: [],
     aiDescription: "Agenda or context for the meeting",
     dbColumn: "description",
+    sourcing: {
+      best: "The meeting summary — what was actually discussed",
+      today: "The calendar event description",
+      gap: true,
+    },
     fillRules: [
       { signal: "meeting_synced_from_calendar", value: "{{extracted}}", confidence: 92, because: "Description from calendar event" },
     ],
@@ -1813,6 +2052,11 @@ export const MEETING_FIELDS: FieldDescriptor<"meetings">[] = [
     aiDescription: "Attendee list; calendar sync maintains it for external meetings",
     dbColumn: "attendees",
     writePolicy: "care_auto",
+    sourcing: {
+      best: "Who actually joined, from the recording app",
+      today: "The calendar invite list",
+      gap: true,
+    },
     fillRules: [
       { signal: "meeting_attendees_extracted", value: "{{extracted}}", confidence: 95, because: "Attendees from calendar event" },
     ],
