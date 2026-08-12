@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { generateFileSummary } from "./generate-file-summary";
 import { setFileWorkLink } from "@/app/_features/resources/utils/work-links";
 import { extractAndStoreBrandMetadata } from "@/app/_lib/ai/brand-metadata-extractor";
+import { analyzeResourceContent } from "@/app/_features/resources/services/content-analysis";
 import type { FileCategory } from "@/app/_features/resources/data";
 
 export interface UploadClientFileInput {
@@ -197,6 +198,14 @@ export async function uploadClientFile(
     if (fileRecord?.id) {
       generateFileSummary(fileRecord.id).catch((err) => {
         console.error("Error auto-generating file summary:", err);
+      });
+      // Read the document to fill category/type/amounts/dates (metered via sendLlm)
+      analyzeResourceContent({
+        workspaceId: workspace.id,
+        resourceId: fileRecord.id,
+        actorUserId: user.id,
+      }).catch((err) => {
+        console.error("Error analyzing resource content:", err);
       });
       // Brand assets get palette/resolution extraction (fire and forget)
       if (input.category === "brand_asset" && file.type?.startsWith("image/")) {

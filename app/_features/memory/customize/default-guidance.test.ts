@@ -330,16 +330,11 @@ describe("field sourcing (people-field-sourcing canvas)", () => {
         "discountReason",
       ],
       resource: [
-        "category",
-        "documentType",
-        "description",
+        // Content-analysis fields cleared in Track E
+        // (resources/services/content-analysis.ts). lifecycleStatus and
+        // signedDate stay pilled until signing connectors exist (Track H).
         "lifecycleStatus",
-        "totalAmountCents",
-        "currency",
-        "dueDate",
-        "expiryDate",
         "signedDate",
-        "followUpDate",
       ],
       meeting: [],
       billing: [

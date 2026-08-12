@@ -98,10 +98,9 @@ const SIGNALS_AWAITING_PRODUCER: Record<string, string> = {
   billing_invoice_parsed: "Phase 7: artifact-first billing producers",
   billing_stripe_synced: "Phase 7: artifact-first billing producers",
   // Phase 5/7 — Resources (artifact-first track)
-  file_category_inferred: "Phase 7: artifact-first resource producers",
-  file_document_type_inferred: "Phase 7: artifact-first resource producers",
-  file_amount_extracted: "Phase 7: artifact-first resource producers",
-  file_date_extracted: "Phase 7: artifact-first resource producers",
+  // (file_category_inferred / file_document_type_inferred /
+  //  file_amount_extracted / file_date_extracted shipped in Track E —
+  //  resources/services/content-analysis.ts)
   // Phase 5 — Meetings
   // (meeting_type_inferred / meeting_attendees_extracted shipped in Track B)
   // Phase 5+ — Tag-fit producers for non-person record types shipped in

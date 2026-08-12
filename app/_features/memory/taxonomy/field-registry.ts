@@ -1584,15 +1584,15 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
 // ============================================================================
 
 /**
- * Content-analysis fields (category, documentType, description): the
- * authority is reading the document itself — no extraction producer exists
- * yet (Track E wires it; the file_* signals are whitelisted in the parity
- * test until then).
+ * Content-analysis fields (category, documentType, description, amounts,
+ * dates): the authority is reading the document itself. Track E wired the
+ * producer — `analyzeResourceContent` reads the file (or its summary) on
+ * upload and after summarization, metered through sendLlm.
  */
 const RESOURCE_CONTENT_SOURCING = {
   best: "Reading the document itself",
-  today: "No producer yet — document reading isn't wired",
-  gap: true,
+  today: "Salt reads the file when it arrives and fills this in",
+  gap: false,
 } as const;
 
 /**
@@ -1609,15 +1609,15 @@ const RESOURCE_SIGNING_SOURCING = {
 /** Amount fields: the document, corroborated by the money that moved. */
 const RESOURCE_AMOUNT_SOURCING = {
   best: "The document, corroborated by the money that moved",
-  today: "No producer yet — amount reading isn't wired",
-  gap: true,
+  today: "Salt reads amounts off the document when it arrives",
+  gap: false,
 } as const;
 
 /** Date fields read off the document. */
 const RESOURCE_DATE_SOURCING = {
   best: "The document itself",
-  today: "No producer yet — date reading isn't wired",
-  gap: true,
+  today: "Salt reads dates off the document when it arrives",
+  gap: false,
 } as const;
 
 export const FILE_FIELDS: FieldDescriptor<"resources">[] = [
@@ -1803,8 +1803,8 @@ export const FILE_FIELDS: FieldDescriptor<"resources">[] = [
     dbColumn: "follow_up_date",
     sourcing: {
       best: "Salt's judgment from the document's context",
-      today: "No producer yet — follow-up suggestions aren't wired",
-      gap: true,
+      today: "Salt suggests a follow-up when the document's context calls for one",
+      gap: false,
     },
     fillRules: [
       { signal: "file_date_extracted", value: "{{extracted}}", confidence: 75, because: "Follow-up date suggested based on document context" },

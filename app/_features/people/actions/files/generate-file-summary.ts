@@ -8,6 +8,7 @@ import {
   generateFileSummary as generateSummary,
   isSummarizationSupported,
 } from "@/app/_lib/ai/file-summarizer";
+import { analyzeResourceContent } from "@/app/_features/resources/services/content-analysis";
 
 // =============================================================================
 // Types
@@ -158,6 +159,16 @@ export async function generateFileSummary(
 
     // Revalidate the client page
     if (file.person_id) revalidatePath(`/people/${file.person_id}`);
+
+    // The fresh summary gives the content-analysis pass text to work with on
+    // links and stubs (uploads already ran it against the file itself).
+    analyzeResourceContent({
+      workspaceId: workspace.id,
+      resourceId: fileId,
+      actorUserId: user.id,
+    }).catch((err) => {
+      console.error("Error analyzing resource content after summary:", err);
+    });
 
     return {
       success: true,
