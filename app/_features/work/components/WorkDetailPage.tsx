@@ -188,6 +188,7 @@ export function WorkDetailPage({ workId, detailData = null, linkableEntities = [
                       availableServices={detailData?.availableServices ?? []}
                       milestones={detailData?.milestones ?? []}
                       blockers={detailData?.blockers ?? []}
+                      billingRollup={detailData?.billingRollup ?? null}
                     />
                   </div>
                 </div>
@@ -211,6 +212,7 @@ export function WorkDetailPage({ workId, detailData = null, linkableEntities = [
                       availableServices={detailData?.availableServices ?? []}
                       milestones={detailData?.milestones ?? []}
                       blockers={detailData?.blockers ?? []}
+                      billingRollup={detailData?.billingRollup ?? null}
                     />
                   </TabsContent>
                   <TabsContent value="connections" className="m-0">

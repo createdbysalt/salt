@@ -24,6 +24,7 @@ import { correctWorkProfileField } from "@/app/_features/work/actions/profile-fi
 import { correctOrgProfileField } from "@/app/_features/orgs/actions/profile-fields";
 import type {
   WorkBillingCycle,
+  WorkBillingRollup,
   WorkDetailViewModel,
   WorkBlocker,
   WorkMilestone,
@@ -33,7 +34,7 @@ import type {
   WorkServiceRef,
   WorkType,
 } from "@/app/_features/work/types";
-import { computeFinalPrice, formatCurrencyCents } from "@/app/_features/work/utils/pricing";
+import { computeFinalPrice, formatCurrencyCents, formatWorkBillingLine } from "@/app/_features/work/utils/pricing";
 import { WorkStageSelect } from "@/app/_features/work/components/WorkStageSelect";
 import { getInitialStage, isValidStage } from "@/app/_features/work/utils/stages";
 import { TagEditor } from "@/app/_features/memory/components/TagEditor";
@@ -51,6 +52,7 @@ type WorkOverviewTabProps = {
   availableServices?: WorkServiceRef[];
   milestones?: WorkMilestone[];
   blockers?: WorkBlocker[];
+  billingRollup?: WorkBillingRollup | null;
 };
 
 export function WorkOverviewTab({
@@ -60,6 +62,7 @@ export function WorkOverviewTab({
   availableServices = [],
   milestones = [],
   blockers = [],
+  billingRollup = null,
 }: WorkOverviewTabProps) {
   const primaryPerson = resolveWorkPrimaryPerson({
     primaryPerson: work.primaryPerson,
@@ -254,6 +257,18 @@ export function WorkOverviewTab({
   const showRenewalField = showRetainerFields || renewalDate != null;
   const showMilestoneSection = paymentType === "milestone" || milestones.length > 0;
 
+  // Commercials stay quiet until there's an agreement to describe: pricing
+  // opens with contract value + final price; discount rows appear once a
+  // value or discount exists; payment detail rows appear once a payment
+  // type, explicit terms, PO, or money exists. Entry-point rows stay
+  // visible so the fields remain discoverable.
+  const showDiscountRows =
+    contractValueCents != null || discountPercent != null || discountAmountCents != null;
+  const showDiscountReason = showDiscountRows || discountReason !== "";
+  const showPaymentDetailRows =
+    paymentType !== "" || work.paymentTerms != null || poNumber !== "" || contractValueCents != null;
+  const billingTargetCents = finalPriceCents ?? contractValueCents;
+
   return (
     <div className="space-y-6">
       <MemoryOverviewSection title="Summary" salt variant="heading">
@@ -407,40 +422,52 @@ export function WorkOverviewTab({
                   currency={currency}
                 />
               </AccountRow>
-              <AccountRow label="Discount %">
-                <InlineNumber
-                  value={usingFlatDiscount ? null : discountPercent}
-                  onChange={handleDiscountPercentChange}
-                  min={0}
-                  max={100}
-                  step="0.01"
-                  placeholder={usingFlatDiscount ? "Using flat discount" : "Add percent"}
-                />
-              </AccountRow>
-              <AccountRow label="Discount amount">
-                <InlineMoney
-                  valueCents={usingPercentDiscount ? null : discountAmountCents}
-                  onChange={handleDiscountAmountChange}
-                  currency={currency}
-                  placeholder={usingPercentDiscount ? "Using % discount" : "Add discount"}
-                />
-              </AccountRow>
               <AccountRow label="Final price">
                 <ReadOnlyDerivedValue empty={finalPriceCents == null}>
                   {formatCurrencyCents(finalPriceCents, currency)}
                 </ReadOnlyDerivedValue>
               </AccountRow>
-              <AccountRow label="Discount reason">
-                <InlineEditableText
-                  value={discountReason}
-                  onChange={(value) => {
-                    setDiscountReason(value);
-                    saveWorkField("discount_reason", value);
-                  }}
-                  placeholder="Add reason"
-                />
-              </AccountRow>
+              {showDiscountRows ? (
+                <>
+                  <AccountRow label="Discount %">
+                    <InlineNumber
+                      value={usingFlatDiscount ? null : discountPercent}
+                      onChange={handleDiscountPercentChange}
+                      min={0}
+                      max={100}
+                      step="0.01"
+                      placeholder={usingFlatDiscount ? "Using flat discount" : "Add percent"}
+                    />
+                  </AccountRow>
+                  <AccountRow label="Discount amount">
+                    <InlineMoney
+                      valueCents={usingPercentDiscount ? null : discountAmountCents}
+                      onChange={handleDiscountAmountChange}
+                      currency={currency}
+                      placeholder={usingPercentDiscount ? "Using % discount" : "Add discount"}
+                    />
+                  </AccountRow>
+                </>
+              ) : null}
+              {showDiscountReason ? (
+                <AccountRow label="Discount reason">
+                  <InlineEditableText
+                    value={discountReason}
+                    onChange={(value) => {
+                      setDiscountReason(value);
+                      saveWorkField("discount_reason", value);
+                    }}
+                    placeholder="Add reason"
+                  />
+                </AccountRow>
+              ) : null}
             </dl>
+
+            {billingRollup && formatWorkBillingLine(billingRollup, billingTargetCents) ? (
+              <p className="mt-3 text-xs text-muted-foreground">
+                {formatWorkBillingLine(billingRollup, billingTargetCents)}
+              </p>
+            ) : null}
           </div>
 
           <div className="border-t border-border/50 pt-4">
@@ -458,36 +485,40 @@ export function WorkOverviewTab({
                   options={paymentTypeOptions}
                 />
               </AccountRow>
-              <AccountRow label="Payment terms">
-                <InlineSelect
-                  value={paymentTerms}
-                  onChange={(value) => {
-                    setPaymentTerms(value);
-                    saveWorkField("payment_terms", value);
-                  }}
-                  options={paymentTermsOptions}
-                />
-              </AccountRow>
-              <AccountRow label="Currency">
-                <InlineSelect
-                  value={currency}
-                  onChange={(value) => {
-                    setCurrency(value);
-                    saveWorkField("currency", value);
-                  }}
-                  options={currencyOptions}
-                />
-              </AccountRow>
-              <AccountRow label="PO number">
-                <InlineEditableText
-                  value={poNumber}
-                  onChange={(value) => {
-                    setPoNumber(value);
-                    saveWorkField("po_number", value);
-                  }}
-                  placeholder="Add PO"
-                />
-              </AccountRow>
+              {showPaymentDetailRows ? (
+                <>
+                  <AccountRow label="Payment terms">
+                    <InlineSelect
+                      value={paymentTerms}
+                      onChange={(value) => {
+                        setPaymentTerms(value);
+                        saveWorkField("payment_terms", value);
+                      }}
+                      options={paymentTermsOptions}
+                    />
+                  </AccountRow>
+                  <AccountRow label="Currency">
+                    <InlineSelect
+                      value={currency}
+                      onChange={(value) => {
+                        setCurrency(value);
+                        saveWorkField("currency", value);
+                      }}
+                      options={currencyOptions}
+                    />
+                  </AccountRow>
+                  <AccountRow label="PO number">
+                    <InlineEditableText
+                      value={poNumber}
+                      onChange={(value) => {
+                        setPoNumber(value);
+                        saveWorkField("po_number", value);
+                      }}
+                      placeholder="Add PO"
+                    />
+                  </AccountRow>
+                </>
+              ) : null}
             </dl>
 
             {showMilestoneSection ? (

@@ -205,6 +205,21 @@ export interface WorkDetailData {
   sourceHistory: import("@/app/_features/memory/queries/source-history").SourceHistoryEntry[];
   blockers: WorkBlocker[];
   milestones: WorkMilestone[];
+  billingRollup: WorkBillingRollup | null;
+}
+
+/**
+ * Receivable billing records linked to this work, rolled up for the
+ * overview's reconciliation line ("Billed $X of $Y · $Z collected").
+ */
+export interface WorkBillingRollup {
+  /** Non-draft receivable invoices linked to the work. */
+  invoiceCount: number;
+  /** Sum of amount_cents across non-draft receivables. */
+  invoicedCents: number;
+  /** Sum of amount_paid_cents across all linked receivables. */
+  collectedCents: number;
+  currency: string;
 }
 
 export type WorkBlockerType =

@@ -11,6 +11,7 @@ import {
 } from "@/app/_features/work/health/recompute";
 import type {
   WorkActivityEvent,
+  WorkBillingRollup,
   WorkBlocker,
   WorkDetailData,
   WorkDetailSummary,
@@ -800,7 +801,7 @@ export const getWorkDetailData = cache(async (workId: string): Promise<WorkDetai
   const { getEntityConnections } = await import("@/app/_features/connections/queries");
   const { workspace } = await getWorkspaceContext();
 
-  const [summary, profileFields, connections, unifiedConnections, availableServices, activity, supplementalActivity, lifecycleEvents, sourceHistory, blockers, milestones, notes] =
+  const [summary, profileFields, connections, unifiedConnections, availableServices, activity, supplementalActivity, lifecycleEvents, sourceHistory, blockers, milestones, notes, billingRollup] =
     await Promise.all([
     getWorkDetailSummary(workId),
     getWorkProfileFields(workId),
@@ -814,6 +815,7 @@ export const getWorkDetailData = cache(async (workId: string): Promise<WorkDetai
     getWorkBlockers(workId),
     getWorkMilestones(workId),
     getEntityNotes("work", workId),
+    getWorkBillingRollup(workId),
   ]);
 
   return {
@@ -829,5 +831,40 @@ export const getWorkDetailData = cache(async (workId: string): Promise<WorkDetai
     sourceHistory,
     blockers,
     milestones,
+    billingRollup,
   };
 });
+
+/**
+ * Rollup of receivable billing records linked to a work record. Powers the
+ * overview's reconciliation line — the agreement (contract value) vs the
+ * instruments (invoices) — without loading full billing rows.
+ */
+async function getWorkBillingRollup(
+  workId: string,
+): Promise<WorkBillingRollup | null> {
+  const { workspace, supabase } = await getWorkspaceContext();
+  const { data, error } = await supabase
+    .from("billing_records")
+    .select("amount_cents, amount_paid_cents, currency, status")
+    .eq("workspace_id", workspace.id)
+    .eq("work_id", workId)
+    .eq("direction", "receivable")
+    .is("deleted_at", null)
+    .is("archived_at", null);
+
+  if (error) {
+    console.error("Error fetching work billing rollup:", error);
+    return null;
+  }
+  const rows = data ?? [];
+  if (rows.length === 0) return null;
+
+  const invoiced = rows.filter((row) => row.status !== "draft");
+  return {
+    invoiceCount: invoiced.length,
+    invoicedCents: invoiced.reduce((sum, row) => sum + (row.amount_cents ?? 0), 0),
+    collectedCents: rows.reduce((sum, row) => sum + (row.amount_paid_cents ?? 0), 0),
+    currency: (rows[0]?.currency ?? "USD").toUpperCase(),
+  };
+}

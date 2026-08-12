@@ -28,3 +28,24 @@ export function formatCurrencyCents(value: number | null, currency = "USD"): str
     maximumFractionDigits: 0,
   }).format(value / 100);
 }
+
+/**
+ * One-line reconciliation of the agreement (the work's price) against the
+ * instruments (linked invoices): "Billed $3,000 of $5,000 · $1,500
+ * collected · $2,000 left to bill". Returns null when nothing is invoiced.
+ */
+export function formatWorkBillingLine(
+  rollup: { invoiceCount: number; invoicedCents: number; collectedCents: number; currency: string },
+  targetCents: number | null,
+): string | null {
+  if (rollup.invoiceCount === 0) return null;
+  const parts = [
+    `Billed ${formatCurrencyCents(rollup.invoicedCents, rollup.currency)}` +
+      (targetCents != null ? ` of ${formatCurrencyCents(targetCents, rollup.currency)}` : ""),
+    `${formatCurrencyCents(rollup.collectedCents, rollup.currency)} collected`,
+  ];
+  if (targetCents != null && rollup.invoicedCents < targetCents) {
+    parts.push(`${formatCurrencyCents(targetCents - rollup.invoicedCents, rollup.currency)} left to bill`);
+  }
+  return parts.join(" · ");
+}
