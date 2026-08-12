@@ -261,6 +261,11 @@ function RecordLogicCard({
         <p className="text-[13px] leading-snug text-white/70">
           {guidance.summary}
         </p>
+        {guidance.principle && (
+          <p className="rounded-xl bg-white/5 px-3 py-2 text-[12px] leading-snug text-white/60">
+            {guidance.principle}
+          </p>
+        )}
 
         <Accordion
           type="multiple"
@@ -314,6 +319,16 @@ function RecordLogicCard({
                     </ul>
                   ) : (
                     <p>When I spot it, I suggest it — you decide.</p>
+                  )}
+                  {field.sourcing && (
+                    <p className="mt-2 border-t border-white/10 pt-2 text-white/55">
+                      Best source: {field.sourcing.best}
+                      {field.sourcing.gap && (
+                        <span className="ml-1.5 rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] font-medium text-white/70">
+                          new source
+                        </span>
+                      )}
+                    </p>
                   )}
                 </AccordionContent>
               </AccordionItem>

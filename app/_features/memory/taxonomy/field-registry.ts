@@ -99,6 +99,19 @@ export interface FillRule {
  * backing table, so a renamed or deleted column fails `tsc` at the
  * declaration site — the registry cannot silently drift from schema.
  */
+/**
+ * Where a field's value should come from when several sources know it —
+ * the per-field row of the field-sourcing canvases. `best` is the
+ * authority, `today` is what actually fills it now, `gap` marks that the
+ * authority isn't wired yet. Rendered on the Customize record card so the
+ * sourcing strategy is visible where the logic lives.
+ */
+export interface FieldSourcing {
+  best: string;
+  today?: string;
+  gap?: boolean;
+}
+
 export interface FieldDescriptor<TTable extends TableName = TableName> {
   key: string;
   label: string;
@@ -118,6 +131,8 @@ export interface FieldDescriptor<TTable extends TableName = TableName> {
   emptyMeaning?: string;
   /** Whether this field participates in duplicate/identity resolution. */
   dedupeRole?: "primary" | "supporting";
+  /** Source authority for this field (see FieldSourcing). */
+  sourcing?: FieldSourcing;
   /**
    * Fill rules define how to infer this field's value from signals.
    * This is the single source of truth for field inference logic.
@@ -145,6 +160,17 @@ export function getWritePolicy(field: FieldDescriptor): WritePolicy {
  */
 const PERSON_CARE_AUTO = { writePolicy: "care_auto" as const };
 
+/**
+ * The canvas treats address as one row ("street → country"); the registry
+ * splits it across six fields. Billing is the authority for all of them —
+ * customers keep billing addresses current because money depends on it.
+ */
+const PERSON_ADDRESS_SOURCING = {
+  best: "Billing — customers keep billing addresses current because money depends on it",
+  today: "Email signature",
+  gap: true,
+} as const;
+
 export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
   {
     key: "name",
@@ -156,6 +182,11 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     requiredForCapabilities: ["invoicing"],
     aiDescription: "Full display name of the person",
     dbColumn: "name",
+    sourcing: {
+      best: "CRM contact record — human-curated, correctly formatted",
+      today: "Email signature / From header",
+      gap: true,
+    },
     fillRules: [
       { signal: "person_name_extracted", value: "{{extracted}}", confidence: 90, because: "Name extracted from email or signature" },
     ],
@@ -171,6 +202,10 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     aiDescription: "Primary email address for contact",
     dbColumn: "email",
     dedupeRole: "primary",
+    sourcing: {
+      best: "CRM contact email — canonical address on file",
+      today: "Email thread envelope",
+    },
     fillRules: [
       { signal: "person_email_extracted", value: "{{extracted}}", confidence: 95, because: "Email address extracted from thread" },
     ],
@@ -185,6 +220,11 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     requiredForCapabilities: ["invoicing"],
     aiDescription: "Email address for invoices and billing communications",
     dbColumn: "billing_email",
+    sourcing: {
+      best: "Billing — the address invoices actually go to (Stripe customer, QBO billing)",
+      today: "Extracted when an invoice is sent",
+      gap: true,
+    },
     fillRules: [
       { signal: "person_billing_email_extracted", value: "{{extracted}}", confidence: 85, because: "Email used for invoice delivery" },
     ],
@@ -199,6 +239,11 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     requiredForCapabilities: [],
     aiDescription: "Phone number for contact",
     dbColumn: "phone",
+    sourcing: {
+      best: "CRM phone / mobile fields",
+      today: "Email signature",
+      gap: true,
+    },
     fillRules: [
       { signal: "person_phone_extracted", value: "{{extracted}}", confidence: 85, because: "Phone extracted from email signature" },
     ],
@@ -214,6 +259,11 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     requiredForCapabilities: ["scheduling"],
     aiDescription: "IANA timezone for scheduling meetings",
     dbColumn: "timezone",
+    sourcing: {
+      best: "Scheduling — booking confirmations carry the invitee's explicit timezone",
+      today: "Email headers / calendar inference",
+      gap: true,
+    },
     fillRules: [
       { signal: "person_timezone_detected", value: "{{extracted}}", confidence: 88, because: "Timezone detected from email headers or calendar" },
     ],
@@ -228,6 +278,11 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     requiredForCapabilities: [],
     aiDescription: "Job title or role at their organization",
     dbColumn: "title",
+    sourcing: {
+      best: "CRM job title field",
+      today: "Email signature",
+      gap: true,
+    },
     fillRules: [
       { signal: "person_title_extracted", value: "{{extracted}}", confidence: 80, because: "Title extracted from email signature" },
     ],
@@ -243,6 +298,10 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     requiredForCapabilities: [],
     aiDescription: "How this person relates to your business",
     dbColumn: "relationship_type",
+    sourcing: {
+      best: "CRM stage — prospect to client is a lifecycle humans maintain",
+      today: "Payments, invoices, domain lists",
+    },
     fillRules: [
       { signal: "has_payment_received", value: "client", confidence: 95, because: "They paid you — strong client signal" },
       { signal: "has_invoice_sent", value: "client", confidence: 90, because: "You invoiced them — likely a client" },
@@ -262,6 +321,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     requiredForCapabilities: ["invoicing"],
     aiDescription: "Street address line 1",
     dbColumn: "address_line_1",
+    sourcing: PERSON_ADDRESS_SOURCING,
     fillRules: [
       { signal: "person_address_extracted", value: "{{extracted}}", confidence: 82, because: "Address extracted from signature or documents" },
     ],
@@ -276,6 +336,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     requiredForCapabilities: [],
     aiDescription: "Street address line 2 (apt, suite, etc.)",
     dbColumn: "address_line_2",
+    sourcing: PERSON_ADDRESS_SOURCING,
     fillRules: [
       { signal: "person_address_extracted", value: "{{extracted}}", confidence: 82, because: "Address line 2 extracted from signature" },
     ],
@@ -290,6 +351,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     requiredForCapabilities: ["invoicing"],
     aiDescription: "City name",
     dbColumn: "city",
+    sourcing: PERSON_ADDRESS_SOURCING,
     fillRules: [
       { signal: "person_address_extracted", value: "{{extracted}}", confidence: 82, because: "City extracted from address" },
     ],
@@ -304,6 +366,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     requiredForCapabilities: [],
     aiDescription: "State or province",
     dbColumn: "state",
+    sourcing: PERSON_ADDRESS_SOURCING,
     fillRules: [
       { signal: "person_address_extracted", value: "{{extracted}}", confidence: 82, because: "State extracted from address" },
     ],
@@ -318,6 +381,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     requiredForCapabilities: ["invoicing"],
     aiDescription: "ZIP or postal code",
     dbColumn: "postal_code",
+    sourcing: PERSON_ADDRESS_SOURCING,
     fillRules: [
       { signal: "person_address_extracted", value: "{{extracted}}", confidence: 82, because: "Postal code extracted from address" },
     ],
@@ -333,6 +397,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     requiredForCapabilities: ["invoicing"],
     aiDescription: "Country (ISO 3166-1 alpha-2)",
     dbColumn: "country",
+    sourcing: PERSON_ADDRESS_SOURCING,
     fillRules: [
       { signal: "person_address_extracted", value: "{{extracted}}", confidence: 82, because: "Country extracted from address" },
       { signal: "person_timezone_detected", value: "{{extracted}}", confidence: 70, because: "Country inferred from timezone" },
@@ -366,6 +431,11 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     dbColumn: "record_status",
     writePolicy: "care_auto",
     emptyMeaning: "Defaults to active; a NULL source means no one has explicitly set it",
+    sourcing: {
+      best: "Activity across every source, not just email",
+      today: "90-day email + meeting activity",
+      gap: true,
+    },
     fillRules: [
       { signal: "email_count_gte_5", op: "eq", opValue: true, value: "active", confidence: 85, because: "Recent email activity indicates active relationship" },
       { signal: "has_calendar_meeting", value: "active", confidence: 88, because: "Recent meeting indicates active relationship" },
@@ -381,6 +451,11 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     aiDescription: "Most recent contact with this person (email sent/received, meeting attended)",
     dbColumn: "last_contact_at",
     writePolicy: "care_auto",
+    sourcing: {
+      best: "Any touchpoint, whichever is newest",
+      today: "Email + calendar meetings",
+      gap: true,
+    },
     fillRules: [
       { signal: "capture_email_received", value: "{{extracted}}", confidence: 100, because: "Email received from this person" },
       { signal: "capture_email_sent", value: "{{extracted}}", confidence: 100, because: "Email sent to this person" },
@@ -397,6 +472,11 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     aiDescription:
       "Dated observations about this person (entity notes via the notes blueprint, not a column). Worth a note: decisions in their own words, commitments with dates, role or company changes, relationship milestones, life context they volunteered. Never worth a note: scheduling logistics, small talk, anything stale within a month. Salt appends its own notes with evidence links; notes the user writes are never edited or removed",
     ...PERSON_CARE_AUTO,
+    sourcing: {
+      best: "Salt's own judgment across every connector — dated observations with evidence links",
+      today: "No producer yet — the notes machinery exists, observation detection doesn't",
+      gap: true,
+    },
     fillRules: [
       { signal: "person_observation_detected", value: "{{extracted}}", confidence: 90, because: "They said it themselves — a decision, a life update, a new role, in their own words" },
       { signal: "person_observation_detected", value: "{{extracted}}", confidence: 85, because: "A commitment with a date attached — 'I'll have the signed contract back Friday'" },

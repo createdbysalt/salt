@@ -219,3 +219,64 @@ describe("defaultGuidanceForType", () => {
     }
   });
 });
+
+describe("field sourcing (people-field-sourcing canvas)", () => {
+  it("person fields carry the canvas sourcing note (best source, today, gap)", () => {
+    const fields = getFieldsForEntity("person");
+    const byKey = new Map(fields.map((field) => [field.key, field]));
+
+    const expected: Record<string, { gap: boolean }> = {
+      name: { gap: true },
+      email: { gap: false },
+      billingEmail: { gap: true },
+      phone: { gap: true },
+      timezone: { gap: true },
+      title: { gap: true },
+      relationshipType: { gap: false },
+      recordStatus: { gap: true },
+      lastContactedAt: { gap: true },
+      notes: { gap: true },
+    };
+
+    for (const [key, { gap }] of Object.entries(expected)) {
+      const field = byKey.get(key);
+      expect(field?.sourcing, `${key} sourcing`).toBeDefined();
+      expect(field!.sourcing!.best.length).toBeGreaterThan(0);
+      expect(field!.sourcing!.today?.length ?? 0).toBeGreaterThan(0);
+      expect(Boolean(field!.sourcing!.gap), `${key} gap`).toBe(gap);
+    }
+
+    // The canvas treats address as one row; the registry splits it across
+    // six fields — all of them point at billing as the authority.
+    for (const key of [
+      "addressLine1",
+      "addressLine2",
+      "city",
+      "state",
+      "postalCode",
+      "country",
+    ]) {
+      expect(byKey.get(key)?.sourcing?.best, `${key} sourcing`).toMatch(
+        /billing/i,
+      );
+    }
+  });
+
+  it("person guidance states the source precedence principle", () => {
+    const guidance = defaultGuidanceForType("person");
+    expect(guidance.principle).toBeDefined();
+    expect(guidance.principle).toMatch(/CRM/i);
+    expect(guidance.principle).toMatch(/billing/i);
+    expect(guidance.principle).toMatch(/scheduling/i);
+    expect(guidance.principle).toMatch(/email/i);
+  });
+
+  it("sourcing copy stays free of banned machinery words", () => {
+    const banned = /\b(trigger|webhook|sync|scope|rule|adapter|pipeline|config)\b/i;
+    for (const field of getFieldsForEntity("person")) {
+      if (!field.sourcing) continue;
+      const text = [field.sourcing.best, field.sourcing.today ?? ""].join("\n");
+      expect(text, `${field.key} sourcing`).not.toMatch(banned);
+    }
+  });
+});

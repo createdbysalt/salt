@@ -146,6 +146,12 @@ export interface DefaultGuidance {
   entityType: MemoryCustomizeScope;
   /** One-line first-person summary shown in the collapsed view. */
   summary: string;
+  /**
+   * Source precedence principle for the type — who wins when several
+   * connected apps know the same field. Optional; rendered as a pinned
+   * line under the summary on the record card.
+   */
+  principle?: string;
   sections: DefaultGuidanceSection[];
   /** Null for scopes with no registry fields (General). */
   fieldGroups: FieldGroups | null;
@@ -164,8 +170,17 @@ const TYPE_SUMMARIES: Record<MemoryCustomizeEntityType, string> = {
     "The billing app is the system of record — it issued the document, so its numbers win. You set the direction once when the record is created; after that, payment matching keeps the status, amount paid, and paid date honest. A parsed invoice can confirm a value, never override it.",
 };
 
-const TYPE_BIRTH_LINES: Record<MemoryCustomizeEntityType, string[]> = {
-  // People carries its birth logic in the summary paragraph instead — only
+/**
+ * Source precedence per type — who wins when several connected apps know
+ * the same field. From the field-sourcing canvases; only types with a
+ * real multi-source story carry one.
+ */
+const TYPE_PRINCIPLES: Partial<Record<MemoryCustomizeEntityType, string>> = {
+  person:
+    "When sources disagree, the winner is whoever maintains the field best: CRM (human-curated) → billing (kept current because money depends on it) → scheduling (self-reported) → email signatures (scraped). Email and calendar find people and keep them warm — they don't get the final word on identity.",
+};
+
+const TYPE_BIRTH_LINES: Record<MemoryCustomizeEntityType, string[]> = {  // People carries its birth logic in the summary paragraph instead — only
   // real fields get dropdowns there.
   person: [],
   org: [
@@ -385,6 +400,7 @@ export function defaultGuidanceForType(
   return {
     entityType,
     summary: TYPE_SUMMARIES[entityType],
+    principle: TYPE_PRINCIPLES[entityType],
     sections,
     fieldGroups: groups,
   };
