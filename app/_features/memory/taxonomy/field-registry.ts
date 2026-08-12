@@ -762,8 +762,8 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     ],
     sourcing: {
       best: "Salt's judgment across this org's activity — same tag-fit bar as people",
-      today: "No org tag-fit producer yet — the fit bar exists, detection doesn't",
-      gap: true,
+      today: "Salt assigns existing tags when this org's activity clears the fit bar",
+      gap: false,
     },
   },
   {
@@ -1269,8 +1269,8 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
       "Workspace tags for this work item (via entity_tag_assignments, not a column). Salt assigns existing tags when a fit clears the bar; coining a new tag is still gated by tag_auto_create_threshold and tag_max_ai_created in profile_playbook_settings",
     sourcing: {
       best: "Salt's judgment across this work's activity — same tag-fit bar as people",
-      today: "No work tag-fit producer yet — the fit bar exists, detection doesn't",
-      gap: true,
+      today: "Salt assigns existing tags when this work's activity clears the fit bar",
+      gap: false,
     },
     fillRules: [
       { signal: "work_tag_fit_detected", value: "{{extracted}}", confidence: 80, because: "An existing tag clearly fits this work" },
@@ -1570,8 +1570,8 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
       "Workspace tags for this billing record (via entity_tag_assignments, not a column). Salt assigns existing tags when a fit clears the bar; coining a new tag is still gated by tag_auto_create_threshold and tag_max_ai_created in profile_playbook_settings",
     sourcing: {
       best: "Salt's judgment across this record's activity — same tag-fit bar as people",
-      today: "No billing tag-fit producer yet — the fit bar exists, detection doesn't",
-      gap: true,
+      today: "Salt assigns existing tags when this record's activity clears the fit bar",
+      gap: false,
     },
     fillRules: [
       { signal: "billing_tag_fit_detected", value: "{{extracted}}", confidence: 80, because: "An existing tag clearly fits this billing record" },
@@ -1822,8 +1822,8 @@ export const FILE_FIELDS: FieldDescriptor<"resources">[] = [
       "Workspace tags for this resource (via entity_tag_assignments, not a column). Salt assigns existing tags when a fit clears the bar; coining a new tag is still gated by tag_auto_create_threshold and tag_max_ai_created in profile_playbook_settings",
     sourcing: {
       best: "Salt's judgment across this resource's context — same tag-fit bar as people",
-      today: "No resource tag-fit producer yet — the fit bar exists, detection doesn't",
-      gap: true,
+      today: "Salt assigns existing tags when this resource's context clears the fit bar",
+      gap: false,
     },
     fillRules: [
       { signal: "resource_tag_fit_detected", value: "{{extracted}}", confidence: 80, because: "An existing tag clearly fits this resource" },

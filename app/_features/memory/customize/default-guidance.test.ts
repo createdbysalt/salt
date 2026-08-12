@@ -313,7 +313,6 @@ describe("field sourcing (people-field-sourcing canvas)", () => {
         "postalCode",
         "country",
         "taxId",
-        "tags",
         "recordStatus",
         "lastContactedAt",
       ],
@@ -330,7 +329,6 @@ describe("field sourcing (people-field-sourcing canvas)", () => {
         "discountPercent",
         "discountAmountCents",
         "discountReason",
-        "tags",
       ],
       resource: [
         "category",
@@ -343,13 +341,11 @@ describe("field sourcing (people-field-sourcing canvas)", () => {
         "expiryDate",
         "signedDate",
         "followUpDate",
-        "tags",
       ],
       meeting: [],
       billing: [
         "category",
         "vendorLabel",
-        "tags",
       ],
     };
 

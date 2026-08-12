@@ -30,6 +30,7 @@ import { producePersonTagFits } from "./producers/person-tag-fit-producer";
 import { produceOrgFieldSignals } from "./producers/org-field-producer";
 import { produceWorkFieldSignals } from "./producers/work-field-producer";
 import { produceMeetingFieldSignals } from "./producers/meeting-field-producer";
+import { produceRecordTagFits } from "./producers/record-tag-fit-producer";
 import {
   absorbInferredSignals,
   type LlmCall,
@@ -268,12 +269,22 @@ async function absorbDerivedSignals(
       if (processed >= MAX_SIGNAL_CONTACTS_PER_RUN) break;
       processed++;
       try {
-        await produceOrgFieldSignals({
+        const produced = await produceOrgFieldSignals({
           workspaceId,
           orgKey,
           fields,
           source: adapter.sourceType,
         });
+        // Fresh account evidence can complete a tag fit (first payment +
+        // known contacts → vip).
+        if (produced.orgId) {
+          await produceRecordTagFits({
+            workspaceId,
+            entityType: "org",
+            entityId: produced.orgId,
+            source: adapter.sourceType,
+          });
+        }
       } catch (error) {
         console.warn(
           `[connector-backfill] org-signal absorption failed for ${adapter.sourceType}:`,
@@ -286,12 +297,20 @@ async function absorbDerivedSignals(
       if (processed >= MAX_SIGNAL_CONTACTS_PER_RUN) break;
       processed++;
       try {
-        await produceWorkFieldSignals({
+        const produced = await produceWorkFieldSignals({
           workspaceId,
           dealKey,
           fields,
           source: adapter.sourceType,
         });
+        if (produced.workId) {
+          await produceRecordTagFits({
+            workspaceId,
+            entityType: "work",
+            entityId: produced.workId,
+            source: adapter.sourceType,
+          });
+        }
       } catch (error) {
         console.warn(
           `[connector-backfill] deal-signal absorption failed for ${adapter.sourceType}:`,

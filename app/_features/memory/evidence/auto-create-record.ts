@@ -22,6 +22,7 @@ import {
 } from "@/app/_lib/supabase/database.types";
 import { ensureUniqueProjectSlug } from "@/app/_features/capture/services/system-plays/project-fields";
 import { attachArtifactToEntity } from "@/app/_features/resources/actions/attach-artifact";
+import { produceRecordTagFits } from "@/app/_features/capture/services/producers/record-tag-fit-producer";
 import type { IntakeEntityType } from "@/app/_features/memory/care/intake";
 import type { ExtractedFieldValue } from "./types";
 
@@ -148,6 +149,20 @@ async function insertEntityRecord(
           console.error("auto-create billing artifact attach failed:", artifact.error);
         }
       }
+      // A fresh record can already clear a tag fit (e.g. past-due on
+      // creation). Tag-fit failure never blocks the record.
+      if ("id" in outcome) {
+        try {
+          await produceRecordTagFits({
+            workspaceId,
+            entityType: "billing",
+            entityId: outcome.id,
+            source: "capture",
+          });
+        } catch (error) {
+          console.error("auto-create billing tag-fit failed:", error);
+        }
+      }
       return outcome;
     }
 
@@ -173,7 +188,21 @@ async function insertEntityRecord(
       if (category) insert.category = category;
       if (fields.document_type?.value) insert.document_type = fields.document_type.value;
       if (input.captureId) insert.capture_event_id = input.captureId;
-      return runInsert(supabase.from("resources").insert(insert).select("id").single());
+      const outcome = await runInsert(supabase.from("resources").insert(insert).select("id").single());
+      // Category-driven fits (contract, signed) can clear at creation.
+      if ("id" in outcome) {
+        try {
+          await produceRecordTagFits({
+            workspaceId,
+            entityType: "resource",
+            entityId: outcome.id,
+            source: "capture",
+          });
+        } catch (error) {
+          console.error("auto-create resource tag-fit failed:", error);
+        }
+      }
+      return outcome;
     }
 
     case "meeting": {
