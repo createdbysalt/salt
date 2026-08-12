@@ -27,6 +27,8 @@ import { logBackfillSummaryExecution } from "./backfill-summary";
 import { processCalBookings } from "./cal-booking-processor";
 import { producePersonFieldSignals } from "./producers/person-field-producer";
 import { producePersonTagFits } from "./producers/person-tag-fit-producer";
+import { produceOrgFieldSignals } from "./producers/org-field-producer";
+import { produceWorkFieldSignals } from "./producers/work-field-producer";
 import {
   absorbInferredSignals,
   type LlmCall,
@@ -249,6 +251,49 @@ async function absorbDerivedSignals(
       } catch (error) {
         console.warn(
           `[connector-backfill] field-signal absorption failed for ${adapter.sourceType}:`,
+          error instanceof Error ? error.message : error,
+        );
+      }
+    }
+  }
+
+  // Record-signal absorption (Track A): adapters that derive org / deal
+  // field values (CRM accounts + deals) hand them to the org/work producers.
+  // Org keys carry their resolution prefix (domain:/name:) from the adapter.
+  if (envelopes.length > 0 && adapter.deriveRecordSignals) {
+    const derivedRecords = adapter.deriveRecordSignals(envelopes, { userEmail });
+    let processed = 0;
+    for (const [orgKey, fields] of derivedRecords.orgs) {
+      if (processed >= MAX_SIGNAL_CONTACTS_PER_RUN) break;
+      processed++;
+      try {
+        await produceOrgFieldSignals({
+          workspaceId,
+          orgKey,
+          fields,
+          source: adapter.sourceType,
+        });
+      } catch (error) {
+        console.warn(
+          `[connector-backfill] org-signal absorption failed for ${adapter.sourceType}:`,
+          error instanceof Error ? error.message : error,
+        );
+      }
+    }
+    processed = 0;
+    for (const [dealKey, fields] of derivedRecords.deals) {
+      if (processed >= MAX_SIGNAL_CONTACTS_PER_RUN) break;
+      processed++;
+      try {
+        await produceWorkFieldSignals({
+          workspaceId,
+          dealKey,
+          fields,
+          source: adapter.sourceType,
+        });
+      } catch (error) {
+        console.warn(
+          `[connector-backfill] deal-signal absorption failed for ${adapter.sourceType}:`,
           error instanceof Error ? error.message : error,
         );
       }

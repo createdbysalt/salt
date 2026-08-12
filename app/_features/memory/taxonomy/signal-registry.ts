@@ -50,6 +50,9 @@ export type SignalId =
   | "org_domain_in_partner_list"
   | "org_domain_in_vendor_list"
   | "org_industry_inferred"
+  | "org_subindustry_inferred"
+  | "org_name_extracted"
+  | "org_billing_email_extracted"
   | "org_website_found"
   | "org_address_extracted"
   | "org_tax_id_extracted"
@@ -394,8 +397,29 @@ export const SIGNALS: SignalDescriptor[] = [
     id: "org_industry_inferred",
     label: "Industry Inferred",
     entityTypes: ["org"],
-    description: "Industry inferred from domain or context",
-    sources: ["email", "social"],
+    description: "Industry from your CRM, or inferred from domain or context",
+    sources: ["crm", "email", "social"],
+  },
+  {
+    id: "org_subindustry_inferred",
+    label: "Sub-industry Inferred",
+    entityTypes: ["org"],
+    description: "Industry sub-category from your CRM, or inferred from context",
+    sources: ["crm", "email", "social"],
+  },
+  {
+    id: "org_name_extracted",
+    label: "Org Name Extracted",
+    entityTypes: ["org"],
+    description: "Organization name from a connected account",
+    sources: ["crm"],
+  },
+  {
+    id: "org_billing_email_extracted",
+    label: "Org Billing Email Extracted",
+    entityTypes: ["org"],
+    description: "Billing contact address from a connected account",
+    sources: ["crm", "billing"],
   },
   {
     id: "org_website_found",

@@ -17,8 +17,18 @@ import {
   verbatimEntity,
 } from "../feedback-entity";
 import { isRecord, pickString, unwrapRecord } from "../normalize-utils";
-import type { PersonSignals } from "@/app/_features/capture/services/system-plays/person-signals";
+import {
+  extractDomain,
+  isPersonalDomain,
+  type PersonSignals,
+} from "@/app/_features/capture/services/system-plays/person-signals";
 import type { DerivedPersonFields } from "@/app/_features/capture/services/producers/person-field-types";
+import type {
+  DerivedOrgFields,
+  DerivedRecordSignals,
+  DerivedWorkFields,
+} from "@/app/_features/capture/services/producers/record-field-types";
+import { WORK_STAGE_SETS } from "@/app/_features/memory/taxonomy/registry";
 import type { CaptureSourceType } from "@/app/_features/capture/types";
 
 /**
@@ -112,6 +122,218 @@ function deriveCrmFieldSignals(
 }
 
 // CRM adapters already filter by category - no need for source type check
+
+// ============================================================================
+// Record-signal derivation (Track A: org + deal producer)
+// ============================================================================
+
+function normalizeKey(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+/** Website URL → registrable domain; personal domains never key an org. */
+function domainFromWebsite(website: string | null): string | null {
+  if (!website) return null;
+  const match = /^(?:https?:\/\/)?(?:www\.)?([^/?\s]+)/i.exec(website.trim());
+  const domain = match?.[1]?.toLowerCase();
+  if (!domain || isPersonalDomain(`probe@${domain}`)) return null;
+  return domain;
+}
+
+const KNOWN_WORK_STAGE_SLUGS = new Set(
+  Object.values(WORK_STAGE_SETS).flatMap((stages) => stages),
+);
+
+/**
+ * Stage names CRMs actually use → work_stage slugs. Direct slug matches
+ * (after normalization) win; this table covers the near-misses. Anything
+ * else — Pipedrive's pipeline-local numeric ids, custom stages — emits
+ * nothing rather than guessing.
+ */
+const CRM_STAGE_ALIASES: Record<string, string> = {
+  negotiation: "negotiating",
+  "contract sent": "negotiating",
+  "closed won": "won",
+  "closed lost": "lost",
+  "in progress": "in_progress",
+};
+
+function mapCrmDealStage(stage: unknown, status: unknown): string | undefined {
+  const statusText =
+    typeof status === "string" ? status.trim().toLowerCase() : "";
+  if (statusText === "won" || statusText === "lost") return statusText;
+  if (typeof stage !== "string") return undefined;
+  const normalized = stage
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ");
+  const slug = normalized.replace(/ /g, "_");
+  if (KNOWN_WORK_STAGE_SLUGS.has(slug)) return slug;
+  return CRM_STAGE_ALIASES[normalized];
+}
+
+/**
+ * CRM industry values → the industry vocabulary (parent + optional child).
+ * Covers HubSpot's standard industry list and the common freeform names;
+ * unmapped values emit nothing.
+ */
+const CRM_INDUSTRY_MAP: Record<string, { parent: string; child?: string }> = {
+  accounting: { parent: "professional_services", child: "accounting" },
+  legal: { parent: "professional_services", child: "legal" },
+  "legal services": { parent: "professional_services", child: "legal" },
+  consulting: { parent: "professional_services", child: "consulting" },
+  "management consulting": {
+    parent: "professional_services",
+    child: "consulting",
+  },
+  coaching: { parent: "professional_services", child: "coaching" },
+  technology: { parent: "technology" },
+  tech: { parent: "technology" },
+  software: { parent: "technology", child: "saas" },
+  saas: { parent: "technology", child: "saas" },
+  "computer software": { parent: "technology", child: "saas" },
+  "information technology": { parent: "technology" },
+  "information technology and services": { parent: "technology" },
+  devtools: { parent: "technology", child: "devtools" },
+  "artificial intelligence": { parent: "technology", child: "ai_ml" },
+  design: { parent: "creative", child: "design" },
+  "graphic design": { parent: "creative", child: "design" },
+  photography: { parent: "creative", child: "photography" },
+  video: { parent: "creative", child: "video" },
+  "video production": { parent: "creative", child: "video" },
+  branding: { parent: "creative", child: "branding" },
+  writing: { parent: "creative", child: "writing" },
+  copywriting: { parent: "creative", child: "writing" },
+  healthcare: { parent: "healthcare" },
+  "hospital & health care": { parent: "healthcare" },
+  wellness: { parent: "healthcare", child: "wellness" },
+  "mental health": { parent: "healthcare", child: "mental_health" },
+  "real estate": { parent: "real_estate" },
+  "commercial real estate": { parent: "real_estate", child: "commercial" },
+  "residential real estate": { parent: "real_estate", child: "residential" },
+  "property management": { parent: "real_estate", child: "property_management" },
+  restaurant: { parent: "retail_hospitality", child: "restaurant" },
+  restaurants: { parent: "retail_hospitality", child: "restaurant" },
+  retail: { parent: "retail_hospitality", child: "retail" },
+  ecommerce: { parent: "retail_hospitality", child: "ecommerce" },
+  "e commerce": { parent: "retail_hospitality", child: "ecommerce" },
+  hospitality: { parent: "retail_hospitality" },
+  nonprofit: { parent: "other", child: "nonprofit" },
+  "non profit": { parent: "other", child: "nonprofit" },
+  education: { parent: "other", child: "education" },
+  government: { parent: "other", child: "government" },
+};
+
+function mapCrmIndustry(
+  value: unknown,
+): { parent: string; child?: string } | undefined {
+  if (typeof value !== "string") return undefined;
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ");
+  return CRM_INDUSTRY_MAP[normalized];
+}
+
+/**
+ * Record-signal derivation (Track A): organization rows attest the org's
+ * name/website/billing email/industry; deal rows attest the work stage and
+ * the account name; contact rows attest the account name (keyed by the
+ * contact's business domain so domain-created orgs pick up the CRM's
+ * curated name).
+ */
+function deriveCrmRecordSignals(
+  envelopes: readonly CaptureEnvelope[],
+): DerivedRecordSignals {
+  const orgs = new Map<string, DerivedOrgFields>();
+  const deals = new Map<string, DerivedWorkFields>();
+
+  const orgEntry = (key: string): DerivedOrgFields => {
+    const existing = orgs.get(key);
+    if (existing) return existing;
+    const created: DerivedOrgFields = { signalValues: {} };
+    orgs.set(key, created);
+    return created;
+  };
+
+  const attestOrgName = (key: string, name: string) => {
+    const entry = orgEntry(key);
+    entry.name ??= name;
+    entry.signalValues.org_name_extracted ??= name;
+  };
+
+  for (const envelope of envelopes) {
+    const entityType = envelope.extracted.entity_type;
+
+    if (entityType === "organization") {
+      const name = envelope.extracted.name as string | null;
+      const email = envelope.extracted.email as string | null;
+      const website = envelope.extracted.website as string | null;
+      const domain =
+        (email ? extractDomain(email) : null) ?? domainFromWebsite(website);
+      const key = domain
+        ? `domain:${domain}`
+        : name
+          ? `name:${normalizeKey(name)}`
+          : null;
+      if (!key) continue;
+
+      const entry = orgEntry(key);
+      if (name) {
+        entry.name ??= name;
+        entry.signalValues.org_name_extracted ??= name;
+      }
+      if (website) entry.signalValues.org_website_found ??= website;
+      if (email) {
+        entry.contactEmail ??= email;
+        entry.signalValues.org_billing_email_extracted ??= email;
+      }
+      const industry = mapCrmIndustry(envelope.extracted.industry);
+      if (industry) {
+        entry.signalValues.org_industry_inferred ??= industry.parent;
+        if (industry.child) {
+          entry.signalValues.org_subindustry_inferred ??= industry.child;
+        }
+      }
+      continue;
+    }
+
+    if (entityType === "deal") {
+      const title = envelope.extracted.entity_name as string | null;
+      if (!title) continue;
+      const company = envelope.extracted.company as string | null;
+      const stage = mapCrmDealStage(
+        envelope.extracted.stage,
+        envelope.extracted.status,
+      );
+
+      const key = normalizeKey(title);
+      const existing = deals.get(key) ?? { signalValues: {} };
+      existing.title ??= title;
+      if (stage) existing.signalValues.work_stage_inferred ??= stage;
+      if (company) existing.orgName ??= company;
+      deals.set(key, existing);
+
+      if (company) attestOrgName(`name:${normalizeKey(company)}`, company);
+      continue;
+    }
+
+    // Contact rows: the company field attests the account name.
+    const company = envelope.extracted.company as string | null;
+    if (company) {
+      const email = envelope.extracted.email as string | null;
+      const domain = email ? extractDomain(email) : null;
+      attestOrgName(
+        domain ? `domain:${domain}` : `name:${normalizeKey(company)}`,
+        company,
+      );
+    }
+  }
+
+  return { orgs, deals };
+}
 
 /**
  * HubSpot triggers send ID-only payloads — verified against the live
@@ -280,6 +502,7 @@ function normalizePipedrive(payload: unknown): CaptureEnvelope | null {
       name,
       email: email?.toLowerCase() ?? null,
       website: pickString(record, ["web"]),
+      industry: pickString(record, ["industry"]),
       company: name,
     },
     raw: {
@@ -316,7 +539,17 @@ function normalizeGenericCrm(
     "JobTitle",
   ]);
   const dealValue = parseDealValue(record.value ?? record.amount ?? record.Amount);
-  const isDealLike = dealValue !== null || record.stage_id !== undefined;
+  const isDealLike =
+    dealValue !== null ||
+    record.stage_id !== undefined ||
+    record.stage !== undefined;
+  const website = pickString(record, ["web", "website", "Website"]);
+  const industry = pickString(record, ["industry", "Industry"]);
+  // Organization shape: carries account fields (website/industry) and no
+  // person fields (job title). Checked after deals so deal rows with a
+  // website-bearing account still classify as deals.
+  const isOrgLike =
+    !isDealLike && !jobTitle && (website !== null || industry !== null);
 
   const participants: EnvelopeParticipant[] = email
     ? [{ email: email.toLowerCase(), name, role: "other" }]
@@ -332,17 +565,19 @@ function normalizeGenericCrm(
     participants,
     threadId: null,
     extracted: {
-      entity_type: isDealLike ? "deal" : "contact",
+      entity_type: isDealLike ? "deal" : isOrgLike ? "organization" : "contact",
       entity_name: name,
       name,
       email: email?.toLowerCase() ?? null,
-      company: pickString(record, ["company", "org_name"]),
+      company: isOrgLike ? name : pickString(record, ["company", "org_name"]),
       status: pickString(record, ["status", "Status"]),
       stage: pickString(record, ["stage", "stage_id", "StageName", "dealstage"]),
       deal_value: dealValue,
       currency: pickString(record, ["currency", "CurrencyIsoCode"]),
       phone: phone ?? null,
       job_title: jobTitle ?? null,
+      website: website ?? null,
+      industry: industry ?? null,
     },
     raw: {
       crmId: externalId,
@@ -367,6 +602,7 @@ export function createCrmCategoryAdapter(provider: string): CaptureAdapter {
     triggerSlugs,
     deriveSignals: deriveCrmSignals,
     deriveFieldSignals: deriveCrmFieldSignals,
+    deriveRecordSignals: deriveCrmRecordSignals,
 
     extractFeedbackEntity(envelope) {
       return (

@@ -5,6 +5,7 @@ import type {
 import type { CaptureNoiseInput } from "@/app/_features/capture/services/intelligence/capture-noise";
 import type { PersonSignals } from "@/app/_features/capture/services/system-plays/person-signals";
 import type { DerivedPersonFields } from "@/app/_features/capture/services/producers/person-field-types";
+import type { DerivedRecordSignals } from "@/app/_features/capture/services/producers/record-field-types";
 
 /**
  * Capture adapter contract (connector-platform Phase 3.2).
@@ -162,4 +163,16 @@ export interface CaptureAdapter {
     envelopes: readonly CaptureEnvelope[],
     context: SignalDerivationContext,
   ): Map<string, DerivedPersonFields>;
+  /**
+   * Record-signal derivation (CRM org + deal producer): fold a batch of
+   * ingested envelopes into org FIELD values (account name, industry,
+   * website, billing email) and deal-derived work values (stage). Only
+   * keys this source can attest; the conformance harness enforces the
+   * ORG_FIELD_SIGNAL_KEYS / WORK_FIELD_SIGNAL_KEYS sets. Consumed by the
+   * org/work field producers after record resolution.
+   */
+  deriveRecordSignals?(
+    envelopes: readonly CaptureEnvelope[],
+    context: SignalDerivationContext,
+  ): DerivedRecordSignals;
 }

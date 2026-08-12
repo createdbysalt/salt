@@ -1,6 +1,10 @@
 import { expect } from "vitest";
 import { PERSON_SIGNAL_KEYS } from "@/app/_features/capture/services/system-plays/person-signals";
 import { PERSON_FIELD_SIGNAL_KEYS } from "@/app/_features/capture/services/producers/person-field-types";
+import {
+  ORG_FIELD_SIGNAL_KEYS,
+  WORK_FIELD_SIGNAL_KEYS,
+} from "@/app/_features/capture/services/producers/record-field-types";
 import type { CaptureAdapter, CaptureEnvelope } from "./types";
 
 /**
@@ -66,6 +70,38 @@ export function runAdapterConformance(
         expect(
           fieldSignalSet.has(key),
           `field signal '${key}' not in registry set`
+        ).toBe(true);
+      }
+    }
+  }
+
+  // Record-signal derivation (CRM org + deal producer): declared signals ⊆
+  // ORG_FIELD_SIGNAL_KEYS / WORK_FIELD_SIGNAL_KEYS, org keys carry the
+  // domain:/name: resolution prefix.
+  if (adapter.deriveRecordSignals) {
+    const envelopes = fixtures
+      .map((fixture) => adapter.normalize(fixture.payload))
+      .filter((envelope): envelope is CaptureEnvelope => envelope !== null);
+    const derived = adapter.deriveRecordSignals(envelopes, { userEmail: null });
+    const orgSignalSet = new Set<string>(ORG_FIELD_SIGNAL_KEYS);
+    const workSignalSet = new Set<string>(WORK_FIELD_SIGNAL_KEYS);
+    for (const [key, fields] of derived.orgs) {
+      expect(
+        key.startsWith("domain:") || key.startsWith("name:"),
+        `org key '${key}' needs a domain: or name: resolution prefix`,
+      ).toBe(true);
+      for (const signal of Object.keys(fields.signalValues)) {
+        expect(
+          orgSignalSet.has(signal),
+          `org signal '${signal}' not in registry set`,
+        ).toBe(true);
+      }
+    }
+    for (const [, fields] of derived.deals) {
+      for (const signal of Object.keys(fields.signalValues)) {
+        expect(
+          workSignalSet.has(signal),
+          `work signal '${signal}' not in registry set`,
         ).toBe(true);
       }
     }

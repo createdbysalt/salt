@@ -92,7 +92,6 @@ const SIGNALS_AWAITING_PRODUCER: Record<string, string> = {
   org_tax_id_extracted: "Phase 5: org producers",
   // Phase 5 — Work
   work_type_inferred: "Phase 5: work producers",
-  work_stage_inferred: "Phase 5: work producers",
   work_value_extracted: "Phase 5: work producers",
   work_timeline_mentioned: "Phase 5: work producers",
   // Phase 5/7 — Billing (artifact-first resources track)

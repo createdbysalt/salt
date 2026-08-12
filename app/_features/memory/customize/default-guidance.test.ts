@@ -306,11 +306,6 @@ describe("field sourcing (people-field-sourcing canvas)", () => {
     const expectedGaps: Record<string, string[]> = {
       person: ["recordStatus", "notes"],
       org: [
-        "name",
-        "billingEmail",
-        "industryParent",
-        "industryChild",
-        "primaryContact",
         "addressLine1",
         "addressLine2",
         "city",
@@ -324,7 +319,6 @@ describe("field sourcing (people-field-sourcing canvas)", () => {
       ],
       work: [
         "workType",
-        "stage",
         "contractValueCents",
         "finalPriceCents",
         "currency",
@@ -354,9 +348,6 @@ describe("field sourcing (people-field-sourcing canvas)", () => {
       meeting: ["meetingType", "status", "description", "attendees"],
       billing: [
         "category",
-        "organization",
-        "billingContact",
-        "linkedWork",
         "vendorLabel",
         "tags",
       ],

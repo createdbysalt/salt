@@ -513,10 +513,11 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     dbColumn: "name",
     sourcing: {
       best: "CRM account name — human-curated, correctly capitalized",
-      today: "Derived from email domain",
-      gap: true,
+      today: "From your CRM, or derived from email domain",
+      gap: false,
     },
     fillRules: [
+      { signal: "org_name_extracted", value: "{{extracted}}", confidence: 90, because: "From your CRM account record" },
       { signal: "org_created_from_domain", value: "{{extracted}}", confidence: 85, because: "Name derived from email domain" },
     ],
   },
@@ -531,10 +532,11 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     dbColumn: "billing_email",
     sourcing: {
       best: "Billing — the address invoices to this org actually go to",
-      today: "Extracted when an invoice is sent",
-      gap: true,
+      today: "From your CRM account, or when an invoice is sent",
+      gap: false,
     },
     fillRules: [
+      { signal: "org_billing_email_extracted", value: "{{extracted}}", confidence: 85, because: "The contact address on your CRM account" },
       { signal: "org_has_invoice_sent", value: "{{extracted}}", confidence: 85, because: "Email used for org invoice delivery" },
     ],
   },
@@ -550,11 +552,11 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     dbColumn: "industry_parent",
     sourcing: {
       best: "CRM industry field — someone picked it deliberately",
-      today: "Inferred from domain or context",
-      gap: true,
+      today: "From your CRM, or inferred from domain or context",
+      gap: false,
     },
     fillRules: [
-      { signal: "org_industry_inferred", value: "{{extracted}}", confidence: 75, because: "Industry inferred from domain or context" },
+      { signal: "org_industry_inferred", value: "{{extracted}}", confidence: 75, because: "From your CRM, or inferred from domain or context" },
     ],
   },
   {
@@ -569,11 +571,11 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     dbColumn: "industry_child",
     sourcing: {
       best: "CRM industry field — someone picked it deliberately",
-      today: "Inferred from domain or context",
-      gap: true,
+      today: "From your CRM, or inferred from context",
+      gap: false,
     },
     fillRules: [
-      { signal: "org_industry_inferred", value: "{{extracted}}", confidence: 70, because: "Sub-industry inferred from context" },
+      { signal: "org_subindustry_inferred", value: "{{extracted}}", confidence: 70, because: "From your CRM, or inferred from context" },
     ],
   },
   {
@@ -608,11 +610,11 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     aiDescription: "Main person to contact at this organization",
     sourcing: {
       best: "CRM contact roles — account owner, decision maker, billing contact are explicit",
-      today: "Identified from activity",
-      gap: true,
+      today: "From your CRM account contact, or identified from activity",
+      gap: false,
     },
     fillRules: [
-      { signal: "org_has_primary_contact", value: "{{extracted}}", confidence: 85, because: "Primary contact identified from activity" },
+      { signal: "org_has_primary_contact", value: "{{extracted}}", confidence: 85, because: "From your CRM account contact, or identified from activity" },
     ],
   },
   {
@@ -919,11 +921,11 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     dbColumn: "stage",
     sourcing: {
       best: "CRM deal stage — the deal board your CRM maintains",
-      today: "No producer yet — CRM deals aren't wired",
-      gap: true,
+      today: "From your CRM deal board",
+      gap: false,
     },
     fillRules: [
-      { signal: "work_stage_inferred", value: "{{extracted}}", confidence: 75, because: "Stage inferred from activity pattern" },
+      { signal: "work_stage_inferred", value: "{{extracted}}", confidence: 75, because: "From your CRM deal stage" },
     ],
   },
   {
@@ -1378,11 +1380,11 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     dbColumn: "organization_id",
     sourcing: {
       best: "CRM account match — the counterparty on the deal",
-      today: "Matched from the billing email domain",
-      gap: true,
+      today: "Matched from the billing email against your CRM",
+      gap: false,
     },
     fillRules: [
-      { signal: "billing_party_email_match", value: "{{extracted}}", confidence: 88, because: "Organization matched from billing email domain" },
+      { signal: "billing_party_email_match", value: "{{extracted}}", confidence: 88, because: "Organization matched from the billing email against your CRM" },
     ],
   },
   {
@@ -1396,11 +1398,11 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     dbColumn: "person_id",
     sourcing: {
       best: "CRM contact on the account",
-      today: "Matched from the billing email",
-      gap: true,
+      today: "Matched from the billing email against your CRM",
+      gap: false,
     },
     fillRules: [
-      { signal: "billing_party_email_match", value: "{{extracted}}", confidence: 88, because: "Person matched from billing email" },
+      { signal: "billing_party_email_match", value: "{{extracted}}", confidence: 88, because: "Person matched from the billing email against your CRM" },
     ],
   },
   {
@@ -1414,10 +1416,11 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     dbColumn: "work_id",
     sourcing: {
       best: "The CRM deal or contract the invoice references",
-      today: "No producer yet — invoice-to-work linking isn't wired",
-      gap: true,
+      today: "Linked through the counterparty's active engagement",
+      gap: false,
     },
     fillRules: [
+      { signal: "billing_party_email_match", value: "{{extracted}}", confidence: 80, because: "The counterparty is the billing contact on exactly one active engagement" },
       { signal: "billing_invoice_parsed", value: "{{extracted}}", confidence: 80, because: "Work linked from invoice description or PO" },
     ],
   },

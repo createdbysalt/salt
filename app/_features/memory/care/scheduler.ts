@@ -55,6 +55,15 @@ const CARE_SIGNAL_MAP: Record<string, CareCapability[]> = {
   person_title_extracted: ["records"],
   person_timezone_detected: ["records"],
   person_billing_email_extracted: ["records"],
+  // Records: CRM org + deal producers (Track A) — account fields and deal
+  // stage arrive as extraction values in evidence.signalValues.
+  org_name_extracted: ["records"],
+  org_industry_inferred: ["records"],
+  org_subindustry_inferred: ["records"],
+  org_website_found: ["records"],
+  org_billing_email_extracted: ["records"],
+  work_stage_inferred: ["records"],
+  billing_party_email_match: ["records"],
   // Hygiene: data-quality signals
   person_duplicate_email: ["hygiene"],
   person_duplicate_phone: ["hygiene"],
