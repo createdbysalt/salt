@@ -240,12 +240,15 @@ function RecordLogicCard({
   guidance: DefaultGuidance;
   scope: MemoryCustomizeEntityType;
 }) {
-  // Record-level logic (birth + connections) reads as one story, so those
-  // sections lead the accordion; the system-maintained note closes it,
-  // after the per-field dropdowns it refers to. fields/never sections stay
-  // off the card — the per-field dropdowns carry that detail.
+  // Record-level logic (birth + connections + precedence) reads as one
+  // story, so those sections lead the accordion; the system-maintained note
+  // closes it, after the per-field dropdowns it refers to. fields/never
+  // sections stay off the card — the per-field dropdowns carry that detail.
   const logicSections = guidance.sections.filter(
-    (section) => section.kind === "birth" || section.kind === "connections",
+    (section) =>
+      section.kind === "birth" ||
+      section.kind === "connections" ||
+      section.kind === "principle",
   );
   const systemSections = guidance.sections.filter(
     (section) => section.kind === "system",
@@ -261,16 +264,14 @@ function RecordLogicCard({
         <p className="text-[13px] leading-snug text-white/70">
           {guidance.summary}
         </p>
-        {guidance.principle && (
-          <p className="rounded-xl bg-white/5 px-3 py-2 text-[12px] leading-snug text-white/60">
-            {guidance.principle}
-          </p>
-        )}
 
         <Accordion
           type="multiple"
           className="aurora-scroll max-h-[440px] overflow-y-auto pr-2"
         >
+          <p className="pb-1 text-[10px] font-medium uppercase tracking-[0.08em] text-white/40">
+            The record
+          </p>
           {logicSections.map((section) => (
             <AccordionItem
               key={section.heading}
@@ -281,7 +282,7 @@ function RecordLogicCard({
                 {section.heading}
               </AccordionTrigger>
               <AccordionContent className="text-xs leading-snug text-white/70">
-                <ul className="space-y-1.5">
+                <ul className="list-disc space-y-1.5 pl-4 marker:text-white/40">
                   {section.lines.map((line) => (
                     <li key={line}>{line}</li>
                   ))}
@@ -290,6 +291,9 @@ function RecordLogicCard({
             </AccordionItem>
           ))}
 
+          <p className="border-t border-white/10 pb-1 pt-3 text-[10px] font-medium uppercase tracking-[0.08em] text-white/40">
+            Field by field
+          </p>
           {fields.map((field) => {
             const policy = getWritePolicy(field);
             return (
@@ -310,7 +314,7 @@ function RecordLogicCard({
                   {policy === "user_only" ? (
                     <p>Yours alone — I never write it.</p>
                   ) : field.fillRules && field.fillRules.length > 0 ? (
-                    <ul className="space-y-1.5">
+                    <ul className="list-disc space-y-1.5 pl-4 marker:text-white/40">
                       {field.fillRules.map((rule, index) => (
                         <li key={`${field.key}-${index}`}>
                           {rule.because} · {rule.confidence}%
@@ -350,7 +354,7 @@ function RecordLogicCard({
                 {section.heading}
               </AccordionTrigger>
               <AccordionContent className="text-xs leading-snug text-white/70">
-                <ul className="space-y-1.5">
+                <ul className="list-disc space-y-1.5 pl-4 marker:text-white/40">
                   {section.lines.map((line) => (
                     <li key={line}>{line}</li>
                   ))}

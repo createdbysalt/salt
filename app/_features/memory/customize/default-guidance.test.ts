@@ -264,11 +264,28 @@ describe("field sourcing (people-field-sourcing canvas)", () => {
 
   it("person guidance states the source precedence principle", () => {
     const guidance = defaultGuidanceForType("person");
-    expect(guidance.principle).toBeDefined();
-    expect(guidance.principle).toMatch(/CRM/i);
-    expect(guidance.principle).toMatch(/billing/i);
-    expect(guidance.principle).toMatch(/scheduling/i);
-    expect(guidance.principle).toMatch(/email/i);
+    const principle = guidance.sections.find(
+      (section) => section.kind === "principle",
+    );
+    expect(principle).toBeDefined();
+    expect(principle?.heading).toMatch(/sources disagree/i);
+    const text = principle?.lines.join("\n") ?? "";
+    expect(text).toMatch(/CRM/i);
+    expect(text).toMatch(/billing/i);
+    expect(text).toMatch(/scheduling/i);
+    expect(text).toMatch(/email/i);
+  });
+
+  it("person summary stays one line; birth logic lives in its accordion", () => {
+    const guidance = defaultGuidanceForType("person");
+    // The card pattern: a short statement up top, detail behind dropdowns.
+    expect(guidance.summary.length).toBeLessThanOrEqual(100);
+    const birth = guidance.sections.find((section) => section.kind === "birth");
+    expect(birth).toBeDefined();
+    const text = birth?.lines.join("\n") ?? "";
+    expect(text).toMatch(/real evidence/i);
+    expect(text).toMatch(/merge/i);
+    expect(text).toMatch(/newsletter/i);
   });
 
   it("sourcing copy stays free of banned machinery words", () => {

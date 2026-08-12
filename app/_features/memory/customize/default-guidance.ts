@@ -121,7 +121,7 @@ export function scopesForPrompt(
  * like the General page's explainer.
  */
 export interface DefaultGuidanceSection {
-  kind: "birth" | "connections" | "fields" | "never" | "system" | "custom";
+  kind: "birth" | "connections" | "principle" | "fields" | "never" | "system" | "custom";
   heading: string;
   lines: string[];
 }
@@ -146,12 +146,6 @@ export interface DefaultGuidance {
   entityType: MemoryCustomizeScope;
   /** One-line first-person summary shown in the collapsed view. */
   summary: string;
-  /**
-   * Source precedence principle for the type — who wins when several
-   * connected apps know the same field. Optional; rendered as a pinned
-   * line under the summary on the record card.
-   */
-  principle?: string;
   sections: DefaultGuidanceSection[];
   /** Null for scopes with no registry fields (General). */
   fieldGroups: FieldGroups | null;
@@ -159,7 +153,7 @@ export interface DefaultGuidance {
 
 const TYPE_SUMMARIES: Record<MemoryCustomizeEntityType, string> = {
   person:
-    "A person earns a record on real evidence — they pay you, you've had a genuine back-and-forth, or you've shared time on the calendar. The same person across several of your apps is the strongest signal. Newsletters and automated senders never make the cut.",
+    "I build people records from real evidence across your connected apps.",
   org: "I build organization records from email domains and link people, work, and billing to them.",
   work: "I draft work records from the proposals, contracts, and kickoffs I see in your intake.",
   resource:
@@ -173,16 +167,22 @@ const TYPE_SUMMARIES: Record<MemoryCustomizeEntityType, string> = {
 /**
  * Source precedence per type — who wins when several connected apps know
  * the same field. From the field-sourcing canvases; only types with a
- * real multi-source story carry one.
+ * real multi-source story carry one. Renders as the "When sources
+ * disagree" accordion on the record card.
  */
-const TYPE_PRINCIPLES: Partial<Record<MemoryCustomizeEntityType, string>> = {
-  person:
-    "When sources disagree, the winner is whoever maintains the field best: CRM (human-curated) → billing (kept current because money depends on it) → scheduling (self-reported) → email signatures (scraped). Email and calendar find people and keep them warm — they don't get the final word on identity.",
+const TYPE_PRINCIPLES: Partial<Record<MemoryCustomizeEntityType, string[]>> = {
+  person: [
+    "The winner is whoever maintains the field best: CRM (human-curated) → billing (kept current because money depends on it) → scheduling (self-reported) → email signatures (scraped).",
+    "Email and calendar find people and keep them warm — they don't get the final word on identity.",
+  ],
 };
 
-const TYPE_BIRTH_LINES: Record<MemoryCustomizeEntityType, string[]> = {  // People carries its birth logic in the summary paragraph instead — only
-  // real fields get dropdowns there.
-  person: [],
+const TYPE_BIRTH_LINES: Record<MemoryCustomizeEntityType, string[]> = {
+  person: [
+    "A person earns a record on real evidence — they pay you, you've had a genuine back-and-forth, or you've shared time on the calendar.",
+    "The same person across several of your apps is the strongest signal — those merge into one record.",
+    "Newsletters and automated senders never make the cut.",
+  ],
   org: [
     "I create an organization when a person's email domain looks like a business, not a mailbox provider.",
     "People, work, and billing at the same domain link to the same organization.",
@@ -377,9 +377,18 @@ export function defaultGuidanceForType(
 
   sections.push({
     kind: "connections",
-    heading: "How I connect these",
+    heading: "How I connect records",
     lines: TYPE_CONNECTION_LINES[entityType],
   });
+
+  const principleLines = TYPE_PRINCIPLES[entityType];
+  if (principleLines) {
+    sections.push({
+      kind: "principle",
+      heading: "When sources disagree",
+      lines: principleLines,
+    });
+  }
 
   if (autoLines.length > 0) {
     sections.push({ kind: "fields", heading: "What I fill in", lines: autoLines });
@@ -400,7 +409,6 @@ export function defaultGuidanceForType(
   return {
     entityType,
     summary: TYPE_SUMMARIES[entityType],
-    principle: TYPE_PRINCIPLES[entityType],
     sections,
     fieldGroups: groups,
   };
