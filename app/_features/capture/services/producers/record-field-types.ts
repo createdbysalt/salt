@@ -27,6 +27,20 @@ export type OrgFieldSignalKey = (typeof ORG_FIELD_SIGNAL_KEYS)[number];
 
 export type OrgFieldSignalValues = Partial<Record<OrgFieldSignalKey, string>>;
 
+/**
+ * Structured org address from a billing payload (Stripe billing_details /
+ * QuickBooks BillAddr). Compound write across six columns by the producer —
+ * same pattern as the person address.
+ */
+export interface DerivedOrgAddress {
+  line1?: string;
+  line2?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
+}
+
 export interface DerivedOrgFields {
   signalValues: OrgFieldSignalValues;
   /** Display name on the CRM account — used to resolve the org record. */
@@ -36,6 +50,10 @@ export interface DerivedOrgFields {
    * to the org — the primaryContact projection reads organization_people.
    */
   contactEmail?: string;
+  /** Billing address on the invoice payload (Track G). */
+  address?: DerivedOrgAddress;
+  /** Tax ID on the invoice payload (Track G). */
+  taxId?: string;
 }
 
 /**

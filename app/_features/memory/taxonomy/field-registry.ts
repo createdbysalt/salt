@@ -492,13 +492,13 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
 
 /**
  * Same canvas treatment as person address: one row ("street → country"),
- * six registry fields. org_address_extracted is whitelisted in the parity
- * test — the rule exists but no producer emits it yet (Phase 5 scope).
+ * six registry fields. Track G wires it: the billing adapter derives the
+ * customer address and the org producer writes the six components.
  */
 const ORG_ADDRESS_SOURCING = {
   best: "Billing — the org's billing address is current because money depends on it",
-  today: "No producer yet — the fill bar exists, extraction doesn't",
-  gap: true,
+  today: "Billing customer address from Stripe or QuickBooks",
+  gap: false,
 } as const;
 
 export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
@@ -722,8 +722,8 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     dbColumn: "tax_id",
     sourcing: {
       best: "Billing documents — the tax ID printed on the org's invoices",
-      today: "No producer yet — the fill bar exists, extraction doesn't",
-      gap: true,
+      today: "Stripe customer tax IDs",
+      gap: false,
     },
     fillRules: [
       { signal: "org_tax_id_extracted", value: "{{extracted}}", confidence: 90, because: "Tax ID extracted from invoice or documents" },
@@ -780,8 +780,8 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     emptyMeaning: "Defaults to active; a NULL source means no one has explicitly set it",
    sourcing: {
       best: "Money + lifecycle: active subscription or open deal = alive; cancelled plan or churned stage = fading",
-      today: "Aggregated from linked people + payments",
-      gap: true,
+      today: "Money received or linked people",
+      gap: false,
     },
     fillRules: [
       { signal: "org_has_people", value: "active", confidence: 80, because: "Org has active linked people" },
@@ -815,28 +815,27 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
 
 /**
  * Value fields (contractValue → discounts) share one row on the sourcing
- * canvas: the signed contract or proposal is the authority, and no
- * producer reads those documents yet (work_value_extracted is whitelisted
- * in the parity test — Track E wires it).
+ * canvas: the signed contract or proposal is the authority. Track G wires
+ * it — the document reader propagates terms to linked work records.
  */
 const WORK_VALUE_SOURCING = {
   best: "The signed contract or proposal — the number on paper",
-  today: "No producer yet — value reading isn't wired",
-  gap: true,
+  today: "Proposal or contract linked to the work",
+  gap: false,
 } as const;
 
 /** workType + paymentType: one inference, two columns. */
 const WORK_TYPE_SOURCING = {
   best: "The contract or proposal terms",
-  today: "No producer yet — type inference isn't wired",
-  gap: true,
+  today: "Proposal or contract linked to the work",
+  gap: false,
 } as const;
 
 /** decisionDate + estimatedTimeline: dates the client says out loud. */
 const WORK_TIMELINE_SOURCING = {
   best: "The email or call where the client names a date",
-  today: "No producer yet — date mentions aren't wired",
-  gap: true,
+  today: "Proposal or contract linked to the work",
+  gap: false,
 } as const;
 
 /** Fields the proposal/contract reader already attests (work_scope_extracted). */
@@ -1300,11 +1299,11 @@ const BILLING_PAYMENT_SOURCING = {
   gap: false,
 } as const;
 
-/** Invoice-content fields: nothing reads the document yet (Track E). */
+/** Invoice-content fields: Track G's payment corroboration reads them. */
 const BILLING_INVOICE_READ_SOURCING = {
   best: "The invoice content — what the document actually says",
-  today: "No producer yet — invoice reading isn't wired",
-  gap: true,
+  today: "Invoice content read on payment match",
+  gap: false,
 } as const;
 
 export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
@@ -1435,8 +1434,8 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     dbColumn: "vendor_label",
     sourcing: {
       best: "The invoice itself — the vendor name on the document",
-      today: "No producer yet — invoice reading isn't wired",
-      gap: true,
+      today: "Vendor name from the invoice",
+      gap: false,
     },
     fillRules: [
       { signal: "billing_invoice_parsed", value: "{{extracted}}", confidence: 85, because: "Vendor name extracted from bill" },

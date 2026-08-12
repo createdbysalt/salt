@@ -306,30 +306,13 @@ describe("field sourcing (people-field-sourcing canvas)", () => {
     const expectedGaps: Record<string, string[]> = {
       // person.notes cleared in Track F (person-observation-producer.ts).
       person: [],
-      org: [
-        "addressLine1",
-        "addressLine2",
-        "city",
-        "state",
-        "postalCode",
-        "country",
-        "taxId",
-        "recordStatus",
-      ],
-      work: [
-        "workType",
-        "contractValueCents",
-        "finalPriceCents",
-        "currency",
-        "paymentType",
-        "hourlyRateCents",
-        "retainerMrrCents",
-        "decisionDate",
-        "estimatedTimeline",
-        "discountPercent",
-        "discountAmountCents",
-        "discountReason",
-      ],
+      // Org address/taxId/recordStatus cleared in Track G (billing adapter
+      // derives address + tax IDs; org-field-producer writes them; money
+      // received and linked people attest recordStatus).
+      org: [],
+      // Work commercials cleared in Track G (content-analysis propagates
+      // proposal/contract terms to linked work records).
+      work: [],
       resource: [
         // Content-analysis fields cleared in Track E
         // (resources/services/content-analysis.ts). lifecycleStatus and
@@ -338,10 +321,9 @@ describe("field sourcing (people-field-sourcing canvas)", () => {
         "signedDate",
       ],
       meeting: [],
-      billing: [
-        "category",
-        "vendorLabel",
-      ],
+      // Billing category/vendorLabel cleared in Track G
+      // (billing-record-producer.ts corroborates from payment captures).
+      billing: [],
     };
 
     for (const [type, gapKeys] of Object.entries(expectedGaps)) {

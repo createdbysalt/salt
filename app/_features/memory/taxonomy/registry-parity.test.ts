@@ -89,15 +89,17 @@ const SIGNALS_AWAITING_PRODUCER: Record<string, string> = {
   //  person_observation_detected shipped in Track F —
   //  person-observation-producer.ts)
   // Phase 5 — Orgs
-  org_address_extracted: "Phase 5: org producers",
-  org_tax_id_extracted: "Phase 5: org producers",
+  // (org_address_extracted / org_tax_id_extracted / org_has_people shipped in
+  //  Track G — billing adapter derives them, org-field-producer.ts writes)
   // Phase 5 — Work
-  work_type_inferred: "Phase 5: work producers",
-  work_value_extracted: "Phase 5: work producers",
-  work_timeline_mentioned: "Phase 5: work producers",
+  // (work_type_inferred / work_value_extracted / work_timeline_mentioned
+  //  shipped in Track G — resources/services/content-analysis.ts propagates
+  //  proposal/contract terms to linked work records)
   // Phase 5/7 — Billing (artifact-first resources track)
-  billing_invoice_parsed: "Phase 7: artifact-first billing producers",
-  billing_stripe_synced: "Phase 7: artifact-first billing producers",
+  // (billing_invoice_parsed / billing_stripe_synced /
+  //  billing_amount_paid_covers_total / org_has_payment_received shipped in
+  //  Track G — producers/billing-record-producer.ts corroborates open
+  //  billing records from payment captures)
   // Phase 5/7 — Resources (artifact-first track)
   // (file_category_inferred / file_document_type_inferred /
   //  file_amount_extracted / file_date_extracted shipped in Track E —

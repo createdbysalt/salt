@@ -73,6 +73,13 @@ const CARE_SIGNAL_MAP: Record<string, CareCapability[]> = {
   // Records: email activity rollup (Track D) — the 90-day count clearing
   // the bar attests an active relationship (recordStatus rule).
   email_count_gte_5: ["records"],
+  // Records: billing/bank corroboration (Track G) — a matched payment
+  // attests amounts and status on the billing record; money received and
+  // linked people attest a live org (recordStatus rules).
+  billing_amount_paid_covers_total: ["records"],
+  org_has_payment_received: ["records"],
+  org_has_people: ["records"],
+  org_tax_id_extracted: ["records"],
   // Hygiene: data-quality signals
   person_duplicate_email: ["hygiene"],
   person_duplicate_phone: ["hygiene"],
@@ -90,7 +97,7 @@ const CARE_SIGNAL_MAP: Record<string, CareCapability[]> = {
   capture_email_sent: ["connections"],
   capture_meeting_completed: ["connections"],
   capture_message_received: ["connections"],
-  billing_payment_matched: ["connections"],
+  billing_payment_matched: ["connections", "records"],
   file_shared: ["connections"],
   connection_inferred: ["connections"],
   connection_strengthened: ["connections"],

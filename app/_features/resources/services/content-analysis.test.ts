@@ -7,6 +7,8 @@ const mockUpdate = vi.fn();
 
 type Filter = [string, string, unknown];
 let resourceRow: Record<string, unknown> | null = null;
+let entityLinks: Array<{ target_id: string }> = [];
+let workRows: Array<Record<string, unknown>> = [];
 
 const mockFrom = vi.fn((table: string) => {
   const filters: Filter[] = [];
@@ -16,13 +18,24 @@ const mockFrom = vi.fn((table: string) => {
       filters.push(["eq", f, v]);
       return builder;
     },
+    in: (f: string, v: unknown) => {
+      filters.push(["in", f, v]);
+      return builder;
+    },
+    is: (f: string, v: unknown) => {
+      filters.push(["is", f, v]);
+      return builder;
+    },
     maybeSingle: async () => ({ data: table === "resources" ? resourceRow : null }),
     update: (values: unknown) => {
       mockUpdate(values);
       return builder;
     },
     then: (resolve: (value: { data: unknown; error: unknown }) => void) =>
-      resolve({ data: null, error: null }),
+      resolve({
+        data: table === "entity_links" ? entityLinks : table === "work" ? workRows : null,
+        error: null,
+      }),
   };
   return builder;
 });
@@ -88,6 +101,8 @@ describe("analyzeResourceContent", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     resourceRow = null;
+    entityLinks = [];
+    workRows = [];
     mockDownload.mockResolvedValue({
       data: { arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer },
       error: null,
@@ -219,5 +234,77 @@ describe("analyzeResourceContent", () => {
     expect(result).toEqual({ analyzed: false, reason: "llm-unavailable", written: [] });
     expect(mockMemoryUpdateField).not.toHaveBeenCalled();
     expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it("propagates work terms to linked work records, filling only empty fields", async () => {
+    resourceRow = baseRow({ file_name: "proposal-northwind.pdf" });
+    entityLinks = [{ target_id: "work-1" }];
+    workRows = [
+      {
+        id: "work-1",
+        work_type: null,
+        payment_type: null,
+        hourly_rate_cents: null,
+        retainer_mrr_cents: null,
+        contract_value_cents: null,
+        final_price_cents: null,
+        currency: null,
+        decision_date: null,
+        estimated_timeline: null,
+        discount_percent: null,
+        discount_amount_cents: null,
+        discount_reason: null,
+      },
+    ];
+    mockSendLlm.mockResolvedValue(
+      JSON.stringify({
+        category: "proposal",
+        documentType: "proposal",
+        description: "Website redesign proposal for Northwind.",
+        totalAmountCents: 500000,
+        currency: "usd",
+        work: {
+          workType: "project",
+          paymentType: "fixed",
+          finalPriceCents: 450000,
+          decisionDate: "2026-09-15",
+          estimatedTimeline: "6 weeks",
+          discountPercent: 10,
+          discountReason: "early commitment",
+        },
+      }),
+    );
+
+    const result = await analyzeResourceContent({ workspaceId: WS, resourceId: RESOURCE_ID });
+
+    expect(result.analyzed).toBe(true);
+    const workWrites = mockMemoryUpdateField.mock.calls
+      .map(([arg]) => arg as { entityType: string; field: string; value: unknown })
+      .filter((c) => c.entityType === "work");
+    expect(workWrites).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "work_type", value: "project" }),
+        expect.objectContaining({ field: "payment_type", value: "fixed" }),
+        expect.objectContaining({ field: "contract_value_cents", value: 500000 }),
+        expect.objectContaining({ field: "final_price_cents", value: 450000 }),
+        expect.objectContaining({ field: "currency", value: "USD" }),
+        expect.objectContaining({ field: "decision_date", value: "2026-09-15" }),
+        expect.objectContaining({ field: "estimated_timeline", value: "6 weeks" }),
+        expect.objectContaining({ field: "discount_percent", value: 10 }),
+        expect.objectContaining({ field: "discount_reason", value: "early commitment" }),
+      ]),
+    );
+    expect(result.written).toContain("work.contractValueCents");
+  });
+
+  it("does not touch work records when no work is linked", async () => {
+    resourceRow = baseRow();
+
+    await analyzeResourceContent({ workspaceId: WS, resourceId: RESOURCE_ID });
+
+    const workWrites = mockMemoryUpdateField.mock.calls
+      .map(([arg]) => arg as { entityType: string })
+      .filter((c) => c.entityType === "work");
+    expect(workWrites).toEqual([]);
   });
 });

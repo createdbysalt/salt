@@ -10,12 +10,26 @@ import { getFieldsForEntity } from "@/app/_features/memory/taxonomy/field-regist
 import {
   FILE_CATEGORY_VALUES,
   FILE_DOCUMENT_TYPE_VALUES,
+  WORK_TYPES,
 } from "@/app/_features/memory/taxonomy/registry";
 
 const CATEGORY_SLUGS = new Set(FILE_CATEGORY_VALUES.map((v) => v.slug));
 const DOCUMENT_TYPE_SLUGS = new Set(FILE_DOCUMENT_TYPE_VALUES.map((v) => v.slug));
 const MAX_TEXT_CHARS = 12_000;
 const MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024;
+
+const WorkTermsSchema = z.object({
+  workType: z.enum(WORK_TYPES).nullish(),
+  paymentType: z.enum(["fixed", "retainer", "hourly", "milestone"]).nullish(),
+  hourlyRateCents: z.number().int().nonnegative().nullish(),
+  retainerMrrCents: z.number().int().nonnegative().nullish(),
+  finalPriceCents: z.number().int().nonnegative().nullish(),
+  decisionDate: z.string().nullish(),
+  estimatedTimeline: z.string().max(160).nullish(),
+  discountPercent: z.number().min(0).max(100).nullish(),
+  discountAmountCents: z.number().int().nonnegative().nullish(),
+  discountReason: z.string().max(200).nullish(),
+});
 
 const ContentAnalysisSchema = z.object({
   category: z.string().nullish(),
@@ -26,6 +40,7 @@ const ContentAnalysisSchema = z.object({
   dueDate: z.string().nullish(),
   expiryDate: z.string().nullish(),
   followUpDate: z.string().nullish(),
+  work: WorkTermsSchema.nullish(),
 });
 
 type ContentAnalysis = z.infer<typeof ContentAnalysisSchema>;
@@ -49,7 +64,22 @@ Rules:
 - description: what this document is, one sentence, plain language. null if unclear.
 - totalAmountCents: the document's total in cents ($1,500.00 → 150000). null when no amount is stated.
 - currency: 3-letter ISO code, only when an amount is present.
-- dueDate: payment or delivery deadline. expiryDate: when the document stops being valid. followUpDate: when someone should next act on it. ISO YYYY-MM-DD or null when not stated.`;
+- dueDate: payment or delivery deadline. expiryDate: when the document stops being valid. followUpDate: when someone should next act on it. ISO YYYY-MM-DD or null when not stated.
+
+If the document is a proposal, contract, statement of work, quote, or estimate, ALSO include a "work" object (omit the key entirely for any other document):
+{
+  "workType": one of project, retainer, hourly, proposal, quick, event — the engagement shape,
+  "paymentType": one of fixed, retainer, hourly, milestone — how money is charged,
+  "hourlyRateCents": the stated hourly rate in cents, or null,
+  "retainerMrrCents": the monthly retainer amount in cents, or null,
+  "finalPriceCents": the price after any discount, in cents, or null when not stated,
+  "decisionDate": the date the client must decide or sign by, YYYY-MM-DD or null,
+  "estimatedTimeline": short phrase like "6 weeks" or "Q1 2026", or null,
+  "discountPercent": number 0-100 or null,
+  "discountAmountCents": integer or null,
+  "discountReason": short phrase or null
+}
+Only include fields actually stated in the document; never invent numbers.`;
 
 interface ResourceRow {
   id: string;
@@ -68,6 +98,22 @@ interface ResourceRow {
   follow_up_date: string | null;
   ai_summary: string | null;
   extracted_data: Record<string, unknown> | null;
+}
+
+interface WorkRow {
+  id: string;
+  work_type: string | null;
+  payment_type: string | null;
+  hourly_rate_cents: number | null;
+  retainer_mrr_cents: number | null;
+  contract_value_cents: number | null;
+  final_price_cents: number | null;
+  currency: string | null;
+  decision_date: string | null;
+  estimated_timeline: string | null;
+  discount_percent: number | null;
+  discount_amount_cents: number | null;
+  discount_reason: string | null;
 }
 
 export interface ResourceContentAnalysisResult {
@@ -145,6 +191,178 @@ async function buildContentParts(
 function fillRule(fieldKey: string, signal: string) {
   const field = getFieldsForEntity("resource").find((f) => f.key === fieldKey);
   return field?.fillRules?.find((r) => r.signal === signal);
+}
+
+function workFillRule(fieldKey: string, signal: string) {
+  const field = getFieldsForEntity("work").find((f) => f.key === fieldKey);
+  return field?.fillRules?.find((r) => r.signal === signal);
+}
+
+/**
+ * Track G piece 4: a proposal/contract/SOW linked to a work record
+ * corroborates that record's commercials. Only empty work fields fill —
+ * user-set values never get overwritten by a document read.
+ */
+async function propagateWorkTerms(input: {
+  admin: ReturnType<typeof createAdminClient>;
+  workspaceId: string;
+  resourceId: string;
+  analysis: ContentAnalysis;
+  written: string[];
+}): Promise<void> {
+  const terms = input.analysis.work;
+  const hasValueTerms =
+    input.analysis.totalAmountCents != null || !!input.analysis.currency;
+  if (!terms && !hasValueTerms) return;
+
+  const { data: links } = await input.admin
+    .from("entity_links")
+    .select("target_id")
+    .eq("workspace_id", input.workspaceId)
+    .eq("source_type", "resource")
+    .eq("source_id", input.resourceId)
+    .eq("target_type", "work");
+  const workIds = ((links as Array<{ target_id: string }> | null) ?? []).map(
+    (l) => l.target_id,
+  );
+  if (workIds.length === 0) return;
+
+  const { data: workRows } = await input.admin
+    .from("work")
+    .select(
+      "id, work_type, payment_type, hourly_rate_cents, retainer_mrr_cents, contract_value_cents, final_price_cents, currency, decision_date, estimated_timeline, discount_percent, discount_amount_cents, discount_reason",
+    )
+    .eq("workspace_id", input.workspaceId)
+    .in("id", workIds)
+    .is("deleted_at", null);
+
+  for (const workRow of (workRows as WorkRow[] | null) ?? []) {
+    const writeWork = async (input2: {
+      fieldKey: string;
+      dbColumn: string;
+      signal: string;
+      value: string | number;
+    }) => {
+      const rule = workFillRule(input2.fieldKey, input2.signal);
+      const result = await memoryUpdateField({
+        workspaceId: input.workspaceId,
+        entityType: "work",
+        entityId: workRow.id,
+        field: input2.dbColumn,
+        value: input2.value,
+        confidence: rule?.confidence ?? 80,
+        because: rule?.because ?? "Extracted from a linked document",
+        source: "enrichment",
+        sourceDetails: {
+          playbookSlug: "memory-records",
+          externalId: input.resourceId,
+          ruleId: `work-${input2.fieldKey}-${input2.signal}`,
+        },
+      });
+      if (result.action === "applied") input.written.push(`work.${input2.fieldKey}`);
+    };
+
+    if (terms?.workType && !workRow.work_type) {
+      await writeWork({
+        fieldKey: "workType",
+        dbColumn: "work_type",
+        signal: "work_type_inferred",
+        value: terms.workType,
+      });
+    }
+    if (terms?.paymentType && !workRow.payment_type) {
+      await writeWork({
+        fieldKey: "paymentType",
+        dbColumn: "payment_type",
+        signal: "work_type_inferred",
+        value: terms.paymentType,
+      });
+    }
+    if (input.analysis.totalAmountCents != null && workRow.contract_value_cents == null) {
+      await writeWork({
+        fieldKey: "contractValueCents",
+        dbColumn: "contract_value_cents",
+        signal: "work_value_extracted",
+        value: input.analysis.totalAmountCents,
+      });
+    }
+    if (terms?.finalPriceCents != null && workRow.final_price_cents == null) {
+      await writeWork({
+        fieldKey: "finalPriceCents",
+        dbColumn: "final_price_cents",
+        signal: "work_value_extracted",
+        value: terms.finalPriceCents,
+      });
+    }
+    if (input.analysis.currency && !workRow.currency) {
+      await writeWork({
+        fieldKey: "currency",
+        dbColumn: "currency",
+        signal: "work_value_extracted",
+        value: input.analysis.currency.toUpperCase(),
+      });
+    }
+    if (terms?.hourlyRateCents != null && workRow.hourly_rate_cents == null) {
+      await writeWork({
+        fieldKey: "hourlyRateCents",
+        dbColumn: "hourly_rate_cents",
+        signal: "work_value_extracted",
+        value: terms.hourlyRateCents,
+      });
+    }
+    if (terms?.retainerMrrCents != null && workRow.retainer_mrr_cents == null) {
+      await writeWork({
+        fieldKey: "retainerMrrCents",
+        dbColumn: "retainer_mrr_cents",
+        signal: "work_value_extracted",
+        value: terms.retainerMrrCents,
+      });
+    }
+    if (terms?.discountPercent != null && workRow.discount_percent == null) {
+      await writeWork({
+        fieldKey: "discountPercent",
+        dbColumn: "discount_percent",
+        signal: "work_value_extracted",
+        value: terms.discountPercent,
+      });
+    }
+    if (terms?.discountAmountCents != null && workRow.discount_amount_cents == null) {
+      await writeWork({
+        fieldKey: "discountAmountCents",
+        dbColumn: "discount_amount_cents",
+        signal: "work_value_extracted",
+        value: terms.discountAmountCents,
+      });
+    }
+    if (terms?.discountReason && !workRow.discount_reason) {
+      await writeWork({
+        fieldKey: "discountReason",
+        dbColumn: "discount_reason",
+        signal: "work_value_extracted",
+        value: terms.discountReason,
+      });
+    }
+    if (
+      terms?.decisionDate &&
+      /^\d{4}-\d{2}-\d{2}/.test(terms.decisionDate) &&
+      !workRow.decision_date
+    ) {
+      await writeWork({
+        fieldKey: "decisionDate",
+        dbColumn: "decision_date",
+        signal: "work_timeline_mentioned",
+        value: terms.decisionDate,
+      });
+    }
+    if (terms?.estimatedTimeline && !workRow.estimated_timeline) {
+      await writeWork({
+        fieldKey: "estimatedTimeline",
+        dbColumn: "estimated_timeline",
+        signal: "work_timeline_mentioned",
+        value: terms.estimatedTimeline,
+      });
+    }
+  }
 }
 
 export async function analyzeResourceContent(input: {
@@ -279,6 +497,14 @@ export async function analyzeResourceContent(input: {
       });
     }
   }
+
+  await propagateWorkTerms({
+    admin,
+    workspaceId: input.workspaceId,
+    resourceId: row.id,
+    analysis,
+    written,
+  });
 
   await admin
     .from("resources")

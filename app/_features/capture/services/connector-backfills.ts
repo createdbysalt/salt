@@ -33,6 +33,7 @@ import { produceMeetingFieldSignals } from "./producers/meeting-field-producer";
 import { produceRecordTagFits } from "./producers/record-tag-fit-producer";
 import { produceEmailActivityRollup } from "./producers/email-activity-producer";
 import { producePersonObservations } from "./producers/person-observation-producer";
+import { produceBillingRecordSignals } from "./producers/billing-record-producer";
 import { produceOrgRecencyRollup } from "./producers/org-recency-producer";
 import {
   absorbInferredSignals,
@@ -381,6 +382,25 @@ async function absorbDerivedSignals(
     } catch (error) {
       console.warn(
         `[connector-backfill] LLM signal extraction failed for ${adapter.sourceType}:`,
+        error instanceof Error ? error.message : error,
+      );
+    }
+  }
+
+  // Billing corroboration (Track G): payment captures corroborate open
+  // billing records (amounts, dates, status) and attest live orgs. New
+  // envelopes only — reconciliation overlap would re-match the same rows.
+  for (const envelope of newEnvelopes) {
+    if (envelope.captureType !== "payment") continue;
+    try {
+      await produceBillingRecordSignals({
+        workspaceId,
+        envelope,
+        source: adapter.sourceType,
+      });
+    } catch (error) {
+      console.warn(
+        `[connector-backfill] billing corroboration failed for ${adapter.sourceType}:`,
         error instanceof Error ? error.message : error,
       );
     }

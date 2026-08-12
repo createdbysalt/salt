@@ -17,8 +17,15 @@ import {
   verbatimEntity,
 } from "../feedback-entity";
 import { isRecord, pickString, unwrapRecord } from "../normalize-utils";
-import type { PersonSignals } from "@/app/_features/capture/services/system-plays/person-signals";
+import {
+  isPersonalDomain,
+  type PersonSignals,
+} from "@/app/_features/capture/services/system-plays/person-signals";
 import type { DerivedPersonFields } from "@/app/_features/capture/services/producers/person-field-types";
+import type {
+  DerivedOrgFields,
+  DerivedRecordSignals,
+} from "@/app/_features/capture/services/producers/record-field-types";
 import type { CaptureSourceType } from "@/app/_features/capture/types";
 
 type KnownBillingProvider = "stripe" | "quickbooks" | "xero";
@@ -131,6 +138,72 @@ function extractCustomerAddress(raw: unknown): Record<string, string> | null {
   if (postalCode) normalized.postal_code = postalCode;
   if (country) normalized.country = country;
   return Object.keys(normalized).length > 0 ? normalized : null;
+}
+
+/**
+ * Stripe carries tax IDs as `{ type, value }` pairs (invoice
+ * customer_tax_ids, checkout customer_details.tax_ids). Only the value
+ * feeds the org record.
+ */
+function extractCustomerTaxIds(raw: unknown): string[] | null {
+  if (!Array.isArray(raw)) return null;
+  const values = raw
+    .map((entry) => (isRecord(entry) ? pickString(entry, ["value"]) : null))
+    .filter((value): value is string => !!value);
+  return values.length > 0 ? values : null;
+}
+
+/**
+ * Record-signal derivation (Track G): a billing payload attests the
+ * counterparty org's billing address and tax ID — current because money
+ * depends on them. Org keys carry the domain:/name: resolution prefix;
+ * personal-email customers key by name only.
+ */
+function deriveBillingRecordSignals(
+  envelopes: readonly CaptureEnvelope[],
+): DerivedRecordSignals {
+  const orgs = new Map<string, DerivedOrgFields>();
+
+  for (const envelope of envelopes) {
+    const address = envelope.extracted.customer_address as
+      | Record<string, string>
+      | null
+      | undefined;
+    const taxIds = envelope.extracted.customer_tax_ids as
+      | string[]
+      | null
+      | undefined;
+    if (!address && !taxIds?.length) continue;
+
+    const email = envelope.extracted.customer_email as string | null;
+    const name = envelope.extracted.customer_name as string | null;
+    const domain = email?.split("@")[1]?.toLowerCase();
+    const key =
+      domain && !isPersonalDomain(`probe@${domain}`)
+        ? `domain:${domain}`
+        : name
+          ? `name:${name.toLowerCase()}`
+          : null;
+    if (!key) continue;
+
+    const existing = orgs.get(key) ?? { signalValues: {} };
+    if (name) existing.name ??= name;
+    if (email) existing.contactEmail ??= email;
+    if (address && !existing.address) {
+      existing.address = {
+        line1: address.line1,
+        line2: address.line2,
+        city: address.city,
+        state: address.state,
+        postalCode: address.postal_code,
+        country: address.country,
+      };
+    }
+    if (taxIds?.length && !existing.taxId) existing.taxId = taxIds[0];
+    orgs.set(key, existing);
+  }
+
+  return { orgs, deals: new Map() };
 }
 
 /**
@@ -260,6 +333,9 @@ function normalizeStripe(payload: unknown): CaptureEnvelope | null {
       invoice_pdf_url: (obj.invoice_pdf as string) ?? null,
       customer_address: extractCustomerAddress(
         billingDetails?.address ?? customerDetails?.address
+      ),
+      customer_tax_ids: extractCustomerTaxIds(
+        obj.customer_tax_ids ?? customerDetails?.tax_ids
       ),
     },
     raw: {
@@ -547,6 +623,7 @@ export function createBillingCategoryAdapter(provider: string): CaptureAdapter {
     triggerSlugs,
     deriveSignals: deriveBillingSignals,
     deriveFieldSignals: deriveBillingFieldSignals,
+    deriveRecordSignals: deriveBillingRecordSignals,
 
     extractFeedbackEntity(envelope) {
       return emailEntity(envelope, "customer_email", "customer");

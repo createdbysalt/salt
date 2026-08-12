@@ -17,6 +17,67 @@ export interface ProduceOrgFieldsResult {
   dispatched: string[];
   contactLinked: boolean;
   billingWrites: number;
+  addressWrites: number;
+}
+
+/** Registry field key → address component (compound write, Track G). */
+const ORG_ADDRESS_COMPONENT_BY_FIELD_KEY: Record<string, keyof NonNullable<DerivedOrgFields["address"]>> = {
+  addressLine1: "line1",
+  addressLine2: "line2",
+  city: "city",
+  state: "state",
+  postalCode: "postalCode",
+  country: "country",
+};
+
+/**
+ * Compound-address writes from billing payloads. Confidence and because
+ * come from the registry's org_address_extracted rule per field — same
+ * pattern as the compound person address.
+ */
+async function writeOrgAddressComponents(input: {
+  workspaceId: string;
+  orgId: string;
+  fields: DerivedOrgFields;
+  captureId?: string;
+}): Promise<number> {
+  const address = input.fields.address;
+  if (!address) return 0;
+
+  const orgFields = getFieldsForEntity("org");
+  let writes = 0;
+
+  for (const [fieldKey, component] of Object.entries(
+    ORG_ADDRESS_COMPONENT_BY_FIELD_KEY,
+  )) {
+    const value = address[component];
+    if (!value) continue;
+
+    const field = orgFields.find((f) => f.key === fieldKey);
+    if (!field?.dbColumn) continue;
+    const rule = (field.fillRules ?? []).find(
+      (r) => r.signal === "org_address_extracted",
+    );
+
+    await memoryUpdateField({
+      workspaceId: input.workspaceId,
+      entityType: "organization",
+      entityId: input.orgId,
+      field: field.dbColumn,
+      value,
+      confidence: rule?.confidence ?? 82,
+      because: rule?.because ?? "Address extracted from documents or invoices",
+      source: "enrichment",
+      sourceDetails: {
+        playbookSlug: "memory-records",
+        captureId: input.captureId,
+        ruleId: `org-${fieldKey}-org_address_extracted`,
+      },
+    });
+    writes++;
+  }
+
+  return writes;
 }
 
 interface OrgRow {
@@ -205,6 +266,7 @@ export async function produceOrgFieldSignals(input: {
     dispatched: [],
     contactLinked: false,
     billingWrites: 0,
+    addressWrites: 0,
   };
 
   const [kind, ...rest] = input.orgKey.split(":");
@@ -248,6 +310,29 @@ export async function produceOrgFieldSignals(input: {
     dispatched.push(signal);
   }
 
+  // Track G: the tax ID rides the signal (single column); the address is a
+  // compound write across six columns.
+  if (input.fields.taxId) {
+    await runCareForSignal({
+      workspaceId: input.workspaceId,
+      entityType: "organization",
+      entityId: org.id,
+      signalKey: "org_tax_id_extracted",
+      evidence: {
+        source: input.source,
+        captureId: input.captureId,
+        signalValues: { org_tax_id_extracted: input.fields.taxId },
+      },
+    });
+    dispatched.push("org_tax_id_extracted");
+  }
+  const addressWrites = await writeOrgAddressComponents({
+    workspaceId: input.workspaceId,
+    orgId: org.id,
+    fields: input.fields,
+    captureId: input.captureId,
+  });
+
   let contactLinked = false;
   let billingWrites = 0;
   if (input.fields.contactEmail) {
@@ -258,6 +343,19 @@ export async function produceOrgFieldSignals(input: {
     if (person.resolved && person.person_id) {
       await linkPersonToOrg(input.workspaceId, person.person_id, org.id);
       contactLinked = true;
+      // A live person link is recordStatus evidence (Track G). The fill
+      // rule is a constant (eq:true), so the value rides as a boolean.
+      await runCareForSignal({
+        workspaceId: input.workspaceId,
+        entityType: "organization",
+        entityId: org.id,
+        signalKey: "org_has_people",
+        evidence: {
+          source: input.source,
+          captureId: input.captureId,
+          signalValues: { org_has_people: true },
+        },
+      });
       billingWrites = await fillBillingCounterparty({
         workspaceId: input.workspaceId,
         orgId: org.id,
@@ -268,5 +366,5 @@ export async function produceOrgFieldSignals(input: {
     }
   }
 
-  return { orgId: org.id, orgCreated, dispatched, contactLinked, billingWrites };
+  return { orgId: org.id, orgCreated, dispatched, contactLinked, billingWrites, addressWrites };
 }
