@@ -235,7 +235,7 @@ describe("field sourcing (people-field-sourcing canvas)", () => {
       relationshipType: { gap: false },
       recordStatus: { gap: false },
       lastContactedAt: { gap: false },
-      notes: { gap: true },
+      notes: { gap: false },
     };
 
     for (const [key, { gap }] of Object.entries(expected)) {
@@ -304,7 +304,8 @@ describe("field sourcing (people-field-sourcing canvas)", () => {
     // its best-source producer lands (Tracks A-G); Track H (signing apps)
     // keeps lifecycleStatus/signedDate pilled until connectors exist.
     const expectedGaps: Record<string, string[]> = {
-      person: ["notes"],
+      // person.notes cleared in Track F (person-observation-producer.ts).
+      person: [],
       org: [
         "addressLine1",
         "addressLine2",

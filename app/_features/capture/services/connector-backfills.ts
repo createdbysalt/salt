@@ -32,6 +32,7 @@ import { produceWorkFieldSignals } from "./producers/work-field-producer";
 import { produceMeetingFieldSignals } from "./producers/meeting-field-producer";
 import { produceRecordTagFits } from "./producers/record-tag-fit-producer";
 import { produceEmailActivityRollup } from "./producers/email-activity-producer";
+import { producePersonObservations } from "./producers/person-observation-producer";
 import { produceOrgRecencyRollup } from "./producers/org-recency-producer";
 import {
   absorbInferredSignals,
@@ -176,6 +177,9 @@ async function ingestRows(
 
 /** Bound signal absorption per run — an assist, not a person-import job. */
 const MAX_SIGNAL_CONTACTS_PER_RUN = 50;
+
+/** Bound LLM observation passes per run — each pass is vendor spend. */
+const MAX_OBSERVATION_CAPTURES_PER_RUN = 5;
 
 /**
  * Signal absorption (Phase 5.1): fold ingested envelopes into per-contact
@@ -377,6 +381,32 @@ async function absorbDerivedSignals(
     } catch (error) {
       console.warn(
         `[connector-backfill] LLM signal extraction failed for ${adapter.sourceType}:`,
+        error instanceof Error ? error.message : error,
+      );
+    }
+  }
+
+  // Observation detection (Track F): fresh message/meeting envelopes with
+  // readable text get one metered judgment pass; note-worthy observations
+  // land as Salt notes on already-resolved persons. New envelopes only —
+  // the reconciliation overlap would otherwise re-judge the same captures.
+  let observed = 0;
+  for (const envelope of newEnvelopes) {
+    if (observed >= MAX_OBSERVATION_CAPTURES_PER_RUN) break;
+    if (envelope.captureType !== "message" && envelope.captureType !== "meeting") {
+      continue;
+    }
+    observed++;
+    try {
+      await producePersonObservations({
+        workspaceId,
+        captureId: `${adapter.sourceType}:${envelope.externalId}`,
+        envelope,
+        source: adapter.sourceType,
+      });
+    } catch (error) {
+      console.warn(
+        `[connector-backfill] observation detection failed for ${adapter.sourceType}:`,
         error instanceof Error ? error.message : error,
       );
     }

@@ -474,8 +474,8 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     ...PERSON_CARE_AUTO,
     sourcing: {
       best: "Salt's own judgment across every connector — dated observations with evidence links",
-      today: "No producer yet — the notes machinery exists, observation detection doesn't",
-      gap: true,
+      today: "Salt reads incoming email excerpts and meeting summaries and notes what's worth remembering",
+      gap: false,
     },
     fillRules: [
       { signal: "person_observation_detected", value: "{{extracted}}", confidence: 90, because: "They said it themselves — a decision, a life update, a new role, in their own words" },
