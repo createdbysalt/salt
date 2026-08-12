@@ -533,6 +533,29 @@ function deriveCalendarFieldSignals(
         add(email, { person_phone_extracted: detail.phone });
       }
     }
+
+    // Recency (producer roadmap track 2): a past meeting is a genuine
+    // touchpoint — "you've shared time on the calendar". Future events are
+    // intent, not contact, so they don't move the relationship clock.
+    if (
+      envelope.occurredAt &&
+      new Date(envelope.occurredAt).getTime() <= Date.now()
+    ) {
+      for (const participant of envelope.participants) {
+        if (!participant.email?.includes("@")) continue;
+        const email = participant.email.toLowerCase();
+        if (userEmail && email === userEmail) continue;
+        const existing = contacts.get(email) ?? { signalValues: {} };
+        const current = existing.contactAt;
+        if (!current || envelope.occurredAt > current.at) {
+          existing.contactAt = {
+            at: envelope.occurredAt,
+            signal: "capture_meeting_completed",
+          };
+        }
+        contacts.set(email, existing);
+      }
+    }
   }
 
   return contacts;

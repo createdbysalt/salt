@@ -443,13 +443,12 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     fieldType: "datetime",
     careSignal: "person_last_contacted",
     requiredForCapabilities: [],
-    aiDescription: "Most recent contact with this person (email sent/received, meeting attended)",
+    aiDescription: "Most recent contact with this person (email sent/received, meeting attended, direct message)",
     dbColumn: "last_contact_at",
     writePolicy: "care_auto",
     sourcing: {
       best: "Any touchpoint, whichever is newest",
-      today: "Email + calendar meetings",
-      gap: true,
+      today: "Email, calendar meetings, Slack DMs, or meeting recordings",
     },
     fillRules: [
       { signal: "capture_email_received", value: "{{extracted}}", confidence: 100, because: "Email received from this person" },

@@ -17,6 +17,7 @@ import {
   verbatimEntity,
 } from "../feedback-entity";
 import type { PersonSignals } from "@/app/_features/capture/services/system-plays/person-signals";
+import type { DerivedPersonFields } from "@/app/_features/capture/services/producers/person-field-types";
 import type { CaptureSourceType } from "@/app/_features/capture/types";
 
 type KnownMeetingsProvider = "fireflies" | "otter";
@@ -54,6 +55,45 @@ function deriveMeetingsSignals(
 }
 
 // Meetings adapters already filter by category - no need for source type check
+
+/**
+ * Field-signal derivation (producer roadmap track 2): a transcript exists
+ * because a meeting happened, so every attendee gets a contact attestation
+ * at the meeting's timestamp. Speaker-identified display names corroborate
+ * the person's name. The connected user is never their own contact.
+ */
+function deriveMeetingsFieldSignals(
+  envelopes: readonly CaptureEnvelope[],
+  context: SignalDerivationContext,
+): Map<string, DerivedPersonFields> {
+  const contacts = new Map<string, DerivedPersonFields>();
+  const userEmail = context.userEmail?.toLowerCase() ?? null;
+
+  for (const envelope of envelopes) {
+    for (const participant of envelope.participants) {
+      if (!participant.email) continue;
+      const email = participant.email.toLowerCase();
+      if (userEmail && email === userEmail) continue;
+
+      const existing = contacts.get(email) ?? { signalValues: {} };
+      if (participant.name && !existing.signalValues.person_name_extracted) {
+        existing.signalValues.person_name_extracted = participant.name;
+      }
+      if (envelope.occurredAt) {
+        const current = existing.contactAt;
+        if (!current || envelope.occurredAt > current.at) {
+          existing.contactAt = {
+            at: envelope.occurredAt,
+            signal: "capture_meeting_completed",
+          };
+        }
+      }
+      contacts.set(email, existing);
+    }
+  }
+
+  return contacts;
+}
 
 /**
  * Action items arrive in provider-specific shapes: an array of strings, an
@@ -253,6 +293,7 @@ export function createMeetingsCategoryAdapter(provider: string): CaptureAdapter 
     toolkit: provider,
     triggerSlugs,
     deriveSignals: deriveMeetingsSignals,
+    deriveFieldSignals: deriveMeetingsFieldSignals,
 
     extractFeedbackEntity(envelope) {
       // Meetings payloads carry attendees, not a host — the matrix's `host`

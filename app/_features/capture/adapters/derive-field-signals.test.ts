@@ -11,6 +11,7 @@ import { createBillingCategoryAdapter } from "./categories/billing";
 import { createCalendarCategoryAdapter } from "./categories/calendar";
 import { createCrmCategoryAdapter } from "./categories/crm";
 import { createMessagingCategoryAdapter } from "./categories/communication";
+import { createMeetingsCategoryAdapter } from "./categories/meetings";
 import { PERSON_FIELD_SIGNAL_KEYS } from "../services/producers/person-field-types";
 import type { CaptureEnvelope } from "./types";
 
@@ -345,6 +346,120 @@ describe("messaging adapter field signals", () => {
   });
 });
 
+describe("meetings adapter field signals", () => {
+  it("derives attendee names and meeting recency from a fireflies transcript", () => {
+    const adapter = createMeetingsCategoryAdapter("fireflies");
+    const envelope = adapter.normalize({
+      id: "ff-123",
+      title: "Q3 Kickoff",
+      date: 1754410500000,
+      meeting_attendees: [
+        { displayName: "Jane Doe", email: "jane@acme.com" },
+        { displayName: "Me", email: "me@studio.com" },
+      ],
+    }) as CaptureEnvelope;
+
+    const derived = adapter.deriveFieldSignals?.([envelope], {
+      userEmail: "me@studio.com",
+    });
+
+    const jane = derived?.get("jane@acme.com");
+    expect(jane?.signalValues.person_name_extracted).toBe("Jane Doe");
+    expect(jane?.contactAt).toEqual({
+      at: envelope.occurredAt,
+      signal: "capture_meeting_completed",
+    });
+    // The connected user never becomes their own contact.
+    expect(derived?.has("me@studio.com")).toBe(false);
+  });
+
+  it("attests recency from generic meeting payloads (otter et al.)", () => {
+    const adapter = createMeetingsCategoryAdapter("otter");
+    const envelope = adapter.normalize({
+      id: "ot-9",
+      title: "Weekly sync",
+      date: "2026-08-05T17:00:00.000Z",
+      attendees: [{ name: "Jane D", email: "jane@acme.com" }],
+    }) as CaptureEnvelope;
+
+    const derived = adapter.deriveFieldSignals?.([envelope], {
+      userEmail: null,
+    });
+
+    const jane = derived?.get("jane@acme.com");
+    expect(jane?.signalValues.person_name_extracted).toBe("Jane D");
+    expect(jane?.contactAt?.at).toBe("2026-08-05T17:00:00.000Z");
+  });
+
+  it("keeps the newest meeting timestamp across envelopes", () => {
+    const adapter = createMeetingsCategoryAdapter("fireflies");
+    const older = adapter.normalize({
+      id: "ff-1",
+      date: 1754300000000,
+      meeting_attendees: [{ displayName: "Jane", email: "jane@acme.com" }],
+    }) as CaptureEnvelope;
+    const newer = adapter.normalize({
+      id: "ff-2",
+      date: 1754410500000,
+      meeting_attendees: [{ displayName: "Jane", email: "jane@acme.com" }],
+    }) as CaptureEnvelope;
+
+    const derived = adapter.deriveFieldSignals?.([older, newer], {
+      userEmail: null,
+    });
+
+    expect(derived?.get("jane@acme.com")?.contactAt?.at).toBe(
+      newer.occurredAt
+    );
+  });
+});
+
+describe("calendar adapter recency", () => {
+  it("attests contact recency from a past meeting's attendees", () => {
+    const adapter = createCalendarCategoryAdapter("googlecalendar");
+    const envelope = adapter.normalize({
+      id: "evt-past",
+      summary: "Intro call",
+      start: { dateTime: "2026-08-05T17:00:00.000Z" },
+      end: { dateTime: "2026-08-05T17:30:00.000Z" },
+      attendees: [
+        { email: "jane@acme.com", displayName: "Jane Doe" },
+        { email: "me@studio.com", displayName: "Me", organizer: true },
+      ],
+    }) as CaptureEnvelope;
+    expect(envelope).not.toBeNull();
+
+    const derived = adapter.deriveFieldSignals?.([envelope], {
+      userEmail: "me@studio.com",
+    });
+
+    const jane = derived?.get("jane@acme.com");
+    expect(jane?.contactAt).toEqual({
+      at: envelope.occurredAt,
+      signal: "capture_meeting_completed",
+    });
+    expect(derived?.has("me@studio.com")).toBe(false);
+  });
+
+  it("does not attest recency from a future meeting", () => {
+    const adapter = createCalendarCategoryAdapter("googlecalendar");
+    const envelope = adapter.normalize({
+      id: "evt-future",
+      summary: "Upcoming call",
+      start: { dateTime: "2099-01-01T17:00:00.000Z" },
+      end: { dateTime: "2099-01-01T17:30:00.000Z" },
+      attendees: [{ email: "jane@acme.com", displayName: "Jane Doe" }],
+    }) as CaptureEnvelope;
+    expect(envelope).not.toBeNull();
+
+    const derived = adapter.deriveFieldSignals?.([envelope], {
+      userEmail: null,
+    });
+
+    expect(derived?.get("jane@acme.com")?.contactAt).toBeUndefined();
+  });
+});
+
 describe("field-signal conformance", () => {
   it("derived field signal keys stay within the registry set", () => {
     const adapters = [
@@ -354,6 +469,7 @@ describe("field-signal conformance", () => {
       createCrmCategoryAdapter("salesforce"),
       createCrmCategoryAdapter("pipedrive"),
       createMessagingCategoryAdapter("slack"),
+      createMeetingsCategoryAdapter("fireflies"),
     ];
 
     for (const adapter of adapters) {

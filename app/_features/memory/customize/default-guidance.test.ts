@@ -234,7 +234,7 @@ describe("field sourcing (people-field-sourcing canvas)", () => {
       title: { gap: false },
       relationshipType: { gap: false },
       recordStatus: { gap: true },
-      lastContactedAt: { gap: true },
+      lastContactedAt: { gap: false },
       notes: { gap: true },
     };
 
