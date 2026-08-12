@@ -18,6 +18,11 @@ import {
 } from "../feedback-entity";
 import type { PersonSignals } from "@/app/_features/capture/services/system-plays/person-signals";
 import type { DerivedPersonFields } from "@/app/_features/capture/services/producers/person-field-types";
+import type {
+  DerivedMeetingAttendee,
+  DerivedMeetingFields,
+  DerivedRecordSignals,
+} from "@/app/_features/capture/services/producers/record-field-types";
 import type { CaptureSourceType } from "@/app/_features/capture/types";
 
 type KnownMeetingsProvider = "fireflies" | "otter";
@@ -93,6 +98,75 @@ function deriveMeetingsFieldSignals(
   }
 
   return contacts;
+}
+
+/**
+ * Title-keyword → meeting_type vocabulary. Only confident matches emit —
+ * an unrecognized title produces no signal rather than a guessed "other".
+ */
+const MEETING_TYPE_KEYWORDS: Array<[RegExp, string]> = [
+  [/\bdiscovery\b|\bintro(duction)?\b/i, "discovery"],
+  [/\bkick[\s-]?off\b/i, "kickoff"],
+  [/\bcheck[\s-]?in\b|\bstatus\b|\bstand[\s-]?up\b|\bsync\b/i, "check-in"],
+  [/\breview\b|\bfeedback\b|\bwalkthrough\b/i, "review"],
+  [/\bpresentation\b|\bpitch\b|\bdemo\b/i, "presentation"],
+  [/\bworkshop\b|\bworking session\b|\bbrainstorm\b/i, "workshop"],
+  [/\binterview\b/i, "interview"],
+];
+
+function inferMeetingType(title: string | null): string | undefined {
+  if (!title) return undefined;
+  for (const [pattern, type] of MEETING_TYPE_KEYWORDS) {
+    if (pattern.test(title)) return type;
+  }
+  return undefined;
+}
+
+/**
+ * Record-signal derivation (Track B): each transcript envelope is one
+ * meeting. A transcript's existence attests the meeting happened; its
+ * participant list is who actually joined (vs. the calendar invite list);
+ * its summary and title feed description and type. Keyed by the provider's
+ * transcript id so the producer can route to the meeting record.
+ */
+function deriveMeetingsRecordSignals(
+  envelopes: readonly CaptureEnvelope[],
+  context: SignalDerivationContext,
+): DerivedRecordSignals {
+  const meetings = new Map<string, DerivedMeetingFields>();
+  const userEmail = context.userEmail?.toLowerCase() ?? null;
+
+  for (const envelope of envelopes) {
+    const fields: DerivedMeetingFields = {
+      signalValues: {},
+      attendanceEvidence: true,
+      attendees: envelope.participants.map(
+        (participant): DerivedMeetingAttendee => ({
+          name: participant.name ?? participant.email ?? "Unknown",
+          ...(participant.email ? { email: participant.email } : {}),
+          role:
+            userEmail && participant.email?.toLowerCase() === userEmail
+              ? "team"
+              : "client",
+        }),
+      ),
+      ...(envelope.title ? { title: envelope.title } : {}),
+      ...(envelope.occurredAt ? { occurredAt: envelope.occurredAt } : {}),
+    };
+
+    const meetingType = inferMeetingType(envelope.title);
+    if (meetingType) {
+      fields.signalValues.meeting_type_inferred = meetingType;
+    }
+    const summary = envelope.extracted.summary;
+    if (typeof summary === "string" && summary.trim()) {
+      fields.signalValues.meeting_summary_extracted = summary;
+    }
+
+    meetings.set(envelope.externalId, fields);
+  }
+
+  return { orgs: new Map(), deals: new Map(), meetings };
 }
 
 /**
@@ -294,6 +368,7 @@ export function createMeetingsCategoryAdapter(provider: string): CaptureAdapter 
     triggerSlugs,
     deriveSignals: deriveMeetingsSignals,
     deriveFieldSignals: deriveMeetingsFieldSignals,
+    deriveRecordSignals: deriveMeetingsRecordSignals,
 
     extractFeedbackEntity(envelope) {
       // Meetings payloads carry attendees, not a host — the matrix's `host`

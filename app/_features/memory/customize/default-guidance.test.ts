@@ -345,7 +345,7 @@ describe("field sourcing (people-field-sourcing canvas)", () => {
         "followUpDate",
         "tags",
       ],
-      meeting: ["meetingType", "status", "description", "attendees"],
+      meeting: [],
       billing: [
         "category",
         "vendorLabel",

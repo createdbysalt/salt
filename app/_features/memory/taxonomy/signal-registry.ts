@@ -90,6 +90,7 @@ export type SignalId =
   | "meeting_cancelled_by_calendar"
   | "meeting_type_inferred"
   | "meeting_attendees_extracted"
+  | "meeting_summary_extracted"
   // File signals
   | "file_signature_event_sent"
   | "file_signature_event_viewed"
@@ -664,7 +665,14 @@ export const SIGNALS: SignalDescriptor[] = [
     id: "meeting_attendees_extracted",
     label: "Attendees Extracted",
     entityTypes: ["meeting"],
-    description: "Attendee list extracted from calendar",
+    description: "Attendee list extracted from calendar or the recording app",
+    sources: ["calendar"],
+  },
+  {
+    id: "meeting_summary_extracted",
+    label: "Meeting Summary Extracted",
+    entityTypes: ["meeting"],
+    description: "Summary of what was discussed, from the recording app",
     sources: ["calendar"],
   },
 

@@ -64,6 +64,12 @@ const CARE_SIGNAL_MAP: Record<string, CareCapability[]> = {
   org_billing_email_extracted: ["records"],
   work_stage_inferred: ["records"],
   billing_party_email_match: ["records"],
+  // Records: meeting-intelligence routing (Track B) — type/summary arrive
+  // as extraction values; attendance evidence is a boolean attestation.
+  // Attendees write directly (JSON column) in the meeting producer.
+  meeting_type_inferred: ["records"],
+  meeting_summary_extracted: ["records"],
+  meeting_has_attendance_evidence: ["records"],
   // Hygiene: data-quality signals
   person_duplicate_email: ["hygiene"],
   person_duplicate_phone: ["hygiene"],

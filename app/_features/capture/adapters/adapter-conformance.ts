@@ -2,6 +2,7 @@ import { expect } from "vitest";
 import { PERSON_SIGNAL_KEYS } from "@/app/_features/capture/services/system-plays/person-signals";
 import { PERSON_FIELD_SIGNAL_KEYS } from "@/app/_features/capture/services/producers/person-field-types";
 import {
+  MEETING_FIELD_SIGNAL_KEYS,
   ORG_FIELD_SIGNAL_KEYS,
   WORK_FIELD_SIGNAL_KEYS,
 } from "@/app/_features/capture/services/producers/record-field-types";
@@ -102,6 +103,19 @@ export function runAdapterConformance(
         expect(
           workSignalSet.has(signal),
           `work signal '${signal}' not in registry set`,
+        ).toBe(true);
+      }
+    }
+    const meetingSignalSet = new Set<string>(MEETING_FIELD_SIGNAL_KEYS);
+    for (const [externalId, fields] of derived.meetings ?? []) {
+      expect(
+        externalId.length > 0,
+        "meeting record signals need the provider transcript id as key",
+      ).toBe(true);
+      for (const signal of Object.keys(fields.signalValues)) {
+        expect(
+          meetingSignalSet.has(signal),
+          `meeting signal '${signal}' not in registry set`,
         ).toBe(true);
       }
     }

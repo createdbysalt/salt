@@ -1894,11 +1894,11 @@ export const MEETING_FIELDS: FieldDescriptor<"meetings">[] = [
     dbColumn: "meeting_type",
     sourcing: {
       best: "Meeting intelligence — what the call actually was",
-      today: "No producer yet — type inference isn't wired",
-      gap: true,
+      today: "Inferred from the call title when a recording arrives",
+      gap: false,
     },
     fillRules: [
-      { signal: "meeting_type_inferred", value: "{{extracted}}", confidence: 80, because: "Meeting type inferred from title or description" },
+      { signal: "meeting_type_inferred", value: "{{extracted}}", confidence: 80, because: "Meeting type inferred from the call title" },
     ],
   },
   {
@@ -1914,8 +1914,8 @@ export const MEETING_FIELDS: FieldDescriptor<"meetings">[] = [
     writePolicy: "care_auto",
     sourcing: {
       best: "Attendance evidence — who actually showed up",
-      today: "Calendar status and time passing",
-      gap: true,
+      today: "Calendar status and time passing, corrected by the recording app",
+      gap: false,
     },
     fillRules: [
       { signal: "meeting_synced_from_calendar", value: "scheduled", confidence: 95, because: "Meeting synced from calendar" },
@@ -2018,11 +2018,12 @@ export const MEETING_FIELDS: FieldDescriptor<"meetings">[] = [
     dbColumn: "description",
     sourcing: {
       best: "The meeting summary — what was actually discussed",
-      today: "The calendar event description",
-      gap: true,
+      today: "The calendar event description, then the recording summary",
+      gap: false,
     },
     fillRules: [
       { signal: "meeting_synced_from_calendar", value: "{{extracted}}", confidence: 92, because: "Description from calendar event" },
+      { signal: "meeting_summary_extracted", value: "{{extracted}}", confidence: 85, because: "Summary of what was discussed, from the recording app" },
     ],
   },
   {
@@ -2057,11 +2058,11 @@ export const MEETING_FIELDS: FieldDescriptor<"meetings">[] = [
     writePolicy: "care_auto",
     sourcing: {
       best: "Who actually joined, from the recording app",
-      today: "The calendar invite list",
-      gap: true,
+      today: "The calendar invite list, corrected by who actually joined",
+      gap: false,
     },
     fillRules: [
-      { signal: "meeting_attendees_extracted", value: "{{extracted}}", confidence: 95, because: "Attendees from calendar event" },
+      { signal: "meeting_attendees_extracted", value: "{{extracted}}", confidence: 95, because: "Attendees who actually joined, from the recording app" },
     ],
   },
 ];

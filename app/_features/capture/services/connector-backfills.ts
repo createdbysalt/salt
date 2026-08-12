@@ -29,6 +29,7 @@ import { producePersonFieldSignals } from "./producers/person-field-producer";
 import { producePersonTagFits } from "./producers/person-tag-fit-producer";
 import { produceOrgFieldSignals } from "./producers/org-field-producer";
 import { produceWorkFieldSignals } from "./producers/work-field-producer";
+import { produceMeetingFieldSignals } from "./producers/meeting-field-producer";
 import {
   absorbInferredSignals,
   type LlmCall,
@@ -294,6 +295,24 @@ async function absorbDerivedSignals(
       } catch (error) {
         console.warn(
           `[connector-backfill] deal-signal absorption failed for ${adapter.sourceType}:`,
+          error instanceof Error ? error.message : error,
+        );
+      }
+    }
+    processed = 0;
+    for (const [externalId, fields] of derivedRecords.meetings ?? []) {
+      if (processed >= MAX_SIGNAL_CONTACTS_PER_RUN) break;
+      processed++;
+      try {
+        await produceMeetingFieldSignals({
+          workspaceId,
+          externalId,
+          fields,
+          source: adapter.sourceType,
+        });
+      } catch (error) {
+        console.warn(
+          `[connector-backfill] meeting-signal absorption failed for ${adapter.sourceType}:`,
           error instanceof Error ? error.message : error,
         );
       }

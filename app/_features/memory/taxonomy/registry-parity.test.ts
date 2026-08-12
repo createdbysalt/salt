@@ -103,8 +103,7 @@ const SIGNALS_AWAITING_PRODUCER: Record<string, string> = {
   file_amount_extracted: "Phase 7: artifact-first resource producers",
   file_date_extracted: "Phase 7: artifact-first resource producers",
   // Phase 5 — Meetings
-  meeting_type_inferred: "Phase 5: meeting producers",
-  meeting_attendees_extracted: "Phase 5: meeting producers",
+  // (meeting_type_inferred / meeting_attendees_extracted shipped in Track B)
   // Phase 5+ — Tag-fit producers for non-person record types (the person
   // tag-fit producer shipped in Phase 4; these follow the same pattern)
   org_tag_fit_detected: "Phase 5+: tag-fit producers for orgs",

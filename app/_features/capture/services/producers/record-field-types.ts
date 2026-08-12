@@ -58,12 +58,44 @@ export interface DerivedWorkFields {
 }
 
 /**
+ * Meeting-record field signals (Track B — meeting-intelligence routing).
+ * The summary and type ride the signal; attendees are a JSON column the
+ * {{extracted}} string path would mangle, so the producer writes them
+ * directly (same pattern as the compound person address).
+ */
+export const MEETING_FIELD_SIGNAL_KEYS = [
+  "meeting_type_inferred",
+  "meeting_summary_extracted",
+] as const;
+
+export type MeetingFieldSignalKey = (typeof MEETING_FIELD_SIGNAL_KEYS)[number];
+
+export interface DerivedMeetingAttendee {
+  name: string;
+  email?: string;
+  role: "client" | "team";
+}
+
+export interface DerivedMeetingFields {
+  signalValues: Partial<Record<MeetingFieldSignalKey, string>>;
+  /** A transcript exists, so the meeting happened (attendance evidence). */
+  attendanceEvidence: boolean;
+  /** Who actually joined, from the recording app. */
+  attendees: DerivedMeetingAttendee[];
+  /** Meeting title + start time — the producer's match keys. */
+  title?: string;
+  occurredAt?: string;
+}
+
+/**
  * Record-level derivation beyond per-contact person fields. Orgs are keyed
  * by resolution key — `domain:acme.com` when the payload attests a domain
  * (org email/website, or a contact's email domain), `name:acme corp`
- * otherwise. Deals are keyed by normalized title.
+ * otherwise. Deals are keyed by normalized title. Meetings are keyed by the
+ * provider's transcript/recording id.
  */
 export interface DerivedRecordSignals {
   orgs: Map<string, DerivedOrgFields>;
   deals: Map<string, DerivedWorkFields>;
+  meetings?: Map<string, DerivedMeetingFields>;
 }

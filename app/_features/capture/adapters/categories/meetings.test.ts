@@ -113,4 +113,82 @@ describe("meetings category adapter", () => {
       expect(signals.get("grace@acmecreative.co")?.has_calendar_meeting).toBe(true);
     });
   });
+
+  describe("deriveRecordSignals (Track B: meeting-record routing)", () => {
+    const adapter = createMeetingsCategoryAdapter("fireflies");
+
+    it("derives type, summary, attendees, and attendance evidence per transcript", () => {
+      const envelope = adapter.normalize(FIREFLIES_TRANSCRIPT);
+      const derived = adapter.deriveRecordSignals!([envelope!], {
+        userEmail: "you@usesalt.io",
+      });
+
+      const meeting = derived.meetings?.get("tr-abc123");
+      expect(meeting).toBeDefined();
+      expect(meeting?.title).toBe("Kickoff — Acme rebrand");
+      expect(meeting?.occurredAt).toBe(new Date(1754500000000).toISOString());
+      expect(meeting?.attendanceEvidence).toBe(true);
+      expect(meeting?.signalValues.meeting_type_inferred).toBe("kickoff");
+      expect(meeting?.signalValues.meeting_summary_extracted).toBe(
+        "Aligned on rebrand scope, timeline, and next steps."
+      );
+      expect(meeting?.attendees).toEqual([
+        { name: "You", email: "you@usesalt.io", role: "team" },
+        { name: "Grace Chen", email: "grace@acmecreative.co", role: "client" },
+      ]);
+    });
+
+    it("infers the meeting type from title keywords only", () => {
+      const cases: Array<[string, string | undefined]> = [
+        ["Discovery call with Acme", "discovery"],
+        ["Acme kickoff", "kickoff"],
+        ["Weekly check-in", "check-in"],
+        ["Brand review walkthrough", "review"],
+        ["Proposal presentation", "presentation"],
+        ["Design workshop", "workshop"],
+        ["Candidate interview", "interview"],
+        ["Grace <> You", undefined],
+      ];
+      for (const [title, expected] of cases) {
+        const envelope = adapter.normalize({
+          id: `tr-${title.length}`,
+          title,
+          date: 1754500000000,
+          participants: [],
+        });
+        const derived = adapter.deriveRecordSignals!([envelope!], {
+          userEmail: null,
+        });
+        const meeting = derived.meetings?.get(`tr-${title.length}`);
+        expect(meeting?.signalValues.meeting_type_inferred, title).toBe(expected);
+      }
+    });
+
+    it("marks every participant team/client against the connected user", () => {
+      const envelope = adapter.normalize(FIREFLIES_TRANSCRIPT);
+      const derived = adapter.deriveRecordSignals!([envelope!], {
+        userEmail: null,
+      });
+      const meeting = derived.meetings?.get("tr-abc123");
+      // No userEmail context: nobody is attested as team.
+      expect(meeting?.attendees.every((a) => a.role === "client")).toBe(true);
+    });
+
+    it("omits the summary signal when the payload has none", () => {
+      const envelope = adapter.normalize({
+        id: "tr-nosummary",
+        title: "Sync",
+        date: 1754500000000,
+        participants: ["grace@acmecreative.co"],
+      });
+      const derived = adapter.deriveRecordSignals!([envelope!], {
+        userEmail: null,
+      });
+      const meeting = derived.meetings?.get("tr-nosummary");
+      expect(meeting?.signalValues.meeting_summary_extracted).toBeUndefined();
+      expect(meeting?.attendees).toEqual([
+        { name: "grace@acmecreative.co", email: "grace@acmecreative.co", role: "client" },
+      ]);
+    });
+  });
 });
