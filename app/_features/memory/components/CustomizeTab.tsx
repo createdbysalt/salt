@@ -334,9 +334,6 @@ function RecordLogicCard({
                           </span>
                         )}
                       </p>
-                      {field.sourcing.today && (
-                        <p>Today: {field.sourcing.today}</p>
-                      )}
                     </div>
                   )}
                 </AccordionContent>

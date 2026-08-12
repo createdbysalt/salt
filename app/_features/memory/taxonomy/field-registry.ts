@@ -102,13 +102,14 @@ export interface FillRule {
 /**
  * Where a field's value should come from when several sources know it —
  * the per-field row of the field-sourcing canvases. `best` is the
- * authority, `today` is what actually fills it now, `gap` marks that the
- * authority isn't wired yet. Rendered on the Customize record card so the
- * sourcing strategy is visible where the logic lives.
+ * authority, `gap` marks that the authority isn't wired yet. Rendered on
+ * the Customize record card so the sourcing strategy is visible where the
+ * logic lives. (The transitional `today` note was retired once producers
+ * made the best source the actual source — the fill rules above each
+ * field now describe what fills it.)
  */
 export interface FieldSourcing {
   best: string;
-  today?: string;
   gap?: boolean;
 }
 
@@ -167,7 +168,6 @@ const PERSON_CARE_AUTO = { writePolicy: "care_auto" as const };
  */
 const PERSON_ADDRESS_SOURCING = {
   best: "Billing — customers keep billing addresses current because money depends on it",
-  today: "Stripe / QuickBooks customer record",
   gap: false,
 } as const;
 
@@ -184,7 +184,6 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     dbColumn: "name",
     sourcing: {
       best: "CRM contact record — human-curated, correctly formatted",
-      today: "CRM contact record, Slack profile, or email signature",
     },
     fillRules: [
       { signal: "person_name_extracted", value: "{{extracted}}", confidence: 90, because: "From your CRM contact record, a Slack profile, a meeting attendee list, or an email signature" },
@@ -203,7 +202,6 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     dedupeRole: "primary",
     sourcing: {
       best: "CRM contact email — canonical address on file",
-      today: "Email thread envelope",
     },
     fillRules: [
       { signal: "person_email_extracted", value: "{{extracted}}", confidence: 95, because: "Email address extracted from thread" },
@@ -221,7 +219,6 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     dbColumn: "billing_email",
     sourcing: {
       best: "Billing — the address invoices actually go to (Stripe customer, QBO billing)",
-      today: "Stripe / QuickBooks customer record",
     },
     fillRules: [
       { signal: "person_billing_email_extracted", value: "{{extracted}}", confidence: 85, because: "The address your billing app actually sends invoices to" },
@@ -239,7 +236,6 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     dbColumn: "phone",
     sourcing: {
       best: "CRM phone / mobile fields",
-      today: "CRM contact record, scheduling booking form, Slack profile, or email signature",
     },
     fillRules: [
       { signal: "person_phone_extracted", value: "{{extracted}}", confidence: 85, because: "From your CRM, a scheduling booking form, a Slack profile, or an email signature" },
@@ -258,7 +254,6 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     dbColumn: "timezone",
     sourcing: {
       best: "Scheduling — booking confirmations carry the invitee's explicit timezone",
-      today: "Scheduling booking confirmation or Slack profile",
     },
     fillRules: [
       { signal: "person_timezone_detected", value: "{{extracted}}", confidence: 88, because: "Confirmed by the invitee on a scheduling booking, or from their Slack profile" },
@@ -276,7 +271,6 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     dbColumn: "title",
     sourcing: {
       best: "CRM job title field",
-      today: "CRM contact record, Slack profile, or email signature",
     },
     fillRules: [
       { signal: "person_title_extracted", value: "{{extracted}}", confidence: 80, because: "From your CRM, a Slack profile, or an email signature" },
@@ -295,7 +289,6 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     dbColumn: "relationship_type",
     sourcing: {
       best: "CRM stage — prospect to client is a lifecycle humans maintain",
-      today: "Payments, invoices, domain lists",
     },
     fillRules: [
       { signal: "has_payment_received", value: "client", confidence: 95, because: "They paid you — strong client signal" },
@@ -410,7 +403,6 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
       "Workspace tags for this person (via entity_tag_assignments, not a column). Salt assigns existing tags when a fit clears the bar; coining a new tag is still gated by tag_auto_create_threshold and tag_max_ai_created in profile_playbook_settings",
     sourcing: {
       best: "Salt's judgment across every connector — payments, activity, silence",
-      today: "Tag-fit detection across payment and activity patterns",
       gap: false,
     },
     fillRules: [
@@ -433,7 +425,6 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     emptyMeaning: "Defaults to active; a NULL source means no one has explicitly set it",
     sourcing: {
       best: "Activity across every source, not just email",
-      today: "Meetings, payments, and thread activity",
       gap: false,
     },
     fillRules: [
@@ -453,7 +444,6 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     writePolicy: "care_auto",
     sourcing: {
       best: "Any touchpoint, whichever is newest",
-      today: "Email, calendar meetings, Slack DMs, or meeting recordings",
     },
     fillRules: [
       { signal: "capture_email_received", value: "{{extracted}}", confidence: 100, because: "Email received from this person" },
@@ -474,7 +464,6 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     ...PERSON_CARE_AUTO,
     sourcing: {
       best: "Salt's own judgment across every connector — dated observations with evidence links",
-      today: "Salt reads incoming email excerpts and meeting summaries and notes what's worth remembering",
       gap: false,
     },
     fillRules: [
@@ -497,7 +486,6 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
  */
 const ORG_ADDRESS_SOURCING = {
   best: "Billing — the org's billing address is current because money depends on it",
-  today: "Billing customer address from Stripe or QuickBooks",
   gap: false,
 } as const;
 
@@ -513,7 +501,6 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     dbColumn: "name",
     sourcing: {
       best: "CRM account name — human-curated, correctly capitalized",
-      today: "From your CRM, or derived from email domain",
       gap: false,
     },
     fillRules: [
@@ -532,7 +519,6 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     dbColumn: "billing_email",
     sourcing: {
       best: "Billing — the address invoices to this org actually go to",
-      today: "From your CRM account, or when an invoice is sent",
       gap: false,
     },
     fillRules: [
@@ -552,7 +538,6 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     dbColumn: "industry_parent",
     sourcing: {
       best: "CRM industry field — someone picked it deliberately",
-      today: "From your CRM, or inferred from domain or context",
       gap: false,
     },
     fillRules: [
@@ -571,7 +556,6 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     dbColumn: "industry_child",
     sourcing: {
       best: "CRM industry field — someone picked it deliberately",
-      today: "From your CRM, or inferred from context",
       gap: false,
     },
     fillRules: [
@@ -590,7 +574,6 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     dbColumn: "relationship_status",
     sourcing: {
       best: "Billing — money settles it: they pay you → client, you pay them → vendor",
-      today: "Payments, invoices, domain lists",
       gap: false,
     },
     fillRules: [
@@ -610,7 +593,6 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     aiDescription: "Main person to contact at this organization",
     sourcing: {
       best: "CRM contact roles — account owner, decision maker, billing contact are explicit",
-      today: "From your CRM account contact, or identified from activity",
       gap: false,
     },
     fillRules: [
@@ -722,7 +704,6 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     dbColumn: "tax_id",
     sourcing: {
       best: "Billing documents — the tax ID printed on the org's invoices",
-      today: "Stripe customer tax IDs",
       gap: false,
     },
     fillRules: [
@@ -740,7 +721,6 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     dbColumn: "website",
     sourcing: {
       best: "CRM website field",
-      today: "Discovered from email domain",
       gap: false,
     },
     fillRules: [
@@ -762,7 +742,6 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     ],
     sourcing: {
       best: "Salt's judgment across this org's activity — same tag-fit bar as people",
-      today: "Salt assigns existing tags when this org's activity clears the fit bar",
       gap: false,
     },
   },
@@ -780,7 +759,6 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     emptyMeaning: "Defaults to active; a NULL source means no one has explicitly set it",
    sourcing: {
       best: "Money + lifecycle: active subscription or open deal = alive; cancelled plan or churned stage = fading",
-      today: "Money received or linked people",
       gap: false,
     },
     fillRules: [
@@ -800,7 +778,6 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
     writePolicy: "care_auto",
    sourcing: {
       best: "Any touchpoint with anyone at the domain, newest wins",
-      today: "Aggregated from linked people's email, meetings, and DMs",
       gap: false,
     },
     fillRules: [
@@ -820,28 +797,24 @@ export const ORG_FIELDS: FieldDescriptor<"organizations">[] = [
  */
 const WORK_VALUE_SOURCING = {
   best: "The signed contract or proposal — the number on paper",
-  today: "Proposal or contract linked to the work",
   gap: false,
 } as const;
 
 /** workType + paymentType: one inference, two columns. */
 const WORK_TYPE_SOURCING = {
   best: "The contract or proposal terms",
-  today: "Proposal or contract linked to the work",
   gap: false,
 } as const;
 
 /** decisionDate + estimatedTimeline: dates the client says out loud. */
 const WORK_TIMELINE_SOURCING = {
   best: "The email or call where the client names a date",
-  today: "Proposal or contract linked to the work",
   gap: false,
 } as const;
 
 /** Fields the proposal/contract reader already attests (work_scope_extracted). */
 const WORK_TERMS_SOURCING = {
   best: "The proposal or contract",
-  today: "Read from proposals and contracts",
   gap: false,
 } as const;
 
@@ -872,7 +845,6 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     dbColumn: "status",
     sourcing: {
       best: "Signature, kickoff, and delivery evidence across your apps",
-      today: "Proposal, contract, and kickoff evidence",
       gap: false,
     },
     fillRules: [
@@ -920,7 +892,6 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     dbColumn: "stage",
     sourcing: {
       best: "CRM deal stage — the deal board your CRM maintains",
-      today: "From your CRM deal board",
       gap: false,
     },
     fillRules: [
@@ -952,7 +923,6 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     dbColumn: "billing_contact_id",
     sourcing: {
       best: "The invoice recipient — the address invoices actually go to",
-      today: "Identified when an invoice is created",
       gap: false,
     },
     fillRules: [
@@ -1159,7 +1129,6 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     dbColumn: "start_date",
     sourcing: {
       best: "The kickoff or the contract",
-      today: "Kickoff meeting or contract terms",
       gap: false,
     },
     fillRules: [
@@ -1178,7 +1147,6 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
     dbColumn: "deadline",
     sourcing: {
       best: "The contract or the client's stated deadline",
-      today: "Read from contracts and stated due dates",
       gap: false,
     },
     fillRules: [
@@ -1268,7 +1236,6 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
       "Workspace tags for this work item (via entity_tag_assignments, not a column). Salt assigns existing tags when a fit clears the bar; coining a new tag is still gated by tag_auto_create_threshold and tag_max_ai_created in profile_playbook_settings",
     sourcing: {
       best: "Salt's judgment across this work's activity — same tag-fit bar as people",
-      today: "Salt assigns existing tags when this work's activity clears the fit bar",
       gap: false,
     },
     fillRules: [
@@ -1288,21 +1255,18 @@ export const WORK_FIELDS: FieldDescriptor<"work">[] = [
  */
 const BILLING_APP_SOURCING = {
   best: "The billing app — it issued the document, so its numbers win",
-  today: "From Stripe or QuickBooks",
   gap: false,
 } as const;
 
 /** Payment-matched fields: the money itself is the authority. */
 const BILLING_PAYMENT_SOURCING = {
   best: "The money itself — payment matching settles it",
-  today: "Payment matching against the invoice",
   gap: false,
 } as const;
 
 /** Invoice-content fields: Track G's payment corroboration reads them. */
 const BILLING_INVOICE_READ_SOURCING = {
   best: "The invoice content — what the document actually says",
-  today: "Invoice content read on payment match",
   gap: false,
 } as const;
 
@@ -1379,7 +1343,6 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     dbColumn: "organization_id",
     sourcing: {
       best: "CRM account match — the counterparty on the deal",
-      today: "Matched from the billing email against your CRM",
       gap: false,
     },
     fillRules: [
@@ -1397,7 +1360,6 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     dbColumn: "person_id",
     sourcing: {
       best: "CRM contact on the account",
-      today: "Matched from the billing email against your CRM",
       gap: false,
     },
     fillRules: [
@@ -1415,7 +1377,6 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     dbColumn: "work_id",
     sourcing: {
       best: "The CRM deal or contract the invoice references",
-      today: "Linked through the counterparty's active engagement",
       gap: false,
     },
     fillRules: [
@@ -1434,7 +1395,6 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     dbColumn: "vendor_label",
     sourcing: {
       best: "The invoice itself — the vendor name on the document",
-      today: "Vendor name from the invoice",
       gap: false,
     },
     fillRules: [
@@ -1550,7 +1510,6 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
     // app_url is a projection of that artifact, not the source of truth.
     sourcing: {
       best: "The billing app's hosted page for the document",
-      today: "From the attached invoice link",
       gap: false,
     },
     fillRules: [
@@ -1569,7 +1528,6 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
       "Workspace tags for this billing record (via entity_tag_assignments, not a column). Salt assigns existing tags when a fit clears the bar; coining a new tag is still gated by tag_auto_create_threshold and tag_max_ai_created in profile_playbook_settings",
     sourcing: {
       best: "Salt's judgment across this record's activity — same tag-fit bar as people",
-      today: "Salt assigns existing tags when this record's activity clears the fit bar",
       gap: false,
     },
     fillRules: [
@@ -1590,7 +1548,6 @@ export const BILLING_FIELDS: FieldDescriptor<"billing_records">[] = [
  */
 const RESOURCE_CONTENT_SOURCING = {
   best: "Reading the document itself",
-  today: "Salt reads the file when it arrives and fills this in",
   gap: false,
 } as const;
 
@@ -1601,21 +1558,18 @@ const RESOURCE_CONTENT_SOURCING = {
  */
 const RESOURCE_SIGNING_SOURCING = {
   best: "The signing app — it witnessed the signature",
-  today: "No producer yet — signing apps aren't connected",
   gap: true,
 } as const;
 
 /** Amount fields: the document, corroborated by the money that moved. */
 const RESOURCE_AMOUNT_SOURCING = {
   best: "The document, corroborated by the money that moved",
-  today: "Salt reads amounts off the document when it arrives",
   gap: false,
 } as const;
 
 /** Date fields read off the document. */
 const RESOURCE_DATE_SOURCING = {
   best: "The document itself",
-  today: "Salt reads dates off the document when it arrives",
   gap: false,
 } as const;
 
@@ -1802,7 +1756,6 @@ export const FILE_FIELDS: FieldDescriptor<"resources">[] = [
     dbColumn: "follow_up_date",
     sourcing: {
       best: "Salt's judgment from the document's context",
-      today: "Salt suggests a follow-up when the document's context calls for one",
       gap: false,
     },
     fillRules: [
@@ -1821,7 +1774,6 @@ export const FILE_FIELDS: FieldDescriptor<"resources">[] = [
       "Workspace tags for this resource (via entity_tag_assignments, not a column). Salt assigns existing tags when a fit clears the bar; coining a new tag is still gated by tag_auto_create_threshold and tag_max_ai_created in profile_playbook_settings",
     sourcing: {
       best: "Salt's judgment across this resource's context — same tag-fit bar as people",
-      today: "Salt assigns existing tags when this resource's context clears the fit bar",
       gap: false,
     },
     fillRules: [
@@ -1866,7 +1818,6 @@ export const FILE_FIELDS: FieldDescriptor<"resources">[] = [
  */
 const MEETING_CALENDAR_SOURCING = {
   best: "Your calendar — it owns the logistics",
-  today: "From your calendar",
   gap: false,
 } as const;
 
@@ -1893,7 +1844,6 @@ export const MEETING_FIELDS: FieldDescriptor<"meetings">[] = [
     dbColumn: "meeting_type",
     sourcing: {
       best: "Meeting intelligence — what the call actually was",
-      today: "Inferred from the call title when a recording arrives",
       gap: false,
     },
     fillRules: [
@@ -1913,7 +1863,6 @@ export const MEETING_FIELDS: FieldDescriptor<"meetings">[] = [
     writePolicy: "care_auto",
     sourcing: {
       best: "Attendance evidence — who actually showed up",
-      today: "Calendar status and time passing, corrected by the recording app",
       gap: false,
     },
     fillRules: [
@@ -2017,7 +1966,6 @@ export const MEETING_FIELDS: FieldDescriptor<"meetings">[] = [
     dbColumn: "description",
     sourcing: {
       best: "The meeting summary — what was actually discussed",
-      today: "The calendar event description, then the recording summary",
       gap: false,
     },
     fillRules: [
@@ -2057,7 +2005,6 @@ export const MEETING_FIELDS: FieldDescriptor<"meetings">[] = [
     writePolicy: "care_auto",
     sourcing: {
       best: "Who actually joined, from the recording app",
-      today: "The calendar invite list, corrected by who actually joined",
       gap: false,
     },
     fillRules: [

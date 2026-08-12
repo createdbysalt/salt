@@ -221,7 +221,7 @@ describe("defaultGuidanceForType", () => {
 });
 
 describe("field sourcing (people-field-sourcing canvas)", () => {
-  it("person fields carry the canvas sourcing note (best source, today, gap)", () => {
+  it("person fields carry the canvas sourcing note (best source, gap)", () => {
     const fields = getFieldsForEntity("person");
     const byKey = new Map(fields.map((field) => [field.key, field]));
 
@@ -242,7 +242,6 @@ describe("field sourcing (people-field-sourcing canvas)", () => {
       const field = byKey.get(key);
       expect(field?.sourcing, `${key} sourcing`).toBeDefined();
       expect(field!.sourcing!.best.length).toBeGreaterThan(0);
-      expect(field!.sourcing!.today?.length ?? 0).toBeGreaterThan(0);
       expect(Boolean(field!.sourcing!.gap), `${key} gap`).toBe(gap);
     }
 
@@ -293,8 +292,10 @@ describe("field sourcing (people-field-sourcing canvas)", () => {
     for (const type of MEMORY_CUSTOMIZE_ENTITY_TYPES) {
       for (const field of getFieldsForEntity(type)) {
         if (!field.sourcing) continue;
-        const text = [field.sourcing.best, field.sourcing.today ?? ""].join("\n");
-        expect(text, `${type}.${field.key} sourcing`).not.toMatch(banned);
+        expect(
+          field.sourcing.best,
+          `${type}.${field.key} sourcing`,
+        ).not.toMatch(banned);
       }
     }
   });
@@ -338,17 +339,13 @@ describe("field sourcing (people-field-sourcing canvas)", () => {
     }
   });
 
-  it("every gapped field names its best source and today's reality", () => {
+  it("every gapped field names the source that would close it", () => {
     for (const type of MEMORY_CUSTOMIZE_ENTITY_TYPES) {
       for (const field of getFieldsForEntity(type)) {
         if (!field.sourcing?.gap) continue;
         expect(
           field.sourcing.best.length,
           `${type}.${field.key} best`,
-        ).toBeGreaterThan(0);
-        expect(
-          field.sourcing.today?.length ?? 0,
-          `${type}.${field.key} today`,
         ).toBeGreaterThan(0);
       }
     }
