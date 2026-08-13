@@ -27,9 +27,11 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   ALL_CONTRACT_FIELDS,
+  getFieldDescriptor,
   getFieldsForEntity,
   getWritePolicy,
 } from "./field-registry";
+import { isNeverTouchField } from "@/app/_lib/learning/field-tiers";
 import {
   MEMORY_CUSTOMIZE_ENTITY_TYPES,
   defaultGuidanceForType,
@@ -177,6 +179,31 @@ describe("registry parity: care policies are backed by rules", () => {
         (!field.fillRules || field.fillRules.length === 0)
     ).map((field) => `${field.entityType}.${field.key}`);
     expect(gaps).toEqual([]);
+  });
+
+  it("every never-touch Me tier key resolves to a real user_only registry field", () => {
+    // field-tiers lists both spellings; the registry is camelCase-keyed.
+    const camelKeys = [
+      "taxIdType",
+      "taxIdLast4",
+      "defaultCurrency",
+      "paymentTerms",
+      "legalBusinessName",
+    ];
+    for (const key of camelKeys) {
+      expect(isNeverTouchField("me", key), `${key} must be never-touch`).toBe(
+        true
+      );
+      const descriptor =
+        getFieldDescriptor("me", key) ?? getFieldDescriptor("me", `business.${key}`);
+      if (!descriptor) {
+        throw new Error(`${key} must exist in the registry`);
+      }
+      expect(
+        getWritePolicy(descriptor),
+        `${key} must stay user_only in the registry`
+      ).toBe("user_only");
+    }
   });
 });
 

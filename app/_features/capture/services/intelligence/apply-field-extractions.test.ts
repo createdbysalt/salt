@@ -157,8 +157,13 @@ describe("buildExtractableFields", () => {
   });
 
   it("excludes user_only and system_derived fields", () => {
-    // Every Me field is user_only — nothing may be extraction-written.
-    expect(Object.keys(buildExtractableFields("me"))).toEqual([]);
+    // Legal/tax/payment Me fields are user_only — never extraction-written.
+    const me = buildExtractableFields("me");
+    expect(me.legal_business_name).toBeUndefined();
+    expect(me.tax_id_type).toBeUndefined();
+    expect(me.payment_terms).toBeUndefined();
+    // Suggestable Me fields (care_ask with fill rules) are extractable.
+    expect(me.preferred_name?.confidenceCap).toBe(90);
     // Meeting title is user_only; only policy-allowed fields appear.
     const meeting = buildExtractableFields("meeting");
     expect(meeting.title).toBeUndefined();

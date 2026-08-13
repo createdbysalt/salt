@@ -7,6 +7,7 @@ import {
   Building2,
   Briefcase,
   CalendarDays,
+  CircleUserRound,
   FileText,
   Gauge,
   Layers,
@@ -89,6 +90,7 @@ const SCOPE_ICONS: Record<MemoryCustomizeScope, LucideIcon> = {
   resource: FileText,
   meeting: CalendarDays,
   billing: Receipt,
+  me: CircleUserRound,
 };
 
 interface CustomizeTabProps {

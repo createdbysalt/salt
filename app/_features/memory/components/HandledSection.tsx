@@ -49,6 +49,7 @@ const CAPABILITY_LABELS: Record<string, string> = {
   "memory-connections": "Memory Care · Connections",
   "memory-notes": "Memory Care · Notes",
   "memory-care": "Memory Care",
+  "capture-intake": "Intake",
   "people-records": "Memory Care · Records",
   "org-records": "Memory Care · Records",
   "work-records": "Memory Care · Records",
@@ -95,8 +96,25 @@ function possessive(label: string): string {
   return label.endsWith("s") ? `${label}'` : `${label}'s`;
 }
 
+/** Surface names for record-birth headlines ("Added X to People"). */
+const ENTITY_SURFACE_LABELS: Record<string, string> = {
+  person: "People",
+  organization: "Orgs",
+  work: "Work",
+  billing: "Billing",
+  meeting: "Meetings",
+  resource: "Resources",
+  file: "Resources",
+  me: "Me",
+};
+
 /** "Set Taylor Example's relationship type to client" — the row headline. */
 function writeHeadline(write: HandledWrite): string {
+  // Record birth (system plays, capture intake, Ask Salt creations)
+  if (write.fieldPath === "record") {
+    const surface = ENTITY_SURFACE_LABELS[write.entityType] ?? "Memory";
+    return `Added ${write.entityLabel} to ${surface}`;
+  }
   const field = write.fieldLabel.toLowerCase();
   if (!write.newValue) {
     return `Cleared ${possessive(write.entityLabel)} ${field}`;
@@ -137,15 +155,21 @@ function HandledWriteRow({
   onUpdate?: () => void;
 }) {
   const [isPending, startTransition] = useTransition();
-  const [corrected, setCorrected] = useState(false);
+  const [outcome, setOutcome] = useState<"rolled_back" | "archived" | null>(
+    null,
+  );
   const [isOpen, setIsOpen] = useState(false);
 
   const handleWrong = () => {
     startTransition(async () => {
       const result = await markHandledWriteWrong(write.learningId);
       if (result.success) {
-        setCorrected(true);
-        toast.success("Rolled back — Salt will learn from this");
+        setOutcome(result.archivedRecord ? "archived" : "rolled_back");
+        toast.success(
+          result.archivedRecord
+            ? "Archived — Salt will learn from this"
+            : "Rolled back — Salt will learn from this",
+        );
         onUpdate?.();
       } else {
         toast.error(result.error ?? "Couldn't roll this back");
@@ -178,10 +202,10 @@ function HandledWriteRow({
             {capabilityLabel(write.capabilitySlug)}
           </p>
         </div>
-        {corrected ? (
+        {outcome ? (
           <span className="inline-flex h-8 shrink-0 items-center gap-1 whitespace-nowrap text-xs font-medium text-muted-foreground">
             <Undo2 className="size-3.5" strokeWidth={1.75} />
-            Rolled back
+            {outcome === "archived" ? "Archived" : "Rolled back"}
           </span>
         ) : (
           <span

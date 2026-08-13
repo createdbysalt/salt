@@ -20,6 +20,7 @@ import {
   type Json,
   type TablesInsert,
 } from "@/app/_lib/supabase/database.types";
+import { recordSaltLearning } from "@/app/_lib/learning/salt-learnings";
 import { ensureUniqueProjectSlug } from "@/app/_features/capture/services/system-plays/project-fields";
 import { attachArtifactToEntity } from "@/app/_features/resources/actions/attach-artifact";
 import { produceRecordTagFits } from "@/app/_features/capture/services/producers/record-tag-fit-producer";
@@ -50,7 +51,7 @@ export type AutoCreateRecordResult =
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
-type InsertOutcome = { id: string } | { error: string };
+type InsertOutcome = { id: string; linked?: boolean } | { error: string };
 
 async function runInsert(
   query: PromiseLike<{ data: { id: string } | null; error: { message: string } | null }>,
@@ -215,7 +216,7 @@ async function insertEntityRecord(
       // Dedupe guard: capture-driven creation overlaps cal-booking-processor
       // (calcom) and any external-id-keyed rows. Link, never double-create.
       const existingId = await findExistingMeeting(supabase, workspaceId, fields);
-      if (existingId) return { id: existingId };
+      if (existingId) return { id: existingId, linked: true };
 
       const endTime = fields.end_time?.value ?? defaultMeetingEnd(startTime);
       if (!endTime) {
@@ -331,6 +332,61 @@ async function findExistingMeeting(
 }
 
 /**
+ * Display label for a freshly created record — the Handled row headline
+ * reads "Added <label> to People". Falls back to a generic label per type;
+ * a missing label must never block creation.
+ */
+function recordLabel(input: AutoCreateRecordInput): string {
+  const fields = input.extractedFields;
+  switch (input.entityType) {
+    case "person":
+    case "organization":
+    case "work":
+      return fields.name?.value ?? `Unnamed ${input.entityType}`;
+    case "billing":
+      return fields.number?.value
+        ? `Invoice ${fields.number.value}`
+        : "Billing record";
+    case "resource":
+      return fields.title?.value ?? fields.name?.value ?? "Resource";
+    case "meeting":
+      return fields.title?.value ?? "Meeting";
+  }
+}
+
+/**
+ * Handled audit trail: a born record surfaces in Memory → Activity →
+ * Handled (same `field_path: "record"` convention as the system-plays
+ * executor) with a "That's wrong" affordance that archives it. User-
+ * confirmed births (New records lane) say so. Logging must never fail
+ * the creation — the record already exists by the time this runs.
+ */
+async function logRecordBirth(
+  input: AutoCreateRecordInput,
+  recordId: string,
+): Promise<void> {
+  try {
+    const signals = `${input.signalCount} intake signal${input.signalCount === 1 ? "" : "s"}`;
+    await recordSaltLearning({
+      workspaceId: input.workspaceId,
+      entityType: input.entityType,
+      entityId: recordId,
+      entityLabel: recordLabel(input),
+      fieldPath: "record",
+      fieldLabel: "Record",
+      newValue: recordLabel(input),
+      confidence: input.confidence,
+      evidenceSummary: input.actingUserId
+        ? `You confirmed it — ${signals} backed it`
+        : `Born from ${signals} that crossed the bar`,
+      playbookSlug: "capture-intake",
+    });
+  } catch (error) {
+    console.error("[auto-create-record] Handled learning log failed:", error);
+  }
+}
+
+/**
  * Auto-create a record when evidence crosses the auto threshold.
  *
  * This is the P6-compliant path: no play_runs, just direct record creation
@@ -362,6 +418,11 @@ export async function autoCreateRecord(
 
   if (updateError) {
     console.error("[auto-create-record] Evidence update failed:", updateError);
+  }
+
+  // A dedupe-linked record isn't a birth — nothing new entered Memory.
+  if (!inserted.linked) {
+    await logRecordBirth(input, recordId);
   }
 
   return { ok: true, recordId };

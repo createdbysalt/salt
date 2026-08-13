@@ -134,6 +134,13 @@ export interface UpdateFieldInput {
    * workspace threshold through this field.
    */
   minThreshold?: number;
+  /**
+   * Skip the Handled (`salt_learnings`) log for this apply — for callers
+   * that already recorded the learning themselves (e.g. via the care
+   * decision pipeline). Manual and Ask Salt writes never log regardless:
+   * Handled is the audit trail of what Salt did on its own.
+   */
+  skipLearningLog?: boolean;
 }
 
 export interface UpdateFieldResult {

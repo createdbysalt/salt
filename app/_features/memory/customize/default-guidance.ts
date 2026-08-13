@@ -28,6 +28,7 @@ export const MEMORY_CUSTOMIZE_ENTITY_TYPES = [
   "resource",
   "meeting",
   "billing",
+  "me",
 ] as const;
 
 export type MemoryCustomizeEntityType =
@@ -69,24 +70,18 @@ export function isMemoryCustomizeScope(
   );
 }
 
-export const MEMORY_CUSTOMIZE_ENTITY_LABELS: Record<
-  MemoryCustomizeEntityType,
+export const MEMORY_CUSTOMIZE_SCOPE_LABELS: Record<
+  MemoryCustomizeScope,
   string
 > = {
+  general: "General",
   person: "People",
   org: "Orgs",
   work: "Work",
   resource: "Resources",
   meeting: "Meetings",
   billing: "Billing",
-};
-
-export const MEMORY_CUSTOMIZE_SCOPE_LABELS: Record<
-  MemoryCustomizeScope,
-  string
-> = {
-  general: "General",
-  ...MEMORY_CUSTOMIZE_ENTITY_LABELS,
+  me: "Me",
 };
 
 /** The header title per scope — the labels, said as records. */
@@ -101,6 +96,7 @@ export const MEMORY_CUSTOMIZE_SCOPE_TITLES: Record<
   resource: "Resource Records",
   meeting: "Meeting Records",
   billing: "Billing Records",
+  me: "Me Record",
 };
 
 /**
@@ -163,6 +159,7 @@ const TYPE_SUMMARIES: Record<MemoryCustomizeEntityType, string> = {
     "My meeting memory is still growing — for now I keep titles, times, and attendees up to date from your calendar.",
   billing:
     "The billing app is the system of record — it issued the document, so its numbers win. You set the direction once when the record is created; after that, payment matching keeps the status, amount paid, and paid date honest. A parsed invoice can confirm a value, never override it.",
+  me: "There's one you. I suggest what I pick up from your signature, calendar, and documents — you always confirm before it lands.",
 };
 
 /**
@@ -195,6 +192,10 @@ const TYPE_PRINCIPLES: Record<MemoryCustomizeEntityType, string[]> = {
     "The billing app is the system of record — it issued the document, so its numbers win.",
     "A matched payment or a parsed invoice can confirm a value, never override it.",
   ],
+  me: [
+    "What you tell me about yourself wins — your word beats anything I infer.",
+    "After that: your own documents and signature beat guesses from your calendar or timezone.",
+  ],
 };
 
 const TYPE_BIRTH_LINES: Record<MemoryCustomizeEntityType, string[]> = {
@@ -222,6 +223,8 @@ const TYPE_BIRTH_LINES: Record<MemoryCustomizeEntityType, string[]> = {
     "Invoices and bills from your billing app become records, matched to the people and organizations behind them.",
     "An invoice that arrives by email becomes a record too — the document corroborates the billing app, never overrides it.",
   ],
+  // Me has no birth: there's exactly one you, created when you join.
+  me: [],
 };
 
 /**
@@ -257,6 +260,9 @@ const TYPE_CONNECTION_LINES: Record<MemoryCustomizeEntityType, string[]> = {
   billing: [
     "I connect a billing record to the organization and person behind it, and to the work the money was for.",
     CONNECTIONS_PRINCIPLE_LINE,
+  ],
+  me: [
+    "Your record isn't linked into the graph — every record here is already about your business.",
   ],
 };
 
@@ -304,6 +310,10 @@ const TYPE_HYGIENE_LINES: Record<MemoryCustomizeEntityType, string[]> = {
     "I spot duplicates by invoice number and suggest a merge — you always make the call, and \"Keep both\" means I never ask again.",
     MERGE_MECHANICS_LINE,
     "If a billing record goes quiet for 90 days, I'll suggest archiving it — never automatically.",
+  ],
+  me: [
+    "There's one you — no duplicates to merge and nothing to archive.",
+    "Legal, tax, and payment details stay exactly as you set them; I never write those.",
   ],
 };
 
@@ -378,7 +388,7 @@ function renderFieldData(entityType: MemoryCustomizeEntityType): {
 const GENERAL_GUIDANCE: DefaultGuidance = {
   entityType: MEMORY_CUSTOMIZE_GENERAL_SCOPE,
   summary:
-    "Anything you write here applies to every record type — People, Orgs, Work, Resources, and Meetings.",
+    "Anything you write here applies to every record type — People, Orgs, Work, Resources, Meetings, Billing, and Me.",
   sections: [
     {
       kind: "custom",
@@ -410,6 +420,7 @@ const HEADER_DESCRIPTIONS: Record<MemoryCustomizeScope, string> = {
     "Here's what I look for before a calendar event becomes a meeting — tell me when it's wrong.",
   billing:
     "Here's what I look for before an invoice becomes a billing record — tell me when it's wrong.",
+  me: "Here's what I've picked up about you and your business — tell me when it's wrong.",
 };
 
 export function headerDescriptionForScope(
@@ -517,5 +528,9 @@ export const EXAMPLE_ENTRIES: Record<MemoryCustomizeScope, string[]> = {
   billing: [
     "Stripe is the final word on amounts",
     "Receipts under $50 aren't worth tracking",
+  ],
+  me: [
+    "Use my full name on proposals, not my nickname",
+    "My business website is the one on my invoices",
   ],
 };

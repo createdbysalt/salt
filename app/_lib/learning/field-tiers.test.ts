@@ -15,6 +15,28 @@ describe("field-tiers", () => {
       expect(isNeverTouchField("billing", "amount_paid")).toBe(true);
     });
 
+    it("refuses Me legal/tax/payment fields in both key spellings", () => {
+      for (const field of [
+        "tax_id_type",
+        "taxIdType",
+        "tax_id_last4",
+        "taxIdLast4",
+        "default_currency",
+        "defaultCurrency",
+        "payment_terms",
+        "paymentTerms",
+        "legal_business_name",
+        "legalBusinessName",
+      ]) {
+        expect(isNeverTouchField("me", field)).toBe(true);
+      }
+    });
+
+    it("allows suggestable Me fields", () => {
+      expect(isNeverTouchField("me", "preferred_name")).toBe(false);
+      expect(isNeverTouchField("me", "timezone")).toBe(false);
+    });
+
     it("allows ordinary fields", () => {
       expect(isNeverTouchField("person", "relationship_type")).toBe(false);
     });

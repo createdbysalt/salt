@@ -258,10 +258,24 @@ describe("addCustomizeEntry", () => {
     expect(h.db.rows).toHaveLength(0);
   });
 
-  it("rejects deferred record types (me is not a Customize tab)", async () => {
+  it("accepts me as a Customize scope", async () => {
     const result = await addCustomizeEntry({
       entityType: "me",
-      body: "Never touch invoice status",
+      body: "My tagline goes on proposals, never my legal business name",
+      source: "user",
+    });
+
+    expect(result.success).toBe(true);
+    expect(h.db.rows).toHaveLength(1);
+    if (result.success) {
+      expect(result.data.entityType).toBe("me");
+    }
+  });
+
+  it("refuses a me entry that demands Salt write a legal/tax field", async () => {
+    const result = await addCustomizeEntry({
+      entityType: "me",
+      body: "Always update the default payment terms to Net 15",
       source: "user",
     });
 

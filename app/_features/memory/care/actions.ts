@@ -1,10 +1,12 @@
 "use server";
 
 /**
- * Memory Care settings actions — used by the Memory → Rules UI.
+ * Memory Care settings actions — used by the Memory → Customize surface
+ * (threshold slider + learned-source weights).
  *
  * Data accessors live in `./settings.ts`; this file holds the user-scoped
- * server actions (threshold slider + capability toggles).
+ * server actions. Capability toggles (`setCareCapabilityEnabled`) were
+ * removed with the Rules UI — capabilities are no longer user-switchable.
  */
 
 import { revalidatePath } from "next/cache";
@@ -74,39 +76,13 @@ export async function updateMemoryCareThreshold(
   revalidatePath("/settings/plays");
 }
 
-/** Enable or disable a single care capability. */
-export async function setCareCapabilityEnabled(
-  workspaceId: string,
-  capability: CareCapability,
-  enabled: boolean
-): Promise<void> {
-  if (!CARE_CAPABILITIES.includes(capability)) {
-    throw new Error(`Unknown care capability: ${capability}`);
-  }
-
-  const supabase = await createClient();
-
-  const { error } = await supabase.from("profile_playbook_settings").upsert(
-    {
-      workspace_id: workspaceId,
-      blueprint_slug: CARE_SETTINGS_SLUGS[capability],
-      enabled,
-    },
-    { onConflict: "workspace_id,blueprint_slug" }
-  );
-
-  if (error) throw error;
-
-  revalidatePath("/memory");
-}
-
 // =============================================================================
 // P8 Learned Weights (Reflection Pass)
 // =============================================================================
 
 /**
  * Get all learned signal source weights for the workspace.
- * Used by Memory → Rules to show "What Salt has learned" section.
+ * Used by Memory → Customize to show "What Salt has learned" section.
  */
 export async function getLearnedWeights(
   workspaceId: string

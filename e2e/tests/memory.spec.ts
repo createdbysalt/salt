@@ -64,6 +64,20 @@ test.describe("Memory surface tabs", () => {
     await page.keyboard.press("Escape");
   });
 
+  test("Handled lane renders the applied-writes feed (or its honest empty state)", async ({
+    page,
+  }) => {
+    await gotoAppRoute(page, "/memory?tab=activity");
+
+    const views = page.getByRole("tablist", { name: "Activity views" });
+    await views.getByRole("tab", { name: /Handled/i }).click();
+
+    // Either real salt_learnings rows or the empty state — never a crash.
+    const empty = page.getByText(/nothing handled yet/i);
+    const rows = page.getByRole("list");
+    await expect(empty.or(rows.first())).toBeVisible({ timeout: 15000 });
+  });
+
   test("tab links navigate between sections", async ({ page }) => {
     await gotoAppRoute(page, "/memory");
 
@@ -79,7 +93,7 @@ test.describe("Memory surface tabs", () => {
     await sections.getByRole("link", { name: "Customize" }).click();
     await expect(page).toHaveURL(/\/memory\?tab=customize/);
     await expect(
-      page.getByRole("heading", { name: /^customize$/i, level: 2 }),
+      page.getByRole("heading", { name: /^people records$/i, level: 2 }),
     ).toBeVisible({ timeout: 15000 });
 
     await sections.getByRole("link", { name: "Map" }).click();
@@ -95,38 +109,48 @@ test.describe("Memory — Customize tab", () => {
     await gotoAppRoute(page, "/memory?tab=rules");
 
     await expect(
-      page.getByRole("heading", { name: /^customize$/i, level: 2 }),
+      page.getByText("Customize what Salt remembers"),
     ).toBeVisible({ timeout: 15000 });
+    await expect(
+      page.getByRole("heading", { name: /^people records$/i, level: 2 }),
+    ).toBeVisible();
   });
 
-  test("record-type pills switch docs and deep-link via ?type=", async ({ page }) => {
+  test("record-type switcher changes docs and deep-links via ?type=", async ({
+    page,
+  }) => {
     await gotoAppRoute(page, "/memory?tab=customize");
 
     await expect(
-      page.getByRole("heading", { name: /^customize$/i, level: 2 }),
+      page.getByRole("heading", { name: /^people records$/i, level: 2 }),
     ).toBeVisible({ timeout: 15000 });
 
-    const pills = page.getByRole("group", { name: "Record type" });
-    await expect(pills.getByRole("link", { name: "People" })).toBeVisible();
-
-    await pills.getByRole("link", { name: "Work" }).click();
+    const switcher = page.getByRole("combobox", { name: "Record type" });
+    await expect(switcher).toBeVisible();
+    await switcher.click();
+    await page.getByRole("option", { name: "Work" }).click();
     await expect(page).toHaveURL(/\/memory\?tab=customize&type=work/);
+    await expect(
+      page.getByRole("heading", { name: /^work records$/i, level: 2 }),
+    ).toBeVisible();
 
     // Deep link lands on the same doc directly.
     await gotoAppRoute(page, "/memory?tab=customize&type=meeting");
     await expect(
-      page.getByRole("heading", { name: /^customize$/i, level: 2 }),
+      page.getByRole("heading", { name: /^meeting records$/i, level: 2 }),
     ).toBeVisible({ timeout: 15000 });
   });
 
-  test("the read-only defaults zone renders above the writable doc", async ({ page }) => {
+  test("the read-only logic zone renders beside the writable doc", async ({
+    page,
+  }) => {
     await gotoAppRoute(page, "/memory?tab=customize");
 
     await expect(
-      page.getByRole("heading", { name: /what i look for/i }),
+      page.getByRole("heading", { name: /the logic i run on/i }),
     ).toBeVisible({ timeout: 15000 });
     await expect(
-      page.getByRole("heading", { name: /your customizations/i }),
+      page.getByRole("heading", { name: /what i'll remember/i }),
     ).toBeVisible();
   });
 
@@ -134,24 +158,58 @@ test.describe("Memory — Customize tab", () => {
     await gotoAppRoute(page, "/memory?tab=customize&type=work");
 
     await expect(
-      page.getByRole("heading", { name: /^customize$/i, level: 2 }),
+      page.getByRole("heading", { name: /^work records$/i, level: 2 }),
     ).toBeVisible({ timeout: 15000 });
 
-    const box = page.getByRole("textbox", { name: /tell salt what to look for/i });
+    const box = page.getByRole("textbox", { name: /tell salt what to remember/i });
     await expect(box).toBeVisible();
 
     const probe = `e2e probe: prefer morning meetings ${Date.now()}`;
     await box.fill(probe);
     await page.getByRole("button", { name: /remember this/i }).click();
 
-    // The line lands attributed — "You added this" — with its honesty note.
+    // The line lands attributed — "You wrote this".
     const row = page.locator("li").filter({ hasText: probe });
     await expect(row).toBeVisible({ timeout: 10_000 });
-    await expect(row.getByText(/you added this/i)).toBeVisible();
+    await expect(row.getByText(/you wrote this/i)).toBeVisible();
 
-    await row
-      .getByRole("button", { name: /revert this customization/i })
-      .click();
+    await row.getByRole("button", { name: /remove this line/i }).click();
+    await expect(page.getByText(probe)).toHaveCount(0, { timeout: 10_000 });
+  });
+
+  test("Me is a full Customize scope with suggestion-tier fields", async ({
+    page,
+  }) => {
+    await gotoAppRoute(page, "/memory?tab=customize&type=me");
+
+    await expect(
+      page.getByRole("heading", { name: /^me record$/i, level: 2 }),
+    ).toBeVisible({ timeout: 15000 });
+
+    // Zone 1 renders Me fields live from the registry: suggestable fields
+    // are "I suggest", legal/tax stays "Yours".
+    const logic = page.getByRole("complementary");
+    await expect(
+      logic.getByRole("heading", { name: /the logic i run on/i }),
+    ).toBeVisible();
+    await expect(
+      logic.getByRole("button", { name: /timezone i suggest/i }),
+    ).toBeVisible();
+    await expect(
+      logic.getByRole("button", { name: /tax id type yours/i }),
+    ).toBeVisible();
+
+    // Tell Salt + revert round-trip on the Me scope.
+    const box = page.getByRole("textbox", { name: /tell salt what to remember/i });
+    const probe = `e2e probe: my tagline stays on proposals ${Date.now()}`;
+    await box.fill(probe);
+    await page.getByRole("button", { name: /remember this/i }).click();
+
+    const row = page.locator("li").filter({ hasText: probe });
+    await expect(row).toBeVisible({ timeout: 10_000 });
+    await expect(row.getByText(/you wrote this/i)).toBeVisible();
+
+    await row.getByRole("button", { name: /remove this line/i }).click();
     await expect(page.getByText(probe)).toHaveCount(0, { timeout: 10_000 });
   });
 });

@@ -26,13 +26,19 @@ export type CorrectionRoute =
   | { kind: "memory_customization"; entityType: MemoryCustomizeEntityType };
 
 // First match wins — order specific → general so "company" doesn't lose
-// to a stray "client" later in the sentence.
+// to a stray "client" later in the sentence. Billing precedes resource so
+// "invoice" lands on the money record, not the document.
 const ENTITY_HINTS: readonly (readonly [
   RegExp,
   MemoryCustomizeEntityType,
 ])[] = [
+  [
+    /\b(?:my (?:signature|bio|profile|business|full name|name|website|tagline)|about me)\b/i,
+    "me",
+  ],
   [/\b(?:meetings?|events?|calls?|appointments?|invites?)\b/i, "meeting"],
-  [/\b(?:files?|documents?|docs?|folders?|invoices?|pdfs?)\b/i, "resource"],
+  [/\b(?:invoices?|payments?|charges?|receipts?|bills?|billing)\b/i, "billing"],
+  [/\b(?:files?|documents?|docs?|folders?|pdfs?)\b/i, "resource"],
   [/\b(?:projects?|work|engagements?|gigs?|contracts?)\b/i, "work"],
   [
     /\b(?:compan(?:y|ies)|orgs?(?:anizations?)?|vendors?|agenc(?:y|ies)|firms?)\b/i,

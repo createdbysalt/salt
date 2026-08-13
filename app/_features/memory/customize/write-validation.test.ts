@@ -85,4 +85,25 @@ describe("findNeverTouchConflict", () => {
       findNeverTouchConflict("billing", "Stripe is the final word on amounts"),
     ).toBeNull();
   });
+
+  it("refuses write intent against me legal/tax fields (user_only)", () => {
+    expect(
+      findNeverTouchConflict(
+        "me",
+        "Always update the default payment terms to Net 15",
+      ),
+    ).toBe("Default Payment Terms");
+    expect(
+      findNeverTouchConflict("me", "Always set my tax ID type from Stripe"),
+    ).toBe("Tax ID Type");
+  });
+
+  it("allows me guidance on suggestable fields and field-naming without write intent", () => {
+    expect(
+      findNeverTouchConflict("me", "My tagline goes on proposals"),
+    ).toBeNull();
+    expect(
+      findNeverTouchConflict("me", "My tax ID type is private, ask me first"),
+    ).toBeNull();
+  });
 });

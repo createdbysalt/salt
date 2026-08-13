@@ -14,7 +14,7 @@ import {
 import { getFieldsForEntity } from "../taxonomy/field-registry";
 
 describe("MEMORY_CUSTOMIZE_ENTITY_TYPES", () => {
-  it("ships the tabs: People, Orgs, Work, Resources, Meetings, Billing", () => {
+  it("ships the tabs: People, Orgs, Work, Resources, Meetings, Billing, Me", () => {
     expect(MEMORY_CUSTOMIZE_ENTITY_TYPES).toEqual([
       "person",
       "org",
@@ -22,11 +22,12 @@ describe("MEMORY_CUSTOMIZE_ENTITY_TYPES", () => {
       "resource",
       "meeting",
       "billing",
+      "me",
     ]);
   });
 
-  it("excludes deferred types (me, note)", () => {
-    expect(isMemoryCustomizeEntityType("me")).toBe(false);
+  it("excludes types with no record surface (note)", () => {
+    expect(isMemoryCustomizeEntityType("me")).toBe(true);
     expect(isMemoryCustomizeEntityType("note")).toBe(false);
     expect(isMemoryCustomizeEntityType("billing")).toBe(true);
     expect(isMemoryCustomizeEntityType("person")).toBe(true);
@@ -46,7 +47,7 @@ describe("general scope", () => {
     expect(isMemoryCustomizeEntityType("general")).toBe(false);
     expect(isMemoryCustomizeScope("person")).toBe(true);
     expect(isMemoryCustomizeScope("billing")).toBe(true);
-    expect(isMemoryCustomizeScope("me")).toBe(false);
+    expect(isMemoryCustomizeScope("me")).toBe(true);
   });
 
   it("ships first-person guidance with no banned machinery words", () => {
@@ -81,6 +82,12 @@ describe("scopesForPrompt", () => {
 
   it("defaults to general plus every record type", () => {
     expect(scopesForPrompt()).toEqual(["general", ...MEMORY_CUSTOMIZE_ENTITY_TYPES]);
+  });
+
+  it("includes billing and me by default — their entries reach the prompt", () => {
+    const scopes = scopesForPrompt();
+    expect(scopes).toContain("billing");
+    expect(scopes).toContain("me");
   });
 });
 
@@ -124,6 +131,22 @@ describe("defaultGuidanceForType", () => {
   it("meetings ships thin, honest copy (content deepens later)", () => {
     const guidance = defaultGuidanceForType("meeting");
     expect(guidance.summary).toMatch(/still growing|growing/i);
+  });
+
+  it("me ships honest copy: one record, no birth, suggestions need your yes", () => {
+    const guidance = defaultGuidanceForType("me");
+    // No birth accordion — there's exactly one you, created at signup.
+    expect(guidance.sections.find((s) => s.kind === "birth")).toBeUndefined();
+    const allLines = guidance.sections.flatMap((s) => s.lines).join("\n");
+    expect(guidance.summary).toMatch(/one you/i);
+    expect(guidance.summary).toMatch(/you always confirm/i);
+    // Suggestable fields render as suggestions; legal/tax stays yours alone.
+    expect(guidance.fieldGroups!.suggested).toContain("Timezone");
+    expect(guidance.fieldGroups!.suggested).toContain("Preferred Name");
+    expect(guidance.fieldGroups!.neverTouched).toContain("Tax ID Type");
+    expect(guidance.fieldGroups!.neverTouched).toContain(
+      "Default Payment Terms",
+    );
   });
 
   it("every type ships a connections section describing how it links", () => {
@@ -285,6 +308,7 @@ describe("field sourcing (people-field-sourcing canvas)", () => {
       resource: [/document/i],
       meeting: [/calendar/i, /recording/i],
       billing: [/system of record/i, /payment/i],
+      me: [/your word/i, /signature|documents/i],
     };
     for (const type of MEMORY_CUSTOMIZE_ENTITY_TYPES) {
       const guidance = defaultGuidanceForType(type);

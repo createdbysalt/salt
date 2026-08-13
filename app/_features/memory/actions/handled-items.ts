@@ -16,7 +16,8 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy";
 import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
-import { memoryRollbackField } from "@/app/_lib/memory-tools";
+import { memoryArchiveRecord, memoryRollbackField } from "@/app/_lib/memory-tools";
+import { fromLearningDbEntityType } from "@/app/_lib/learning";
 import { recordQuickUndo } from "@/app/_features/me/actions/corrections";
 
 export interface MarkWrongResult {
@@ -26,6 +27,8 @@ export interface MarkWrongResult {
   rollbackFailed?: boolean;
   /** Explanation shown to user when rollback fails. */
   rollbackWarning?: string;
+  /** True when the learning was a record birth — correction archives the record. */
+  archivedRecord?: boolean;
 }
 
 export async function markHandledWriteWrong(
@@ -61,22 +64,41 @@ export async function markHandledWriteWrong(
   // (e.g. the write predates provenance tracking), we still record the
   // correction so Salt learns from it, but we surface the failure to the
   // user so they know the actual value wasn't changed.
+  //
+  // Record births (field_path "record") can't be rolled back field-wise —
+  // "That's wrong" archives the record instead.
+  const isRecordBirth = learning.field_path === "record";
   let rollbackFailed = false;
   let rollbackWarning: string | undefined;
 
   try {
-    await memoryRollbackField({
-      workspaceId: workspace.id,
-      entityType: learning.entity_type,
-      entityId: learning.entity_id,
-      field: learning.field_path,
-      reason: "Marked wrong in Memory → Filter",
-    });
+    if (isRecordBirth) {
+      const archived = await memoryArchiveRecord({
+        workspaceId: workspace.id,
+        entityType:
+          fromLearningDbEntityType(learning.entity_type) ??
+          learning.entity_type,
+        entityId: learning.entity_id,
+      });
+      if (!archived.success) {
+        throw new Error(archived.error ?? "Archive failed");
+      }
+    } else {
+      await memoryRollbackField({
+        workspaceId: workspace.id,
+        entityType: learning.entity_type,
+        entityId: learning.entity_id,
+        field: learning.field_path,
+        reason: "Marked wrong in Memory → Filter",
+      });
+    }
   } catch (error) {
     rollbackFailed = true;
-    rollbackWarning =
-      "Salt recorded your correction but couldn't roll back the field value " +
-      "(this can happen for older changes). You may need to edit the record directly.";
+    rollbackWarning = isRecordBirth
+      ? "Salt recorded your correction but couldn't archive the record. " +
+        "You may need to delete it directly."
+      : "Salt recorded your correction but couldn't roll back the field value " +
+        "(this can happen for older changes). You may need to edit the record directly.";
     console.error("[handled-items] rollback failed:", error);
   }
 
@@ -96,7 +118,9 @@ export async function markHandledWriteWrong(
       undone_at: new Date().toISOString(),
       undone_by: context.userId,
       undo_reason: rollbackFailed
-        ? "Marked wrong (rollback failed — provenance missing)"
+        ? isRecordBirth
+          ? "Marked wrong (archive failed)"
+          : "Marked wrong (rollback failed — provenance missing)"
         : "Marked wrong in Memory → Filter",
     })
     .eq("id", learning.id);
@@ -112,5 +136,6 @@ export async function markHandledWriteWrong(
     success: true,
     rollbackFailed,
     rollbackWarning,
+    archivedRecord: isRecordBirth,
   };
 }

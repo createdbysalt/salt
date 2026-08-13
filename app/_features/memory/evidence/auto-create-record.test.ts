@@ -171,11 +171,19 @@ const h = vi.hoisted(() => {
     idCounter = 0;
   }
 
-  return { db, resetDb, fakeSupabase };
+  const recordSaltLearningSpy = vi.fn(async (_input: unknown) => ({
+    id: "learn-1",
+  }));
+
+  return { db, resetDb, fakeSupabase, recordSaltLearningSpy };
 });
 
 vi.mock("@/app/_lib/supabase/admin", () => ({
   createAdminClient: () => h.fakeSupabase(),
+}));
+
+vi.mock("@/app/_lib/learning/salt-learnings", () => ({
+  recordSaltLearning: (input: unknown) => h.recordSaltLearningSpy(input),
 }));
 
 import { autoCreateRecord, type AutoCreateRecordInput } from "./auto-create-record";
@@ -214,6 +222,67 @@ const baseFields = {
 
 beforeEach(() => {
   h.resetDb();
+  h.recordSaltLearningSpy.mockClear();
+});
+
+describe("autoCreateRecord — Handled birth logging", () => {
+  it("logs a record birth to salt_learnings on a clean insert", async () => {
+    const result = await autoCreateRecord(
+      meetingInput({ ...baseFields, external_event_id: "event-xyz" })
+    );
+
+    expect(result.ok).toBe(true);
+    expect(h.recordSaltLearningSpy).toHaveBeenCalledTimes(1);
+    expect(h.recordSaltLearningSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: "ws-1",
+        entityType: "meeting",
+        entityId: h.db.meetings[0].id,
+        entityLabel: "Kickoff: Brand Refresh",
+        fieldPath: "record",
+        newValue: "Kickoff: Brand Refresh",
+        confidence: 97,
+        playbookSlug: "capture-intake",
+      })
+    );
+  });
+
+  it("labels user-confirmed births as confirmed", async () => {
+    const result = await autoCreateRecord(
+      meetingInput(
+        { title: "Contract", category: "contract" },
+        {
+          entityType: "resource",
+          identifier: "file:a@b.com:contract",
+          actingUserId: "user-1",
+        }
+      )
+    );
+
+    expect(result.ok).toBe(true);
+    const call = h.recordSaltLearningSpy.mock.calls[0][0] as {
+      evidenceSummary: string;
+    };
+    expect(call.evidenceSummary).toContain("You confirmed");
+  });
+
+  it("still creates the record when learning logging throws", async () => {
+    h.recordSaltLearningSpy.mockRejectedValueOnce(new Error("db down"));
+
+    const result = await autoCreateRecord(meetingInput(baseFields));
+
+    expect(result.ok).toBe(true);
+    expect(h.db.meetings).toHaveLength(1);
+  });
+
+  it("does not log a learning when creation fails closed", async () => {
+    const result = await autoCreateRecord(
+      meetingInput({ title: "No time" })
+    );
+
+    expect(result.ok).toBe(false);
+    expect(h.recordSaltLearningSpy).not.toHaveBeenCalled();
+  });
 });
 
 describe("autoCreateRecord — meeting dedupe guard", () => {

@@ -46,6 +46,8 @@ describe("customize type param", () => {
     expect(parseCustomizeType("work")).toBe("work");
     expect(parseCustomizeType("resource")).toBe("resource");
     expect(parseCustomizeType("meeting")).toBe("meeting");
+    expect(parseCustomizeType("billing")).toBe("billing");
+    expect(parseCustomizeType("me")).toBe("me");
   });
 
   it("parses the general scope", () => {

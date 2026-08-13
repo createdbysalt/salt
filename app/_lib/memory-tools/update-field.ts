@@ -36,6 +36,10 @@ import {
   resolveEvidence,
   toLearningDbEntityType,
 } from "@/app/_lib/learning";
+import {
+  generateEvidenceSummary,
+  recordSaltLearning,
+} from "@/app/_lib/learning/salt-learnings";
 import { isNeverTouchField } from "@/app/_lib/learning/field-tiers";
 import {
   findBlockingCorrection,
@@ -44,6 +48,7 @@ import {
 import { getWorkspaceThreshold } from "./get-threshold";
 import type { Json } from "@/app/_lib/supabase/database.types";
 import {
+  getMemoryEntityTable,
   toMemoryToolRouteKey,
   type TableUpdate,
   type UpdateFieldInput,
@@ -137,7 +142,40 @@ export async function memoryUpdateField(
   // Check if we meet threshold
   if (aggregatedConfidence >= threshold) {
     // Apply the change
-    const appliedAt = await applyFieldUpdate(input);
+    const { appliedAt, previous } = await applyFieldUpdate(input);
+
+    // Handled audit trail: an applied Salt-driven write surfaces in Memory →
+    // Activity → Handled with a rollback affordance. User-driven sources
+    // (manual edits, Ask Salt requests) don't log — the user just did it.
+    // Logging must never break the write.
+    let learningId: string | undefined;
+    if (shouldLogHandled(input)) {
+      try {
+        const entityLabel = await fetchEntityLabel(
+          createAdminClient(),
+          input,
+        );
+        const logged = await recordSaltLearning({
+          workspaceId: input.workspaceId,
+          entityType: input.entityType,
+          entityId: input.entityId,
+          entityLabel,
+          fieldPath: input.field,
+          oldValue: previous.value,
+          newValue: input.value,
+          confidence: aggregatedConfidence,
+          evidenceSummary: generateEvidenceSummary(
+            aggregated?.evidenceCount ?? 1,
+            aggregated?.sourceTypeCount ?? 1,
+          ),
+          evidenceIds: aggregated?.evidenceIds,
+          playbookSlug: input.sourceDetails?.playbookSlug,
+        });
+        learningId = logged.id;
+      } catch (error) {
+        console.error("[memory-tools] Handled learning log failed:", error);
+      }
+    }
 
     // Resolve all pending evidence for this field
     if (aggregated?.evidenceIds.length) {
@@ -149,6 +187,7 @@ export async function memoryUpdateField(
           appliedAt,
           aggregatedConfidence,
           threshold,
+          ...(learningId ? { learningId } : {}),
         }
       );
     }
@@ -174,16 +213,77 @@ export async function memoryUpdateField(
   };
 }
 
+/**
+ * Salt-driven sources that earn a Handled (`salt_learnings`) row when the
+ * tool applies a write. Manual edits and Ask Salt requests are user-driven —
+ * the user just watched them happen, so they don't belong in the audit lane.
+ */
+const HANDLED_LOGGING_SOURCES = new Set(["care", "enrichment", "cron", "playbook"]);
+
+function shouldLogHandled(input: UpdateFieldInput): boolean {
+  return !input.skipLearningLog && HANDLED_LOGGING_SOURCES.has(input.source);
+}
+
 interface PreviousState {
   value: unknown;
   provenanceId: string | null;
 }
 
 /**
+ * Best-effort display label for the entity being written — the Handled row
+ * headline reads "Set <label>'s <field> to …". Falls back to the entity
+ * type; a missing label must never block the write.
+ */
+async function fetchEntityLabel(
+  admin: ReturnType<typeof createAdminClient>,
+  input: UpdateFieldInput
+): Promise<string> {
+  try {
+    switch (toMemoryToolRouteKey(input.entityType)) {
+      case "me":
+        return "you";
+      case "billing": {
+        const { data } = await admin
+          .from("billing_records")
+          .select("number, vendor_label")
+          .eq("id", input.entityId)
+          .maybeSingle();
+        const row = data as { number: string | null; vendor_label: string | null } | null;
+        if (row?.number) return `Invoice ${row.number}`;
+        return row?.vendor_label ?? "billing record";
+      }
+      default: {
+        const table = getMemoryEntityTable(input.entityType);
+        if (!table) return input.entityType;
+        const column =
+          table === "meetings"
+            ? "title"
+            : table === "resources"
+              ? "file_name"
+              : "name";
+        const { data } = await admin
+          .from(table)
+          .select(column)
+          .eq("id", input.entityId)
+          .maybeSingle();
+        const label = (data as Record<string, unknown> | null)?.[column];
+        return typeof label === "string" && label ? label : input.entityType;
+      }
+    }
+  } catch {
+    return input.entityType;
+  }
+}
+
+/**
  * Apply the field update to the actual Memory table.
  * Routes to the appropriate table based on entity type.
+ * Returns the apply timestamp plus the previous state (for the Handled
+ * audit trail's oldValue).
  */
-async function applyFieldUpdate(input: UpdateFieldInput): Promise<string> {
+async function applyFieldUpdate(
+  input: UpdateFieldInput
+): Promise<{ appliedAt: string; previous: PreviousState }> {
   const admin = createAdminClient();
   const now = new Date().toISOString();
 
@@ -220,7 +320,7 @@ async function applyFieldUpdate(input: UpdateFieldInput): Promise<string> {
   // 3. Record provenance with previous state
   await recordProvenance(admin, input, now, previous);
 
-  return now;
+  return { appliedAt: now, previous };
 }
 
 /**
@@ -512,16 +612,33 @@ async function updateOperatorField(
   admin: ReturnType<typeof createAdminClient>,
   input: UpdateFieldInput
 ): Promise<void> {
-  // Me fields can be on profiles or workspaces
+  // Me fields can be on profiles or workspaces. Keys accept both the
+  // registry's camelCase field keys and snake_case column names.
+  // Legal/tax/payment fields are deliberately absent — the registry marks
+  // them user_only and field-tiers lists them never_touch.
   const profileFields: Record<string, keyof TableUpdate<"profiles">> = {
     display_name: "display_name",
+    fullName: "display_name",
     role_title: "role_title",
+    roleTitle: "role_title",
     tagline: "tagline",
     timezone: "timezone",
     location: "location",
     phone: "phone",
     gender: "gender",
     preferred_name: "preferred_name",
+    preferredName: "preferred_name",
+    address_line_1: "address_line_1",
+    addressLine1: "address_line_1",
+    address_line_2: "address_line_2",
+    addressLine2: "address_line_2",
+    city: "city",
+    state: "state",
+    postal_code: "postal_code",
+    postalCode: "postal_code",
+    country: "country",
+    professional_credentials: "professional_credentials",
+    professionalCredentials: "professional_credentials",
   };
 
   if (profileFields[input.field]) {
@@ -538,11 +655,15 @@ async function updateOperatorField(
     tagline: "tagline",
     description: "description",
     website_url: "website_url",
+    websiteUrl: "website_url",
     industry: "industry",
     legal_business_name: "legal_business_name",
     business_type: "business_type",
     business_email: "business_email",
     business_phone: "business_phone",
+    businessPhone: "business_phone",
+    // Disambiguated from the profile's own location field
+    business_location: "location",
   };
 
   if (workspaceFields[input.field]) {

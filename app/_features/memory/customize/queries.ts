@@ -52,28 +52,10 @@ function toEntry(row: EntryRow): CustomizeEntry {
 }
 
 /**
- * Active entries for one record type, oldest first — the rendered doc is a
- * view composed from these rows, so order is the reading order.
+ * Active entries for one record type were previously exposed via
+ * `listCustomizeEntries`; removed — the page groups everything through
+ * `listActiveCustomizeEntriesByType` below (one query per decision).
  */
-export async function listCustomizeEntries(
-  workspaceId: string,
-  entityType: MemoryCustomizeScope,
-): Promise<CustomizeEntry[]> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("memory_customize_entries")
-    .select("id, entity_type, body, source, status, created_at")
-    .eq("workspace_id", workspaceId)
-    .eq("entity_type", entityType)
-    .eq("status", "active")
-    .order("created_at", { ascending: true });
-
-  if (error) {
-    console.error("[memory-customize] list failed:", error);
-    return [];
-  }
-  return (data as EntryRow[]).map(toEntry);
-}
 
 /**
  * All active entries for a workspace, grouped by record type — the shape

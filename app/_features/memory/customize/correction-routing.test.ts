@@ -54,8 +54,24 @@ describe("guessCustomizeEntityType", () => {
   });
 
   it("detects resource language", () => {
-    expect(guessCustomizeEntityType("old invoices are not deliverables")).toBe(
+    expect(guessCustomizeEntityType("old documents are not deliverables")).toBe(
       "resource",
+    );
+  });
+
+  it("detects billing language — invoices are money records, not documents", () => {
+    expect(guessCustomizeEntityType("old invoices are not deliverables")).toBe(
+      "billing",
+    );
+    expect(guessCustomizeEntityType("never mark a payment as late")).toBe(
+      "billing",
+    );
+  });
+
+  it("detects me language", () => {
+    expect(guessCustomizeEntityType("use my full name on proposals")).toBe("me");
+    expect(guessCustomizeEntityType("my signature title is out of date")).toBe(
+      "me",
     );
   });
 

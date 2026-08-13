@@ -2015,56 +2015,61 @@ export const MEETING_FIELDS: FieldDescriptor<"meetings">[] = [
 
 // ============================================================================
 // ME FIELDS (profiles = operator identity, workspaces = business)
-// The Me record is the operator's own profile: Salt never writes these
-// directly — what Salt learns about the operator flows through
-// operator_memory_facts and its confirm loop instead.
+// The Me record is the operator's own profile. Suggestable fields (name,
+// contact, timezone, location, bio-ish business fields) carry the
+// conservative default policy (care_ask): Salt proposes, the operator
+// confirms. Legal, tax, payment, and one-time-setup fields stay user_only —
+// Salt never touches those.
 // ============================================================================
 
 const ME_USER_ONLY = { writePolicy: "user_only" as const, requiredForCapabilities: [] };
 
+/** Me fields Salt may suggest: no explicit writePolicy = care_ask. */
+const ME_CARE_ASK = { requiredForCapabilities: [] };
+
 export const ME_IDENTITY_FIELDS: FieldDescriptor<"profiles">[] = [
-  { key: "preferredName", label: "Preferred Name", entityType: "me", fieldType: "text", aiDescription: "Name the operator goes by", dbColumn: "preferred_name", ...ME_USER_ONLY, fillRules: [
+  { key: "preferredName", label: "Preferred Name", entityType: "me", fieldType: "text", aiDescription: "Name the operator goes by", dbColumn: "preferred_name", ...ME_CARE_ASK, fillRules: [
     { signal: "email_signoff_name_detected", value: "{{extracted}}", confidence: 90, because: "You consistently sign emails with this name" },
   ] },
-  { key: "fullName", label: "Full Name", entityType: "me", fieldType: "text", aiDescription: "Operator's full legal/display name", dbColumn: "display_name", formatRule: "Also split into first_name/last_name; full_name is a generated column", ...ME_USER_ONLY, fillRules: [
+  { key: "fullName", label: "Full Name", entityType: "me", fieldType: "text", aiDescription: "Operator's full legal/display name", dbColumn: "display_name", formatRule: "Also split into first_name/last_name; full_name is a generated column", ...ME_CARE_ASK, fillRules: [
     { signal: "linkedin_profile_scanned", value: "{{extracted}}", confidence: 88, because: "Full name from your LinkedIn profile" },
   ] },
   { key: "gender", label: "Gender", entityType: "me", fieldType: "select", aiDescription: "Optional gender", dbColumn: "gender", ...ME_USER_ONLY },
-  { key: "roleTitle", label: "Role", entityType: "me", fieldType: "text", aiDescription: "What the operator calls their role", dbColumn: "role_title", ...ME_USER_ONLY, fillRules: [
+  { key: "roleTitle", label: "Role", entityType: "me", fieldType: "text", aiDescription: "What the operator calls their role", dbColumn: "role_title", ...ME_CARE_ASK, fillRules: [
     { signal: "operator_signature_has_title", value: "{{extracted}}", confidence: 88, because: "Title extracted from your outgoing email signature" },
     { signal: "linkedin_profile_scanned", value: "{{extracted}}", confidence: 85, because: "Title from your LinkedIn profile" },
   ] },
-  { key: "phone", label: "Phone", entityType: "me", fieldType: "phone", aiDescription: "Operator's phone number", dbColumn: "phone", ...ME_USER_ONLY, fillRules: [
+  { key: "phone", label: "Phone", entityType: "me", fieldType: "phone", aiDescription: "Operator's phone number", dbColumn: "phone", ...ME_CARE_ASK, fillRules: [
     { signal: "operator_phone_extracted", value: "{{extracted}}", confidence: 85, because: "Phone number from your email signature" },
   ] },
-  { key: "timezone", label: "Timezone", entityType: "me", fieldType: "timezone", vocabulary: "timezone", aiDescription: "Operator's IANA timezone", dbColumn: "timezone", ...ME_USER_ONLY, fillRules: [
+  { key: "timezone", label: "Timezone", entityType: "me", fieldType: "timezone", vocabulary: "timezone", aiDescription: "Operator's IANA timezone", dbColumn: "timezone", ...ME_CARE_ASK, fillRules: [
     { signal: "calendar_timezone_detected", value: "{{extracted}}", confidence: 95, because: "Calendar consistently shows this timezone" },
   ] },
   { key: "workingHours", label: "Working Hours", entityType: "me", fieldType: "text", aiDescription: "Typical working hours", dbColumn: "working_hours", ...ME_USER_ONLY },
-  { key: "location", label: "Location", entityType: "me", fieldType: "text", aiDescription: "Where the operator is based", dbColumn: "location", ...ME_USER_ONLY, fillRules: [
+  { key: "location", label: "Location", entityType: "me", fieldType: "text", aiDescription: "Where the operator is based", dbColumn: "location", ...ME_CARE_ASK, fillRules: [
     { signal: "timezone_location_inferred", value: "{{extracted}}", confidence: 75, because: "Location inferred from your timezone" },
     { signal: "linkedin_profile_scanned", value: "{{extracted}}", confidence: 82, because: "Location from your LinkedIn profile" },
   ] },
-  { key: "addressLine1", label: "Street Address", entityType: "me", fieldType: "text", aiDescription: "Operator address line 1", dbColumn: "address_line_1", ...ME_USER_ONLY, fillRules: [
+  { key: "addressLine1", label: "Street Address", entityType: "me", fieldType: "text", aiDescription: "Operator address line 1", dbColumn: "address_line_1", ...ME_CARE_ASK, fillRules: [
     { signal: "operator_address_extracted", value: "{{extracted}}", confidence: 80, because: "Address extracted from your documents" },
   ] },
-  { key: "addressLine2", label: "Address Line 2", entityType: "me", fieldType: "text", aiDescription: "Operator address line 2", dbColumn: "address_line_2", ...ME_USER_ONLY, fillRules: [
+  { key: "addressLine2", label: "Address Line 2", entityType: "me", fieldType: "text", aiDescription: "Operator address line 2", dbColumn: "address_line_2", ...ME_CARE_ASK, fillRules: [
     { signal: "operator_address_extracted", value: "{{extracted}}", confidence: 80, because: "Address line 2 from documents" },
   ] },
-  { key: "city", label: "City", entityType: "me", fieldType: "text", aiDescription: "Operator city", dbColumn: "city", ...ME_USER_ONLY, fillRules: [
+  { key: "city", label: "City", entityType: "me", fieldType: "text", aiDescription: "Operator city", dbColumn: "city", ...ME_CARE_ASK, fillRules: [
     { signal: "operator_address_extracted", value: "{{extracted}}", confidence: 80, because: "City extracted from documents" },
   ] },
-  { key: "state", label: "State/Province", entityType: "me", fieldType: "text", aiDescription: "Operator state or province", dbColumn: "state", ...ME_USER_ONLY, fillRules: [
+  { key: "state", label: "State/Province", entityType: "me", fieldType: "text", aiDescription: "Operator state or province", dbColumn: "state", ...ME_CARE_ASK, fillRules: [
     { signal: "operator_address_extracted", value: "{{extracted}}", confidence: 80, because: "State extracted from documents" },
   ] },
-  { key: "postalCode", label: "Postal Code", entityType: "me", fieldType: "text", aiDescription: "Operator postal code", dbColumn: "postal_code", ...ME_USER_ONLY, fillRules: [
+  { key: "postalCode", label: "Postal Code", entityType: "me", fieldType: "text", aiDescription: "Operator postal code", dbColumn: "postal_code", ...ME_CARE_ASK, fillRules: [
     { signal: "operator_address_extracted", value: "{{extracted}}", confidence: 80, because: "Postal code extracted from documents" },
   ] },
-  { key: "country", label: "Country", entityType: "me", fieldType: "country", vocabulary: "country", aiDescription: "Operator country", dbColumn: "country", ...ME_USER_ONLY, fillRules: [
+  { key: "country", label: "Country", entityType: "me", fieldType: "country", vocabulary: "country", aiDescription: "Operator country", dbColumn: "country", ...ME_CARE_ASK, fillRules: [
     { signal: "operator_address_extracted", value: "{{extracted}}", confidence: 80, because: "Country extracted from documents" },
     { signal: "timezone_location_inferred", value: "{{extracted}}", confidence: 70, because: "Country inferred from timezone" },
   ] },
-  { key: "professionalCredentials", label: "Credentials", entityType: "me", fieldType: "text", aiDescription: "Professional credentials or certifications", dbColumn: "professional_credentials", ...ME_USER_ONLY, fillRules: [
+  { key: "professionalCredentials", label: "Credentials", entityType: "me", fieldType: "text", aiDescription: "Professional credentials or certifications", dbColumn: "professional_credentials", ...ME_CARE_ASK, fillRules: [
     { signal: "linkedin_profile_scanned", value: "{{extracted}}", confidence: 78, because: "Credentials from your LinkedIn profile" },
   ] },
   { key: "email", label: "Email", entityType: "me", fieldType: "email", aiDescription: "Auth email (read-only)", dbColumn: "email", isReadonly: true, requiredForCapabilities: [] },
@@ -2072,13 +2077,13 @@ export const ME_IDENTITY_FIELDS: FieldDescriptor<"profiles">[] = [
 
 export const ME_BUSINESS_FIELDS: FieldDescriptor<"workspaces">[] = [
   { key: "name", label: "Business Name", entityType: "me", fieldType: "text", aiDescription: "Workspace/business display name", dbColumn: "name", ...ME_USER_ONLY },
-  { key: "tagline", label: "Tagline", entityType: "me", fieldType: "text", aiDescription: "One-line business description", dbColumn: "tagline", ...ME_USER_ONLY, fillRules: [
+  { key: "tagline", label: "Tagline", entityType: "me", fieldType: "text", aiDescription: "One-line business description", dbColumn: "tagline", ...ME_CARE_ASK, fillRules: [
     { signal: "operator_bio_extracted", value: "{{extracted}}", confidence: 80, because: "Tagline extracted from your social or website bio" },
   ] },
-  { key: "websiteUrl", label: "Website", entityType: "me", fieldType: "url", aiDescription: "Business website", dbColumn: "website_url", ...ME_USER_ONLY, fillRules: [
+  { key: "websiteUrl", label: "Website", entityType: "me", fieldType: "url", aiDescription: "Business website", dbColumn: "website_url", ...ME_CARE_ASK, fillRules: [
     { signal: "workspace_website_found", value: "{{extracted}}", confidence: 88, because: "Business website discovered from email or social" },
   ] },
-  { key: "industry", label: "Industry", entityType: "me", fieldType: "text", aiDescription: "Industry the business operates in", dbColumn: "industry", ...ME_USER_ONLY, fillRules: [
+  { key: "industry", label: "Industry", entityType: "me", fieldType: "text", aiDescription: "Industry the business operates in", dbColumn: "industry", ...ME_CARE_ASK, fillRules: [
     { signal: "invoice_industry_pattern", value: "{{extracted}}", confidence: 82, because: "Industry inferred from invoice descriptions and client types" },
     { signal: "linkedin_industry_detected", value: "{{extracted}}", confidence: 85, because: "Industry from your LinkedIn profile" },
   ] },
@@ -2088,11 +2093,11 @@ export const ME_BUSINESS_FIELDS: FieldDescriptor<"workspaces">[] = [
   { key: "businessType", label: "Business Type", entityType: "me", fieldType: "select", vocabulary: "business_type", aiDescription: "Legal structure", dbColumn: "business_type", ...ME_USER_ONLY, fillRules: [
     { signal: "invoice_business_type_pattern", value: "{{extracted}}", confidence: 80, because: "Business type inferred from invoice patterns (freelancer vs agency)" },
   ] },
-  { key: "businessPhone", label: "Business Phone", entityType: "me", fieldType: "phone", aiDescription: "Business phone number", dbColumn: "business_phone", ...ME_USER_ONLY, fillRules: [
+  { key: "businessPhone", label: "Business Phone", entityType: "me", fieldType: "phone", aiDescription: "Business phone number", dbColumn: "business_phone", ...ME_CARE_ASK, fillRules: [
     { signal: "operator_phone_extracted", value: "{{extracted}}", confidence: 82, because: "Business phone from your email signature" },
   ] },
   { key: "businessEmail", label: "Business Email", entityType: "me", fieldType: "email", aiDescription: "Business contact email", dbColumn: "business_email", ...ME_USER_ONLY },
-  { key: "location", label: "Business Location", entityType: "me", fieldType: "text", aiDescription: "Where the business operates from", dbColumn: "location", ...ME_USER_ONLY, fillRules: [
+  { key: "location", label: "Business Location", entityType: "me", fieldType: "text", aiDescription: "Where the business operates from", dbColumn: "location", ...ME_CARE_ASK, fillRules: [
     { signal: "timezone_location_inferred", value: "{{extracted}}", confidence: 72, because: "Location inferred from your timezone" },
   ] },
   { key: "taxIdType", label: "Tax ID Type", entityType: "me", fieldType: "text", aiDescription: "Type of tax identifier (EIN, VAT, ...)", dbColumn: "tax_id_type", ...ME_USER_ONLY },

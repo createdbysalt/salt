@@ -90,6 +90,16 @@ vi.mock("@/app/_lib/learning/correction-blocklist", () => ({
   findBlockingCorrection: vi.fn(() => null),
 }));
 
+const recordSaltLearning = vi.fn(async (_input: unknown) => ({
+  id: "learn-1",
+}));
+
+vi.mock("@/app/_lib/learning/salt-learnings", () => ({
+  recordSaltLearning: (input: unknown) => recordSaltLearning(input),
+  generateEvidenceSummary: (evidenceCount: number) =>
+    `Seen ${evidenceCount} times in source`,
+}));
+
 import {
   findBlockingCorrection,
   getCorrectionBlocklist,
@@ -247,5 +257,175 @@ describe("memoryUpdateField field mappings", () => {
         value: "x",
       })
     ).rejects.toThrow("Unknown person field");
+  });
+});
+
+describe("memoryUpdateField Handled learning logging", () => {
+  beforeEach(() => {
+    updates.length = 0;
+    upserts.length = 0;
+    vi.clearAllMocks();
+  });
+
+  it("logs a salt_learning when a Salt-driven write applies", async () => {
+    const result = await memoryUpdateField({
+      ...baseInput,
+      entityType: "person",
+      entityId: "person-1",
+      field: "title",
+      value: "CEO",
+      sourceDetails: { playbookSlug: "memory-records" },
+    });
+
+    expect(result.action).toBe("applied");
+    expect(recordSaltLearning).toHaveBeenCalledTimes(1);
+    expect(recordSaltLearning).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: "ws-1",
+        entityType: "person",
+        entityId: "person-1",
+        fieldPath: "title",
+        newValue: "CEO",
+        confidence: 95,
+        playbookSlug: "memory-records",
+      })
+    );
+  });
+
+  it("does not log manual writes — the user just made the edit", async () => {
+    const result = await memoryUpdateField({
+      ...baseInput,
+      source: "manual",
+      entityType: "person",
+      entityId: "person-1",
+      field: "title",
+      value: "CEO",
+    });
+
+    expect(result.action).toBe("applied");
+    expect(recordSaltLearning).not.toHaveBeenCalled();
+  });
+
+  it("does not log Ask Salt writes — the user asked in chat", async () => {
+    const result = await memoryUpdateField({
+      ...baseInput,
+      source: "ask_salt",
+      entityType: "person",
+      entityId: "person-1",
+      field: "title",
+      value: "CEO",
+    });
+
+    expect(result.action).toBe("applied");
+    expect(recordSaltLearning).not.toHaveBeenCalled();
+  });
+
+  it("honors skipLearningLog for callers that logged the learning themselves", async () => {
+    const result = await memoryUpdateField({
+      ...baseInput,
+      skipLearningLog: true,
+      entityType: "person",
+      entityId: "person-1",
+      field: "title",
+      value: "CEO",
+    });
+
+    expect(result.action).toBe("applied");
+    expect(recordSaltLearning).not.toHaveBeenCalled();
+  });
+
+  it("still applies the write when learning logging throws", async () => {
+    recordSaltLearning.mockRejectedValueOnce(new Error("db down"));
+
+    const result = await memoryUpdateField({
+      ...baseInput,
+      entityType: "person",
+      entityId: "person-1",
+      field: "title",
+      value: "CEO",
+    });
+
+    expect(result.action).toBe("applied");
+    expect(updates.find((u) => u.table === "people")).toBeDefined();
+  });
+
+  it("does not log below the threshold (accumulated, not applied)", async () => {
+    const result = await memoryUpdateField({
+      ...baseInput,
+      confidence: 60,
+      entityType: "person",
+      entityId: "person-1",
+      field: "phone",
+      value: "+1 555 0100",
+    });
+
+    expect(result.action).toBe("accumulated");
+    expect(recordSaltLearning).not.toHaveBeenCalled();
+  });
+});
+
+describe("memoryUpdateField Me (operator) field mappings", () => {
+  beforeEach(() => {
+    updates.length = 0;
+    upserts.length = 0;
+    vi.clearAllMocks();
+  });
+
+  const meBase = { ...baseInput, entityType: "me" as const, entityId: "me-1" };
+
+  it.each([
+    ["preferredName", "preferred_name"],
+    ["preferred_name", "preferred_name"],
+    ["fullName", "display_name"],
+    ["roleTitle", "role_title"],
+    ["phone", "phone"],
+    ["timezone", "timezone"],
+    ["location", "location"],
+    ["addressLine1", "address_line_1"],
+    ["address_line_2", "address_line_2"],
+    ["city", "city"],
+    ["state", "state"],
+    ["postalCode", "postal_code"],
+    ["country", "country"],
+    ["professionalCredentials", "professional_credentials"],
+  ])("maps profile field %s to profiles.%s", async (field, column) => {
+    const result = await memoryUpdateField({ ...meBase, field, value: "x" });
+
+    expect(result.action).toBe("applied");
+    const profileUpdate = updates.find((u) => u.table === "profiles");
+    expect(profileUpdate?.payload).toEqual({ [column]: "x" });
+  });
+
+  it.each([
+    ["websiteUrl", "website_url"],
+    ["industry", "industry"],
+    ["businessPhone", "business_phone"],
+    ["business_location", "location"],
+  ])("maps business field %s to workspaces.%s", async (field, column) => {
+    const result = await memoryUpdateField({ ...meBase, field, value: "x" });
+
+    expect(result.action).toBe("applied");
+    const workspaceUpdate = updates.find((u) => u.table === "workspaces");
+    expect(workspaceUpdate?.payload).toEqual({ [column]: "x" });
+  });
+
+  it.each([
+    "tax_id_type",
+    "taxIdLast4",
+    "default_currency",
+    "paymentTerms",
+    "legal_business_name",
+    "legalBusinessName",
+  ])("refuses never-touch Me field %s at any confidence", async (field) => {
+    const result = await memoryUpdateField({
+      ...meBase,
+      confidence: 100,
+      field,
+      value: "x",
+    });
+
+    expect(result.action).toBe("rejected");
+    expect(result.message).toContain("never-touch");
+    expect(updates).toHaveLength(0);
   });
 });

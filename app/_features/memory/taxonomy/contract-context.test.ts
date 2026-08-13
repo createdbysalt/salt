@@ -78,9 +78,18 @@ describe("buildFieldContractContext", () => {
 
   it("care-writable context excludes user_only fields", () => {
     const context = buildCareWritableContext("me");
-    // Me identity/business fields are user_only; only derived/none remain.
+    // Legal/tax/payment Me fields stay user_only — Salt never writes them.
     expect(context).not.toContain("legalBusinessName");
-    expect(context).not.toContain("preferredName");
+    expect(context).not.toContain("taxIdType");
+    expect(context).not.toContain("paymentTerms");
+  });
+
+  it("care-writable context includes suggestable Me fields", () => {
+    const context = buildCareWritableContext("me");
+    // Suggestable Me fields are care_ask — Salt proposes, operator confirms.
+    expect(context).toContain("preferredName");
+    expect(context).toContain("timezone");
+    expect(context).toContain("websiteUrl");
   });
 
   it("care-writable context includes auto fields", () => {

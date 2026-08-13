@@ -40,13 +40,29 @@ export type TieredEntityType =
 export const ELEVATED_TIER_FLOOR = 95;
 
 /**
- * Never-touch: money fields. Hard rule — never auto-written at any
- * confidence. Not a queue, not an approval: a refusal.
+ * Never-touch: money fields, and the operator's legal/tax/payment setup.
+ * Hard rule — never auto-written at any confidence. Not a queue, not an
+ * approval: a refusal.
+ *
+ * Me keys are memory-tools field keys (see `updateOperatorField`) and mirror
+ * the registry's user_only Me fields: the operator sets legal name, tax ID,
+ * currency, and payment terms by hand, always.
  */
 const NEVER_TOUCH_FIELDS: Record<string, string[]> = {
   billing: ["total", "amount_paid"],
   work: ["billing_model"],
-  me: ["business_model", "pricing_model"],
+  me: [
+    "tax_id_type",
+    "taxIdType",
+    "tax_id_last4",
+    "taxIdLast4",
+    "default_currency",
+    "defaultCurrency",
+    "payment_terms",
+    "paymentTerms",
+    "legal_business_name",
+    "legalBusinessName",
+  ],
 };
 
 /**
@@ -113,7 +129,9 @@ const ALWAYS_AUTO_FIELDS: Record<string, string[]> = {
   ],
   work: ["last_activity_at", "title"],
   billing: ["last_activity_at"],
-  me: ["business_name", "business_website"],
+  // No Me field bypasses gating: even the suggestable ones (care_ask in the
+  // registry) hold for operator confirmation.
+  me: [],
 };
 
 function isEmptyValue(value: unknown): boolean {

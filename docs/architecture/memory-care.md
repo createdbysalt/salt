@@ -203,11 +203,15 @@ Route: `/memory`
 - **Watching** — evidence below bar; optional nudges teach, never chore queues
 - **Handled** — auto-applied writes with why + **"That's wrong"** → rollback + correction → lesson
 
+Handled renders from `salt_learnings` (14-day window, 30 rows). Three writers feed it: `autoCreateRecord` logs record births (`field_path: "record"`, `playbook_slug: "capture-intake"` — dedupe-linked existing records are not logged as births), `memoryUpdateField` logs Salt-applied field writes (manual/ask_salt sources and `skipLearningLog` callers excluded — `processCareProposal` already logs its own applies), and `processCareProposal` logs pipeline applies. Core insert logic lives in `_lib/learning/salt-learnings.ts` so the `_lib` memory tools can log without a lib → feature import. "That's wrong" on a birth archives the record via `memoryArchiveRecord`; on a field write it rolls back via `memoryRollbackField`.
+
 Activity is a window into what Salt is doing, not a work queue. No nav/HQ badge counts for Watching.
 
 ### Customize (2026-08-10)
 
 Semantic steering — what Salt looks for, per record type. Two-zone doc: Salt's read-only defaults rendered live from the field registry, and the user's writable `memory_customize_entries` (attributed, revertible). Care is always on — no capability toggles on the surface.
+
+**Me scope (2026-08-13):** `me` is a full-parity Customize tab alongside the CRM record types. Suggestable Me fields are `care_ask` (never `care_auto`); legal/tax/payment fields stay `user_only` and are refused by write-validation. Me writes route through `updateOperatorField` (profiles vs workspaces columns). Cold-intent gating stays person/work only — Me is not intake-born.
 
 Consumption (Phase M4):
 - **Track A (advisory)** — active entries are formatted into a capped, fenced prompt block (`customize/prompt-block.ts`) and injected at the existing metered LLM reads: cold-intent classification, the email analyzer, the generic signal extractor, and Ask Salt's system sections.
