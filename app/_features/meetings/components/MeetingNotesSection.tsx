@@ -1,32 +1,21 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   ExternalLink,
   FileText,
   Figma,
   Github,
-  Link2,
-  Loader2,
   Plus,
-  Search,
   Video,
 } from "lucide-react";
-import { toast } from "sonner";
-import { Button } from "@repo/ui";
 import { safeHttpUrl } from "@/app/_lib/security/safe-url";
-import {
-  fetchLinkCandidates,
-  persistMemoryConnection,
-  type LinkCandidate,
-} from "@/app/_features/memory/actions/connections";
 import type { Connection } from "@/app/_lib/demo/people-demo-data";
 import type { ConnectionNode } from "@/app/_features/connections/types";
 import { AttachedResourcesSection } from "@/app/_features/resources/components/AttachedResourcesSection";
+import { AddResourcePanel } from "@/app/_features/resources/components/AddResourcePanel";
 import type { MeetingSource } from "../queries";
 import { linkUrlToMeeting } from "../actions";
-import type { SourceProvider } from "../actions/schemas";
 
 type MeetingNotesSectionProps = {
   meetingId: string;
@@ -37,17 +26,8 @@ type MeetingNotesSectionProps = {
   onUnlinkResource: (node: ConnectionNode) => void;
 };
 
-const formLabelClass =
-  "text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground";
-
-const inlineFormShellClass =
-  "space-y-4 rounded-2xl border border-border/60 bg-card/40 p-4";
-
 const addButtonClass =
-  "flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-dashed border-border/60 py-3 text-xs text-muted-foreground transition-colors hover:border-foreground/20 hover:text-foreground";
-
-const inlineInputClass =
-  "h-9 w-full rounded-lg border border-border/60 bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-ring";
+  "flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-border/60 py-3 text-xs text-muted-foreground transition-colors hover:border-foreground/20 hover:text-foreground";
 
 const PROVIDER_CONFIG: Record<string, { icon: React.ElementType; label: string }> = {
   "google-drive": { icon: FileText, label: "Google Drive" },
@@ -61,29 +41,6 @@ const PROVIDER_CONFIG: Record<string, { icon: React.ElementType; label: string }
   dropbox: { icon: FileText, label: "Dropbox" },
   other: { icon: ExternalLink, label: "Link" },
 };
-
-// Match on the parsed hostname, not a substring — "evil.com/figma.com"
-// or "figma.com.evil.com" must not classify as a trusted provider.
-function detectProvider(url: string): SourceProvider {
-  let host: string;
-  try {
-    host = new URL(url).hostname.toLowerCase();
-  } catch {
-    return "other";
-  }
-  const isHost = (domain: string) => host === domain || host.endsWith(`.${domain}`);
-
-  if (isHost("docs.google.com") || isHost("drive.google.com")) return "google-drive";
-  if (isHost("figma.com")) return "figma";
-  if (isHost("notion.so") || isHost("notion.site")) return "notion";
-  if (isHost("loom.com")) return "loom";
-  if (isHost("miro.com")) return "miro";
-  if (isHost("linear.app")) return "linear";
-  if (isHost("github.com")) return "github";
-  if (isHost("slack.com")) return "slack";
-  if (isHost("dropbox.com")) return "dropbox";
-  return "other";
-}
 
 function getDisplayName(source: MeetingSource): string {
   if (source.displayName) return source.displayName;
@@ -100,249 +57,6 @@ function getDisplayName(source: MeetingSource): string {
   return "Linked file";
 }
 
-function ResourceLinkForm({
-  meetingId,
-  existingConnections,
-  onLink,
-  onCancel,
-}: {
-  meetingId: string;
-  existingConnections: Connection[];
-  onLink: (connection: Connection) => void;
-  onCancel: () => void;
-}) {
-  const [query, setQuery] = useState("");
-  const [candidates, setCandidates] = useState<LinkCandidate[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [linkingId, setLinkingId] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetchLinkCandidates({
-      recordKind: "meeting",
-      recordId: meetingId,
-      existingConnections: existingConnections.map((c) => ({ id: c.id, type: c.type })),
-    }).then((result) => {
-      if (cancelled) return;
-      setCandidates(result.filter((c) => c.type === "resource"));
-      setLoading(false);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [meetingId, existingConnections]);
-
-  const filtered = query.trim()
-    ? candidates.filter((c) =>
-        `${c.name} ${c.subtitle ?? ""}`.toLowerCase().includes(query.trim().toLowerCase()),
-      )
-    : candidates;
-
-  const handleSelect = (candidate: LinkCandidate) => {
-    setLinkingId(candidate.id);
-    persistMemoryConnection({
-      recordKind: "meeting",
-      recordId: meetingId,
-      connection: {
-        id: candidate.id,
-        name: candidate.name,
-        type: candidate.type,
-        subtitle: candidate.subtitle,
-      } as Connection,
-    }).then((result) => {
-      setLinkingId(null);
-      if (!result.success) {
-        toast.error(result.error ?? "Could not link resource");
-        return;
-      }
-      toast.success(`Linked ${candidate.name}`);
-      onLink({
-        id: candidate.id,
-        name: candidate.name,
-        type: candidate.type,
-        subtitle: candidate.subtitle,
-      } as Connection);
-    });
-  };
-
-  return (
-    <div
-      className={inlineFormShellClass}
-      onKeyDown={(e) => {
-        if (e.key === "Escape") onCancel();
-      }}
-    >
-      <p className={formLabelClass}>Link from Resources</p>
-
-      <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search resources…"
-          autoFocus
-          className={`${inlineInputClass} pl-8`}
-        />
-      </div>
-
-      <div className="max-h-48 overflow-y-auto rounded-xl border border-border/50">
-        {loading ? (
-          <div className="flex items-center justify-center py-6">
-            <Loader2 className="size-4 animate-spin text-muted-foreground" />
-          </div>
-        ) : filtered.length === 0 ? (
-          <p className="px-3 py-6 text-center text-xs text-muted-foreground">
-            {candidates.length === 0
-              ? "No resources yet — add one from the Resources page first."
-              : "No resources match your search."}
-          </p>
-        ) : (
-          filtered.map((candidate) => (
-            <button
-              key={candidate.id}
-              type="button"
-              onClick={() => handleSelect(candidate)}
-              disabled={linkingId !== null}
-              className="flex w-full items-center gap-3 px-3 py-2 text-left transition hover:bg-muted/50 disabled:opacity-50"
-            >
-              <div className="grid size-7 shrink-0 place-items-center rounded-lg bg-muted">
-                <FileText className="size-3.5 text-muted-foreground" strokeWidth={1.75} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-foreground">{candidate.name}</p>
-                {candidate.subtitle && (
-                  <p className="text-xs text-muted-foreground">{candidate.subtitle}</p>
-                )}
-              </div>
-              {linkingId === candidate.id && (
-                <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
-              )}
-            </button>
-          ))
-        )}
-      </div>
-
-      <div className="flex items-center justify-end border-t border-border/40 pt-3">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="h-8 text-muted-foreground"
-          onClick={onCancel}
-        >
-          Cancel
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function UrlLinkForm({
-  meetingId,
-  onLinked,
-  onCancel,
-}: {
-  meetingId: string;
-  onLinked: () => void;
-  onCancel: () => void;
-}) {
-  const router = useRouter();
-  const [url, setUrl] = useState("");
-  const [displayName, setDisplayName] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
-
-  const detectedProvider = url.startsWith("http") ? detectProvider(url) : null;
-  const detectedConfig = detectedProvider ? PROVIDER_CONFIG[detectedProvider] : null;
-
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setError(null);
-
-    const trimmedUrl = url.trim();
-    if (!trimmedUrl) {
-      setError("URL is required");
-      return;
-    }
-    if (!safeHttpUrl(trimmedUrl)) {
-      setError("Please enter a valid http or https URL");
-      return;
-    }
-
-    startTransition(async () => {
-      const result = await linkUrlToMeeting({
-        meetingId,
-        url: trimmedUrl,
-        displayName: displayName.trim() || undefined,
-      });
-
-      if (!result.ok) {
-        setError(result.message);
-        return;
-      }
-      toast.success("Link added");
-      router.refresh();
-      onLinked();
-    });
-  };
-
-  return (
-    <form
-      onSubmit={handleSubmit}
-      className={inlineFormShellClass}
-      onKeyDown={(e) => {
-        if (e.key === "Escape") onCancel();
-      }}
-    >
-      <p className={formLabelClass}>Link URL</p>
-
-      <div className="space-y-2">
-        <input
-          type="url"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://docs.google.com/…"
-          autoFocus
-          className={inlineInputClass}
-        />
-        {detectedConfig && (
-          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <detectedConfig.icon className="size-3.5" strokeWidth={1.75} />
-            Detected: {detectedConfig.label}
-          </p>
-        )}
-      </div>
-
-      <input
-        type="text"
-        value={displayName}
-        onChange={(e) => setDisplayName(e.target.value)}
-        placeholder="Display name (optional)"
-        className={inlineInputClass}
-      />
-
-      {error && <p className="text-sm text-destructive">{error}</p>}
-
-      <div className="flex items-center justify-end gap-2 border-t border-border/40 pt-3">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="h-8 text-muted-foreground"
-          onClick={onCancel}
-          disabled={isPending}
-        >
-          Cancel
-        </Button>
-        <Button type="submit" size="sm" className="h-8 px-4" disabled={isPending || !url.trim()}>
-          {isPending ? <Loader2 className="size-3.5 animate-spin" /> : "Link URL"}
-        </Button>
-      </div>
-    </form>
-  );
-}
-
 export function MeetingNotesSection({
   meetingId,
   resourceConnections,
@@ -351,10 +65,10 @@ export function MeetingNotesSection({
   onLinkResource,
   onUnlinkResource,
 }: MeetingNotesSectionProps) {
-  const [adding, setAdding] = useState<"resource" | "url" | null>(null);
+  const [adding, setAdding] = useState(false);
 
   useEffect(() => {
-    const openPicker = () => setAdding("resource");
+    const openPicker = () => setAdding(true);
     window.addEventListener("meeting:link-resource", openPicker);
     return () => window.removeEventListener("meeting:link-resource", openPicker);
   }, []);
@@ -406,33 +120,37 @@ export function MeetingNotesSection({
         </ul>
       )}
 
-      {adding === "resource" ? (
-        <ResourceLinkForm
-          meetingId={meetingId}
-          existingConnections={existingConnections}
-          onLink={(connection) => {
-            onLinkResource(connection);
-            setAdding(null);
+      {adding ? (
+        <AddResourcePanel
+          recordKind="meeting"
+          recordId={meetingId}
+          linkedResourceIds={existingConnections
+            .filter((c) => c.type === "resource")
+            .map((c) => c.id)}
+          label="Add resource"
+          onCreateFromUrl={async ({ url, displayName }) => {
+            const result = await linkUrlToMeeting({
+              meetingId,
+              url,
+              displayName,
+            });
+            return result.ok ? { ok: true } : { ok: false, error: result.message };
           }}
-          onCancel={() => setAdding(null)}
-        />
-      ) : adding === "url" ? (
-        <UrlLinkForm
-          meetingId={meetingId}
-          onLinked={() => setAdding(null)}
-          onCancel={() => setAdding(null)}
+          onLinkedExisting={(candidate) => {
+            onLinkResource({
+              id: candidate.id,
+              name: candidate.name,
+              type: candidate.type,
+              subtitle: candidate.subtitle,
+            } as Connection);
+          }}
+          onDone={() => setAdding(false)}
         />
       ) : (
-        <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => setAdding("resource")} className={addButtonClass}>
-            <Plus className="size-3.5" strokeWidth={2.25} />
-            Link from Resources
-          </button>
-          <button type="button" onClick={() => setAdding("url")} className={addButtonClass}>
-            <Link2 className="size-3.5" strokeWidth={2.25} />
-            Link URL
-          </button>
-        </div>
+        <button type="button" onClick={() => setAdding(true)} className={addButtonClass}>
+          <Plus className="size-3.5" strokeWidth={2.25} />
+          Add resource
+        </button>
       )}
     </div>
   );

@@ -799,9 +799,10 @@ export const getWorkDetailData = cache(async (workId: string): Promise<WorkDetai
   const { getEntitySourceHistory } = await import("@/app/_features/memory/queries/source-history");
   const { getEntityNotes } = await import("@/app/_features/memory/queries/entity-notes");
   const { getEntityConnections } = await import("@/app/_features/connections/queries");
+  const { getEntityResources } = await import("@/app/_features/resources/queries");
   const { workspace } = await getWorkspaceContext();
 
-  const [summary, profileFields, connections, unifiedConnections, availableServices, activity, supplementalActivity, lifecycleEvents, sourceHistory, blockers, milestones, notes, billingRollup] =
+  const [summary, profileFields, connections, unifiedConnections, availableServices, activity, supplementalActivity, lifecycleEvents, sourceHistory, blockers, milestones, notes, billingRollup, resources] =
     await Promise.all([
     getWorkDetailSummary(workId),
     getWorkProfileFields(workId),
@@ -816,6 +817,7 @@ export const getWorkDetailData = cache(async (workId: string): Promise<WorkDetai
     getWorkMilestones(workId),
     getEntityNotes("work", workId),
     getWorkBillingRollup(workId),
+    getEntityResources("work", workId),
   ]);
 
   return {
@@ -832,6 +834,7 @@ export const getWorkDetailData = cache(async (workId: string): Promise<WorkDetai
     blockers,
     milestones,
     billingRollup,
+    resources,
   };
 });
 

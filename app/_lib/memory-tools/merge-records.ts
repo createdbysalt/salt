@@ -159,17 +159,137 @@ export async function memoryMergeRecords(
       .eq("workspace_id", workspaceId);
 
     await supabase
+      .from("meetings")
+      .update({ organization_id: winnerId })
+      .eq("organization_id", loserId)
+      .eq("workspace_id", workspaceId);
+
+    await supabase
+      .from("resources")
+      .update({ organization_id: winnerId })
+      .eq("organization_id", loserId)
+      .eq("workspace_id", workspaceId);
+
+    await supabase
       .from("organization_people")
       .update({ organization_id: winnerId })
       .eq("organization_id", loserId);
+
+    // entity_links speaks the short dialect ("org", not "organization").
+    const { data: linksUpdated } = await supabase
+      .from("entity_links")
+      .update({ source_id: winnerId })
+      .eq("source_id", loserId)
+      .in("source_type", ["org", "organization"])
+      .select("id");
+    migratedLinksCount += linksUpdated?.length || 0;
+
+    const { data: targetLinksUpdated } = await supabase
+      .from("entity_links")
+      .update({ target_id: winnerId })
+      .eq("target_id", loserId)
+      .in("target_type", ["org", "organization"])
+      .select("id");
+    migratedLinksCount += targetLinksUpdated?.length || 0;
+  }
+
+  if (entityType === "work") {
+    const { data: billingUpdated } = await supabase
+      .from("billing_records")
+      .update({ work_id: winnerId })
+      .eq("work_id", loserId)
+      .eq("workspace_id", workspaceId)
+      .select("id");
+    migratedBillingCount = billingUpdated?.length || 0;
+
+    await supabase
+      .from("meetings")
+      .update({ work_id: winnerId })
+      .eq("work_id", loserId)
+      .eq("workspace_id", workspaceId);
 
     const { data: linksUpdated } = await supabase
       .from("entity_links")
       .update({ source_id: winnerId })
       .eq("source_id", loserId)
-      .eq("source_type", "organization")
+      .eq("source_type", "work")
       .select("id");
     migratedLinksCount += linksUpdated?.length || 0;
+
+    const { data: targetLinksUpdated } = await supabase
+      .from("entity_links")
+      .update({ target_id: winnerId })
+      .eq("target_id", loserId)
+      .eq("target_type", "work")
+      .select("id");
+    migratedLinksCount += targetLinksUpdated?.length || 0;
+  }
+
+  if (entityType === "meeting") {
+    await supabase
+      .from("meeting_sources")
+      .update({ meeting_id: winnerId })
+      .eq("meeting_id", loserId)
+      .eq("workspace_id", workspaceId);
+
+    const { data: linksUpdated } = await supabase
+      .from("entity_links")
+      .update({ source_id: winnerId })
+      .eq("source_id", loserId)
+      .eq("source_type", "meeting")
+      .select("id");
+    migratedLinksCount += linksUpdated?.length || 0;
+
+    const { data: targetLinksUpdated } = await supabase
+      .from("entity_links")
+      .update({ target_id: winnerId })
+      .eq("target_id", loserId)
+      .eq("target_type", "meeting")
+      .select("id");
+    migratedLinksCount += targetLinksUpdated?.length || 0;
+  }
+
+  if (entityType === "resource") {
+    // Legacy rows may spell the type "file" — move both.
+    const { data: linksUpdated } = await supabase
+      .from("entity_links")
+      .update({ source_id: winnerId })
+      .eq("source_id", loserId)
+      .in("source_type", ["resource", "file"])
+      .select("id");
+    migratedLinksCount += linksUpdated?.length || 0;
+
+    const { data: targetLinksUpdated } = await supabase
+      .from("entity_links")
+      .update({ target_id: winnerId })
+      .eq("target_id", loserId)
+      .in("target_type", ["resource", "file"])
+      .select("id");
+    migratedLinksCount += targetLinksUpdated?.length || 0;
+  }
+
+  if (entityType === "billing") {
+    await supabase
+      .from("billing_records")
+      .update({ duplicate_of: winnerId })
+      .eq("duplicate_of", loserId)
+      .eq("workspace_id", workspaceId);
+
+    const { data: linksUpdated } = await supabase
+      .from("entity_links")
+      .update({ source_id: winnerId })
+      .eq("source_id", loserId)
+      .eq("source_type", "billing")
+      .select("id");
+    migratedLinksCount += linksUpdated?.length || 0;
+
+    const { data: targetLinksUpdated } = await supabase
+      .from("entity_links")
+      .update({ target_id: winnerId })
+      .eq("target_id", loserId)
+      .eq("target_type", "billing")
+      .select("id");
+    migratedLinksCount += targetLinksUpdated?.length || 0;
   }
 
   const archivedAt = new Date().toISOString();

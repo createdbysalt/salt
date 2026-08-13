@@ -134,6 +134,10 @@ export interface Resource {
   fileSizeBytes?: number;
   mimeType?: string;
   storagePath?: string;
+  aiSummary?: string;
+  /** Signing lifecycle (draft/sent/signed/…); Track H fills it from signing apps. */
+  lifecycleStatus?: string;
+  signedDate?: string;
   metadata?: Record<string, unknown>;
   liveConfig?: LiveConfig;
   lastActivityAt?: string;

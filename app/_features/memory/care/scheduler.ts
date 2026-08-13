@@ -80,12 +80,19 @@ const CARE_SIGNAL_MAP: Record<string, CareCapability[]> = {
   org_has_payment_received: ["records"],
   org_has_people: ["records"],
   org_tax_id_extracted: ["records"],
+  // Records: contract lifecycle — a contract-category resource linked to a
+  // work record and marked "signed" attests the signed state (dispatched
+  // from resources/actions/file-actions.ts).
+  work_has_signed_contract: ["records"],
   // Hygiene: data-quality signals
   person_duplicate_email: ["hygiene"],
   person_duplicate_phone: ["hygiene"],
   org_duplicate_domain: ["hygiene"],
   billing_duplicate_number: ["hygiene"],
+  work_duplicate_name_same_org: ["hygiene"],
   file_duplicate_hash: ["hygiene"],
+  file_duplicate_name_same_entity: ["hygiene"],
+  file_duplicate_url: ["hygiene"],
   meeting_duplicate_time_attendees: ["hygiene"],
   person_no_activity_90d: ["hygiene"],
   org_no_activity_90d: ["hygiene"],

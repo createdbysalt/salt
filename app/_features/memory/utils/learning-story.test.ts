@@ -173,6 +173,64 @@ describe("buildLearningStory", () => {
     expect(story.primarySentence).toBe("I think Jane Example works at Meridian Corp.");
   });
 
+  it("renders work link candidates as 'belongs to' the organization", () => {
+    const story = buildLearningStory(
+      makeEvidence(
+        [
+          makeField({
+            fieldPath: "_link_candidate",
+            proposedValue:
+              '{"targetId":"org-1","targetName":"Meridian Corp","targetType":"organization"}',
+            metaCandidate: {
+              kind: "link",
+              targetId: "org-1",
+              targetName: "Meridian Corp",
+              targetType: "organization",
+            },
+          }),
+        ],
+        {
+          entityType: "work",
+          entityId: "w1",
+          entityLabel: "Brand Refresh",
+          entityHref: "/work/w1",
+        },
+      ),
+    );
+    expect(story.kind).toBe("link");
+    expect(story.primarySentence).toBe(
+      "I think Brand Refresh belongs to Meridian Corp.",
+    );
+    expect(story.acceptLabel).toBe("Link it");
+  });
+
+  it("renders billing link candidates to a person as 'is for'", () => {
+    const story = buildLearningStory(
+      makeEvidence(
+        [
+          makeField({
+            fieldPath: "_link_candidate",
+            proposedValue:
+              '{"targetId":"p9","targetName":"Jane Doe","targetType":"person"}',
+            metaCandidate: {
+              kind: "link",
+              targetId: "p9",
+              targetName: "Jane Doe",
+              targetType: "person",
+            },
+          }),
+        ],
+        {
+          entityType: "billing",
+          entityId: "b1",
+          entityLabel: "INV-002",
+          entityHref: "/billing/b1",
+        },
+      ),
+    );
+    expect(story.primarySentence).toBe("I think INV-002 is for Jane Doe.");
+  });
+
   it("keeps link copy proposal-shaped even without a target (defensive)", () => {
     const story = buildLearningStory(
       makeEvidence([

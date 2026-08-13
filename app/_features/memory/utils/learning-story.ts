@@ -209,17 +209,26 @@ function metaSentence(
   entityType: LearningEntityType,
   entityLabel: string,
   targetName?: string,
+  targetType?: "organization" | "person",
 ): string {
   switch (kind) {
     case "merge":
       return `I think ${entityLabel} and ${targetName ?? "another record"} might be the same ${entityNoun(entityType)}.`;
     case "archive":
       return `I haven't seen any activity around ${entityLabel} in a while.`;
-    case "link":
+    case "link": {
       // No-target link candidates are filtered out at the query
       // (isNoTargetLinkCandidate) and never emitted (hygiene requires a
       // resolved target), so targetName is always present in practice.
-      return `I think ${entityLabel} works at ${targetName ?? "an organization"}.`;
+      const target = targetName ?? "another record";
+      if (entityType === "person") {
+        return `I think ${entityLabel} works at ${targetName ?? "an organization"}.`;
+      }
+      if (entityType === "billing" && targetType === "person") {
+        return `I think ${entityLabel} is for ${target}.`;
+      }
+      return `I think ${entityLabel} belongs to ${target}.`;
+    }
   }
 }
 
@@ -290,6 +299,7 @@ export function buildLearningStory(
           evidence.entityType,
           evidence.entityLabel,
           primaryMeta.targetName,
+          primaryMeta.targetType,
         )
       : sentenceForField(primary, name)
     : `I'm still learning about ${evidence.entityLabel}.`;
@@ -304,6 +314,7 @@ export function buildLearningStory(
             evidence.entityType,
             evidence.entityLabel,
             field.metaCandidate.targetName,
+            field.metaCandidate.targetType,
           )
         : sentenceForField(field, name),
     );

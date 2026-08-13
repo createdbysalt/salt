@@ -206,6 +206,7 @@ export interface WorkDetailData {
   blockers: WorkBlocker[];
   milestones: WorkMilestone[];
   billingRollup: WorkBillingRollup | null;
+  resources: import("@/app/_lib/resources/types").Resource[];
 }
 
 /**

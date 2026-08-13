@@ -240,15 +240,17 @@ function RecordLogicCard({
   guidance: DefaultGuidance;
   scope: MemoryCustomizeEntityType;
 }) {
-  // Record-level logic (birth + connections + precedence) reads as one
-  // story, so those sections lead the accordion; the system-maintained note
-  // closes it, after the per-field dropdowns it refers to. fields/never
-  // sections stay off the card — the per-field dropdowns carry that detail.
+  // Record-level logic (birth + connections + precedence + hygiene) reads
+  // as one story, so those sections lead the accordion; the
+  // system-maintained note closes it, after the per-field dropdowns it
+  // refers to. fields/never sections stay off the card — the per-field
+  // dropdowns carry that detail.
   const logicSections = guidance.sections.filter(
     (section) =>
       section.kind === "birth" ||
       section.kind === "connections" ||
-      section.kind === "principle",
+      section.kind === "principle" ||
+      section.kind === "hygiene",
   );
   const systemSections = guidance.sections.filter(
     (section) => section.kind === "system",

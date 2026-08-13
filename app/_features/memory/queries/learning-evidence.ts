@@ -52,6 +52,8 @@ export interface LearningMetaCandidate {
   kind: "merge" | "archive" | "link";
   targetId?: string;
   targetName?: string;
+  /** For link candidates: what the target is, so the sentence fits. */
+  targetType?: "organization" | "person";
 }
 
 export interface LearningField {
@@ -164,6 +166,10 @@ function parseMetaCandidate(
     targetId: typeof value.targetId === "string" ? value.targetId : undefined,
     targetName:
       typeof value.targetName === "string" ? value.targetName : undefined,
+    targetType:
+      value.targetType === "organization" || value.targetType === "person"
+        ? value.targetType
+        : undefined,
   };
 }
 

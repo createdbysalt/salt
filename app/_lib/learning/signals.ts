@@ -293,6 +293,11 @@ const WORK_SIGNAL_DESCRIPTIONS: Record<
     firesWhen: "Hygiene staleness scan",
     canTriggerActing: false,
   },
+  work_duplicate_name_same_org: {
+    description: "Another work record has the same name under the same organization",
+    firesWhen: "Duplicate detection run",
+    canTriggerActing: false,
+  },
 };
 
 const BILLING_SIGNAL_DESCRIPTIONS: Record<
@@ -463,6 +468,16 @@ const FILE_SIGNAL_DESCRIPTIONS: Record<
   },
   file_duplicate_hash: {
     description: "Another file has the same content hash",
+    firesWhen: "Duplicate detection run",
+    canTriggerActing: false,
+  },
+  file_duplicate_name_same_entity: {
+    description: "Another upload has the same file name under the same linked record",
+    firesWhen: "Duplicate detection run",
+    canTriggerActing: false,
+  },
+  file_duplicate_url: {
+    description: "Another resource points at the same link",
     firesWhen: "Duplicate detection run",
     canTriggerActing: false,
   },

@@ -10,6 +10,7 @@ interface FilterCall {
 }
 
 const filterCalls: FilterCall[] = [];
+const tableRows: Record<string, unknown[]> = {};
 
 interface QueryChain {
   data: unknown[];
@@ -23,7 +24,7 @@ interface QueryChain {
 
 function createQueryChain(table: string): QueryChain {
   const chain: QueryChain = {
-    data: [],
+    data: tableRows[table] ?? [],
     select: vi.fn(() => chain),
     eq: vi.fn((column: string, value: unknown) => {
       filterCalls.push({ table, op: "eq", column, value });
@@ -55,6 +56,7 @@ import { memoryGetSimilarRecords } from "./get-similar";
 describe("memoryGetSimilarRecords", () => {
   beforeEach(() => {
     filterCalls.length = 0;
+    for (const key of Object.keys(tableRows)) delete tableRows[key];
   });
 
   it("only scans active records for duplicate candidates", async () => {
@@ -82,6 +84,145 @@ describe("memoryGetSimilarRecords", () => {
         value: null,
       });
     }
+  });
+});
+
+describe("work duplicates", () => {
+  it("pairs work records with the same name under the same organization", async () => {
+    tableRows.work = [
+      { id: "w1", name: "Website Redesign", organization_id: "org-1" },
+      { id: "w2", name: "website redesign ", organization_id: "org-1" },
+      { id: "w3", name: "Website Redesign", organization_id: "org-2" },
+      { id: "w4", name: "Website Redesign", organization_id: null },
+    ];
+
+    const result = await memoryGetSimilarRecords({
+      workspaceId: "ws-1",
+      entityType: "work",
+    });
+
+    expect(result.matches).toHaveLength(1);
+    expect(result.matches[0]).toMatchObject({
+      entityType: "work",
+      signal: "work_duplicate_name_same_org",
+      recordId: "w1",
+      matchedRecordId: "w2",
+    });
+    expect(result.matches[0].confidence).toBeGreaterThanOrEqual(80);
+  });
+
+  it("never pairs org-less work records on name alone", async () => {
+    tableRows.work = [
+      { id: "w1", name: "Website Redesign", organization_id: null },
+      { id: "w2", name: "Website Redesign", organization_id: null },
+    ];
+
+    const result = await memoryGetSimilarRecords({
+      workspaceId: "ws-1",
+      entityType: "work",
+    });
+
+    expect(result.matches).toHaveLength(0);
+  });
+});
+
+describe("resource duplicates", () => {
+  it("pairs links pointing at the same URL, ignoring protocol and case", async () => {
+    tableRows.resources = [
+      { id: "r1", file_name: "MSA", file_type: "link", external_url: "https://example.com/msa/", size_bytes: null, organization_id: null, person_id: null },
+      { id: "r2", file_name: "MSA copy", file_type: "link", external_url: "http://www.Example.com/msa", size_bytes: null, organization_id: null, person_id: null },
+      { id: "r3", file_name: "Other", file_type: "link", external_url: "https://other.com/x", size_bytes: null, organization_id: null, person_id: null },
+    ];
+
+    const result = await memoryGetSimilarRecords({
+      workspaceId: "ws-1",
+      entityType: "resource",
+    });
+
+    expect(result.matches).toHaveLength(1);
+    expect(result.matches[0]).toMatchObject({
+      entityType: "resource",
+      signal: "file_duplicate_url",
+      recordId: "r1",
+      matchedRecordId: "r2",
+    });
+    expect(result.matches[0].confidence).toBeGreaterThanOrEqual(95);
+  });
+
+  it("pairs uploads with the same file name under the same record, bumping confidence when sizes match", async () => {
+    tableRows.resources = [
+      { id: "r1", file_name: "brief.pdf", file_type: "upload", external_url: null, size_bytes: 1024, organization_id: "org-1", person_id: null },
+      { id: "r2", file_name: "Brief.pdf", file_type: "upload", external_url: null, size_bytes: 1024, organization_id: "org-1", person_id: null },
+      { id: "r3", file_name: "brief.pdf", file_type: "upload", external_url: null, size_bytes: 2048, organization_id: "org-2", person_id: null },
+    ];
+
+    const result = await memoryGetSimilarRecords({
+      workspaceId: "ws-1",
+      entityType: "resource",
+    });
+
+    expect(result.matches).toHaveLength(1);
+    expect(result.matches[0]).toMatchObject({
+      entityType: "resource",
+      signal: "file_duplicate_name_same_entity",
+      recordId: "r1",
+      matchedRecordId: "r2",
+    });
+    expect(result.matches[0].confidence).toBe(90);
+    expect(result.matches[0].because).toMatch(/same file name and size/i);
+  });
+
+  it("does not pair same-name uploads attached to different records", async () => {
+    tableRows.resources = [
+      { id: "r1", file_name: "brief.pdf", file_type: "upload", external_url: null, size_bytes: 1024, organization_id: "org-1", person_id: null },
+      { id: "r2", file_name: "brief.pdf", file_type: "upload", external_url: null, size_bytes: 1024, organization_id: null, person_id: "person-1" },
+    ];
+
+    const result = await memoryGetSimilarRecords({
+      workspaceId: "ws-1",
+      entityType: "resource",
+    });
+
+    expect(result.matches).toHaveLength(0);
+  });
+});
+
+describe("meeting duplicates", () => {
+  it("pairs meetings with the same start time and overlapping guests", async () => {
+    tableRows.meetings = [
+      { id: "m1", title: "Kickoff", start_time: "2026-08-10T17:00:00Z", attendees: [{ name: "Ada", email: "ada@client.com" }] },
+      { id: "m2", title: "Kickoff (recording)", start_time: "2026-08-10T17:00:00Z", attendees: [{ name: "Ada Lovelace", email: "ada@client.com" }] },
+      { id: "m3", title: "Other", start_time: "2026-08-11T17:00:00Z", attendees: [{ name: "Ada", email: "ada@client.com" }] },
+    ];
+
+    const result = await memoryGetSimilarRecords({
+      workspaceId: "ws-1",
+      entityType: "meeting",
+    });
+
+    expect(result.matches).toHaveLength(1);
+    expect(result.matches[0]).toMatchObject({
+      entityType: "meeting",
+      signal: "meeting_duplicate_time_attendees",
+      recordId: "m1",
+      matchedRecordId: "m2",
+    });
+  });
+
+  it("falls back to attendee names when emails are absent, and skips non-overlapping guests", async () => {
+    tableRows.meetings = [
+      { id: "m1", title: "A", start_time: "2026-08-10T17:00:00Z", attendees: [{ name: "Ada" }] },
+      { id: "m2", title: "B", start_time: "2026-08-10T17:00:00Z", attendees: [{ name: "ada" }] },
+      { id: "m3", title: "C", start_time: "2026-08-10T17:00:00Z", attendees: [{ name: "Grace" }] },
+    ];
+
+    const result = await memoryGetSimilarRecords({
+      workspaceId: "ws-1",
+      entityType: "meeting",
+    });
+
+    expect(result.matches).toHaveLength(1);
+    expect(result.matches[0].matchedRecordId).toBe("m2");
   });
 });
 

@@ -24,6 +24,9 @@ interface FileRow {
   mime_type: string | null;
   size_bytes: number | null;
   category: string | null;
+  ai_summary: string | null;
+  lifecycle_status: string | null;
+  signed_date: string | null;
   person_id: string | null;
   organization_id: string | null;
   created_at: string;
@@ -43,6 +46,9 @@ function mapFileRowToResource(row: FileRow): Resource {
     fileCategory: row.category ?? undefined,
     fileSizeBytes: row.size_bytes ?? undefined,
     mimeType: row.mime_type ?? undefined,
+    aiSummary: row.ai_summary ?? undefined,
+    lifecycleStatus: row.lifecycle_status ?? undefined,
+    signedDate: row.signed_date ?? undefined,
     metadata: {},
     liveConfig: row.live_config as Resource["liveConfig"],
     lastActivityAt: row.last_activity_at ?? undefined,
@@ -104,6 +110,9 @@ export const getEntityResources = cache(
         mime_type,
         size_bytes,
         category,
+        ai_summary,
+        lifecycle_status,
+        signed_date,
         person_id,
         organization_id,
         created_at,
@@ -311,6 +320,9 @@ export const getResourceById = cache(
         mime_type,
         size_bytes,
         category,
+        ai_summary,
+        lifecycle_status,
+        signed_date,
         person_id,
         organization_id,
         created_at,

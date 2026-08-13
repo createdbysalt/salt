@@ -59,7 +59,7 @@ vi.mock("@/app/_lib/memory-tools", () => ({
   memoryUpdateField: (...args: unknown[]) => mockMemoryUpdateField(...args),
 }));
 
-import { analyzeResourceContent } from "./content-analysis";
+import { analyzeResourceContent, isFetchableLinkUrl } from "./content-analysis";
 
 const WS = "ws-1";
 const RESOURCE_ID = "res-1";
@@ -306,5 +306,80 @@ describe("analyzeResourceContent", () => {
       .map(([arg]) => arg as { entityType: string })
       .filter((c) => c.entityType === "work");
     expect(workWrites).toEqual([]);
+  });
+
+  it("fetches and analyzes a link resource with a public URL", async () => {
+    resourceRow = baseRow({
+      file_type: "link",
+      bucket_id: null,
+      object_path: null,
+      mime_type: null,
+      external_url: "https://example.com/msa.txt",
+    });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      headers: { get: () => "text/plain" },
+      arrayBuffer: async () => new TextEncoder().encode("Master Services Agreement…").buffer,
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await analyzeResourceContent({ workspaceId: WS, resourceId: RESOURCE_ID });
+
+    expect(result.analyzed).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(mockSendLlm).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
+  });
+
+  it("never fetches private or loopback link URLs", async () => {
+    resourceRow = baseRow({
+      file_type: "link",
+      bucket_id: null,
+      object_path: null,
+      mime_type: null,
+      external_url: "http://169.254.169.254/latest/meta-data",
+    });
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await analyzeResourceContent({ workspaceId: WS, resourceId: RESOURCE_ID });
+
+    expect(result).toEqual({ analyzed: false, reason: "no-content", written: [] });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(mockSendLlm).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+});
+
+describe("isFetchableLinkUrl", () => {
+  it("allows public http(s) URLs", () => {
+    expect(isFetchableLinkUrl("https://example.com/contract.pdf")).toBe(true);
+    expect(isFetchableLinkUrl("http://docs.example.org/msa")).toBe(true);
+  });
+
+  it("rejects non-http schemes and unparseable URLs", () => {
+    expect(isFetchableLinkUrl("file:///etc/passwd")).toBe(false);
+    expect(isFetchableLinkUrl("ftp://example.com/x")).toBe(false);
+    expect(isFetchableLinkUrl("not a url")).toBe(false);
+  });
+
+  it("rejects loopback, private, and link-local hosts", () => {
+    expect(isFetchableLinkUrl("http://localhost:3000/x")).toBe(false);
+    expect(isFetchableLinkUrl("https://127.0.0.1/x")).toBe(false);
+    expect(isFetchableLinkUrl("https://10.0.0.5/x")).toBe(false);
+    expect(isFetchableLinkUrl("https://172.16.0.1/x")).toBe(false);
+    expect(isFetchableLinkUrl("https://172.31.255.255/x")).toBe(false);
+    expect(isFetchableLinkUrl("https://192.168.1.1/x")).toBe(false);
+    expect(isFetchableLinkUrl("http://169.254.169.254/latest/meta-data")).toBe(false);
+    expect(isFetchableLinkUrl("http://0.0.0.0/x")).toBe(false);
+    expect(isFetchableLinkUrl("http://[::1]/x")).toBe(false);
+    expect(isFetchableLinkUrl("https://printer.local/x")).toBe(false);
+    expect(isFetchableLinkUrl("https://db.internal/x")).toBe(false);
+  });
+
+  it("allows public IPs and public lookalikes", () => {
+    expect(isFetchableLinkUrl("https://8.8.8.8/x")).toBe(true);
+    expect(isFetchableLinkUrl("https://172.15.0.1/x")).toBe(true);
+    expect(isFetchableLinkUrl("https://172.32.0.1/x")).toBe(true);
   });
 });

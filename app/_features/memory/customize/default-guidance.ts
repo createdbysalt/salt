@@ -115,13 +115,14 @@ export function scopesForPrompt(
 }
 
 /**
- * Section kinds let the UI render structure, not just prose: "birth" lines
- * get check icons, "fields"/"never" are covered by the chip groups (and
- * stay in `sections` as the sentence rendering), "custom" is curated copy
- * like the General page's explainer.
+ * Section kinds let the UI render structure, not just prose: "birth",
+ * "connections", "principle", and "hygiene" render as the record-logic
+ * accordions, "fields"/"never" are covered by the chip groups (and stay in
+ * `sections` as the sentence rendering), "custom" is curated copy like the
+ * General page's explainer.
  */
 export interface DefaultGuidanceSection {
-  kind: "birth" | "connections" | "principle" | "fields" | "never" | "system" | "custom";
+  kind: "birth" | "connections" | "principle" | "hygiene" | "fields" | "never" | "system" | "custom";
   heading: string;
   lines: string[];
 }
@@ -166,14 +167,33 @@ const TYPE_SUMMARIES: Record<MemoryCustomizeEntityType, string> = {
 
 /**
  * Source precedence per type — who wins when several connected apps know
- * the same field. From the field-sourcing canvases; only types with a
- * real multi-source story carry one. Renders as the "When sources
- * disagree" accordion on the record card.
+ * the same field. From the field-sourcing canvases. Renders as the "When
+ * sources disagree" accordion on the record card.
  */
-const TYPE_PRINCIPLES: Partial<Record<MemoryCustomizeEntityType, string[]>> = {
+const TYPE_PRINCIPLES: Record<MemoryCustomizeEntityType, string[]> = {
   person: [
     "The winner is whoever maintains the field best: CRM (human-curated) → billing (kept current because money depends on it) → scheduling (self-reported) → email signatures (scraped).",
     "Email and calendar find people and keep them warm — they don't get the final word on identity.",
+  ],
+  org: [
+    "The winner is whoever maintains the field best: CRM (human-curated) → billing (kept current because money depends on it) → the email domain that first suggested the company.",
+    "Money settles the relationship — they pay you, they're a client; you pay them, they're a vendor.",
+  ],
+  work: [
+    "The signed document wins on the numbers — value, terms, and dates come from the contract or proposal itself.",
+    "Your CRM's deal board has the final word on stage; signatures, kickoffs, and delivered work decide the status.",
+  ],
+  resource: [
+    "The document itself wins — I read it to tell a contract from a receipt, and what it says beats what the email around it claimed.",
+    "Anything you file or rename yourself stays exactly as you set it — I only fill in what's still empty.",
+  ],
+  meeting: [
+    "Your calendar has the final word on the time, the title, and who was invited.",
+    "The recording app settles who actually showed up, and the summary reflects what was actually discussed — not what the invite promised.",
+  ],
+  billing: [
+    "The billing app is the system of record — it issued the document, so its numbers win.",
+    "A matched payment or a parsed invoice can confirm a value, never override it.",
   ],
 };
 
@@ -237,6 +257,53 @@ const TYPE_CONNECTION_LINES: Record<MemoryCustomizeEntityType, string[]> = {
   billing: [
     "I connect a billing record to the organization and person behind it, and to the work the money was for.",
     CONNECTIONS_PRINCIPLE_LINE,
+  ],
+};
+
+/**
+ * Hygiene per type — how duplicates, staleness, and loose ends are handled.
+ * Every proposal lands in Memory → Activity for review; nothing merges or
+ * archives on its own, and dismissed candidates never resurface (the
+ * correction memory). Copy must track the hygiene capability's real
+ * coverage: stale checks run on people/orgs/work/billing only — resources
+ * and meetings are keepers, so their copy says so instead of promising a
+ * sweep that doesn't exist.
+ */
+const MERGE_MECHANICS_LINE =
+  "A merge combines the records, carries over their links and billing, and archives the duplicate.";
+
+const TYPE_HYGIENE_LINES: Record<MemoryCustomizeEntityType, string[]> = {
+  person: [
+    "I spot duplicates by email or phone number and suggest a merge — you always make the call, and \"Keep both\" means I never ask again.",
+    MERGE_MECHANICS_LINE,
+    "If someone goes quiet for 90 days, I'll suggest archiving the record — never automatically.",
+    "If a person has no organization, I look for one whose domain matches their email and suggest the link.",
+  ],
+  org: [
+    "I spot duplicates by domain and suggest a merge — you always make the call, and \"Keep both\" means I never ask again.",
+    MERGE_MECHANICS_LINE,
+    "If an organization goes quiet for 90 days, I'll suggest archiving it — never automatically.",
+  ],
+  work: [
+    "I spot duplicates when two work records share a name under the same organization, and suggest a merge — you always make the call.",
+    MERGE_MECHANICS_LINE,
+    "If work sits quiet for 90 days, I'll suggest archiving it — never automatically.",
+  ],
+  resource: [
+    "I spot duplicates when the same link lands twice, or the same file name shows up twice under one record, and suggest a merge — you decide.",
+    MERGE_MECHANICS_LINE,
+    "Old documents are your paper trail — I never suggest archiving a resource just because time passed.",
+    "A resource with no record attached stays in your library — I only suggest a link when I can name the exact record it belongs to.",
+  ],
+  meeting: [
+    "I spot duplicates when two meetings share a start time and the same guests — the same call pulled in from your calendar and a recording app — and suggest a merge.",
+    MERGE_MECHANICS_LINE,
+    "Past meetings are history, not clutter — I never suggest archiving them.",
+  ],
+  billing: [
+    "I spot duplicates by invoice number and suggest a merge — you always make the call, and \"Keep both\" means I never ask again.",
+    MERGE_MECHANICS_LINE,
+    "If a billing record goes quiet for 90 days, I'll suggest archiving it — never automatically.",
   ],
 };
 
@@ -381,14 +448,17 @@ export function defaultGuidanceForType(
     lines: TYPE_CONNECTION_LINES[entityType],
   });
 
-  const principleLines = TYPE_PRINCIPLES[entityType];
-  if (principleLines) {
-    sections.push({
-      kind: "principle",
-      heading: "When sources disagree",
-      lines: principleLines,
-    });
-  }
+  sections.push({
+    kind: "principle",
+    heading: "When sources disagree",
+    lines: TYPE_PRINCIPLES[entityType],
+  });
+
+  sections.push({
+    kind: "hygiene",
+    heading: "How I keep records clean",
+    lines: TYPE_HYGIENE_LINES[entityType],
+  });
 
   if (autoLines.length > 0) {
     sections.push({ kind: "fields", heading: "What I fill in", lines: autoLines });

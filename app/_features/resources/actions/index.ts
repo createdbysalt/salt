@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getWorkspaceContext } from "@/app/_lib/utils/user-dashboard";
 import { detectResourceFromUrl } from "@/app/_lib/resources/url-detector";
+import { analyzeResourceContent } from "../services/content-analysis";
 import type { ResourceMode, ResourceSource, ResourceType } from "@/app/_lib/resources/types";
 
 const AddResourceSchema = z.object({
@@ -16,6 +17,9 @@ const AddResourceSchema = z.object({
   source: z.enum(["manual", "care", "enrichment", "ask_salt", "capture"]).default("manual"),
   confidence: z.number().min(0).max(100).optional(),
   because: z.string().max(500).optional(),
+  defaultCategory: z
+    .enum(["brand_asset", "deliverable", "contract", "invoice", "proposal", "reference", "media", "notes", "process", "screenshot", "other"])
+    .optional(),
 });
 
 export type AddResourceInput = z.infer<typeof AddResourceSchema>;
@@ -26,7 +30,7 @@ export async function addResource(input: AddResourceInput) {
     return { success: false, error: parsed.error.message };
   }
 
-  const { workspace, supabase } = await getWorkspaceContext();
+  const { workspace, supabase, userId } = await getWorkspaceContext();
   const data = parsed.data;
 
   const detection = detectResourceFromUrl(data.resourceUrl);
@@ -63,6 +67,9 @@ export async function addResource(input: AddResourceInput) {
       source: data.source,
       confidence: data.confidence,
       because: data.because,
+      // Only set when the caller pre-picks a FileCategory (e.g. "contract");
+      // the column is NOT NULL with a DB default, so omit it otherwise.
+      ...(data.defaultCategory ? { category: data.defaultCategory } : {}),
     })
     .select("id")
     .single();
@@ -84,6 +91,19 @@ export async function addResource(input: AddResourceInput) {
     });
 
     revalidatePath(`/${data.entityType === "org" ? "orgs" : data.entityType}/${data.entityId}`);
+  }
+
+  // A contract added as a link may be a fetchable document — read it to
+  // fill the resource and linked work records. Fire-and-forget; fetch
+  // failures fall back to no-content inside the analysis.
+  if (data.defaultCategory === "contract") {
+    analyzeResourceContent({
+      workspaceId: workspace.id,
+      resourceId: resource.id,
+      actorUserId: userId,
+    }).catch((err) => {
+      console.error("Error analyzing contract content:", err);
+    });
   }
 
   revalidatePath("/resources");

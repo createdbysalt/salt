@@ -77,6 +77,21 @@ export async function memoryGetSimilarRecords(
     matches.push(...billingMatches);
   }
 
+  if (!entityType || entityType === "work") {
+    const workMatches = await findWorkDuplicates(supabase, workspaceId, limit);
+    matches.push(...workMatches);
+  }
+
+  if (!entityType || entityType === "resource") {
+    const fileMatches = await findFileDuplicates(supabase, workspaceId, limit);
+    matches.push(...fileMatches);
+  }
+
+  if (!entityType || entityType === "meeting") {
+    const meetingMatches = await findMeetingDuplicates(supabase, workspaceId, limit);
+    matches.push(...meetingMatches);
+  }
+
   return {
     matches: matches.slice(0, limit),
     scannedCount: matches.length,
@@ -292,6 +307,227 @@ async function findBillingDuplicates(
   }
 
   return matches.slice(0, limit);
+}
+
+/**
+ * Work duplicates: same name under the same organization. Name-only matches
+ * without an org are too weak ("Website redesign" recurs legitimately), so
+ * org-less records never pair.
+ */
+async function findWorkDuplicates(
+  supabase: ReturnType<typeof createAdminClient>,
+  workspaceId: string,
+  limit: number
+): Promise<SimilarityMatch[]> {
+  const matches: SimilarityMatch[] = [];
+
+  const { data: workRows } = await supabase
+    .from("work")
+    .select("id, name, organization_id")
+    .eq("workspace_id", workspaceId)
+    .is("deleted_at", null)
+    .is("archived_at", null)
+    .not("organization_id", "is", null);
+
+  if (workRows) {
+    const keyMap = new Map<string, typeof workRows>();
+    for (const row of workRows) {
+      const name = row.name?.toLowerCase().trim();
+      if (!name || !row.organization_id) continue;
+      const key = `${row.organization_id}::${name}`;
+      const existing = keyMap.get(key) || [];
+      existing.push(row);
+      keyMap.set(key, existing);
+    }
+
+    for (const rows of keyMap.values()) {
+      if (rows.length > 1) {
+        const name = rows[0].name || "";
+        for (let i = 0; i < rows.length - 1; i++) {
+          matches.push({
+            recordId: rows[i].id,
+            matchedRecordId: rows[i + 1].id,
+            entityType: "work",
+            signal: "work_duplicate_name_same_org",
+            confidence: 88,
+            because: `Same name under the same organization: ${name}`,
+            recordA: { id: rows[i].id, name },
+            recordB: { id: rows[i + 1].id, name },
+          });
+        }
+      }
+    }
+  }
+
+  return matches.slice(0, limit);
+}
+
+/**
+ * Resource duplicates: links pair on the same normalized URL; uploads pair
+ * on the same file name under the same linked record (org or person), with
+ * a confidence bump when the byte sizes also match.
+ */
+async function findFileDuplicates(
+  supabase: ReturnType<typeof createAdminClient>,
+  workspaceId: string,
+  limit: number
+): Promise<SimilarityMatch[]> {
+  const matches: SimilarityMatch[] = [];
+
+  const { data: files } = await supabase
+    .from("resources")
+    .select(
+      "id, file_name, file_type, external_url, size_bytes, organization_id, person_id"
+    )
+    .eq("workspace_id", workspaceId)
+    .is("deleted_at", null)
+    .is("archived_at", null);
+
+  if (!files) return matches;
+
+  type FileRow = (typeof files)[number];
+
+  const pushPairs = (
+    rows: FileRow[],
+    signal: string,
+    confidence: (_a: FileRow, _b: FileRow) => number,
+    because: (_a: FileRow, _b: FileRow) => string
+  ) => {
+    for (let i = 0; i < rows.length - 1; i++) {
+      matches.push({
+        recordId: rows[i].id,
+        matchedRecordId: rows[i + 1].id,
+        entityType: "resource",
+        signal,
+        confidence: confidence(rows[i], rows[i + 1]),
+        because: because(rows[i], rows[i + 1]),
+        recordA: { id: rows[i].id, name: rows[i].file_name || "" },
+        recordB: { id: rows[i + 1].id, name: rows[i + 1].file_name || "" },
+      });
+    }
+  };
+
+  const urlMap = new Map<string, FileRow[]>();
+  const uploadMap = new Map<string, FileRow[]>();
+  for (const file of files) {
+    const url = normalizeLinkUrl(file.external_url);
+    if (url) {
+      const existing = urlMap.get(url) || [];
+      existing.push(file);
+      urlMap.set(url, existing);
+      continue;
+    }
+    if (file.file_type === "upload") {
+      const entityId = file.organization_id ?? file.person_id;
+      const name = file.file_name?.toLowerCase().trim();
+      if (!entityId || !name) continue;
+      const key = `${entityId}::${name}`;
+      const existing = uploadMap.get(key) || [];
+      existing.push(file);
+      uploadMap.set(key, existing);
+    }
+  }
+
+  for (const [url, rows] of urlMap) {
+    if (rows.length > 1) {
+      pushPairs(rows, "file_duplicate_url", (_a, _b) => 97, (_a, _b) => `Same link: ${url}`);
+    }
+  }
+  for (const rows of uploadMap.values()) {
+    if (rows.length > 1) {
+      pushPairs(
+        rows,
+        "file_duplicate_name_same_entity",
+        (a, b) => (a.size_bytes != null && a.size_bytes === b.size_bytes ? 90 : 82),
+        (a, b) =>
+          a.size_bytes != null && a.size_bytes === b.size_bytes
+            ? `Same file name and size under the same record: ${a.file_name}`
+            : `Same file name under the same record: ${a.file_name}`
+      );
+    }
+  }
+
+  return matches.slice(0, limit);
+}
+
+/**
+ * Meeting duplicates: same start time with overlapping guests (email when
+ * present, name otherwise). Catches the same call ingested from both the
+ * calendar and a recording app.
+ */
+async function findMeetingDuplicates(
+  supabase: ReturnType<typeof createAdminClient>,
+  workspaceId: string,
+  limit: number
+): Promise<SimilarityMatch[]> {
+  const matches: SimilarityMatch[] = [];
+
+  const { data: meetings } = await supabase
+    .from("meetings")
+    .select("id, title, start_time, attendees")
+    .eq("workspace_id", workspaceId)
+    .is("deleted_at", null)
+    .is("archived_at", null);
+
+  if (meetings) {
+    const timeMap = new Map<string, typeof meetings>();
+    for (const meeting of meetings) {
+      if (!meeting.start_time) continue;
+      const existing = timeMap.get(meeting.start_time) || [];
+      existing.push(meeting);
+      timeMap.set(meeting.start_time, existing);
+    }
+
+    for (const [startTime, rows] of timeMap) {
+      if (rows.length < 2) continue;
+      for (let i = 0; i < rows.length - 1; i++) {
+        for (let j = i + 1; j < rows.length; j++) {
+          const a = attendeeKeys(rows[i].attendees);
+          const b = attendeeKeys(rows[j].attendees);
+          const overlap = [...a].some((key) => b.has(key));
+          if (!overlap) continue;
+          matches.push({
+            recordId: rows[i].id,
+            matchedRecordId: rows[j].id,
+            entityType: "meeting",
+            signal: "meeting_duplicate_time_attendees",
+            confidence: 85,
+            because: `Same start time with overlapping guests: ${startTime}`,
+            recordA: { id: rows[i].id, name: rows[i].title || "" },
+            recordB: { id: rows[j].id, name: rows[j].title || "" },
+          });
+        }
+      }
+    }
+  }
+
+  return matches.slice(0, limit);
+}
+
+function attendeeKeys(attendees: unknown): Set<string> {
+  const keys = new Set<string>();
+  if (!Array.isArray(attendees)) return keys;
+  for (const attendee of attendees) {
+    if (!attendee || typeof attendee !== "object") continue;
+    const { email, name } = attendee as { email?: unknown; name?: unknown };
+    if (typeof email === "string" && email.trim()) {
+      keys.add(email.toLowerCase().trim());
+    } else if (typeof name === "string" && name.trim()) {
+      keys.add(name.toLowerCase().trim());
+    }
+  }
+  return keys;
+}
+
+function normalizeLinkUrl(url: string | null): string | null {
+  if (!url) return null;
+  const normalized = url
+    .toLowerCase()
+    .trim()
+    .replace(/^https?:\/\//, "")
+    .replace(/^www\./, "")
+    .replace(/\/+$/, "");
+  return normalized || null;
 }
 
 function normalizePhone(phone: string | null): string | null {

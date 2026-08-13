@@ -275,6 +275,72 @@ describe("field sourcing (people-field-sourcing canvas)", () => {
     expect(text).toMatch(/email/i);
   });
 
+  it("every record type ships a source precedence principle, grounded in its sourcing canvas", () => {
+    // Keywords each type's precedence copy must mention — the sources its
+    // fields actually draw on (see the registry sourcing notes).
+    const expected: Record<string, RegExp[]> = {
+      person: [/CRM/i, /billing/i, /scheduling/i, /email/i],
+      org: [/CRM/i, /billing/i, /domain/i],
+      work: [/contract|proposal/i, /CRM/i, /stage|status/i],
+      resource: [/document/i],
+      meeting: [/calendar/i, /recording/i],
+      billing: [/system of record/i, /payment/i],
+    };
+    for (const type of MEMORY_CUSTOMIZE_ENTITY_TYPES) {
+      const guidance = defaultGuidanceForType(type);
+      const principle = guidance.sections.find(
+        (section) => section.kind === "principle",
+      );
+      expect(principle, `${type} principle section`).toBeDefined();
+      expect(principle?.heading).toMatch(/sources disagree/i);
+      const text = principle?.lines.join("\n") ?? "";
+      for (const pattern of expected[type]) {
+        expect(text, `${type} principle mentions ${pattern}`).toMatch(pattern);
+      }
+    }
+  });
+
+  it("every record type ships a hygiene section that matches real coverage", () => {
+    for (const type of MEMORY_CUSTOMIZE_ENTITY_TYPES) {
+      const guidance = defaultGuidanceForType(type);
+      const hygiene = guidance.sections.find(
+        (section) => section.kind === "hygiene",
+      );
+      expect(hygiene, `${type} hygiene section`).toBeDefined();
+      expect(hygiene?.heading).toMatch(/keep records clean/i);
+      // Every type promises merge suggestions land for review, never auto.
+      const text = hygiene?.lines.join("\n") ?? "";
+      expect(text, `${type} merge line`).toMatch(/merge/i);
+      expect(text, `${type} never-auto line`).toMatch(/never|you (always )?(make the call|decide)/i);
+    }
+  });
+
+  it("resources and meetings never promise staleness sweeps — they are keepers", () => {
+    for (const type of ["resource", "meeting"] as const) {
+      const guidance = defaultGuidanceForType(type);
+      const hygiene = guidance.sections.find(
+        (section) => section.kind === "hygiene",
+      )!;
+      const text = hygiene.lines.join("\n");
+      // The hygiene capability has no stale scan for these types; the copy
+      // must say so rather than imply one exists.
+      expect(text, `${type} keeper line`).toMatch(/never suggest archiving/i);
+      expect(text, `${type} no 90-day promise`).not.toMatch(/90 days/i);
+    }
+  });
+
+  it("people, orgs, work, and billing promise the 90-day quiet sweep", () => {
+    for (const type of ["person", "org", "work", "billing"] as const) {
+      const guidance = defaultGuidanceForType(type);
+      const hygiene = guidance.sections.find(
+        (section) => section.kind === "hygiene",
+      )!;
+      expect(hygiene.lines.join("\n"), `${type} stale line`).toMatch(
+        /90 days/i,
+      );
+    }
+  });
+
   it("person summary stays one line; birth logic lives in its accordion", () => {
     const guidance = defaultGuidanceForType("person");
     // The card pattern: a short statement up top, detail behind dropdowns.

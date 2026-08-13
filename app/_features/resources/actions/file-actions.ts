@@ -13,6 +13,8 @@ import {
   getFileActivityFeed,
 } from "../directory-queries";
 import { setFileWorkLink } from "../utils/work-links";
+import { runCareForSignal } from "@/app/_features/memory/care/scheduler";
+import { analyzeResourceContent } from "../services/content-analysis";
 
 type ActionResult<T = void> =
   | { ok: true; data?: T }
@@ -234,7 +236,7 @@ export async function updateMemoryFileCategory(
   category: FileCategory,
 ): Promise<ActionResult> {
   try {
-    const { workspace } = await getWorkspaceContext();
+    const { workspace, userId } = await getWorkspaceContext();
     const supabase = await createClient();
 
     const { error } = await supabase
@@ -245,6 +247,19 @@ export async function updateMemoryFileCategory(
 
     if (error) {
       return { ok: false, message: error.message };
+    }
+
+    // A link filed as a contract may carry fetchable content — read it to
+    // fill the resource and linked work records. Fire-and-forget; the
+    // analysis self-guards on its already-analyzed marker.
+    if (category === "contract") {
+      analyzeResourceContent({
+        workspaceId: workspace.id,
+        resourceId: fileId,
+        actorUserId: userId,
+      }).catch((err) => {
+        console.error("Error analyzing contract content:", err);
+      });
     }
 
     revalidatePath("/resources");
@@ -355,6 +370,10 @@ export async function updateMemoryFileField(
       return { ok: false, message: error.message };
     }
 
+    if (allowedField === "lifecycle_status" && normalized.value === "signed") {
+      await dispatchSignedContractSignal(workspace.id, fileId);
+    }
+
     revalidatePath("/resources");
     return { ok: true };
   } catch (error) {
@@ -362,6 +381,50 @@ export async function updateMemoryFileField(
       ok: false,
       message: error instanceof Error ? error.message : `Could not update ${field}`,
     };
+  }
+}
+
+/**
+ * A contract-category resource marked "signed" attests the signed state on
+ * every work record it is linked to (status fill rule, 95% confidence).
+ * Best-effort: signal failures never fail the field update.
+ */
+async function dispatchSignedContractSignal(
+  workspaceId: string,
+  fileId: string,
+): Promise<void> {
+  try {
+    const admin = createAdminClient();
+    const { data: resource } = await admin
+      .from("resources")
+      .select("category")
+      .eq("id", fileId)
+      .eq("workspace_id", workspaceId)
+      .maybeSingle();
+    if (resource?.category !== "contract") return;
+
+    const { data: links } = await admin
+      .from("entity_links")
+      .select("target_id")
+      .eq("workspace_id", workspaceId)
+      .in("source_type", ["resource", "file"])
+      .eq("source_id", fileId)
+      .eq("target_type", "work");
+
+    for (const link of links ?? []) {
+      await runCareForSignal({
+        workspaceId,
+        signalKey: "work_has_signed_contract",
+        entityType: "work",
+        entityId: link.target_id,
+        evidence: {
+          signalValues: { work_has_signed_contract: true },
+          resourceId: fileId,
+        },
+      });
+    }
+  } catch (error) {
+    console.error("Error dispatching signed-contract signal:", error);
   }
 }
 

@@ -88,6 +88,7 @@ interface ResourceRow {
   mime_type: string | null;
   bucket_id: string | null;
   object_path: string | null;
+  external_url: string | null;
   category: string | null;
   document_type: string | null;
   description: string | null;
@@ -142,6 +143,111 @@ function existingText(row: ResourceRow): string | null {
   return combined.length > 0 ? combined.slice(0, MAX_TEXT_CHARS) : null;
 }
 
+const LINK_FETCH_TIMEOUT_MS = 10_000;
+
+/**
+ * SSRF guard for fetching user-supplied link resources: http(s) only, no
+ * loopback/private/link-local hosts. DNS-rebinding is out of scope — this
+ * blocks the literal-host cases.
+ */
+export function isFetchableLinkUrl(raw: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") return false;
+  const host = url.hostname.toLowerCase();
+  if (host.includes(":")) return false; // IPv6 literal — block entirely
+  if (
+    host === "localhost" ||
+    host.endsWith(".local") ||
+    host.endsWith(".internal") ||
+    host.endsWith(".localhost")
+  ) {
+    return false;
+  }
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) {
+    const [a, b] = host.split(".").map(Number);
+    if (
+      a === 0 ||
+      a === 10 ||
+      a === 127 ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 168) ||
+      (a === 169 && b === 254)
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function stripHtml(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Best-effort content fetch for link-type resources (e.g. a contract added
+ * as a public URL). Returns null on any failure — analysis simply falls
+ * back to whatever text the resource already carries.
+ */
+async function fetchLinkContentParts(
+  url: string,
+  fileName: string,
+): Promise<LlmContentPart[] | null> {
+  if (!isFetchableLinkUrl(url)) return null;
+  try {
+    const response = await fetch(url, {
+      signal: AbortSignal.timeout(LINK_FETCH_TIMEOUT_MS),
+      redirect: "follow",
+      headers: { "User-Agent": "Salt-Content-Analysis/1.0" },
+    });
+    if (!response.ok) return null;
+    const mime = (response.headers.get("content-type") ?? "")
+      .split(";")[0]
+      .trim()
+      .toLowerCase();
+    if (!isVisionMime(mime) && !isTextMime(mime)) return null;
+    const buffer = Buffer.from(await response.arrayBuffer());
+    if (buffer.byteLength === 0 || buffer.byteLength > MAX_DOWNLOAD_BYTES) {
+      return null;
+    }
+    if (isVisionMime(mime)) {
+      return [
+        { type: "text", text: `${ANALYSIS_PROMPT}\n\nFile name: ${fileName}` },
+        {
+          type: "image_url",
+          image_url: {
+            url: `data:${mime};base64,${buffer.toString("base64")}`,
+            detail: "high",
+          },
+        },
+      ];
+    }
+    let text = buffer.toString("utf8");
+    if (mime === "text/html") text = stripHtml(text);
+    text = text.slice(0, MAX_TEXT_CHARS).trim();
+    if (!text) return null;
+    return [
+      {
+        type: "text",
+        text: `${ANALYSIS_PROMPT}\n\nFile name: ${fileName}\n\nContent:\n${text}`,
+      },
+    ];
+  } catch {
+    return null;
+  }
+}
+
 async function buildContentParts(
   admin: ReturnType<typeof createAdminClient>,
   row: ResourceRow,
@@ -174,6 +280,11 @@ async function buildContentParts(
         ];
       }
     }
+  }
+
+  if (row.file_type === "link" && row.external_url) {
+    const linkParts = await fetchLinkContentParts(row.external_url, row.file_name);
+    if (linkParts) return linkParts;
   }
 
   const text = existingText(row);
@@ -374,7 +485,7 @@ export async function analyzeResourceContent(input: {
   const { data } = await admin
     .from("resources")
     .select(
-      "id, file_name, file_type, mime_type, bucket_id, object_path, category, document_type, description, total_amount_cents, currency, due_date, expiry_date, follow_up_date, ai_summary, extracted_data",
+      "id, file_name, file_type, mime_type, bucket_id, object_path, external_url, category, document_type, description, total_amount_cents, currency, due_date, expiry_date, follow_up_date, ai_summary, extracted_data",
     )
     .eq("id", input.resourceId)
     .eq("workspace_id", input.workspaceId)

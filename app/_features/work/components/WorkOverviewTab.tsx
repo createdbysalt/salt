@@ -35,6 +35,8 @@ import type {
   WorkType,
 } from "@/app/_features/work/types";
 import { computeFinalPrice, formatCurrencyCents, formatWorkBillingLine } from "@/app/_features/work/utils/pricing";
+import { WorkResourcesSection } from "@/app/_features/work/components/WorkResourcesSection";
+import type { Resource } from "@/app/_lib/resources/types";
 import { WorkStageSelect } from "@/app/_features/work/components/WorkStageSelect";
 import { getInitialStage, isValidStage } from "@/app/_features/work/utils/stages";
 import { TagEditor } from "@/app/_features/memory/components/TagEditor";
@@ -53,6 +55,7 @@ type WorkOverviewTabProps = {
   milestones?: WorkMilestone[];
   blockers?: WorkBlocker[];
   billingRollup?: WorkBillingRollup | null;
+  resources?: Resource[];
 };
 
 export function WorkOverviewTab({
@@ -63,6 +66,7 @@ export function WorkOverviewTab({
   milestones = [],
   blockers = [],
   billingRollup = null,
+  resources = [],
 }: WorkOverviewTabProps) {
   const primaryPerson = resolveWorkPrimaryPerson({
     primaryPerson: work.primaryPerson,
@@ -648,6 +652,10 @@ export function WorkOverviewTab({
 
       <MemoryOverviewSection title="Blockers" variant="heading" id="work-blockers">
         <WorkBlockersCard blockers={blockers} workId={workId} variant="embedded" />
+      </MemoryOverviewSection>
+
+      <MemoryOverviewSection title="Resources" variant="heading">
+        <WorkResourcesSection workId={workId} resources={resources} />
       </MemoryOverviewSection>
 
       <MemoryOverviewSection title="Tags" variant="heading">

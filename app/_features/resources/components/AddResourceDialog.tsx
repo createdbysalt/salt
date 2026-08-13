@@ -36,7 +36,7 @@ import { cn } from "@repo/utils";
 import { detectResourceFromUrl } from "@/app/_lib/resources/url-detector";
 import { RESOURCE_TYPE_LABELS } from "@/app/_lib/resources/types";
 import { getResourceIcon } from "@/app/_lib/resources/icons";
-import { addResource, fetchResourcePreview } from "../actions";
+import { addResource, fetchResourcePreview, type AddResourceInput } from "../actions";
 import {
   fetchLinkCandidates,
   type LinkCandidate,
@@ -60,6 +60,8 @@ type AddResourceDialogProps = {
   entityType?: EntityType;
   entityId?: string;
   entityName?: string;
+  /** Pre-picked FileCategory for the created resource (e.g. "contract"). */
+  defaultCategory?: AddResourceInput["defaultCategory"];
   onAdded?: (resourceId: string) => void;
 };
 
@@ -82,6 +84,7 @@ export function AddResourceDialog({
   entityType: initialEntityType,
   entityId: initialEntityId,
   entityName: initialEntityName,
+  defaultCategory,
   onAdded,
 }: AddResourceDialogProps) {
   const [inputMode, setInputMode] = useState<ResourceInputMode>("link");
@@ -211,6 +214,7 @@ export function AddResourceDialog({
         description: description.trim() || undefined,
         mode: liveMode,
         source: "manual",
+        defaultCategory,
       });
 
       if (result.success) {

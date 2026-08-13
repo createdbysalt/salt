@@ -470,6 +470,7 @@ export const FILE_PROFILE_SIGNAL_KEYS = [
   // Duplicate detection
   "file_duplicate_hash",
   "file_duplicate_name_same_entity",
+  "file_duplicate_url",
   // Hygiene
   "file_missing_category",
   "file_missing_linked_entity",
