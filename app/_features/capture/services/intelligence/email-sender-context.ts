@@ -7,6 +7,27 @@ import {
   extractPaymentPayer,
   isPaymentRailSender,
 } from "./email-heuristics";
+import {
+  KNOWN_SAAS_VENDOR_BRANDS,
+  SAAS_VENDOR_DOMAIN_SUFFIXES,
+  domainMatchesSuffix,
+  emailDomain,
+  isAutomatedVendorLocalPart,
+  isKnownSaasVendorDomain,
+  isKnownSaasVendorEmail,
+  isSaasBillingContent,
+  isStrongReceiptOrBillingSignal,
+} from "./vendor-domains";
+
+// The vendor canon lives in ./vendor-domains (a pure leaf) so org birth and
+// evidence classification can apply the same gate without importing this
+// module. Re-exported here for existing intelligence consumers.
+export {
+  isKnownSaasVendorDomain,
+  isKnownSaasVendorEmail,
+  isSaasBillingContent,
+  isStrongReceiptOrBillingSignal,
+} from "./vendor-domains";
 
 /**
  * Distinguishes SaaS/subscription vendors from client orgs for Memory proposals.
@@ -42,178 +63,6 @@ export interface ClassifyEmailSenderOptions {
   registry?: SenderProfileRegistry;
 }
 
-/** Domains that almost always mean a tool subscription, not a client relationship. */
-const SAAS_VENDOR_DOMAIN_SUFFIXES = [
-  "linear.app",
-  "linear.com",
-  "ramp.com",
-  "descript.com",
-  "descript.be",
-  "slack.com",
-  "notion.so",
-  "notion.com",
-  "figma.com",
-  "vercel.com",
-  "github.com",
-  "openai.com",
-  "anthropic.com",
-  "cursor.com",
-  "composio.dev",
-  "1password.com",
-  "loom.com",
-  "zoom.us",
-  "calendly.com",
-  "hubspot.com",
-  "mailchimp.com",
-  "canva.com",
-  "adobe.com",
-  "dropbox.com",
-  "monday.com",
-  "asana.com",
-  "clickup.com",
-  "airtable.com",
-  "intercom.io",
-  "intercom.com",
-  "postmarkapp.com",
-  "resend.dev",
-  "resend.com",
-  "supabase.com",
-  "supabase.io",
-  "planetscale.com",
-  "sentry.io",
-  "datadoghq.com",
-  "mixpanel.com",
-  "amplitude.com",
-  "twilio.com",
-  "sendgrid.net",
-  "cloudflare.com",
-  "namecheap.com",
-  "godaddy.com",
-  "quickbooks.com",
-  "intuit.com",
-  "freshbooks.com",
-  "waveapps.com",
-  "bill.com",
-  "mercury.com",
-  "brex.com",
-  "wise.com",
-  "paypal.com",
-  "square.com",
-  "squareup.com",
-  "stripe.com",
-  "google.com",
-  "googlemail.com",
-  "gemini.google.com",
-  "workspace.google.com",
-  "apify.com",
-  "apify.email",
-  "kit.com",
-  "convertkit.com",
-  "magicpath.ai",
-  "magicpath.com",
-  "beehiiv.com",
-  "substack.com",
-  "framer.com",
-  "webflow.com",
-  "miro.com",
-  "docusign.com",
-  "docusign.net",
-  "paddle.com",
-  "lemonsqueezy.com",
-  "gumroad.com",
-  "typeform.com",
-  "tally.so",
-  "superhuman.com",
-  "raycast.com",
-  "arc.net",
-  "replit.com",
-  "higgsfield.ai",
-];
-
-/** Brand strings for matching finding titles / proposal hints when domain is ambiguous. */
-export const KNOWN_SAAS_VENDOR_BRANDS = [
-  "magic path",
-  "magicpath",
-  "convertkit",
-  "kit",
-  "apify",
-  "descript",
-  "linear",
-  "ramp",
-  "notion",
-  "stripe",
-  "gemini",
-  "slack",
-  "figma",
-  "vercel",
-  "github",
-  "openai",
-  "anthropic",
-  "cursor",
-  "composio",
-  "1password",
-  "loom",
-  "hubspot",
-  "mailchimp",
-  "canva",
-  "adobe",
-  "dropbox",
-  "monday",
-  "asana",
-  "airtable",
-  "intercom",
-  "resend",
-  "supabase",
-  "sentry",
-  "twilio",
-  "cloudflare",
-  "quickbooks",
-  "mercury",
-  "brex",
-  "paddle",
-  "framer",
-  "webflow",
-  "miro",
-  "beehiiv",
-  "substack",
-  "higgsfield",
-] as const;
-
-const SAAS_BILLING_SUBJECT_PATTERNS = [
-  /\breceipt\b/i,
-  /\binvoice\b/i,
-  /\bsubscription\b/i,
-  /\brenew(ed|al|ing)\b/i,
-  /\bbilling\b/i,
-  /\bpayment (received|failed|due|method)\b/i,
-  /\byour plan\b/i,
-  /\btrial (ends|ending|expir)/i,
-  /\busage (report|summary|limit)\b/i,
-  /\bseat(s)? (added|removed|limit)\b/i,
-  /\bmanage (your )?billing\b/i,
-  /\baccount statement\b/i,
-  /\bmonthly statement\b/i,
-  /\bauto[- ]?renew\b/i,
-  /\bprice (change|increase)\b/i,
-  /\bupgrade (your|to)\b/i,
-  /\bdowngrade\b/i,
-  /\bcancel (your )?subscription\b/i,
-  /\bsecurity (alert|notification)\b/i,
-  /\bnew sign[- ]?in\b/i,
-  /\blogin (attempt|from)\b/i,
-  /\bverify your email\b/i,
-  /\bwelcome to\b/i,
-  /\bgetting started\b/i,
-  /\bproduct update\b/i,
-  /\bwhat'?s new\b/i,
-  /\bchangelog\b/i,
-  /\bweekly digest\b/i,
-  /\bactivity (summary|digest)\b/i,
-  /\bshared (a|with you)\b/i,
-  /\bcommented on\b/i,
-  /\bmentioned you\b/i,
-];
-
 const GOOGLE_VENDOR_SUBJECT_PATTERNS = [
   /\bgemini\b/i,
   /\bgoogle (one|workspace|cloud|play)\b/i,
@@ -221,46 +70,8 @@ const GOOGLE_VENDOR_SUBJECT_PATTERNS = [
   /\bgoogle ai\b/i,
 ];
 
-const AUTOMATED_LOCAL_PARTS = [
-  "noreply",
-  "no-reply",
-  "donotreply",
-  "notifications",
-  "billing",
-  "invoice",
-  "receipts",
-  "news",
-  "newsletter",
-  "marketing",
-  "mailer",
-  "support",
-  "hello",
-  "team",
-  "info",
-];
-
-function emailDomain(fromEmail: string): string {
-  return fromEmail.toLowerCase().split("@")[1]?.trim() ?? "";
-}
-
 function emailLocalPart(fromEmail: string): string {
   return fromEmail.toLowerCase().split("@")[0]?.trim() ?? "";
-}
-
-function domainMatchesSuffix(domain: string, suffix: string): boolean {
-  return domain === suffix || domain.endsWith(`.${suffix}`);
-}
-
-export function isKnownSaasVendorDomain(domain: string): boolean {
-  if (!domain) return false;
-  const lower = domain.toLowerCase();
-  return SAAS_VENDOR_DOMAIN_SUFFIXES.some((suffix) =>
-    domainMatchesSuffix(lower, suffix)
-  );
-}
-
-export function isKnownSaasVendorEmail(fromEmail: string): boolean {
-  return isKnownSaasVendorDomain(emailDomain(fromEmail));
 }
 
 function normalizeBrandText(value: string): string {
@@ -306,53 +117,6 @@ export function isVendorOrgName(name: string, vendorName?: string): boolean {
   }
 
   return false;
-}
-
-function isAutomatedVendorLocalPart(local: string): boolean {
-  const normalized = local.replace(/[.+]/g, "");
-  return AUTOMATED_LOCAL_PARTS.some(
-    (part) => normalized === part || normalized.startsWith(part)
-  );
-}
-
-export function isSaasBillingContent(subject: string, body: string): boolean {
-  const combined = `${subject}\n${body}`;
-  return SAAS_BILLING_SUBJECT_PATTERNS.some((pattern) => pattern.test(combined));
-}
-
-const RECEIPT_LOCAL_PART_PREFIXES = [
-  "receipt",
-  "invoice",
-  "billing",
-  "invoices",
-  "statements",
-];
-
-function isReceiptStyleLocalPart(local: string): boolean {
-  const normalized = local.replace(/[.+]/g, "");
-  return RECEIPT_LOCAL_PART_PREFIXES.some(
-    (part) => normalized === part || normalized.startsWith(part)
-  );
-}
-
-/** Universal vendor signal — works for SaaS domains not on any global list. */
-export function isStrongReceiptOrBillingSignal(
-  subject: string,
-  body: string,
-  local: string
-): boolean {
-  if (isReceiptStyleLocalPart(local)) return true;
-
-  const combined = `${subject}\n${body}`;
-  if (!isSaasBillingContent(subject, body)) return false;
-
-  return (
-    isAutomatedVendorLocalPart(local) ||
-    /\byour receipt from\b/i.test(combined) ||
-    /\binvoice #\b/i.test(combined) ||
-    /\bpayment received\b/i.test(combined) ||
-    /\bsubscription (renew|renewed|renewal)\b/i.test(combined)
-  );
 }
 
 function isGoogleVendorEmail(domain: string, subject: string, body: string): boolean {

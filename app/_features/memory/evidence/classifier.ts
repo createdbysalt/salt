@@ -8,6 +8,7 @@
 import { createClient } from "@/app/_lib/supabase/server";
 import type { IntakeEntityType } from "@/app/_features/memory/care/intake";
 import { canonicalizeIdentifier } from "@/app/_features/memory/care/intake";
+import { isKnownSaasVendorDomain, isStrongReceiptOrBillingSignal } from "@/app/_features/capture/services/intelligence/vendor-domains";
 
 /**
  * A detected signal with extracted data.
@@ -119,6 +120,14 @@ export async function classifyEmailCapture(
     if (domain) knownDomains.add(domain);
   }
 
+  // Receipt/billing mail from ANY domain (listed or not) is spend evidence,
+  // never an org relationship — suppress the org domain signal for it.
+  const receiptMail = isStrongReceiptOrBillingSignal(
+    email.subject ?? "",
+    email.body ?? "",
+    email.from.toLowerCase().split("@")[0]?.trim() ?? ""
+  );
+
   // Process each email address
   for (const rawAddress of allAddresses) {
     const address = rawAddress.toLowerCase().trim();
@@ -177,9 +186,17 @@ export async function classifyEmailCapture(
       },
     });
 
-    // Also check for unknown organization
+    // Also check for unknown organization — but never for SaaS vendor
+    // domains or receipt/billing mail: a receipt from a tool you pay is
+    // spend, not a relationship.
     const domain = address.split("@")[1];
-    if (domain && !isPersonalDomain(domain) && !knownDomains.has(domain)) {
+    if (
+      domain &&
+      !receiptMail &&
+      !isPersonalDomain(domain) &&
+      !isKnownSaasVendorDomain(domain) &&
+      !knownDomains.has(domain)
+    ) {
       signals.push({
         entityType: "organization",
         identifier: domain,

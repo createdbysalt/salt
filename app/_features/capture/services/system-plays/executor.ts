@@ -27,6 +27,13 @@ import { loadProfilePlaybook } from "@/app/_features/plays/playbooks/records-eng
 import { applyProfileFieldResults } from "@/app/_features/plays/playbooks/records-engine/write-provenance";
 import { scheduleWorkHealthRecompute } from "@/app/_features/work/health/recompute";
 import { relationshipTypeToStatus } from "@/app/_features/people/records-engine";
+import { isKnownSaasVendorDomain } from "../intelligence/vendor-domains";
+import {
+  domainFromWebsiteUrl,
+  domainToOrgName,
+  looksLikeDomain,
+  normalizeOrgName,
+} from "./org-naming";
 import {
   assertEntitiesInWorkspace,
   EntityNotInWorkspaceError,
@@ -506,15 +513,65 @@ async function classifyPerson(
 // ORG IMPLEMENTATIONS
 // ============================================================================
 
+/**
+ * The workspace's own business domain (from Me → website). Org birth must
+ * never fire for it — the operator's business is the Me record, not an org.
+ */
+async function getWorkspaceDomain(
+  admin: ReturnType<typeof createAdminClient>,
+  workspaceId: string
+): Promise<string | null> {
+  const { data } = await admin
+    .from("workspaces")
+    .select("website_url")
+    .eq("id", workspaceId)
+    .maybeSingle();
+  return domainFromWebsiteUrl(data?.website_url);
+}
+
 async function createOrg(
   admin: ReturnType<typeof createAdminClient>,
   workspaceId: string,
   input: CreateOrgInput,
   actorUserId?: string
 ): Promise<SystemPlayResult> {
-  const domain = input.domain?.toLowerCase().trim();
+  let domain = input.domain?.toLowerCase().trim() || undefined;
+  let name = input.name.trim();
+
+  // A "name" that is actually a bare domain ("harborfinancial.com") is a
+  // domain in disguise — rescue it into a real name + domain pair, or refuse
+  // when it reduces to a generic service token.
+  if (!domain && looksLikeDomain(name)) {
+    const rescuedDomain = name.toLowerCase().replace(/^www\./, "");
+    const rescuedName = domainToOrgName(rescuedDomain);
+    if (!rescuedName) {
+      return {
+        success: false,
+        error: `Refusing to create org: "${input.name}" is a service domain, not an org name`,
+      };
+    }
+    domain = rescuedDomain;
+    name = rescuedName;
+  }
 
   if (domain) {
+    // Tools the operator pays are spend, not relationships.
+    if (isKnownSaasVendorDomain(domain)) {
+      return {
+        success: false,
+        error: `Refusing to create org: ${domain} is a known SaaS vendor domain`,
+      };
+    }
+
+    // The operator's own business is the Me record, never an org.
+    const ownDomain = await getWorkspaceDomain(admin, workspaceId);
+    if (ownDomain && (domain === ownDomain || domain.endsWith(`.${ownDomain}`))) {
+      return {
+        success: false,
+        error: `Refusing to create org: ${domain} is the workspace's own business domain`,
+      };
+    }
+
     const { data: existing } = await admin
       .from("organizations")
       .select("id, name")
@@ -534,11 +591,42 @@ async function createOrg(
     }
   }
 
+  // Name-based dedupe: "Example Advisors" (signature) and "Harborfinancial"
+  // (domain-derived) are the same org. When the twin lacks a domain, backfill
+  // it so future domain-keyed resolutions converge on one record.
+  const normalizedName = normalizeOrgName(name);
+  if (normalizedName) {
+    const { data: orgs } = await admin
+      .from("organizations")
+      .select("id, name, domain")
+      .eq("workspace_id", workspaceId)
+      .is("deleted_at", null)
+      .is("archived_at", null);
+
+    const twin = (orgs ?? []).find(
+      (org) => normalizeOrgName(org.name) === normalizedName
+    );
+    if (twin) {
+      if (domain && !twin.domain) {
+        await admin
+          .from("organizations")
+          .update({ domain })
+          .eq("id", twin.id);
+      }
+      return {
+        success: true,
+        entity_id: twin.id,
+        entity_type: "org",
+        data: twin,
+      };
+    }
+  }
+
   const { data, error } = await admin
     .from("organizations")
     .insert({
       workspace_id: workspaceId,
-      name: input.name,
+      name,
       domain: domain ?? null,
       website: input.website ?? null,
       billing_email: input.billing_email ?? null,
@@ -569,14 +657,14 @@ async function createOrg(
     entityType: "organization",
     entityId: data.id,
     targetType: "org",
-    label: input.name,
-    title: `Added ${input.name} to Organizations`,
+    label: name,
+    title: `Added ${name} to Organizations`,
     content: domain
-      ? `Salt created an Organization record for ${input.name} using ${domain}.`
-      : `Salt created an Organization record for ${input.name}.`,
+      ? `Salt created an Organization record for ${name} using ${domain}.`
+      : `Salt created an Organization record for ${name}.`,
     confidence: 95,
   };
-  await logActivity(admin, workspaceId, "created", "Org created", input.name, actorUserId, {
+  await logActivity(admin, workspaceId, "created", "Org created", name, actorUserId, {
     entity_type: "organization",
     entity_id: data.id,
     playbook_slug: "memory-records",
@@ -599,7 +687,7 @@ async function createOrg(
     signalKey: "entity_learning_extracted",
     entityId: data.id,
     entitySurface: "organization",
-    entityLabel: input.name,
+    entityLabel: name,
     evidence: {
       source: "system_play",
       created_via: "system_play",

@@ -188,6 +188,192 @@ describe("executeSystemPlay create-person", () => {
   });
 });
 
+describe("executeSystemPlay create-org", () => {
+  type OrgRow = { id: string; name: string; domain: string | null };
+
+  function buildOrgTable(cfg: {
+    domainMatch?: OrgRow | null;
+    orgList?: OrgRow[];
+    newId?: string;
+  }) {
+    const ops: string[] = [];
+    const builder: Record<string, unknown> = {};
+    for (const method of ["select", "eq", "is", "neq", "in", "limit"]) {
+      builder[method] = vi.fn(() => builder);
+    }
+    builder.insert = vi.fn(() => {
+      ops.push("insert");
+      return builder;
+    });
+    builder.update = vi.fn(() => {
+      ops.push("update");
+      return builder;
+    });
+    builder.maybeSingle = vi.fn(async () => ({
+      data: cfg.domainMatch ?? null,
+      error: null,
+    }));
+    builder.single = vi.fn(async () => ({
+      data: ops.includes("insert")
+        ? { id: cfg.newId ?? "new-org-id" }
+        : (cfg.domainMatch ?? null),
+      error: null,
+    }));
+    builder.then = (resolve: (_value: { data: unknown; error: null }) => void) =>
+      resolve({ data: cfg.orgList ?? [], error: null });
+    return builder;
+  }
+
+  function setupCreateOrgMocks(cfg: {
+    domainMatch?: OrgRow | null;
+    orgList?: OrgRow[];
+    websiteUrl?: string | null;
+    newId?: string;
+  }) {
+    const orgBuilder = buildOrgTable(cfg);
+    const workspaceBuilder = createQueryBuilder({
+      data: { website_url: cfg.websiteUrl ?? null },
+      error: null,
+    });
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "organizations") return orgBuilder;
+      if (table === "workspaces") return workspaceBuilder;
+      return createQueryBuilder({ data: null, error: null });
+    });
+    return { orgBuilder };
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("refuses to create an org for a known SaaS vendor domain", async () => {
+    const { orgBuilder } = setupCreateOrgMocks({});
+
+    const result = await executeSystemPlay("ws-1", "system:create-org", {
+      name: "Clickup",
+      domain: "clickup.com",
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/saas vendor/i);
+    expect(orgBuilder.insert).not.toHaveBeenCalled();
+  });
+
+  it("refuses to create an org for the workspace's own business domain", async () => {
+    const { orgBuilder } = setupCreateOrgMocks({
+      websiteUrl: "https://www.createdbysalt.com/",
+    });
+
+    const result = await executeSystemPlay("ws-1", "system:create-org", {
+      name: "Createdbysalt",
+      domain: "createdbysalt.com",
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/own business domain/i);
+    expect(orgBuilder.insert).not.toHaveBeenCalled();
+  });
+
+  it("matches subdomains of the workspace's own domain", async () => {
+    setupCreateOrgMocks({ websiteUrl: "createdbysalt.com" });
+
+    const result = await executeSystemPlay("ws-1", "system:create-org", {
+      name: "Mail",
+      domain: "mail.createdbysalt.com",
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/own business domain/i);
+  });
+
+  it("rescues a domain passed as the name into a real name + domain pair", async () => {
+    const { orgBuilder } = setupCreateOrgMocks({ orgList: [] });
+
+    const result = await executeSystemPlay("ws-1", "system:create-org", {
+      name: "harborfinancial.com",
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.entity_id).toBe("new-org-id");
+    expect(orgBuilder.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "Harborfinancial",
+        domain: "harborfinancial.com",
+      })
+    );
+  });
+
+  it("refuses a name that is a generic service domain", async () => {
+    const { orgBuilder } = setupCreateOrgMocks({});
+
+    const result = await executeSystemPlay("ws-1", "system:create-org", {
+      name: "mail.com",
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/service domain/i);
+    expect(orgBuilder.insert).not.toHaveBeenCalled();
+  });
+
+  it("dedupes on normalized name and backfills the domain on the twin", async () => {
+    const twin: OrgRow = {
+      id: "org-clergy",
+      name: "Harborfinancial",
+      domain: null,
+    };
+    const { orgBuilder } = setupCreateOrgMocks({ orgList: [twin] });
+
+    const result = await executeSystemPlay("ws-1", "system:create-org", {
+      name: "Example Advisors",
+      domain: "harborfinancial.com",
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.entity_id).toBe("org-clergy");
+    expect(orgBuilder.insert).not.toHaveBeenCalled();
+    expect(orgBuilder.update).toHaveBeenCalledWith({
+      domain: "harborfinancial.com",
+    });
+  });
+
+  it("dedupes on normalized name without a domain and does not update", async () => {
+    const twin: OrgRow = {
+      id: "org-clergy",
+      name: "Example Advisors",
+      domain: "harborfinancial.com",
+    };
+    const { orgBuilder } = setupCreateOrgMocks({ orgList: [twin] });
+
+    const result = await executeSystemPlay("ws-1", "system:create-org", {
+      name: "harbor financial",
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.entity_id).toBe("org-clergy");
+    expect(orgBuilder.insert).not.toHaveBeenCalled();
+    expect(orgBuilder.update).not.toHaveBeenCalled();
+  });
+
+  it("still creates a genuinely new org", async () => {
+    const { orgBuilder } = setupCreateOrgMocks({
+      orgList: [],
+      websiteUrl: "https://createdbysalt.com",
+    });
+
+    const result = await executeSystemPlay("ws-1", "system:create-org", {
+      name: "Acme Studio",
+      domain: "acme-studio.com",
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.entity_id).toBe("new-org-id");
+    expect(orgBuilder.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "Acme Studio", domain: "acme-studio.com" })
+    );
+  });
+});
+
 describe("executeSystemPlay create-work", () => {
   beforeEach(() => {
     vi.clearAllMocks();

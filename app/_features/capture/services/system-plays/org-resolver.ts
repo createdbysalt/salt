@@ -4,7 +4,9 @@ import "server-only";
  * Org Resolver
  *
  * Resolves a domain to an existing Org or creates a new one.
- * Skips personal email domains (gmail, outlook, etc.).
+ * Skips personal email domains (gmail, outlook, etc.) and known SaaS vendor
+ * domains (clickup.com, mercury.com, …) — tools the operator pays are spend,
+ * not relationships, so they never become org records.
  *
  * Also handles linking a Person to an Org after both are resolved.
  */
@@ -13,7 +15,9 @@ import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { evaluateOrgProfileFields, ORG_PROFILE_SLUG } from "@/app/_features/plays/playbooks/records-engine/apply-org-profile";
 import { loadProfilePlaybook } from "@/app/_features/plays/playbooks/records-engine/load-profile-playbook";
 import { applyProfileFieldResults } from "@/app/_features/plays/playbooks/records-engine/write-provenance";
+import { isKnownSaasVendorDomain } from "../intelligence/vendor-domains";
 import { executeSystemPlay } from "./executor";
+import { domainToOrgName } from "./org-naming";
 import type { SystemPlayResult } from "./types";
 import { extractDomain, isPersonalDomain } from "./person-resolver";
 
@@ -84,6 +88,17 @@ export async function resolveOrg(
     };
   }
 
+  // Skip SaaS vendor domains (checked before the existing-org lookup so
+  // pre-fix vendor orgs stop attracting links too — they get archived).
+  if (isKnownSaasVendorDomain(domain)) {
+    return {
+      resolved: false,
+      is_new: false,
+      confidence: 0,
+      confidence_reason: "Known SaaS vendor domain — a tool you pay is not an org",
+    };
+  }
+
   const admin = createAdminClient();
 
   // Check if org already exists by domain
@@ -117,6 +132,14 @@ export async function resolveOrg(
 
   // Auto-create org from domain
   const orgName = domainToOrgName(domain);
+  if (!orgName) {
+    return {
+      resolved: false,
+      is_new: false,
+      confidence: 0,
+      confidence_reason: "Service/infrastructure domain — no org-grade name",
+    };
+  }
   const result = await executeSystemPlay(workspaceId, "system:create-org", {
     name: orgName,
     domain,
@@ -245,19 +268,6 @@ export async function resolvePersonAndOrg(
 // Helpers
 // ============================================================================
 
-/**
- * Convert a domain to an org name.
- * e.g., "acme-corp.com" → "Acme Corp"
- */
-function domainToOrgName(domain: string): string {
-  // Remove TLD
-  const parts = domain.split(".");
-  const baseName = parts[0];
-
-  // Convert to title case, replacing hyphens/underscores with spaces
-  return baseName
-    .replace(/[-_]/g, " ")
-    .split(" ")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(" ");
-}
+// Naming helpers (domainToOrgName, normalizeOrgName, …) live in ./org-naming,
+// a pure leaf module, so executor.ts can use them without a circular import —
+// org-resolver depends on the executor.
