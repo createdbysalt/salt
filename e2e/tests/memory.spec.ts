@@ -35,7 +35,7 @@ test.describe("Memory surface tabs", () => {
     await expect(sections.getByRole("link", { name: "Customize" })).toBeVisible();
   });
 
-  test("Activity tab shows Watching / Handled pill (P11: Kept out moved to Sources)", async ({
+  test("Activity tab shows Auto-handled / Watching pill (P11: Kept out moved to Sources)", async ({
     page,
   }) => {
     await gotoAppRoute(page, "/memory?tab=activity");
@@ -46,8 +46,10 @@ test.describe("Memory surface tabs", () => {
 
     const views = page.getByRole("tablist", { name: "Activity views" });
     await expect(views).toBeVisible();
+    await expect(
+      views.getByRole("tab", { name: /Auto-handled/i }),
+    ).toBeVisible();
     await expect(views.getByRole("tab", { name: /Watching/i })).toBeVisible();
-    await expect(views.getByRole("tab", { name: /Handled/i })).toBeVisible();
 
     // Sources-style toolbar: search + one combined filter popover.
     await expect(
@@ -64,13 +66,13 @@ test.describe("Memory surface tabs", () => {
     await page.keyboard.press("Escape");
   });
 
-  test("Handled lane renders the applied-writes feed (or its honest empty state)", async ({
+  test("Auto-handled lane renders the applied-writes feed (or its honest empty state)", async ({
     page,
   }) => {
     await gotoAppRoute(page, "/memory?tab=activity");
 
     const views = page.getByRole("tablist", { name: "Activity views" });
-    await views.getByRole("tab", { name: /Handled/i }).click();
+    await views.getByRole("tab", { name: /Auto-handled/i }).click();
 
     // Either real salt_learnings rows or the empty state — never a crash.
     const empty = page.getByText(/nothing handled yet/i);

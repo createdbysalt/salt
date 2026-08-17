@@ -5,8 +5,8 @@ import { cn } from "@repo/utils";
 
 /**
  * Memory → Activity status pill — switches between the two transparency
- * views: what Salt is still gathering confidence on (Watching) and what it
- * already handled (Handled).
+ * views: what Salt already handled on its own (Auto-handled) and what it
+ * is still gathering confidence on (Watching).
  *
  * Visuals mirror the Plays QueueToggle (sliding pill, count badges).
  *
@@ -22,8 +22,8 @@ interface FilterStatusPillProps {
 }
 
 const OPTIONS: Array<{ value: FilterStatus; label: string }> = [
+  { value: "handled", label: "Auto-handled" },
   { value: "watching", label: "Watching" },
-  { value: "handled", label: "Handled" },
 ];
 
 export function FilterStatusPill({
