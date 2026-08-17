@@ -32,6 +32,9 @@ import { repairVendorFindings } from "./repair-vendor-findings";
 import { EMAIL_SCAN_SOURCE_TYPES } from "../../adapters/categories/email";
 import { loadSenderProfileRegistry } from "../../queries/sender-profiles";
 import { learnVendorFromClassification } from "./sender-profile-learn";
+import { captureVendorSubscription } from "./subscription-capture";
+import { loadGatePolicy } from "../gates/load-gate-policy";
+import type { ResolvedGatePolicy } from "../gates/gate-policy";
 import type { SenderProfileRegistry } from "../../types/sender-profiles";
 import { routeMeFactProposals } from "@/app/_features/me/services/route-fact-proposals";
 import { extractAndPersistNotes } from "./persist-extracted-notes";
@@ -68,6 +71,8 @@ export interface DailyScanResult {
   /** Vendor/subscription findings cleaned up without re-running LLM. */
   findingsDismissedAsVendor?: number;
   findingsMemoryRepaired?: number;
+  /** Vendor receipts turned into payable billing_records (Subscriptions). */
+  subscriptionsCaptured?: number;
   errors: string[];
   gmailSync?: GmailSyncSummary;
 }
@@ -430,6 +435,8 @@ export interface ScanPipelineContext {
   findingIdsByCaptureId: Map<string, string>;
   knownEntities: Awaited<ReturnType<typeof loadKnownWorkspaceEntities>>;
   senderRegistry: SenderProfileRegistry;
+  /** Workspace intake gate policy — governs vendor subscription capture. */
+  gatePolicy: ResolvedGatePolicy;
   scopedMemory: ReturnType<typeof createScopedMemoryLoader>;
   /**
    * Track A (Phase M4): the workspace's active Memory customizations, loaded
@@ -457,7 +464,7 @@ export async function createScanPipelineContext(options: {
   supabase?: ReturnType<typeof createAdminClient>;
 }): Promise<ScanPipelineContext> {
   const supabase = options.supabase ?? createAdminClient();
-  const [knownEntities, senderRegistry, scopedMemory, customizeContext] =
+  const [knownEntities, senderRegistry, scopedMemory, customizeContext, gatePolicy] =
     await Promise.all([
       loadKnownWorkspaceEntities(supabase, options.workspaceId),
       loadSenderProfileRegistry(supabase, options.workspaceId),
@@ -465,6 +472,7 @@ export async function createScanPipelineContext(options: {
       // Track A (Phase M4): one load per run; a failure degrades to no
       // customization rather than failing the scan.
       getCustomizePromptBlock(options.workspaceId).catch(() => null),
+      loadGatePolicy(supabase, options.workspaceId),
     ]);
   return {
     supabase,
@@ -485,6 +493,7 @@ export async function createScanPipelineContext(options: {
     findingIdsByCaptureId: options.findingIdsByCaptureId ?? new Map(),
     knownEntities,
     senderRegistry,
+    gatePolicy,
     scopedMemory,
     customizeContext,
     hydration: options.enableHydration ? { used: 0, max: MAX_HYDRATIONS_PER_RUN } : null,
@@ -717,6 +726,36 @@ export async function processCaptureForScan(
       sender: senderContext,
       dryRun,
     });
+
+    // Vendor receipts are spend, not relationships: when the workspace
+    // tracks subscriptions (default), turn the receipt into a payable
+    // billing record instead of discarding the signal.
+    if (
+      senderContext.kind === "vendor_saas" &&
+      senderContext.vendorName &&
+      ctx.gatePolicy.email.trackSubscriptions === "tracked"
+    ) {
+      try {
+        const outcome = await captureVendorSubscription({
+          supabase,
+          workspaceId,
+          captureId: rawEmail.id,
+          vendorName: senderContext.vendorName,
+          email: {
+            subject: email.subject,
+            body_text: email.body_text,
+            snippet: email.snippet,
+            sent_at: email.sent_at ?? null,
+          },
+          dryRun,
+        });
+        if (outcome === "created") {
+          result.subscriptionsCaptured = (result.subscriptionsCaptured ?? 0) + 1;
+        }
+      } catch (subError) {
+        console.error("[daily-scan] subscription capture failed:", subError);
+      }
+    }
     const analysisWithMemory: EmailAnalysis = {
       ...analysis,
       memory_proposals: memoryProposals,

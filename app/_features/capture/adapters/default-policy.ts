@@ -141,6 +141,7 @@ const AREA_GATE_BEHAVIOR: Record<CustomizeArea, string[]> = {
   billing: [
     "Invoices and payments from customers you already know come straight in",
     "Activity from customers you don't know is watched until it earns its way in",
+    "Receipts from tools you pay are tracked as subscriptions in Billing",
   ],
   storage: [
     "Files and documents from owners you already know come straight in",
@@ -181,10 +182,16 @@ function emailGateBehavior(policy: ResolvedGatePolicy): string[] {
         ? "Mail from people you don't know comes straight in"
         : "Mail from people you don't know is dropped before anything is stored";
 
+  const subscriptionsLine =
+    policy.email.trackSubscriptions === "tracked"
+      ? "Receipts from tools you pay are tracked as subscriptions in Billing — never added to People or Orgs"
+      : "Receipts from tools you pay are ignored";
+
   return [
     automatedLine,
     "Mail from people and companies you already know comes straight in",
     strangersLine,
+    subscriptionsLine,
   ];
 }
 

@@ -17,6 +17,7 @@ import {
   resolveGatePolicy,
   type ResolvedGatePolicy,
 } from "../services/gates/gate-policy";
+import { loadGatePolicy } from "../services/gates/load-gate-policy";
 
 /**
  * Read the workspace's gate policy, resolved against defaults. A read
@@ -26,22 +27,7 @@ import {
 export async function getCaptureGatePolicy(
   workspaceId: string,
 ): Promise<ResolvedGatePolicy> {
-  try {
-    const admin = createAdminClient();
-    const { data, error } = await admin
-      .from("workspaces")
-      .select("capture_gate_policy")
-      .eq("id", workspaceId)
-      .maybeSingle();
-    if (error) {
-      console.error("[gate-policy] read failed:", error);
-      return resolveGatePolicy(null);
-    }
-    return resolveGatePolicy(data?.capture_gate_policy);
-  } catch (error) {
-    console.error("[gate-policy] read threw:", error);
-    return resolveGatePolicy(null);
-  }
+  return loadGatePolicy(createAdminClient(), workspaceId);
 }
 
 const UpdateGatePolicySchema = z.object({
@@ -49,6 +35,7 @@ const UpdateGatePolicySchema = z.object({
     .object({
       automated_senders: z.enum(["dropped", "watched", "let_in"]).optional(),
       strangers: z.enum(["watched", "let_in", "dropped"]).optional(),
+      track_subscriptions: z.enum(["tracked", "ignored"]).optional(),
     })
     .optional(),
 });
@@ -59,12 +46,13 @@ type ActionResult = { success: true } | { success: false; error: string };
  * Persist the workspace's gate policy. The DB CHECK constraint
  * (capture_gate_policy_shape) is the backstop; the zod schema is the
  * readable error. The email section is stored fully resolved (read-merge-
- * write), so one choice never clobbers the other.
+ * write), so one choice never clobbers another.
  */
 export async function updateCaptureGatePolicy(input: {
   email?: {
     automated_senders?: "dropped" | "watched" | "let_in";
     strangers?: "watched" | "let_in" | "dropped";
+    track_subscriptions?: "tracked" | "ignored";
   };
 }): Promise<ActionResult> {
   const parsed = UpdateGatePolicySchema.safeParse(input);
@@ -95,6 +83,9 @@ export async function updateCaptureGatePolicy(input: {
         parsed.data.email?.automated_senders ??
         current.email.automatedSenders,
       strangers: parsed.data.email?.strangers ?? current.email.strangers,
+      track_subscriptions:
+        parsed.data.email?.track_subscriptions ??
+        current.email.trackSubscriptions,
     },
   };
 

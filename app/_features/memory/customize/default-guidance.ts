@@ -158,7 +158,7 @@ const TYPE_SUMMARIES: Record<MemoryCustomizeEntityType, string> = {
   meeting:
     "My meeting memory is still growing — for now I keep titles, times, and attendees up to date from your calendar.",
   billing:
-    "The billing app is the system of record — it issued the document, so its numbers win. You set the direction once when the record is created; after that, payment matching keeps the status, amount paid, and paid date honest. A parsed invoice can confirm a value, never override it.",
+    "The billing app is the system of record — it issued the document, so its numbers win. You set the direction once when the record is created; after that, payment matching keeps the status, amount paid, and paid date honest. A parsed invoice can confirm a value, never override it. Receipts from tools you pay land here as subscriptions — spend, never People or Orgs records.",
   me: "There's one you. I suggest what I pick up from your signature, calendar, and documents — you always confirm before it lands.",
 };
 

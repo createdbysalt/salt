@@ -15,6 +15,7 @@ import {
   DEFAULT_GATE_POLICY,
   type ResolvedGatePolicy,
 } from "./gate-policy";
+import { isVendorReceiptSender } from "../intelligence/vendor-domains";
 
 const DISPOSABLE_EMAIL_DOMAINS = new Set([
   "mailinator.com",
@@ -238,16 +239,28 @@ export interface PreIngestGateDetailedResult {
  * (noreply/bulk/auto-submitted heuristics). Spam and marketing detections
  * always drop — no policy makes a disposable domain or a List-Unsubscribe
  * blast acceptable.
+ *
+ * One more softening: when the workspace tracks subscriptions (default),
+ * receipt-shaped senders on KNOWN SaaS vendor domains (receipts@clickup.com,
+ * billing@mercury.com) pass too, so the receipt can reach daily-scan and
+ * become a Billing subscription record instead of vanishing at the gate.
  */
 export function runPreIngestGateDetailed(
   input: PreIngestGateInput,
   policy: ResolvedGatePolicy = DEFAULT_GATE_POLICY,
 ): PreIngestGateDetailedResult {
   const automatedSoftened = policy.email.automatedSenders !== "dropped";
+  const vendorReceiptSoftened =
+    policy.email.trackSubscriptions === "tracked" &&
+    !!input.senderEmail &&
+    isVendorReceiptSender(input.senderEmail);
   let suppressed: GateResultDrop | null = null;
 
   for (const detection of detectDrops(input)) {
-    if (automatedSoftened && detection.category === "automated") {
+    if (
+      detection.category === "automated" &&
+      (automatedSoftened || vendorReceiptSoftened)
+    ) {
       suppressed ??= detection;
       continue;
     }

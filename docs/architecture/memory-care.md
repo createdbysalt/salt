@@ -244,6 +244,25 @@ Tool calls from care use `source: "care"`.
 4. Meter LLM spend at `_lib/ai` primitives — not at capabilities.
 5. Care ops are internal (no `external_effect`); not billable as Plays.
 6. Do not reintroduce `_meta` playbook packages or Keeper naming in new code.
+7. **Vendors are spend, not relationships.** SaaS tools the operator pays
+   (ClickUp, Mercury, ConvertKit, …) must never become org or person
+   records. The canon lives in
+   `capture/services/intelligence/vendor-domains.ts` (domains, brands,
+   receipt-content detection) and is enforced at every layer:
+   - `resolveOrg` and the `createOrg` executor refuse known vendor domains,
+     the workspace's own `website_url` domain, and domain-as-name inputs;
+     normalized-name dedupe backfills domains on twins instead of creating
+     duplicates.
+   - The evidence classifier suppresses the `email_domain_unknown` org
+     signal for vendor domains AND for any mail with strong receipt/billing
+     content (listed or not).
+   - Receipts from known vendors are captured into **Billing** as payable
+     `billing_records` (category `software`, tag `subscription`,
+     `source: salt_inferred`) by `subscription-capture.ts` during
+     daily-scan — gated on the workspace's
+     `capture_gate_policy.email.track_subscriptions` choice (default
+     `tracked`, Sources → Customize) and let through pre-ingest only for
+     receipt-shaped senders on known vendor domains.
 
 ---
 

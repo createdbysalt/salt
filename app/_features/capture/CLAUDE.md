@@ -98,10 +98,15 @@ Scores unknown senders for candidacy:
 gate choices; `gates/gate-policy.ts` resolves partial/invalid json to
 ship-day defaults, and `runGatePipeline` reads it via
 `actions/gate-policy.ts#getCaptureGatePolicy` (a read failure resolves to
-defaults — intake never gates on a policy-read outage). v1 ships two email
+defaults — intake never gates on a policy-read outage). Email ships three
 choices: `automated_senders` (softens ONLY the pre-ingest 'automated'
-detections — spam/marketing always drop) and `strangers` (governs the
-memory-first hold; `dropped` drops before the paid cold-intent read).
+detections — spam/marketing always drop), `strangers` (governs the
+memory-first hold; `dropped` drops before the paid cold-intent read), and
+`track_subscriptions` (default `tracked`: receipt-shaped senders on known
+SaaS vendor domains — `vendor-domains.ts#isVendorReceiptSender` — pass
+pre-ingest and the hold so daily-scan can capture them into Billing as
+payable `billing_records` via `intelligence/subscription-capture.ts`;
+`ignored` restores the drop).
 
 **The Customize-line rule:** every gate ships with a transparency line on
 Sources → Customize (`adapters/default-policy.ts`), and a gate gets a

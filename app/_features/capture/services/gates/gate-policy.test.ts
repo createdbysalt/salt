@@ -14,25 +14,41 @@ describe("resolveGatePolicy", () => {
     expect(resolveGatePolicy([])).toEqual(DEFAULT_GATE_POLICY);
   });
 
-  it("defaults match behavior at ship time: automated dropped, strangers watched", () => {
+  it("defaults match behavior at ship time: automated dropped, strangers watched, subscriptions tracked", () => {
     expect(DEFAULT_GATE_POLICY).toEqual({
-      email: { automatedSenders: "dropped", strangers: "watched" },
+      email: {
+        automatedSenders: "dropped",
+        strangers: "watched",
+        trackSubscriptions: "tracked",
+      },
     });
   });
 
   it("resolves a full valid policy", () => {
     expect(
       resolveGatePolicy({
-        email: { automated_senders: "let_in", strangers: "dropped" },
+        email: {
+          automated_senders: "let_in",
+          strangers: "dropped",
+          track_subscriptions: "ignored",
+        },
       }),
     ).toEqual({
-      email: { automatedSenders: "let_in", strangers: "dropped" },
+      email: {
+        automatedSenders: "let_in",
+        strangers: "dropped",
+        trackSubscriptions: "ignored",
+      },
     });
   });
 
   it("fills missing keys with defaults (partial policy)", () => {
     expect(resolveGatePolicy({ email: { strangers: "let_in" } })).toEqual({
-      email: { automatedSenders: "dropped", strangers: "let_in" },
+      email: {
+        automatedSenders: "dropped",
+        strangers: "let_in",
+        trackSubscriptions: "tracked",
+      },
     });
     expect(resolveGatePolicy({ email: {} })).toEqual(DEFAULT_GATE_POLICY);
     expect(resolveGatePolicy({})).toEqual(DEFAULT_GATE_POLICY);

@@ -21,6 +21,12 @@
  *     watched (default): current behavior — held, hidden from the stream
  *     let_in:            admitted at full prominence (candidate path)
  *     dropped:           dropped entirely (explicit user choice)
+ * - trackSubscriptions — governs vendor subscription capture: receipts and
+ *   renewal notices from SaaS tools the operator pays become payable
+ *   billing_records (category software, tag subscription) instead of being
+ *   silently discarded:
+ *     tracked (default): capture vendor spend into Billing (never Memory)
+ *     ignored:           discard vendor receipts entirely
  *
  * Numeric internals (admission scores, evidence weights) are NEVER policy
  * — named choices only. Unknown areas/keys/values resolve to defaults:
@@ -30,21 +36,27 @@
 
 export type AutomatedSendersPolicy = "dropped" | "watched" | "let_in";
 export type StrangersPolicy = "watched" | "let_in" | "dropped";
+export type TrackSubscriptionsPolicy = "tracked" | "ignored";
 
 export interface ResolvedGatePolicy {
   email: {
     automatedSenders: AutomatedSendersPolicy;
     strangers: StrangersPolicy;
+    trackSubscriptions: TrackSubscriptionsPolicy;
   };
 }
 
 /**
- * Defaults match behavior at ship time (2026-08-10): automated senders
- * dropped at pre-ingest, stranger mail held. `{}` in the DB means exactly
- * this — no backfill needed.
+ * Defaults: automated senders dropped at pre-ingest, stranger mail held,
+ * vendor subscriptions tracked (Salt's posture is proactive — captured
+ * subscriptions land in Billing where they're reviewable).
  */
 export const DEFAULT_GATE_POLICY: ResolvedGatePolicy = {
-  email: { automatedSenders: "dropped", strangers: "watched" },
+  email: {
+    automatedSenders: "dropped",
+    strangers: "watched",
+    trackSubscriptions: "tracked",
+  },
 };
 
 const AUTOMATED_SENDERS_VALUES: readonly AutomatedSendersPolicy[] = [
@@ -56,6 +68,10 @@ const STRANGERS_VALUES: readonly StrangersPolicy[] = [
   "watched",
   "let_in",
   "dropped",
+];
+const TRACK_SUBSCRIPTIONS_VALUES: readonly TrackSubscriptionsPolicy[] = [
+  "tracked",
+  "ignored",
 ];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -86,6 +102,11 @@ export function resolveGatePolicy(raw: unknown): ResolvedGatePolicy {
         email.strangers,
         STRANGERS_VALUES,
         DEFAULT_GATE_POLICY.email.strangers,
+      ),
+      trackSubscriptions: pick(
+        email.track_subscriptions,
+        TRACK_SUBSCRIPTIONS_VALUES,
+        DEFAULT_GATE_POLICY.email.trackSubscriptions,
       ),
     },
   };

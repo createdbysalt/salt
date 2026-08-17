@@ -290,6 +290,51 @@ describe("runPreIngestGate with gate policy (S3)", () => {
     );
     expect(result).toEqual({ drop: null, suppressed: null });
   });
+
+  it("lets receipt-shaped senders on known vendor domains through when subscriptions are tracked (default)", () => {
+    const vendorReceipt = {
+      senderEmail: "receipts@clickup.com",
+      senderDomain: "clickup.com",
+      headers: {},
+    };
+    const result = runPreIngestGateDetailed(vendorReceipt, resolveGatePolicy(null));
+    expect(result.drop).toBeNull();
+    expect(result.suppressed?.category).toBe("automated");
+  });
+
+  it("drops vendor receipts again when track_subscriptions = ignored", () => {
+    const vendorReceipt = {
+      senderEmail: "receipts@clickup.com",
+      senderDomain: "clickup.com",
+      headers: {},
+    };
+    const result = runPreIngestGateDetailed(
+      vendorReceipt,
+      resolveGatePolicy({ email: { track_subscriptions: "ignored" } }),
+    );
+    expect(result.drop?.category).toBe("automated");
+    expect(result.suppressed).toBeNull();
+  });
+
+  it("does not let non-receipt automated senders through on vendor domains", () => {
+    const vendorNoreply = {
+      senderEmail: "noreply@clickup.com",
+      senderDomain: "clickup.com",
+      headers: {},
+    };
+    const result = runPreIngestGateDetailed(vendorNoreply, resolveGatePolicy(null));
+    expect(result.drop?.category).toBe("automated");
+  });
+
+  it("does not let receipt-shaped senders through on non-vendor domains", () => {
+    const unknownReceipt = {
+      senderEmail: "receipts@randomstore.io",
+      senderDomain: "randomstore.io",
+      headers: {},
+    };
+    const result = runPreIngestGateDetailed(unknownReceipt, resolveGatePolicy(null));
+    expect(result.drop?.category).toBe("automated");
+  });
 });
 
 describe("extractDomainFromEmail", () => {

@@ -470,13 +470,29 @@ describe("runGatePipeline Lane 1 discriminator (cold-inbound intent read)", () =
 
 describe("runGatePipeline gate policy (Customize surfaces, S3)", () => {
   function automatedEnvelope(): CaptureEnvelope {
+    // Deliberately NOT a known SaaS vendor domain: these tests pin the
+    // automated-senders policy behavior without the subscription let-through
+    // (vendor receipts on known domains get their own tests below).
     return emailEnvelope({
       participants: [
-        { email: "receipts@stripe.com", name: null, role: "from" },
+        { email: "receipts@randomstore.io", name: null, role: "from" },
       ],
       extracted: {
         subject: "Your receipt",
-        sender_email: "receipts@stripe.com",
+        sender_email: "receipts@randomstore.io",
+        isSentByUser: false,
+      },
+    });
+  }
+
+  function vendorReceiptEnvelope(): CaptureEnvelope {
+    return emailEnvelope({
+      participants: [
+        { email: "receipts@clickup.com", name: null, role: "from" },
+      ],
+      extracted: {
+        subject: "Your ClickUp receipt",
+        sender_email: "receipts@clickup.com",
         isSentByUser: false,
       },
     });
@@ -599,5 +615,48 @@ describe("runGatePipeline gate policy (Customize surfaces, S3)", () => {
     });
 
     expect(result.finalAction).toBe("candidate");
+  });
+
+  it("trackSubscriptions (default tracked) lets known-vendor receipts past the drop and the hold", async () => {
+    const result = await runGatePipeline({
+      workspaceId: "ws-1",
+      userEmail: "me@myco.com",
+      envelope: vendorReceiptEnvelope(),
+    });
+
+    expect(result.gateResults.preIngest).toBeNull();
+    expect(result.finalAction).toBe("candidate");
+    expect(result.shouldIngest).toBe(true);
+  });
+
+  it("trackSubscriptions = ignored keeps known-vendor receipts dropped", async () => {
+    const result = await runGatePipeline({
+      workspaceId: "ws-1",
+      userEmail: "me@myco.com",
+      envelope: vendorReceiptEnvelope(),
+      gatePolicy: resolveGatePolicy({
+        email: { track_subscriptions: "ignored" },
+      }),
+    });
+
+    expect(result.finalAction).toBe("drop");
+    expect(result.gateResults.preIngest?.category).toBe("automated");
+  });
+
+  it("marketing detections on vendor domains still drop when subscriptions are tracked", async () => {
+    const envelope = vendorReceiptEnvelope();
+    envelope.raw = {
+      ...(envelope.raw as Record<string, unknown>),
+      headers: { "List-Unsubscribe": "<mailto:unsub@clickup.com>" },
+    };
+
+    const result = await runGatePipeline({
+      workspaceId: "ws-1",
+      userEmail: "me@myco.com",
+      envelope,
+    });
+
+    expect(result.finalAction).toBe("drop");
+    expect(result.gateResults.preIngest?.category).toBe("marketing");
   });
 });

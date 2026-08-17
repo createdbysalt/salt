@@ -44,6 +44,7 @@ import { getCategoryForConnector } from "@/app/_lib/composio/enrichment/registry
 import { extractAdmissionSignals } from "./admission-signals";
 import { classifyColdInboundIntent, intentEarnsAdmission } from "./cold-intent";
 import { getCustomizePromptBlock } from "@/app/_features/memory/customize/queries";
+import { isVendorReceiptSender } from "../intelligence/vendor-domains";
 import { EMAIL_SCAN_SOURCE_TYPES } from "../../adapters/categories/email";
 
 /**
@@ -253,8 +254,19 @@ export async function runGatePipeline(input: GatePipelineInput): Promise<GatePip
       return result;
     }
 
+    // Vendor receipts: when subscriptions are tracked, receipt-shaped
+    // senders on known vendor domains that passed pre-ingest via
+    // suppression also bypass the hold so daily-scan can capture them
+    // into Billing.
+    const vendorReceiptBypass =
+      gatePolicy.email.trackSubscriptions === "tracked" &&
+      preIngest.suppressed !== null &&
+      senderEmail !== null &&
+      isVendorReceiptSender(senderEmail);
+
     const bypassHold =
       gatePolicy.email.strangers === "let_in" ||
+      vendorReceiptBypass ||
       (preIngest.suppressed !== null &&
         gatePolicy.email.automatedSenders === "let_in");
 

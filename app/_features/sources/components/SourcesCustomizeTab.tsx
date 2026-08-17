@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { motion } from "framer-motion";
 import { ChevronDown, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@repo/utils";
@@ -229,6 +230,7 @@ function AreaSection({
           area={data.area}
           provider={firstAccountProvider}
           onApplied={onChanged}
+          existingKeys={data.rules.map((rule) => rule.entityKey)}
         />
         {data.accounts.length > 1 ? (
           <p className="text-xs leading-snug text-muted-foreground">
@@ -315,6 +317,26 @@ function GatePolicyChoices({
           const result = await updateCaptureGatePolicy({
             email: {
               automated_senders: value as "dropped" | "watched" | "let_in",
+            },
+          });
+          if (result.success) {
+            onChanged();
+          } else {
+            toast.error(result.error);
+          }
+        }}
+      />
+      <GatePolicyChoice
+        label="Receipts & subscriptions from your tools"
+        value={gatePolicy.email.trackSubscriptions}
+        options={[
+          { value: "tracked", label: "Tracked" },
+          { value: "ignored", label: "Ignored" },
+        ]}
+        onPick={async (value) => {
+          const result = await updateCaptureGatePolicy({
+            email: {
+              track_subscriptions: value as "tracked" | "ignored",
             },
           });
           if (result.success) {
@@ -479,25 +501,39 @@ function WorkspaceRulesView({
   const denyRules = rules.filter((rule) => rule.ruleType === "deny");
 
   return (
-    <div className="space-y-8">
-      <section className="space-y-2.5">
-        <h3 className="text-sm font-semibold text-foreground">Tell Salt</h3>
-        <TellSaltBox area={null} provider={null} onApplied={onChanged} />
-      </section>
-      <RulesSection
-        title="Always let in"
-        blurb="Matching items skip the noise filters and reach you at full prominence."
-        rules={allowRules}
-        providers={[null]}
-        onChanged={onChanged}
+    <div className="relative">
+      {/* The Tell Salt box is the parent; an aurora thread ties the learned
+          rules to it as its children — you write above, the rule lands
+          below. The composer block masks the thread so its live feedback
+          and confirm panel never cross the line. */}
+      <div className="relative z-10 bg-background">
+        <TellSaltBox
+          area={null}
+          provider={null}
+          onApplied={onChanged}
+          existingKeys={rules.map((rule) => rule.entityKey)}
+        />
+      </div>
+      <div
+        aria-hidden
+        className="absolute bottom-2 left-[21px] top-[50px] w-0.5 rounded-full bg-[linear-gradient(180deg,oklch(0.58_0.16_200_/_0.5),oklch(0.78_0.16_75_/_0.3)_60%,transparent)]"
       />
-      <RulesSection
-        title="Keep out"
-        blurb="Matching items are dropped before they reach your stream."
-        rules={denyRules}
-        providers={[null]}
-        onChanged={onChanged}
-      />
+      <div className="mt-5 space-y-8 pl-10">
+        <RulesSection
+          title="Always let in"
+          blurb="Matching items skip the noise filters and reach you at full prominence."
+          rules={allowRules}
+          providers={[null]}
+          onChanged={onChanged}
+        />
+        <RulesSection
+          title="Keep out"
+          blurb="Matching items are dropped before they reach your stream."
+          rules={denyRules}
+          providers={[null]}
+          onChanged={onChanged}
+        />
+      </div>
     </div>
   );
 }
@@ -534,27 +570,39 @@ function RulesSection({
   };
 
   return (
-    <section className="space-y-2.5">
+    <section className="space-y-4">
       <div className="space-y-1">
-        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+          {rules.length > 0 ? (
+            <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium tabular-nums text-muted-foreground">
+              {rules.length}
+            </span>
+          ) : null}
+        </div>
         <p className="text-xs leading-snug text-muted-foreground">{blurb}</p>
       </div>
-      {rules.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Nothing here yet.</p>
-      ) : (
-        <ul className="space-y-1.5">
-          {rules.map((rule) => (
-            <RuleRow
-              key={rule.id}
-              rule={rule}
-              showProvider={providers.length > 1}
-              onRemove={
-                removingId === rule.id ? undefined : () => void remove(rule)
-              }
-            />
-          ))}
-        </ul>
-      )}
+
+      <div className="rounded-2xl border border-border/60 bg-card px-4 py-2 sm:px-5">
+        {rules.length === 0 ? (
+          <p className="py-1 text-sm leading-relaxed text-muted-foreground">
+            Nothing here yet.
+          </p>
+        ) : (
+          <ul className="divide-y divide-border/40">
+            {rules.map((rule) => (
+              <RuleRow
+                key={rule.id}
+                rule={rule}
+                showProvider={providers.length > 1}
+                onRemove={
+                  removingId === rule.id ? undefined : () => void remove(rule)
+                }
+              />
+            ))}
+          </ul>
+        )}
+      </div>
     </section>
   );
 }
@@ -569,9 +617,15 @@ function RuleRow({
   onRemove?: () => void;
 }) {
   return (
-    <li className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-background px-3 py-2">
-      <div className="min-w-0">
-        <p className="truncate text-[13px] font-medium text-foreground">
+    <motion.li
+      layout
+      initial={{ opacity: 0, y: -6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ type: "spring", stiffness: 380, damping: 32 }}
+      className="group flex items-start justify-between gap-4 py-2.5 first:pt-1 last:pb-1"
+    >
+      <div className="min-w-0 space-y-1">
+        <p className="text-sm leading-snug text-foreground">
           <span className="text-muted-foreground">
             {ENTITY_TYPE_LABELS[rule.entityType] ?? rule.entityType} ·{" "}
           </span>
@@ -581,9 +635,7 @@ function RuleRow({
           ) : null}
         </p>
         {rule.reason ? (
-          <p className="truncate text-xs text-muted-foreground">
-            {rule.reason}
-          </p>
+          <p className="text-xs text-muted-foreground/80">{rule.reason}</p>
         ) : null}
       </div>
       {onRemove ? (
@@ -591,13 +643,13 @@ function RuleRow({
           type="button"
           onClick={onRemove}
           aria-label={`Remove rule for ${rule.entityKey}`}
-          className="inline-flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted/60 hover:text-foreground"
+          className="mt-1 inline-flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground opacity-0 transition hover:bg-muted/60 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
         >
           <X className="size-3.5" />
         </button>
       ) : (
-        <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
+        <Loader2 className="mt-1 size-3.5 shrink-0 animate-spin text-muted-foreground" />
       )}
-    </li>
+    </motion.li>
   );
 }

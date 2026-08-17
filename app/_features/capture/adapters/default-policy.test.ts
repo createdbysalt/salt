@@ -141,6 +141,7 @@ describe("defaultPolicyForArea", () => {
       "Obvious spam, bulk mail, and automated senders are dropped before anything is stored",
       "Mail from people and companies you already know comes straight in",
       "Unknown senders are watched until they earn their way in",
+      "Receipts from tools you pay are tracked as subscriptions in Billing — never added to People or Orgs",
     ]);
   });
 
@@ -194,7 +195,19 @@ describe("defaultPolicyForArea — gate-policy-aware copy (S1/S3)", () => {
       "Obvious spam, bulk mail, and automated senders are dropped before anything is stored",
       "Mail from people and companies you already know comes straight in",
       "Unknown senders are watched until they earn their way in",
+      "Receipts from tools you pay are tracked as subscriptions in Billing — never added to People or Orgs",
     ]);
+  });
+
+  it("trackSubscriptions = ignored rewrites the subscriptions line", () => {
+    const policy = defaultPolicyForArea(
+      "email",
+      [],
+      resolveGatePolicy({ email: { track_subscriptions: "ignored" } }),
+    );
+    expect(policy.gateBehavior[3]).toBe(
+      "Receipts from tools you pay are ignored",
+    );
   });
 
   it("automatedSenders = watched softens the automated-senders line only", () => {
