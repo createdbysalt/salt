@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Plus, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@repo/ui";
 import type { CustomizeArea } from "@/app/_features/capture/adapters/rule-entities";
@@ -15,6 +15,7 @@ import {
 } from "../actions/tell-salt";
 import { previewForKnob } from "../utils/tell-salt-knobs";
 import { planTellSaltSubmission } from "../utils/tell-salt-submission";
+import { suggestionsForArea } from "../utils/tell-salt-suggestions";
 
 /**
  * Tell Salt box (Sources → Customize, Phase S2) — one conversational box
@@ -40,11 +41,14 @@ export function TellSaltBox({
   area,
   provider,
   onApplied,
+  existingKeys = [],
 }: {
   area: CustomizeArea | null;
   /** Null = workspace-wide write. */
   provider: string | null;
   onApplied: () => void;
+  /** Entity keys already ruled — matching suggestions hide themselves. */
+  existingKeys?: readonly string[];
 }) {
   const [value, setValue] = React.useState("");
   const [direction, setDirection] = React.useState<"deny" | "allow">("deny");
@@ -58,6 +62,16 @@ export function TellSaltBox({
     [value, area],
   );
   const showFeedback = value.trim().length > 0 && !confirm && !reroute;
+  const suggestions = React.useMemo(
+    () => suggestionsForArea(area, existingKeys),
+    [area, existingKeys],
+  );
+  const showSuggestions =
+    suggestions.length > 0 &&
+    value.trim().length === 0 &&
+    !confirm &&
+    !reroute &&
+    !refusal;
 
   const reset = () => {
     setValue("");
@@ -67,8 +81,9 @@ export function TellSaltBox({
     setDirection("deny");
   };
 
-  const submit = async () => {
-    const plan = planTellSaltSubmission(value, area);
+  const submit = async (override?: string) => {
+    const input = (override ?? value).trim();
+    const plan = planTellSaltSubmission(input, area);
     if (plan.kind === "confirm-rule") {
       setConfirm({
         source: "deterministic",
@@ -83,7 +98,7 @@ export function TellSaltBox({
     setBusy(true);
     setRefusal(null);
     const result = await compileTellSaltInstruction({
-      instruction: value.trim(),
+      instruction: input,
       area,
     });
     setBusy(false);
@@ -163,7 +178,12 @@ export function TellSaltBox({
 
   return (
     <div className="space-y-1.5">
-      <div className="flex items-center gap-2">
+      {/* Styled after the Memory → Customize composer: an inset rounded-full
+          pill with an aurora spark and an active-pill submit. */}
+      <div className="flex items-center gap-2 rounded-full border border-border/60 bg-muted/70 p-1.5 shadow-[inset_0_1px_2px_rgba(0,0,0,0.04)] transition focus-within:border-foreground/25 focus-within:bg-background dark:border-border dark:bg-background/60 dark:focus-within:bg-muted/40">
+        <span className="surface-aurora grid size-8 shrink-0 place-items-center rounded-full">
+          <Sparkles className="relative z-10 size-4 text-white" />
+        </span>
         <input
           value={value}
           onChange={(event) => {
@@ -178,18 +198,47 @@ export function TellSaltBox({
           placeholder="Tell me what to watch for…"
           aria-label="Tell Salt"
           disabled={busy}
-          className="h-9 w-full max-w-md rounded-full border border-border/60 bg-background px-3.5 text-sm outline-none transition hover:border-border focus:ring-4 focus:ring-foreground/5"
+          className="min-w-0 flex-1 bg-transparent py-1.5 text-sm text-foreground outline-none placeholder:text-muted-foreground disabled:opacity-60"
         />
-        <Button
+        <button
           type="button"
-          size="sm"
-          className="rounded-full px-4"
-          disabled={busy || value.trim().length === 0}
           onClick={() => void submit()}
+          disabled={busy || value.trim().length === 0}
+          className="surface-aurora shrink-0 rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:brightness-105 hover:shadow disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {busy ? <Loader2 className="size-4 animate-spin" /> : "Tell Salt"}
-        </Button>
+          <span className="relative z-10 inline-flex items-center">
+            {busy ? <Loader2 className="size-4 animate-spin" /> : "Tell Salt"}
+          </span>
+        </button>
       </div>
+
+      {/* Subtle one-click ideas under the composer — a click fills the box
+          and submits, so the confirm gate's direction toggle teaches how
+          let-in vs keep-out is chosen. Chips hide once the same key is
+          already a rule. */}
+      {showSuggestions ? (
+        <div className="flex flex-wrap items-center gap-1.5 pl-2 pt-1">
+          <span className="text-xs text-muted-foreground/70">Try:</span>
+          {suggestions.map((suggestion) => (
+            <button
+              key={suggestion}
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                setValue(suggestion);
+                setConfirm(null);
+                setReroute(null);
+                setRefusal(null);
+                void submit(suggestion);
+              }}
+              className="inline-flex items-center gap-1 rounded-full border border-dashed border-border/60 px-3 py-1 text-xs text-muted-foreground transition hover:border-foreground/30 hover:bg-muted/50 hover:text-foreground disabled:opacity-50"
+            >
+              <Plus className="size-3" />
+              {suggestion}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       {showFeedback ? (
         <p
