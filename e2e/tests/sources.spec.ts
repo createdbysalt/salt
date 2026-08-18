@@ -128,22 +128,6 @@ test.describe("Sources — Activity", () => {
   });
 });
 
-test.describe("Sources — Kept out (P11)", () => {
-  test("Activity tab can show Kept out section when captures are filtered", async ({ page }) => {
-    await gotoAppRoute(page, ACTIVITY_URL);
-
-    await expect(page.getByText(/all captures/i)).toBeVisible({ timeout: 15000 });
-
-    // The Kept out section only appears if there are kept-out items
-    // Check that if it's present, it has the expected structure
-    const keptOutSection = page.getByRole("button", { name: /kept out/i });
-    if (await keptOutSection.isVisible({ timeout: 3_000 }).catch(() => false)) {
-      await expect(keptOutSection).toContainText(/capture/i);
-    }
-    // If not visible, that's fine — there may be no kept-out items in test data
-  });
-});
-
 test.describe("Sources — truthful connector status (2.2)", () => {
   test("connected cards carry a truthful status line", async ({ page }) => {
     await gotoAppRoute(page, "/sources");
@@ -251,8 +235,21 @@ test.describe("Sources — Customize tab (intake policy)", () => {
       return;
     }
 
-    // Switching to "All connectors" shows the workspace-wide rules view and
-    // puts the selection in the URL.
+    // The default landing is "All connectors" — the workspace-wide rules
+    // view — without any category in the URL.
+    await expect(areaSelect).toContainText(/all connectors/i);
+    await expect(
+      page.getByRole("heading", { name: /always let in/i }),
+    ).toBeVisible();
+
+    // Switching to a specific area puts the selection in the URL.
+    await areaSelect.click();
+    const areaOption = page.getByRole("option").nth(1);
+    await areaOption.click();
+    await expect(page).toHaveURL(/\/sources\?tab=customize&category=(?!all)\w+/);
+
+    // Switching back to "All connectors" shows the workspace-wide rules
+    // view again.
     await areaSelect.click();
     await page.getByRole("option", { name: "All connectors" }).click();
     await expect(page).toHaveURL(/\/sources\?tab=customize&category=all/);
@@ -288,19 +285,26 @@ test.describe("Sources — Customize tab (intake policy)", () => {
     await areaSelect.click();
     await page.getByRole("option", { name: "All connectors" }).click();
 
-    const box = page.getByRole("textbox", { name: "Keep out rule" });
+    const box = page.getByRole("textbox", { name: "Tell Salt" });
     await expect(box).toBeVisible();
 
-    // Ambiguous input never enables Add — the box rejects with a hint.
-    await box.fill("???");
-    await expect(
-      page.getByRole("button", { name: "Add", exact: true }).first(),
-    ).toBeDisabled();
+    // The direction toggle is part of the composer — visible before typing.
+    const direction = page.getByRole("group", { name: "Rule direction" });
+    await expect(direction).toBeVisible();
 
-    // Valid input shows the live detection line, then submits.
-    await box.fill("e2e-rule-probe@example.com");
+    // Ambiguous input never produces an applicable sentence — the box
+    // rejects with a hint instead.
+    await box.fill("???");
+    await expect(page.getByText(/^try /i).first()).toBeVisible();
+
+    // Intent words preset the toggle, the live sentence names the exact
+    // write, and Enter applies the rule directly — no separate confirm gate.
+    await box.fill("keep out e2e-rule-probe@example.com");
     await expect(
-      page.getByText(/sender · e2e-rule-probe@example\.com/i),
+      direction.getByRole("button", { name: "Keep out" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await expect(
+      page.getByText(/i'll keep out mail from e2e-rule-probe@example\.com/i),
     ).toBeVisible();
     await box.press("Enter");
 
@@ -318,7 +322,7 @@ test.describe("Sources — Customize tab (intake policy)", () => {
     ).toHaveCount(0, { timeout: 10_000 });
   });
 
-  test("email area shows gate choices and a Check for new items button", async ({ page }) => {
+  test("email area shows the two-card rail: logic card with gate choices, rules card", async ({ page }) => {
     await gotoAppRoute(page, "/sources?tab=customize&category=email");
 
     await expect(page.getByText("Customize what Salt captures")).toBeVisible({
@@ -326,27 +330,42 @@ test.describe("Sources — Customize tab (intake policy)", () => {
     });
 
     // Requires a connected email account in test data.
-    const doing = page.getByRole("heading", { name: /what i'm doing/i });
-    if (!(await doing.isVisible({ timeout: 5_000 }).catch(() => false))) {
+    const doing = page.getByRole("heading", { name: /the logic i run on/i });
+    if (!(await doing.first().isVisible({ timeout: 5_000 }).catch(() => false))) {
       return;
     }
 
-    // Gate choices are real controls, not copy — both choices render their
-    // option groups.
+    // Card 1: the named choices are accordion items whose triggers badge
+    // the current value; opening one reveals the option group.
+    await page
+      .getByRole("button", { name: /automated senders/i })
+      .click();
     await expect(
       page.getByRole("group", { name: /automated senders/i }),
     ).toBeVisible();
+    await page
+      .getByRole("button", { name: /people you don't know/i })
+      .click();
     await expect(
       page.getByRole("group", { name: /people you don't know/i }),
     ).toBeVisible();
 
-    // "Check for new items" runs the workspace reconcile+scan; the copy
-    // must never say "sync" (banned word).
-    const checkButton = page.getByRole("button", {
-      name: /check for new items/i,
-    }).first();
-    await expect(checkButton).toBeVisible();
-    await expect(checkButton).toBeEnabled();
+    // Card 2: the area's rules-and-watching summary.
+    await expect(
+      page.getByRole("heading", { name: /your rules and watching/i }),
+    ).toBeVisible();
+
+    // HOW I RUN: the same trio renders for every area. Per-account scope
+    // controls live on the connector detail pane, not here.
+    for (const name of [
+      /what i look for/i,
+      /what never reaches me/i,
+      /when i check/i,
+    ]) {
+      await expect(
+        page.getByRole("button", { name }).first(),
+      ).toBeVisible();
+    }
   });
 
   test("detail pane Activity header deep-links to Customize", async ({ page }) => {
@@ -389,19 +408,21 @@ test.describe("Sources — cause-aware Kept Out corrections (P4)", () => {
     await gotoAppRoute(page, ACTIVITY_URL);
     await expect(page.getByText(/all captures/i)).toBeVisible({ timeout: 15000 });
 
-    const keptOutToggle = page.getByRole("button", { name: /kept out/i });
-    if (!(await keptOutToggle.isVisible({ timeout: 3_000 }).catch(() => false))) {
-      // No kept-out captures in test data — nothing to correct.
-      return;
-    }
+    // Kept-out review lives behind the Filter popover's "Kept out" toggle
+    // (2026-08-17 — moved out of the Customize area rail).
+    await page.getByRole("button", { name: /filter captures/i }).click();
+    const keptOutToggle = page.getByRole("checkbox", { name: /kept out/i });
+    await expect(keptOutToggle).toBeVisible({ timeout: 5_000 });
     await keptOutToggle.click();
+    await page.keyboard.press("Escape");
 
     // Every kept-out row must offer a cause-aware correction: rule-caused
-    // rows offer rule removal; heuristic-caused rows offer let-in +
-    // always-allow. Email rows also offer the Add to People escalation.
+    // rows offer rule removal; heuristic-caused rows offer let-in, with
+    // always-allow in the overflow menu. No kept-out captures in test data
+    // → nothing to correct.
     const correction = page
       .getByRole("button", {
-        name: /remove keep-out rule|let this in|always let this/i,
+        name: /remove keep-out rule|^let in$/i,
       })
       .first();
     if (await correction.isVisible({ timeout: 3_000 }).catch(() => false)) {

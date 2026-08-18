@@ -26,6 +26,7 @@ import { getCategoryForConnector } from "@/app/_lib/composio/enrichment/registry
 import { extractFeedbackEntityForEnvelope } from "../adapters/feedback-entity";
 import { ruleMatchCandidatesForEnvelope } from "../adapters/rule-match-candidates";
 import { addRule, checkRules, removeRule } from "../services/rules-manager";
+import { CATEGORY_TO_AREA } from "../adapters/rule-entities";
 import { recordEntityObservation } from "../services/entity-profiles";
 import { recordFeedback } from "../services/training-feedback";
 import { recordDecisionOutcomeForCapture } from "../services/intelligence/record-capture-outcome";
@@ -233,8 +234,10 @@ export async function removeBlockRuleForCapture(
     };
   }
 
+  const captureCategory = await getCategoryForConnector(capture.source_type);
   const check = await checkRules(workspace.id, {
     provider: capture.source_type,
+    area: captureCategory ? CATEGORY_TO_AREA[captureCategory] : null,
     entity,
     entityCandidates: ruleMatchCandidatesForEnvelope(captureEnvelope),
   });

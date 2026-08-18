@@ -64,3 +64,31 @@ export function keptOutCauseFromGateResult(
   if (gateResults.blocklist?.action === "drop") return "rule";
   return "heuristic";
 }
+
+/**
+ * Plain-language rendering of a stored gate reason for Kept Out rows
+ * ("understandable at a glance"). Matches the known gate-reason prefixes
+ * (pre-ingest, admission); anything unrecognized — including the user's own
+ * rule reasons — passes through verbatim. Degrade to the original, never
+ * to a lie.
+ */
+const PLAIN_REASON_MAP: Array<[RegExp, string]> = [
+  [/^Cold inbound with no prior interaction/i, "First time you've heard from this sender"],
+  [/^Low signal score/i, "Didn't look relevant to your work"],
+  [/^List-Unsubscribe header/i, "Marketing or bulk mail"],
+  [/^Precedence: .+ indicates bulk/i, "Bulk or mailing-list mail"],
+  [/^Auto-Submitted: .+ indicates automated/i, "Automated message"],
+  [/^Disposable email domain/i, "Sent from a disposable email address"],
+  [/^Known marketing platform domain/i, "Sent via a marketing platform"],
+  [/^No-reply domain/i, "Automated message"],
+  [/^Automated sender address/i, "Automated sender"],
+  [/^Gmail label indicates promotional/i, "Gmail marked it as promotional"],
+];
+
+export function plainKeptOutReason(reason: string | null): string | null {
+  if (!reason) return null;
+  for (const [pattern, plain] of PLAIN_REASON_MAP) {
+    if (pattern.test(reason)) return plain;
+  }
+  return reason;
+}

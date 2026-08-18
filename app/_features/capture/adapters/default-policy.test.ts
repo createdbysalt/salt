@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import { CUSTOMIZE_AREA_ORDER } from "./rule-entities";
 import {
   defaultPolicyForArea,
+  renderDiscoveryCadenceLine,
   renderSeededTriggerFilter,
   renderWhenItSyncs,
 } from "./default-policy";
-import { resolveGatePolicy } from "../services/gates/gate-policy";
 
 /**
  * The exact seeded values from
@@ -132,17 +132,12 @@ describe("renderSeededTriggerFilter", () => {
 });
 
 describe("defaultPolicyForArea", () => {
-  it("combines live-rendered seeded filters with curated gate behavior (email)", () => {
+  it("combines live-rendered seeded filters with the area's look-for lines (email)", () => {
     const policy = defaultPolicyForArea("email", [GMAIL_SEED]);
     expect(policy.upstreamFilters).toEqual([
       "New mail from your inbox and sent mail — promotions, social, updates, and mailing lists are skipped",
     ]);
-    expect(policy.gateBehavior).toEqual([
-      "Obvious spam, bulk mail, and automated senders are dropped before anything is stored",
-      "Mail from people and companies you already know comes straight in",
-      "Unknown senders are watched until they earn their way in",
-      "Receipts from tools you pay are tracked as subscriptions in Billing — never added to People or Orgs",
-    ]);
+    expect(policy.lookFor.length).toBeGreaterThan(0);
   });
 
   it("renders multiple seeded filters in the order given", () => {
@@ -171,115 +166,45 @@ describe("defaultPolicyForArea", () => {
     expect(policy.upstreamFilters).toHaveLength(1);
   });
 
-  it("merges files and documents copy in the storage area", () => {
-    const policy = defaultPolicyForArea("storage");
-    expect(policy.gateBehavior).toEqual([
-      "Files and documents from owners you already know come straight in",
-      "Files and documents from owners you don't know are watched until they earn their way in",
-    ]);
-  });
-
-  it("has curated gate behavior for every customize area", () => {
+  it("has look-for lines for every customize area", () => {
     for (const area of CUSTOMIZE_AREA_ORDER) {
       const policy = defaultPolicyForArea(area);
-      expect(policy.upstreamFilters).toEqual([]);
-      expect(policy.gateBehavior.length).toBeGreaterThan(0);
+      // Calendar is the exception: its keep-out gate rules render even
+      // with no seeded filters (derived from the gate module's own copy).
+      if (area !== "calendar") {
+        expect(policy.upstreamFilters).toEqual([]);
+      }
+      expect(policy.lookFor.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("renders the calendar keep-out rules from the gate module's copy", () => {
+    const policy = defaultPolicyForArea("calendar");
+    expect(policy.upstreamFilters).toEqual(
+      expect.arrayContaining([
+        "Cancelled events",
+        "Events you declined",
+        "Out-of-office, focus-time, and working-location blocks",
+        "Time blocked with no one else on it — open booking slots, personal holds",
+      ]),
+    );
+  });
+
+  it("every area leads with record matching against People and Orgs", () => {
+    for (const area of CUSTOMIZE_AREA_ORDER) {
+      const policy = defaultPolicyForArea(area);
+      expect(policy.lookFor[0]).toContain("People and Orgs");
     }
   });
 });
 
-describe("defaultPolicyForArea — gate-policy-aware copy (S1/S3)", () => {
-  it("defaults render exactly as before when no policy is passed", () => {
-    const policy = defaultPolicyForArea("email");
-    expect(policy.gateBehavior).toEqual([
-      "Obvious spam, bulk mail, and automated senders are dropped before anything is stored",
-      "Mail from people and companies you already know comes straight in",
-      "Unknown senders are watched until they earn their way in",
-      "Receipts from tools you pay are tracked as subscriptions in Billing — never added to People or Orgs",
-    ]);
-  });
-
-  it("trackSubscriptions = ignored rewrites the subscriptions line", () => {
-    const policy = defaultPolicyForArea(
-      "email",
-      [],
-      resolveGatePolicy({ email: { track_subscriptions: "ignored" } }),
-    );
-    expect(policy.gateBehavior[3]).toBe(
-      "Receipts from tools you pay are ignored",
-    );
-  });
-
-  it("automatedSenders = watched softens the automated-senders line only", () => {
-    const policy = defaultPolicyForArea(
-      "email",
-      [],
-      resolveGatePolicy({ email: { automated_senders: "watched" } }),
-    );
-    expect(policy.gateBehavior[0]).toBe(
-      "Obvious spam and bulk mail are dropped before anything is stored — automated senders (receipts, notifications) are watched",
-    );
-    // The strangers line is untouched.
-    expect(policy.gateBehavior[2]).toBe(
-      "Unknown senders are watched until they earn their way in",
-    );
-  });
-
-  it("automatedSenders = let_in says automated senders come straight in", () => {
-    const policy = defaultPolicyForArea(
-      "email",
-      [],
-      resolveGatePolicy({ email: { automated_senders: "let_in" } }),
-    );
-    expect(policy.gateBehavior[0]).toBe(
-      "Obvious spam and bulk mail are dropped before anything is stored — automated senders (receipts, notifications) come straight in",
-    );
-  });
-
-  it("strangers = let_in replaces the hold line", () => {
-    const policy = defaultPolicyForArea(
-      "email",
-      [],
-      resolveGatePolicy({ email: { strangers: "let_in" } }),
-    );
-    expect(policy.gateBehavior[2]).toBe(
-      "Mail from people you don't know comes straight in",
-    );
-  });
-
-  it("strangers = dropped says stranger mail is dropped", () => {
-    const policy = defaultPolicyForArea(
-      "email",
-      [],
-      resolveGatePolicy({ email: { strangers: "dropped" } }),
-    );
-    expect(policy.gateBehavior[2]).toBe(
-      "Mail from people you don't know is dropped before anything is stored",
-    );
-  });
-
-  it("non-email areas ignore the email policy", () => {
-    const policy = defaultPolicyForArea(
-      "messaging",
-      [],
-      resolveGatePolicy({
-        email: { automated_senders: "let_in", strangers: "dropped" },
-      }),
-    );
-    expect(policy.gateBehavior).toEqual([
-      "Messages from people and channels you already know come straight in",
-      "Messages from people you don't know are watched until they earn their way in",
-    ]);
-  });
-});
-
 describe("renderWhenItSyncs (S1)", () => {
-  it("poll-type providers are checked about every 15 minutes — never real-time", () => {
+  it("poll-type providers on custom auth are checked about every minute — never real-time", () => {
     expect(renderWhenItSyncs("gmail")).toBe(
-      "Gmail is checked about every 15 minutes",
+      "Gmail is checked about every minute",
     );
     expect(renderWhenItSyncs("googlecalendar")).toBe(
-      "Google Calendar is checked about every 15 minutes",
+      "Google Calendar is checked about every minute",
     );
   });
 
@@ -296,9 +221,14 @@ describe("renderWhenItSyncs (S1)", () => {
     expect(renderWhenItSyncs("quickbooks")).toBe(
       "QuickBooks is checked about every 6 hours",
     );
-    expect(renderWhenItSyncs("calendly")).toBe(
-      "Calendly is checked about every 6 hours",
-    );
+  });
+
+  it("scheduling apps lead with the booking-email fast path", () => {
+    for (const provider of ["cal", "calendly"]) {
+      const line = renderWhenItSyncs(provider);
+      expect(line).toContain("confirmation email arrives");
+      expect(line).toContain("every 6 hours");
+    }
   });
 
   it("never says real-time for email or calendar, even webhook-first Outlook", () => {
@@ -310,5 +240,25 @@ describe("renderWhenItSyncs (S1)", () => {
 
   it("returns null for an unknown provider — honest silence", () => {
     expect(renderWhenItSyncs("myspace")).toBeNull();
+  });
+});
+
+describe("renderDiscoveryCadenceLine", () => {
+  it("reads Starter and unknown tiers as once a day (fail-safe)", () => {
+    expect(renderDiscoveryCadenceLine("starter")).toBe(
+      "New records are discovered once a day",
+    );
+    expect(renderDiscoveryCadenceLine(null)).toBe(
+      "New records are discovered once a day",
+    );
+    expect(renderDiscoveryCadenceLine("enterprise-plus-ultra")).toBe(
+      "New records are discovered once a day",
+    );
+  });
+
+  it("reads paid tiers as every 6 hours", () => {
+    expect(renderDiscoveryCadenceLine("pro")).toBe(
+      "New records are discovered every 6 hours",
+    );
   });
 });

@@ -24,8 +24,12 @@ export type TellSaltKnob =
       ruleType: "allow" | "deny";
       entityType: ConnectorRuleEntityType;
       entityKey: string;
-      /** null = workspace-wide. */
-      provider: string | null;
+      /**
+       * The surface's scope: the area the box sits on, or null for the
+       * workspace-wide (All connectors) view. The model never chooses
+       * scope — the compile action stamps it from the request.
+       */
+      area: string | null;
     }
   | {
       kind: "gate_policy";
@@ -131,7 +135,15 @@ export function parseTellSaltLlmPayload(
   for (const knob of parsed.data.knobs) {
     if (knob.kind === "connector_rule") {
       if (!allowedEntityTypes.includes(knob.entityType)) return null;
-      knobs.push({ ...knob, provider: knob.provider ?? null });
+      // Scope is stamped by the compile action from the request's surface,
+      // never taken from the model.
+      knobs.push({
+        kind: "connector_rule",
+        ruleType: knob.ruleType,
+        entityType: knob.entityType,
+        entityKey: knob.entityKey,
+        area: null,
+      });
     } else {
       knobs.push(knob);
     }
@@ -143,7 +155,8 @@ export function parseTellSaltLlmPayload(
 // Deterministic preview — the confirm gate sentence
 // ---------------------------------------------------------------------------
 
-function thingFor(
+/** The rule's target as a noun phrase — "anything from spammy-agency.com". */
+export function ruleTargetFor(
   entityType: ConnectorRuleEntityType,
   entityKey: string,
 ): string {
@@ -209,7 +222,7 @@ export function previewForKnob(knob: TellSaltKnob): string {
   if (knob.kind === "gate_policy") {
     return GATE_POLICY_PREVIEWS[knob.setting][knob.value];
   }
-  const thing = thingFor(knob.entityType, knob.entityKey);
+  const thing = ruleTargetFor(knob.entityType, knob.entityKey);
   return knob.ruleType === "deny"
     ? `I'll keep out ${thing}.`
     : `I'll always let in ${thing}.`;

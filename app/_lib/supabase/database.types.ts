@@ -1451,6 +1451,7 @@ export type Database = {
       }
       connector_rules: {
         Row: {
+          area: string | null
           created_at: string
           created_by: string | null
           entity_key: string
@@ -1463,6 +1464,7 @@ export type Database = {
           workspace_id: string
         }
         Insert: {
+          area?: string | null
           created_at?: string
           created_by?: string | null
           entity_key: string
@@ -1475,6 +1477,7 @@ export type Database = {
           workspace_id: string
         }
         Update: {
+          area?: string | null
           created_at?: string
           created_by?: string | null
           entity_key?: string

@@ -37,6 +37,7 @@ import {
   checkFileSharing,
 } from "./admission-gate";
 import { checkRules } from "../rules-manager";
+import { CATEGORY_TO_AREA } from "../../adapters/rule-entities";
 import { extractFeedbackEntityForEnvelope } from "../../adapters/feedback-entity";
 import { ruleMatchCandidatesForEnvelope } from "../../adapters/rule-match-candidates";
 import { loadEntityReputation } from "../entity-profiles";
@@ -46,6 +47,7 @@ import { classifyColdInboundIntent, intentEarnsAdmission } from "./cold-intent";
 import { getCustomizePromptBlock } from "@/app/_features/memory/customize/queries";
 import { isVendorReceiptSender } from "../intelligence/vendor-domains";
 import { EMAIL_SCAN_SOURCE_TYPES } from "../../adapters/categories/email";
+import { checkCalendarKeepOut } from "./calendar-keep-out";
 
 /**
  * Memory-first email policy: inbound email that passes admission but has no
@@ -102,8 +104,12 @@ export async function runGatePipeline(input: GatePipelineInput): Promise<GatePip
   // admits at full prominence (signal), bypassing pre-ingest heuristics,
   // the known-entity lookup, admission scoring, and the memory-first hold.
   const feedbackEntity = await extractFeedbackEntityForEnvelope(envelope);
+  // Area-scoped rules (provider NULL + area) join the check — the area
+  // derives from the provider's capture category.
+  const ruleCategory = await getCategoryForConnector(envelope.sourceType);
   const ruleCheck = await checkRules(workspaceId, {
     provider: envelope.sourceType,
+    area: ruleCategory ? CATEGORY_TO_AREA[ruleCategory] : null,
     entity: feedbackEntity,
     patternCandidates: senderName ? [senderName] : [],
     entityCandidates: ruleMatchCandidatesForEnvelope(envelope),
@@ -132,6 +138,27 @@ export async function runGatePipeline(input: GatePipelineInput): Promise<GatePip
     return result;
   }
   result.passedGates.push("rules");
+
+  // Calendar keep-out (calendar intake lifecycle): a calendar event is
+  // signal only if another person is on it. Cancelled, declined, OOO/focus
+  // blocks, and solo holds drop here — after explicit rules (user intent
+  // wins), before any DB work. Deterministic; every rule requires positive
+  // evidence on the envelope.
+  if (envelope.captureType === "meeting") {
+    const keepOut = checkCalendarKeepOut(envelope, userEmail);
+    if (keepOut) {
+      result.gateResults.calendarKeepOut = {
+        action: "drop",
+        gate: "calendar-keep-out",
+        reason: keepOut.reason,
+        category: "blocked",
+      };
+      result.finalAction = "drop";
+      result.shouldIngest = false;
+      return result;
+    }
+    result.passedGates.push("calendar-keep-out");
+  }
 
   const preIngestInput: PreIngestGateInput = {
     senderEmail,
@@ -178,11 +205,10 @@ export async function runGatePipeline(input: GatePipelineInput): Promise<GatePip
   let entityReputation: number | null = null;
   if (feedbackEntity) {
     try {
-      const category = await getCategoryForConnector(envelope.sourceType);
-      if (category) {
+      if (ruleCategory) {
         const reputation = await loadEntityReputation(workspaceId, {
           provider: envelope.sourceType,
-          category,
+          category: ruleCategory,
           entity: feedbackEntity,
         });
         entityReputation = reputation?.score ?? null;

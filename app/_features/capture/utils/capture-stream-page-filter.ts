@@ -54,6 +54,8 @@ export interface CaptureStreamPageFilter {
   /** Inclusive range bounds as local `yyyy-mm-dd` dates. */
   dateFrom?: string;
   dateTo?: string;
+  /** "Kept out" filter toggle — include dropped/held rows in the stream. */
+  keptOut?: boolean;
 }
 
 /** Stat-tile counts for the stream header strip (all-time). */

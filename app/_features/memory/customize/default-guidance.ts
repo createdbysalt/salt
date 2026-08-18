@@ -201,6 +201,7 @@ const TYPE_PRINCIPLES: Record<MemoryCustomizeEntityType, string[]> = {
 const TYPE_BIRTH_LINES: Record<MemoryCustomizeEntityType, string[]> = {
   person: [
     "A person earns a record on real evidence — they pay you, you've had a genuine back-and-forth, or you've shared time on the calendar.",
+    "Mail from people you don't know waits quietly out of view; the ones you reply to or meet earn a record.",
     "The same person across several of your apps is the strongest signal — those merge into one record.",
     "Newsletters and automated senders never make the cut.",
   ],

@@ -75,9 +75,10 @@ import {
   ConnectorCaptureSection,
   ConnectorPermissionsSection,
 } from "./side-sections";
+import { ConnectorScopeSection } from "./ConnectorScopeSection";
+import { scopableProvider } from "@/app/_lib/composio/capture-scope";
 import { buildSourcesPath } from "@/app/_features/sources/sources-tab-routing";
 import { CATEGORY_TO_AREA } from "@/app/_features/capture/adapters/rule-entities";
-import { ConnectorKeptOutCard } from "./ConnectorKeptOutCard";
 import { ConnectorActivityList, ACTIVITY_TIME_FILTERS, filterConnectorActivity, type ActivityTimeFilter } from "./ConnectorActivityList";
 
 /** Recent activity rows shown on Overview before sending people to the Activity tab. */
@@ -775,12 +776,6 @@ export function ConnectorDetailPane({
             </TabsContent>
 
           <TabsContent value="activity" className="m-0 space-y-4">
-            {definition.providerKey ? (
-              <ConnectorKeptOutCard
-                provider={definition.providerKey}
-                enabled={captureState?.capable ?? false}
-              />
-            ) : null}
             <div className="flex flex-col gap-3 pb-1 sm:flex-row sm:items-end sm:justify-between">
               <div className="min-w-0 space-y-0.5">
                 <p className="text-sm font-medium text-foreground">Activity log</p>
@@ -904,6 +899,18 @@ export function ConnectorDetailPane({
               </p>
             </section>
           )}
+
+          {localCaptureEnabled &&
+          definition.providerKey &&
+          scopableProvider(definition.providerKey) ? (
+            <section className="scroll-mt-6">
+              <ConnectorScopeSection
+                provider={definition.providerKey}
+                scope={captureState?.scope ?? null}
+                onChanged={refreshConnectorsUi}
+              />
+            </section>
+          ) : null}
 
           <AboutSections meta={meta} />
         </aside>

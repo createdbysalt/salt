@@ -3,10 +3,14 @@
 import * as React from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ChevronDown, Loader2, X } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@repo/utils";
 import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
   Select,
   SelectContent,
   SelectItem,
@@ -22,14 +26,19 @@ import type { ConnectorRule } from "@/app/_features/capture/services/rules-manag
 import { removeConnectorRule } from "@/app/_features/connectors/actions/rules";
 import { updateCaptureGatePolicy } from "@/app/_features/capture/actions/gate-policy";
 import type { ResolvedGatePolicy } from "@/app/_features/capture/services/gates/gate-policy";
+import {
+  AREA_LOGIC_SUMMARY,
+  WORKSPACE_INTAKE_ORDER,
+} from "@/app/_features/capture/adapters/default-policy";
 import { renderProofLine } from "@/app/_features/capture/utils/gate-proof-counts";
-import { syncAndScanCaptures } from "@/app/_features/capture/actions/run-intelligence-scan";
-import { ConnectorScopeSection } from "@/app/_features/connectors/components/detail/ConnectorScopeSection";
+import { ConnectorIcon } from "@/app/_features/connectors/components/connector-icons";
+import { connectorForToolkit } from "@/app/_features/connectors/utils/toolkit-connector";
 import {
   parseCustomizeCategory,
   syncSourcesUrl,
 } from "../sources-tab-routing";
 import type {
+  CustomizeAccountData,
   CustomizeAreaData,
   CustomizeTabData,
 } from "../sources-tab-data";
@@ -39,21 +48,28 @@ import { TellSaltBox } from "./TellSaltBox";
  * Sources → Customize (2026-08-10) — intake policy at the intake surface,
  * organized by intake AREA (Email, Calendar, Billing, Storage, Messaging,
  * Meetings, CRM, Projects — the same vocabulary as the Activity area
- * filter) instead of by app. The page is Salt reporting, not a form:
+ * filter) instead of by app. The page is Salt reporting, not a form, laid
+ * out doc + rail like Memory → Customize:
  *
- *   What I'm doing     first-person defaults + proof counts + the named
- *                      gate choices (email), "See exactly what I do"
- *                      expands the full detail
- *   Tell Salt          one box per area — values parse deterministically,
- *                      sentences compile, everything confirms in plain
- *                      language before it lands
- *   Your accounts      per-account watch controls + Check for new items
- *   Always let in /    what's been learned, removable
- *   Keep out
+ *   Doc (left)         Tell Salt composer + Always let in / Keep out
+ *                      rules, tied by the aurora thread — what's been
+ *                      learned, removable
+ *   Rail (right)       One aurora card, "The logic I run on" — heading +
+ *                      account icons as one row, a "This week" proof row
+ *                      (7-day gate counts), an opening paragraph for the
+ *                      whole area, then accordions in story order:
+ *                      HOW I RUN (upstream filters, cadence — read-only),
+ *                      THE CHOICES (named gate decisions, current value
+ *                      badged in the trigger), FINE TUNE (per-account watch
+ *                      controls). Kept-out review lives in Activity behind
+ *                      the stream's "Kept out" filter.
  *
- * The "All connectors" option holds the workspace-wide rules (provider
- * NULL). Area switching is a dropdown in the header, mirroring Memory →
- * Customize's record-type picker.
+ * Area views write AREA-scoped rules (provider NULL + area set) — they
+ * cover every account in the area, including accounts connected later.
+ * The "All connectors" option holds the workspace-wide rules (both NULL)
+ * and lists area rules tagged with their area. Area switching is a
+ * dropdown in the header, mirroring Memory → Customize's record-type
+ * picker.
  *
  * Banned words on this surface: trigger, webhook, sync, scope, rule,
  * adapter, pipeline, config. The vocabulary is: watch, skip, keep out,
@@ -74,12 +90,14 @@ export function SourcesCustomizeTab({
   onChanged,
 }: SourcesCustomizeTabProps) {
   const requested = parseCustomizeCategory(initialCategory);
+  // Default landing is "All connectors" (workspace-wide rules); a specific
+  // area is only preselected when the URL explicitly asks for one.
   const [selected, setSelected] = React.useState<string>(() =>
     requested === "all" ||
     (requested !== null &&
       data.areas.some((entry) => entry.area === requested))
       ? requested
-      : (data.areas[0]?.area ?? "all"),
+      : "all",
   );
 
   const select = (key: string) => {
@@ -148,20 +166,18 @@ export function SourcesCustomizeTab({
         }
       />
 
-      <div className="max-w-3xl">
-        {activeArea ? (
-          <AreaSection
-            data={activeArea}
-            gatePolicy={data.gatePolicy}
-            onChanged={onChanged}
-          />
-        ) : (
-          <WorkspaceRulesView
-            rules={data.workspaceRules}
-            onChanged={onChanged}
-          />
-        )}
-      </div>
+      {activeArea ? (
+        <AreaSection
+          data={activeArea}
+          gatePolicy={data.gatePolicy}
+          onChanged={onChanged}
+        />
+      ) : (
+        <WorkspaceRulesView
+          rules={data.workspaceRules}
+          onChanged={onChanged}
+        />
+      )}
     </div>
   );
 }
@@ -175,201 +191,197 @@ function AreaSection({
   gatePolicy: ResolvedGatePolicy;
   onChanged: () => void;
 }) {
-  const { policy } = data;
   const allowRules = data.rules.filter((rule) => rule.ruleType === "allow");
   const denyRules = data.rules.filter((rule) => rule.ruleType === "deny");
-  const proofLine = renderProofLine(data.proof);
-  const firstAccountProvider = data.accounts[0]?.provider ?? null;
 
+  // Doc + rail, mirroring the All connectors view (and Memory → Customize):
+  // the writable doc — composer + rules, tied by the aurora thread — fills
+  // the main column; the rail holds the area's logic card and its
+  // rules-and-kept-out card.
   return (
-    <div className="space-y-8">
-      <section className="space-y-2.5">
-        <h3 className="text-sm font-semibold text-foreground">
-          What I&apos;m doing
-        </h3>
-        {proofLine ? (
-          <p className="text-[13px] leading-snug text-muted-foreground">
-            {proofLine}
-          </p>
-        ) : null}
-        {data.area === "email" ? (
-          <GatePolicyChoices gatePolicy={gatePolicy} onChanged={onChanged} />
-        ) : (
-          <ul className="space-y-1.5">
-            {policy.gateBehavior.map((line) => (
-              <li
-                key={line}
-                className="text-[13px] leading-snug text-muted-foreground"
-              >
-                {line}
-              </li>
-            ))}
-          </ul>
-        )}
-        {data.whenItSyncs.length > 0 ? (
-          <ul className="space-y-1">
-            {data.whenItSyncs.map((line) => (
-              <li
-                key={line}
-                className="text-xs leading-snug text-muted-foreground/80"
-              >
-                {line}
-              </li>
-            ))}
-          </ul>
-        ) : null}
-        <FullDetailDisclosure
-          upstreamFilters={policy.upstreamFilters}
-          gateBehavior={data.area === "email" ? policy.gateBehavior : []}
+    <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_360px]">
+      {/* self-start: grid items stretch to the row height by default, which
+          would drag the aurora thread past the rules to the bottom of the
+          taller rail — the thread belongs to the doc, not the grid. */}
+      <div className="relative max-w-3xl self-start">
+        <div className="relative z-10 bg-background">
+          <TellSaltBox
+            area={data.area}
+            onApplied={onChanged}
+            existingKeys={data.rules.map((rule) => rule.entityKey)}
+          />
+        </div>
+        <div
+          aria-hidden
+          className="absolute bottom-2 left-[21px] top-[50px] w-0.5 rounded-full bg-[linear-gradient(180deg,oklch(0.58_0.16_200_/_0.5),oklch(0.78_0.16_75_/_0.3)_60%,transparent)]"
         />
-      </section>
+        <div className="mt-5 space-y-8 pl-10">
+          <RulesSection
+            title="Always let in"
+            blurb="Matching items skip the noise filters and reach you at full prominence."
+            rules={allowRules}
+            scopeTag={(rule) => rule.provider}
+            onChanged={onChanged}
+          />
+          <RulesSection
+            title="Keep out"
+            blurb="Matching items are dropped before they reach your stream."
+            rules={denyRules}
+            scopeTag={(rule) => rule.provider}
+            onChanged={onChanged}
+          />
+        </div>
+      </div>
 
-      <section className="space-y-2.5">
-        <h3 className="text-sm font-semibold text-foreground">Tell Salt</h3>
-        <TellSaltBox
-          area={data.area}
-          provider={firstAccountProvider}
-          onApplied={onChanged}
-          existingKeys={data.rules.map((rule) => rule.entityKey)}
+      <aside className="space-y-6 lg:sticky lg:top-6 lg:self-start">
+        <AreaLogicCard
+          data={data}
+          gatePolicy={gatePolicy}
+          onChanged={onChanged}
         />
-        {data.accounts.length > 1 ? (
-          <p className="text-xs leading-snug text-muted-foreground">
-            Applies to {data.accounts[0].name}. Choices that span accounts
-            live under All connectors.
-          </p>
-        ) : null}
-      </section>
-
-      <section className="space-y-4">
-        <h3 className="text-sm font-semibold text-foreground">Your accounts</h3>
-        {data.accounts.map((account) => (
-          <div key={account.provider} className="space-y-2">
-            <div className="flex flex-wrap items-center gap-x-2">
-              <p className="text-[13px] font-medium text-foreground">
-                {account.name}
-              </p>
-              {account.label ? (
-                <p className="truncate text-xs text-muted-foreground">
-                  {account.label}
-                </p>
-              ) : null}
-              {account.captureEnabled ? (
-                <CheckForNewItemsButton onDone={onChanged} />
-              ) : null}
-            </div>
-            {account.captureEnabled ? (
-              <ConnectorScopeSection
-                provider={account.provider}
-                scope={account.scope}
-                onChanged={onChanged}
-              />
-            ) : (
-              <p className="text-xs leading-snug text-muted-foreground">
-                Memory capture is off for this account — turn it on from the
-                connector&apos;s page to choose what Salt watches.
-              </p>
-            )}
-          </div>
-        ))}
-      </section>
-
-      <RulesSection
-        title="Always let in"
-        blurb="Matching items skip the noise filters and reach you at full prominence."
-        rules={allowRules}
-        providers={data.accounts.map((account) => account.provider)}
-        onChanged={onChanged}
-      />
-      <RulesSection
-        title="Keep out"
-        blurb="Matching items are dropped before they reach your stream."
-        rules={denyRules}
-        providers={data.accounts.map((account) => account.provider)}
-        onChanged={onChanged}
-      />
+      </aside>
     </div>
   );
 }
 
 /**
- * The named gate choices (S3) — rendered beside the email defaults they
- * govern. Named choices, never numeric knobs: a gate gets a control only
- * when reasonable users genuinely differ.
+ * Card 1 of the area rail — "The logic I run on", mirroring Memory's
+ * RecordLogicCard: heading + the area's account icons as one header row, an
+ * opening paragraph that tells the area's story, then accordions. Every
+ * area gets the same HOW I RUN trio (what I look for / what never reaches
+ * me / when I check); email adds a FINE TUNE group with the named gate
+ * decisions, the current value badged in the trigger.
  */
-function GatePolicyChoices({
+function AreaLogicCard({
+  data,
   gatePolicy,
   onChanged,
 }: {
+  data: CustomizeAreaData;
   gatePolicy: ResolvedGatePolicy;
   onChanged: () => void;
 }) {
+  // Quiet proof the logic is working (7-day gate counts), side by side
+  // under the heading. The label carries "This week" — drop the line's
+  // redundant prefix.
+  const proofLine = renderProofLine(data.proof)?.replace(/^This week: /, "");
+
   return (
-    <div className="space-y-2">
-      <GatePolicyChoice
-        label="Automated senders — receipts, notifications"
-        value={gatePolicy.email.automatedSenders}
-        options={[
-          { value: "dropped", label: "Kept out" },
-          { value: "watched", label: "Watched" },
-          { value: "let_in", label: "Let in" },
-        ]}
-        onPick={async (value) => {
-          const result = await updateCaptureGatePolicy({
-            email: {
-              automated_senders: value as "dropped" | "watched" | "let_in",
-            },
-          });
-          if (result.success) {
-            onChanged();
-          } else {
-            toast.error(result.error);
-          }
-        }}
-      />
-      <GatePolicyChoice
-        label="Receipts & subscriptions from your tools"
-        value={gatePolicy.email.trackSubscriptions}
-        options={[
-          { value: "tracked", label: "Tracked" },
-          { value: "ignored", label: "Ignored" },
-        ]}
-        onPick={async (value) => {
-          const result = await updateCaptureGatePolicy({
-            email: {
-              track_subscriptions: value as "tracked" | "ignored",
-            },
-          });
-          if (result.success) {
-            onChanged();
-          } else {
-            toast.error(result.error);
-          }
-        }}
-      />
-      <GatePolicyChoice
-        label="Mail from people you don't know"
-        value={gatePolicy.email.strangers}
-        options={[
-          { value: "watched", label: "Watched" },
-          { value: "let_in", label: "Let in" },
-          { value: "dropped", label: "Kept out" },
-        ]}
-        onPick={async (value) => {
-          const result = await updateCaptureGatePolicy({
-            email: { strangers: value as "watched" | "let_in" | "dropped" },
-          });
-          if (result.success) {
-            onChanged();
-          } else {
-            toast.error(result.error);
-          }
-        }}
-      />
-    </div>
+    <section className="surface-aurora relative overflow-hidden rounded-3xl p-6 text-white">
+      <div className="relative z-10 space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-display text-xl font-semibold leading-tight text-white">
+            The logic I run on
+          </h2>
+          <div className="flex items-center -space-x-1.5">
+            {data.accounts.map((account) => (
+              <AccountIcon key={account.provider} account={account} />
+            ))}
+          </div>
+        </div>
+        {proofLine ? (
+          <div className="flex items-baseline justify-between gap-3">
+            <p className="text-[10px] font-medium uppercase tracking-[0.08em] text-white/40">
+              This week
+            </p>
+            <p className="text-xs leading-snug text-white/70">{proofLine}</p>
+          </div>
+        ) : null}
+        <p className="text-[13px] leading-snug text-white/70">
+          {areaOpeningLine(data)}
+        </p>
+
+        <Accordion
+          type="multiple"
+          className="aurora-scroll max-h-[440px] overflow-y-auto pr-2"
+        >
+          <HowIRunItems data={data} />
+          {data.area === "email" ? (
+            <>
+              <AccordionGroupLabel>Fine tune</AccordionGroupLabel>
+              <GateChoiceItem
+                label="Automated senders — receipts, notifications"
+                value={gatePolicy.email.automatedSenders}
+                options={[
+                  { value: "dropped", label: "Kept out" },
+                  { value: "watched", label: "Watched" },
+                  { value: "let_in", label: "Let in" },
+                ]}
+                onPick={async (value) => {
+                  const result = await updateCaptureGatePolicy({
+                    email: {
+                      automated_senders: value as "dropped" | "watched" | "let_in",
+                    },
+                  });
+                  if (result.success) {
+                    onChanged();
+                  } else {
+                    toast.error(result.error);
+                  }
+                }}
+              />
+              <GateChoiceItem
+                label="Receipts & subscriptions from your tools"
+                value={gatePolicy.email.trackSubscriptions}
+                options={[
+                  { value: "tracked", label: "Tracked" },
+                  { value: "ignored", label: "Ignored" },
+                ]}
+                onPick={async (value) => {
+                  const result = await updateCaptureGatePolicy({
+                    email: {
+                      track_subscriptions: value as "tracked" | "ignored",
+                    },
+                  });
+                  if (result.success) {
+                    onChanged();
+                  } else {
+                    toast.error(result.error);
+                  }
+                }}
+              />
+              <GateChoiceItem
+                label="Mail from people you don't know"
+                value={gatePolicy.email.strangers}
+                options={[
+                  { value: "watched", label: "Watched" },
+                  { value: "let_in", label: "Let in" },
+                  { value: "dropped", label: "Kept out" },
+                ]}
+                onPick={async (value) => {
+                  const result = await updateCaptureGatePolicy({
+                    email: { strangers: value as "watched" | "let_in" | "dropped" },
+                  });
+                  if (result.success) {
+                    onChanged();
+                  } else {
+                    toast.error(result.error);
+                  }
+                }}
+              />
+            </>
+          ) : null}
+        </Accordion>
+      </div>
+    </section>
   );
 }
 
-function GatePolicyChoice({
+/**
+ * The opening paragraph — the card's main beat. Speaks for the whole area,
+ * never naming specific apps: the logic covers every account in the area,
+ * connected now or later.
+ */
+function areaOpeningLine(data: CustomizeAreaData): string {
+  return `One logic across all your ${AREA_LABELS[data.area].toLowerCase()} apps — ${AREA_LOGIC_SUMMARY[data.area]}.`;
+}
+
+/**
+ * One named gate choice as an accordion item: the trigger carries the
+ * current value as a badge (Memory's field-tier pattern), the content holds
+ * the option pills that change it.
+ */
+function GateChoiceItem({
   label,
   value,
   options,
@@ -381,112 +393,151 @@ function GatePolicyChoice({
   onPick: (value: string) => Promise<void>;
 }) {
   const [saving, setSaving] = React.useState(false);
+  const current = options.find((option) => option.value === value);
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-      <p className="text-[13px] leading-snug text-muted-foreground">{label}</p>
-      <div className="flex items-center gap-1" role="group" aria-label={label}>
-        {options.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            aria-pressed={value === option.value}
-            disabled={saving}
-            onClick={() => {
-              if (option.value === value) return;
-              setSaving(true);
-              void onPick(option.value).finally(() => setSaving(false));
-            }}
-            className={cn(
-              "rounded-full border px-2.5 py-0.5 text-xs font-medium transition disabled:opacity-50",
-              value === option.value
-                ? "border-foreground/20 bg-muted text-foreground"
-                : "border-border/60 text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {option.label}
-          </button>
-        ))}
+    <AccordionItem value={label} className="border-white/15">
+      <AccordionTrigger className="py-2.5 text-left text-[13px] text-white/90 hover:no-underline [&_svg]:shrink-0 [&_svg]:text-white/60!">
+        <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          {label}
+          <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-medium text-white/70">
+            {current?.label ?? value}
+          </span>
+        </span>
+      </AccordionTrigger>
+      <AccordionContent className="text-xs leading-snug text-white/70">
+        {/* Segmented control — one bordered track reads as a single
+            selectable control where loose pills read as static badges. */}
+        <div
+          role="group"
+          aria-label={label}
+          className="mb-1 inline-flex flex-wrap items-center gap-1 rounded-full border border-white/20 bg-white/10 p-1"
+        >
+          {options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              aria-pressed={value === option.value}
+              disabled={saving}
+              onClick={() => {
+                if (option.value === value) return;
+                setSaving(true);
+                void onPick(option.value).finally(() => setSaving(false));
+              }}
+              className={cn(
+                "rounded-full px-3 py-1 text-xs font-medium transition disabled:opacity-50",
+                value === option.value
+                  ? "bg-white text-black shadow-sm"
+                  : "text-white/70 hover:bg-white/10 hover:text-white",
+              )}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
         {saving ? (
-          <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+          <Loader2 className="ml-1 inline size-3.5 animate-spin text-white/70" />
         ) : null}
-      </div>
-    </div>
+      </AccordionContent>
+    </AccordionItem>
   );
 }
 
-/** Progressive disclosure: the full detail for the curious. */
-function FullDetailDisclosure({
-  upstreamFilters,
-  gateBehavior,
-}: {
-  upstreamFilters: readonly string[];
-  gateBehavior: readonly string[];
-}) {
-  const [open, setOpen] = React.useState(false);
-  const lines = [...gateBehavior, ...upstreamFilters];
-  if (lines.length === 0) return null;
+/** Uppercase mini-label separating accordion groups (Memory's pattern). */
+function AccordionGroupLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="space-y-1.5">
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={() => setOpen((prev) => !prev)}
-        className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground transition hover:text-foreground"
-      >
-        <ChevronDown
-          className={cn("size-3 transition-transform", open && "rotate-180")}
-        />
-        See exactly what I do
-      </button>
-      {open ? (
-        <ul className="space-y-1.5 border-l border-border/60 pl-3">
-          {lines.map((line) => (
-            <li
-              key={line}
-              className="text-xs leading-snug text-muted-foreground"
-            >
-              {line}
-            </li>
-          ))}
-        </ul>
-      ) : null}
-    </div>
+    <p className="border-t border-white/10 pb-1 pt-3 text-[10px] font-medium uppercase tracking-[0.08em] text-white/40">
+      {children}
+    </p>
   );
 }
 
 /**
- * "Check for new items" — runs the workspace reconcile+scan. The action is
- * workspace-wide, so the copy never claims it only checks this account.
+ * HOW I RUN — the read-only rhythm of the area, first in the accordion:
+ * what Salt looks for (the extraction layer), what never reaches it
+ * (live-rendered upstream filters), and when delivery happens. No controls
+ * here; the choices and fine-tuning follow.
  */
-function CheckForNewItemsButton({ onDone }: { onDone: () => void }) {
-  const [running, setRunning] = React.useState(false);
+function HowIRunItems({ data }: { data: CustomizeAreaData }) {
+  const { policy } = data;
   return (
-    <button
-      type="button"
-      disabled={running}
-      onClick={() => {
-        setRunning(true);
-        void syncAndScanCaptures()
-          .then((result) => {
-            if (result.success) {
-              const created = result.sync?.capturesCreated ?? 0;
-              toast.success(
-                created > 0
-                  ? `Checked for new items — ${created} new.`
-                  : "Checked for new items — nothing new.",
-              );
-              onDone();
-            } else {
-              toast.error(result.error ?? "Could not check right now.");
-            }
-          })
-          .finally(() => setRunning(false));
-      }}
-      className="inline-flex items-center gap-1 rounded-full border border-border/60 px-2.5 py-0.5 text-xs font-medium text-muted-foreground transition hover:text-foreground disabled:opacity-50"
+    <>
+      <p className="pb-1 text-[10px] font-medium uppercase tracking-[0.08em] text-white/40">
+        How I run
+      </p>
+      {policy.lookFor.length > 0 ? (
+        <AccordionItem value="look-for" className="border-white/15">
+          <AccordionTrigger className="py-2.5 text-left text-[13px] text-white/90 hover:no-underline [&_svg]:text-white/60!">
+            What I look for
+          </AccordionTrigger>
+          <AccordionContent className="text-xs leading-snug text-white/70">
+            <ul className="list-disc space-y-1.5 pl-4 marker:text-white/40">
+              {policy.lookFor.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+          </AccordionContent>
+        </AccordionItem>
+      ) : null}
+      <AccordionItem value="upstream-filters" className="border-white/15">
+        <AccordionTrigger className="py-2.5 text-left text-[13px] text-white/90 hover:no-underline [&_svg]:text-white/60!">
+          What never reaches me
+        </AccordionTrigger>
+        <AccordionContent className="text-xs leading-snug text-white/70">
+          <ul className="list-disc space-y-1.5 pl-4 marker:text-white/40">
+            {policy.upstreamFilters.length > 0 ? (
+              policy.upstreamFilters.map((line) => <li key={line}>{line}</li>)
+            ) : (
+              // No seeded upstream filters for this area — say so honestly
+              // rather than hiding the item and breaking the trio.
+              <li>Nothing is filtered out upstream — everything these apps emit reaches the gate</li>
+            )}
+          </ul>
+        </AccordionContent>
+      </AccordionItem>
+      {data.whenItSyncs.length > 0 ? (
+        <AccordionItem value="cadence" className="border-white/15">
+          <AccordionTrigger className="py-2.5 text-left text-[13px] text-white/90 hover:no-underline [&_svg]:text-white/60!">
+            When I check
+          </AccordionTrigger>
+          <AccordionContent className="text-xs leading-snug text-white/70">
+            <ul className="list-disc space-y-1.5 pl-4 marker:text-white/40">
+              {data.whenItSyncs.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+          </AccordionContent>
+        </AccordionItem>
+      ) : null}
+    </>
+  );
+}
+
+/**
+ * One account's connector glyph. Provider keys are toolkit slugs ("gmail"),
+ * so resolve through connectorForToolkit — a raw cast renders nothing for
+ * slugs whose catalog id differs ("google", "google-calendar").
+ */
+function AccountIcon({
+  account,
+  shell = true,
+}: {
+  account: CustomizeAccountData;
+  /** Shell = the overlapping-stack circle; false = bare glyph for rows. */
+  shell?: boolean;
+}) {
+  const connector = connectorForToolkit(account.provider);
+  if (!connector) return null;
+  if (!shell) {
+    return <ConnectorIcon id={connector.id} size={14} />;
+  }
+  return (
+    <span
+      title={account.label ?? account.name}
+      aria-label={account.label ?? account.name}
+      className="inline-flex size-7 items-center justify-center rounded-full border border-border/60 bg-card shadow-sm ring-2 ring-card"
     >
-      {running ? <Loader2 className="size-3 animate-spin" /> : null}
-      Check for new items
-    </button>
+      <ConnectorIcon id={connector.id} size={14} />
+    </span>
   );
 }
 
@@ -500,42 +551,96 @@ function WorkspaceRulesView({
   const allowRules = rules.filter((rule) => rule.ruleType === "allow");
   const denyRules = rules.filter((rule) => rule.ruleType === "deny");
 
+  // Doc + rail, mirroring Memory → Customize: the writable doc fills the
+  // main column; the workspace-wide intake order sits in a sticky rail.
   return (
-    <div className="relative">
-      {/* The Tell Salt box is the parent; an aurora thread ties the learned
-          rules to it as its children — you write above, the rule lands
-          below. The composer block masks the thread so its live feedback
-          and confirm panel never cross the line. */}
-      <div className="relative z-10 bg-background">
-        <TellSaltBox
-          area={null}
-          provider={null}
-          onApplied={onChanged}
-          existingKeys={rules.map((rule) => rule.entityKey)}
+    <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_360px]">
+      {/* self-start: keeps the aurora thread measured against the doc, not
+          the grid row, when the rail is taller. */}
+      <div className="relative max-w-3xl self-start">
+        {/* The Tell Salt box is the parent; an aurora thread ties the learned
+            rules to it as its children — you write above, the rule lands
+            below. The composer block masks the thread so its live feedback
+            and confirm panel never cross the line. */}
+        <div className="relative z-10 bg-background">
+          <TellSaltBox
+            area={null}
+            onApplied={onChanged}
+            existingKeys={rules.map((rule) => rule.entityKey)}
+          />
+        </div>
+        <div
+          aria-hidden
+          className="absolute bottom-2 left-[21px] top-[50px] w-0.5 rounded-full bg-[linear-gradient(180deg,oklch(0.58_0.16_200_/_0.5),oklch(0.78_0.16_75_/_0.3)_60%,transparent)]"
         />
+        <div className="mt-5 space-y-8 pl-10">
+          <RulesSection
+            title="Always let in"
+            blurb="Matching items skip the noise filters and reach you at full prominence."
+            rules={allowRules}
+            scopeTag={workspaceScopeTag}
+            onChanged={onChanged}
+          />
+          <RulesSection
+            title="Keep out"
+            blurb="Matching items are dropped before they reach your stream."
+            rules={denyRules}
+            scopeTag={workspaceScopeTag}
+            onChanged={onChanged}
+          />
+        </div>
       </div>
-      <div
-        aria-hidden
-        className="absolute bottom-2 left-[21px] top-[50px] w-0.5 rounded-full bg-[linear-gradient(180deg,oklch(0.58_0.16_200_/_0.5),oklch(0.78_0.16_75_/_0.3)_60%,transparent)]"
-      />
-      <div className="mt-5 space-y-8 pl-10">
-        <RulesSection
-          title="Always let in"
-          blurb="Matching items skip the noise filters and reach you at full prominence."
-          rules={allowRules}
-          providers={[null]}
-          onChanged={onChanged}
-        />
-        <RulesSection
-          title="Keep out"
-          blurb="Matching items are dropped before they reach your stream."
-          rules={denyRules}
-          providers={[null]}
-          onChanged={onChanged}
-        />
-      </div>
+
+      <aside className="lg:sticky lg:top-6 lg:self-start">
+        <WorkspaceLogicCard />
+      </aside>
     </div>
   );
+}
+
+/**
+ * The All connectors rail card — the workspace-wide intake order, in the
+ * same aurora shell as Memory's trust card. Read-only transparency: the
+ * lines mirror the gate pipeline (rules first, then drop, fast-track,
+ * hold), so the card doubles as the "why workspace rules matter" story.
+ */
+function WorkspaceLogicCard() {
+  return (
+    <section className="surface-aurora relative overflow-hidden rounded-3xl p-6 text-white">
+      <div className="relative z-10 space-y-4">
+        <h2 className="font-display text-xl font-semibold leading-tight text-white">
+          The logic I run on
+        </h2>
+        <p className="text-[13px] leading-snug text-white/70">
+          Every connected account, in this order.
+        </p>
+        <ol className="space-y-2.5">
+          {WORKSPACE_INTAKE_ORDER.map((line, index) => (
+            <li key={line} className="flex items-start gap-2.5">
+              <span className="grid size-5 shrink-0 place-items-center rounded-full bg-white/15 text-[11px] font-semibold tabular-nums text-white/90">
+                {index + 1}
+              </span>
+              <span className="text-[13px] leading-snug text-white/80">
+                {line}
+              </span>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Scope tag for the All connectors view: area rules carry their area label
+ * ("Email"), provider rules their provider key; workspace-wide rules (the
+ * view's own scope) need no tag.
+ */
+function workspaceScopeTag(rule: ConnectorRule): string | null {
+  if (rule.area) {
+    return AREA_LABELS[rule.area as keyof typeof AREA_LABELS] ?? rule.area;
+  }
+  return rule.provider;
 }
 
 /** One rules list — allow or deny — with removal. */
@@ -543,14 +648,14 @@ function RulesSection({
   title,
   blurb,
   rules,
-  providers,
+  scopeTag,
   onChanged,
 }: {
   title: string;
   blurb: string;
   rules: ConnectorRule[];
-  /** Provider scopes a removal is legal for (null = workspace-wide). */
-  providers: (string | null)[];
+  /** What distinguishes a row's scope in this view; null = no tag. */
+  scopeTag: (rule: ConnectorRule) => string | null;
   onChanged: () => void;
 }) {
   const [removingId, setRemovingId] = React.useState<string | null>(null);
@@ -559,6 +664,7 @@ function RulesSection({
     setRemovingId(rule.id);
     const result = await removeConnectorRule({
       provider: rule.provider,
+      area: rule.area,
       ruleId: rule.id,
     });
     setRemovingId(null);
@@ -594,7 +700,7 @@ function RulesSection({
               <RuleRow
                 key={rule.id}
                 rule={rule}
-                showProvider={providers.length > 1}
+                tag={scopeTag(rule)}
                 onRemove={
                   removingId === rule.id ? undefined : () => void remove(rule)
                 }
@@ -609,11 +715,11 @@ function RulesSection({
 
 function RuleRow({
   rule,
-  showProvider,
+  tag,
   onRemove,
 }: {
   rule: ConnectorRule;
-  showProvider: boolean;
+  tag: string | null;
   onRemove?: () => void;
 }) {
   return (
@@ -630,8 +736,8 @@ function RuleRow({
             {ENTITY_TYPE_LABELS[rule.entityType] ?? rule.entityType} ·{" "}
           </span>
           {rule.entityKey}
-          {showProvider && rule.provider ? (
-            <span className="text-muted-foreground"> · {rule.provider}</span>
+          {tag ? (
+            <span className="text-muted-foreground"> · {tag}</span>
           ) : null}
         </p>
         {rule.reason ? (

@@ -471,13 +471,18 @@ export async function POST(req: NextRequest) {
 
   if (needsHydration) {
     // Cheap gate 1: replayed/re-tried delivery of an already-ingested
-    // message — ack without paying for a second fetch.
-    const duplicate = await captureAlreadyIngested(
-      admin,
-      integration.workspace_id,
-      envelope.sourceType,
-      envelope.externalId,
-    );
+    // message — ack without paying for a second fetch. Lifecycle updates
+    // (event rescheduled/cancelled) must NOT short-circuit here: the point
+    // of an update trigger is to hydrate and update the stored row.
+    const duplicate =
+      envelope.lifecycle === "update"
+        ? false
+        : await captureAlreadyIngested(
+            admin,
+            integration.workspace_id,
+            envelope.sourceType,
+            envelope.externalId,
+          );
     if (duplicate) {
       return NextResponse.json({
         ok: true,

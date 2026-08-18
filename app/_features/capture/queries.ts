@@ -26,9 +26,8 @@ import {
   type ResolveScanFindingLink,
 } from "./utils/capture-stream-page-filter";
 import type { GateProofRow } from "./utils/gate-proof-counts";
+import { keptOutCauseFromGateResult } from "@/app/_features/memory/queries/admission-gate-result";
 import { resolveCaptureSourceUrl } from "./utils/capture-source-url";
-import { getTierCapacity } from "@/app/_lib/usage/tiers";
-import { nextDiscoveryDueAt } from "./services/discovery-cadence";
 import type { SeededTriggerFilter } from "./adapters/default-policy";
 
 /** Shape of the gate_result JSONB subset the stream reads. */
@@ -308,6 +307,7 @@ async function mapStreamRows(
       is_bootstrap: row.is_bootstrap ?? false,
       gate_action: row.gate_action ?? null,
       gate_reason: extractGateReason(row.gate_result),
+      gate_cause: keptOutCauseFromGateResult(row.gate_result),
       plays_dispatched: readPlaysDispatched(row.enriched_metadata),
       watches_triggered: watchesTriggered,
     };
@@ -447,9 +447,12 @@ export async function getCaptureStreamPage(
   const pageSize = Math.min(Math.max(1, Math.floor(params.pageSize)), 100);
   const search = params.search?.trim() ?? "";
   const fullHistory = search.length >= 2;
+  // The "Kept out" filter toggle reveals the same rows a full-history
+  // search does — dropped/held captures, with their verdicts.
+  const includeKeptOut = fullHistory || params.keptOut === true;
 
-  const scanned = await scanCaptureStreamRows(workspaceId, fullHistory);
-  const streamRows = fullHistory
+  const scanned = await scanCaptureStreamRows(workspaceId, includeKeptOut);
+  const streamRows = includeKeptOut
     ? scanned.filter((row) => isStreamVisibleGateAction(row.gate_action))
     : scanned;
 
@@ -470,7 +473,7 @@ export async function getCaptureStreamPage(
 
   const counts = computeCaptureStreamCounts(streamRows, resolveFindingLink);
   const filtered = filterCaptureScanRows(
-    fullHistory ? scanned : streamRows,
+    includeKeptOut ? scanned : streamRows,
     { ...params, search },
     resolveFindingLink,
   );
@@ -599,70 +602,3 @@ export async function getWeeklyGateProofRows(
   }));
 }
 
-/**
- * Discovery status for the Sources surface (Sources plan 4.4): the workspace's
- * plan tier and the last relationship-discovery stamp, with the next due time
- * derived from the same cadence math the cron gates on.
- *
- * Null when discovery is not scheduled work for this workspace (no
- * capture-enabled active integration — the cron's own eligibility rule) or on
- * query error: the UI shows nothing rather than something wrong.
- */
-export interface CaptureDiscoveryStatus {
-  tier: string;
-  tierLabel: string;
-  lastRunAt: string | null;
-  /** ISO due time; at/before now means the next cron tick picks it up. */
-  nextRunAt: string;
-}
-
-export const getDiscoveryStatus = cache(async (
-  workspaceId: string,
-): Promise<CaptureDiscoveryStatus | null> => {
-  const supabase = await createClient();
-
-  const [integrationsRes, subscriptionRes, settingsRes] = await Promise.all([
-    supabase
-      .from("workspace_integrations")
-      .select("id", { count: "exact", head: true })
-      .eq("workspace_id", workspaceId)
-      .eq("capture_enabled", true)
-      .eq("is_active", true),
-    supabase
-      .from("workspace_subscriptions")
-      .select("tier, pricing_version")
-      .eq("workspace_id", workspaceId)
-      .maybeSingle(),
-    supabase
-      .from("workspace_capture_settings")
-      .select("last_discovery_at")
-      .eq("workspace_id", workspaceId)
-      .maybeSingle(),
-  ]);
-
-  if (integrationsRes.error) {
-    console.error("[capture-queries] getDiscoveryStatus integrations error:", integrationsRes.error);
-    return null;
-  }
-  if (subscriptionRes.error) {
-    console.error("[capture-queries] getDiscoveryStatus subscription error:", subscriptionRes.error);
-    return null;
-  }
-  if (settingsRes.error) {
-    console.error("[capture-queries] getDiscoveryStatus settings error:", settingsRes.error);
-    return null;
-  }
-
-  if ((integrationsRes.count ?? 0) === 0) return null;
-
-  const tier = subscriptionRes.data?.tier ?? null;
-  const capacity = getTierCapacity(tier, subscriptionRes.data?.pricing_version);
-  const lastRunAt = settingsRes.data?.last_discovery_at ?? null;
-
-  return {
-    tier: capacity.tier,
-    tierLabel: capacity.label,
-    lastRunAt,
-    nextRunAt: new Date(nextDiscoveryDueAt(tier, lastRunAt)).toISOString(),
-  };
-});

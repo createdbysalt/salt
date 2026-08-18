@@ -15,6 +15,7 @@ type MockRow = {
   id: string;
   workspace_id: string;
   provider: string | null;
+  area: string | null;
   rule_type: "allow" | "deny";
   entity_type: string;
   entity_key: string;
@@ -41,6 +42,7 @@ function ruleRow(input: {
     id: input.id,
     workspace_id: "ws-1",
     provider: null,
+    area: null,
     rule_type: "deny",
     entity_type: BLOCKLIST_TO_ENTITY_TYPE[input.type],
     entity_key: input.value,
@@ -131,6 +133,7 @@ function createQueryBuilder() {
         id: `inserted-${insertCounter}`,
         workspace_id: row.workspace_id as string,
         provider: (row.provider as string | null) ?? null,
+        area: (row.area as string | null) ?? null,
         rule_type: (row.rule_type as "allow" | "deny") ?? "deny",
         entity_type: row.entity_type as string,
         entity_key: row.entity_key as string,

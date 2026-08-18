@@ -3,18 +3,18 @@ import "server-only";
 import { getConnectorsPageData } from "@/app/_features/connectors/queries";
 import {
   getCaptureStreamPage,
-  getDiscoveryStatus,
   getSeededCaptureTriggerFilters,
   getWeeklyGateProofRows,
   hasCaptures,
 } from "@/app/_features/capture/queries";
-import { getAdmissionDecisions } from "@/app/_features/memory/queries/admission-decisions";
 import { DEFAULT_CAPTURE_STREAM_PAGE_SIZE } from "@/app/_features/capture/stream-constants";
 import { getCaptureCategoryMap } from "@/app/_lib/composio/capture-categories";
 import {
   defaultPolicyForArea,
+  renderDiscoveryCadenceLine,
   renderWhenItSyncs,
 } from "@/app/_features/capture/adapters/default-policy";
+import { createClient } from "@/app/_lib/supabase/server";
 import { summarizeGateProofCounts } from "@/app/_features/capture/utils/gate-proof-counts";
 import { getCaptureGatePolicy } from "@/app/_features/capture/actions/gate-policy";
 import {
@@ -46,10 +46,26 @@ export function emptySourcesPageData(): SourcesPageData {
     streamCounts: null,
     hasCaptureData: false,
     workspaceId: null,
-    keptOut: null,
-    discovery: null,
     customize: null,
   };
+}
+
+/**
+ * The workspace's plan tier, for the email area's discovery-cadence line.
+ * Null on error or missing row — the copy's fail-safe reads it as Starter.
+ */
+async function getWorkspaceTier(workspaceId: string): Promise<string | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("workspace_subscriptions")
+    .select("tier")
+    .eq("workspace_id", workspaceId)
+    .maybeSingle();
+  if (error) {
+    console.error("[sources] workspace tier query error:", error.message);
+    return null;
+  }
+  return data?.tier ?? null;
 }
 
 /**
@@ -63,13 +79,14 @@ export function emptySourcesPageData(): SourcesPageData {
 async function loadCustomizeTabData(
   workspaceId: string,
 ): Promise<CustomizeTabData> {
-  const [connectors, categoryMap, allRules, gatePolicy, proofRows] =
+  const [connectors, categoryMap, allRules, gatePolicy, proofRows, tier] =
     await Promise.all([
       getConnectorsPageData(),
       getCaptureCategoryMap(),
       getRules(workspaceId, { limit: 500 }),
       getCaptureGatePolicy(workspaceId),
       getWeeklyGateProofRows(workspaceId),
+      getWorkspaceTier(workspaceId),
     ]);
 
   const resolveArea = (provider: string): CustomizeArea | null => {
@@ -95,8 +112,6 @@ async function loadCustomizeTabData(
       provider: definition.providerKey,
       name: definition.name,
       label: status.label ?? null,
-      captureEnabled: capture.enabled,
-      scope: capture.scope,
     });
     accountsByArea.set(area, accounts);
   }
@@ -107,31 +122,44 @@ async function loadCustomizeTabData(
     ),
   );
 
-  const areas = CUSTOMIZE_AREA_ORDER.filter((area) =>
-    accountsByArea.has(area),
-  ).map((area) => {
-    const accounts = accountsByArea.get(area) ?? [];
-    const providers = new Set(accounts.map((account) => account.provider));
-    return {
-      area,
-      accounts,
-      policy: defaultPolicyForArea(
-        area,
-        seededFilters.filter((filter) => providers.has(filter.provider)),
-        gatePolicy,
-      ),
-      rules: allRules.filter(
-        (rule) => rule.provider !== null && providers.has(rule.provider),
-      ),
-      proof: proofByArea.get(area) ?? null,
-      whenItSyncs: accounts
-        .map((account) => renderWhenItSyncs(account.provider))
-        .filter((line): line is string => line !== null),
-    };
-  });
+  const areas = await Promise.all(
+    CUSTOMIZE_AREA_ORDER.filter((area) => accountsByArea.has(area)).map(
+      async (area) => {
+        const accounts = accountsByArea.get(area) ?? [];
+        const providers = new Set(accounts.map((account) => account.provider));
+        return {
+          area,
+          accounts,
+          policy: defaultPolicyForArea(
+            area,
+            seededFilters.filter((filter) => providers.has(filter.provider)),
+          ),
+          // The area's rules: area-scoped rows (provider NULL + area — written
+          // from this view, covering every account in the area) plus legacy
+          // provider-scoped rows for the area's connected providers.
+          rules: allRules.filter(
+            (rule) =>
+              rule.area === area ||
+              (rule.provider !== null && providers.has(rule.provider)),
+          ),
+          proof: proofByArea.get(area) ?? null,
+          whenItSyncs: [
+            ...accounts
+              .map((account) => renderWhenItSyncs(account.provider))
+              .filter((line): line is string => line !== null),
+            // Discovery is Lane B work on the held email pool — its
+            // tier-gated cadence belongs in the email area's rhythm.
+            ...(area === "email" ? [renderDiscoveryCadenceLine(tier)] : []),
+          ],
+        };
+      },
+    ),
+  );
 
   return {
     areas,
+    // Everything not tied to one account: workspace-wide rules (both NULL)
+    // plus area-scoped rules, which render here tagged with their area.
     workspaceRules: allRules.filter((rule) => rule.provider === null),
     gatePolicy,
   };
@@ -165,16 +193,13 @@ export async function loadSourcesPageData(options: {
   }
 
   if (workspaceId) {
-    const [streamPage, hasCaptureData, admissions, discovery] =
-      await Promise.all([
-        getCaptureStreamPage(workspaceId, {
-          page: 1,
-          pageSize: DEFAULT_CAPTURE_STREAM_PAGE_SIZE,
-        }),
-        hasCaptures(workspaceId),
-        getAdmissionDecisions(workspaceId),
-        getDiscoveryStatus(workspaceId),
-      ]);
+    const [streamPage, hasCaptureData] = await Promise.all([
+      getCaptureStreamPage(workspaceId, {
+        page: 1,
+        pageSize: DEFAULT_CAPTURE_STREAM_PAGE_SIZE,
+      }),
+      hasCaptures(workspaceId),
+    ]);
 
     return {
       ...base,
@@ -183,11 +208,6 @@ export async function loadSourcesPageData(options: {
       streamCounts: streamPage.counts,
       hasCaptureData,
       workspaceId,
-      keptOut: {
-        count: admissions.keptOutCount,
-        sample: admissions.keptOutSample,
-      },
-      discovery,
     };
   }
 

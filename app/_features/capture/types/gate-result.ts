@@ -24,7 +24,7 @@ export interface EntityRef {
 
 export interface GateResultDrop {
   action: "drop";
-  gate: "pre-ingest" | "blocklist" | "rules" | "policy";
+  gate: "pre-ingest" | "blocklist" | "rules" | "policy" | "calendar-keep-out";
   reason: string;
   category: "spam" | "marketing" | "automated" | "blocklisted" | "blocked";
 }
@@ -109,9 +109,12 @@ export interface GatePipelineResult {
     admission?: GateResultCandidate | GateResultNoise | null;
     /** Workspace gate-policy decision (S3) — e.g. strangers dropped. */
     policy?: GateResultDrop | null;
+    /** Calendar keep-out (calendar intake lifecycle) — solo/OOO/declined/cancelled. */
+    calendarKeepOut?: GateResultDrop | null;
   };
   passedGates: (
     | "rules"
+    | "calendar-keep-out"
     | "pre-ingest"
     | "blocklist"
     | "known-entity"

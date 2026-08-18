@@ -108,6 +108,14 @@ export interface CaptureEnvelope {
   raw: Record<string, unknown>;
   /** Noise-gate input; null = this capture type bypasses the gate. */
   noise: CaptureNoiseInput | null;
+  /**
+   * Lifecycle position of this payload (calendar intake lifecycle). Triggers
+   * that announce a CHANGE to an already-known event (Google UPDATED /
+   * CANCELED_DELETED, Outlook CHANGE) mark "update" so the webhook ingress
+   * doesn't dedupe-skip them and ingest can update the stored row in place.
+   * Absent = first sighting.
+   */
+  lifecycle?: "update";
 }
 
 export interface SignalDerivationContext {

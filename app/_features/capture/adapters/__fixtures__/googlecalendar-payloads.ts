@@ -62,7 +62,38 @@ export const CALENDAR_TRIGGER_EVENT_CREATED = {
   organizer_name: "Grace Hopper",
 };
 
-/** Cancelled tombstone — adapter must decline. */
+/**
+ * GOOGLECALENDAR_GOOGLE_CALENDAR_EVENT_UPDATED_TRIGGER payload — pointer
+ * shape verified against the live trigger schema 2026-08-17 (event_id /
+ * calendar_id / change_type / updated_at / updated_fields; no event data).
+ */
+export const CALENDAR_TRIGGER_EVENT_UPDATED = {
+  calendar_id: "primary",
+  event_id: "1pz3r7u9a4i6h8j0",
+  change_type: "updated",
+  updated_at: "2026-08-17T14:22:00Z",
+  updated_fields: {
+    start: { old: "2026-07-16T13:00:00Z", new: "2026-07-16T14:00:00Z" },
+  },
+};
+
+/**
+ * GOOGLECALENDAR_EVENT_CANCELED_DELETED_TRIGGER payload — minimal shape
+ * verified against the live trigger schema 2026-08-17 (event_id, summary
+ * if available, cancelled_at). The event is already gone; nothing to
+ * hydrate.
+ */
+export const CALENDAR_TRIGGER_EVENT_CANCELED = {
+  calendar_id: "primary",
+  event_id: "1pz3r7u9a4i6h8j0",
+  summary: "Intro call — Acme Creative",
+  cancelled_at: "2026-08-17T15:01:00Z",
+};
+
+/**
+ * Cancelled tombstone (API shape) — the adapter normalizes it with
+ * status "cancelled"; the keep-out gate / lifecycle path own the drop.
+ */
 export const CALENDAR_EVENT_CANCELLED = {
   id: "9nx1p5s7y2g4f6h8",
   status: "cancelled",

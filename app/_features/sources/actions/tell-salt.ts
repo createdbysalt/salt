@@ -84,7 +84,7 @@ Available gate policy choices (email only):
 - strangers: "watched" | "let_in" | "dropped" — how to treat mail from people the user doesn't know
 
 Respond with EXACTLY one JSON object, no prose:
-- {"outcome":"compiled","knobs":[...]} when the instruction maps to rules and/or gate choices. Rule knob: {"kind":"connector_rule","ruleType":"allow"|"deny","entityType":"<type>","entityKey":"<value>","provider":null}. Gate knob: {"kind":"gate_policy","setting":"automated_senders"|"strangers","value":"<value>"}. At most 4 knobs. "Keep out", "block", "never show" mean deny; "always let in", "I need", "don't miss" mean allow.
+- {"outcome":"compiled","knobs":[...]} when the instruction maps to rules and/or gate choices. Rule knob: {"kind":"connector_rule","ruleType":"allow"|"deny","entityType":"<type>","entityKey":"<value>"}. Gate knob: {"kind":"gate_policy","setting":"automated_senders"|"strangers","value":"<value>"}. At most 4 knobs. "Keep out", "block", "never show" mean deny; "always let in", "I need", "don't miss" mean allow.
 - {"outcome":"rerouted","target":"memory","message":"<one sentence>"} when the instruction is about how Salt should REMEMBER or understand things (preferences, context about people, how to treat record types) rather than what to let in or keep out.
 - {"outcome":"refused","message":"<one sentence>"} when the instruction can't become a real setting.
 
@@ -147,6 +147,9 @@ export async function compileTellSaltInstruction(input: {
 
   // Normalize rule keys the same way the rules manager does at write time,
   // so the confirmed write can't fail on formatting the preview accepted.
+  // Scope comes from the surface the box sits on: the area view writes
+  // area-scoped rules (every account in the area, now and later); the
+  // All-connectors view writes workspace-wide rules.
   const knobs: TellSaltCompiledKnob[] = [];
   for (const knob of outcome.knobs) {
     if (knob.kind === "connector_rule") {
@@ -154,7 +157,7 @@ export async function compileTellSaltInstruction(input: {
       if (!entityKey) {
         return { ok: true, outcome: "refused", message: REFUSAL };
       }
-      const normalized: TellSaltKnob = { ...knob, entityKey };
+      const normalized: TellSaltKnob = { ...knob, entityKey, area };
       knobs.push({ ...normalized, preview: previewForKnob(normalized) });
     } else {
       knobs.push({ ...knob, preview: previewForKnob(knob) });

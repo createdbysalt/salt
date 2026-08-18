@@ -99,6 +99,7 @@ export async function getBlocklistEntries(
 
   const rules = await getRules(workspaceId, {
     provider: null,
+    area: null,
     ruleType: "deny",
     entityType: type ? BLOCKLIST_TO_ENTITY_TYPE[type] : undefined,
     limit,
@@ -165,6 +166,7 @@ export async function getBlocklistStats(
 
   const rules = await getRules(workspaceId, {
     provider: null,
+    area: null,
     ruleType: "deny",
     limit: 1000,
   });

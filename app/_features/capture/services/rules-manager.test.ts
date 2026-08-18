@@ -6,6 +6,7 @@ type MockRow = {
   id: string;
   workspace_id: string;
   provider: string | null;
+  area: string | null;
   rule_type: string;
   entity_type: string;
   entity_key: string;
@@ -85,6 +86,7 @@ function createQueryBuilder() {
         id: `rule-${insertCounter}`,
         workspace_id: row.workspace_id as string,
         provider: (row.provider as string | null) ?? null,
+        area: (row.area as string | null) ?? null,
         rule_type: row.rule_type as string,
         entity_type: row.entity_type as string,
         entity_key: row.entity_key as string,
@@ -139,6 +141,7 @@ function seedRule(overrides: Partial<MockRow> = {}): MockRow {
     id: `seed-${mockRows.length + 1}`,
     workspace_id: "ws-1",
     provider: null,
+    area: null,
     rule_type: "deny",
     entity_type: "sender_email",
     entity_key: "spam@junk.com",
@@ -401,6 +404,123 @@ describe("checkRules precedence", () => {
     });
 
     expect(result.verdict).toBe("allow");
+  });
+});
+
+describe("checkRules — area scope", () => {
+  it("area-scoped rules fire for any provider in the area", async () => {
+    seedRule({ rule_type: "deny", area: "email", entity_key: "spam@junk.com" });
+
+    const outlook = await checkRules("ws-1", {
+      provider: "outlook",
+      area: "email",
+      entity: { type: "sender_email", key: "spam@junk.com" },
+    });
+    expect(outlook.verdict).toBe("deny");
+    expect(outlook.rule?.area).toBe("email");
+
+    const gmail = await checkRules("ws-1", {
+      provider: "gmail",
+      area: "email",
+      entity: { type: "sender_email", key: "spam@junk.com" },
+    });
+    expect(gmail.verdict).toBe("deny");
+  });
+
+  it("area-scoped rules do not fire outside their area", async () => {
+    seedRule({ rule_type: "deny", area: "email", entity_key: "spam@junk.com" });
+
+    const slack = await checkRules("ws-1", {
+      provider: "slack",
+      area: "messaging",
+      entity: { type: "author", key: "spam@junk.com" },
+    });
+    expect(slack.verdict).toBeNull();
+  });
+
+  it("provider-scoped rules beat area-scoped rules", async () => {
+    seedRule({ rule_type: "allow", area: "email", entity_key: "vip@co.com" });
+    seedRule({
+      rule_type: "deny",
+      provider: "outlook",
+      entity_key: "vip@co.com",
+    });
+
+    const result = await checkRules("ws-1", {
+      provider: "outlook",
+      area: "email",
+      entity: { type: "sender_email", key: "vip@co.com" },
+    });
+    expect(result.verdict).toBe("deny");
+    expect(result.rule?.provider).toBe("outlook");
+  });
+
+  it("area-scoped rules beat workspace-wide rules", async () => {
+    seedRule({ rule_type: "allow", entity_key: "vip@co.com" });
+    seedRule({ rule_type: "deny", area: "email", entity_key: "vip@co.com" });
+
+    const result = await checkRules("ws-1", {
+      provider: "gmail",
+      area: "email",
+      entity: { type: "sender_email", key: "vip@co.com" },
+    });
+    expect(result.verdict).toBe("deny");
+    expect(result.rule?.area).toBe("email");
+  });
+
+  it("checks without an area see only provider and workspace-wide rules", async () => {
+    seedRule({ rule_type: "deny", area: "email", entity_key: "spam@junk.com" });
+
+    const result = await checkRules("ws-1", {
+      provider: null,
+      entity: { type: "sender_email", key: "spam@junk.com" },
+    });
+    expect(result.verdict).toBeNull();
+  });
+});
+
+describe("addRule — area scope", () => {
+  it("rejects a rule scoped to both a provider and an area", async () => {
+    const result = await addRule({
+      workspaceId: "ws-1",
+      provider: "outlook",
+      area: "email",
+      ruleType: "deny",
+      entityType: "sender_email",
+      entityKey: "spam@junk.com",
+    });
+
+    expect(result.success).toBe(false);
+    expect(mockRows).toHaveLength(0);
+  });
+
+  it("treats the same entity in different areas as distinct rules", async () => {
+    seedRule({
+      rule_type: "deny",
+      area: "email",
+      entity_type: "sender_email",
+      entity_key: "shared@co.com",
+    });
+
+    const duplicate = await addRule({
+      workspaceId: "ws-1",
+      area: "email",
+      ruleType: "deny",
+      entityType: "sender_email",
+      entityKey: "shared@co.com",
+    });
+    expect(duplicate.success).toBe(false);
+    expect(duplicate.error).toBe("Rule already exists");
+
+    const otherArea = await addRule({
+      workspaceId: "ws-1",
+      area: "messaging",
+      ruleType: "deny",
+      entityType: "sender_email",
+      entityKey: "shared@co.com",
+    });
+    expect(otherArea.success).toBe(true);
+    expect(otherArea.rule?.area).toBe("messaging");
   });
 });
 

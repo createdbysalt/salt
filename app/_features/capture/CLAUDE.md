@@ -2,7 +2,7 @@
 
 **Context:** The capture system is Salt's intake funnel — it observes connected accounts, discovers People/Orgs/Work worth tracking, and accumulates signals over time.
 
-**Surface placement (post-2026-08-06 reorg):** the capture stream UI lives at **Sources → Activity** (`/sources?tab=activity`; `/capture` redirects there). Gate outcomes feed **Memory → Filter**: candidates and unresolved evidence appear under **Watching**, dropped/noise items under **Kept out**. **P11 (2026-08-07):** Blocklists and Kept out are now managed in **Sources → Activity**, not Memory — intake policy belongs at the intake surface.
+**Surface placement (post-2026-08-06 reorg):** the capture stream UI lives at **Sources → Activity** (`/sources?tab=activity`; `/capture` redirects there). Gate outcomes feed **Memory → Filter**: candidates and unresolved evidence appear under **Watching**, dropped/noise items under **Kept out**. **P11 (2026-08-07):** Blocklists and Kept out are now managed in **Sources → Activity**, not Memory — intake policy belongs at the intake surface. **(2026-08-17):** Kept-out *review* lives in the stream itself — the Filter popover's "Also show → Kept out" toggle (`keptOut` param on `getCaptureStreamPage`) reveals dropped/held rows with plain-language verdicts and inline correction actions (`components/KeptOutCorrectionButtons.tsx`); a full-history search (2+ chars) spans the same rows.
 
 ## Architecture Overview
 
@@ -59,7 +59,7 @@ The gate model filters noise before creating captures. **Connector Rules & Learn
 First check in `runGatePipeline`, before pre-ingest:
 - **Explicit deny** (`rule_type = 'deny'`) matching the capture's feedback entity → drop immediately
 - **Explicit allow** (`rule_type = 'allow'`) → `signal`, bypasses the memory-first hold and every heuristic
-- Rules are scoped: a provider-scoped row beats a workspace-wide (`provider NULL`) row; deny beats allow at the same scope
+- Rules are scoped (three scopes since 2026-08-17): provider-scoped (`provider` set), area-scoped (`provider NULL` + `area` set — covers every account in the area), workspace-wide (both NULL). Precedence: provider > area > workspace; deny beats allow at the same scope. The gate derives the capture's area from its provider's capture category (`CATEGORY_TO_AREA`)
 - The feedback entity (`{ type, key }` — e.g. `sender_email`, `organizer`, `channel`) is extracted ONCE per capture by the category adapter's `extractFeedbackEntity()` (`adapters/feedback-entity.ts` dispatch) and shared by rules, corrections, and learned profiles
 - `sender_pattern` rules glob-match against explicit pattern candidates (e.g. the sender display name), never the entity key
 - Storage: `connector_rules` table (migration `20260810120000_connector_rules.sql`); legacy `capture_blocklist` rows were backfilled in as workspace-wide deny rules
@@ -173,7 +173,8 @@ CREATE TABLE entity_watch_expressions (
 CREATE TABLE connector_rules (
   id UUID PRIMARY KEY,
   workspace_id UUID NOT NULL,
-  provider TEXT,              -- NULL = workspace-wide
+  provider TEXT,              -- provider scope; NULL when area- or workspace-scoped
+  area TEXT,                  -- area scope (email, calendar, ...); NULL otherwise. provider + area both set is rejected by CHECK
   rule_type TEXT,             -- 'allow' | 'deny'
   entity_type TEXT,           -- category-defined vocabulary (sender_email, domain, organizer, channel, ...)
   entity_key TEXT,
@@ -181,9 +182,10 @@ CREATE TABLE connector_rules (
   source TEXT,                -- 'user' | 'suggested'
   created_by UUID,
   created_at TIMESTAMPTZ,
-  UNIQUE NULLS NOT DISTINCT (workspace_id, provider, rule_type, entity_type, entity_key)
+  UNIQUE NULLS NOT DISTINCT (workspace_id, provider, area, rule_type, entity_type, entity_key)
 );
 -- capture_blocklist rows were backfilled in as provider-NULL deny rules (2026-08-10).
+-- area column added 2026-08-17 (20260817120000_connector_rules_area_scope.sql).
 ```
 
 ### connector_entity_profiles

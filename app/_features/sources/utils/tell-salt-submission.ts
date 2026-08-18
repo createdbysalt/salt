@@ -8,9 +8,9 @@ import type { CustomizeArea } from "@/app/_features/capture/adapters/rule-entiti
  * One box per area accepts both values ("spammy-agency.com") and sentences
  * ("keep out anything from spammy-agency.com"). The plan:
  *
- *   value parses deterministically → confirm the rule (direction toggle:
- *   keep out / always let in — a bare value carries no intent, so the
- *   confirm gate shows exactly what will be written)
+ *   value parses deterministically → apply the rule straight away (the
+ *   box's live sentence preview already showed the exact write, direction
+ *   included — no second confirm gate)
  *   value doesn't parse but reads like a sentence → LLM compile
  *   otherwise → hint, never a guess
  *

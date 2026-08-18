@@ -30,8 +30,8 @@ import type { RecordCandidate } from "../queries/record-candidates";
  * Memory → Activity — the transparency surface.
  *
  * One pill, two views (P11: Kept out moved to Sources → Activity):
+ * - Handled (default): what Salt already applied, with why and one-click rollback.
  * - Watching: what Salt is still gathering confidence on (nudges teach the bar).
- * - Handled: what Salt already applied, with why and one-click rollback.
  *
  * Toolbar mirrors Sources → Activity: search plus a single combined filter
  * popover (record type / date range), numbered pagination per view.
@@ -74,7 +74,7 @@ export function FilterTab({
   workspaceId,
   onUpdate,
 }: FilterTabProps) {
-  const [status, setStatus] = useState<FilterStatus>("watching");
+  const [status, setStatus] = useState<FilterStatus>("handled");
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<FilterFiltersState>(
     EMPTY_FILTER_FILTERS,

@@ -9,6 +9,8 @@ describe("connectorForToolkit", () => {
       label: "Google Calendar",
     });
     expect(connectorForToolkit("slack")).toEqual({ id: "slack", label: "Slack" });
+    // Cal.com's Composio toolkit slug ("cal") differs from the catalog id.
+    expect(connectorForToolkit("cal")).toEqual({ id: "calcom", label: "Cal.com" });
   });
 
   it("falls back to the toolkit slug when it matches a catalog id", () => {

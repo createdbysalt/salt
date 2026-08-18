@@ -1,9 +1,6 @@
 import type { ConnectorsPageData } from "@/app/_features/connectors";
 import type { StreamCaptureSummary } from "@/app/_features/capture/types";
-import type { CaptureDiscoveryStatus } from "@/app/_features/capture/queries";
 import type { CaptureStreamCounts } from "@/app/_features/capture/utils/capture-stream-page-filter";
-import type { AdmissionItem } from "@/app/_features/memory/queries/admission-decisions";
-import type { CaptureScope } from "@/app/_lib/composio/capture-scope";
 import type { CustomizeArea } from "@/app/_features/capture/adapters/rule-entities";
 import type { DefaultPolicy } from "@/app/_features/capture/adapters/default-policy";
 import type { ConnectorRule } from "@/app/_features/capture/services/rules-manager";
@@ -18,11 +15,6 @@ export const EMPTY_CONNECTORS: ConnectorsPageData = {
   captureByConnector: {},
 };
 
-export type KeptOutData = {
-  count: number;
-  sample: AdmissionItem[];
-};
-
 /** One connected, capture-capable account on the Customize tab. */
 export interface CustomizeAccountData {
   provider: string;
@@ -30,8 +22,6 @@ export interface CustomizeAccountData {
   name: string;
   /** Account label ("sarah@acme.com") when known. */
   label: string | null;
-  captureEnabled: boolean;
-  scope: CaptureScope | null;
 }
 
 /** One intake area's slice of the Customize tab. */
@@ -40,7 +30,7 @@ export interface CustomizeAreaData {
   accounts: CustomizeAccountData[];
   /** Transparency layer: live-rendered seeded filters + curated gate copy. */
   policy: DefaultPolicy;
-  /** Provider-scoped rules across this area's accounts. */
+  /** Area-scoped rules plus provider-scoped rules across the area's accounts. */
   rules: ConnectorRule[];
   /** S1 proof counts: last 7 days from capture_events.gate_action. */
   proof: AreaProofCounts | null;
@@ -66,10 +56,6 @@ export type SourcesTabData = {
   streamCounts: CaptureStreamCounts | null;
   hasCaptureData: boolean;
   workspaceId: string | null;
-  /** P11: Kept out moved from Memory Filter to Sources Activity. */
-  keptOut: KeptOutData | null;
-  /** 4.4: plan-tiered discovery cadence, shown honestly on Activity. */
-  discovery: CaptureDiscoveryStatus | null;
   /** Sources → Customize (2026-08-10): intake policy by area. */
   customize: CustomizeTabData | null;
 };

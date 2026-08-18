@@ -56,7 +56,7 @@ describe("compileTellSaltInstruction", () => {
           ruleType: "deny",
           entityType: "domain",
           entityKey: "spammy-agency.com",
-          provider: null,
+          area: "email",
           preview: "I'll keep out anything from spammy-agency.com.",
         },
       ],

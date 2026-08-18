@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   extractGateReason,
   keptOutCauseFromGateResult,
+  plainKeptOutReason,
 } from "./admission-gate-result";
 
 describe("extractGateReason", () => {
@@ -87,5 +88,38 @@ describe("keptOutCauseFromGateResult", () => {
     expect(keptOutCauseFromGateResult(null)).toBe("heuristic");
     expect(keptOutCauseFromGateResult("garbage")).toBe("heuristic");
     expect(keptOutCauseFromGateResult({})).toBe("heuristic");
+  });
+});
+
+describe("plainKeptOutReason", () => {
+  it("translates the known gate reasons to plain language", () => {
+    expect(
+      plainKeptOutReason("Cold inbound with no prior interaction"),
+    ).toBe("First time you've heard from this sender");
+    expect(plainKeptOutReason("Low signal score")).toBe(
+      "Didn't look relevant to your work",
+    );
+    expect(
+      plainKeptOutReason("List-Unsubscribe header indicates marketing email"),
+    ).toBe("Marketing or bulk mail");
+    expect(
+      plainKeptOutReason("Known marketing platform domain: mailchimp.com"),
+    ).toBe("Sent via a marketing platform");
+    expect(plainKeptOutReason("Automated sender address: no-reply@x.com")).toBe(
+      "Automated sender",
+    );
+  });
+
+  it("passes through unrecognized reasons verbatim — never a lie", () => {
+    expect(plainKeptOutReason("Keep this sender out")).toBe(
+      "Keep this sender out",
+    );
+    expect(plainKeptOutReason("No one else is on this event")).toBe(
+      "No one else is on this event",
+    );
+  });
+
+  it("returns null for null", () => {
+    expect(plainKeptOutReason(null)).toBeNull();
   });
 });

@@ -222,6 +222,7 @@ export async function revertCustomizeEntry(
   if (exclusion) {
     const rules = await getRules(member.workspaceId, {
       provider: null,
+      area: null,
       ruleType: "deny",
       entityType: exclusion.entityType,
     });

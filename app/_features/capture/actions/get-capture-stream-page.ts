@@ -30,6 +30,7 @@ const CaptureStreamPageSchema = z
       .optional(),
     dateFrom: z.string().regex(ISO_DATE).optional(),
     dateTo: z.string().regex(ISO_DATE).optional(),
+    keptOut: z.boolean().optional(),
   })
   .refine((value) => !value.dateFrom || !value.dateTo || value.dateFrom <= value.dateTo, {
     message: "dateFrom must be on or before dateTo",

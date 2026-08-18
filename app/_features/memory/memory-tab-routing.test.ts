@@ -34,10 +34,10 @@ describe("memory tab routing helpers", () => {
 });
 
 describe("customize type param", () => {
-  it("defaults to person", () => {
-    expect(parseCustomizeType(null)).toBe("person");
-    expect(parseCustomizeType(undefined)).toBe("person");
-    expect(parseCustomizeType("nonsense")).toBe("person");
+  it("defaults to the general (All Types) scope", () => {
+    expect(parseCustomizeType(null)).toBe("general");
+    expect(parseCustomizeType(undefined)).toBe("general");
+    expect(parseCustomizeType("nonsense")).toBe("general");
   });
 
   it("parses each v1 record type", () => {
@@ -61,11 +61,11 @@ describe("customize type param", () => {
     expect(buildMemoryPath("customize", "meeting")).toBe(
       "/memory?tab=customize&type=meeting",
     );
-    expect(buildMemoryPath("customize", "general")).toBe(
-      "/memory?tab=customize&type=general",
-    );
-    // The default type is omitted from the URL.
     expect(buildMemoryPath("customize", "person")).toBe(
+      "/memory?tab=customize&type=person",
+    );
+    // The default scope (All Types) is omitted from the URL.
+    expect(buildMemoryPath("customize", "general")).toBe(
       "/memory?tab=customize",
     );
     // The type param only applies to the customize tab.

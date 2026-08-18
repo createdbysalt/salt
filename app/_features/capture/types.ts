@@ -14,6 +14,7 @@
 import type { LucideIcon } from "lucide-react";
 import type { CaptureIntelligenceOutcome } from "./services/intelligence/capture-intelligence-outcome";
 import type { EnrichedMetadata } from "./services/enrichment/types";
+import type { KeptOutCause } from "@/app/_features/memory/queries/admission-gate-result";
 
 /** Re-export enriched metadata types for external consumption. */
 export type { EnrichedMetadata as EnrichedCaptureMetadata, SuggestedAction } from "./services/enrichment/types";
@@ -338,6 +339,8 @@ export interface StreamCaptureSummary {
   gate_action?: string | null;
   /** Deciding gate's reason ("why not" for dropped/held/noise rows). */
   gate_reason?: string | null;
+  /** Rule-caused vs heuristic — drives the kept-out correction action. */
+  gate_cause?: KeptOutCause | null;
   /** Plays this capture's signals dispatched (empty when none). */
   plays_dispatched?: StreamPlayDispatch[];
   /** Known-entity watches this capture matched (empty when none). */

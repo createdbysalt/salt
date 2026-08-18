@@ -37,7 +37,7 @@ describe("parseTellSaltLlmPayload", () => {
           ruleType: "deny",
           entityType: "domain",
           entityKey: "spammy-agency.com",
-          provider: null,
+          area: null,
         },
       ],
     });
@@ -150,7 +150,7 @@ describe("previewForKnob", () => {
       ruleType: "deny",
       entityType: "domain",
       entityKey: "spammy-agency.com",
-      provider: null,
+      area: null,
     };
     expect(previewForKnob(knob)).toBe(
       "I'll keep out anything from spammy-agency.com.",
@@ -163,7 +163,7 @@ describe("previewForKnob", () => {
       ruleType: "allow",
       entityType: "sender_email",
       entityKey: "vip@acme.com",
-      provider: "gmail",
+      area: "email",
     };
     expect(previewForKnob(knob)).toBe("I'll always let in mail from vip@acme.com.");
   });
@@ -174,7 +174,7 @@ describe("previewForKnob", () => {
       ruleType: "deny",
       entityType: "subject_pattern",
       entityKey: "*invoice*",
-      provider: null,
+      area: null,
     };
     expect(previewForKnob(knob)).toBe(
       "I'll keep out mail with subjects matching *invoice*.",
@@ -187,7 +187,7 @@ describe("previewForKnob", () => {
       ruleType: "deny",
       entityType: "attendee",
       entityKey: "bob@acme.com",
-      provider: null,
+      area: null,
     };
     expect(previewForKnob(knob)).toBe("I'll keep out events with bob@acme.com.");
   });
@@ -210,24 +210,24 @@ describe("previewForKnob", () => {
   it("never uses banned words in previews", () => {
     const banned = /\b(trigger|webhook|sync|scope|rule|adapter|pipeline|config)\b/i;
     const knobs: TellSaltKnob[] = [
-      { kind: "connector_rule", ruleType: "deny", entityType: "sender_email", entityKey: "a@b.com", provider: null },
-      { kind: "connector_rule", ruleType: "allow", entityType: "domain", entityKey: "b.com", provider: null },
-      { kind: "connector_rule", ruleType: "deny", entityType: "sender_pattern", entityKey: "*news*", provider: null },
-      { kind: "connector_rule", ruleType: "deny", entityType: "subject_pattern", entityKey: "*inv*", provider: null },
-      { kind: "connector_rule", ruleType: "deny", entityType: "channel", entityKey: "general", provider: null },
-      { kind: "connector_rule", ruleType: "deny", entityType: "author", entityKey: "a@b.com", provider: null },
-      { kind: "connector_rule", ruleType: "deny", entityType: "keyword", entityKey: "*unsub*", provider: null },
-      { kind: "connector_rule", ruleType: "deny", entityType: "organizer", entityKey: "a@b.com", provider: null },
-      { kind: "connector_rule", ruleType: "deny", entityType: "attendee", entityKey: "a@b.com", provider: null },
-      { kind: "connector_rule", ruleType: "deny", entityType: "title_pattern", entityKey: "*lunch*", provider: null },
-      { kind: "connector_rule", ruleType: "deny", entityType: "customer", entityKey: "a@b.com", provider: null },
-      { kind: "connector_rule", ruleType: "deny", entityType: "owner", entityKey: "a@b.com", provider: null },
-      { kind: "connector_rule", ruleType: "deny", entityType: "name_pattern", entityKey: "*tmp*", provider: null },
-      { kind: "connector_rule", ruleType: "deny", entityType: "contact", entityKey: "a@b.com", provider: null },
-      { kind: "connector_rule", ruleType: "deny", entityType: "host", entityKey: "a@b.com", provider: null },
-      { kind: "connector_rule", ruleType: "deny", entityType: "participant", entityKey: "a@b.com", provider: null },
-      { kind: "connector_rule", ruleType: "deny", entityType: "assignee", entityKey: "a@b.com", provider: null },
-      { kind: "connector_rule", ruleType: "deny", entityType: "project", entityKey: "alpha", provider: null },
+      { kind: "connector_rule", ruleType: "deny", entityType: "sender_email", entityKey: "a@b.com", area: null },
+      { kind: "connector_rule", ruleType: "allow", entityType: "domain", entityKey: "b.com", area: null },
+      { kind: "connector_rule", ruleType: "deny", entityType: "sender_pattern", entityKey: "*news*", area: null },
+      { kind: "connector_rule", ruleType: "deny", entityType: "subject_pattern", entityKey: "*inv*", area: null },
+      { kind: "connector_rule", ruleType: "deny", entityType: "channel", entityKey: "general", area: null },
+      { kind: "connector_rule", ruleType: "deny", entityType: "author", entityKey: "a@b.com", area: null },
+      { kind: "connector_rule", ruleType: "deny", entityType: "keyword", entityKey: "*unsub*", area: null },
+      { kind: "connector_rule", ruleType: "deny", entityType: "organizer", entityKey: "a@b.com", area: null },
+      { kind: "connector_rule", ruleType: "deny", entityType: "attendee", entityKey: "a@b.com", area: null },
+      { kind: "connector_rule", ruleType: "deny", entityType: "title_pattern", entityKey: "*lunch*", area: null },
+      { kind: "connector_rule", ruleType: "deny", entityType: "customer", entityKey: "a@b.com", area: null },
+      { kind: "connector_rule", ruleType: "deny", entityType: "owner", entityKey: "a@b.com", area: null },
+      { kind: "connector_rule", ruleType: "deny", entityType: "name_pattern", entityKey: "*tmp*", area: null },
+      { kind: "connector_rule", ruleType: "deny", entityType: "contact", entityKey: "a@b.com", area: null },
+      { kind: "connector_rule", ruleType: "deny", entityType: "host", entityKey: "a@b.com", area: null },
+      { kind: "connector_rule", ruleType: "deny", entityType: "participant", entityKey: "a@b.com", area: null },
+      { kind: "connector_rule", ruleType: "deny", entityType: "assignee", entityKey: "a@b.com", area: null },
+      { kind: "connector_rule", ruleType: "deny", entityType: "project", entityKey: "alpha", area: null },
       { kind: "gate_policy", setting: "automated_senders", value: "dropped" },
       { kind: "gate_policy", setting: "automated_senders", value: "watched" },
       { kind: "gate_policy", setting: "automated_senders", value: "let_in" },

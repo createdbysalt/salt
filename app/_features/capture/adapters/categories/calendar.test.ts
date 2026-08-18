@@ -1,6 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { createCalendarCategoryAdapter, getCalendarAdapter } from "./calendar";
-import { CALENDAR_TRIGGER_EVENT_CREATED } from "../__fixtures__/googlecalendar-payloads";
+import {
+  CALENDAR_TRIGGER_EVENT_CREATED,
+  CALENDAR_TRIGGER_EVENT_UPDATED,
+  CALENDAR_TRIGGER_EVENT_CANCELED,
+} from "../__fixtures__/googlecalendar-payloads";
 
 describe("calendar category adapter", () => {
   describe("getCalendarAdapter", () => {
@@ -92,6 +96,74 @@ describe("calendar category adapter", () => {
       expect(envelope?.extracted.deep_link).toBe(
         "https://calendar.google.com/event?eid=event-123"
       );
+    });
+
+    it("marks the API shape as attendees_known and carries eventType + responseStatus", () => {
+      const envelope = adapter.normalize({
+        id: "event-api",
+        summary: "Focus time",
+        start: { dateTime: "2024-07-12T09:00:00Z" },
+        end: { dateTime: "2024-07-12T10:00:00Z" },
+        eventType: "focusTime",
+        attendees: [
+          { email: "me@studio.com", responseStatus: "accepted" },
+          { email: "sarah@acme.com", responseStatus: "declined" },
+        ],
+      });
+
+      expect(envelope?.extracted.attendees_known).toBe(true);
+      expect(envelope?.extracted.eventType).toBe("focusTime");
+      expect(envelope?.extracted.attendees).toEqual([
+        { email: "me@studio.com", name: null, responseStatus: "accepted" },
+        { email: "sarah@acme.com", name: null, responseStatus: "declined" },
+      ]);
+    });
+
+    it("marks the thin trigger shape as attendees_known false (no attendee data)", () => {
+      const envelope = adapter.normalize(CALENDAR_TRIGGER_EVENT_CREATED);
+      expect(envelope?.extracted.attendees_known).toBe(false);
+      expect(envelope?.extracted.eventType).toBeNull();
+    });
+
+    it("marks the CREATED trigger shape for hydration (gate needs attendees)", () => {
+      const envelope = adapter.normalize(CALENDAR_TRIGGER_EVENT_CREATED);
+      expect(envelope?.extracted.needs_hydration).toBe(true);
+      expect(envelope?.lifecycle).toBeUndefined();
+    });
+
+    it("normalizes the UPDATED trigger pointer as a hydration-needing update", () => {
+      // Verified against the live trigger schema 2026-08-17: pointer only —
+      // event_id, calendar_id, change_type, updated_fields.
+      const envelope = adapter.normalize(CALENDAR_TRIGGER_EVENT_UPDATED);
+
+      expect(envelope).not.toBeNull();
+      expect(envelope?.externalId).toBe("1pz3r7u9a4i6h8j0");
+      expect(envelope?.lifecycle).toBe("update");
+      expect(envelope?.extracted.needs_hydration).toBe(true);
+      expect(envelope?.extracted.attendees_known).toBe(false);
+    });
+
+    it("normalizes the CANCELED_DELETED trigger as a terminal update, no hydration", () => {
+      // Verified against the live trigger schema 2026-08-17: the event is
+      // already gone, so the payload itself asserts the terminal state.
+      const envelope = adapter.normalize(CALENDAR_TRIGGER_EVENT_CANCELED);
+
+      expect(envelope).not.toBeNull();
+      expect(envelope?.externalId).toBe("1pz3r7u9a4i6h8j0");
+      expect(envelope?.lifecycle).toBe("update");
+      expect(envelope?.extracted.status).toBe("cancelled");
+      expect(envelope?.extracted.needs_hydration).toBeUndefined();
+    });
+
+    it("does not mark the API shape for hydration", () => {
+      const envelope = adapter.normalize({
+        id: "event-api",
+        summary: "Client review",
+        start: { dateTime: "2024-07-12T09:00:00Z" },
+        end: { dateTime: "2024-07-12T10:00:00Z" },
+      });
+      expect(envelope?.extracted.needs_hydration).toBeUndefined();
+      expect(envelope?.lifecycle).toBeUndefined();
     });
 
     it("extracts the video link from conferenceData when hangoutLink is absent", () => {

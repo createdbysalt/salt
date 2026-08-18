@@ -8,8 +8,6 @@ import { PlaysSectionHeader } from "@/app/_features/plays/components/PlaysSectio
 import { SourcesTabs } from "./SourcesTabs";
 import { SourcesPageSkeleton } from "./SourcesPageSkeleton";
 import { SourcesCustomizeTab } from "./SourcesCustomizeTab";
-import { KeptOutSection } from "./KeptOutSection";
-import { DiscoveryStatusCard } from "./DiscoveryStatusCard";
 import { useSourcesTabCache } from "../hooks/useSourcesTabCache";
 import { useCaptureStreamRealtime } from "../hooks/useCaptureStreamRealtime";
 import {
@@ -40,7 +38,7 @@ export function SourcesPage({
   const { tab, activeData, isTabLoading, handleTabChange, invalidateActiveTab } =
     useSourcesTabCache({ tab: initialTab, data: initialData });
 
-  const { connectors, streamCaptures, streamTotalCount, streamCounts, hasCaptureData, keptOut, workspaceId, discovery, customize } =
+  const { connectors, streamCaptures, streamTotalCount, streamCounts, hasCaptureData, workspaceId, customize } =
     activeData ?? initialData;
 
   // Keep the stream honest: new captures (webhook or backfill) revalidate the
@@ -117,17 +115,8 @@ export function SourcesPage({
                   initialTotalCount={streamTotalCount}
                   initialCounts={streamCounts}
                   hasRealData={hasCaptureData}
+                  workspaceId={workspaceId}
                 />
-                {/* 4.4: discovery cadence is explicit where the stream lives */}
-                {discovery && <DiscoveryStatusCard discovery={discovery} />}
-                {/* P11: Kept out moved from Memory Filter to Sources Activity */}
-                {keptOut && workspaceId && (
-                  <KeptOutSection
-                    keptOutCount={keptOut.count}
-                    keptOutSample={keptOut.sample}
-                    workspaceId={workspaceId}
-                  />
-                )}
               </motion.div>
             )}
 

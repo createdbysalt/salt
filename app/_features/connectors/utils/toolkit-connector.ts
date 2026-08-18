@@ -22,6 +22,7 @@ const TOOLKIT_CONNECTOR_MAP: Record<string, ToolkitConnectorRef> = {
   hubspot: { id: "hubspot", label: "HubSpot" },
   linear: { id: "linear", label: "Linear" },
   zoom: { id: "zoom", label: "Zoom" },
+  cal: { id: "calcom", label: "Cal.com" },
 };
 
 function humanizeToolkitSlug(slug: string): string {

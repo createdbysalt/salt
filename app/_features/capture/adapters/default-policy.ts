@@ -1,9 +1,7 @@
 import type { CustomizeArea } from "./rule-entities";
 import { translateProviderArg } from "@/app/_features/connectors/utils/activity-format";
-import {
-  DEFAULT_GATE_POLICY,
-  type ResolvedGatePolicy,
-} from "../services/gates/gate-policy";
+import { isWorkspaceTier } from "@/app/_lib/usage/tiers";
+import { CALENDAR_KEEP_OUT_COPY } from "../services/gates/calendar-keep-out";
 
 /**
  * Default intake policy per intake area (Sources → Customize, Phase 1).
@@ -17,9 +15,10 @@ import {
  *   the P5 PROVIDER_ARG_TRANSLATORS registry, never hardcoded, so it cannot
  *   drift from what the subscription actually filters. Configs with no
  *   renderer produce no claim at all — honest silence beats wrong copy.
- * - `gateBehavior` — static curated copy for the pre-ingest heuristics and
- *   admission scoring. Kept few and categorical; anything data-shaped lives
- *   in the DB-rendered layer above.
+ * - `lookFor` — the positive signal side of intake: what the extraction
+ *   layer pulls from each capture. Every area leads with record matching
+ *   (the known-entity gate resolves every capture against People/Orgs);
+ *   email adds the classification signals from services/email-classification.
  *
  * Pure module: no server-only imports, safe for client components and Vitest.
  * The server loader scopes `seededFilters` to the area's providers; this
@@ -34,7 +33,8 @@ export interface SeededTriggerFilter {
 
 export interface DefaultPolicy {
   upstreamFilters: string[];
-  gateBehavior: string[];
+  /** "What I look for" — the positive signal side of intake. */
+  lookFor: string[];
 }
 
 /**
@@ -118,103 +118,111 @@ export function renderSeededTriggerFilter(
 }
 
 /**
- * Curated gate-behavior copy per intake AREA (the user-facing vocabulary —
- * see rule-entities.ts). Mirrors the gate pipeline (services/gates): email's
- * pre-ingest heuristics, the category-general known-entity fast-track, and
- * the admission hold for unknown entities. Storage folds the documents
- * category in, so its copy speaks of both.
+ * One-line area logic summaries (Sources → Customize area rail, Card 1).
+ * The component prefixes them with the area label — "One logic across all
+ * your email apps — …" — so the card's story is the AREA, never specific
+ * apps. Lowercase sentence fragments by design.
  */
-const AREA_GATE_BEHAVIOR: Record<CustomizeArea, string[]> = {
+export const AREA_LOGIC_SUMMARY: Record<CustomizeArea, string> = {
+  email:
+    "noise drops first, mail from people you know comes straight in, and strangers wait until they earn it",
+  messaging:
+    "messages from people and channels you know come straight in, and strangers wait until they earn it",
+  calendar:
+    "invites from organizers you know come straight in, and new organizers wait until they earn it",
+  billing:
+    "invoices and payments from customers you know come straight in, and new activity waits until it earns it",
+  storage:
+    "files from people you know come straight in, and the rest waits until it earns its way in",
+  crm: "activity for contacts you know comes straight in, and new contacts wait until they earn it",
+  meetings:
+    "meetings with people you know come straight in, and new hosts wait until they earn it",
+  projects:
+    "work from people and projects you know comes straight in, and the rest waits until it earns its way in",
+};
+
+/**
+ * "What I look for" per intake area — what Salt's extraction layer pulls
+ * from each capture. Every area leads with record matching (the
+ * known-entity gate resolves every capture against People and Orgs) and a
+ * first-touch signal; email adds the classification signals from
+ * services/email-classification (urgency, money, action/question/deadline
+ * detection).
+ */
+const AREA_LOOK_FOR: Record<CustomizeArea, string[]> = {
   email: [
-    "Obvious spam, bulk mail, and automated senders are dropped before anything is stored",
-    "Mail from people and companies you already know comes straight in",
-    "Unknown senders are watched until they earn their way in",
+    "Who it's from and who it's to — matched against your People and Orgs, customers included",
+    "Money — amounts, invoices, and payment links; receipts from tools you pay become subscriptions in Billing",
+    "Asks — questions, action requests, and deadlines",
+    "Urgency — language that says it can't wait",
+    "A first touch — someone new reaching out",
   ],
   messaging: [
-    "Messages from people and channels you already know come straight in",
-    "Messages from people you don't know are watched until they earn their way in",
+    "Who said it and where — matched against your People and Orgs",
+    "A first touch — someone new reaching out",
   ],
   calendar: [
-    "Invites from organizers you already know come straight in",
-    "Invites from organizers you don't know are watched until they earn their way in",
+    "Who's organizing and who's invited — matched against your People and Orgs",
+    "A first touch — someone new scheduling time with you",
   ],
   billing: [
-    "Invoices and payments from customers you already know come straight in",
-    "Activity from customers you don't know is watched until it earns its way in",
-    "Receipts from tools you pay are tracked as subscriptions in Billing",
+    "Who the customer is — matched against your People and Orgs",
+    "Money — amounts, invoices, and payment outcomes",
+    "Subscription changes from the tools you pay",
   ],
   storage: [
-    "Files and documents from owners you already know come straight in",
-    "Files and documents from owners you don't know are watched until they earn their way in",
+    "Who owns or shared it — matched against your People and Orgs",
+    "New files and documents as they land",
   ],
   crm: [
-    "Activity for contacts you already know comes straight in",
-    "Activity for contacts you don't know is watched until it earns its way in",
+    "Which contact or company it touches — matched against your People and Orgs",
+    "What changed — new activity on the record",
   ],
   meetings: [
-    "Meetings with people you already know come straight in",
-    "Meetings hosted by people you don't know are watched until they earn their way in",
+    "Who's in the room — matched against your People and Orgs",
+    "A first touch — a new host or guest",
   ],
   projects: [
-    "Work from people and projects you already know comes straight in",
-    "Work from people you don't know is watched until it earns its way in",
+    "Who created or was assigned the work — matched against your People and Orgs",
+    "What changed — new tasks and updates",
   ],
 };
 
 /**
- * Email's gate-behavior lines are policy-aware (S1/S3): the two workspace
- * choices on Sources → Customize rewrite the lines they govern, so the
- * transparency copy always matches what the gates actually do. Spam and
- * bulk mail always drop — no policy softens them.
+ * The workspace-wide intake order (Sources → Customize, All connectors
+ * rail). Mirrors runGatePipeline (services/gates): explicit rules first,
+ * then the pre-ingest drop, the known-entity fast-track, and the admission
+ * hold. Curated and categorical like AREA_GATE_BEHAVIOR — anything
+ * data-shaped lives in the per-area seeded-filter layer.
  */
-function emailGateBehavior(policy: ResolvedGatePolicy): string[] {
-  const automatedLine =
-    policy.email.automatedSenders === "dropped"
-      ? "Obvious spam, bulk mail, and automated senders are dropped before anything is stored"
-      : policy.email.automatedSenders === "watched"
-        ? "Obvious spam and bulk mail are dropped before anything is stored — automated senders (receipts, notifications) are watched"
-        : "Obvious spam and bulk mail are dropped before anything is stored — automated senders (receipts, notifications) come straight in";
-
-  const strangersLine =
-    policy.email.strangers === "watched"
-      ? "Unknown senders are watched until they earn their way in"
-      : policy.email.strangers === "let_in"
-        ? "Mail from people you don't know comes straight in"
-        : "Mail from people you don't know is dropped before anything is stored";
-
-  const subscriptionsLine =
-    policy.email.trackSubscriptions === "tracked"
-      ? "Receipts from tools you pay are tracked as subscriptions in Billing — never added to People or Orgs"
-      : "Receipts from tools you pay are ignored";
-
-  return [
-    automatedLine,
-    "Mail from people and companies you already know comes straight in",
-    strangersLine,
-    subscriptionsLine,
-  ];
-}
+export const WORKSPACE_INTAKE_ORDER: readonly string[] = [
+  "Your Always let in and Keep out rules run first — before every filter",
+  "Obvious spam and bulk mail are dropped before anything is stored",
+  "Anything from people and companies you already know comes straight in",
+  "Anything from someone new is watched until it earns its way in",
+];
 
 /**
  * The default intake policy for an area: live-rendered seeded upstream
- * filters plus the curated gate behavior. Seeded filters that render to null
- * are dropped silently — the section shows only claims it can back. The
- * workspace gate policy rewrites the email lines it governs; every other
- * area's copy is policy-independent today.
+ * filters plus the area's extraction signals. Seeded filters that render to
+ * null are dropped silently — the section shows only claims it can back.
+ *
+ * The calendar area also lists the keep-out gate's rules (calendar intake
+ * lifecycle) — rendered from the gate module's own copy so the UI can
+ * never drift from the code.
  */
 export function defaultPolicyForArea(
   area: CustomizeArea,
   seededFilters: readonly SeededTriggerFilter[] = [],
-  gatePolicy: ResolvedGatePolicy = DEFAULT_GATE_POLICY,
 ): DefaultPolicy {
   return {
-    upstreamFilters: seededFilters
-      .map(renderSeededTriggerFilter)
-      .filter((line): line is string => line !== null),
-    gateBehavior:
-      area === "email"
-        ? emailGateBehavior(gatePolicy)
-        : AREA_GATE_BEHAVIOR[area],
+    upstreamFilters: [
+      ...seededFilters
+        .map(renderSeededTriggerFilter)
+        .filter((line): line is string => line !== null),
+      ...(area === "calendar" ? Object.values(CALENDAR_KEEP_OUT_COPY) : []),
+    ],
+    lookFor: AREA_LOOK_FOR[area],
   };
 }
 
@@ -223,9 +231,12 @@ export function defaultPolicyForArea(
  * Salt-side map because Composio's TS SDK drops the trigger `type` field
  * (plan caveat 3). Three honest shapes:
  *
- * - poll:       Gmail / Google Calendar poll-type triggers — 15-minute
- *               floor on managed auth. NEVER say "real-time" for email or
- *               calendar (plan caveat 2).
+ * - poll:       Gmail / Google Calendar poll-type triggers. Every instance
+ *               is created with `interval: 1` (trigger-subscriptions.ts) and
+ *               Salt's Google connectors run on custom auth, so Composio's
+ *               15-minute managed-auth minimum doesn't apply — the real
+ *               cadence is about a minute. Still NEVER say "real-time" for
+ *               email or calendar (plan caveat 2): polling is polling.
  * - webhook:    events arrive as they happen (Stripe, Slack, …).
  * - reconciler: no trigger coverage — the 6-hour capture-reconciliation
  *               sweep (vercel.json crons) IS the ingestion.
@@ -233,10 +244,10 @@ export function defaultPolicyForArea(
  * Unknown providers render null: honest silence over a guessed cadence.
  */
 const WHEN_IT_SYNCS: Record<string, string> = {
-  // Poll-type triggers — 15-minute floor on managed auth (plan caveat 2:
-  // never "real-time" for email/calendar).
-  gmail: "Gmail is checked about every 15 minutes",
-  googlecalendar: "Google Calendar is checked about every 15 minutes",
+  // Poll-type triggers on custom auth — created with interval: 1 (plan
+  // caveat 2 stands: never "real-time" for email/calendar).
+  gmail: "Gmail is checked about every minute",
+  googlecalendar: "Google Calendar is checked about every minute",
   // Webhook delivery.
   outlook: "Outlook mail arrives as it happens",
   stripe: "Stripe events arrive as they happen",
@@ -245,14 +256,31 @@ const WHEN_IT_SYNCS: Record<string, string> = {
   googledocs: "Google Docs changes arrive as they happen",
   googlesheets: "Google Sheets changes arrive as they happen",
   // No trigger coverage — the 6-hour capture-reconciliation sweep IS the
-  // ingestion (see vercel.json crons).
+  // ingestion (see vercel.json crons). Scheduling apps get a fast path on
+  // top: a booking confirmation email triggers a targeted sync (calendar
+  // intake lifecycle, Phase 4 — services/booking-sync-hook.ts).
   googledrive: "Google Drive is checked about every 6 hours",
   dropbox: "Dropbox is checked about every 6 hours",
   quickbooks: "QuickBooks is checked about every 6 hours",
-  cal: "Cal.com is checked about every 6 hours",
-  calendly: "Calendly is checked about every 6 hours",
+  cal: "Cal.com bookings sync when the confirmation email arrives; otherwise checked about every 6 hours",
+  calendly: "Calendly bookings sync when the confirmation email arrives; otherwise checked about every 6 hours",
 };
 
 export function renderWhenItSyncs(provider: string): string | null {
   return WHEN_IT_SYNCS[provider] ?? null;
+}
+
+/**
+ * The discovery-cadence line for the email area's "When I check" (Sources
+ * → Customize). Relationship discovery — promoting held senders who've
+ * earned it into People records — is Lane B work gated by plan tier:
+ * Starter once a day, paid tiers every 6 hours (discovery-cadence.ts).
+ * Unknown tier reads as Starter, the same fail-safe as the cron's gating.
+ */
+export function renderDiscoveryCadenceLine(
+  tier: string | null | undefined,
+): string {
+  return isWorkspaceTier(tier) && tier !== "starter"
+    ? "New records are discovered every 6 hours"
+    : "New records are discovered once a day";
 }

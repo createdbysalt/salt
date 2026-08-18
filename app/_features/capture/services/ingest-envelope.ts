@@ -10,6 +10,14 @@ import { promoteRepliedRecipients } from "./relationship-discovery";
 import { recordOutboundReplies } from "./sender-reputation";
 import { mergeIntelligenceMeta } from "./intelligence/capture-intelligence-outcome";
 import {
+  applyCaptureLifecycleUpdate,
+  isTerminalCalendarUpdate,
+} from "./capture-lifecycle";
+import {
+  bookingProviderForEnvelope,
+  runBookingSyncHook,
+} from "./booking-sync-hook";
+import {
   getCaptureBudgetStatus,
   recordBudgetExceededWarning,
 } from "./capture-budget";
@@ -33,7 +41,14 @@ import type { GatePipelineResult } from "../types/gate-result";
  * classifiers, and play triggers are untouched by how items arrive.
  */
 
-export type IngestOutcome = "created" | "duplicate" | "noise" | "held" | "dropped" | "error";
+export type IngestOutcome =
+  | "created"
+  | "updated"
+  | "duplicate"
+  | "noise"
+  | "held"
+  | "dropped"
+  | "error";
 
 /**
  * Held rows (Memory-first email policy) store only what the discovery pass
@@ -100,6 +115,39 @@ export async function ingestEnvelope(
   options: IngestEnvelopeOptions = {},
 ): Promise<IngestEnvelopeResult> {
   let gateResult: GatePipelineResult | undefined;
+
+  // Calendar lifecycle (calendar intake lifecycle, Phase 2): a terminal
+  // update (cancelled / self-declined) for an event we already captured
+  // updates the existing row in place. This runs before the gate pipeline —
+  // the keep-out gate's drop semantics ("this never existed") are wrong for
+  // an event that did. Cancel-before-create falls through to the gates,
+  // which drop it: a cancelled event we never saw never becomes a capture.
+  if (isTerminalCalendarUpdate(envelope, options.userEmail ?? null)) {
+    const lifecycle = await applyCaptureLifecycleUpdate(
+      workspaceId,
+      envelope,
+      options.userEmail ?? null,
+    );
+    if (lifecycle === "updated") {
+      return { outcome: "updated" };
+    }
+  }
+
+  // Booking fast path (calendar intake lifecycle, Phase 4): a booking
+  // confirmation email (cal.com / calendly.com sender) triggers a targeted
+  // scheduling backfill so the structured booking lands within a minute
+  // instead of waiting for the 6-hour reconciliation sweep. Runs before the
+  // gates on purpose: the email itself may be held or dropped, but the
+  // booking it announces is account truth. Idempotent; no-ops when the
+  // provider isn't connected.
+  if (bookingProviderForEnvelope(envelope)) {
+    const hook = runBookingSyncHook(workspaceId, envelope);
+    // Serverless callers (awaitEnrichment) must await — unawaited work dies
+    // when the instance freezes after the response.
+    if (options.awaitEnrichment) {
+      await hook;
+    }
+  }
 
   if (options.useGatePipeline) {
     const gatePolicy = await getCaptureGatePolicy(workspaceId);

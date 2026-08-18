@@ -4,7 +4,7 @@ import type { FilterStatus } from "./FilterStatusPill";
 /**
  * Pure grouping logic for Memory → Filter pill counts.
  * Mirrors FilterTab's count derivation so the transparency model stays tested.
- * P11: kept-out counts moved to Sources → Activity (KeptOutSection) — the
+ * P11: kept-out review lives in Sources → Customize's area rail — the
  * Filter pill is watching/handled only. Capture-admission lanes (New captures,
  * Let in) were removed from the tab — watching is evidence + record candidates,
  * handled is memory writes only.

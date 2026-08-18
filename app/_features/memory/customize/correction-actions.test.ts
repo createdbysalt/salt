@@ -83,7 +83,7 @@ describe("rememberCorrection", () => {
     expect(result.success).toBe(true);
     if (!result.success) return;
     expect(result.landed).toBe("memory");
-    expect(result.href).toBe("/memory?tab=customize");
+    expect(result.href).toBe("/memory?tab=customize&type=person");
     expect(addCustomizeEntryMock).toHaveBeenCalledWith({
       entityType: "person",
       body: "never treat my accountant as a client",

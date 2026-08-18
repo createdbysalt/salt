@@ -98,6 +98,7 @@ const denyRule: RuleCheckResult = {
     id: "rule-1",
     workspaceId: "ws-1",
     provider: null,
+    area: null,
     ruleType: "deny",
     entityType: "sender_email",
     entityKey: "stranger@somewhere.com",
@@ -182,6 +183,7 @@ describe("runGatePipeline connector rules precedence", () => {
 
     expect(checkRulesMock).toHaveBeenCalledWith("ws-1", {
       provider: "gmail",
+      area: "email",
       entity: { type: "sender_email", key: "stranger@somewhere.com" },
       patternCandidates: ["A Stranger"],
       entityCandidates: {

@@ -17,7 +17,7 @@ import { COMPOSIO_TOOL_SLUGS } from "./tool-slugs";
 interface EnrichmentSpec {
   toolSlug: string;
   extractId: (_payload: unknown) => string | null;
-  buildInput: (_id: string) => Record<string, unknown>;
+  buildInput: (_id: string, _payload: unknown) => Record<string, unknown>;
   extractResult: (_result: unknown) => unknown;
 }
 
@@ -53,7 +53,7 @@ const ENRICHMENT_REGISTRY: Record<string, EnrichmentSpec> = {
       );
     },
     buildInput: (messageId) => ({ message_id: messageId, user_id: "me" }),
-    extractResult: unwrapOutlookMessage,
+    extractResult: unwrapToolResult,
   },
   OUTLOOK_SENT_MESSAGE_TRIGGER: {
     toolSlug: COMPOSIO_TOOL_SLUGS.OUTLOOK_OUTLOOK_GET_MESSAGE,
@@ -67,7 +67,57 @@ const ENRICHMENT_REGISTRY: Record<string, EnrichmentSpec> = {
       );
     },
     buildInput: (messageId) => ({ message_id: messageId, user_id: "me" }),
-    extractResult: unwrapOutlookMessage,
+    extractResult: unwrapToolResult,
+  },
+  // Google Calendar triggers send thin/pointer payloads (verified against
+  // the live schemas 2026-08-17): CREATED carries summary/times but no
+  // attendees or status; UPDATED carries only event_id + changed fields.
+  // Hydrate so the keep-out gate and lifecycle updates see the full event.
+  // (CANCELED_DELETED is deliberately absent — the event is already gone,
+  // the fetch would 404, and the payload itself asserts the terminal state.)
+  GOOGLECALENDAR_GOOGLE_CALENDAR_EVENT_CREATED_TRIGGER: {
+    toolSlug: COMPOSIO_TOOL_SLUGS.GOOGLECALENDAR_GET_EVENT,
+    extractId: (payload) => {
+      if (!isRecord(payload)) return null;
+      return str(payload.event_id) ?? str(payload.id) ?? null;
+    },
+    buildInput: (eventId, payload) => ({
+      event_id: eventId,
+      calendar_id: (isRecord(payload) && str(payload.calendar_id)) || "primary",
+    }),
+    extractResult: unwrapToolResult,
+  },
+  GOOGLECALENDAR_GOOGLE_CALENDAR_EVENT_UPDATED_TRIGGER: {
+    toolSlug: COMPOSIO_TOOL_SLUGS.GOOGLECALENDAR_GET_EVENT,
+    extractId: (payload) => {
+      if (!isRecord(payload)) return null;
+      return str(payload.event_id) ?? str(payload.id) ?? null;
+    },
+    buildInput: (eventId, payload) => ({
+      event_id: eventId,
+      calendar_id: (isRecord(payload) && str(payload.calendar_id)) || "primary",
+    }),
+    extractResult: unwrapToolResult,
+  },
+  // Outlook calendar triggers are pointer-only { id, event_type } (verified
+  // against the live schema 2026-08-17).
+  OUTLOOK_EVENT_TRIGGER: {
+    toolSlug: COMPOSIO_TOOL_SLUGS.OUTLOOK_GET_EVENT,
+    extractId: (payload) => {
+      if (!isRecord(payload)) return null;
+      return str(payload.id) ?? str(payload.event_id) ?? null;
+    },
+    buildInput: (eventId) => ({ event_id: eventId, user_id: "me" }),
+    extractResult: unwrapToolResult,
+  },
+  OUTLOOK_EVENT_CHANGE_TRIGGER: {
+    toolSlug: COMPOSIO_TOOL_SLUGS.OUTLOOK_GET_EVENT,
+    extractId: (payload) => {
+      if (!isRecord(payload)) return null;
+      return str(payload.id) ?? str(payload.event_id) ?? null;
+    },
+    buildInput: (eventId) => ({ event_id: eventId, user_id: "me" }),
+    extractResult: unwrapToolResult,
   },
 };
 
@@ -76,7 +126,7 @@ const ENRICHMENT_REGISTRY: Record<string, EnrichmentSpec> = {
  * wrapper, so the usual shape here is { response_data: {...} } — but stay
  * tolerant of the fully-wrapped and fully-unwrapped shapes too.
  */
-function unwrapOutlookMessage(result: unknown): unknown {
+function unwrapToolResult(result: unknown): unknown {
   if (!isRecord(result)) return result;
   if (isRecord(result.response_data)) {
     return result.response_data;
@@ -171,7 +221,7 @@ export async function enrichWebhookPayload(
       toolSlug: spec.toolSlug,
     });
 
-    const input = spec.buildInput(messageId);
+    const input = spec.buildInput(messageId, payload);
 
     // Through the single gate: canSpend admission, read-class rate limit,
     // classification policy, and the audit log all apply to this spend.

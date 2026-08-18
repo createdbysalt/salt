@@ -3,13 +3,15 @@ import "server-only";
 /**
  * Rules Manager (Connector Rules & Learning, Phase 2).
  *
- * The single service over `connector_rules` — allow/deny intake rules
- * scoped per-connection (provider set) or workspace-wide (provider NULL).
+ * The single service over `connector_rules` — allow/deny intake rules in
+ * three scopes (2026-08-17): provider-scoped (provider set), area-scoped
+ * (provider NULL + area set — covers every account in the area, including
+ * accounts connected later), and workspace-wide (both NULL).
  *
  * Semantics:
  * - Gate precedence is explicit deny > explicit allow > heuristics; this
  *   service returns deny first, then allow, then null (no opinion).
- * - Provider-scoped rules beat workspace-wide rules for the same entity.
+ * - Scope precedence for the same entity: provider > area > workspace.
  * - Entity matching is category-agnostic (entity_type + entity_key); for
  *   email senders the domain rule is derived from the sender_email key at
  *   check time, and sender_pattern globs match against `patternCandidates`
@@ -35,8 +37,10 @@ export type ConnectorRuleSource = "user" | "suggested" | "correction" | "ask_sal
 export interface ConnectorRule {
   id: string;
   workspaceId: string;
-  /** NULL = workspace-wide. */
+  /** NULL = not provider-scoped. */
   provider: string | null;
+  /** NULL = not area-scoped. provider NULL + area set = the area scope. */
+  area: string | null;
   ruleType: ConnectorRuleType;
   entityType: ConnectorRuleEntityType;
   entityKey: string;
@@ -48,8 +52,10 @@ export interface ConnectorRule {
 
 export interface AddRuleInput {
   workspaceId: string;
-  /** Omit or null for a workspace-wide rule. */
+  /** Provider scope. Mutually exclusive with area. */
   provider?: string | null;
+  /** Area scope (email, calendar, …) — requires provider null. */
+  area?: string | null;
   ruleType: ConnectorRuleType;
   entityType: ConnectorRuleEntityType;
   entityKey: string;
@@ -61,6 +67,8 @@ export interface AddRuleInput {
 export interface RuleCheckInput {
   /** The connection's provider; null checks workspace-wide rules only. */
   provider: string | null;
+  /** The connection's intake area — area-scoped rules join the check. */
+  area?: string | null;
   /**
    * The entity under check (from the category adapter's extraction). May be
    * null when there is no entity — e.g. a sender-NAME-only blocklist check —
@@ -151,6 +159,7 @@ function mapRule(row: Record<string, unknown>): ConnectorRule {
     id: row.id as string,
     workspaceId: row.workspace_id as string,
     provider: (row.provider as string | null) ?? null,
+    area: (row.area as string | null) ?? null,
     ruleType: row.rule_type as ConnectorRuleType,
     entityType: row.entity_type as ConnectorRuleEntityType,
     entityKey: row.entity_key as string,
@@ -162,13 +171,12 @@ function mapRule(row: Record<string, unknown>): ConnectorRule {
 }
 
 /**
- * Load every rule for a workspace relevant to a provider scope
- * (provider-scoped + workspace-wide), paginated past the 100-row boundary
- * in stable id order so pages never skip under inserts.
+ * Load one exact scope's rules, paginated past the 100-row boundary in
+ * stable id order so pages never skip under inserts.
  */
-async function loadScopedRules(
+async function loadScopeRules(
   workspaceId: string,
-  provider: string | null,
+  scope: { provider: string | null; area: string | null },
 ): Promise<{ rules: ConnectorRule[]; error: boolean }> {
   const admin = createAdminClient();
   const collected: ConnectorRule[] = [];
@@ -181,14 +189,17 @@ async function loadScopedRules(
       .order("id")
       .range(offset, offset + PAGE_SIZE - 1);
 
-    query = provider ? query.eq("provider", provider) : query.is("provider", null);
+    query = scope.provider
+      ? query.eq("provider", scope.provider)
+      : query.is("provider", null);
+    query = scope.area ? query.eq("area", scope.area) : query.is("area", null);
 
     const { data, error } = await query;
     if (error) {
       // Fail open on infra errors: a rules outage must not drop ALL inbound
       // capture. Hostile input never reaches this path — keys are validated
       // at write time and checks use parameterized filters.
-      console.error("[rules-manager] loadScopedRules error:", error);
+      console.error("[rules-manager] loadScopeRules error:", error);
       return { rules: collected, error: true };
     }
 
@@ -198,15 +209,31 @@ async function loadScopedRules(
     if (!data || data.length < PAGE_SIZE) break;
   }
 
-  // Workspace-wide rules ride along on provider-scoped checks; fetch once
-  // after the provider pages complete.
-
-  if (provider) {
-    const wide = await loadScopedRules(workspaceId, null);
-    return { rules: [...collected, ...wide.rules], error: wide.error };
-  }
-
   return { rules: collected, error: false };
+}
+
+/**
+ * Load every rule relevant to a check scope: the provider's own rows, the
+ * area's rows (provider NULL + area), and workspace-wide rows (both NULL).
+ */
+async function loadScopedRules(
+  workspaceId: string,
+  provider: string | null,
+  area: string | null,
+): Promise<{ rules: ConnectorRule[]; error: boolean }> {
+  const scopes: { provider: string | null; area: string | null }[] = [];
+  if (provider) scopes.push({ provider, area: null });
+  if (area) scopes.push({ provider: null, area });
+  scopes.push({ provider: null, area: null });
+
+  const rules: ConnectorRule[] = [];
+  let error = false;
+  for (const scope of scopes) {
+    const result = await loadScopeRules(workspaceId, scope);
+    rules.push(...result.rules);
+    error = error || result.error;
+  }
+  return { rules, error };
 }
 
 /**
@@ -217,12 +244,13 @@ export async function getRules(
   workspaceId: string,
   options: {
     provider?: string | null;
+    area?: string | null;
     ruleType?: ConnectorRuleType;
     entityType?: ConnectorRuleEntityType;
     limit?: number;
   } = {},
 ): Promise<ConnectorRule[]> {
-  const { provider, ruleType, entityType, limit = 100 } = options;
+  const { provider, area, ruleType, entityType, limit = 100 } = options;
   const admin = createAdminClient();
 
   let query = admin
@@ -234,6 +262,9 @@ export async function getRules(
 
   if (provider !== undefined) {
     query = provider === null ? query.is("provider", null) : query.eq("provider", provider);
+  }
+  if (area !== undefined) {
+    query = area === null ? query.is("area", null) : query.eq("area", area);
   }
   if (ruleType) query = query.eq("rule_type", ruleType);
   if (entityType) query = query.eq("entity_type", entityType);
@@ -249,13 +280,18 @@ export async function getRules(
 }
 
 /**
- * Add a rule. Duplicate (workspace, provider, rule_type, entity) is
+ * Add a rule. Duplicate (workspace, provider, area, rule_type, entity) is
  * rejected pre-insert so callers get a readable error, not a 23505.
+ * provider and area are mutually exclusive — a rule has exactly one scope.
  */
 export async function addRule(
   input: AddRuleInput,
 ): Promise<{ success: boolean; rule?: ConnectorRule; error?: string }> {
   const provider = input.provider ?? null;
+  const area = input.area ?? null;
+  if (provider !== null && area !== null) {
+    return { success: false, error: "A rule is scoped to a provider or an area, not both" };
+  }
   const entityKey = normalizeRuleEntityKey(input.entityType, input.entityKey);
   if (!entityKey) {
     return { success: false, error: "Invalid value format" };
@@ -274,6 +310,9 @@ export async function addRule(
   existingQuery = provider
     ? existingQuery.eq("provider", provider)
     : existingQuery.is("provider", null);
+  existingQuery = area
+    ? existingQuery.eq("area", area)
+    : existingQuery.is("area", null);
 
   const { data: existing } = await existingQuery.maybeSingle();
 
@@ -286,6 +325,7 @@ export async function addRule(
     .insert({
       workspace_id: input.workspaceId,
       provider,
+      area,
       rule_type: input.ruleType,
       entity_type: input.entityType,
       entity_key: entityKey,
@@ -325,8 +365,9 @@ export async function removeRule(
 }
 
 /**
- * Check an entity against the rules. Precedence: provider deny →
- * workspace-wide deny → provider allow → workspace-wide allow → null.
+ * Check an entity against the rules. Precedence: provider deny → area
+ * deny → workspace deny → provider allow → area allow → workspace allow
+ * → null (deny beats allow at every scope; tighter scope wins ties).
  *
  * Email-shaped entities (sender_email, contact, …) also match domain rules
  * derived from the key's domain part; sender_pattern globs match against
@@ -349,7 +390,11 @@ export async function checkRules(
     return { verdict: null };
   }
 
-  const { rules, error } = await loadScopedRules(workspaceId, input.provider);
+  const { rules, error } = await loadScopedRules(
+    workspaceId,
+    input.provider,
+    input.area ?? null,
+  );
   if (error && rules.length === 0) {
     return { verdict: null };
   }
@@ -390,17 +435,18 @@ export async function checkRules(
     return false;
   };
 
-  const providerScoped = rules.filter((r) => r.provider === input.provider && input.provider !== null);
-  const workspaceWide = rules.filter((r) => r.provider === null);
+  const providerScoped = rules.filter((r) => r.provider !== null);
+  const areaScoped = rules.filter((r) => r.provider === null && r.area !== null);
+  const workspaceWide = rules.filter((r) => r.provider === null && r.area === null);
 
-  for (const scope of [providerScoped, workspaceWide]) {
+  for (const scope of [providerScoped, areaScoped, workspaceWide]) {
     for (const rule of scope) {
       if (rule.ruleType === "deny" && matches(rule)) {
         return { verdict: "deny", rule };
       }
     }
   }
-  for (const scope of [providerScoped, workspaceWide]) {
+  for (const scope of [providerScoped, areaScoped, workspaceWide]) {
     for (const rule of scope) {
       if (rule.ruleType === "allow" && matches(rule)) {
         return { verdict: "allow", rule };

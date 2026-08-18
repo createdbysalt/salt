@@ -21,7 +21,13 @@ type KnownCalendarProvider = "googlecalendar" | "outlook_calendar" | "cal" | "ca
 const KNOWN_CALENDAR_PROVIDERS: KnownCalendarProvider[] = ["googlecalendar", "outlook_calendar", "cal", "calendly"];
 
 const CALENDAR_TRIGGER_SLUGS: Record<KnownCalendarProvider, string[]> = {
-  googlecalendar: ["GOOGLECALENDAR_GOOGLE_CALENDAR_EVENT_CREATED_TRIGGER"],
+  // CREATED + UPDATED + CANCELED_DELETED: the full lifecycle, so a stored
+  // capture tracks reality (reschedule/cancel) instead of going stale.
+  googlecalendar: [
+    "GOOGLECALENDAR_GOOGLE_CALENDAR_EVENT_CREATED_TRIGGER",
+    "GOOGLECALENDAR_GOOGLE_CALENDAR_EVENT_UPDATED_TRIGGER",
+    "GOOGLECALENDAR_EVENT_CANCELED_DELETED_TRIGGER",
+  ],
   outlook_calendar: ["OUTLOOK_EVENT_TRIGGER", "OUTLOOK_EVENT_CHANGE_TRIGGER"],
   cal: [], // Backfill only - no real-time triggers
   calendly: [], // Backfill only - no real-time triggers
@@ -64,10 +70,14 @@ function normalizeGoogleCalendar(payload: unknown): CaptureEnvelope | null {
   if (!payload || typeof payload !== "object") return null;
   const record = payload as Record<string, unknown>;
 
-  // Two shapes reach this normalizer — verified against the live Composio
-  // trigger schema 2026-08-05 (__fixtures__/composio-trigger-schemas.json):
-  //   Trigger:  { event_id, calendar_id, summary, organizer_email,
+  // Shapes that reach this normalizer — verified against the live Composio
+  // trigger schemas 2026-08-05 and 2026-08-17:
+  //   CREATED trigger: { event_id, calendar_id, summary, organizer_email,
   //               organizer_name, start_time, end_time } (flat snake_case)
+  //   UPDATED trigger: pointer { event_id, calendar_id, change_type,
+  //               updated_fields } — hydrate before gating
+  //   CANCELED_DELETED trigger: { event_id, summary?, cancelled_at } — the
+  //               event is already gone; nothing to hydrate
   //   API/backfill: Google Calendar event resource (id, start.dateTime,
   //               organizer.email, attendees[])
   const externalId =
@@ -76,6 +86,39 @@ function normalizeGoogleCalendar(payload: unknown): CaptureEnvelope | null {
     (record.eventId as string) ??
     (record.iCalUID as string);
   if (!externalId) return null;
+
+  // Cancelled/deleted: the envelope asserts the terminal state directly and
+  // the lifecycle path updates the stored row in place (or the keep-out
+  // gate drops it when we never captured the event).
+  if (typeof record.cancelled_at === "string") {
+    const cancelledSummary = (record.summary as string) ?? null;
+    return {
+      sourceType: "googlecalendar",
+      captureType: "meeting",
+      externalId,
+      title: cancelledSummary,
+      occurredAt: null,
+      participants: [],
+      threadId: (record.calendar_id as string) ?? null,
+      lifecycle: "update",
+      extracted: {
+        summary: cancelledSummary,
+        status: "cancelled",
+        cancelled_at: record.cancelled_at,
+        attendees_known: false,
+      },
+      raw: {
+        eventId: externalId,
+        source: "composio_trigger",
+      },
+      noise: null,
+    };
+  }
+
+  // Update pointer: hydrate so the keep-out gate and lifecycle path see
+  // the full event (attendees, status, eventType).
+  const isUpdatePointer =
+    typeof record.change_type === "string" || record.updated_fields !== undefined;
 
   const summary = (record.summary as string) ?? null;
   const start = record.start as Record<string, unknown> | undefined;
@@ -110,18 +153,29 @@ function normalizeGoogleCalendar(payload: unknown): CaptureEnvelope | null {
     });
   }
 
-  const attendeeList: Array<{ email: string; name: string | null }> = [];
+  const attendeeList: Array<{
+    email: string;
+    name: string | null;
+    responseStatus?: string;
+  }> = [];
   for (const attendee of attendees) {
     const email = (attendee.email as string)?.toLowerCase();
     if (!email) continue;
     const name = (attendee.displayName as string) ?? null;
-    attendeeList.push({ email, name });
+    const responseStatus = (attendee.responseStatus as string) ?? undefined;
+    attendeeList.push({ email, name, ...(responseStatus ? { responseStatus } : {}) });
     participants.push({
       email,
       name,
       role: "attendee",
     });
   }
+
+  // The flat trigger shape (event_id, start_time, …) carries no attendee or
+  // eventType data; the API/backfill shape (start.dateTime, organizer.email)
+  // does — and there an absent attendees array authoritatively means solo.
+  // The keep-out gate's solo rule keys off this flag.
+  const attendeesKnown = typeof record.start === "object" && record.start !== null;
 
   // Video-call link: hangoutLink is the legacy field; conferenceData carries
   // Meet/Zoom entry points on newer event resources.
@@ -139,6 +193,7 @@ function normalizeGoogleCalendar(payload: unknown): CaptureEnvelope | null {
     occurredAt,
     participants,
     threadId: (record.calendar_id as string) ?? null,
+    ...(isUpdatePointer ? { lifecycle: "update" as const } : {}),
     extracted: {
       summary,
       start: occurredAt,
@@ -146,6 +201,12 @@ function normalizeGoogleCalendar(payload: unknown): CaptureEnvelope | null {
       organizer_email: organizerEmail,
       attendees: attendeeList,
       attendee_count: attendees.length,
+      attendees_known: attendeesKnown,
+      // Thin trigger shapes hydrate before gating (Outlook email pattern):
+      // the keep-out gate needs attendees/status/eventType, and the trigger
+      // payload carries none of them.
+      ...(!attendeesKnown ? { needs_hydration: true } : {}),
+      eventType: (record.eventType as string) ?? null,
       location: (record.location as string) ?? null,
       meeting_link: meetingLink,
       status: (record.status as string) ?? null,
@@ -180,6 +241,10 @@ function normalizeOutlookCalendar(payload: unknown): CaptureEnvelope | null {
 
   // Pointer-only trigger payload — no event details until hydration.
   if (!subject && !start) {
+    // OUTLOOK_EVENT_TRIGGER fires for creates; OUTLOOK_EVENT_CHANGE_TRIGGER
+    // for updates/deletes. Updates must reach the lifecycle path, not the
+    // webhook's duplicate short-circuit.
+    const eventType = String(record.event_type ?? "created").toLowerCase();
     return {
       sourceType: "outlook_calendar",
       captureType: "meeting",
@@ -188,6 +253,7 @@ function normalizeOutlookCalendar(payload: unknown): CaptureEnvelope | null {
       occurredAt: null,
       participants: [],
       threadId: null,
+      ...(eventType !== "created" ? { lifecycle: "update" as const } : {}),
       extracted: {
         title: null,
         start: null,
@@ -212,7 +278,11 @@ function normalizeOutlookCalendar(payload: unknown): CaptureEnvelope | null {
   const organizerName = (organizerAddr?.name as string) ?? null;
 
   const rawAttendees = (record.attendees as Array<Record<string, unknown>>) ?? [];
-  const attendeeList: Array<{ email: string; name: string | null }> = [];
+  const attendeeList: Array<{
+    email: string;
+    name: string | null;
+    responseStatus?: string;
+  }> = [];
   const participants: EnvelopeParticipant[] = [];
 
   if (organizerEmail) {
@@ -224,7 +294,10 @@ function normalizeOutlookCalendar(payload: unknown): CaptureEnvelope | null {
     const email = (addr?.address as string)?.toLowerCase();
     if (!email) continue;
     const name = (addr?.name as string) ?? null;
-    attendeeList.push({ email, name });
+    // Graph carries the attendee's response at attendee.status.response.
+    const attendeeStatus = attendee.status as Record<string, unknown> | undefined;
+    const responseStatus = (attendeeStatus?.response as string)?.toLowerCase() || undefined;
+    attendeeList.push({ email, name, ...(responseStatus ? { responseStatus } : {}) });
     participants.push({ email, name, role: "attendee" });
   }
 
@@ -253,6 +326,10 @@ function normalizeOutlookCalendar(payload: unknown): CaptureEnvelope | null {
       organizer_email: organizerEmail,
       attendees: attendeeList,
       attendee_count: attendeeList.length,
+      // The hydrated Graph shape always carries the attendees array (empty =
+      // solo); only the pointer-only trigger shape lacks it, and that shape
+      // returns early above.
+      attendees_known: true,
       location: locationName,
       meeting_link: meetingLink,
       status: record.isCancelled === true ? "cancelled" : ((record.showAs as string) ?? null),
@@ -325,6 +402,8 @@ function normalizeCal(payload: unknown): CaptureEnvelope | null {
       start: startTime,
       end: (record.endTime as string) ?? (record.end as string) ?? null,
       attendee_count: attendees.length,
+      // A booking always carries its invitee data.
+      attendees_known: true,
       status: (record.status as string) ?? null,
       eventType: (record.eventTypeSlug as string) ?? null,
       attendee_details: attendeeDetails,
@@ -424,6 +503,8 @@ function normalizeCalendly(payload: unknown): CaptureEnvelope | null {
       start: startTime,
       end: (record.end_time as string) ?? null,
       status: (record.status as string) ?? null,
+      // A booking always carries its invitee data.
+      attendees_known: true,
       attendee_count:
         typeof inviteesCounter?.active === "number"
           ? inviteesCounter.active

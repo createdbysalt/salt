@@ -65,6 +65,11 @@ import {
 } from "../utils/capture-stream-page-filter";
 import { PlaysSearchField } from "@/app/_features/plays/components/PlaysSearchField";
 import { ActivityCombinedFilterMenu } from "@/app/_features/plays/components/ActivityCombinedFilterMenu";
+import { KeptOutCorrectionButtons } from "./KeptOutCorrectionButtons";
+import {
+  plainKeptOutReason,
+  type KeptOutCause,
+} from "@/app/_features/memory/queries/admission-gate-result";
 import type { ActivityDateRange } from "@/app/_features/plays/components/ActivityDateRangeFilter";
 import { dayGroupFromIso } from "@/app/_features/plays/utils/map-play-run-to-activity";
 import {
@@ -94,6 +99,8 @@ interface CaptureStreamTabProps {
   /** All-time stat-tile counts for the header strip. */
   initialCounts?: CaptureStreamCounts | null;
   hasRealData?: boolean;
+  /** Kept-out correction actions need it (server actions re-verify). */
+  workspaceId?: string | null;
 }
 
 type PlayDispatchedEntry = {
@@ -133,6 +140,8 @@ type RealStreamEntry = Omit<StreamEntry, "dayGroup"> & {
   /** Gate outcome — noise rows render demoted (muted, no Salt CTA). */
   gateAction?: string | null;
   gateReason?: string | null;
+  /** Rule-caused vs heuristic — drives the kept-out correction action. */
+  gateCause?: KeptOutCause | null;
 };
 
 /** Noise = admission gate said noise, or the classifier called it noise. */
@@ -190,6 +199,7 @@ function toRealStreamEntry(c: StreamCaptureSummary): RealStreamEntry {
     isBootstrap: c.is_bootstrap ?? false,
     gateAction: c.gate_action ?? null,
     gateReason: c.gate_reason ?? null,
+    gateCause: c.gate_cause ?? null,
     playsDispatched: c.plays_dispatched ?? [],
     watchesTriggered: c.watches_triggered ?? [],
   } as RealStreamEntry;
@@ -431,6 +441,7 @@ export function CaptureStreamTab({
   initialTotalCount = 0,
   initialCounts = null,
   hasRealData = false,
+  workspaceId = null,
 }: CaptureStreamTabProps = {}) {
   const [captures, setCaptures] = useState(initialCaptures);
   const [totalCount, setTotalCount] = useState(initialTotalCount);
@@ -446,6 +457,10 @@ export function CaptureStreamTab({
   const [state, setState] = useState<StreamStateFilter>("all");
   const [area, setArea] = useState<StreamAreaFilter>("all");
   const [dateRange, setDateRange] = useState<ActivityDateRange | null>(null);
+  // "Kept out" filter toggle — reveals dropped/held rows with verdicts and
+  // correction actions, interleaved newest-first (Sources plan: kept-out
+  // review lives in Activity, not the Customize rail).
+  const [showKeptOut, setShowKeptOut] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [retryingId, setRetryingId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -472,6 +487,7 @@ export function CaptureStreamTab({
       area,
       dateFrom,
       dateTo,
+      showKeptOut,
       refreshTick,
     });
     if (lastRequestKey.current === null || lastRequestKey.current === key) {
@@ -490,6 +506,7 @@ export function CaptureStreamTab({
           area,
           dateFrom,
           dateTo,
+          keptOut: showKeptOut || undefined,
         });
         setCaptures(result.captures);
         setTotalCount(result.totalCount);
@@ -501,7 +518,7 @@ export function CaptureStreamTab({
         toast.error("Couldn't load captures. Try again.");
       }
     });
-  }, [page, pageSize, debouncedQ, state, area, dateRange, refreshTick]);
+  }, [page, pageSize, debouncedQ, state, area, dateRange, showKeptOut, refreshTick]);
 
   // Realtime invalidation refetches page-1 data through the sources tab
   // cache. Adopt it when the user is on the unfiltered first page; otherwise
@@ -515,7 +532,8 @@ export function CaptureStreamTab({
       !q.trim() &&
       state === "all" &&
       area === "all" &&
-      !dateRange;
+      !dateRange &&
+      !showKeptOut;
     if (unfilteredFirstPage) {
       setCaptures(initialCaptures);
       setTotalCount(initialTotalCount);
@@ -532,6 +550,7 @@ export function CaptureStreamTab({
     state,
     area,
     dateRange,
+    showKeptOut,
   ]);
 
   const handleRetry = useCallback((captureId: string) => {
@@ -606,6 +625,11 @@ export function CaptureStreamTab({
     setPage(1);
   }, []);
 
+  const updateShowKeptOut = useCallback((value: boolean) => {
+    setShowKeptOut(value);
+    setPage(1);
+  }, []);
+
   const updatePageSize = useCallback((value: string) => {
     setPageSize(Number(value) as CaptureStreamPageSize);
     setPage(1);
@@ -620,7 +644,8 @@ export function CaptureStreamTab({
     (state !== "all" ? 1 : 0) + (area !== "all" ? 1 : 0) + (dateRange ? 1 : 0);
   // The Filter button badge only counts what the popover itself controls —
   // state comes from the stat tiles above the toolbar.
-  const popoverFilterCount = (area !== "all" ? 1 : 0) + (dateRange ? 1 : 0);
+  const popoverFilterCount =
+    (area !== "all" ? 1 : 0) + (dateRange ? 1 : 0) + (showKeptOut ? 1 : 0);
 
   const tileValues: Record<CaptureCategory, number> = {
     queued: counts.queued,
@@ -692,12 +717,20 @@ export function CaptureStreamTab({
                 onToggle: (id, checked) =>
                   updateArea(checked ? (id as StreamAreaFilter) : "all"),
               },
+              {
+                id: "visibility",
+                label: "Also show",
+                options: [{ id: "kept-out", label: "Kept out" }],
+                selected: showKeptOut ? ["kept-out"] : [],
+                onToggle: (_id, checked) => updateShowKeptOut(checked),
+              },
             ]}
             dateRange={dateRange}
             onDateRangeChange={updateDateRange}
             onClearAll={() => {
               updateArea("all");
               updateDateRange(null);
+              updateShowKeptOut(false);
             }}
           />
         }
@@ -708,6 +741,13 @@ export function CaptureStreamTab({
           {isPending
             ? "Searching full history…"
             : "Full history — includes kept-out and dropped mail with Salt's verdict on each."}
+        </p>
+      )}
+
+      {showKeptOut && !fullHistorySearch && (
+        <p className="px-2 text-[11px] text-muted-foreground">
+          Including kept-out captures — what Salt filtered out, why, and a
+          chance to let it in.
         </p>
       )}
 
@@ -752,6 +792,8 @@ export function CaptureStreamTab({
                     onRetry={handleRetry}
                     isRetrying={retryingId === e.id}
                     onAskSalt={handleAskSalt}
+                    workspaceId={workspaceId}
+                    onCorrected={() => setRefreshTick((tick) => tick + 1)}
                   />
                 ))}
               </ul>
@@ -872,6 +914,8 @@ function CaptureRow({
   onRetry,
   isRetrying,
   onAskSalt,
+  workspaceId,
+  onCorrected,
 }: {
   entry: RealStreamEntry;
   isOpen: boolean;
@@ -879,11 +923,17 @@ function CaptureRow({
   onRetry: (id: string) => void;
   isRetrying: boolean;
   onAskSalt?: (captureId: string, promptHint: string) => void;
+  workspaceId?: string | null;
+  onCorrected?: () => void;
 }) {
   const isUserAdded = e.source === "added";
   const enriched = e.enrichedMetadata;
   const signals = enriched?.signals_matched ?? [];
   const isNoise = isNoiseEntry(e);
+  // Kept-out rows (held/drop) only appear via the "Kept out" toggle or a
+  // full-history search — they render demoted and carry correction actions
+  // instead of the Salt CTA.
+  const isKeptOut = e.gateAction === "held" || e.gateAction === "drop";
 
   // Generate clear header: "Email from John Smith" / "Invoice: $4,500"
   const header = generateCaptureHeader(e.origin, signals, e.extractedData, e.from);
@@ -893,8 +943,8 @@ function CaptureRow({
   const showRetryAction = e.category === "error" && !!onRetry;
   const hasIconActions = showRetryAction;
 
-  // Noise rows render demoted: muted, no "Review with Salt" CTA.
-  const reviewWithSaltButton = onAskSalt && !isNoise ? (
+  // Noise and kept-out rows render demoted: muted, no "Review with Salt" CTA.
+  const reviewWithSaltButton = onAskSalt && !isNoise && !isKeptOut ? (
     <button
       type="button"
       onClick={(ev) => {
@@ -934,7 +984,7 @@ function CaptureRow({
         aria-expanded={isOpen}
         className={cn(
           "flex w-full cursor-pointer items-center gap-3 px-4 py-3.5 text-left transition hover:bg-muted/40",
-          isNoise && "opacity-55 hover:opacity-90"
+          (isNoise || isKeptOut) && "opacity-55 hover:opacity-90"
         )}
       >
         {/* Time + Connector Logo */}
@@ -967,14 +1017,14 @@ function CaptureRow({
           {/* Line 3: Trigger badges (Plays, Watching) + Category */}
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             {/* Gate verdict — kept-out/dropped rows surface the reason (2.9) */}
-            {(e.gateAction === "held" || e.gateAction === "drop") && (
+            {isKeptOut && (
               <span
                 className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground"
                 title={e.gateReason ?? undefined}
               >
                 <Ban className="size-2.5" strokeWidth={2.5} />
                 {e.gateAction === "held" ? "Kept out" : "Dropped"}
-                {e.gateReason ? ` — ${e.gateReason}` : ""}
+                {e.gateReason ? ` — ${plainKeptOutReason(e.gateReason)}` : ""}
               </span>
             )}
             {/* Triggered plays */}
@@ -1012,9 +1062,18 @@ function CaptureRow({
           </div>
         </div>
 
-        {/* Action toolbar — pill when icon actions exist; standalone CTA otherwise */}
+        {/* Action toolbar — correction actions for kept-out rows; pill when
+            icon actions exist; standalone CTA otherwise */}
         <div className="ml-auto flex shrink-0 items-center gap-1.5">
-          {hasIconActions ? (
+          {isKeptOut && workspaceId ? (
+            <KeptOutCorrectionButtons
+              captureId={e.id}
+              sourceType={e.origin}
+              cause={e.gateCause ?? "heuristic"}
+              workspaceId={workspaceId}
+              onCorrected={onCorrected}
+            />
+          ) : hasIconActions ? (
             <div className="inline-flex items-center gap-1 rounded-2xl border border-border/50 bg-muted/60 p-1 shadow-sm transition-all duration-200 hover:border-border/70 hover:bg-muted/70">
               {showRetryAction && (
                 <CaptureIconActionButton

@@ -52,8 +52,9 @@ test.describe("Memory surface tabs", () => {
     await expect(views.getByRole("tab", { name: /Watching/i })).toBeVisible();
 
     // Sources-style toolbar: search + one combined filter popover.
+    // Default view is Auto-handled, so the search placeholder matches it.
     await expect(
-      page.getByLabel(/search what salt is watching/i),
+      page.getByLabel(/search handled changes/i),
     ).toBeVisible();
     const filterButton = page.getByRole("button", { name: /^filter$/i });
     await expect(filterButton).toBeVisible();
@@ -95,7 +96,7 @@ test.describe("Memory surface tabs", () => {
     await sections.getByRole("link", { name: "Customize" }).click();
     await expect(page).toHaveURL(/\/memory\?tab=customize/);
     await expect(
-      page.getByRole("heading", { name: /^people records$/i, level: 2 }),
+      page.getByRole("heading", { name: /^all record types$/i, level: 2 }),
     ).toBeVisible({ timeout: 15000 });
 
     await sections.getByRole("link", { name: "Map" }).click();
@@ -114,7 +115,7 @@ test.describe("Memory — Customize tab", () => {
       page.getByText("Customize what Salt remembers"),
     ).toBeVisible({ timeout: 15000 });
     await expect(
-      page.getByRole("heading", { name: /^people records$/i, level: 2 }),
+      page.getByRole("heading", { name: /^all record types$/i, level: 2 }),
     ).toBeVisible();
   });
 
@@ -123,8 +124,9 @@ test.describe("Memory — Customize tab", () => {
   }) => {
     await gotoAppRoute(page, "/memory?tab=customize");
 
+    // The default landing is All Types, with no type param in the URL.
     await expect(
-      page.getByRole("heading", { name: /^people records$/i, level: 2 }),
+      page.getByRole("heading", { name: /^all record types$/i, level: 2 }),
     ).toBeVisible({ timeout: 15000 });
 
     const switcher = page.getByRole("combobox", { name: "Record type" });
@@ -134,6 +136,14 @@ test.describe("Memory — Customize tab", () => {
     await expect(page).toHaveURL(/\/memory\?tab=customize&type=work/);
     await expect(
       page.getByRole("heading", { name: /^work records$/i, level: 2 }),
+    ).toBeVisible();
+
+    // Switching back to All Types drops the type param.
+    await switcher.click();
+    await page.getByRole("option", { name: "All Types" }).click();
+    await expect(page).toHaveURL(/\/memory\?tab=customize$/);
+    await expect(
+      page.getByRole("heading", { name: /^all record types$/i, level: 2 }),
     ).toBeVisible();
 
     // Deep link lands on the same doc directly.
@@ -146,7 +156,8 @@ test.describe("Memory — Customize tab", () => {
   test("the read-only logic zone renders beside the writable doc", async ({
     page,
   }) => {
-    await gotoAppRoute(page, "/memory?tab=customize");
+    // The logic card is per-type — All Types carries the trust card instead.
+    await gotoAppRoute(page, "/memory?tab=customize&type=person");
 
     await expect(
       page.getByRole("heading", { name: /the logic i run on/i }),
