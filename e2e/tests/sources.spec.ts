@@ -408,8 +408,9 @@ test.describe("Sources — cause-aware Kept Out corrections (P4)", () => {
     await gotoAppRoute(page, ACTIVITY_URL);
     await expect(page.getByText(/all captures/i)).toBeVisible({ timeout: 15000 });
 
-    // Kept-out review lives behind the Filter popover's "Kept out" toggle
-    // (2026-08-17 — moved out of the Customize area rail).
+    // Kept-out review is a peer status in the Filter popover's Status facet
+    // (2026-08-17 — moved out of the Customize area rail, then from an
+    // inclusion toggle to a status).
     await page.getByRole("button", { name: /filter captures/i }).click();
     const keptOutToggle = page.getByRole("checkbox", { name: /kept out/i });
     await expect(keptOutToggle).toBeVisible({ timeout: 5_000 });

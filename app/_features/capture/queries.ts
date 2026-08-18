@@ -437,8 +437,9 @@ export interface CaptureStreamPage {
  * Search is the activity-as-diagnostic path (Sources plan 2.9): a
  * specific-enough term (2+ chars) spans ALL capture history — including
  * dropped/held rows the stream hides — so the user can answer "did Salt see
- * X, and what did it do with it?". Header counts always reflect the
- * stream-visible rows only.
+ * X, and what did it do with it?". The `kept-out` state filter targets the
+ * same rows directly. Header counts always reflect the stream-visible rows
+ * only.
  */
 export async function getCaptureStreamPage(
   workspaceId: string,
@@ -447,9 +448,10 @@ export async function getCaptureStreamPage(
   const pageSize = Math.min(Math.max(1, Math.floor(params.pageSize)), 100);
   const search = params.search?.trim() ?? "";
   const fullHistory = search.length >= 2;
-  // The "Kept out" filter toggle reveals the same rows a full-history
-  // search does — dropped/held captures, with their verdicts.
-  const includeKeptOut = fullHistory || params.keptOut === true;
+  // Kept-out rows (drop/held) join the scan for full-history search, the
+  // kept-out peer status, or the includeKeptOut display preference.
+  const includeKeptOut =
+    fullHistory || params.state === "kept-out" || params.includeKeptOut === true;
 
   const scanned = await scanCaptureStreamRows(workspaceId, includeKeptOut);
   const streamRows = includeKeptOut

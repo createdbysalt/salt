@@ -13,7 +13,7 @@ const CaptureStreamPageSchema = z
     pageSize: z.union([z.literal(25), z.literal(50), z.literal(100)]),
     search: z.string().trim().max(200).optional(),
     state: z
-      .enum(["all", "queued", "watching", "no-signal", "processing", "error"])
+      .enum(["all", "queued", "watching", "no-signal", "processing", "error", "kept-out"])
       .optional(),
     area: z
       .enum([
@@ -30,7 +30,7 @@ const CaptureStreamPageSchema = z
       .optional(),
     dateFrom: z.string().regex(ISO_DATE).optional(),
     dateTo: z.string().regex(ISO_DATE).optional(),
-    keptOut: z.boolean().optional(),
+    includeKeptOut: z.boolean().optional(),
   })
   .refine((value) => !value.dateFrom || !value.dateTo || value.dateFrom <= value.dateTo, {
     message: "dateFrom must be on or before dateTo",

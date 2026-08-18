@@ -25,11 +25,18 @@ Sources → Customize is the **intake policy** surface (what reaches the stream 
 
 ## Kept Out corrections (Connector Rules & Learning, P4)
 
-Kept-out review lives in the **Activity stream** (2026-08-17): the Filter
-popover's "Also show → Kept out" toggle passes `keptOut: true` to
-`getCaptureStreamPage`, which scans with dropped/held rows included — the
-same rows a full-history search (2+ chars) reveals. Kept-out rows render
-demoted with a plain-language verdict badge and carry inline correction
+Kept-out review lives in the **Activity stream** (2026-08-17): **Kept out is
+a peer status** in the Filter popover's Status facet (alongside Triggered
+Play / No Action / Processing / Error / Watching) — selecting it passes
+`state: "kept-out"` to `getCaptureStreamPage`, which scans with dropped/held
+rows included and filters to them. A capture is either stream-visible or
+kept out, never both, so it is a status, not an inclusion toggle. The
+**Display** popover beside Filter also has a "Show kept out" preference
+(`includeKeptOut`) that mixes kept-out rows into the current view — they
+carry no status, so they bypass the state filter when included this way.
+The same rows also surface in a full-history search (2+ chars). Kept-out rows render
+demoted with a plain-language verdict badge (no category badge — they are
+terminal by design, never "Processing") and carry inline correction
 actions (`capture/components/KeptOutCorrectionButtons.tsx`). Each row is
 **cause-aware**: its `cause` derives from `capture_events.gate_result`
 (`memory/queries/admission-gate-result.ts`, mapped as `gate_cause`) —

@@ -175,6 +175,47 @@ describe("filterCaptureScanRows", () => {
     expect(result.map((r) => r.id)).toEqual(["c"]);
   });
 
+  it("kept-out is a peer status: matches only drop/held rows", () => {
+    const withKeptOut = [
+      ...rows,
+      makeRow({ id: "d", gate_action: "held", title: "Held sender" }),
+      makeRow({ id: "e", gate_action: "drop", title: "Dropped spam" }),
+    ];
+    const result = filterCaptureScanRows(withKeptOut, { state: "kept-out" }, noLink);
+    expect(result.map((r) => r.id)).toEqual(["d", "e"]);
+    // ...and stream-visible rows never match it, even un-gated ones
+    expect(
+      filterCaptureScanRows(rows, { state: "kept-out" }, noLink),
+    ).toEqual([]);
+  });
+
+  it("includeKeptOut mixes kept-out rows into any view, bypassing the state filter", () => {
+    const withKeptOut = [
+      ...rows,
+      makeRow({ id: "d", gate_action: "held", title: "Held sender" }),
+      makeRow({ id: "e", gate_action: "drop", title: "Dropped spam" }),
+    ];
+    // Default (all): kept-out rows pass through — the caller scopes the scan.
+    expect(
+      filterCaptureScanRows(withKeptOut, {}, noLink).map((r) => r.id),
+    ).toContain("d");
+    // Status-filtered view without the preference: kept-out rows excluded.
+    expect(
+      filterCaptureScanRows(withKeptOut, { state: "processing" }, noLink).map(
+        (r) => r.id,
+      ),
+    ).toEqual(["a", "b", "c"]);
+    // With the preference: kept-out rows join, carrying no status.
+    // (d/e use the makeRow default created_at, which is newest.)
+    expect(
+      filterCaptureScanRows(
+        withKeptOut,
+        { state: "processing", includeKeptOut: true },
+        noLink,
+      ).map((r) => r.id),
+    ).toEqual(["d", "e", "a", "b", "c"]);
+  });
+
   it("filters by category state", () => {
     const result = filterCaptureScanRows(rows, { state: "processing" }, noLink);
     expect(result.map((r) => r.id)).toEqual(["a", "b", "c"]);

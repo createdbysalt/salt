@@ -54,8 +54,13 @@ export interface CaptureStreamPageFilter {
   /** Inclusive range bounds as local `yyyy-mm-dd` dates. */
   dateFrom?: string;
   dateTo?: string;
-  /** "Kept out" filter toggle — include dropped/held rows in the stream. */
-  keptOut?: boolean;
+  /**
+   * Display preference (default false): include gate-kept rows (drop/held)
+   * in the list alongside stream-visible rows. Kept-out rows carry no
+   * status, so they bypass the state filter when included this way.
+   * Counts are unaffected; they describe stream-visible captures only.
+   */
+  includeKeptOut?: boolean;
 }
 
 /** Stat-tile counts for the stream header strip (all-time). */
@@ -176,10 +181,21 @@ export function filterCaptureScanRows<T extends CaptureScanRow>(
 ): T[] {
   const state = filter.state ?? "all";
   const area = filter.area ?? "all";
+  const includeKeptOut = filter.includeKeptOut ?? false;
   return rows
     .filter((row) => {
+      const keptOut = !isStreamVisibleGateAction(row.gate_action);
       if (state !== "all") {
-        if (state === "watching") {
+        if (state === "kept-out") {
+          // Peer status: only gate-kept rows (drop/held) — the caller must
+          // pass the unfiltered scan for this state to match anything.
+          if (!keptOut) return false;
+        } else if (keptOut) {
+          // Kept-out rows carry no status. They join a status-filtered view
+          // only via the includeKeptOut display preference, and bypass the
+          // state match (a held row is not "Processing").
+          if (!includeKeptOut) return false;
+        } else if (state === "watching") {
           if (!captureScanHasWatch(row)) return false;
         } else if (captureScanCategory(row, resolveFindingLink(row)) !== state) {
           return false;

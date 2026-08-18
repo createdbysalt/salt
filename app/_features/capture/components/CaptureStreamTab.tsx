@@ -56,6 +56,7 @@ import { connectorForToolkit } from "@/app/_features/connectors/utils/toolkit-co
 import { SignalBadges } from "./SignalBadges";
 import {
   STREAM_AREA_OPTIONS,
+  STREAM_STATUS_OPTIONS,
   type StreamStateFilter,
   type StreamAreaFilter,
 } from "../stream-filters";
@@ -73,6 +74,7 @@ import {
 import type { ActivityDateRange } from "@/app/_features/plays/components/ActivityDateRangeFilter";
 import { dayGroupFromIso } from "@/app/_features/plays/utils/map-play-run-to-activity";
 import {
+  Checkbox,
   Pagination,
   PaginationContent,
   PaginationEllipsis,
@@ -457,9 +459,9 @@ export function CaptureStreamTab({
   const [state, setState] = useState<StreamStateFilter>("all");
   const [area, setArea] = useState<StreamAreaFilter>("all");
   const [dateRange, setDateRange] = useState<ActivityDateRange | null>(null);
-  // "Kept out" filter toggle — reveals dropped/held rows with verdicts and
-  // correction actions, interleaved newest-first (Sources plan: kept-out
-  // review lives in Activity, not the Customize rail).
+  // Display preference: kept-out rows (drop/held) are hidden by default;
+  // the Display menu can mix them into the current view. Not a filter —
+  // header counts are unaffected.
   const [showKeptOut, setShowKeptOut] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [retryingId, setRetryingId] = useState<string | null>(null);
@@ -506,7 +508,7 @@ export function CaptureStreamTab({
           area,
           dateFrom,
           dateTo,
-          keptOut: showKeptOut || undefined,
+          includeKeptOut: showKeptOut,
         });
         setCaptures(result.captures);
         setTotalCount(result.totalCount);
@@ -532,8 +534,7 @@ export function CaptureStreamTab({
       !q.trim() &&
       state === "all" &&
       area === "all" &&
-      !dateRange &&
-      !showKeptOut;
+      !dateRange;
     if (unfilteredFirstPage) {
       setCaptures(initialCaptures);
       setTotalCount(initialTotalCount);
@@ -550,7 +551,6 @@ export function CaptureStreamTab({
     state,
     area,
     dateRange,
-    showKeptOut,
   ]);
 
   const handleRetry = useCallback((captureId: string) => {
@@ -625,6 +625,11 @@ export function CaptureStreamTab({
     setPage(1);
   }, []);
 
+  const updateState = useCallback((value: StreamStateFilter) => {
+    setState(value);
+    setPage(1);
+  }, []);
+
   const updateShowKeptOut = useCallback((value: boolean) => {
     setShowKeptOut(value);
     setPage(1);
@@ -642,10 +647,9 @@ export function CaptureStreamTab({
 
   const activeFilterCount =
     (state !== "all" ? 1 : 0) + (area !== "all" ? 1 : 0) + (dateRange ? 1 : 0);
-  // The Filter button badge only counts what the popover itself controls —
-  // state comes from the stat tiles above the toolbar.
-  const popoverFilterCount =
-    (area !== "all" ? 1 : 0) + (dateRange ? 1 : 0) + (showKeptOut ? 1 : 0);
+  // Status is popover-controlled (the stat tiles are shortcuts into the same
+  // single-select), so it counts toward the Filter button badge too.
+  const popoverFilterCount = activeFilterCount;
 
   const tileValues: Record<CaptureCategory, number> = {
     queued: counts.queued,
@@ -697,7 +701,23 @@ export function CaptureStreamTab({
         onChange={updateSearch}
         placeholder="Search captures…"
         layout="toolbar-actions"
-        showDisplay={false}
+        displayContent={
+          <div className="py-1">
+            <p className="px-3 pb-1.5 pt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              Display
+            </p>
+            <div className="px-1.5 pb-1.5">
+              <label className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm hover:bg-muted/60">
+                <Checkbox
+                  className="rounded-[4px]"
+                  checked={showKeptOut}
+                  onCheckedChange={(value) => updateShowKeptOut(value === true)}
+                />
+                <span className="min-w-0 flex-1 truncate">Show kept out</span>
+              </label>
+            </div>
+          </div>
+        }
         filterActive={popoverFilterCount > 0}
         filterActiveCount={popoverFilterCount}
         filterAriaLabel="Filter captures"
@@ -708,6 +728,16 @@ export function CaptureStreamTab({
             title="Filter captures"
             facets={[
               {
+                id: "status",
+                label: "Status",
+                options: STREAM_STATUS_OPTIONS.filter(
+                  (option) => option.id !== "all",
+                ),
+                selected: state === "all" ? [] : [state],
+                onToggle: (id, checked) =>
+                  updateState(checked ? (id as StreamStateFilter) : "all"),
+              },
+              {
                 id: "area",
                 label: "Area",
                 options: STREAM_AREA_OPTIONS.filter(
@@ -717,20 +747,13 @@ export function CaptureStreamTab({
                 onToggle: (id, checked) =>
                   updateArea(checked ? (id as StreamAreaFilter) : "all"),
               },
-              {
-                id: "visibility",
-                label: "Also show",
-                options: [{ id: "kept-out", label: "Kept out" }],
-                selected: showKeptOut ? ["kept-out"] : [],
-                onToggle: (_id, checked) => updateShowKeptOut(checked),
-              },
             ]}
             dateRange={dateRange}
             onDateRangeChange={updateDateRange}
             onClearAll={() => {
+              updateState("all");
               updateArea("all");
               updateDateRange(null);
-              updateShowKeptOut(false);
             }}
           />
         }
@@ -744,10 +767,10 @@ export function CaptureStreamTab({
         </p>
       )}
 
-      {showKeptOut && !fullHistorySearch && (
+      {(state === "kept-out" || showKeptOut) && !fullHistorySearch && (
         <p className="px-2 text-[11px] text-muted-foreground">
-          Including kept-out captures — what Salt filtered out, why, and a
-          chance to let it in.
+          Kept-out captures — what Salt filtered out, why, and a chance to let
+          it in.
         </p>
       )}
 
@@ -1047,8 +1070,10 @@ function CaptureRow({
                 Triggered Watching: {watch.entity_label}
               </span>
             ))}
-            {/* Category badge (if no triggers, show category) */}
-            {(e.playsDispatched ?? []).length === 0 && (e.watchesTriggered ?? []).length === 0 && (
+            {/* Category badge (if no triggers, show category). Kept-out rows
+                never show one — the gate verdict badge carries their state;
+                they are terminal by design, never "Processing". */}
+            {!isKeptOut && (e.playsDispatched ?? []).length === 0 && (e.watchesTriggered ?? []).length === 0 && (
               <span
                 className={cn(
                   "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium",
