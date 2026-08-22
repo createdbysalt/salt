@@ -1,5 +1,5 @@
 import type { createAdminClient } from "@/app/_lib/supabase/admin";
-import { resolvePrimaryOrgIdForPerson } from "@/app/_features/capture/services/system-plays/project-fields";
+import { resolvePrimaryOrgIdForPerson } from "@/app/_features/memory/records/project-fields";
 import {
   isRedundantPersonalOrg,
   resolveWorkOrganizationDisplay,

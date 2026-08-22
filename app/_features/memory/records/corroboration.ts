@@ -9,7 +9,7 @@ import "server-only";
  */
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
-import { sourceTypesForCategory } from "../gates/admission-gate";
+import { sourceTypesForCategory } from "@/app/_features/capture/services/gates/admission-gate";
 
 /** Category → extracted_data key carrying the contact's email. */
 const CATEGORY_PROBES: ReadonlyArray<{

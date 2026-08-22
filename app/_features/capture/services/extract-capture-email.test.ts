@@ -123,6 +123,67 @@ describe("extractCaptureEmailFields", () => {
     expect(fields?.is_sent_by_user).toBe(true);
   });
 
+  it("reads the legacy Gmail envelope shape (from/fromName, no sender_email)", () => {
+    // Rows written before the sender_email rename carry `from` + `fromName`.
+    // Without this branch they fail extraction deterministically — scan_error
+    // on every pass (the July 10 batch on staging).
+    const fields = extractCaptureEmailFields(
+      { messageId: "legacy-1", threadId: "thread-legacy", snippet: "preview" },
+      {
+        to: ["me@studio.com"],
+        from: "victory@elci.ca",
+        fromName: "Victory",
+        labels: ["INBOX"],
+        snippet: "See you Thursday",
+        subject: "Accepted: Check In",
+        isSentByUser: false,
+      } as never
+    );
+
+    expect(fields).not.toBeNull();
+    expect(fields?.from_email).toBe("victory@elci.ca");
+    expect(fields?.from_name).toBe("Victory");
+    expect(fields?.to_emails).toEqual(["me@studio.com"]);
+    expect(fields?.subject).toBe("Accepted: Check In");
+    expect(fields?.is_sent_by_user).toBe(false);
+  });
+
+  it("parses a legacy `from` string with a display name and no fromName field", () => {
+    const fields = extractCaptureEmailFields(null, {
+      from: "Dana Client <dana@client.co>",
+      subject: "Hi",
+      isSentByUser: false,
+    } as never);
+
+    expect(fields?.from_email).toBe("dana@client.co");
+    expect(fields?.from_name).toBe("Dana Client");
+  });
+
+  it("still returns null when neither sender_email nor a usable from exists", () => {
+    const fields = extractCaptureEmailFields(null, {
+      from: "not an address",
+      subject: "Hi",
+      isSentByUser: false,
+    } as never);
+
+    expect(fields).toBeNull();
+  });
+
+  it("tolerates raw_payload.headers stored as a name→value map", () => {
+    // Backfill rows store headers: {} (object), not the Gmail array shape —
+    // iterating it threw "headerList is not iterable" on the Aug 2026 drain.
+    const fields = extractCaptureEmailFields(
+      {
+        headers: { From: "Dana Client <dana@client.co>", Subject: "Map headers" },
+        snippet: "hi",
+      },
+      null
+    );
+
+    expect(fields?.from_email).toBe("dana@client.co");
+    expect(fields?.subject).toBe("Map headers");
+  });
+
   it("prefers an explicit body_text over the snippet (inline backfill seam)", () => {
     // Sources plan 3.4: the backfill attaches the transient full body to the
     // in-memory row's extracted_data; it must win over the snippet fallback.

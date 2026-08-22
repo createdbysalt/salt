@@ -31,8 +31,8 @@ import {
   filterHighSignalContacts,
   type ContactSignalScore,
 } from "./confidence";
-import { resolvePerson, resolveOrg, linkPersonToOrg } from "./system-plays";
-import type { PersonSignals } from "./system-plays/person-signals";
+import { resolvePerson, resolveOrg, linkPersonToOrg } from "@/app/_features/memory/records";
+import type { PersonSignals } from "@/app/_features/memory/records/person-signals";
 
 // ============================================================================
 // Types

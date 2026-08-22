@@ -2,6 +2,13 @@ import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { runCareForSignal } from "@/app/_features/memory/care/scheduler";
 import { memoryUpdateField } from "@/app/_lib/memory-tools";
 import { getFieldsForEntity } from "@/app/_features/memory/taxonomy/field-registry";
+import { routeIntakeProposal } from "@/app/_features/memory/evidence/route-intake-proposal";
+import {
+  logOddsToProbability,
+  SIGNAL_WEIGHTS,
+} from "@/app/_features/memory/care/intake";
+import type { ExtractedFieldValue } from "@/app/_features/memory/evidence/types";
+import { shouldAutoApply } from "../intelligence/record-capture-outcome";
 import type { CaptureEnvelope } from "../../adapters/types";
 
 /**
@@ -61,6 +68,125 @@ function classifyCategory(text: string | null): "contractor" | "software" | null
   return null;
 }
 
+type AdminClient = ReturnType<typeof createAdminClient>;
+
+async function findPersonIdByEmail(
+  admin: AdminClient,
+  workspaceId: string,
+  email: string | null,
+): Promise<string | null> {
+  if (!email) return null;
+  const { data } = await admin
+    .from("people")
+    .select("id")
+    .eq("workspace_id", workspaceId)
+    .eq("email", email.toLowerCase())
+    .is("deleted_at", null)
+    .limit(1)
+    .maybeSingle();
+  return data?.id ?? null;
+}
+
+/**
+ * Money received attests a client — the person-scoped counterpart to the
+ * org attestation. Fires the registry's `has_payment_received → client`
+ * fill rule through the records capability. These adapters' payloads are
+ * customer payments (receivables): the customer is always the payer.
+ */
+async function attestPersonPayment(input: {
+  admin: AdminClient;
+  workspaceId: string;
+  personId: string | null;
+  customerEmail: string | null;
+  source: string;
+  externalId: string | null;
+}): Promise<void> {
+  const personId =
+    input.personId ??
+    (await findPersonIdByEmail(input.admin, input.workspaceId, input.customerEmail));
+  if (!personId) return;
+  await runCareForSignal({
+    workspaceId: input.workspaceId,
+    signalKey: "has_payment_received",
+    entityType: "person",
+    entityId: personId,
+    evidence: {
+      source: input.source,
+      externalId: input.externalId,
+      signalValues: { has_payment_received: true },
+    },
+  });
+}
+
+/**
+ * Receivable birth: a billing-app invoice that matches no record (open or
+ * otherwise) is today dropped on the floor. Route it into the evidence lane
+ * instead — Watching by default, direct creation only with earned
+ * calibration. The payload carries everything the billing insert requires
+ * (amount_cents, direction), so creation never fails on missing fields.
+ */
+async function suggestUnmatchedBillingRecord(input: {
+  admin: AdminClient;
+  workspaceId: string;
+  envelope: CaptureEnvelope;
+  source: string;
+  invoiceNumber: string | null;
+  amountCents: number;
+  dueDate: string | null;
+  hostedUrl: string | null;
+}): Promise<void> {
+  // Dedupe: this capture already birthed a record, or the invoice number is
+  // tracked in ANY status — paid records aren't open, so they fall through
+  // the matcher, and suggesting them again would duplicate.
+  const { data: byExternalId } = await input.admin
+    .from("billing_records")
+    .select("id")
+    .eq("workspace_id", input.workspaceId)
+    .eq("source_external_id", input.envelope.externalId)
+    .is("deleted_at", null)
+    .limit(1)
+    .maybeSingle();
+  if (byExternalId) return;
+
+  if (input.invoiceNumber) {
+    const { data: byNumber } = await input.admin
+      .from("billing_records")
+      .select("id")
+      .eq("workspace_id", input.workspaceId)
+      .eq("number", input.invoiceNumber)
+      .is("deleted_at", null)
+      .limit(1)
+      .maybeSingle();
+    if (byNumber) return;
+  }
+
+  const signal =
+    input.source === "stripe" ? "stripe_webhook_payment" : "invoice_attachment_detected";
+  const confidence = logOddsToProbability(SIGNAL_WEIGHTS[signal] ?? 0);
+  const field = (value: string): ExtractedFieldValue => ({
+    value,
+    confidence,
+    sources: [],
+  });
+  const extractedFields: Record<string, ExtractedFieldValue> = {
+    amount_cents: field(String(input.amountCents)),
+    direction: field("receivable"),
+  };
+  if (input.invoiceNumber) extractedFields.number = field(input.invoiceNumber);
+  if (input.dueDate) extractedFields.due_at = field(input.dueDate);
+  if (input.hostedUrl) extractedFields.app_url = field(input.hostedUrl);
+
+  await routeIntakeProposal({
+    workspaceId: input.workspaceId,
+    entityType: "billing",
+    identifier: input.invoiceNumber ?? `${input.source}:${input.envelope.externalId}`,
+    confidence,
+    extractedFields,
+    signals: [signal],
+    autoApply: await shouldAutoApply(input.workspaceId, confidence),
+  });
+}
+
 export async function produceBillingRecordSignals(input: {
   workspaceId: string;
   envelope: CaptureEnvelope;
@@ -90,6 +216,28 @@ export async function produceBillingRecordSignals(input: {
   const syncSignal = stripeSynced ? "billing_stripe_synced" : "billing_invoice_parsed";
 
   const admin = createAdminClient();
+
+  // Work-lane evidence: an invoice from a counterparty implies billable
+  // work exists ("invoice line items suggest project"). The reserved intake
+  // signal routes through the standard proposal path — Watching lane by
+  // default, direct creation only for workspaces that earned auto-apply.
+  const counterparty = customerName ?? customerEmail;
+  if (counterparty) {
+    const workConfidence = logOddsToProbability(
+      SIGNAL_WEIGHTS.invoice_line_items_suggest_project ?? 0,
+    );
+    await routeIntakeProposal({
+      workspaceId: input.workspaceId,
+      entityType: "work",
+      identifier: counterparty,
+      confidence: workConfidence,
+      extractedFields: {
+        name: { value: counterparty, confidence: workConfidence, sources: [] },
+      },
+      signals: ["invoice_line_items_suggest_project"],
+      autoApply: await shouldAutoApply(input.workspaceId, workConfidence),
+    });
+  }
 
   let row: BillingRow | null = null;
 
@@ -155,9 +303,31 @@ export async function produceBillingRecordSignals(input: {
     if (candidates.length === 1) row = candidates[0];
   }
 
-  if (!row || !OPEN_STATUSES.includes(row.status as (typeof OPEN_STATUSES)[number])) {
-    return { matched: false, writes: 0, reason: "no-open-match" };
-  }
+    if (!row || !OPEN_STATUSES.includes(row.status as (typeof OPEN_STATUSES)[number])) {
+      // Nothing to corroborate — but a paid payment from a known person is
+      // client evidence on its own, record or no record.
+      if (isPaid) {
+        await attestPersonPayment({
+          admin,
+          workspaceId: input.workspaceId,
+          personId: row?.person_id ?? null,
+          customerEmail,
+          source: input.source,
+          externalId: input.envelope.externalId,
+        });
+      }
+      await suggestUnmatchedBillingRecord({
+        admin,
+        workspaceId: input.workspaceId,
+        envelope: input.envelope,
+        source: input.source,
+        invoiceNumber,
+        amountCents,
+        dueDate,
+        hostedUrl,
+      });
+      return { matched: false, writes: 0, reason: "no-open-match" };
+    }
 
   let writes = 0;
   const write = async (input2: {
@@ -289,6 +459,15 @@ export async function produceBillingRecordSignals(input: {
         },
       });
     }
+
+    await attestPersonPayment({
+      admin,
+      workspaceId: input.workspaceId,
+      personId: row.person_id,
+      customerEmail,
+      source: input.source,
+      externalId: input.envelope.externalId,
+    });
   }
 
   return { matched: true, writes };

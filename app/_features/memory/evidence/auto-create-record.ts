@@ -7,7 +7,7 @@
  * Internal module, not a server action: it writes with the admin client and
  * takes workspaceId from trusted pipeline callers, so it must not be
  * client-reachable (Sources plan 6.3 / INV-3). Only server modules import
- * it (evidence/actions.ts, memory/actions/record-candidates.ts).
+ * it (evidence/add-signal.ts, evidence/route-intake-proposal.ts).
  *
  * This service creates records directly when evidence crosses the auto
  * threshold, without creating play_runs. The HQ widget queries
@@ -21,11 +21,16 @@ import {
   type TablesInsert,
 } from "@/app/_lib/supabase/database.types";
 import { recordSaltLearning } from "@/app/_lib/learning/salt-learnings";
-import { ensureUniqueProjectSlug } from "@/app/_features/capture/services/system-plays/project-fields";
+import { ensureUniqueProjectSlug } from "@/app/_features/memory/records/project-fields";
 import { attachArtifactToEntity } from "@/app/_features/resources/actions/attach-artifact";
 import { produceRecordTagFits } from "@/app/_features/capture/services/producers/record-tag-fit-producer";
+import { extractNameFromEmail } from "@/app/_features/memory/records/person-signals";
 import type { IntakeEntityType } from "@/app/_features/memory/care/intake";
 import type { ExtractedFieldValue } from "./types";
+
+function looksLikeEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
 
 export interface AutoCreateRecordInput {
   workspaceId: string;
@@ -77,7 +82,14 @@ async function insertEntityRecord(
 
   switch (input.entityType) {
     case "person": {
-      const name = fields.name?.value;
+      // Calendar invites often carry only an email address — derive the name
+      // from the local part (same fallback the records engine uses) instead
+      // of failing closed and parking the candidate forever.
+      const name =
+        fields.name?.value ??
+        (looksLikeEmail(input.identifier)
+          ? extractNameFromEmail(input.identifier)
+          : undefined);
       if (!name) return { error: "Missing required field: name" };
       const insert: TablesInsert<"people"> = { workspace_id: workspaceId, name };
       if (fields.email?.value) insert.email = fields.email.value;
@@ -170,8 +182,8 @@ async function insertEntityRecord(
     case "resource": {
       // Resources stay confirm-only from background evidence paths (Phase 7
       // carves out artifact creation alongside billing/meeting records).
-      // uploaded_by is nullable post-20260811120000, but only the confirm
-      // path (New records lane, which passes actingUserId) creates them.
+      // uploaded_by is nullable post-20260811120000, but only a path that
+      // passes actingUserId (an explicit user confirm) creates them.
       if (!input.actingUserId) {
         return { error: "Resource records cannot be auto-created without an uploader" };
       }
@@ -358,7 +370,7 @@ function recordLabel(input: AutoCreateRecordInput): string {
  * Handled audit trail: a born record surfaces in Memory → Activity →
  * Handled (same `field_path: "record"` convention as the system-plays
  * executor) with a "That's wrong" affordance that archives it. User-
- * confirmed births (New records lane) say so. Logging must never fail
+ * confirmed births say so. Logging must never fail
  * the creation — the record already exists by the time this runs.
  */
 async function logRecordBirth(

@@ -27,8 +27,8 @@ const h = vi.hoisted(() => {
   return { fakeSupabase };
 });
 
-vi.mock("@/app/_lib/supabase/server", () => ({
-  createClient: async () => h.fakeSupabase(),
+vi.mock("@/app/_lib/supabase/admin", () => ({
+  createAdminClient: () => h.fakeSupabase(),
 }));
 
 import { classifyEmailCapture, classifyMeetingCapture } from "./classifier";

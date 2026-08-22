@@ -184,9 +184,9 @@ export type RouteIntakeProposalResult =
  * - P7 (worthiness): auto-create only when the proposal carries a
  *   relationship-grade signal — confidence alone is not enough.
  *
- * Everything else lands in pending_evidence with status='suggested' so the
- * Memory → Filter Watching lane renders it. Dismissed or already-created
- * evidence is never resurrected.
+ * Everything else lands in pending_evidence with status='suggested', where
+ * it keeps accumulating signals until the auto tier clears. Dismissed or
+ * already-created evidence is never resurrected.
  */
 export async function routeIntakeProposal(
   input: RouteIntakeProposalInput

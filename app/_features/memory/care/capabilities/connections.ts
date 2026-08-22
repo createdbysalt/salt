@@ -26,7 +26,7 @@ import {
 import {
   extractDomain,
   isPersonalDomain,
-} from "@/app/_features/capture/services/system-plays/person-signals";
+} from "@/app/_features/memory/records/person-signals";
 import type { CareRunContext, CareRunResult } from "../types";
 
 const STALE_WARNING_DAYS = 30;

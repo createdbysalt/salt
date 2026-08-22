@@ -27,7 +27,7 @@ import {
 import {
   extractDomain,
   isPersonalDomain,
-} from "@/app/_features/capture/services/system-plays/person-signals";
+} from "@/app/_features/memory/records/person-signals";
 import {
   findBlockingCorrection,
   getCorrectionBlocklist,

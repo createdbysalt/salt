@@ -7,8 +7,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * existing insert paths (cal-booking-processor keys on cal_booking_id;
  * calendar events carry external_event_id / source_external_id). A match
  * links the evidence to the existing record instead of inserting.
- * Resources: creation only happens with an acting user (the New records
- * lane confirm); background paths fail closed.
+ * Resources: creation only happens with an acting user (an explicit
+ * confirm); background paths fail closed.
+ * People: calendar invites often carry only an email — the name falls back
+ * to the local part instead of failing closed and parking forever.
  */
 
 const h = vi.hoisted(() => {
@@ -21,6 +23,7 @@ const h = vi.hoisted(() => {
     files: [] as Row[],
     billing: [] as Row[],
     links: [] as Row[],
+    people: [] as Row[],
     evidenceUpdates: [] as Array<{ id: string; patch: Row }>,
   };
 
@@ -149,6 +152,20 @@ const h = vi.hoisted(() => {
     };
   }
 
+  function peopleQuery() {
+    return {
+      insert: (row: Row) => {
+        const inserted = { id: `person-${++idCounter}`, ...row };
+        db.people.push(inserted);
+        return {
+          select: () => ({
+            single: async () => ({ data: { id: inserted.id }, error: null }),
+          }),
+        };
+      },
+    };
+  }
+
   function fakeSupabase() {
     return {
       from: (table: string) => {
@@ -157,6 +174,7 @@ const h = vi.hoisted(() => {
         if (table === "billing_records") return billingQuery();
         if (table === "entity_links") return linksQuery();
         if (table === "pending_evidence") return pendingEvidenceQuery();
+        if (table === "people") return peopleQuery();
         throw new Error(`unexpected table ${table}`);
       },
     };
@@ -167,6 +185,7 @@ const h = vi.hoisted(() => {
     db.files.length = 0;
     db.billing.length = 0;
     db.links.length = 0;
+    db.people.length = 0;
     db.evidenceUpdates.length = 0;
     idCounter = 0;
   }
@@ -282,6 +301,37 @@ describe("autoCreateRecord — Handled birth logging", () => {
 
     expect(result.ok).toBe(false);
     expect(h.recordSaltLearningSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("autoCreateRecord — person name fallback", () => {
+  it("derives the name from the email identifier when no name was extracted", async () => {
+    const result = await autoCreateRecord(
+      meetingInput(
+        { email: "daniel.r.261107@gmail.com" },
+        {
+          entityType: "person",
+          identifier: "daniel.r.261107@gmail.com",
+        }
+      )
+    );
+
+    expect(result.ok).toBe(true);
+    expect(h.db.people[0]).toMatchObject({
+      workspace_id: "ws-1",
+      name: "Pedro H 261107",
+      email: "daniel.r.261107@gmail.com",
+    });
+    expect(h.db.evidenceUpdates[0].patch.status).toBe("created");
+  });
+
+  it("still fails closed when there is no name and the identifier is not an email", async () => {
+    const result = await autoCreateRecord(
+      meetingInput({}, { entityType: "person", identifier: "unknown" })
+    );
+
+    expect(result.ok).toBe(false);
+    expect(h.db.people).toHaveLength(0);
   });
 });
 

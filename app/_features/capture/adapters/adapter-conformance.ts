@@ -1,5 +1,5 @@
 import { expect } from "vitest";
-import { PERSON_SIGNAL_KEYS } from "@/app/_features/capture/services/system-plays/person-signals";
+import { PERSON_SIGNAL_KEYS } from "@/app/_features/memory/records/person-signals";
 import { PERSON_FIELD_SIGNAL_KEYS } from "@/app/_features/capture/services/producers/person-field-types";
 import {
   MEETING_FIELD_SIGNAL_KEYS,

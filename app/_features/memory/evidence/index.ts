@@ -51,9 +51,9 @@ export {
   countPendingEvidence,
 } from "./queries";
 
-// Actions
+// Actions (system lane lives in add-signal.ts — admin client, no request scope)
+export { addSignalToEvidence } from "./add-signal";
 export {
-  addSignalToEvidence,
   dismissEvidence,
   markEvidenceCreated,
   restoreEvidence,

@@ -15,9 +15,12 @@ function initialsFromName(name: string): string {
 }
 
 function mapRelationship(status: string): DirectoryPerson["relationship"] {
+  // Null/unset statuses must render as unknown — defaulting to "prospect"
+  // mislabels people Salt has no relationship evidence for.
+  if (status === "other") return "unknown";
   return (RELATIONSHIP_TYPES as readonly string[]).includes(status)
     ? (status as RelationshipType)
-    : "prospect";
+    : "unknown";
 }
 
 /** Map a workspace Person row into the Memory directory table shape. */

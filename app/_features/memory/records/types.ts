@@ -1,8 +1,8 @@
 /**
- * System Play Types
+ * Record Action Types
  *
- * Type definitions for the system plays infrastructure.
- * System plays are immutable core operations that all user plays compose from.
+ * Type definitions for the Memory record-action engine.
+ * Record actions are the immutable core operations all lanes compose from.
  *
  * Safety constraints:
  * - Entities: create, update, archive (NEVER delete)
@@ -13,7 +13,7 @@
 // Action Types
 // ============================================================================
 
-export type SystemPlayAction =
+export type RecordActionKind =
   | "create"
   | "update"
   | "archive"
@@ -22,7 +22,7 @@ export type SystemPlayAction =
   | "attach"
   | "classify";
 
-export type SystemPlayTarget =
+export type RecordActionTarget =
   | "person"
   | "org"
   | "work"
@@ -38,22 +38,22 @@ export type SystemPlayTarget =
   | "payment";
 
 // ============================================================================
-// System Play Registry
+// Record Action Registry
 // ============================================================================
 
-export interface SystemPlay {
+export interface RecordActionDefinition {
   slug: string;
   name: string;
   description: string | null;
-  target_entity: SystemPlayTarget;
-  action_type: SystemPlayAction;
+  target_entity: RecordActionTarget;
+  action_type: RecordActionKind;
   input_schema: Record<string, unknown>;
   is_system: boolean;
   created_at: string;
 }
 
 // ============================================================================
-// System Play Inputs (per slug)
+// Record Action Inputs (per slug)
 // ============================================================================
 
 // Person operations
@@ -73,7 +73,9 @@ export interface CreatePersonInput {
   notes?: string;
   relationship_type?: RelationshipType;
   relationship_status?: "prospect" | "client" | "past_client" | "partner" | "vendor" | "other";
-  created_via?: "manual" | "system_play" | "bootstrap" | "import" | "ask_salt";
+  // "system_play" is the retired attribution — existing rows keep it, but
+  // new writes use "capture_intake" (automatic) or an explicit caller value.
+  created_via?: "manual" | "capture_intake" | "bootstrap" | "import" | "ask_salt";
   last_contact_at?: string;
   first_contact_at?: string;
 }
@@ -618,25 +620,25 @@ export type RelationshipType =
 // Execution Result
 // ============================================================================
 
-export interface SystemPlayResult<T = unknown> {
+export interface RecordActionResult<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
   error_id?: string;
   entity_id?: string;
   /**
-   * In-memory canon spelling. `SystemPlayTarget` mirrors the
+   * In-memory canon spelling. `RecordActionTarget` mirrors the
    * `system_play_target` DB enum, which still says `file` — resource plays
    * report `resource` here (the enum itself is a separate migration).
    */
-  entity_type?: SystemPlayTarget | "resource";
+  entity_type?: RecordActionTarget | "resource";
 }
 
 // ============================================================================
-// System Play Slugs (type-safe)
+// Record Action Slugs (type-safe)
 // ============================================================================
 
-export type SystemPlaySlug =
+export type RecordActionSlug =
   // Person
   | "system:create-person"
   | "system:update-person"

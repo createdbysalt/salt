@@ -16,7 +16,7 @@ import {
   firstParticipantEmailEntity,
   verbatimEntity,
 } from "../feedback-entity";
-import type { PersonSignals } from "@/app/_features/capture/services/system-plays/person-signals";
+import type { PersonSignals } from "@/app/_features/memory/records/person-signals";
 import type { CaptureSourceType } from "@/app/_features/capture/types";
 
 type KnownStorageProvider = "googledrive" | "dropbox" | "onedrive";

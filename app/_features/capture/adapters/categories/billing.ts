@@ -20,7 +20,7 @@ import { isRecord, pickString, unwrapRecord } from "../normalize-utils";
 import {
   isPersonalDomain,
   type PersonSignals,
-} from "@/app/_features/capture/services/system-plays/person-signals";
+} from "@/app/_features/memory/records/person-signals";
 import type { DerivedPersonFields } from "@/app/_features/capture/services/producers/person-field-types";
 import type {
   DerivedOrgFields,

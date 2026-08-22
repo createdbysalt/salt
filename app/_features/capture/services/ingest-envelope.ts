@@ -207,9 +207,20 @@ export async function ingestEnvelope(
   // Stamp no_signal at insert — terminal unless an explicit rescan is
   // requested (Phase 6 scan policy: the LLM gets at most one look).
   // Held rows (Memory-first) store a thin extract only — sender/subject/thread.
+  //
+  // Same for bootstrap/skip-evidence rows the email-only daily scan can
+  // never reach (files, calendar events, payments): no enrichment runs for
+  // them and no cron revisits them, so stamp the terminal outcome at
+  // insert. Bootstrap EMAIL stays unstamped on purpose — the scan backlog
+  // (any-age, never-scanned rows) picks it up.
+  const isEmailScannable =
+    envelope.sourceType === "gmail" || envelope.sourceType === "outlook";
+  const skipsPipeline = Boolean(options.skipEvidence || options.isBootstrap);
+  const stampsTerminal =
+    !isHeld && (isNoise || (skipsPipeline && !isEmailScannable));
   const extractedData = isHeld
     ? thinHeldExtracted(envelope.extracted as Record<string, unknown>)
-    : isNoise
+    : stampsTerminal
       ? mergeIntelligenceMeta(envelope.extracted, {
           outcome: "no_signal",
           scanned_at: new Date().toISOString(),
@@ -284,11 +295,34 @@ export async function ingestEnvelope(
         userEmail: options.userEmail ?? null,
         admissionSignals,
         admissionScore,
-      }).catch((err) => {
+      }).catch(async (err) => {
         console.warn(
           `[ingest-envelope] Enrichment failed for ${data.id}:`,
           err instanceof Error ? err.message : err
         );
+        // Surface the failure as Error (retryable) instead of leaving the
+        // row in "Processing" forever. A later successful scan overwrites.
+        try {
+          const { data: current } = await admin
+            .from("capture_events")
+            .select("extracted_data")
+            .eq("id", data.id)
+            .single();
+          await admin
+            .from("capture_events")
+            .update({
+              extracted_data: mergeIntelligenceMeta(current?.extracted_data, {
+                outcome: "scan_error",
+                scanned_at: new Date().toISOString(),
+              }) as never,
+            })
+            .eq("id", data.id);
+        } catch (stampError) {
+          console.warn(
+            `[ingest-envelope] Error-stamp failed for ${data.id}:`,
+            stampError instanceof Error ? stampError.message : stampError
+          );
+        }
       });
 
       // Reply loops (Memory-first + Phase C2): outbound mail is the strongest

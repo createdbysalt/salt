@@ -195,7 +195,7 @@ async function resolveOrCreateOrg(
           workspace_id: workspaceId,
           name: domainToOrgName(domain),
           domain,
-          created_via: "system_play",
+          created_via: "capture_intake",
         })
         .select("id")
         .single();
@@ -224,7 +224,7 @@ async function resolveOrCreateOrg(
         .insert({
           workspace_id: workspaceId,
           name: value,
-          created_via: "system_play",
+          created_via: "capture_intake",
         })
         .select("id")
         .single();

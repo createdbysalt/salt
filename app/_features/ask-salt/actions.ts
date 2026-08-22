@@ -298,11 +298,11 @@ export async function undoMemoryRecord(input: {
         ? { org_id: input.entityId, reason: "Undone from Ask Salt" }
         : { work_id: input.entityId, reason: "Undone from Ask Salt" };
 
-  const { executeSystemPlay } = await import(
-    "@/app/_features/capture/services/system-plays/executor"
+  const { executeRecordAction } = await import(
+    "@/app/_features/memory/records/executor"
   );
 
-  const result = await executeSystemPlay(workspace.id, slug, archiveInput);
+  const result = await executeRecordAction(workspace.id, slug, archiveInput);
   if (!result.success) {
     return {
       ok: false,

@@ -1,9 +1,11 @@
 import "server-only";
 
 /**
- * System Play Executor
+ * Record Action Executor
  *
- * Executes system plays — the immutable core operations.
+ * Executes the core Memory record operations (formerly "system plays" —
+ * the concept retired 2026-08-17; the slug strings persist in stored
+ * proposal JSON and remain as opaque action identifiers).
  *
  * Safety constraints:
  * - Entities: create, update, archive (NEVER delete)
@@ -19,7 +21,7 @@ import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { Constants } from "@/app/_lib/supabase/database.types";
 import type { Database, TablesUpdate } from "@/app/_lib/supabase/database.types";
 import { recordSaltLearning } from "@/app/_features/me/actions/salt-learnings";
-import { registerWatchExpressions } from "../watch-expressions";
+import { registerWatchExpressions } from "@/app/_features/capture/services/watch-expressions";
 import { dispatchSignalTrigger } from "@/app/_features/plays/playbooks/trigger-dispatch";
 import { reportError } from "@/app/_lib/errors";
 import { evaluateWorkProfileFields, WORK_PROFILE_SLUG } from "@/app/_features/plays/playbooks/records-engine/apply-work-profile";
@@ -27,7 +29,7 @@ import { loadProfilePlaybook } from "@/app/_features/plays/playbooks/records-eng
 import { applyProfileFieldResults } from "@/app/_features/plays/playbooks/records-engine/write-provenance";
 import { scheduleWorkHealthRecompute } from "@/app/_features/work/health/recompute";
 import { relationshipTypeToStatus } from "@/app/_features/people/records-engine";
-import { isKnownSaasVendorDomain } from "../intelligence/vendor-domains";
+import { isKnownSaasVendorDomain } from "@/app/_features/capture/services/intelligence/vendor-domains";
 import {
   domainFromWebsiteUrl,
   domainToOrgName,
@@ -42,8 +44,8 @@ import {
 import { toDbEntityType } from "@/app/_features/memory/types/entity-type";
 import { attachArtifactToEntity } from "@/app/_features/resources/actions/attach-artifact";
 import type {
-  SystemPlaySlug,
-  SystemPlayResult,
+  RecordActionSlug,
+  RecordActionResult,
   CreatePersonInput,
   UpdatePersonInput,
   ArchivePersonInput,
@@ -144,12 +146,12 @@ async function applyWorkProfileAfterChange(input: {
 // Main Executor
 // ============================================================================
 
-export async function executeSystemPlay(
+export async function executeRecordAction(
   workspaceId: string,
-  slug: SystemPlaySlug,
+  slug: RecordActionSlug,
   input: unknown,
   actorUserId?: string
-): Promise<SystemPlayResult> {
+): Promise<RecordActionResult> {
   const admin = createAdminClient();
 
   try {
@@ -299,7 +301,7 @@ export async function executeSystemPlay(
         return await createNewTag(admin, workspaceId, input as CreateTagInput, actorUserId);
 
       default:
-        return { success: false, error: `Unknown system play: ${slug}` };
+        return { success: false, error: `Unknown record action: ${slug}` };
     }
   } catch (error) {
     console.error(`[system-play] Error executing ${slug}:`, error);
@@ -322,7 +324,7 @@ async function createPerson(
   workspaceId: string,
   input: CreatePersonInput,
   actorUserId?: string
-): Promise<SystemPlayResult> {
+): Promise<RecordActionResult> {
   const email = input?.email?.toLowerCase().trim();
 
   if (email) {
@@ -368,7 +370,7 @@ async function createPerson(
       relationship_type: input.relationship_type ?? "unknown",
       relationship_status:
         input.relationship_status ?? relationshipTypeToStatus(input.relationship_type),
-      created_via: input.created_via ?? "system_play",
+      created_via: input.created_via ?? "capture_intake",
       last_contact_at: input.last_contact_at ?? null,
       first_contact_at: input.first_contact_at ?? null,
     })
@@ -406,7 +408,7 @@ async function createPerson(
     emails: email ? [email] : undefined,
     phones: input.phone ? [input.phone] : undefined,
   }).catch((err) => {
-    console.warn("[system-plays] Watch expression registration failed:", err);
+    console.warn("[records] Watch expression registration failed:", err);
   });
 
   // Emit entity_learning_extracted to trigger Memory Records playbook field-fill
@@ -417,13 +419,13 @@ async function createPerson(
     entitySurface: "person",
     entityLabel: input.name,
     evidence: {
-      source: "system_play",
-      created_via: input.created_via ?? "system_play",
+      source: "capture_intake",
+      created_via: input.created_via ?? "capture_intake",
       has_email: Boolean(email),
       has_phone: Boolean(input.phone),
     },
   }).catch((err) => {
-    console.warn("[system-plays] Learning signal dispatch failed:", err);
+    console.warn("[records] Learning signal dispatch failed:", err);
   });
 
   return {
@@ -438,7 +440,7 @@ async function updatePerson(
   admin: ReturnType<typeof createAdminClient>,
   workspaceId: string,
   input: UpdatePersonInput
-): Promise<SystemPlayResult> {
+): Promise<RecordActionResult> {
   await assertEntitiesInWorkspace(admin, workspaceId, [
     { type: "person", id: input.person_id },
   ]);
@@ -463,7 +465,7 @@ async function archivePerson(
   admin: ReturnType<typeof createAdminClient>,
   workspaceId: string,
   input: ArchivePersonInput
-): Promise<SystemPlayResult> {
+): Promise<RecordActionResult> {
   await assertEntitiesInWorkspace(admin, workspaceId, [
     { type: "person", id: input.person_id },
   ]);
@@ -488,7 +490,7 @@ async function classifyPerson(
   admin: ReturnType<typeof createAdminClient>,
   workspaceId: string,
   input: ClassifyPersonInput
-): Promise<SystemPlayResult> {
+): Promise<RecordActionResult> {
   await assertEntitiesInWorkspace(admin, workspaceId, [
     { type: "person", id: input.person_id },
   ]);
@@ -534,7 +536,7 @@ async function createOrg(
   workspaceId: string,
   input: CreateOrgInput,
   actorUserId?: string
-): Promise<SystemPlayResult> {
+): Promise<RecordActionResult> {
   let domain = input.domain?.toLowerCase().trim() || undefined;
   let name = input.name.trim();
 
@@ -643,7 +645,7 @@ async function createOrg(
       country: input.country ?? null,
       last_contact_at: input.last_contact_at ?? null,
       notes: input.notes ?? null,
-      created_via: "system_play",
+      created_via: "capture_intake",
     })
     .select("id")
     .single();
@@ -678,7 +680,7 @@ async function createOrg(
     targetEntityId: data.id,
     domains: domain ? [domain] : undefined,
   }).catch((err) => {
-    console.warn("[system-plays] Watch expression registration failed:", err);
+    console.warn("[records] Watch expression registration failed:", err);
   });
 
   // Emit entity_learning_extracted to trigger Memory Records playbook field-fill
@@ -689,13 +691,13 @@ async function createOrg(
     entitySurface: "organization",
     entityLabel: name,
     evidence: {
-      source: "system_play",
-      created_via: "system_play",
+      source: "capture_intake",
+      created_via: "capture_intake",
       has_domain: Boolean(domain),
       has_website: Boolean(input.website),
     },
   }).catch((err) => {
-    console.warn("[system-plays] Learning signal dispatch failed:", err);
+    console.warn("[records] Learning signal dispatch failed:", err);
   });
 
   return {
@@ -710,7 +712,7 @@ async function updateOrg(
   admin: ReturnType<typeof createAdminClient>,
   workspaceId: string,
   input: UpdateOrgInput
-): Promise<SystemPlayResult> {
+): Promise<RecordActionResult> {
   await assertEntitiesInWorkspace(admin, workspaceId, [
     { type: "org", id: input.org_id },
   ]);
@@ -735,7 +737,7 @@ async function archiveOrg(
   admin: ReturnType<typeof createAdminClient>,
   workspaceId: string,
   input: ArchiveOrgInput
-): Promise<SystemPlayResult> {
+): Promise<RecordActionResult> {
   await assertEntitiesInWorkspace(admin, workspaceId, [
     { type: "org", id: input.org_id },
   ]);
@@ -765,7 +767,7 @@ async function createWork(
   workspaceId: string,
   input: CreateWorkInput,
   actorUserId?: string
-): Promise<SystemPlayResult> {
+): Promise<RecordActionResult> {
   const parentChecks: Array<{ type: "person" | "org"; id: string }> = [];
   if (input.person_id) {
     parentChecks.push({ type: "person", id: input.person_id });
@@ -905,7 +907,7 @@ async function updateWork(
   admin: ReturnType<typeof createAdminClient>,
   workspaceId: string,
   input: UpdateWorkInput
-): Promise<SystemPlayResult> {
+): Promise<RecordActionResult> {
   await assertEntitiesInWorkspace(admin, workspaceId, [
     { type: "work", id: input.work_id },
   ]);
@@ -971,7 +973,7 @@ async function archiveWork(
   admin: ReturnType<typeof createAdminClient>,
   workspaceId: string,
   input: ArchiveWorkInput
-): Promise<SystemPlayResult> {
+): Promise<RecordActionResult> {
   await assertEntitiesInWorkspace(admin, workspaceId, [
     { type: "work", id: input.work_id },
   ]);
@@ -1004,7 +1006,7 @@ async function linkEntities(
   targetType: string,
   targetId: string,
   actorUserId?: string
-): Promise<SystemPlayResult> {
+): Promise<RecordActionResult> {
   const sourceGuard = linkTypeToGuardType(sourceType);
   const targetGuard = linkTypeToGuardType(targetType);
   const guardChecks: Array<{ type: "person" | "org" | "work" | "space"; id: string }> = [];
@@ -1048,7 +1050,7 @@ async function unlinkEntities(
   sourceId: string,
   targetType: string,
   targetId: string
-): Promise<SystemPlayResult> {
+): Promise<RecordActionResult> {
   const sourceGuard = linkTypeToGuardType(sourceType);
   const targetGuard = linkTypeToGuardType(targetType);
   const guardChecks: Array<{ type: "person" | "org" | "work" | "space"; id: string }> = [];
@@ -1098,7 +1100,7 @@ async function createNote(
   workspaceId: string,
   input: CreateNoteInput,
   actorUserId?: string
-): Promise<SystemPlayResult> {
+): Promise<RecordActionResult> {
   const entityType = noteTargetToProvenanceType(input.target_type);
   if (!entityType) {
     return {
@@ -1146,7 +1148,7 @@ async function addBlocker(
   workspaceId: string,
   input: CreateBlockerInput,
   actorUserId?: string
-): Promise<SystemPlayResult> {
+): Promise<RecordActionResult> {
   await assertEntitiesInWorkspace(admin, workspaceId, [
     { type: "work", id: input.work_id },
   ]);
@@ -1193,7 +1195,7 @@ async function attachEmail(
   admin: ReturnType<typeof createAdminClient>,
   workspaceId: string,
   input: AttachEmailInput
-): Promise<SystemPlayResult> {
+): Promise<RecordActionResult> {
   // Update the capture_event to link to the target entity
   const updateField =
     input.target_type === "person"
@@ -1224,7 +1226,7 @@ async function createMeeting(
   workspaceId: string,
   input: CreateMeetingInput,
   actorUserId?: string
-): Promise<SystemPlayResult> {
+): Promise<RecordActionResult> {
   const externalId =
     input.external_id ?? `memory_plan_meeting:${crypto.randomUUID()}`;
 
@@ -1332,7 +1334,7 @@ async function logActivity(
     detail,
     actor_user_id: actorUserId,
     metadata: {
-      source: "system_play",
+      source: "capture_intake",
       player_slug: "memory-care",
       auto_executed: true,
       reversible: false,
@@ -1341,7 +1343,7 @@ async function logActivity(
   });
 
   if (error) {
-    console.error("[system-plays] Activity logging failed:", error.message);
+    console.error("[records] Activity logging failed:", error.message);
   }
 }
 
@@ -1355,7 +1357,7 @@ type AutoHandledMemoryEntityType =
   | "me";
 
 const AUTO_HANDLED_BECAUSE =
-  "System play created a Memory record with high confidence.";
+  "Salt created a Memory record with high confidence.";
 
 interface AutoHandledMemoryRunInput {
   workspaceId: string;
@@ -1428,7 +1430,7 @@ async function logAutoHandledMemoryRun(
     });
   } catch (error) {
     console.error(
-      "[system-plays] Auto-handled learning logging failed:",
+      "[records] Auto-handled learning logging failed:",
       error instanceof Error ? error.message : error
     );
   }
@@ -1443,7 +1445,7 @@ async function createClientMeeting(
   workspaceId: string,
   input: CreateClientMeetingInput,
   actorUserId?: string
-): Promise<SystemPlayResult> {
+): Promise<RecordActionResult> {
   // Look up the person in this workspace
   const { data: person, error: personError } = await admin
     .from("people")
@@ -1568,7 +1570,7 @@ async function createBilling(
   workspaceId: string,
   input: CreateBillingInput,
   actorUserId?: string
-): Promise<SystemPlayResult> {
+): Promise<RecordActionResult> {
   const { data, error } = await admin
     .from("billing_records")
     .insert({
@@ -1656,7 +1658,7 @@ async function updateBilling(
   admin: ReturnType<typeof createAdminClient>,
   workspaceId: string,
   input: UpdateBillingInput
-): Promise<SystemPlayResult> {
+): Promise<RecordActionResult> {
   const { error } = await admin
     .from("billing_records")
     .update({
@@ -1677,7 +1679,7 @@ async function archiveBilling(
   admin: ReturnType<typeof createAdminClient>,
   workspaceId: string,
   input: ArchiveBillingInput
-): Promise<SystemPlayResult> {
+): Promise<RecordActionResult> {
   const { error } = await admin
     .from("billing_records")
     .update({
@@ -1703,7 +1705,7 @@ async function createFileRecord(
   workspaceId: string,
   input: CreateFileRecordInput,
   actorUserId?: string
-): Promise<SystemPlayResult> {
+): Promise<RecordActionResult> {
   const { data, error } = await admin
     .from("resources")
     .insert({
@@ -1773,7 +1775,7 @@ async function updateFileRecord(
   admin: ReturnType<typeof createAdminClient>,
   workspaceId: string,
   input: UpdateFileRecordInput
-): Promise<SystemPlayResult> {
+): Promise<RecordActionResult> {
   const { error } = await admin
     .from("resources")
     .update({
@@ -1794,7 +1796,7 @@ async function archiveFileRecord(
   admin: ReturnType<typeof createAdminClient>,
   workspaceId: string,
   input: ArchiveFileRecordInput
-): Promise<SystemPlayResult> {
+): Promise<RecordActionResult> {
   const { error } = await admin
     .from("resources")
     .update({
@@ -1820,7 +1822,7 @@ async function createMeFact(
   workspaceId: string,
   input: CreateMeFactInput,
   actorUserId?: string
-): Promise<SystemPlayResult> {
+): Promise<RecordActionResult> {
   if (!actorUserId) {
     return { success: false, error: "User ID required to create operator facts" };
   }
@@ -1886,7 +1888,7 @@ async function updateMeFact(
   admin: ReturnType<typeof createAdminClient>,
   workspaceId: string,
   input: UpdateMeFactInput
-): Promise<SystemPlayResult> {
+): Promise<RecordActionResult> {
   const { error } = await admin
     .from("operator_memory_facts")
     .update({
@@ -1907,7 +1909,7 @@ async function archiveMeFact(
   admin: ReturnType<typeof createAdminClient>,
   workspaceId: string,
   input: ArchiveMeFactInput
-): Promise<SystemPlayResult> {
+): Promise<RecordActionResult> {
   const { error } = await admin
     .from("operator_memory_facts")
     .update({
@@ -1999,7 +2001,7 @@ async function assignTagToEntity(
   workspaceId: string,
   input: AssignTagInput,
   actorUserId?: string
-): Promise<SystemPlayResult> {
+): Promise<RecordActionResult> {
   const tag = await findOrCreateTag(admin, workspaceId, input.tag_label);
 
   if (!tag) {
@@ -2051,7 +2053,7 @@ async function unassignTagFromEntity(
   admin: ReturnType<typeof createAdminClient>,
   workspaceId: string,
   input: UnassignTagInput
-): Promise<SystemPlayResult> {
+): Promise<RecordActionResult> {
   const slug = normalizeTagSlug(input.tag_label);
 
   const { data: tag } = await admin
@@ -2085,7 +2087,7 @@ async function createNewTag(
   workspaceId: string,
   input: CreateTagInput,
   actorUserId?: string
-): Promise<SystemPlayResult> {
+): Promise<RecordActionResult> {
   const tag = await findOrCreateTag(
     admin,
     workspaceId,

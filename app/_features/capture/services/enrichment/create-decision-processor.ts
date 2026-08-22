@@ -7,7 +7,7 @@
  * memory/evidence/route-intake-proposal.ts — never play_runs.
  * Records are created directly only when calibration is earned (P6) AND
  * the proposal carries a relationship-grade signal (P7); everything else
- * lands as status='suggested' for the Memory → Filter Watching lane.
+ * lands as status='suggested' and keeps accumulating in the background.
  */
 
 import { routeIntakeProposal } from "@/app/_features/memory/evidence/route-intake-proposal";

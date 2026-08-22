@@ -152,11 +152,11 @@ const TYPE_SUMMARIES: Record<MemoryCustomizeEntityType, string> = {
   person:
     "I build people records from real evidence across your connected apps.",
   org: "I build organization records from email domains and link people, work, and billing to them.",
-  work: "I draft work records from the proposals, contracts, and kickoffs I see in your intake.",
+  work: "I draft work records from the proposals, contracts, invoices, and kickoffs I see in your intake.",
   resource:
-    "I read documents that arrive through your connected apps and pull out what they are, amounts, and dates.",
+    "I spot documents that arrive through your connected apps — email attachments and files in your storage — and draft them as resources for you to confirm.",
   meeting:
-    "My meeting memory is still growing — for now I keep titles, times, and attendees up to date from your calendar.",
+    "Meetings on your calendar become records automatically — titles, times, and attendees stay up to date.",
   billing:
     "The billing app is the system of record — it issued the document, so its numbers win. You set the direction once when the record is created; after that, payment matching keeps the status, amount paid, and paid date honest. A parsed invoice can confirm a value, never override it. Receipts from tools you pay land here as subscriptions — spend, never People or Orgs records.",
   me: "There's one you. I suggest what I pick up from your signature, calendar, and documents — you always confirm before it lands.",
@@ -181,7 +181,7 @@ const TYPE_PRINCIPLES: Record<MemoryCustomizeEntityType, string[]> = {
     "Your CRM's deal board has the final word on stage; signatures, kickoffs, and delivered work decide the status.",
   ],
   resource: [
-    "The document itself wins — I read it to tell a contract from a receipt, and what it says beats what the email around it claimed.",
+    "The document itself wins — its name and type tell a contract from a receipt, and that beats what the email around it claimed.",
     "Anything you file or rename yourself stays exactly as you set it — I only fill in what's still empty.",
   ],
   meeting: [
@@ -210,19 +210,20 @@ const TYPE_BIRTH_LINES: Record<MemoryCustomizeEntityType, string[]> = {
     "People, work, and billing at the same domain link to the same organization.",
   ],
   work: [
-    "A signed contract or accepted proposal becomes work in progress.",
+    "A proposal, SOW, or invoice from a client drafts new work — you confirm before it lands.",
     "An inquiry alone is not work — I wait for a real engagement signal.",
   ],
   resource: [
-    "Contracts, invoices, and briefs that arrive by email or storage apps become resources.",
-    "I read the document to tell a contract from a receipt before filing it.",
+    "Contracts, invoices, and briefs that arrive by email or storage apps are drafted as resources — you confirm before they're filed.",
+    "I tell a contract from a receipt by the document's name and type before filing it.",
   ],
   meeting: [
     "Meetings on your calendar become records with their attendees attached.",
+    "Invites that arrive by email are drafted too — you confirm those.",
   ],
   billing: [
-    "Invoices and bills from your billing app become records, matched to the people and organizations behind them.",
-    "An invoice that arrives by email becomes a record too — the document corroborates the billing app, never overrides it.",
+    "Invoices and bills from your billing app are drafted as records, matched to the people and organizations behind them.",
+    "An invoice that arrives by email corroborates the billing app's record — it confirms, never overrides.",
   ],
   // Me has no birth: there's exactly one you, created when you join.
   me: [],

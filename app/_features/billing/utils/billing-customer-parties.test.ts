@@ -2,11 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 import type { BillingRecord } from "../data";
 import { resolveBillingCustomerDisplay } from "./billing-customer-parties";
 
-vi.mock("@/app/_features/capture/services/system-plays/project-fields", () => ({
+vi.mock("@/app/_features/memory/records/project-fields", () => ({
   resolvePrimaryOrgIdForPerson: vi.fn(),
 }));
 
-import { resolvePrimaryOrgIdForPerson } from "@/app/_features/capture/services/system-plays/project-fields";
+import { resolvePrimaryOrgIdForPerson } from "@/app/_features/memory/records/project-fields";
 import { enrichBillingRecordCustomerParties } from "./billing-customer-parties";
 
 const PERSON_ID = "11111111-1111-4111-8111-111111111111";

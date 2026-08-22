@@ -80,7 +80,7 @@ function mapRelationship(
   if (value === "other") return "unknown";
   return value && (RELATIONSHIP_TYPES as readonly string[]).includes(value)
     ? (value as DemoRelationshipType)
-    : "prospect";
+    : "unknown";
 }
 
 function mapHealthBandToWorthAttention(

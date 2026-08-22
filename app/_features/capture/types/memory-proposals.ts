@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { SystemPlaySlug } from "../services/system-plays/types";
+import type { RecordActionSlug } from "@/app/_features/memory/records/types";
 
 /** Memory surfaces that intelligence can propose creating or linking. */
 export type MemoryProposalSurface =
@@ -40,7 +40,7 @@ export const MemoryProposalSchema = z.object({
 });
 
 export type MemoryProposal = z.infer<typeof MemoryProposalSchema> & {
-  system_play: SystemPlaySlug;
+  system_play: RecordActionSlug;
 };
 
 export const MIN_MEMORY_PROPOSAL_CONFIDENCE = 70;

@@ -1,4 +1,4 @@
-import type { RelationshipType } from "@/app/_features/capture/services/system-plays/types";
+import type { RelationshipType } from "@/app/_features/memory/records/types";
 import type { HealthBand, HealthFactor, HealthFactorDirection } from "@/app/_lib/health/core";
 import { HEALTH_FRESHNESS_MS } from "@/app/_lib/health/core";
 

@@ -263,7 +263,7 @@ export const SIGNAL_WEIGHTS: Record<string, number> = {
 
   // Work signals (positive)
   email_subject_project_pattern: 1.0,
-  meeting_title_project_pattern: 1.5,
+  meeting_title_project_pattern: 2.5, // two same-title meetings reach suggest
   proposal_or_sow_attached: 4.0,
   invoice_line_items_suggest_project: 2.5,
   thread_discusses_scope: 2.0,
@@ -341,7 +341,10 @@ export const EVIDENCE_THRESHOLDS: Record<
 > = {
   person: { suggest: 4.0, auto: 8.0, dismiss: -3.0 },
   organization: { suggest: 3.5, auto: 7.0, dismiss: -3.0 },
-  work: { suggest: 5.0, auto: 10.0, dismiss: -2.0 },
+  // Work: a single proposal/SOW (4.0) suggests; proposal + invoice + scope
+  // thread (8.5) auto-creates. Previously a lone "Kickoff: X" meeting (1.5)
+  // was indistinguishable from nothing.
+  work: { suggest: 4.0, auto: 8.0, dismiss: -2.0 },
   billing: { suggest: 6.0, auto: 12.0, dismiss: -2.0 },
   resource: { suggest: 3.0, auto: 6.0, dismiss: -2.0 },
   meeting: { suggest: 2.0, auto: 4.0, dismiss: -2.0 },

@@ -4,8 +4,8 @@ import { revalidatePath } from "next/cache";
 import { tool, type ToolSet } from "ai";
 import { logToolExecution } from "@/app/_lib/composio/execution-log";
 import { reportError } from "@/app/_lib/errors";
-import { executeSystemPlay } from "@/app/_features/capture/services/system-plays/executor";
-import { findMeetings, findOrgs, findPeople, findWork, findBilling, findFiles, findMeFacts, findTags } from "@/app/_features/capture/services/system-plays/lookups";
+import { executeRecordAction } from "@/app/_features/memory/records/executor";
+import { findMeetings, findOrgs, findPeople, findWork, findBilling, findFiles, findMeFacts, findTags } from "@/app/_features/memory/records/lookups";
 import {
   classifyEntity,
   completePersonFields,
@@ -20,15 +20,15 @@ import {
   applyConnectionLinks,
   buildPersonLinkSignals,
 } from "@/app/_features/plays/playbooks/records-engine/apply-connection-links";
-import { extractNameFromEmail } from "@/app/_features/capture/services/system-plays/person-resolver";
+import { extractNameFromEmail } from "@/app/_features/memory/records/person-resolver";
 import {
-  SYSTEM_PLAY_TOOL_SPECS,
-  type SystemPlayToolSpec,
-} from "@/app/_features/capture/services/system-plays/schemas";
-import type { SystemPlaySlug } from "@/app/_features/capture/services/system-plays/types";
-import type { RelationshipType } from "@/app/_features/capture/services/system-plays/types";
+  RECORD_ACTION_TOOL_SPECS,
+  type RecordActionDefinitionToolSpec,
+} from "@/app/_features/memory/records/schemas";
+import type { RecordActionSlug } from "@/app/_features/memory/records/types";
+import type { RelationshipType } from "@/app/_features/memory/records/types";
 
-export interface BuildSystemPlayToolsOptions {
+export interface BuildRecordActionDefinitionToolsOptions {
   workspaceId: string;
   userId?: string;
 }
@@ -47,7 +47,7 @@ function isSafeToolFailure(value: unknown): value is SafeToolFailure {
   return record.success === false && typeof record.errorId === "string";
 }
 
-function actionForSystemPlay(slug: SystemPlaySlug): string {
+function actionForRecordActionDefinition(slug: RecordActionSlug): string {
   if (slug.includes("create-work")) return "while creating that work item";
   if (slug.includes("create-person")) return "while creating that person";
   if (slug.includes("create-org")) return "while creating that organization";
@@ -107,7 +107,7 @@ function toSafeToolFailureFromResult(input: {
 
   return toSafeToolFailure({
     scope: input.scope,
-    error: new Error(input.result.error ?? "System play failed"),
+    error: new Error(input.result.error ?? "Record action failed"),
     workspaceId: input.workspaceId,
     userId: input.userId,
     toolSlug: input.toolSlug,
@@ -460,7 +460,7 @@ async function runPolicyAwareCreatePerson(
     return { success: true, action: decision.action, decision };
   }
 
-  const result = await executeSystemPlay(
+  const result = await executeRecordAction(
     workspaceId,
     "system:create-person",
     {
@@ -486,11 +486,11 @@ async function runPolicyAwareCreatePerson(
   if (!result.success) {
     return toSafeToolFailureFromResult({
       result,
-      scope: "ask-salt.system-play",
+      scope: "ask-salt.memory-records",
       workspaceId,
       userId,
       toolSlug: "system:create-person",
-      action: actionForSystemPlay("system:create-person"),
+      action: actionForRecordActionDefinition("system:create-person"),
     });
   }
 
@@ -519,7 +519,7 @@ async function runPolicyAwareCreatePerson(
 }
 
 async function runPlayTool(
-  slug: SystemPlaySlug,
+  slug: RecordActionSlug,
   workspaceId: string,
   userId: string | undefined,
   input: unknown,
@@ -532,23 +532,23 @@ async function runPlayTool(
     playInput = normalizeCreateOrgInput(input as CreateOrgInputArgs);
   }
 
-  const result = await executeSystemPlay(workspaceId, slug, playInput, userId);
+  const result = await executeRecordAction(workspaceId, slug, playInput, userId);
   if (!result.success) {
     return toSafeToolFailureFromResult({
       result,
-      scope: "ask-salt.system-play",
+      scope: "ask-salt.memory-records",
       workspaceId,
       userId,
       toolSlug: slug,
-      action: actionForSystemPlay(slug),
+      action: actionForRecordActionDefinition(slug),
     });
   }
   return result;
 }
 
 function wrapSpec(
-  spec: SystemPlayToolSpec,
-  options: BuildSystemPlayToolsOptions,
+  spec: RecordActionDefinitionToolSpec,
+  options: BuildRecordActionDefinitionToolsOptions,
 ): ToolSet[string] {
   const { workspaceId, userId } = options;
 
@@ -664,13 +664,13 @@ function wrapSpec(
 }
 
 /**
- * Build Ask Salt tools for Memory system plays (people, orgs, work, links, notes).
+ * Build Ask Salt tools for Memory record actions (people, orgs, work, links, notes).
  * Workspace id must come from verified tenant context — never from LLM args.
  */
-export function buildSystemPlayTools(options: BuildSystemPlayToolsOptions): ToolSet {
+export function buildMemoryRecordTools(options: BuildRecordActionDefinitionToolsOptions): ToolSet {
   const tools: ToolSet = {};
 
-  for (const spec of SYSTEM_PLAY_TOOL_SPECS) {
+  for (const spec of RECORD_ACTION_TOOL_SPECS) {
     tools[spec.toolName] = wrapSpec(spec, options);
   }
 

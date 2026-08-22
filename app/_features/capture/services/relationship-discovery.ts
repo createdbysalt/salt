@@ -29,8 +29,8 @@ import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { EMAIL_SCAN_SOURCE_TYPES } from "../adapters/categories/email";
 import type { CaptureSourceType } from "../types";
 import { checkCalendarRelationship } from "./gates/admission-gate";
-import { resolvePerson } from "./system-plays/person-resolver";
-import { extractDomain, type PersonSignals } from "./system-plays/person-signals";
+import { resolvePerson } from "@/app/_features/memory/records/person-resolver";
+import { extractDomain, type PersonSignals } from "@/app/_features/memory/records/person-signals";
 
 /**
  * Relationship discovery reads only the two providers with thread/sender

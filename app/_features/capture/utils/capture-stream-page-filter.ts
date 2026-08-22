@@ -67,6 +67,8 @@ export interface CaptureStreamPageFilter {
 export interface CaptureStreamCounts {
   total: number;
   queued: number;
+  finding: number;
+  memory: number;
   watching: number;
   noSignal: number;
   processing: number;
@@ -76,6 +78,8 @@ export interface CaptureStreamCounts {
 export const EMPTY_CAPTURE_STREAM_COUNTS: CaptureStreamCounts = {
   total: 0,
   queued: 0,
+  finding: 0,
+  memory: 0,
   watching: 0,
   noSignal: 0,
   processing: 0,
@@ -246,6 +250,8 @@ export function computeCaptureStreamCounts(
     if (captureScanHasWatch(row)) counts.watching += 1;
     const category = captureScanCategory(row, resolveFindingLink(row));
     if (category === "queued") counts.queued += 1;
+    if (category === "finding") counts.finding += 1;
+    if (category === "memory") counts.memory += 1;
     if (category === "no-signal") counts.noSignal += 1;
     if (category === "processing") counts.processing += 1;
     if (category === "error") counts.error += 1;

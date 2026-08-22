@@ -24,7 +24,6 @@ import { WatchingSection } from "./WatchingSection";
 import { HandledSection } from "./HandledSection";
 import type { GroupedLearningEvidence } from "../queries/learning-evidence";
 import type { HandledWrite } from "../queries/handled-items";
-import type { RecordCandidate } from "../queries/record-candidates";
 
 /**
  * Memory → Activity — the transparency surface.
@@ -40,7 +39,6 @@ import type { RecordCandidate } from "../queries/record-candidates";
 interface FilterTabProps {
   evidence: GroupedLearningEvidence[];
   handledWrites: HandledWrite[];
-  recordCandidates?: RecordCandidate[];
   workspaceId: string;
   onUpdate?: () => void;
 }
@@ -70,7 +68,6 @@ function writeSearchTexts(write: HandledWrite): string[] {
 export function FilterTab({
   evidence,
   handledWrites,
-  recordCandidates = [],
   workspaceId,
   onUpdate,
 }: FilterTabProps) {
@@ -82,7 +79,7 @@ export function FilterTab({
   const [dateRange, setDateRange] = useState<ActivityDateRange | null>(null);
 
   const counts: Record<FilterStatus, number> = {
-    watching: evidence.length + recordCandidates.length,
+    watching: evidence.length,
     handled: handledWrites.length,
   };
 
@@ -94,7 +91,6 @@ export function FilterTab({
       typeCounts.set(type, (typeCounts.get(type) ?? 0) + 1);
     if (status === "watching") {
       evidence.forEach((item) => bump(item.entityType));
-      recordCandidates.forEach((item) => bump(item.entityType));
     } else {
       handledWrites.forEach((write) => bump(write.entityType));
     }
@@ -105,7 +101,7 @@ export function FilterTab({
         count: typeCounts.get(type) ?? 0,
       }),
     );
-  }, [status, evidence, recordCandidates, handledWrites]);
+  }, [status, evidence, handledWrites]);
 
   const filtered = useMemo(() => {
     const entityTypes = filters.entityTypes;
@@ -116,12 +112,6 @@ export function FilterTab({
           matchesDateRange(dateRange, item.latestAt) &&
           matchesFilterQuery(search, evidenceSearchTexts(item)),
       ),
-      recordCandidates: recordCandidates.filter(
-        (item) =>
-          matchesEntityTypeFilter(entityTypes, item.entityType) &&
-          matchesDateRange(dateRange, item.lastActivityAt) &&
-          matchesFilterQuery(search, [item.displayName, item.identifier]),
-      ),
       writes: handledWrites.filter(
         (write) =>
           matchesEntityTypeFilter(entityTypes, write.entityType) &&
@@ -129,7 +119,7 @@ export function FilterTab({
           matchesFilterQuery(search, writeSearchTexts(write)),
       ),
     };
-  }, [filters, dateRange, search, evidence, recordCandidates, handledWrites]);
+  }, [filters, dateRange, search, evidence, handledWrites]);
 
   const isNarrowing = search.trim().length > 0 || activeFilterCount > 0;
   const tabHasData =
@@ -138,7 +128,7 @@ export function FilterTab({
       : counts.handled > 0;
   const filteredEmpty =
     status === "watching"
-      ? filtered.evidence.length + filtered.recordCandidates.length === 0
+      ? filtered.evidence.length === 0
       : filtered.writes.length === 0;
   const showNoMatches = isNarrowing && tabHasData && filteredEmpty;
 
@@ -234,7 +224,6 @@ export function FilterTab({
       ) : status === "watching" ? (
         <WatchingSection
           evidence={filtered.evidence}
-          recordCandidates={filtered.recordCandidates}
           workspaceId={workspaceId}
           onUpdate={onUpdate}
           resetKey={resetKey}

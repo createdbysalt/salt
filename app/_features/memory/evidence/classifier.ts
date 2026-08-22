@@ -5,7 +5,10 @@
  * Checks against existing Memory records to identify unknown contacts.
  */
 
-import { createClient } from "@/app/_lib/supabase/server";
+// Admin client, not the session-scoped one: the evidence lane runs from
+// crons and backlog scripts with no request scope — `cookies()` throws there
+// (same trap as hydrate-capture). All reads below are workspace-scoped.
+import { createAdminClient } from "@/app/_lib/supabase/admin";
 import type { IntakeEntityType } from "@/app/_features/memory/care/intake";
 import { canonicalizeIdentifier } from "@/app/_features/memory/care/intake";
 import { isKnownSaasVendorDomain, isStrongReceiptOrBillingSignal } from "@/app/_features/capture/services/intelligence/vendor-domains";
@@ -33,6 +36,24 @@ export interface EmailCaptureData {
   hasAttachments?: boolean;
   isReply?: boolean;
   threadId?: string;
+}
+
+/**
+ * File capture data for classification (storage adapters: Drive, Dropbox,
+ * OneDrive). Filenames only — v1 deliberately reads no file content.
+ */
+export interface FileCaptureData {
+  fileName: string;
+  mimeType?: string;
+  ownerEmail?: string;
+  ownerName?: string;
+  webViewLink?: string;
+  folderPath?: string;
+  isFolder?: boolean;
+  /** Source-system file id (the capture's source_external_id) — dedupe key. */
+  externalId?: string;
+  /** Capture source_type (googledrive, dropbox, onedrive, …). */
+  provider?: string;
 }
 
 /**
@@ -65,6 +86,28 @@ const CALENDAR_SOURCE_TYPES = new Set([
 ]);
 
 /**
+ * Workspace member emails. The membership row carries a denormalized
+ * `email` — no users join needed (the generated admin-client types don't
+ * carry that FK relation anyway).
+ */
+async function getWorkspaceMemberEmails(
+  supabase: ReturnType<typeof createAdminClient>,
+  workspaceId: string
+): Promise<Set<string>> {
+  const { data: members } = await supabase
+    .from("workspace_members")
+    .select("email")
+    .eq("workspace_id", workspaceId);
+
+  const emails = new Set<string>();
+  for (const member of members ?? []) {
+    const email = member.email?.toLowerCase();
+    if (email) emails.add(email);
+  }
+  return emails;
+}
+
+/**
  * Classify an email capture and detect signals for unknown contacts.
  */
 export async function classifyEmailCapture(
@@ -72,7 +115,7 @@ export async function classifyEmailCapture(
   email: EmailCaptureData,
   captureId?: string
 ): Promise<DetectedSignal[]> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const signals: DetectedSignal[] = [];
 
   // Collect all email addresses from the email
@@ -82,17 +125,7 @@ export async function classifyEmailCapture(
   email.cc?.forEach((addr) => allAddresses.add(addr));
 
   // Get workspace member emails to exclude
-  const { data: members } = await supabase
-    .from("workspace_members")
-    .select("user:users(email)")
-    .eq("workspace_id", workspaceId);
-
-  const memberEmails = new Set<string>();
-  for (const m of members || []) {
-    const userArr = m.user as Array<{ email?: string }> | null;
-    const email = userArr?.[0]?.email?.toLowerCase();
-    if (email) memberEmails.add(email);
-  }
+  const memberEmails = await getWorkspaceMemberEmails(supabase, workspaceId);
 
   // Get existing people by email
   const { data: existingPeople } = await supabase
@@ -237,7 +270,7 @@ export async function classifyEmailCapture(
 function stableDocumentIdentifier(
   email: EmailCaptureData,
   kind: string,
-  prefix: "file" | "billing" = "file"
+  prefix: "file" | "billing" | "work" = "file"
 ): string {
   const subject = (email.subject || "")
     .toLowerCase()
@@ -327,6 +360,16 @@ function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
       signal: "sow_detected",
       extractedData: { ...baseData, category: "proposal", document_type: "sow" },
     });
+    // Work mirror: a SOW is the documented birth story for work ("a signed
+    // contract or accepted proposal becomes work in progress"). Weight 4.0
+    // vs the work suggest bar of 5.0 — one document watches, corroboration
+    // suggests.
+    signals.push({
+      entityType: "work",
+      identifier: stableDocumentIdentifier(email, "sow", "work"),
+      signal: "proposal_or_sow_attached",
+      extractedData: { name: email.subject || "Untitled" },
+    });
   }
   // Proposal/Quote/Estimate
   else if (
@@ -340,6 +383,12 @@ function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
       identifier: stableDocumentIdentifier(email, "proposal"),
       signal: "proposal_detected",
       extractedData: { ...baseData, category: "proposal" },
+    });
+    signals.push({
+      entityType: "work",
+      identifier: stableDocumentIdentifier(email, "proposal", "work"),
+      signal: "proposal_or_sow_attached",
+      extractedData: { name: email.subject || "Untitled" },
     });
   }
 
@@ -545,6 +594,92 @@ function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
 }
 
 /**
+ * Document patterns for filenames, mirroring detectSolopreneurDocuments'
+ * priority order (specific before general). Matched against the normalized
+ * base name — extension stripped, separators replaced with spaces — so
+ * "Acme_MSA-v2.pdf" reads as "acme msa v2".
+ */
+const FILE_DOCUMENT_PATTERNS: ReadonlyArray<{
+  re: RegExp;
+  signal: string;
+  category: string;
+  documentType?: string;
+}> = [
+  { re: /\b(msa|master service agreement|master agreement)\b/, signal: "msa_detected", category: "contract", documentType: "msa" },
+  { re: /\b(nda|non disclosure|confidentiality agreement|confidential agreement)\b/, signal: "nda_detected", category: "contract", documentType: "nda" },
+  { re: /\b(sow|scope of work|project scope|statement of work)\b/, signal: "sow_detected", category: "proposal", documentType: "sow" },
+  { re: /\b(contract|agreement|service agreement|terms of service|terms and conditions)\b/, signal: "contract_detected", category: "contract" },
+  { re: /\b(proposal|quote|estimate|pricing)\b/, signal: "proposal_detected", category: "proposal" },
+  { re: /\b(brief|creative brief|project brief|design brief)\b/, signal: "brief_detected", category: "reference", documentType: "brief" },
+  { re: /\b(receipt|payment received)\b/, signal: "receipt_detected", category: "invoice", documentType: "receipt" },
+];
+
+function normalizeFileBaseName(fileName: string): string {
+  return fileName
+    .toLowerCase()
+    .replace(/\.[a-z0-9]{1,8}$/, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/**
+ * Classify a storage file capture (Drive/Dropbox/OneDrive) and detect
+ * resource-lane document signals from the filename. Pure: no DB reads, no
+ * LLM — the email classifier's document vocabulary applied to filenames.
+ *
+ * Birth stays confirm-only (resources never auto-create from background
+ * paths); these signals accumulate into the evidence lane so a contract in
+ * Drive builds toward the bar instead of dying as "No action".
+ */
+export function classifyFileCapture(file: FileCaptureData): DetectedSignal[] {
+  if (file.isFolder) return [];
+  if (!file.fileName) return [];
+
+  const baseName = normalizeFileBaseName(file.fileName);
+  if (!baseName) return [];
+
+  const match = FILE_DOCUMENT_PATTERNS.find((p) => p.re.test(baseName));
+  if (!match) return [];
+
+  // Stable identifier: the source file id when present, else the normalized
+  // name — repeat syncs of the same file accumulate onto one evidence row.
+  const identifier =
+    file.provider && file.externalId
+      ? `${file.provider}:${file.externalId}`
+      : `file:${baseName}`;
+
+  const extractedData: Record<string, string> = {
+    title: file.fileName,
+    name: file.fileName,
+    category: match.category,
+  };
+  if (match.documentType) extractedData.document_type = match.documentType;
+  if (file.webViewLink) extractedData.web_view_link = file.webViewLink;
+  if (file.ownerEmail) extractedData.owner_email = file.ownerEmail;
+
+  const signals: DetectedSignal[] = [
+    {
+      entityType: "resource",
+      identifier,
+      signal: match.signal,
+      extractedData,
+    },
+  ];
+
+  // Work mirror (same as email): a proposal/SOW file implies work.
+  if (match.signal === "sow_detected" || match.signal === "proposal_detected") {
+    signals.push({
+      entityType: "work",
+      identifier: `work:${baseName}`,
+      signal: "proposal_or_sow_attached",
+      extractedData: { name: file.fileName },
+    });
+  }
+
+  return signals;
+}
+
+/**
  * Classify a meeting capture and detect signals.
  */
 export async function classifyMeetingCapture(
@@ -552,21 +687,11 @@ export async function classifyMeetingCapture(
   meeting: MeetingCaptureData,
   captureId?: string
 ): Promise<DetectedSignal[]> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const signals: DetectedSignal[] = [];
 
   // Get workspace member emails to exclude
-  const { data: members } = await supabase
-    .from("workspace_members")
-    .select("user:users(email)")
-    .eq("workspace_id", workspaceId);
-
-  const memberEmails = new Set<string>();
-  for (const m of members || []) {
-    const userArr = m.user as Array<{ email?: string }> | null;
-    const email = userArr?.[0]?.email?.toLowerCase();
-    if (email) memberEmails.add(email);
-  }
+  const memberEmails = await getWorkspaceMemberEmails(supabase, workspaceId);
 
   // Get existing people by email
   const { data: existingPeople } = await supabase
@@ -636,7 +761,7 @@ export async function classifyMeetingCapture(
 
     const extractedData: Record<string, string> = {
       title: meeting.title,
-      // `name` mirrors title so the New records lane can display it.
+      // `name` mirrors title so evidence views can display it.
       name: meeting.title,
       start_time: meeting.startTime,
       provider: meeting.provider,

@@ -89,6 +89,21 @@ export function domainToOrgName(domain: string): string | null {
 }
 
 /**
+ * True when the sender domain sits below the registrable apex —
+ * "notifications.acme.com", "email.vendor.io". Humans write from apex
+ * domains; subdomains are automated mail infrastructure (ESPs, product
+ * notifications), so they must never birth org records. Two-part TLDs are
+ * respected: "kainos-labs.com.br" is an apex, not a subdomain.
+ */
+export function isMailInfraSubdomain(domain: string): boolean {
+  const labels = domain.toLowerCase().split(".").filter(Boolean);
+  if (labels.length < 3) return false;
+  const lastTwo = labels.slice(-2).join(".");
+  const registrableLabels = SECOND_LEVEL_TLDS.has(lastTwo) ? 3 : 2;
+  return labels.length > registrableLabels;
+}
+
+/**
  * True when a supposed org *name* is actually a bare domain
  * ("harborfinancial.com") — evidence pipelines sometimes hand the domain over
  * as the name. Such input should be rescued into { name, domain }, never

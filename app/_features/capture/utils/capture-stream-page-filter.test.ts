@@ -81,7 +81,7 @@ describe("captureScanCategory", () => {
     expect(captureScanCategory(noSignalRow, null)).toBe("no-signal");
   });
 
-  it("treats an active finding link as queued for legacy rows", () => {
+  it("treats an active finding link as needs-review, not a triggered play", () => {
     const row = makeRow({
       intelligence: {
         outcome: "finding_created",
@@ -90,9 +90,22 @@ describe("captureScanCategory", () => {
       },
     });
     const link = { finding_id: "f1", finding_type: "x", finding_state: "needs_you" };
-    expect(captureScanCategory(row, link)).toBe("queued");
+    expect(captureScanCategory(row, link)).toBe("finding");
     // Same row without an active link collapses to no-signal
     expect(captureScanCategory(row, null)).toBe("no-signal");
+  });
+
+  it("keeps a finding visible as needs-review even after enrichment", () => {
+    const row = makeRow({
+      enriched_at: "2026-08-09T17:00:00.000Z",
+      intelligence: {
+        outcome: "finding_created",
+        scanned_at: "2026-08-09T17:00:00.000Z",
+        finding_id: "f1",
+      },
+    });
+    const link = { finding_id: "f1", finding_type: "x", finding_state: "needs_you" };
+    expect(captureScanCategory(row, link)).toBe("finding");
   });
 
   it("maps un-scanned rows to processing", () => {
@@ -277,10 +290,19 @@ describe("computeCaptureStreamCounts", () => {
     expect(counts).toEqual({
       total: 5,
       queued: 1,
+      finding: 0,
+      memory: 0,
       watching: 1,
       noSignal: 1,
       processing: 2, // un-scanned rows, including the watched one
       error: 1,
     });
+  });
+
+  it("counts routed rows as memory, not no-signal", () => {
+    const rows = [makeRow({ id: "r", state: "routed" })];
+    const counts = computeCaptureStreamCounts(rows, noLink);
+    expect(counts.memory).toBe(1);
+    expect(counts.noSignal).toBe(0);
   });
 });

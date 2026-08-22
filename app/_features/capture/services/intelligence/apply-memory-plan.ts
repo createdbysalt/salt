@@ -1,8 +1,8 @@
 import "server-only";
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
-import { executeSystemPlay } from "../system-plays/executor";
-import type { SystemPlayResult } from "../system-plays/types";
+import { executeRecordAction } from "@/app/_features/memory/records/executor";
+import type { RecordActionResult } from "@/app/_features/memory/records/types";
 import {
   filterActionableMemoryProposals,
   memoryProposalFingerprint,
@@ -165,7 +165,7 @@ export async function applyMemoryPlanForFinding(args: {
           : null;
 
     if (attachTarget) {
-      await executeSystemPlay(workspaceId, "system:attach-email", {
+      await executeRecordAction(workspaceId, "system:attach-email", {
         email_id: captureId,
         target_type: attachTarget.target_type,
         target_id: attachTarget.target_id,
@@ -174,7 +174,7 @@ export async function applyMemoryPlanForFinding(args: {
   }
 
   if (entityIds.people && entityIds.orgs) {
-    await executeSystemPlay(
+    await executeRecordAction(
       workspaceId,
       "system:link-person-org",
       { person_id: entityIds.people, org_id: entityIds.orgs },
@@ -183,7 +183,7 @@ export async function applyMemoryPlanForFinding(args: {
   }
 
   if (entityIds.orgs && entityIds.work) {
-    await executeSystemPlay(
+    await executeRecordAction(
       workspaceId,
       "system:link-org-work",
       { org_id: entityIds.orgs, work_id: entityIds.work },
@@ -243,11 +243,11 @@ async function executeProposal(args: {
     return proposal.hint.existing_match_id;
   }
 
-  let result: SystemPlayResult;
+  let result: RecordActionResult;
 
   switch (proposal.system_play) {
     case "system:create-org":
-      result = await executeSystemPlay(
+      result = await executeRecordAction(
         workspaceId,
         "system:create-org",
         {
@@ -259,7 +259,7 @@ async function executeProposal(args: {
       break;
 
     case "system:create-person":
-      result = await executeSystemPlay(
+      result = await executeRecordAction(
         workspaceId,
         "system:create-person",
         {
@@ -271,7 +271,7 @@ async function executeProposal(args: {
       break;
 
     case "system:create-work":
-      result = await executeSystemPlay(
+      result = await executeRecordAction(
         workspaceId,
         "system:create-work",
         { name: proposal.hint.name ?? "New work" },
@@ -282,7 +282,7 @@ async function executeProposal(args: {
     case "system:create-meeting": {
       const startAt = defaultMeetingStart(proposal.hint.datetime);
       const endAt = new Date(new Date(startAt).getTime() + 60 * 60 * 1000).toISOString();
-      result = await executeSystemPlay(
+      result = await executeRecordAction(
         workspaceId,
         "system:create-meeting",
         {
@@ -302,7 +302,7 @@ async function executeProposal(args: {
   }
 
   if (!result.success || !result.entity_id) {
-    console.error("[apply-memory-plan] system play failed:", result.error);
+    console.error("[apply-memory-plan] record action failed:", result.error);
     return null;
   }
 

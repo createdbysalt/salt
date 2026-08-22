@@ -132,6 +132,7 @@ type RealStreamEntry = Omit<StreamEntry, "dayGroup"> & {
   subject?: string;
   contentSnippet?: string;
   findingId?: string | null;
+  findingTitle?: string | null;
   noSignalReason?: string;
   enrichedMetadata?: EnrichedCaptureMetadata | null;
   extractedData?: Record<string, unknown> | null;
@@ -194,6 +195,7 @@ function toRealStreamEntry(c: StreamCaptureSummary): RealStreamEntry {
     subject: c.title ?? undefined,
     contentSnippet: c.body_preview ?? undefined,
     findingId: c.finding_id ?? null,
+    findingTitle: c.finding_title ?? null,
     noSignalReason: outcome === "no_signal" ? "Nothing actionable found" : undefined,
     enrichedMetadata: c.enriched_metadata ?? null,
     extractedData: c.extracted_data ?? null,
@@ -238,9 +240,11 @@ function resolveStreamEntryCategory(
 const CATEGORY_COUNT_TILES: {
   id: CaptureCategory;
   label: string;
-  tone: "emerald" | "flame" | "muted" | "destructive" | "sky";
+  tone: "emerald" | "flame" | "muted" | "destructive" | "sky" | "violet";
 }[] = [
   { id: "queued", label: CAPTURE_CATEGORY_LABELS.queued, tone: "emerald" },
+  { id: "finding", label: CAPTURE_CATEGORY_LABELS.finding, tone: "violet" },
+  { id: "memory", label: CAPTURE_CATEGORY_LABELS.memory, tone: "sky" },
   { id: "no-signal", label: CAPTURE_CATEGORY_LABELS["no-signal"], tone: "muted" },
   { id: "processing", label: CAPTURE_CATEGORY_LABELS.processing, tone: "flame" },
   { id: "error", label: CAPTURE_CATEGORY_LABELS.error, tone: "destructive" },
@@ -406,6 +410,16 @@ const CATEGORY_STYLES: Record<
     label: "Queued",
     cls: "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300",
     icon: Play,
+  },
+  finding: {
+    label: "Needs Review",
+    cls: "bg-violet-500/12 text-violet-700 dark:text-violet-300",
+    icon: Eye,
+  },
+  memory: {
+    label: "Routed to Memory",
+    cls: "bg-sky/15 text-sky",
+    icon: CheckCircle2,
   },
   "no-signal": {
     label: "No Signal",
@@ -653,6 +667,8 @@ export function CaptureStreamTab({
 
   const tileValues: Record<CaptureCategory, number> = {
     queued: counts.queued,
+    finding: counts.finding,
+    memory: counts.memory,
     "no-signal": counts.noSignal,
     processing: counts.processing,
     error: counts.error,
@@ -682,7 +698,7 @@ export function CaptureStreamTab({
             {counts.total} captures
           </h3>
         </header>
-        <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2.5 md:grid-cols-3 lg:grid-cols-6">
           {CATEGORY_COUNT_TILES.map(({ id, label, tone }) => (
             <CountTile
               key={id}
@@ -1918,8 +1934,24 @@ function CaptureCardDetail({
                     "No analysis yet \u2014 Salt scans on a schedule."
                   ) : e.category === "no-signal" ? (
                     deriveNoActionReason(e)
+                  ) : e.category === "memory" ? (
+                    "Salt routed this into Memory \u2014 open Memory to see the record."
+                  ) : e.category === "finding" ? (
+                    // Scan-created findings live on the finding row, not in
+                    // enriched_metadata — name it instead of claiming no
+                    // analysis exists.
+                    e.findingTitle ? (
+                      <>
+                        Salt found: <span className={DETAIL_LABEL}>{e.findingTitle}</span>
+                        {" — review it in Plays."}
+                      </>
+                    ) : (
+                      "Salt flagged this for your review — open Plays to see it."
+                    )
+                  ) : e.category === "queued" ? (
+                    "A playbook trigger fired from this capture — open Plays to review the prepared play."
                   ) : (
-                    "No analysis stored for this capture yet."
+                    "Salt couldn't finish analyzing this capture — retry below."
                   )}
                 </p>
               </div>

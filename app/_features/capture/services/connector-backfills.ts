@@ -19,7 +19,7 @@ import { getConnectionStatusAdmin } from "@/app/_lib/composio/connections";
 import { executeComposioAction } from "@/app/_lib/composio/actions";
 import { COMPOSIO_TOOL_SLUGS } from "@/app/_lib/composio/tool-slugs";
 import type { CaptureAdapter, CaptureEnvelope } from "../adapters/types";
-import { resolvePerson } from "./system-plays";
+import { resolvePerson } from "@/app/_features/memory/records";
 import { getCategoryAdapter, hasHandWrittenParsing } from "../adapters/categories";
 import { parseQuickbooksBalanceDetailReport } from "../adapters/categories/billing";
 import { ingestEnvelope } from "./ingest-envelope";

@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
-import { resolvePerson } from "../system-plays/person-resolver";
+import { resolvePerson } from "@/app/_features/memory/records/person-resolver";
 import type { EmailToAnalyze } from "./email-analyzer";
 import {
   extractPaymentPayer,

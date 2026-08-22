@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { executeSystemPlay } from "./executor";
+import { executeRecordAction } from "./executor";
 
 type QueryResult = { data: unknown; error: unknown };
 
@@ -27,7 +27,7 @@ vi.mock("./workspace-guard", () => ({
   linkTypeToGuardType: (t: string) => t,
 }));
 
-describe("executeSystemPlay create-person", () => {
+describe("executeRecordAction create-person", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -49,7 +49,7 @@ describe("executeSystemPlay create-person", () => {
       return peopleInsert;
     });
 
-    const result = await executeSystemPlay(
+    const result = await executeRecordAction(
       "ws-1",
       "system:create-person",
       { name: "Jane Doe", email: "jane@acme.com" },
@@ -79,7 +79,7 @@ describe("executeSystemPlay create-person", () => {
       return peopleInsert;
     });
 
-    const result = await executeSystemPlay("ws-1", "system:create-person", {
+    const result = await executeRecordAction("ws-1", "system:create-person", {
       name: "Jane Doe",
       email: "jane@acme.com",
       relationship_type: "client",
@@ -93,7 +93,7 @@ describe("executeSystemPlay create-person", () => {
         email: "jane@acme.com",
         relationship_type: "client",
         relationship_status: "client",
-        created_via: "system_play",
+        created_via: "capture_intake",
       })
     );
   });
@@ -142,14 +142,14 @@ describe("executeSystemPlay create-person", () => {
         title: "Person created",
         detail: "Jane Doe",
         metadata: expect.objectContaining({
-          source: "system_play",
+          source: "capture_intake",
           player_slug: "memory-care",
           auto_executed: true,
           entity_type: "person",
           entity_id: "new-person-id",
           section: "relationships",
           confidence: 95,
-          because: "System play created a Memory record with high confidence.",
+          because: "Salt created a Memory record with high confidence.",
           preview: "Salt created a People record for Jane Doe using jane@acme.com.",
         }),
       })
@@ -160,7 +160,7 @@ describe("executeSystemPlay create-person", () => {
     const { activityInsert, playRunInsert, saltLearningsInsert } =
       setupCreatePersonMocks();
 
-    const result = await executeSystemPlay("ws-1", "system:create-person", {
+    const result = await executeRecordAction("ws-1", "system:create-person", {
       name: "Jane Doe",
       email: "jane@acme.com",
     });
@@ -181,14 +181,14 @@ describe("executeSystemPlay create-person", () => {
         new_value: "Jane Doe",
         confidence: 95,
         evidence_summary:
-          "System play created a Memory record with high confidence.",
+          "Salt created a Memory record with high confidence.",
         playbook_slug: "memory-records",
       })
     );
   });
 });
 
-describe("executeSystemPlay create-org", () => {
+describe("executeRecordAction create-org", () => {
   type OrgRow = { id: string; name: string; domain: string | null };
 
   function buildOrgTable(cfg: {
@@ -250,7 +250,7 @@ describe("executeSystemPlay create-org", () => {
   it("refuses to create an org for a known SaaS vendor domain", async () => {
     const { orgBuilder } = setupCreateOrgMocks({});
 
-    const result = await executeSystemPlay("ws-1", "system:create-org", {
+    const result = await executeRecordAction("ws-1", "system:create-org", {
       name: "Clickup",
       domain: "clickup.com",
     });
@@ -265,7 +265,7 @@ describe("executeSystemPlay create-org", () => {
       websiteUrl: "https://www.createdbysalt.com/",
     });
 
-    const result = await executeSystemPlay("ws-1", "system:create-org", {
+    const result = await executeRecordAction("ws-1", "system:create-org", {
       name: "Createdbysalt",
       domain: "createdbysalt.com",
     });
@@ -278,7 +278,7 @@ describe("executeSystemPlay create-org", () => {
   it("matches subdomains of the workspace's own domain", async () => {
     setupCreateOrgMocks({ websiteUrl: "createdbysalt.com" });
 
-    const result = await executeSystemPlay("ws-1", "system:create-org", {
+    const result = await executeRecordAction("ws-1", "system:create-org", {
       name: "Mail",
       domain: "mail.createdbysalt.com",
     });
@@ -290,7 +290,7 @@ describe("executeSystemPlay create-org", () => {
   it("rescues a domain passed as the name into a real name + domain pair", async () => {
     const { orgBuilder } = setupCreateOrgMocks({ orgList: [] });
 
-    const result = await executeSystemPlay("ws-1", "system:create-org", {
+    const result = await executeRecordAction("ws-1", "system:create-org", {
       name: "harborfinancial.com",
     });
 
@@ -307,7 +307,7 @@ describe("executeSystemPlay create-org", () => {
   it("refuses a name that is a generic service domain", async () => {
     const { orgBuilder } = setupCreateOrgMocks({});
 
-    const result = await executeSystemPlay("ws-1", "system:create-org", {
+    const result = await executeRecordAction("ws-1", "system:create-org", {
       name: "mail.com",
     });
 
@@ -324,7 +324,7 @@ describe("executeSystemPlay create-org", () => {
     };
     const { orgBuilder } = setupCreateOrgMocks({ orgList: [twin] });
 
-    const result = await executeSystemPlay("ws-1", "system:create-org", {
+    const result = await executeRecordAction("ws-1", "system:create-org", {
       name: "Example Advisors",
       domain: "harborfinancial.com",
     });
@@ -345,7 +345,7 @@ describe("executeSystemPlay create-org", () => {
     };
     const { orgBuilder } = setupCreateOrgMocks({ orgList: [twin] });
 
-    const result = await executeSystemPlay("ws-1", "system:create-org", {
+    const result = await executeRecordAction("ws-1", "system:create-org", {
       name: "harbor financial",
     });
 
@@ -361,7 +361,7 @@ describe("executeSystemPlay create-org", () => {
       websiteUrl: "https://createdbysalt.com",
     });
 
-    const result = await executeSystemPlay("ws-1", "system:create-org", {
+    const result = await executeRecordAction("ws-1", "system:create-org", {
       name: "Acme Studio",
       domain: "acme-studio.com",
     });
@@ -374,7 +374,7 @@ describe("executeSystemPlay create-org", () => {
   });
 });
 
-describe("executeSystemPlay create-work", () => {
+describe("executeRecordAction create-work", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -399,7 +399,7 @@ describe("executeSystemPlay create-work", () => {
       return createQueryBuilder({ data: null, error: null });
     });
 
-    const result = await executeSystemPlay("ws-1", "system:create-work", {
+    const result = await executeRecordAction("ws-1", "system:create-work", {
       name: "Photon Website",
     });
 
@@ -460,7 +460,7 @@ describe("executeSystemPlay create-work", () => {
       return createQueryBuilder({ data: null, error: null });
     });
 
-    const result = await executeSystemPlay("ws-1", "system:create-work", {
+    const result = await executeRecordAction("ws-1", "system:create-work", {
       name: "Photon Website",
       person_id: "11111111-1111-1111-1111-111111111111",
     });
@@ -479,7 +479,7 @@ describe("executeSystemPlay create-work", () => {
   });
 });
 
-describe("executeSystemPlay create-note", () => {
+describe("executeRecordAction create-note", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -494,7 +494,7 @@ describe("executeSystemPlay create-note", () => {
       return createQueryBuilder({ data: null, error: null });
     });
 
-    const result = await executeSystemPlay(
+    const result = await executeRecordAction(
       "ws-1",
       "system:create-note",
       {
@@ -522,7 +522,7 @@ describe("executeSystemPlay create-note", () => {
   });
 
   it("rejects notes scoped to spaces", async () => {
-    const result = await executeSystemPlay("ws-1", "system:create-note", {
+    const result = await executeRecordAction("ws-1", "system:create-note", {
       content: "Space note",
       target_type: "space",
       target_id: "22222222-2222-2222-2222-222222222222",
@@ -534,12 +534,12 @@ describe("executeSystemPlay create-note", () => {
   });
 });
 
-describe("executeSystemPlay archive-person", () => {
+describe("executeRecordAction archive-person", () => {
   it("uses archived_at for people archive", async () => {
     const peopleUpdate = createQueryBuilder({ data: null, error: null });
     mockFrom.mockReturnValue(peopleUpdate);
 
-    const result = await executeSystemPlay("ws-1", "system:archive-person", {
+    const result = await executeRecordAction("ws-1", "system:archive-person", {
       person_id: "11111111-1111-1111-1111-111111111111",
     });
 
@@ -554,7 +554,7 @@ describe("executeSystemPlay archive-person", () => {
   });
 });
 
-describe("executeSystemPlay create-billing (artifact-first)", () => {
+describe("executeRecordAction create-billing (artifact-first)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -586,7 +586,7 @@ describe("executeSystemPlay create-billing (artifact-first)", () => {
     const { billingInsert, resourcesBuilder, linksBuilder } =
       setupCreateBillingMocks();
 
-    const result = await executeSystemPlay("ws-1", "system:create-billing", {
+    const result = await executeRecordAction("ws-1", "system:create-billing", {
       direction: "receivable",
       amount_cents: 175000,
       number: "SALT-0044",
@@ -623,7 +623,7 @@ describe("executeSystemPlay create-billing (artifact-first)", () => {
   it("creates no artifact when app_url is absent", async () => {
     const { resourcesBuilder, linksBuilder } = setupCreateBillingMocks();
 
-    const result = await executeSystemPlay("ws-1", "system:create-billing", {
+    const result = await executeRecordAction("ws-1", "system:create-billing", {
       direction: "receivable",
       amount_cents: 5000,
     });

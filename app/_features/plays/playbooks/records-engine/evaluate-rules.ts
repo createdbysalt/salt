@@ -1,8 +1,8 @@
-import type { PersonSignals } from "@/app/_features/capture/services/system-plays/person-signals";
+import type { PersonSignals } from "@/app/_features/memory/records/person-signals";
 import {
   extractDomain,
   isPersonalDomain,
-} from "@/app/_features/capture/services/system-plays/person-signals";
+} from "@/app/_features/memory/records/person-signals";
 import type {
   PersonProfileFacts,
   ProfileFacts,

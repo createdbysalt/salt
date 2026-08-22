@@ -1,12 +1,12 @@
 import "server-only";
 
 import type { createAdminClient } from "@/app/_lib/supabase/admin";
-import type { SystemPlayTarget } from "./types";
+import type { RecordActionTarget } from "./types";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
 export type GuardableEntityType = Extract<
-  SystemPlayTarget,
+  RecordActionTarget,
   "person" | "org" | "work" | "space"
 >;
 
@@ -72,7 +72,7 @@ async function fetchGuardRow(
 
 /**
  * Verify an entity id belongs to the workspace before mutating or linking.
- * Required because executeSystemPlay uses the admin client (bypasses RLS).
+ * Required because executeRecordAction uses the admin client (bypasses RLS).
  */
 export async function assertEntityInWorkspace(
   admin: AdminClient,

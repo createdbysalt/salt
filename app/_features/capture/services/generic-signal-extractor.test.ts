@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
-vi.mock("./system-plays", () => ({ resolvePerson: vi.fn() }));
+vi.mock("@/app/_features/memory/records", () => ({ resolvePerson: vi.fn() }));
 
 import { extractSignalsGeneric } from "./generic-signal-extractor";
 import type { CaptureEnvelope } from "../adapters/types";

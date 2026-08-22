@@ -30,6 +30,7 @@ export interface CaptureFindingLink {
   finding_id: string;
   finding_type: string;
   finding_state: string;
+  finding_title?: string;
 }
 
 /** Findings that still appear as an active Plays / ledger link. */
@@ -163,11 +164,23 @@ export type IntelligenceStreamFilter =
 /**
  * New simplified capture categories for user-facing UI.
  * Maps the technical intelligence outcomes to user-friendly categories.
+ *
+ * "queued" (Triggered Play) is reserved for captures that actually
+ * dispatched a playbook trigger and produced a play_run. A scan finding
+ * is not a triggered play — it gets its own honest "finding" category.
  */
-export type CaptureCategory = "queued" | "no-signal" | "processing" | "error";
+export type CaptureCategory =
+  | "queued"
+  | "finding"
+  | "memory"
+  | "no-signal"
+  | "processing"
+  | "error";
 
 export const CAPTURE_CATEGORY_LABELS: Record<CaptureCategory, string> = {
   queued: "Triggered Play",
+  finding: "Needs Review",
+  memory: "Routed to Memory",
   "no-signal": "No Action",
   processing: "Processing",
   error: "Error",
@@ -175,6 +188,8 @@ export const CAPTURE_CATEGORY_LABELS: Record<CaptureCategory, string> = {
 
 export const CAPTURE_CATEGORY_DETAIL: Record<CaptureCategory, string> = {
   queued: "Triggered a play — check Plays",
+  finding: "Salt flagged this for your review — check Plays",
+  memory: "Added to Memory — check Memory",
   "no-signal": "Salt reviewed, no action needed",
   processing: "Still being analyzed",
   error: "Couldn't process this capture",
@@ -186,12 +201,16 @@ export const CAPTURE_CATEGORY_DETAIL: Record<CaptureCategory, string> = {
 export function mapOutcomeToCategory(outcome: CaptureIntelligenceOutcome): CaptureCategory {
   switch (outcome) {
     case "finding_created":
-      return "queued";
+      return "finding";
+    // Routed is a real action — the capture fed Memory (a record, evidence,
+    // or a watched entity). Rendering it as "No Action" was dishonest:
+    // Stripe/QuickBooks/Cal.com captures routed into Memory looked ignored.
+    case "routed":
+      return "memory";
     case "no_signal":
     // signal_unrouted is honest "no action": nothing was queued for the user —
     // the held-sender pool surfaces the sender if they keep showing up.
     case "signal_unrouted":
-    case "routed":
     case "dismissed":
       return "no-signal";
     case "awaiting_scan":
@@ -234,6 +253,18 @@ export function categoryFromEnrichment(
   const dispatched = enrichedMetadata.plays_dispatched ?? [];
   if (dispatched.length > 0) {
     return "queued";
+  }
+
+  // A scan finding is a real queue card even when no playbook fired —
+  // never let enrichment demote it to "No Action".
+  if (fallbackOutcome === "finding_created") {
+    return "finding";
+  }
+
+  // Enriched, no play dispatched — but a gate-routed capture still fed
+  // Memory. Routing beats the enrichment fallback.
+  if (fallbackOutcome === "routed") {
+    return "memory";
   }
 
   // Enriched but nothing dispatched — Salt reviewed, no action taken.

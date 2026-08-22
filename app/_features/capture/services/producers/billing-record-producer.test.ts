@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockMemoryUpdateField = vi.fn();
 const mockRunCareForSignal = vi.fn();
+const mockRouteIntakeProposal = vi.fn();
+const mockShouldAutoApply = vi.fn();
 
 type Filter = [string, string, unknown];
 let billingRows: Array<Record<string, unknown>> = [];
@@ -65,6 +67,12 @@ vi.mock("@/app/_lib/memory-tools", () => ({
 }));
 vi.mock("@/app/_features/memory/care/scheduler", () => ({
   runCareForSignal: (...args: unknown[]) => mockRunCareForSignal(...args),
+}));
+vi.mock("@/app/_features/memory/evidence/route-intake-proposal", () => ({
+  routeIntakeProposal: (...args: unknown[]) => mockRouteIntakeProposal(...args),
+}));
+vi.mock("../intelligence/record-capture-outcome", () => ({
+  shouldAutoApply: (...args: unknown[]) => mockShouldAutoApply(...args),
 }));
 
 import { produceBillingRecordSignals } from "./billing-record-producer";
@@ -130,6 +138,8 @@ describe("produceBillingRecordSignals", () => {
     orgLinkRows = [{ organization_id: "org-1" }];
     mockMemoryUpdateField.mockResolvedValue({ action: "applied" });
     mockRunCareForSignal.mockResolvedValue([]);
+    mockRouteIntakeProposal.mockResolvedValue({ outcome: "suggested", evidenceId: "ev-1" });
+    mockShouldAutoApply.mockResolvedValue(false);
   });
 
   it("matches by invoice number and corroborates the open record", async () => {
@@ -272,5 +282,171 @@ describe("produceBillingRecordSignals", () => {
     });
 
     expect(result).toEqual({ matched: false, writes: 0, reason: "no-amount" });
+  });
+
+  it("attests the matched record's person as a client on payment", async () => {
+    billingRows = [openBillingRow()];
+
+    await produceBillingRecordSignals({
+      workspaceId: WS,
+      envelope: paymentEnvelope(),
+      source: "stripe",
+    });
+
+    expect(mockRunCareForSignal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        signalKey: "has_payment_received",
+        entityType: "person",
+        entityId: "person-1",
+        evidence: expect.objectContaining({
+          signalValues: { has_payment_received: true },
+        }),
+      }),
+    );
+  });
+
+  it("attests the counterparty person even when no open record matches", async () => {
+    billingRows = [];
+
+    const result = await produceBillingRecordSignals({
+      workspaceId: WS,
+      envelope: paymentEnvelope(),
+      source: "stripe",
+    });
+
+    expect(result.matched).toBe(false);
+    expect(mockRunCareForSignal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        signalKey: "has_payment_received",
+        entityType: "person",
+        entityId: "person-1",
+      }),
+    );
+  });
+
+  it("does not attest when the payment is unpaid or the person is unknown", async () => {
+    billingRows = [openBillingRow()];
+
+    const unpaid = paymentEnvelope();
+    unpaid.extracted = { ...unpaid.extracted, status: "open", amount_paid: 0 };
+    await produceBillingRecordSignals({ workspaceId: WS, envelope: unpaid, source: "stripe" });
+
+    // Unknown counterparty and nothing to match against.
+    billingRows = [];
+    peopleRows = [];
+    await produceBillingRecordSignals({ workspaceId: WS, envelope: paymentEnvelope(), source: "stripe" });
+
+    const personAttestations = mockRunCareForSignal.mock.calls.filter(
+      ([arg]) => (arg as { signalKey: string }).signalKey === "has_payment_received",
+    );
+    expect(personAttestations).toHaveLength(0);
+  });
+
+  it("routes a work-lane proposal for the counterparty on every invoice", async () => {
+    billingRows = [openBillingRow()];
+
+    await produceBillingRecordSignals({
+      workspaceId: WS,
+      envelope: paymentEnvelope(),
+      source: "stripe",
+    });
+
+    expect(mockRouteIntakeProposal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workspaceId: WS,
+        entityType: "work",
+        identifier: "Jane Doe",
+        signals: ["invoice_line_items_suggest_project"],
+        autoApply: false,
+      }),
+    );
+  });
+
+  it("auto-applies the work proposal only when the workspace earned calibration", async () => {
+    mockShouldAutoApply.mockResolvedValue(true);
+    billingRows = [];
+
+    await produceBillingRecordSignals({
+      workspaceId: WS,
+      envelope: paymentEnvelope(),
+      source: "stripe",
+    });
+
+    expect(mockRouteIntakeProposal).toHaveBeenCalledWith(
+      expect.objectContaining({ entityType: "work", autoApply: true }),
+    );
+  });
+
+  it("skips the work proposal when no counterparty is identifiable", async () => {
+    const envelope = paymentEnvelope();
+    envelope.extracted = { ...envelope.extracted, customer_email: null, customer_name: null };
+
+    await produceBillingRecordSignals({ workspaceId: WS, envelope, source: "stripe" });
+
+    const workCalls = mockRouteIntakeProposal.mock.calls.filter(
+      ([arg]) => (arg as { entityType: string }).entityType === "work",
+    );
+    expect(workCalls).toHaveLength(0);
+  });
+
+  describe("unmatched invoice → billing suggestion", () => {
+    it("routes a receivable billing proposal when nothing matches", async () => {
+      await produceBillingRecordSignals({
+        workspaceId: WS,
+        envelope: paymentEnvelope(),
+        source: "stripe",
+      });
+
+      expect(mockRouteIntakeProposal).toHaveBeenCalledWith(
+        expect.objectContaining({
+          workspaceId: WS,
+          entityType: "billing",
+          identifier: "INV-0042",
+          signals: ["stripe_webhook_payment"],
+          autoApply: false,
+          extractedFields: expect.objectContaining({
+            amount_cents: expect.objectContaining({ value: "150000" }),
+            direction: expect.objectContaining({ value: "receivable" }),
+            number: expect.objectContaining({ value: "INV-0042" }),
+            due_at: expect.objectContaining({ value: "2026-08-15T00:00:00.000Z" }),
+            app_url: expect.objectContaining({ value: "https://invoice.stripe.com/i/123" }),
+          }),
+        }),
+      );
+    });
+
+    it("does not suggest when the invoice number is tracked in a non-open status", async () => {
+      // A paid record falls through the open-status matcher — suggesting it
+      // again would duplicate the record.
+      billingRows = [{ ...openBillingRow(), number: "INV-0042", status: "paid" }];
+
+      await produceBillingRecordSignals({
+        workspaceId: WS,
+        envelope: paymentEnvelope(),
+        source: "stripe",
+      });
+
+      const billingCalls = mockRouteIntakeProposal.mock.calls.filter(
+        ([arg]) => (arg as { entityType: string }).entityType === "billing",
+      );
+      expect(billingCalls).toHaveLength(0);
+    });
+
+    it("does not suggest when this capture already birthed a record", async () => {
+      billingRows = [
+        { ...openBillingRow(), status: "paid", number: "INV-OTHER", source_external_id: "in_123" },
+      ];
+
+      await produceBillingRecordSignals({
+        workspaceId: WS,
+        envelope: paymentEnvelope(),
+        source: "stripe",
+      });
+
+      const billingCalls = mockRouteIntakeProposal.mock.calls.filter(
+        ([arg]) => (arg as { entityType: string }).entityType === "billing",
+      );
+      expect(billingCalls).toHaveLength(0);
+    });
   });
 });

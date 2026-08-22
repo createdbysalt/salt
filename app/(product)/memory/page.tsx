@@ -14,7 +14,6 @@ import type { MemoryCustomizeScope } from "@/app/_features/memory/customize/defa
 import { listActiveCustomizeEntriesByType } from "@/app/_features/memory/customize/queries";
 import { getLearningEvidence } from "@/app/_features/memory/queries/learning-evidence";
 import { getHandledWrites } from "@/app/_features/memory/queries/handled-items";
-import { getRecordCandidates } from "@/app/_features/memory/queries/record-candidates";
 import { getCareThreshold } from "@/app/_features/memory/care/settings";
 import { getLearnedWeights } from "@/app/_features/memory/care/actions";
 import { resolveMockContentEnabled } from "@/app/_lib/demo/mock-content";
@@ -27,16 +26,14 @@ async function MemoryGraphSection({ workspaceId }: { workspaceId: string }) {
 }
 
 async function MemoryFilterSection({ workspaceId }: { workspaceId: string }) {
-  const [evidence, handledWrites, recordCandidates] = await Promise.all([
+  const [evidence, handledWrites] = await Promise.all([
     getLearningEvidence(workspaceId),
     getHandledWrites(workspaceId),
-    getRecordCandidates(workspaceId),
   ]);
   return (
     <FilterTab
       evidence={evidence}
       handledWrites={handledWrites}
-      recordCandidates={recordCandidates}
       workspaceId={workspaceId}
     />
   );

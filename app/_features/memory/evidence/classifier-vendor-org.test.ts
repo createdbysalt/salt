@@ -12,8 +12,8 @@ function emptyTable() {
   return builder;
 }
 
-vi.mock("@/app/_lib/supabase/server", () => ({
-  createClient: async () => ({ from: () => emptyTable() }),
+vi.mock("@/app/_lib/supabase/admin", () => ({
+  createAdminClient: () => ({ from: () => emptyTable() }),
 }));
 
 import { classifyEmailCapture } from "./classifier";

@@ -16,7 +16,7 @@ import {
   firstParticipantEmailEntity,
   verbatimEntity,
 } from "../feedback-entity";
-import type { PersonSignals } from "@/app/_features/capture/services/system-plays/person-signals";
+import type { PersonSignals } from "@/app/_features/memory/records/person-signals";
 import type { DerivedPersonFields } from "@/app/_features/capture/services/producers/person-field-types";
 import type {
   DerivedMeetingAttendee,

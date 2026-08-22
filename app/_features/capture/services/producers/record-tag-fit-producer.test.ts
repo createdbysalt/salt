@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockMemoryGetFacts = vi.fn();
 const mockRunCareForSignal = vi.fn();
-const mockExecuteSystemPlay = vi.fn();
+const mockExecuteRecordActionDefinition = vi.fn();
 
 let tagRows: Array<{ id: string; slug: string; label: string; scope: string }> = [];
 let assignmentRows: Array<{ tag_id: string }> = [];
@@ -33,8 +33,8 @@ vi.mock("@/app/_lib/memory-tools", () => ({
 vi.mock("@/app/_features/memory/care/scheduler", () => ({
   runCareForSignal: (...args: unknown[]) => mockRunCareForSignal(...args),
 }));
-vi.mock("@/app/_features/capture/services/system-plays/executor", () => ({
-  executeSystemPlay: (...args: unknown[]) => mockExecuteSystemPlay(...args),
+vi.mock("@/app/_features/memory/records/executor", () => ({
+  executeRecordAction: (...args: unknown[]) => mockExecuteRecordActionDefinition(...args),
 }));
 
 import { produceRecordTagFits } from "./record-tag-fit-producer";
@@ -47,7 +47,7 @@ describe("produceRecordTagFits", () => {
     tagRows = [];
     assignmentRows = [];
     mockRunCareForSignal.mockResolvedValue([]);
-    mockExecuteSystemPlay.mockResolvedValue({ success: true });
+    mockExecuteRecordActionDefinition.mockResolvedValue({ success: true });
     mockMemoryGetFacts.mockResolvedValue({ facts: {}, signals: {} });
   });
 
@@ -69,7 +69,7 @@ describe("produceRecordTagFits", () => {
     expect(mockMemoryGetFacts).toHaveBeenCalledWith(
       expect.objectContaining({ entityType: "organization", entityId: "org-1" }),
     );
-    expect(mockExecuteSystemPlay).toHaveBeenCalledWith(WS, "system:assign-tag", {
+    expect(mockExecuteRecordActionDefinition).toHaveBeenCalledWith(WS, "system:assign-tag", {
       entity_type: "org",
       entity_id: "org-1",
       tag_label: "VIP",
@@ -133,7 +133,7 @@ describe("produceRecordTagFits", () => {
     });
 
     expect(result.assigned).toEqual([]);
-    expect(mockExecuteSystemPlay).not.toHaveBeenCalled();
+    expect(mockExecuteRecordActionDefinition).not.toHaveBeenCalled();
   });
 
   it("skips tags already assigned to the entity", async () => {
@@ -152,7 +152,7 @@ describe("produceRecordTagFits", () => {
     });
 
     expect(result.assigned).toEqual([]);
-    expect(mockExecuteSystemPlay).not.toHaveBeenCalled();
+    expect(mockExecuteRecordActionDefinition).not.toHaveBeenCalled();
   });
 
   it("respects scope: billing and resource ignore all-scoped tags", async () => {

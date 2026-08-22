@@ -2,10 +2,10 @@ import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { runCareForSignal } from "@/app/_features/memory/care/scheduler";
 import { memoryUpdateField } from "@/app/_lib/memory-tools";
 import { getFieldsForEntity } from "@/app/_features/memory/taxonomy/field-registry";
-import { isPersonalDomain } from "@/app/_features/capture/services/system-plays/person-signals";
-import { resolvePerson } from "@/app/_features/capture/services/system-plays/person-resolver";
-import { linkPersonToOrg } from "@/app/_features/capture/services/system-plays/org-resolver";
-import { executeSystemPlay } from "@/app/_features/capture/services/system-plays/executor";
+import { isPersonalDomain } from "@/app/_features/memory/records/person-signals";
+import { resolvePerson } from "@/app/_features/memory/records/person-resolver";
+import { linkPersonToOrg } from "@/app/_features/memory/records/org-resolver";
+import { executeRecordAction } from "@/app/_features/memory/records/executor";
 import {
   ORG_FIELD_SIGNAL_KEYS,
   type DerivedOrgFields,
@@ -281,7 +281,7 @@ export async function produceOrgFieldSignals(input: {
 
   let orgCreated = false;
   if (!org && kind === "domain" && input.fields.name) {
-    const created = await executeSystemPlay(input.workspaceId, "system:create-org", {
+    const created = await executeRecordAction(input.workspaceId, "system:create-org", {
       name: input.fields.name,
       domain: value,
     });

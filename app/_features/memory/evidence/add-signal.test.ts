@@ -128,8 +128,8 @@ const h = vi.hoisted(() => {
   };
 });
 
-vi.mock("@/app/_lib/supabase/server", () => ({
-  createClient: async () => h.fakeSupabase(),
+vi.mock("@/app/_lib/supabase/admin", () => ({
+  createAdminClient: () => h.fakeSupabase(),
 }));
 
 vi.mock("@/app/_lib/supabase/admin", () => ({
@@ -140,7 +140,7 @@ vi.mock("./auto-create-record", () => ({
   autoCreateRecord: h.autoCreateRecord,
 }));
 
-import { addSignalToEvidence } from "./actions";
+import { addSignalToEvidence } from "./add-signal";
 import type { ExtractedFieldValue } from "./types";
 
 function seedEvidence(overrides: Partial<EvidenceRow>): EvidenceRow {

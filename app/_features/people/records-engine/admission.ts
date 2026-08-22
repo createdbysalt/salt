@@ -1,5 +1,5 @@
-import { isPersonalDomain } from "@/app/_features/capture/services/system-plays/person-signals";
-import type { RelationshipType } from "@/app/_features/capture/services/system-plays/types";
+import { isPersonalDomain } from "@/app/_features/memory/records/person-signals";
+import type { RelationshipType } from "@/app/_features/memory/records/types";
 import type {
   ExistingPersonCandidate,
   RecordsClassification,

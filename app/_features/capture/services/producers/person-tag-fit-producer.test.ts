@@ -25,12 +25,12 @@ vi.mock("@/app/_features/memory/care/scheduler", () => ({
   runCareForSignal: (input: unknown) => runCareForSignalMock(input),
 }));
 
-const executeSystemPlayMock = vi.fn(
+const executeRecordActionMock = vi.fn(
   async (_ws: string, _slug: string, _input: unknown) => ({ success: true }),
 );
-vi.mock("../system-plays/executor", () => ({
-  executeSystemPlay: (...args: unknown[]) =>
-    executeSystemPlayMock(...(args as [string, string, unknown])),
+vi.mock("@/app/_features/memory/records/executor", () => ({
+  executeRecordAction: (...args: unknown[]) =>
+    executeRecordActionMock(...(args as [string, string, unknown])),
 }));
 
 interface AdminState {
@@ -92,7 +92,7 @@ describe("producePersonTagFits", () => {
     });
 
     expect(result.assigned).toEqual(["VIP"]);
-    expect(executeSystemPlayMock).toHaveBeenCalledWith(
+    expect(executeRecordActionMock).toHaveBeenCalledWith(
       "ws-1",
       "system:assign-tag",
       expect.objectContaining({
@@ -129,7 +129,7 @@ describe("producePersonTagFits", () => {
     });
 
     expect(result.assigned).toEqual([]);
-    expect(executeSystemPlayMock).not.toHaveBeenCalled();
+    expect(executeRecordActionMock).not.toHaveBeenCalled();
   });
 
   it("skips tags already assigned to the person", async () => {
@@ -148,7 +148,7 @@ describe("producePersonTagFits", () => {
     });
 
     expect(result.assigned).toEqual([]);
-    expect(executeSystemPlayMock).not.toHaveBeenCalled();
+    expect(executeRecordActionMock).not.toHaveBeenCalled();
   });
 
   it("does nothing when the fit rule does not clear", async () => {
@@ -167,7 +167,7 @@ describe("producePersonTagFits", () => {
     });
 
     expect(result.assigned).toEqual([]);
-    expect(executeSystemPlayMock).not.toHaveBeenCalled();
+    expect(executeRecordActionMock).not.toHaveBeenCalled();
   });
 
   it("ignores tags scoped away from people", async () => {

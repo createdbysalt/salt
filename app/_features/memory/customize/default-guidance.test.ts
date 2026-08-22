@@ -128,9 +128,10 @@ describe("defaultGuidanceForType", () => {
     expect(allLines).toMatch(/never/i);
   });
 
-  it("meetings ships thin, honest copy (content deepens later)", () => {
+  it("meetings copy reflects direct calendar birth (no growing hedge)", () => {
     const guidance = defaultGuidanceForType("meeting");
-    expect(guidance.summary).toMatch(/still growing|growing/i);
+    expect(guidance.summary).toMatch(/become records automatically/i);
+    expect(guidance.summary).not.toMatch(/still growing/i);
   });
 
   it("me ships honest copy: one record, no birth, suggestions need your yes", () => {

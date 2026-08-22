@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockRunCareForSignal = vi.fn();
-const mockExecuteSystemPlay = vi.fn();
+const mockExecuteRecordActionDefinition = vi.fn();
 const mockMemoryUpdateField = vi.fn();
 
 type Filter = [string, string, unknown];
@@ -85,7 +85,7 @@ vi.mock(
   () => ({ applyProfileFieldResults: vi.fn() }),
 );
 vi.mock("./executor", () => ({
-  executeSystemPlay: (...args: unknown[]) => mockExecuteSystemPlay(...args),
+  executeRecordAction: (...args: unknown[]) => mockExecuteRecordActionDefinition(...args),
 }));
 vi.mock("./corroboration", () => ({
   countCorroboratingCategories: async () => 0,
@@ -101,7 +101,7 @@ describe("resolvePerson — name-only twin adoption", () => {
     emailMatches = [];
     nameOnlyTwins = [];
     lastIlike = null;
-    mockExecuteSystemPlay.mockResolvedValue({
+    mockExecuteRecordActionDefinition.mockResolvedValue({
       success: true,
       entity_id: "person-new",
     });
@@ -137,7 +137,7 @@ describe("resolvePerson — name-only twin adoption", () => {
         }),
       }),
     );
-    expect(mockExecuteSystemPlay).not.toHaveBeenCalled();
+    expect(mockExecuteRecordActionDefinition).not.toHaveBeenCalled();
   });
 
   it("matches the twin name case-insensitively", async () => {
@@ -168,7 +168,7 @@ describe("resolvePerson — name-only twin adoption", () => {
       person_id: "person-new",
       is_new: true,
     });
-    expect(mockExecuteSystemPlay).toHaveBeenCalledWith(
+    expect(mockExecuteRecordActionDefinition).toHaveBeenCalledWith(
       WS,
       "system:create-person",
       expect.objectContaining({ email: "jane@acme.com" }),
@@ -182,7 +182,7 @@ describe("resolvePerson — name-only twin adoption", () => {
     const result = await resolvePerson(WS, { email: "jane@acme.com" });
 
     expect(result.person_id).toBe("person-new");
-    expect(mockExecuteSystemPlay).toHaveBeenCalled();
+    expect(mockExecuteRecordActionDefinition).toHaveBeenCalled();
     expect(mockRunCareForSignal).not.toHaveBeenCalled();
   });
 

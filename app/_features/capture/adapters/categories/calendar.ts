@@ -11,7 +11,7 @@ import type {
   EnvelopeParticipant,
   SignalDerivationContext,
 } from "../types";
-import type { PersonSignals } from "@/app/_features/capture/services/system-plays/person-signals";
+import type { PersonSignals } from "@/app/_features/memory/records/person-signals";
 import type { DerivedPersonFields } from "@/app/_features/capture/services/producers/person-field-types";
 import type { CaptureSourceType } from "@/app/_features/capture/types";
 import { emailEntity } from "../feedback-entity";

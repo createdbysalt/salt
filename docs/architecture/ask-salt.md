@@ -97,7 +97,7 @@ app/_features/ask-salt/
 ├── # Tool Modules
 ├── memory-tools.ts               # Memory CRUD tools
 ├── playbook-tools.ts             # Playbook interaction tools
-├── system-play-tools.ts          # System play execution
+├── memory-record-tools.ts        # Memory record-action execution
 ├── billing-tools.ts              # Billing record tools
 ├── file-tools.ts                 # File/resource tools
 ├── enrichment-tools.ts           # Entity enrichment tools
@@ -203,7 +203,7 @@ When context exceeds budget:
 | Category | Module | Description |
 |----------|--------|-------------|
 | **Memory** | `memory-tools.ts` | `remember_about_entity`, `update_entity_field`, `get_entity_facts`, `rollback_entity_field` |
-| **System Plays** | `system-play-tools.ts` | `memory_find_*`, `memory_create_*`, `memory_link_*`, `memory_archive_*`, `memory_update_*` |
+| **Record Actions** | `memory-record-tools.ts` | `memory_find_*`, `memory_create_*`, `memory_link_*`, `memory_archive_*`, `memory_update_*` |
 | **Playbooks** | `playbook-tools.ts` | `load_playbook`, `propose_play`, `adopt_playbook`, `get_play_run_status`, `draft_playbook` |
 | **Billing** | `billing-tools.ts` | `add_billing_record` |
 | **Files** | `file-tools.ts` | `memory_save_file` |

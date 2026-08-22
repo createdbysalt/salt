@@ -7,7 +7,7 @@ vi.mock("@/app/_lib/composio/connections", () => ({
 vi.mock("@/app/_lib/composio/actions", () => ({
   executeComposioAction: vi.fn(),
 }));
-vi.mock("./system-plays", () => ({ resolvePerson: vi.fn() }));
+vi.mock("@/app/_features/memory/records", () => ({ resolvePerson: vi.fn() }));
 vi.mock("./ingest-envelope", () => ({ ingestEnvelope: vi.fn() }));
 vi.mock("./cal-booking-processor", () => ({ processCalBookings: vi.fn() }));
 
@@ -64,7 +64,7 @@ import { unwrapItems, backfillDropboxCaptures } from "./connector-backfills";
 import { getConnectionStatusAdmin } from "@/app/_lib/composio/connections";
 import { executeComposioAction } from "@/app/_lib/composio/actions";
 import { ingestEnvelope } from "./ingest-envelope";
-import { resolvePerson } from "./system-plays";
+import { resolvePerson } from "@/app/_features/memory/records";
 import type { CaptureEnvelope } from "../adapters/types";
 
 /**

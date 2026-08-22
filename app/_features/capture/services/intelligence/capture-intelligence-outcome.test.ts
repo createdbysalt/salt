@@ -153,6 +153,22 @@ describe("capture-intelligence-outcome", () => {
     });
   });
 
+  describe("routed honesty (memory category)", () => {
+    it("maps routed to memory, not no-signal — the capture fed Memory", () => {
+      expect(mapOutcomeToCategory("routed")).toBe("memory");
+      expect(mapOutcomeToCategory("dismissed")).toBe("no-signal");
+    });
+
+    it("routing beats the enriched-but-undispatched fallback", () => {
+      expect(
+        categoryFromEnrichment(
+          { enriched_at: "2026-08-06T12:00:00.000Z", signals_matched: [], plays_dispatched: [] },
+          "routed"
+        )
+      ).toBe("memory");
+    });
+  });
+
   it("defaults to awaiting_scan for pending gmail captures", () => {
     expect(
       resolveCaptureIntelligenceOutcome({
@@ -161,6 +177,33 @@ describe("capture-intelligence-outcome", () => {
         routingState: "pending",
       })
     ).toBe("awaiting_scan");
+  });
+
+  describe("finding honesty (Needs Review category)", () => {
+    it("maps finding_created to finding, not queued — a scan finding is not a triggered play", () => {
+      expect(mapOutcomeToCategory("finding_created")).toBe("finding");
+    });
+
+    it("a finding survives enrichment with no dispatched plays", () => {
+      expect(
+        categoryFromEnrichment(
+          { enriched_at: "2026-08-06T12:00:00.000Z", signals_matched: [], plays_dispatched: [] },
+          "finding_created"
+        )
+      ).toBe("finding");
+    });
+
+    it("a real dispatched play still outranks a finding", () => {
+      expect(
+        categoryFromEnrichment(
+          {
+            enriched_at: "2026-08-06T12:00:00.000Z",
+            plays_dispatched: [{ play_slug: "follow-up", play_run_id: "r1" }],
+          },
+          "finding_created"
+        )
+      ).toBe("queued");
+    });
   });
 
   describe("categoryFromEnrichment", () => {

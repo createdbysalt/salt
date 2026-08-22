@@ -6,7 +6,7 @@ vi.mock("@/app/_lib/supabase/admin", () => ({
 vi.mock("./gates/admission-gate", () => ({
   checkCalendarRelationship: vi.fn(async () => false),
 }));
-vi.mock("./system-plays/person-resolver", () => ({
+vi.mock("@/app/_features/memory/records/person-resolver", () => ({
   resolvePerson: vi.fn(),
 }));
 

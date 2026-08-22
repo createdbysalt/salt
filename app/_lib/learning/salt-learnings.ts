@@ -32,7 +32,7 @@ export interface RecordSaltLearningInput {
 
 /**
  * Record that Salt applied a mutation. Called after a successful apply by
- * the decision pipeline, the system-plays executor, the protected memory
+ * the decision pipeline, the record-action executor, the protected memory
  * tools, and record birth (auto-create).
  */
 export async function recordSaltLearning(

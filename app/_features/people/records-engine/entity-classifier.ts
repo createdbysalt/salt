@@ -2,7 +2,7 @@ import {
   extractDomain,
   extractNameFromEmail,
   isPersonalDomain,
-} from "@/app/_features/capture/services/system-plays/person-signals";
+} from "@/app/_features/memory/records/person-signals";
 import type { RecordsClassification, RecordsInput } from "./types";
 
 const SYSTEM_SENDER_PREFIXES = [

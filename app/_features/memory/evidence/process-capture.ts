@@ -13,13 +13,16 @@ import { createAdminClient } from "@/app/_lib/supabase/admin";
 import type { Json } from "@/app/_lib/supabase/database.types";
 import {
   classifyEmailCapture,
+  classifyFileCapture,
   classifyMeetingCapture,
   type DetectedSignal,
   type EmailCaptureData,
+  type FileCaptureData,
   type MeetingCaptureData,
 } from "./classifier";
-import { addSignalToEvidence } from "./actions";
+import { addSignalToEvidence } from "./add-signal";
 import { routeIntakeProposal } from "./route-intake-proposal";
+import { extractCalendarInviteFromPayload } from "@/app/_features/capture/services/calendar-attachment-parser";
 import {
   logOddsToProbability,
   probabilityToLogOdds,
@@ -78,6 +81,26 @@ export async function processCaptureForEvidence(
     const emailData = extractEmailData(extracted, raw);
     if (emailData) {
       signals = await classifyEmailCapture(workspaceId, emailData, captureId);
+
+      // ICS attachment → meeting proposal. The email-analysis lane suppresses
+      // proposals from vendor-classified senders (Google Calendar
+      // notifications, Zoom), which is where most invite emails come from —
+      // detect the attachment here so invites land in Watching instead of
+      // "No action". Not a calendar-fact signal: the calibration gate
+      // decides suggest vs auto-create.
+      const calendarInvite = extractCalendarInviteFromPayload(raw);
+      if (calendarInvite) {
+        signals.push({
+          entityType: "meeting",
+          identifier: `ics:${captureId}`,
+          signal: "calendar_invite_received",
+          extractedData: {
+            title: calendarInvite.title,
+            datetime: calendarInvite.start_at,
+            organizer: emailData.from,
+          },
+        });
+      }
     }
   } else if (captureType === "meeting") {
     const meetingData = extractMeetingData(extracted, raw, {
@@ -89,6 +112,17 @@ export async function processCaptureForEvidence(
     });
     if (meetingData) {
       signals = await classifyMeetingCapture(workspaceId, meetingData, captureId);
+    }
+  } else if (captureType === "file") {
+    const fileData = extractFileData(extracted, raw, {
+      externalId:
+        capture.source_external_id ??
+        (raw.fileId as string | undefined) ??
+        (raw.dropboxId as string | undefined),
+      provider: capture.source_type,
+    });
+    if (fileData) {
+      signals = classifyFileCapture(fileData);
     }
   }
 
@@ -124,9 +158,22 @@ export async function processCaptureForEvidence(
 }
 
 /**
+ * Calendar-sourced meeting signals are objective facts — the event exists on
+ * the user's own calendar — not judgment calls. The earned-autonomy gate
+ * (P6) exists for inferences; mirroring the user's calendar is not one, so
+ * these bypass calibration and create directly. Email-inferred meeting
+ * signals (calendar_invite_received from ICS attachments) keep the gate.
+ */
+const CALENDAR_FACT_SIGNALS = new Set([
+  "calendar_event_created",
+  "zoom_invite_detected",
+]);
+
+/**
  * Route a meeting-entity signal into the intake tier: the signal's weight
- * becomes the proposal confidence, and the workspace's earned calibration
- * (shouldAutoApply) decides between direct creation and the suggested lane.
+ * becomes the proposal confidence. Calendar-fact signals auto-apply
+ * unconditionally; anything else defers to the workspace's earned
+ * calibration (shouldAutoApply).
  */
 async function routeMeetingSignal(
   workspaceId: string,
@@ -134,7 +181,9 @@ async function routeMeetingSignal(
   captureId: string
 ): Promise<AddSignalResult> {
   const confidence = logOddsToProbability(SIGNAL_WEIGHTS[signal.signal] ?? 0);
-  const autoApply = await shouldAutoApply(workspaceId, confidence);
+  const autoApply = CALENDAR_FACT_SIGNALS.has(signal.signal)
+    ? true
+    : await shouldAutoApply(workspaceId, confidence);
 
   const extractedFields: Record<string, ExtractedFieldValue> = {};
   for (const [key, value] of Object.entries(signal.extractedData)) {
@@ -283,6 +332,33 @@ function extractMeetingData(
       (raw.meeting_link as string) ||
       (raw.meeting_url as string) ||
       (raw.hangoutLink as string),
+    externalId: provenance.externalId,
+    provider: provenance.provider,
+  };
+}
+
+function extractFileData(
+  extracted: Record<string, unknown>,
+  raw: Record<string, unknown>,
+  provenance: { externalId?: string; provider?: string } = {}
+): FileCaptureData | null {
+  const fileName =
+    (extracted.file_name as string) ||
+    (extracted.name as string) ||
+    (raw.name as string) ||
+    (raw.file_name as string);
+
+  if (!fileName) return null;
+
+  return {
+    fileName,
+    mimeType: (extracted.mime_type as string) || (raw.mimeType as string),
+    ownerEmail: (extracted.owner_email as string) || undefined,
+    ownerName: (extracted.owner_name as string) || undefined,
+    webViewLink:
+      (extracted.web_view_link as string) || (raw.webViewLink as string),
+    folderPath: (extracted.folder_path as string) || undefined,
+    isFolder: Boolean(extracted.is_folder),
     externalId: provenance.externalId,
     provider: provenance.provider,
   };

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { ToolRiskClass } from "@/app/_lib/composio/tool-policy";
-import type { SystemPlaySlug } from "./types";
+import type { RecordActionSlug } from "./types";
 
 const uuidSchema = z.string().uuid();
 
@@ -633,17 +633,17 @@ export const createTagInputSchema = z.object({
 // TOOL SPECS
 // ============================================================================
 
-export interface SystemPlayToolSpec {
+export interface RecordActionDefinitionToolSpec {
   toolName: string;
   /** Play slug to execute; omitted for read-only lookup tools. */
-  slug?: SystemPlaySlug;
+  slug?: RecordActionSlug;
   description: string;
   schema: z.ZodType<unknown>;
   risk: ToolRiskClass;
   needsApproval: boolean;
 }
 
-export const SYSTEM_PLAY_TOOL_SPECS: SystemPlayToolSpec[] = [
+export const RECORD_ACTION_TOOL_SPECS: RecordActionDefinitionToolSpec[] = [
   {
     toolName: "memory_find_people",
     description:
@@ -1032,8 +1032,8 @@ export const SYSTEM_PLAY_TOOL_SPECS: SystemPlayToolSpec[] = [
 /** Lookup tools are separate from play slugs — keyed by toolName. */
 export const LOOKUP_TOOL_NAMES = ["memory_find_people", "memory_find_orgs", "memory_find_work", "memory_find_meetings", "memory_find_billing", "memory_find_files", "memory_find_me_facts", "memory_find_tags"] as const;
 
-export function getSystemPlayToolSpecByName(
+export function getRecordActionToolSpecByName(
   toolName: string,
-): SystemPlayToolSpec | undefined {
-  return SYSTEM_PLAY_TOOL_SPECS.find((spec) => spec.toolName === toolName);
+): RecordActionDefinitionToolSpec | undefined {
+  return RECORD_ACTION_TOOL_SPECS.find((spec) => spec.toolName === toolName);
 }

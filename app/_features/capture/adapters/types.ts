@@ -3,7 +3,7 @@ import type {
   CaptureSourceType,
 } from "@/app/_features/capture/types";
 import type { CaptureNoiseInput } from "@/app/_features/capture/services/intelligence/capture-noise";
-import type { PersonSignals } from "@/app/_features/capture/services/system-plays/person-signals";
+import type { PersonSignals } from "@/app/_features/memory/records/person-signals";
 import type { DerivedPersonFields } from "@/app/_features/capture/services/producers/person-field-types";
 import type { DerivedRecordSignals } from "@/app/_features/capture/services/producers/record-field-types";
 

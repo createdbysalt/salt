@@ -36,10 +36,16 @@ function getGmailHeaders(
   rawPayload: Record<string, unknown>
 ): Array<{ name: string; value: string }> {
   const nestedPayload = rawPayload.payload as Record<string, unknown> | undefined;
-  const headers =
-    (nestedPayload?.headers as Array<{ name: string; value: string }> | undefined) ??
-    (rawPayload.headers as Array<{ name: string; value: string }> | undefined);
-  return headers ?? [];
+  const headers = nestedPayload?.headers ?? rawPayload.headers;
+  // Some writers store headers as a name→value map, not the Gmail array
+  // shape — normalize so callers can always iterate.
+  if (Array.isArray(headers)) return headers;
+  if (headers && typeof headers === "object") {
+    return Object.entries(headers as Record<string, unknown>)
+      .filter(([, value]) => typeof value === "string")
+      .map(([name, value]) => ({ name, value: value as string }));
+  }
+  return [];
 }
 
 function decodeBase64Url(data: string): string {
@@ -109,11 +115,26 @@ function fromExtractedData(
  * non-Gmail sources, a raw_payload that carries no headers to fall back on.
  */
 function fromAdapterExtracted(extracted: Record<string, unknown>): CaptureEmailFields | null {
-  const senderEmail =
+  let senderEmail =
     typeof extracted.sender_email === "string" && extracted.sender_email.trim()
       ? extracted.sender_email.trim().toLowerCase()
       : null;
+
+  // Legacy Gmail envelope shape (pre sender_email rename): `from` carries a
+  // bare address or "Name <addr>", `fromName` the display name. Rows written
+  // before the rename otherwise fail extraction forever — deterministic
+  // scan_error on every pass.
+  let legacyFromName: string | null = null;
+  if (!senderEmail && typeof extracted.from === "string" && extracted.from.includes("@")) {
+    const parsed = parseFromHeader(extracted.from);
+    senderEmail = parsed.from_email;
+    legacyFromName = parsed.from_name;
+  }
   if (!senderEmail) return null;
+
+  if (!legacyFromName && typeof extracted.fromName === "string" && extracted.fromName.trim()) {
+    legacyFromName = extracted.fromName.trim();
+  }
 
   const snippet = typeof extracted.snippet === "string" ? extracted.snippet : "";
   const toEmails = Array.isArray(extracted.to)
@@ -125,7 +146,7 @@ function fromAdapterExtracted(extracted: Record<string, unknown>): CaptureEmailF
     from_name:
       typeof extracted.sender_name === "string" && extracted.sender_name.trim()
         ? extracted.sender_name.trim()
-        : null,
+        : legacyFromName,
     to_emails: toEmails.map((e) => e.trim().toLowerCase()),
     subject: typeof extracted.subject === "string" ? extracted.subject : "",
     snippet,

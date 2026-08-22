@@ -1,5 +1,5 @@
-import type { PersonSignals } from "@/app/_features/capture/services/system-plays/person-signals";
-import type { RelationshipType } from "@/app/_features/capture/services/system-plays/types";
+import type { PersonSignals } from "@/app/_features/memory/records/person-signals";
+import type { RelationshipType } from "@/app/_features/memory/records/types";
 import type {
   ProfileFillRulesDocument,
   ProfilePlaybookSettings,

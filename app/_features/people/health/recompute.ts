@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { RelationshipType } from "@/app/_features/capture/services/system-plays/types";
+import type { RelationshipType } from "@/app/_features/memory/records/types";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import type { Json } from "@/app/_lib/supabase/database.types";
 import { logHealthChangeLifecycleEvent } from "@/app/_features/memory/health/log-health-lifecycle-event";

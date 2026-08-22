@@ -57,6 +57,23 @@ describe("coerceEmailAnalysis", () => {
     expect(result.findings).toEqual([]);
     expect(result.is_noise).toBe(false);
   });
+
+  it("drops malformed finding items instead of sinking the whole analysis", () => {
+    // Live staging failure (Aug 2026 backlog drain): the LLM returned
+    // findings missing `type`/`title`; the strict array parse threw and the
+    // capture was stamped scan_error despite a usable sibling finding.
+    const result = coerceEmailAnalysis({
+      is_noise: false,
+      findings: [
+        { confidence: 80, content: "missing type and title" },
+        { type: "pending_question", title: "Client asked about timeline", confidence: 88 },
+        { type: "not_a_real_type", title: "bad enum", confidence: 50 },
+      ],
+    });
+
+    expect(result.findings).toHaveLength(1);
+    expect(result.findings[0]?.type).toBe("pending_question");
+  });
 });
 
 describe("memory context in the analysis prompt", () => {

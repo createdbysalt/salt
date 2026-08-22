@@ -13,7 +13,7 @@ const CaptureStreamPageSchema = z
     pageSize: z.union([z.literal(25), z.literal(50), z.literal(100)]),
     search: z.string().trim().max(200).optional(),
     state: z
-      .enum(["all", "queued", "watching", "no-signal", "processing", "error", "kept-out"])
+      .enum(["all", "queued", "finding", "memory", "watching", "no-signal", "processing", "error", "kept-out"])
       .optional(),
     area: z
       .enum([

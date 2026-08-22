@@ -20,6 +20,7 @@ import {
   buildExecutionContextV2,
   executePlaybookV2,
 } from "@/app/_features/plays/playbooks/schema/v2/executor";
+import { updateCaptureWithDispatchResults } from "@/app/_features/plays/playbooks/trigger-dispatch";
 import { resolveWorkspaceActor } from "@/app/_features/plays/services/workspace-actor";
 import {
   recordInlineToolExecutions,
@@ -129,6 +130,29 @@ export async function runEmailTriageHook(params: {
     },
     toolSlugs: toolsExecuted,
   });
+
+  // Reflect the run on the capture so Sources → Activity shows "Triggered
+  // Play" instead of "No action" for triaged mail. The entity-signal
+  // dispatch path already does this; the triage hook bypasses it because
+  // classification is capture-scoped.
+  if (result.playRunIds?.length) {
+    try {
+      await updateCaptureWithDispatchResults(
+        captureId,
+        result.playRunIds.map((playRunId) => ({
+          success: true,
+          playbookSlug: TRIAGE_PLAYBOOK_SLUG,
+          playRunId,
+        }))
+      );
+    } catch (dispatchError) {
+      console.warn(
+        "[email-triage-hook] Failed to record plays_dispatched for %s:",
+        captureId,
+        dispatchError instanceof Error ? dispatchError.message : dispatchError
+      );
+    }
+  }
 
   return {
     ran: true,

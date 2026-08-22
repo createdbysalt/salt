@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ToolCallOptions } from "ai";
-import { buildSystemPlayTools } from "./system-play-tools";
+import { buildMemoryRecordTools } from "./memory-record-tools";
 
 vi.mock("@/app/_lib/composio/execution-log", () => ({
   logToolExecution: vi.fn(async () => undefined),
@@ -10,15 +10,15 @@ vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
 }));
 
-vi.mock("@/app/_features/capture/services/system-plays/executor", () => ({
-  executeSystemPlay: vi.fn(async () => ({
+vi.mock("@/app/_features/memory/records/executor", () => ({
+  executeRecordAction: vi.fn(async () => ({
     success: true,
     entity_id: "person-1",
     entity_type: "person",
   })),
 }));
 
-vi.mock("@/app/_features/capture/services/system-plays/lookups", () => ({
+vi.mock("@/app/_features/memory/records/lookups", () => ({
   findPeople: vi.fn(async () => [{ id: "person-1", name: "Jane", email: null, relationship_type: null }]),
   findOrgs: vi.fn(async () => []),
 }));
@@ -59,19 +59,19 @@ vi.mock("@/app/_lib/supabase/admin", () => ({
   })),
 }));
 
-import { executeSystemPlay } from "@/app/_features/capture/services/system-plays/executor";
-import { findPeople } from "@/app/_features/capture/services/system-plays/lookups";
+import { executeRecordAction } from "@/app/_features/memory/records/executor";
+import { findPeople } from "@/app/_features/memory/records/lookups";
 import { logToolExecution } from "@/app/_lib/composio/execution-log";
 
 const callOptions = { toolCallId: "call-1", messages: [] } as ToolCallOptions;
 
-describe("buildSystemPlayTools", () => {
+describe("buildMemoryRecordTools", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   it("registers memory tools including lookups and mutators", () => {
-    const tools = buildSystemPlayTools({
+    const tools = buildMemoryRecordTools({
       workspaceId: "ws-1",
       userId: "user-1",
     });
@@ -82,8 +82,8 @@ describe("buildSystemPlayTools", () => {
     expect(tools.memory_create_person?.needsApproval).toBeUndefined();
   });
 
-  it("runs lookup tools without executeSystemPlay", async () => {
-    const tools = buildSystemPlayTools({ workspaceId: "ws-1", userId: "user-1" });
+  it("runs lookup tools without executeRecordAction", async () => {
+    const tools = buildMemoryRecordTools({ workspaceId: "ws-1", userId: "user-1" });
     const result = await tools.memory_find_people?.execute?.(
       { query: "Jane" },
       callOptions,
@@ -93,17 +93,17 @@ describe("buildSystemPlayTools", () => {
     expect(result).toEqual([
       { id: "person-1", name: "Jane", email: null, relationship_type: null },
     ]);
-    expect(executeSystemPlay).not.toHaveBeenCalled();
+    expect(executeRecordAction).not.toHaveBeenCalled();
   });
 
   it("executes create person and logs audit", async () => {
-    const tools = buildSystemPlayTools({ workspaceId: "ws-1", userId: "user-1" });
+    const tools = buildMemoryRecordTools({ workspaceId: "ws-1", userId: "user-1" });
     await tools.memory_create_person?.execute?.(
       { email: "jane@acme.com" },
       callOptions,
     );
 
-    expect(executeSystemPlay).toHaveBeenCalledWith(
+    expect(executeRecordAction).toHaveBeenCalledWith(
       "ws-1",
       "system:create-person",
       expect.objectContaining({ name: "Jane", email: "jane@acme.com" }),
@@ -128,7 +128,7 @@ describe("buildSystemPlayTools", () => {
       },
     ]);
 
-    const tools = buildSystemPlayTools({ workspaceId: "ws-1", userId: "user-1" });
+    const tools = buildMemoryRecordTools({ workspaceId: "ws-1", userId: "user-1" });
     const result = await tools.memory_create_person?.execute?.(
       {
         name: "Maya Chen",
@@ -139,17 +139,17 @@ describe("buildSystemPlayTools", () => {
     );
 
     expect(result).toMatchObject({ action: "suggest_merge", success: true });
-    expect(executeSystemPlay).not.toHaveBeenCalled();
+    expect(executeRecordAction).not.toHaveBeenCalled();
   });
 
   it("creates a person with name only (no email)", async () => {
-    const tools = buildSystemPlayTools({ workspaceId: "ws-1", userId: "user-1" });
+    const tools = buildMemoryRecordTools({ workspaceId: "ws-1", userId: "user-1" });
     await tools.memory_create_person?.execute?.(
       { name: "Liam Gillies", organization_name: "Acme Studio" },
       callOptions,
     );
 
-    expect(executeSystemPlay).toHaveBeenCalledWith(
+    expect(executeRecordAction).toHaveBeenCalledWith(
       "ws-1",
       "system:create-person",
       expect.objectContaining({ name: "Liam Gillies" }),
@@ -158,7 +158,7 @@ describe("buildSystemPlayTools", () => {
   });
 
   it("returns a clear error for empty create-person input", async () => {
-    const tools = buildSystemPlayTools({ workspaceId: "ws-1", userId: "user-1" });
+    const tools = buildMemoryRecordTools({ workspaceId: "ws-1", userId: "user-1" });
 
     const result = (await tools.memory_create_person?.execute?.({}, callOptions)) as {
       success: boolean;

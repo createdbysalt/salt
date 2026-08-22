@@ -1,19 +1,26 @@
 /**
- * System Plays Module
+ * Memory Records Module
  *
- * Exports the system plays infrastructure for entity resolution and core operations.
+ * The record-creation engine for Memory: entity resolution (person/org
+ * lookup-or-birth) plus the core record operations every lane composes
+ * from — intake scan, evidence auto-create, Ask Salt tools, playbooks.
+ *
+ * Retired 2026-08-17: this module was formerly `capture/services/system-plays`
+ * ("System Plays"). The concept retired; the engine remained and moved here.
+ * Slug strings ("system:create-org", …) persist in stored proposal JSON, so
+ * they stay as opaque identifiers — new code should not treat them as plays.
  *
  * Usage:
- *   import { executeSystemPlay, resolvePerson, resolveOrg } from "@/app/_features/capture/services/system-plays";
+ *   import { executeRecordAction, resolvePerson, resolveOrg } from "@/app/_features/memory/records";
  */
 
 // Types
 export type {
-  SystemPlaySlug,
-  SystemPlayAction,
-  SystemPlayTarget,
-  SystemPlay,
-  SystemPlayResult,
+  RecordActionSlug,
+  RecordActionKind,
+  RecordActionTarget,
+  RecordActionDefinition,
+  RecordActionResult,
   RelationshipType,
   CreatePersonInput,
   UpdatePersonInput,
@@ -45,7 +52,7 @@ export type {
 } from "./types";
 
 // Executor
-export { executeSystemPlay } from "./executor";
+export { executeRecordAction } from "./executor";
 
 // Workspace guard & lookups
 export {
@@ -58,8 +65,8 @@ export type { PersonLookupRow, OrgLookupRow, MeetingLookupRow, BillingLookupRow,
 
 // Schemas (Ask Salt tool contracts)
 export {
-  SYSTEM_PLAY_TOOL_SPECS,
-  getSystemPlayToolSpecByName,
+  RECORD_ACTION_TOOL_SPECS,
+  getRecordActionToolSpecByName,
 } from "./schemas";
 
 // Person resolution

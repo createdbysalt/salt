@@ -78,6 +78,9 @@ const CARE_SIGNAL_MAP: Record<string, CareCapability[]> = {
   // linked people attest a live org (recordStatus rules).
   billing_amount_paid_covers_total: ["records"],
   org_has_payment_received: ["records"],
+  // Person-scoped counterpart: a paid payment attests the counterparty
+  // person is a client (relationshipType fill rule, field-registry).
+  has_payment_received: ["records"],
   org_has_people: ["records"],
   org_tax_id_extracted: ["records"],
   // Records: contract lifecycle — a contract-category resource linked to a

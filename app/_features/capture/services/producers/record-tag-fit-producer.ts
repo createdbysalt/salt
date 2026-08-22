@@ -16,7 +16,7 @@ import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { memoryGetFacts } from "@/app/_lib/memory-tools";
 import type { LearningEntityType } from "@/app/_lib/memory-tools";
 import { runCareForSignal } from "@/app/_features/memory/care/scheduler";
-import { executeSystemPlay } from "../system-plays/executor";
+import { executeRecordAction } from "@/app/_features/memory/records/executor";
 
 export type TagFitEntityType = "org" | "work" | "billing" | "resource";
 
@@ -148,7 +148,7 @@ export async function produceRecordTagFits(input: {
     if (!tag || assignedTagIds.has(tag.id)) continue;
     if (!rule.when({ facts: factValues, signals })) continue;
 
-    const result = await executeSystemPlay(workspaceId, "system:assign-tag", {
+    const result = await executeRecordAction(workspaceId, "system:assign-tag", {
       entity_type: entityType,
       entity_id: entityId,
       tag_label: tag.label,

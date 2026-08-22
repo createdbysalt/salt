@@ -32,8 +32,8 @@ import type { CaptureEnvelope } from "../adapters/types";
 import {
   PERSON_SIGNAL_KEYS,
   type PersonSignals,
-} from "./system-plays/person-signals";
-import { resolvePerson } from "./system-plays";
+} from "@/app/_features/memory/records/person-signals";
+import { resolvePerson } from "@/app/_features/memory/records";
 
 export type LlmCall = (_systemPrompt: string, _userPrompt: string) => Promise<string>;
 

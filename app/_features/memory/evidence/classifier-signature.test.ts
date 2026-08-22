@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
-vi.mock("@/app/_lib/supabase/server", () => ({
-  createClient: vi.fn(),
+vi.mock("@/app/_lib/supabase/admin", () => ({
+  createAdminClient: vi.fn(),
 }));
 // classifier imports the memory-care intake module for identifier
 // canonicalization; stub it so this test stays free of DB dependencies.

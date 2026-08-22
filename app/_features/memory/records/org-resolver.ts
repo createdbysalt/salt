@@ -15,10 +15,10 @@ import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { evaluateOrgProfileFields, ORG_PROFILE_SLUG } from "@/app/_features/plays/playbooks/records-engine/apply-org-profile";
 import { loadProfilePlaybook } from "@/app/_features/plays/playbooks/records-engine/load-profile-playbook";
 import { applyProfileFieldResults } from "@/app/_features/plays/playbooks/records-engine/write-provenance";
-import { isKnownSaasVendorDomain } from "../intelligence/vendor-domains";
-import { executeSystemPlay } from "./executor";
-import { domainToOrgName } from "./org-naming";
-import type { SystemPlayResult } from "./types";
+import { isKnownSaasVendorDomain } from "@/app/_features/capture/services/intelligence/vendor-domains";
+import { executeRecordAction } from "./executor";
+import { domainToOrgName, isMailInfraSubdomain } from "./org-naming";
+import type { RecordActionResult } from "./types";
 import { extractDomain, isPersonalDomain } from "./person-resolver";
 
 // ============================================================================
@@ -99,6 +99,20 @@ export async function resolveOrg(
     };
   }
 
+  // Skip automated mail infrastructure. Humans write from apex domains;
+  // product mail comes from subdomains (notifications@am.atlassian.com,
+  // receipts@email.vendor.io). The vendor list can't cover every tool, but
+  // this structural signal catches the whole class. The person record still
+  // forms — only the org birth is refused.
+  if (isMailInfraSubdomain(domain)) {
+    return {
+      resolved: false,
+      is_new: false,
+      confidence: 0,
+      confidence_reason: "Mail-infrastructure subdomain — automated sender, no org birth",
+    };
+  }
+
   const admin = createAdminClient();
 
   // Check if org already exists by domain
@@ -140,7 +154,7 @@ export async function resolveOrg(
       confidence_reason: "Service/infrastructure domain — no org-grade name",
     };
   }
-  const result = await executeSystemPlay(workspaceId, "system:create-org", {
+  const result = await executeRecordAction(workspaceId, "system:create-org", {
     name: orgName,
     domain,
   });
@@ -180,8 +194,8 @@ export async function linkPersonToOrg(
   personId: string,
   orgId: string,
   actorUserId?: string
-): Promise<SystemPlayResult> {
-  return executeSystemPlay(
+): Promise<RecordActionResult> {
+  return executeRecordAction(
     workspaceId,
     "system:link-person-org",
     {

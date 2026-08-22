@@ -23,7 +23,7 @@ import type {
   SignalDerivationContext,
 } from "../types";
 import { emailEntity } from "../feedback-entity";
-import type { PersonSignals } from "@/app/_features/capture/services/system-plays/person-signals";
+import type { PersonSignals } from "@/app/_features/memory/records/person-signals";
 import {
   parseAddress as parseAddressShared,
   extractMessageIdFromRow,

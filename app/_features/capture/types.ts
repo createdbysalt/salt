@@ -323,6 +323,8 @@ export interface StreamCaptureSummary {
   /** Resolved scan outcome (intelligence model, not legacy routing state). */
   intelligence_outcome: CaptureIntelligenceOutcome;
   finding_id?: string | null;
+  /** Title of the linked active-ledger finding, when one exists. */
+  finding_title?: string | null;
   /** Deep link to the source message (Gmail thread when available). */
   source_url?: string | null;
   /** Sender label (e.g., "Jane Doe" or "jane@example.com"). */

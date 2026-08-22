@@ -1,4 +1,4 @@
-import type { RelationshipType } from "@/app/_features/capture/services/system-plays/types";
+import type { RelationshipType } from "@/app/_features/memory/records/types";
 
 export type ProfilePlaybookKind = "acting" | "profile";
 

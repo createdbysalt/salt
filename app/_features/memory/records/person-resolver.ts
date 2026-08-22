@@ -31,9 +31,9 @@ import {
 } from "@/app/_features/people/records-engine";
 import { loadPeopleProfilePlaybook } from "@/app/_features/plays/playbooks/records-engine/load-profile-playbook";
 import { applyProfileFieldResults } from "@/app/_features/plays/playbooks/records-engine/write-provenance";
-import { executeSystemPlay } from "./executor";
+import { executeRecordAction } from "./executor";
 import { countCorroboratingCategories } from "./corroboration";
-import type { RelationshipType, SystemPlayResult } from "./types";
+import type { RelationshipType, RecordActionResult } from "./types";
 
 // ============================================================================
 // Types
@@ -205,7 +205,7 @@ export async function resolvePerson(
 
   // High confidence — auto-create
   const name = decision.suggestedName ?? input.name ?? extractNameFromEmail(email);
-  const result = await executeSystemPlay(workspaceId, "system:create-person", {
+  const result = await executeRecordAction(workspaceId, "system:create-person", {
     name,
     email,
     relationship_type: relationshipType,
@@ -446,8 +446,8 @@ export async function createPersonConfirmed(
     relationship_type?: RelationshipType;
   },
   actorUserId?: string
-): Promise<SystemPlayResult> {
-  return executeSystemPlay(
+): Promise<RecordActionResult> {
+  return executeRecordAction(
     workspaceId,
     "system:create-person",
     {

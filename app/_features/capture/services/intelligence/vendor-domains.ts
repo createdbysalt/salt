@@ -3,7 +3,7 @@
  * operator pays, not a client relationship?"
  *
  * Extracted from `email-sender-context.ts` so non-intelligence consumers
- * (org birth in `system-plays/org-resolver.ts`, evidence classification in
+ * (org birth in `memory/records/org-resolver.ts`, evidence classification in
  * `memory/evidence/classifier.ts`) can apply the vendor gate without
  * importing the full sender-classification module. Pure: no imports, safe
  * for any layer.
@@ -97,6 +97,41 @@ export const SAAS_VENDOR_DOMAIN_SUFFIXES = [
   "higgsfield.ai",
   "recraft.com",
   "recraft.ai",
+  // 2026-08-17 backlog-drain additions — each birthed a junk org before the
+  // gate knew it. Subdomain senders (m.ngrok.com, email.heygen.com) match
+  // via domainMatchesSuffix on the apex.
+  "zendesk.com",
+  "ngrok.com",
+  "ngrok.io",
+  "opus.pro",
+  "heygen.com",
+  "buffer.com",
+  "feedbear.com",
+  "lottiefiles.com",
+  "refero.design",
+  "openrouter.ai",
+  "subsplash.com",
+  "brandfetch.io",
+  "firecrawl.dev",
+  "wix.com",
+  "wix-forms.com",
+  "bankvod.com",
+  // Second batch — apex-domain senders the subdomain guard can't catch.
+  "amazon.com",
+  "alibaba.com",
+  "gumloop.com",
+  "gumloopmail.com",
+  "clay.com",
+  "planningcenter.com",
+  "greptile.com",
+  "termly.io",
+  "termageddon.com",
+  "apexfintechsolutions.com",
+  "cal.com",
+  "sanity.io",
+  "investordelivery.com",
+  "screen.studio",
+  "atlassian.com",
 ];
 
 /** Brand strings for matching finding titles / proposal hints when domain is ambiguous. */
@@ -147,6 +182,30 @@ export const KNOWN_SAAS_VENDOR_BRANDS = [
   "substack",
   "higgsfield",
   "recraft",
+  // Distinctive brands only — generic words ("buffer", "opus") would
+  // false-positive on ordinary prose.
+  "zendesk",
+  "ngrok",
+  "heygen",
+  "feedbear",
+  "lottiefiles",
+  "refero",
+  "openrouter",
+  "subsplash",
+  "brandfetch",
+  "firecrawl",
+  "bankvod",
+  // Distinctive only — "clay", "cal", "screen", "sanity", "amazon" are
+  // ordinary words and would false-positive on finding titles.
+  "alibaba",
+  "gumloop",
+  "planningcenter",
+  "planning center",
+  "greptile",
+  "termly",
+  "termageddon",
+  "atlassian",
+  "investordelivery",
 ] as const;
 
 export function emailDomain(fromEmail: string): string {

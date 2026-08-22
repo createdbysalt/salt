@@ -28,6 +28,8 @@ export type StreamStateFilter = CaptureCategory | "watching" | "kept-out" | "all
 export const STREAM_STATUS_OPTIONS: { id: StreamStateFilter; label: string }[] = [
   { id: "all", label: "All statuses" },
   { id: "queued", label: CAPTURE_CATEGORY_LABELS.queued },
+  { id: "finding", label: CAPTURE_CATEGORY_LABELS.finding },
+  { id: "memory", label: CAPTURE_CATEGORY_LABELS.memory },
   { id: "no-signal", label: CAPTURE_CATEGORY_LABELS["no-signal"] },
   { id: "processing", label: CAPTURE_CATEGORY_LABELS.processing },
   { id: "error", label: CAPTURE_CATEGORY_LABELS.error },

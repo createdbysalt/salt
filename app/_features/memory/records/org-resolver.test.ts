@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mockExecuteSystemPlay = vi.fn();
+const mockExecuteRecordActionDefinition = vi.fn();
 let existingOrg: { id: string; name: string } | null = null;
 
 const mockFrom = vi.fn(() => {
@@ -18,7 +18,7 @@ vi.mock("@/app/_lib/supabase/admin", () => ({
 }));
 
 vi.mock("./executor", () => ({
-  executeSystemPlay: (...args: unknown[]) => mockExecuteSystemPlay(...args),
+  executeRecordAction: (...args: unknown[]) => mockExecuteRecordActionDefinition(...args),
 }));
 
 vi.mock(
@@ -56,7 +56,7 @@ import { resolveOrg } from "./org-resolver";
 
 beforeEach(() => {
   existingOrg = null;
-  mockExecuteSystemPlay
+  mockExecuteRecordActionDefinition
     .mockReset()
     .mockResolvedValue({ success: true, entity_id: "org-new-1" });
 });
@@ -67,14 +67,14 @@ describe("resolveOrg — vendor gate", () => {
 
     expect(result.resolved).toBe(false);
     expect(result.confidence_reason).toMatch(/vendor/i);
-    expect(mockExecuteSystemPlay).not.toHaveBeenCalled();
+    expect(mockExecuteRecordActionDefinition).not.toHaveBeenCalled();
   });
 
   it("matches vendor subdomains — receipts mail hosts count too", async () => {
     const result = await resolveOrg("ws-1", "receipts@mail.convertkit.com");
 
     expect(result.resolved).toBe(false);
-    expect(mockExecuteSystemPlay).not.toHaveBeenCalled();
+    expect(mockExecuteRecordActionDefinition).not.toHaveBeenCalled();
   });
 
   it("does not resolve even when a vendor org already exists (pre-fix pollution)", async () => {
@@ -83,7 +83,7 @@ describe("resolveOrg — vendor gate", () => {
     const result = await resolveOrg("ws-1", "team@mercury.com");
 
     expect(result.resolved).toBe(false);
-    expect(mockExecuteSystemPlay).not.toHaveBeenCalled();
+    expect(mockExecuteRecordActionDefinition).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -95,14 +95,14 @@ describe("resolveOrg — vendor gate", () => {
     const result = await resolveOrg("ws-1", email);
 
     expect(result.resolved).toBe(false);
-    expect(mockExecuteSystemPlay).not.toHaveBeenCalled();
+    expect(mockExecuteRecordActionDefinition).not.toHaveBeenCalled();
   });
 
   it("skips personal email domains", async () => {
     const result = await resolveOrg("ws-1", "jane@gmail.com");
 
     expect(result.resolved).toBe(false);
-    expect(mockExecuteSystemPlay).not.toHaveBeenCalled();
+    expect(mockExecuteRecordActionDefinition).not.toHaveBeenCalled();
   });
 
   it("still creates orgs for real client domains", async () => {
@@ -110,21 +110,43 @@ describe("resolveOrg — vendor gate", () => {
 
     expect(result.resolved).toBe(true);
     expect(result.is_new).toBe(true);
-    expect(mockExecuteSystemPlay).toHaveBeenCalledWith(
+    expect(mockExecuteRecordActionDefinition).toHaveBeenCalledWith(
       "ws-1",
       "system:create-org",
       { name: "Acme Studio", domain: "acme-studio.com" },
     );
   });
 
-  it("names the org from the registrable label, not a service subdomain", async () => {
+  it("never births an org from a mail-infrastructure subdomain", async () => {
+    // Humans write from apex domains; subdomains are automated product mail
+    // (notifications@am.atlassian.com, receipts@email.vendor.io). Even a
+    // human-shaped local part doesn't override the structural signal.
     const result = await resolveOrg("ws-1", "jane@mail.acme-studio.com");
 
+    expect(result.resolved).toBe(false);
+    expect(result.confidence_reason).toMatch(/subdomain/i);
+    expect(mockExecuteRecordActionDefinition).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "feedback@service.alibaba.com",
+    "investor-comms@notifications.apexfintechsolutions.com",
+    "team@am.atlassian.com",
+  ])("blocks automated subdomain sender %s", async (email) => {
+    const result = await resolveOrg("ws-1", email);
+
+    expect(result.resolved).toBe(false);
+    expect(mockExecuteRecordActionDefinition).not.toHaveBeenCalled();
+  });
+
+  it("treats two-part TLD apexes as real domains, not subdomains", async () => {
+    const result = await resolveOrg("ws-1", "maria@kainos-labs.com.br");
+
     expect(result.resolved).toBe(true);
-    expect(mockExecuteSystemPlay).toHaveBeenCalledWith(
+    expect(mockExecuteRecordActionDefinition).toHaveBeenCalledWith(
       "ws-1",
       "system:create-org",
-      { name: "Acme Studio", domain: "mail.acme-studio.com" },
+      { name: "Kainos Labs", domain: "kainos-labs.com.br" },
     );
   });
 
@@ -132,7 +154,7 @@ describe("resolveOrg — vendor gate", () => {
     const result = await resolveOrg("ws-1", "someone@mail.com");
 
     expect(result.resolved).toBe(false);
-    expect(mockExecuteSystemPlay).not.toHaveBeenCalled();
+    expect(mockExecuteRecordActionDefinition).not.toHaveBeenCalled();
   });
 });
 

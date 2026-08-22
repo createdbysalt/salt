@@ -16,9 +16,10 @@ function initialsFromName(name: string): string {
 }
 
 function mapRelationship(status: string): RelationshipType {
+  if (status === "other") return "unknown";
   return (RELATIONSHIP_TYPES as readonly string[]).includes(status)
     ? (status as RelationshipType)
-    : "prospect";
+    : "unknown";
 }
 
 /** Map a workspace Organization row into the Memory directory table shape. */

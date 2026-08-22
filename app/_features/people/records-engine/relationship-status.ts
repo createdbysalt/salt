@@ -1,5 +1,5 @@
 import type { RelationshipStatus } from "@/app/_features/relationships/types";
-import type { RelationshipType } from "@/app/_features/capture/services/system-plays/types";
+import type { RelationshipType } from "@/app/_features/memory/records/types";
 
 export function relationshipTypeToStatus(value: RelationshipType | undefined): RelationshipStatus {
   switch (value) {

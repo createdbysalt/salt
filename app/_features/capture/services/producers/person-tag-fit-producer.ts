@@ -18,7 +18,7 @@ import "server-only";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { memoryGetFacts } from "@/app/_lib/memory-tools";
 import { runCareForSignal } from "@/app/_features/memory/care/scheduler";
-import { executeSystemPlay } from "../system-plays/executor";
+import { executeRecordAction } from "@/app/_features/memory/records/executor";
 
 interface TagFitContext {
   facts: Record<string, unknown>;
@@ -95,7 +95,7 @@ export async function producePersonTagFits(input: {
     if (!tag || assignedTagIds.has(tag.id)) continue;
     if (!rule.when({ facts: factValues, signals })) continue;
 
-    const result = await executeSystemPlay(workspaceId, "system:assign-tag", {
+    const result = await executeRecordAction(workspaceId, "system:assign-tag", {
       entity_type: "person",
       entity_id: personId,
       tag_label: tag.label,

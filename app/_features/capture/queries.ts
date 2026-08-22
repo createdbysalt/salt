@@ -113,6 +113,7 @@ function buildFindingLinkMap(
     id: string;
     finding_type: string;
     state: string;
+    title: string | null;
     evidence: unknown;
   }> | null,
 ): Map<string, CaptureFindingLink> {
@@ -128,6 +129,7 @@ function buildFindingLinkMap(
       finding_id: row.id,
       finding_type: row.finding_type,
       finding_state: row.state,
+      finding_title: row.title ?? undefined,
     });
   }
   return map;
@@ -150,6 +152,7 @@ async function getFindingLinksByCaptureIds(
     id: string;
     finding_type: string;
     state: string;
+    title: string | null;
     evidence: unknown;
   }> = [];
 
@@ -160,7 +163,7 @@ async function getFindingLinksByCaptureIds(
 
     const { data, error } = await supabase
       .from("intelligence_findings")
-      .select("id, finding_type, state, evidence")
+      .select("id, finding_type, state, title, evidence")
       .eq("workspace_id", workspaceId)
       .in("state", ["needs_you", "auto_handled"])
       .or(orFilter);
@@ -290,6 +293,7 @@ async function mapStreamRows(
       intelligence_outcome,
       finding_id:
         findingLink?.finding_id ?? intelligenceMeta?.finding_id ?? null,
+      finding_title: findingLink?.finding_title ?? null,
       source_url:
         // Prefer deep_link from enriched_metadata (populated during enrichment)
         (row.enriched_metadata as { deep_link?: string | null } | null)?.deep_link ??

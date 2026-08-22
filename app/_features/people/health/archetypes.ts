@@ -1,4 +1,4 @@
-import type { RelationshipType } from "@/app/_features/capture/services/system-plays/types";
+import type { RelationshipType } from "@/app/_features/memory/records/types";
 import { factorDirection } from "@/app/_lib/health/core";
 import type { RelationshipArchetype } from "./types";
 

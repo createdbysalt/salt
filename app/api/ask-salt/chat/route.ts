@@ -24,7 +24,7 @@ import {
 } from "@/app/_features/ask-salt/ask-salt-errors";
 import { compactAskSaltMessagesForModel, formatEarlierRecapSystemSection } from "@/app/_features/ask-salt/context-budget";
 import { stripIncompleteToolParts } from "@/app/_features/ask-salt/message-adapters";
-import { buildSystemPlayTools } from "@/app/_features/ask-salt/system-play-tools";
+import { buildMemoryRecordTools } from "@/app/_features/ask-salt/memory-record-tools";
 import { buildPlaybookTools } from "@/app/_features/ask-salt/playbook-tools";
 import { buildCaptureReviewTools } from "@/app/_features/ask-salt/capture-review-tools";
 import {
@@ -412,7 +412,7 @@ export async function POST(request: Request) {
 
   const blueprints = await resolveAskSaltBlueprints(workspace.id);
 
-  const systemTools = buildSystemPlayTools({ workspaceId: workspace.id, userId });
+  const systemTools = buildMemoryRecordTools({ workspaceId: workspace.id, userId });
   const playbookTools = buildPlaybookTools({ workspaceId: workspace.id, userId });
   const billingTools = buildBillingTools({ workspaceId: workspace.id, userId });
   const correctionTools = buildCorrectionTools({ workspaceId: workspace.id, userId });

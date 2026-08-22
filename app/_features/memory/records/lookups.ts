@@ -92,7 +92,7 @@ export interface WorkLookupRow {
 }
 
 /**
- * Search people in a workspace by name or email (for Ask Salt / system plays).
+ * Search people in a workspace by name or email (for Ask Salt and record actions).
  */
 export async function findPeople(
   workspaceId: string,

@@ -110,7 +110,7 @@ const ENTITY_SURFACE_LABELS: Record<string, string> = {
 
 /** "Set Taylor Example's relationship type to client" — the row headline. */
 function writeHeadline(write: HandledWrite): string {
-  // Record birth (system plays, capture intake, Ask Salt creations)
+  // Record birth (record actions, capture intake, Ask Salt creations)
   if (write.fieldPath === "record") {
     const surface = ENTITY_SURFACE_LABELS[write.entityType] ?? "Memory";
     return `Added ${write.entityLabel} to ${surface}`;

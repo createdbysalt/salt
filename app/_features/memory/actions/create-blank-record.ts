@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { getWorkspaceContext } from "@/app/_lib/utils/user-dashboard";
 import { createOrganization, createPerson } from "@/app/_features/relationships/entity-actions";
-import { ensureUniqueProjectSlug } from "@/app/_features/capture/services/system-plays/project-fields";
+import { ensureUniqueProjectSlug } from "@/app/_features/memory/records/project-fields";
 import { createClientLink } from "@/app/_features/people/actions/files/upload-client-file";
 import { createBillingRecordAction } from "@/app/_features/billing/actions/create-billing-record";
 import { buildBlankBillingDraft } from "@/app/_features/billing/utils/blank-draft";

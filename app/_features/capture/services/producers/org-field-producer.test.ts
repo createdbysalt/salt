@@ -4,7 +4,7 @@ const mockRunCareForSignal = vi.fn();
 const mockMemoryUpdateField = vi.fn();
 const mockResolvePerson = vi.fn();
 const mockLinkPersonToOrg = vi.fn();
-const mockExecuteSystemPlay = vi.fn();
+const mockExecuteRecordActionDefinition = vi.fn();
 
 type Filter = [string, string, unknown];
 type Query = { table: string; filters: Filter[] };
@@ -45,14 +45,14 @@ vi.mock("@/app/_features/memory/care/scheduler", () => ({
 vi.mock("@/app/_lib/memory-tools", () => ({
   memoryUpdateField: (...args: unknown[]) => mockMemoryUpdateField(...args),
 }));
-vi.mock("@/app/_features/capture/services/system-plays/person-resolver", () => ({
+vi.mock("@/app/_features/memory/records/person-resolver", () => ({
   resolvePerson: (...args: unknown[]) => mockResolvePerson(...args),
 }));
-vi.mock("@/app/_features/capture/services/system-plays/org-resolver", () => ({
+vi.mock("@/app/_features/memory/records/org-resolver", () => ({
   linkPersonToOrg: (...args: unknown[]) => mockLinkPersonToOrg(...args),
 }));
-vi.mock("@/app/_features/capture/services/system-plays/executor", () => ({
-  executeSystemPlay: (...args: unknown[]) => mockExecuteSystemPlay(...args),
+vi.mock("@/app/_features/memory/records/executor", () => ({
+  executeRecordAction: (...args: unknown[]) => mockExecuteRecordActionDefinition(...args),
 }));
 
 import { produceOrgFieldSignals } from "./org-field-producer";
@@ -78,7 +78,7 @@ describe("produceOrgFieldSignals", () => {
     mockMemoryUpdateField.mockResolvedValue({ action: "applied" });
     mockResolvePerson.mockResolvedValue({ resolved: false });
     mockLinkPersonToOrg.mockResolvedValue({ success: true });
-    mockExecuteSystemPlay.mockResolvedValue({ success: true, entity_id: "org-new" });
+    mockExecuteRecordActionDefinition.mockResolvedValue({ success: true, entity_id: "org-new" });
   });
 
   it("dispatches org fill signals against the resolved org", async () => {
@@ -131,7 +131,7 @@ describe("produceOrgFieldSignals", () => {
       source: "crm",
     });
 
-    expect(mockExecuteSystemPlay).toHaveBeenCalledWith(WS, "system:create-org", {
+    expect(mockExecuteRecordActionDefinition).toHaveBeenCalledWith(WS, "system:create-org", {
       name: "Northwind Traders",
       domain: "northwind.com",
     });
@@ -156,7 +156,7 @@ describe("produceOrgFieldSignals", () => {
     });
 
     expect(result.orgId).toBeNull();
-    expect(mockExecuteSystemPlay).not.toHaveBeenCalled();
+    expect(mockExecuteRecordActionDefinition).not.toHaveBeenCalled();
     expect(mockRunCareForSignal).not.toHaveBeenCalled();
   });
 

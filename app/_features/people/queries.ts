@@ -3,7 +3,7 @@ import "server-only";
 import { cache } from "react";
 import { createClient } from "@/app/_lib/supabase/server";
 import { getWorkspaceContext } from "@/app/_lib/utils/user-dashboard";
-import type { RelationshipType } from "@/app/_features/capture/services/system-plays/types";
+import type { RelationshipType } from "@/app/_features/memory/records/types";
 import type {
   PersonProfileFieldsView,
   ProfileFieldProvenanceView,

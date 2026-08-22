@@ -283,12 +283,18 @@ export function buildNoiseInputFromCaptureRow(args: {
   const nestedPayload = args.rawPayload.payload as
     | { headers?: Array<{ name: string; value: string }> }
     | undefined;
-  const headerList =
-    nestedPayload?.headers ??
-    (args.rawPayload.headers as Array<{ name: string; value: string }> | undefined) ??
-    [];
-  for (const header of headerList) {
-    headers[header.name.toLowerCase()] = header.value;
+  // Some writers store headers as a name→value map ({}), not a Gmail-style
+  // array — `?? []` doesn't catch a non-nullish object, and iterating it
+  // throws. Both shapes normalize to the same lookup map.
+  const rawHeaders = nestedPayload?.headers ?? args.rawPayload.headers;
+  if (Array.isArray(rawHeaders)) {
+    for (const header of rawHeaders) {
+      headers[header.name.toLowerCase()] = header.value;
+    }
+  } else if (rawHeaders && typeof rawHeaders === "object") {
+    for (const [name, value] of Object.entries(rawHeaders)) {
+      if (typeof value === "string") headers[name.toLowerCase()] = value;
+    }
   }
 
   const labels =
