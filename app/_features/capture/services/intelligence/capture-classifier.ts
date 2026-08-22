@@ -1,7 +1,4 @@
 import type { CaptureSourceType, ExtractedData } from "../../types";
-import {
-  filterActionableMemoryProposals,
-} from "../../types/memory-proposals";
 import { extractEmailToAnalyze } from "../extract-capture-email";
 import {
   analyzeEmail,
@@ -125,11 +122,7 @@ async function classifyEmailCapture(
     customizeContext: ctx.customizeContext,
   });
 
-  if (
-    !analysis ||
-    (analysis.is_noise &&
-      filterActionableMemoryProposals(analysis.memory_proposals ?? []).length === 0)
-  ) {
+  if (!analysis || analysis.is_noise) {
     return {
       isNoise: true,
       noiseReason: analysis?.noise_reason ?? "analysis_noise",

@@ -2,18 +2,15 @@ import { createAdminClient } from "@/app/_lib/supabase/admin";
 import type { Json } from "@/app/_lib/supabase/database.types";
 import type { CaptureSourceType, ExtractedData } from "../../types";
 import { extractEmailToAnalyze } from "../extract-capture-email";
-import { hydrateGmailCaptureBody } from "../hydrate-capture";
-import { resolvePerson } from "../system-plays/person-resolver";
-import { resolveOrg, linkPersonToOrg } from "../system-plays/org-resolver";
-import type { EmailAnalysis, EmailToAnalyze } from "./email-analyzer";
 import {
-  filterActionableMemoryProposals,
-  parseMemoryProposals,
-  type MemoryProposal,
-} from "../../types/memory-proposals";
-import { classifyEmailSender, filterMemoryProposalsForSender } from "./email-sender-context";
-import { loadKnownWorkspaceEntities, resolveMemoryProposals } from "./entity-resolver";
-import { FINDING_TYPE_LABELS, type FindingType } from "../../types/intelligence-findings";
+  hydrateGmailCaptureBody,
+  hydrateGmailCaptureFields,
+} from "../hydrate-capture";
+import { resolvePerson } from "@/app/_features/memory/records/person-resolver";
+import { resolveOrg, linkPersonToOrg } from "@/app/_features/memory/records/org-resolver";
+import type { EmailAnalysis, EmailToAnalyze } from "./email-analyzer";
+import { classifyEmailSender } from "./email-sender-context";
+import { type FindingType } from "../../types/intelligence-findings";
 import {
   getPaymentPayerHint,
   isPaymentRailEmail,
@@ -36,7 +33,6 @@ import { captureVendorSubscription } from "./subscription-capture";
 import { loadGatePolicy } from "../gates/load-gate-policy";
 import type { ResolvedGatePolicy } from "../gates/gate-policy";
 import type { SenderProfileRegistry } from "../../types/sender-profiles";
-import { routeMeFactProposals } from "@/app/_features/me/services/route-fact-proposals";
 import { extractAndPersistNotes } from "./persist-extracted-notes";
 import type { NoteExtractionInput } from "./note-extractor";
 import { parseSignatureFromBody } from "@/app/_features/memory/evidence/classifier";
@@ -96,8 +92,6 @@ const HIGH_CONFIDENCE_THRESHOLD = 85;
 export const MIN_FINDING_CONFIDENCE = 70;
 /** Minimum confidence for needs_routing when sender is unknown */
 export const NEEDS_ROUTING_MIN_CONFIDENCE = 75;
-/** Lower floor when actionable memory proposals exist */
-export const MIN_FINDING_CONFIDENCE_WITH_MEMORY = 65;
 
 const NEEDS_ROUTING_FINDING_TYPES = new Set<FindingType>([
   "revenue_buying",
@@ -206,22 +200,57 @@ async function fetchCapturesInLookback(
       // Gate-noise rows are excluded too (Phase 6): the gate's noise verdict
       // is final — fetching them would only burn rows the per-row policy
       // (shouldReanalyzeCapture) would skip anyway.
-      .or("gate_action.is.null,gate_action.not.in.(drop,held,noise)")
+      .or("gate_action.is.null,gate_action.not.in.(drop,held,noise)");
+
+  // Backlog first: rows that never reached a terminal outcome (no
+  // intelligence meta, or scan_error) stay reachable at ANY age. The
+  // created_at window bounds re-analysis of fresh mail — it must not strand
+  // unscanned rows, or one bad run (or a Retry click on an old row) leaves
+  // them outside every future scan. Backlog gets first claim on the budget,
+  // oldest first; recent mail that doesn't fit today is still inside the
+  // window tomorrow.
+  const { data: backlogData, error: backlogError } = await baseQuery()
+    .or(
+      "extracted_data->>intelligence.is.null,extracted_data->intelligence->>outcome.eq.scan_error"
+    )
+    .order("created_at", { ascending: true })
+    .limit(options.maxEmails);
+
+  if (backlogError) {
+    return { rows: [], error: backlogError.message };
+  }
+
+  const backlog = (backlogData ?? []).map(toCaptureEventRow);
+  const backlogIds = new Set(backlog.map((row) => row.id));
+  const remaining = options.maxEmails - backlog.length;
+  if (remaining <= 0) {
+    return { rows: backlog };
+  }
+
+  const recentQuery = () =>
+    baseQuery()
       .gte("created_at", cutoff)
       .order("created_at", { ascending: false });
 
+  let recent: CaptureEventRow[];
   if (!options.scanAll) {
-    const { data, error } = await baseQuery().limit(options.maxEmails);
+    const { data, error } = await recentQuery().limit(remaining);
     if (error) {
       return { rows: [], error: error.message };
     }
-    return { rows: (data ?? []).map(toCaptureEventRow) };
+    recent = (data ?? []).map(toCaptureEventRow);
+  } else {
+    const collected = await collectCapturePages(async (from, to) => {
+      const { data, error } = await recentQuery().range(from, to);
+      return { data: data ? data.map(toCaptureEventRow) : null, error: error?.message };
+    }, remaining);
+    if (collected.error) return { rows: [], error: collected.error };
+    recent = collected.rows;
   }
 
-  return collectCapturePages(async (from, to) => {
-    const { data, error } = await baseQuery().range(from, to);
-    return { data: data ? data.map(toCaptureEventRow) : null, error: error?.message };
-  }, options.maxEmails);
+  return {
+    rows: [...backlog, ...recent.filter((row) => !backlogIds.has(row.id))],
+  };
 }
 
 /**
@@ -278,37 +307,16 @@ function boostFindingConfidence(
 
 function filterActionableFindings(
   findings: EmailAnalysis["findings"],
-  context: { knownPerson: boolean; bidirectionalThread: boolean },
-  memoryProposals: MemoryProposal[] = []
+  context: { knownPerson: boolean; bidirectionalThread: boolean }
 ): ScoredFinding[] {
-  const minConfidence =
-    memoryProposals.length > 0 ? MIN_FINDING_CONFIDENCE_WITH_MEMORY : MIN_FINDING_CONFIDENCE;
-
-  const scored = findings
+  return findings
     .map((finding) => boostFindingConfidence(finding, context))
-    .filter((finding) => finding.confidence >= minConfidence);
-
-  if (scored.length > 0 || memoryProposals.length === 0) {
-    return scored;
-  }
-
-  return [
-    {
-      type: "pending_deliverable",
-      title: "Suggested Memory updates",
-      content: "Salt found structural signals worth saving to Memory.",
-      confidence: Math.max(
-        ...memoryProposals.map((p) => p.confidence),
-        MIN_FINDING_CONFIDENCE_WITH_MEMORY
-      ),
-    },
-  ];
+    .filter((finding) => finding.confidence >= MIN_FINDING_CONFIDENCE);
 }
 
 function buildEvidenceMetadata(
   email: EmailToAnalyze,
   analysis: EmailAnalysis,
-  memoryProposals: MemoryProposal[],
   senderRegistry?: SenderProfileRegistry
 ): JsonObject {
   const sender = classifyEmailSender(
@@ -327,7 +335,6 @@ function buildEvidenceMetadata(
     thread_id: email.thread_id,
     sender_kind: sender.kind,
     vendor_name: sender.vendorName,
-    memory_proposals: memoryProposals,
     underlying_findings: analysis.findings.map((f) => ({
       type: f.type,
       title: f.title,
@@ -336,83 +343,7 @@ function buildEvidenceMetadata(
   };
 }
 
-function hasStoredMemoryProposals(evidence: unknown): boolean {
-  if (!evidence || typeof evidence !== "object" || Array.isArray(evidence)) {
-    return false;
-  }
-  const metadata = (evidence as { metadata?: unknown }).metadata;
-  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
-    return false;
-  }
-  const raw = (metadata as { memory_proposals?: unknown }).memory_proposals;
-  return filterActionableMemoryProposals(parseMemoryProposals(raw)).length > 0;
-}
-
-async function patchExistingFindingMemoryIfMissing(args: {
-  findingId: string;
-  email: EmailToAnalyze;
-  analysis: EmailAnalysis;
-  memoryProposals: MemoryProposal[];
-  dryRun: boolean;
-  supabase: ReturnType<typeof createAdminClient>;
-  senderRegistry?: SenderProfileRegistry;
-}): Promise<boolean> {
-  const { findingId, email, analysis, memoryProposals, dryRun, supabase, senderRegistry } = args;
-  if (memoryProposals.length === 0) return false;
-
-  const { data: row, error } = await supabase
-    .from("intelligence_findings")
-    .select("evidence")
-    .eq("id", findingId)
-    .single();
-
-  if (error || !row) return false;
-  if (hasStoredMemoryProposals(row.evidence)) return false;
-
-  const evidence: JsonObject =
-    row.evidence && typeof row.evidence === "object" && !Array.isArray(row.evidence)
-      ? row.evidence
-      : {};
-
-  const rawMetadata = evidence.metadata;
-  const metadata: JsonObject =
-    rawMetadata && typeof rawMetadata === "object" && !Array.isArray(rawMetadata)
-      ? rawMetadata
-      : {};
-
-  const updatedEvidence: JsonObject = {
-    ...evidence,
-    metadata: {
-      ...metadata,
-      ...buildEvidenceMetadata(email, analysis, memoryProposals, senderRegistry),
-    },
-  };
-
-  if (dryRun) return true;
-
-  const { error: updateError } = await supabase
-    .from("intelligence_findings")
-    .update({ evidence: updatedEvidence })
-    .eq("id", findingId);
-
-  if (updateError) {
-    console.error(
-      `[daily-scan] Failed to patch memory proposals on finding ${findingId}:`,
-      updateError.message
-    );
-    return false;
-  }
-
-  return true;
-}
-
-function qualifiesForNeedsRouting(
-  findings: ScoredFinding[],
-  memoryProposals: MemoryProposal[] = []
-): boolean {
-  if (memoryProposals.length > 0) {
-    return true;
-  }
+function qualifiesForNeedsRouting(findings: ScoredFinding[]): boolean {
   if (findings.length === 0) return false;
   const maxConfidence = Math.max(...findings.map((f) => f.confidence));
   if (maxConfidence < NEEDS_ROUTING_MIN_CONFIDENCE) return false;
@@ -433,7 +364,6 @@ export interface ScanPipelineContext {
   llmCall: DailyScanOptions["llmCall"];
   result: DailyScanResult;
   findingIdsByCaptureId: Map<string, string>;
-  knownEntities: Awaited<ReturnType<typeof loadKnownWorkspaceEntities>>;
   senderRegistry: SenderProfileRegistry;
   /** Workspace intake gate policy — governs vendor subscription capture. */
   gatePolicy: ResolvedGatePolicy;
@@ -464,9 +394,8 @@ export async function createScanPipelineContext(options: {
   supabase?: ReturnType<typeof createAdminClient>;
 }): Promise<ScanPipelineContext> {
   const supabase = options.supabase ?? createAdminClient();
-  const [knownEntities, senderRegistry, scopedMemory, customizeContext, gatePolicy] =
+  const [senderRegistry, scopedMemory, customizeContext, gatePolicy] =
     await Promise.all([
-      loadKnownWorkspaceEntities(supabase, options.workspaceId),
       loadSenderProfileRegistry(supabase, options.workspaceId),
       createScopedMemoryLoader(supabase, options.workspaceId, options.userId),
       // Track A (Phase M4): one load per run; a failure degrades to no
@@ -491,7 +420,6 @@ export async function createScanPipelineContext(options: {
       errors: [],
     },
     findingIdsByCaptureId: options.findingIdsByCaptureId ?? new Map(),
-    knownEntities,
     senderRegistry,
     gatePolicy,
     scopedMemory,
@@ -502,8 +430,8 @@ export async function createScanPipelineContext(options: {
 
 /**
  * Run one capture through the intelligence pipeline: extract, optionally
- * hydrate the body, resolve person/org, classify, then persist findings,
- * memory proposals, and the ledger outcome.
+ * hydrate the body, resolve person/org, classify, then persist findings
+ * and the ledger outcome.
  *
  * Shared by the daily scan and the Gmail backfill's inline analysis (3.4).
  * The backfill passes an in-memory row whose extracted_data carries the
@@ -517,13 +445,11 @@ export async function processCaptureForScan(
   const {
     supabase,
     workspaceId,
-    userId,
     dryRun,
     rescan,
     llmCall,
     result,
     findingIdsByCaptureId,
-    knownEntities,
     senderRegistry,
     scopedMemory,
     customizeContext,
@@ -560,17 +486,35 @@ export async function processCaptureForScan(
           ? adapterShape.subject
           : "";
 
-    const email = extractEmailToAnalyze(
+    const hasPriorThread =
+      /^re:/i.test(subjectForReply) ||
+      adapterShape?.is_reply === true ||
+      Boolean(rawEmail.extracted_data?.type === "message" && rawEmail.extracted_data.thread_id);
+
+    let email = extractEmailToAnalyze(
       rawEmail.id,
       rawEmail.raw_payload,
       rawEmail.extracted_data,
-      {
-        has_prior_thread:
-          /^re:/i.test(subjectForReply) ||
-          adapterShape?.is_reply === true ||
-          Boolean(rawEmail.extracted_data?.type === "message" && rawEmail.extracted_data.thread_id),
-      }
+      { has_prior_thread: hasPriorThread }
     );
+
+    // Some backfill rows rest without any sender field (the backfill couldn't
+    // parse one at write time) — extraction can never succeed from the stored
+    // envelope alone. Hydrate through the source pointer before giving up:
+    // the provider's full message carries the From header. Bounded by the
+    // same per-run hydration budget as body hydration.
+    const hydration = ctx.hydration;
+    if (!email && hydration && hydration.used < hydration.max) {
+      hydration.used++;
+      const fields = await hydrateGmailCaptureFields(workspaceId, rawEmail);
+      if (fields) {
+        email = {
+          id: rawEmail.id,
+          ...fields,
+          has_prior_thread: hasPriorThread || /^re:/i.test(fields.subject),
+        };
+      }
+    }
 
     if (!email) {
       result.errors.push(`Could not extract email metadata for capture ${rawEmail.id}`);
@@ -582,7 +526,6 @@ export async function processCaptureForScan(
     // transiently through the source pointer (3.7), bounded per run.
     // Falls back to the snippet when hydration declines or fails.
     // Null budget (inline backfill path) disables hydration entirely.
-    const hydration = ctx.hydration;
     if (!email.body_text && hydration && hydration.used < hydration.max) {
       hydration.used++;
       const hydratedBody = await hydrateGmailCaptureBody(workspaceId, rawEmail);
@@ -681,26 +624,6 @@ export async function processCaptureForScan(
       }
     }
 
-    const rawMemoryProposals = filterActionableMemoryProposals(analysis.memory_proposals ?? []);
-
-    // Route `me`-surface facts straight into the operator memory review queue.
-    // Only from messages the user authored; nothing is trusted until confirmed.
-    if (!dryRun && email.is_sent_by_user) {
-      const meProposals = rawMemoryProposals.filter((p) => p.surface === "me");
-      if (meProposals.length > 0) {
-        try {
-          await routeMeFactProposals({
-            workspaceId,
-            userId,
-            proposals: meProposals,
-            captureId: rawEmail.id,
-            admin: supabase,
-          });
-        } catch (meError) {
-          console.error("[daily-scan] Failed to route me facts:", meError);
-        }
-      }
-    }
     const senderContext = classifyEmailSender(
       {
         from_email: email.from_email,
@@ -710,13 +633,6 @@ export async function processCaptureForScan(
         snippet: email.snippet,
       },
       { registry: senderRegistry }
-    );
-    const memoryProposals = filterMemoryProposalsForSender(
-      resolveMemoryProposals(rawMemoryProposals, knownEntities, {
-        fromEmail: email.from_email,
-        fromName: email.from_name,
-      }),
-      senderContext
     );
 
     await learnVendorFromClassification({
@@ -756,39 +672,21 @@ export async function processCaptureForScan(
         console.error("[daily-scan] subscription capture failed:", subError);
       }
     }
-    const analysisWithMemory: EmailAnalysis = {
-      ...analysis,
-      memory_proposals: memoryProposals,
-    };
-
     const actionableFindings = filterActionableFindings(
       analysis.findings,
       {
         knownPerson,
         bidirectionalThread: email.has_prior_thread && !email.is_sent_by_user,
-      },
-      memoryProposals
+      }
     );
 
-    if (actionableFindings.length === 0 && memoryProposals.length === 0) {
+    if (actionableFindings.length === 0) {
       await persistCaptureIntelligenceOutcome(supabase, rawEmail.id, "no_signal", { dryRun });
       return;
     }
 
     const existingFindingId = findingIdsByCaptureId.get(rawEmail.id);
     if (existingFindingId) {
-      const patched = await patchExistingFindingMemoryIfMissing({
-        findingId: existingFindingId,
-        email,
-        analysis: analysisWithMemory,
-        memoryProposals,
-        dryRun,
-        supabase,
-        senderRegistry,
-      });
-      if (patched) {
-        result.findingsCreated++;
-      }
       await persistCaptureIntelligenceOutcome(supabase, rawEmail.id, "finding_created", {
         findingId: existingFindingId,
         dryRun,
@@ -796,13 +694,13 @@ export async function processCaptureForScan(
       return;
     }
 
-    const analysisWithBoosted = {
-      ...analysisWithMemory,
+    const analysisWithBoosted: EmailAnalysis = {
+      ...analysis,
       findings: actionableFindings,
     };
 
     if (!personId && !orgId) {
-      if (!qualifiesForNeedsRouting(actionableFindings, memoryProposals)) {
+      if (!qualifiesForNeedsRouting(actionableFindings)) {
         await persistCaptureIntelligenceOutcome(supabase, rawEmail.id, "no_signal", { dryRun });
         return;
       }
@@ -812,7 +710,6 @@ export async function processCaptureForScan(
         captureId: rawEmail.id,
         email,
         analysis: analysisWithBoosted,
-        memoryProposals,
         paymentPayerHint,
         dryRun,
         supabase,
@@ -833,7 +730,6 @@ export async function processCaptureForScan(
       personId,
       orgId,
       analysis: analysisWithBoosted,
-      memoryProposals,
       dryRun,
       supabase,
       result,
@@ -998,7 +894,6 @@ export interface UnknownSenderRoutingArgs {
   captureId: string;
   email: EmailToAnalyze;
   analysis: EmailAnalysis;
-  memoryProposals: MemoryProposal[];
   paymentPayerHint: ReturnType<typeof getPaymentPayerHint>;
   dryRun: boolean;
   supabase: ReturnType<typeof createAdminClient>;
@@ -1044,7 +939,6 @@ export async function createFindingsFromAnalysis(args: {
   personId?: string;
   orgId?: string;
   analysis: EmailAnalysis;
-  memoryProposals: MemoryProposal[];
   dryRun: boolean;
   supabase: ReturnType<typeof createAdminClient>;
   result: DailyScanResult;
@@ -1058,7 +952,6 @@ export async function createFindingsFromAnalysis(args: {
     personId,
     orgId,
     analysis,
-    memoryProposals,
     dryRun,
     supabase,
     result,
@@ -1071,11 +964,9 @@ export async function createFindingsFromAnalysis(args: {
   }
 
   let firstFindingId: string | null = null;
-  const minConfidence =
-    memoryProposals.length > 0 ? MIN_FINDING_CONFIDENCE_WITH_MEMORY : MIN_FINDING_CONFIDENCE;
 
   for (const finding of analysis.findings) {
-    if (finding.confidence < minConfidence) continue;
+    if (finding.confidence < MIN_FINDING_CONFIDENCE) continue;
 
     // revenue_risk is stamped `needs_you` explicitly regardless of
     // confidence. The generic rule would auto-handle at >= 85, but risk must
@@ -1083,12 +974,11 @@ export async function createFindingsFromAnalysis(args: {
     const state =
       finding.type === "revenue_risk" ||
       forceNeedsYou ||
-      finding.confidence < HIGH_CONFIDENCE_THRESHOLD ||
-      memoryProposals.length > 0
+      finding.confidence < HIGH_CONFIDENCE_THRESHOLD
         ? "needs_you"
         : "auto_handled";
 
-    const metadata = buildEvidenceMetadata(email, analysis, memoryProposals, senderRegistry);
+    const metadata = buildEvidenceMetadata(email, analysis, senderRegistry);
 
     if (!dryRun) {
       const { data: inserted, error: insertError } = await supabase

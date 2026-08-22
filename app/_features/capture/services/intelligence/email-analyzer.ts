@@ -1,34 +1,25 @@
 import { z } from "zod";
-import type { FindingType } from "../../types/intelligence-findings";
 import {
   decodeHtmlEntities,
   detectHeuristicFindings,
   mergeEmailAnalyses,
   type HeuristicFindingContext,
 } from "./email-heuristics";
-import {
-  detectMemoryProposals,
-  mergeMemoryProposals,
-} from "./memory-proposal-heuristics";
 import { classifyCaptureNoise, emailToNoiseInput } from "./capture-noise";
-import {
-  classifyEmailSender,
-  filterMemoryProposalsForSender,
-} from "./email-sender-context";
+import { classifyEmailSender } from "./email-sender-context";
 import type { SenderProfileRegistry } from "../../types/sender-profiles";
-import {
-  MemoryProposalSchema,
-  parseMemoryProposals,
-  type MemoryProposal,
-} from "../../types/memory-proposals";
 
 /**
  * Email Analyzer — LLM-powered signal extraction
  *
  * Analyzes email content to extract:
  * 1. Revenue signals (buying, closing, upsell, risk)
- * 2. New relationship signals (new contact, referral)
+ * 2. Referral signals
  * 3. Pending action signals (question, deliverable, reply needed)
+ *
+ * System plays are retired: the analyzer no longer emits memory_proposals
+ * or new_person findings. Record creation flows through the evidence
+ * pipeline (pending_evidence), never through scan findings.
  */
 
 /**
@@ -46,41 +37,34 @@ export const FieldExtractionSchema = z.object({
 
 export type FieldExtraction = z.infer<typeof FieldExtractionSchema>;
 
+export const FindingSchema = z.object({
+  type: z.enum([
+    "revenue_buying",
+    "revenue_closing",
+    "revenue_upsell",
+    "revenue_risk",
+    "referral",
+    "pending_question",
+    "pending_deliverable",
+    "pending_reply",
+  ]),
+  title: z.string(),
+  content: z.string().optional(),
+  evidence_quote: z.string().optional(),
+  confidence: z.number().min(0).max(100),
+});
+
 export const EmailAnalysisSchema = z.object({
-  findings: z.array(
-    z.object({
-      type: z.enum([
-        "revenue_buying",
-        "revenue_closing",
-        "revenue_upsell",
-        "revenue_risk",
-        "new_person",
-        "referral",
-        "pending_question",
-        "pending_deliverable",
-        "pending_reply",
-      ]),
-      title: z.string(),
-      content: z.string().optional(),
-      evidence_quote: z.string().optional(),
-      confidence: z.number().min(0).max(100),
-    })
-  ),
+  findings: z.array(FindingSchema),
   relationship_type: z
     .enum(["client", "prospect", "team", "partner", "vendor", "personal", "unknown"])
     .optional(),
-  memory_proposals: z.array(MemoryProposalSchema).optional(),
   field_extractions: z.array(FieldExtractionSchema).optional(),
   is_noise: z.boolean(),
   noise_reason: z.string().optional(),
 });
 
-export type EmailAnalysis = Omit<
-  z.infer<typeof EmailAnalysisSchema>,
-  "memory_proposals"
-> & {
-  memory_proposals?: MemoryProposal[];
-};
+export type EmailAnalysis = z.infer<typeof EmailAnalysisSchema>;
 
 export interface EmailToAnalyze {
   id: string;
@@ -119,19 +103,6 @@ Your job is to identify signals that matter for their business:
 6. **Unanswered Question** — They asked something that wasn't addressed in the reply
 7. **Pending Deliverable** — "When can I expect...", "Waiting on...", deadline mentioned, or work ready for review
 8. **Your Turn to Reply** — Thread ended with their message, implies action needed
-
-## MEMORY PROPOSALS (what to create or link in Memory)
-Even when revenue signals are weak, propose Memory surfaces when the email implies:
-- **meetings** — training sessions, workshops, calendar invites, scheduled calls with a **client or prospect** (not SaaS tool webinars)
-- **orgs** — organization or company name in subject/body (e.g. "Manna House") — **NOT** SaaS vendors (Stripe, Linear, Ramp, Descript, Gemini, Slack, etc.)
-- **work** — deliverables, strategy docs, prototypes, "ready for review" from clients
-- **people** — link thread to sender when identifiable **human contact**, not billing@stripe.com
-
-- **me** — a durable fact about the *user themselves* (the operator), not a contact. Use when an email the user SENT reveals how they work, write, or what they prefer (e.g. "I always send recaps within 24h", "I prefer Loom over long emails", "I sign off as 'Best, J'"). Put the fact as a **declarative statement** in hint.fact (e.g. "User prefers concise replies", not "Be concise"). Only propose \`me\` from messages the user authored.
-
-**Never** propose orgs/people/work/meetings for subscription receipts, SaaS billing, product digests, or login alerts from tools you pay for. **Never** propose \`me\` facts from emails the user did not write.
-
-Return up to 3 memory_proposals with confidence 70-100, action create|link|update, and system_play slug (system:create-org, system:create-work, system:create-meeting, system:create-person; for \`me\` facts use system:create-note).
 
 ## FIELD EXTRACTIONS (structured record fields)
 When the email is from a real human contact (NOT sent by the user, NOT a vendor/SaaS notification), also extract concrete profile field values visible in the content or signature into field_extractions. Only include values explicitly present — never guess.
@@ -209,6 +180,18 @@ function coerceFieldExtractions(raw: unknown): FieldExtraction[] | undefined {
   return valid.length > 0 ? valid : undefined;
 }
 
+/**
+ * Keep only well-formed findings; a malformed item (LLM dropped `type` or
+ * `title`) never sinks the whole analysis into scan_error.
+ */
+function coerceFindings(raw: unknown): z.infer<typeof FindingSchema>[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((item) => {
+    const parsed = FindingSchema.safeParse(item);
+    return parsed.success ? [parsed.data] : [];
+  });
+}
+
 /** LLMs often omit `findings` when marking noise — coerce before Zod parse. */
 export function coerceEmailAnalysis(raw: unknown): EmailAnalysis {
   const obj =
@@ -226,10 +209,7 @@ export function coerceEmailAnalysis(raw: unknown): EmailAnalysis {
   ] as const;
 
   const parsed = EmailAnalysisSchema.parse({
-    findings: Array.isArray(obj.findings) ? obj.findings : [],
-    memory_proposals: Array.isArray(obj.memory_proposals)
-      ? obj.memory_proposals
-      : undefined,
+    findings: coerceFindings(obj.findings),
     field_extractions: coerceFieldExtractions(obj.field_extractions),
     is_noise: typeof obj.is_noise === "boolean" ? obj.is_noise : false,
     noise_reason:
@@ -243,10 +223,7 @@ export function coerceEmailAnalysis(raw: unknown): EmailAnalysis {
         : undefined,
   });
 
-  return {
-    ...parsed,
-    memory_proposals: parseMemoryProposals(parsed.memory_proposals),
-  };
+  return parsed;
 }
 
 export interface AnalyzeEmailOptions {
@@ -282,9 +259,6 @@ export async function analyzeEmail(
     email,
     options?.heuristicContext
   );
-  const heuristicMemoryProposals = detectMemoryProposals(email, {
-    registry: options?.senderRegistry,
-  });
 
   try {
     const userPrompt = buildAnalysisPrompt(
@@ -304,18 +278,13 @@ export async function analyzeEmail(
     if (!jsonStr || jsonStr === "{}") {
       const empty = coerceEmailAnalysis({
         findings: [],
-        memory_proposals: heuristicMemoryProposals,
-        is_noise: heuristicFindings.length === 0 && heuristicMemoryProposals.length === 0,
+        is_noise: heuristicFindings.length === 0,
         noise_reason:
-          heuristicFindings.length === 0 && heuristicMemoryProposals.length === 0
-            ? "empty_llm_response"
-            : undefined,
+          heuristicFindings.length === 0 ? "empty_llm_response" : undefined,
       });
-      return attachMergedMemoryProposals(
+      return attachSenderContext(
         mergeEmailAnalyses(heuristicFindings, empty),
         email,
-        heuristicMemoryProposals,
-        [],
         options?.senderRegistry
       );
     }
@@ -323,24 +292,16 @@ export async function analyzeEmail(
     const parsed = JSON.parse(jsonStr);
     const llmAnalysis = coerceEmailAnalysis(parsed);
     const merged = mergeEmailAnalyses(heuristicFindings, llmAnalysis);
-    return attachMergedMemoryProposals(
-      merged,
-      email,
-      heuristicMemoryProposals,
-      llmAnalysis.memory_proposals ?? [],
-      options?.senderRegistry
-    );
+    return attachSenderContext(merged, email, options?.senderRegistry);
   } catch (error) {
     console.error("Failed to analyze email:", error);
-    if (heuristicFindings.length > 0 || heuristicMemoryProposals.length > 0) {
-      return attachMergedMemoryProposals(
+    if (heuristicFindings.length > 0) {
+      return attachSenderContext(
         mergeEmailAnalyses(heuristicFindings, {
           findings: [],
           is_noise: false,
         }),
         email,
-        heuristicMemoryProposals,
-        [],
         options?.senderRegistry
       );
     }
@@ -348,11 +309,9 @@ export async function analyzeEmail(
   }
 }
 
-function attachMergedMemoryProposals(
+function attachSenderContext(
   analysis: EmailAnalysis,
   email: EmailToAnalyze,
-  heuristic: MemoryProposal[],
-  llm: MemoryProposal[],
   senderRegistry?: SenderProfileRegistry
 ): EmailAnalysis {
   const sender = classifyEmailSender(
@@ -365,19 +324,12 @@ function attachMergedMemoryProposals(
     },
     { registry: senderRegistry }
   );
-  const memory_proposals = filterMemoryProposalsForSender(
-    mergeMemoryProposals(heuristic, llm),
-    sender
-  );
-  const hasSignals =
-    analysis.findings.length > 0 || memory_proposals.length > 0;
 
   return {
     ...analysis,
-    memory_proposals,
     relationship_type:
       sender.kind === "vendor_saas" ? "vendor" : analysis.relationship_type,
-    is_noise: analysis.is_noise && !hasSignals,
+    is_noise: analysis.is_noise && analysis.findings.length === 0,
   };
 }
 

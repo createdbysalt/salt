@@ -4,7 +4,6 @@ import {
   filterMemoryProposalsForSender,
   isKnownSaasVendorDomain,
 } from "./email-sender-context";
-import { detectMemoryProposals } from "./memory-proposal-heuristics";
 import { MANNA_HOUSE_TRAINING_EMAIL } from "./fixtures/memory-plan-emails";
 import type { SenderProfileRegistry } from "../../types/sender-profiles";
 
@@ -115,24 +114,6 @@ describe("email-sender-context", () => {
     );
 
     expect(filtered).toHaveLength(0);
-  });
-
-  it("detectMemoryProposals returns empty for Ramp receipt", () => {
-    const proposals = detectMemoryProposals({
-      id: "cap-ramp",
-      from_email: "billing@ramp.com",
-      from_name: "Ramp",
-      to_emails: ["hello@createdbysalt.com"],
-      subject: "Your Ramp invoice for March",
-      snippet: "Subscription renewal",
-      body_text: "Your monthly subscription was renewed.",
-      sent_at: new Date().toISOString(),
-      thread_id: "t-ramp",
-      is_sent_by_user: false,
-      has_prior_thread: false,
-    });
-
-    expect(proposals).toHaveLength(0);
   });
 
   it("recognizes common SaaS vendor domains", () => {
