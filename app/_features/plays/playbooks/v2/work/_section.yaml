@@ -16,3 +16,4 @@ signals:
 templates:
   - memory
   - blocker-watch
+  - contract-review

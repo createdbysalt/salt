@@ -1,0 +1,18 @@
+# Happy path with teeth: a complaint repeated by multiple clients →
+# themed report, temperature watch, actions with names attached.
+id: complaint-theme
+name: Recurring turnaround complaint → themed pulse report
+given:
+  agent:
+    - step: gather_feedback
+      text: "Read 9 client threads from the last 7 days. Theme: turnaround time — Dana Lee and Marco Ruiz both frustrated about slow delivery; Priya Shah mentioned it mildly. One-off: Acme praised the new report format. VERDICT: THEMES — 9 conversations, top theme: turnaround time"
+  draft:
+    - step: pulse_report
+      text: "Temperature: watch — frustration is building around turnaround. Theme: slow delivery, mentioned by Dana Lee and Marco Ruiz, with Priya Shah noting it in passing. One-off: Acme loves the new report format. Do these three things: reset the timeline with Dana today, send Marco the revised delivery date, ask Acme for a referral while the praise is warm."
+expect:
+  status: success
+  outputCount: 1
+  steps:
+    gather_feedback: success
+    temperature: success
+    pulse_report: success

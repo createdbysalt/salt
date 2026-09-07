@@ -244,8 +244,29 @@ describe("mapPlayRunToCard", () => {
     expect(vm.targetPrefix).toBe("To");
     expect(vm.primaryAction).toEqual({ label: "Approve & send", kind: "approve_send" });
     expect(vm.acting?.draftBody).toHaveLength(2);
+    expect(vm.acting?.emailSubject).toBeNull();
     expect(vm.provenance).toEqual({ source: "play_run", playRunId: "pr-1" });
     expect(validatePlayCard(vm).ok).toBe(true);
+  });
+
+  it("maps the Gmail subject from approval args, not the play title", () => {
+    const vm = mapPlayRunToCard(
+      playRun({
+        title: "Frank hasn't paid INV-2026-1589",
+        draft_body: "Hi Frank,\n\nJust a reminder about the invoice.",
+        approval_context: {
+          tool_slug: "GMAIL_CREATE_EMAIL_DRAFT",
+          args: {
+            subject: "Payment Reminder - Invoice INV-2026-1589 ($50.00)",
+          },
+          step_index: 3,
+        },
+      })
+    );
+    expect(vm.subject).toBe("Frank hasn't paid INV-2026-1589");
+    expect(vm.acting?.emailSubject).toBe(
+      "Payment Reminder - Invoice INV-2026-1589 ($50.00)"
+    );
   });
 
   it("maps a profile play_run with memory_care_profile metadata", () => {

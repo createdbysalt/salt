@@ -1,0 +1,13 @@
+# Near-miss negative: no client conversations in the window → no report.
+# A pulse fabricated from silence trains the owner to ignore the real ones.
+id: quiet-week
+name: No client conversations → quiet end, no report
+given:
+  agent:
+    - step: gather_feedback
+      text: "Scanned the last 7 days: only newsletters, receipts, and vendor notices — no real client conversations. VERDICT: QUIET — no client conversations in the window"
+expect:
+  status: success
+  outputCount: 0
+  steps:
+    gather_feedback: success

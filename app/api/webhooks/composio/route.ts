@@ -30,6 +30,7 @@ import {
 } from "@/app/_features/capture/services/capture-budget";
 import { routeResourceWebhook } from "@/app/_lib/resources/live/signal-router";
 import { recordComposioTriggerEvent } from "@/app/_lib/usage/record-trigger-usage";
+import { produceBillingRecordSignals } from "@/app/_features/capture/services/producers/billing-record-producer";
 
 export const maxDuration = 60;
 
@@ -576,6 +577,25 @@ export async function POST(req: NextRequest) {
         },
       },
     );
+  }
+
+  // Billing corroboration (Track G): a real-time payment capture
+  // corroborates or births the billing record now, not on the next
+  // reconciliation sweep. Backfills run the same producer in
+  // connector-backfills; duplicates already birthed theirs on first ingest.
+  if (envelope.captureType === "payment" && result.outcome === "created") {
+    try {
+      await produceBillingRecordSignals({
+        workspaceId: integration.workspace_id,
+        envelope,
+        source: adapter.sourceType,
+      });
+    } catch (error) {
+      console.warn(
+        "[composio-webhook] billing corroboration failed:",
+        error instanceof Error ? error.message : error,
+      );
+    }
   }
 
   return NextResponse.json({

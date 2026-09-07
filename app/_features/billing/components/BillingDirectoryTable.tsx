@@ -117,7 +117,14 @@ export function BillingDirectoryTable({
       accessorKey: "provider",
       header: "Source",
       filterFn: multiFilter,
-      cell: ({ row }) => <BillingSourceBadge provider={row.original.provider} />,
+      cell: ({ row }) => (
+        <BillingSourceBadge
+          provider={row.original.provider}
+          source={row.original.source}
+          origin={row.original.origin}
+          sourceReclassifiedAsManual={row.original.sourceReclassifiedAsManual}
+        />
+      ),
     },
     {
       accessorKey: "status",
@@ -202,7 +209,14 @@ export function BillingDirectoryTable({
       accessorKey: "provider",
       header: "Source",
       filterFn: multiFilter,
-      cell: ({ row }) => <BillingSourceBadge provider={row.original.provider} />,
+      cell: ({ row }) => (
+        <BillingSourceBadge
+          provider={row.original.provider}
+          source={row.original.source}
+          origin={row.original.origin}
+          sourceReclassifiedAsManual={row.original.sourceReclassifiedAsManual}
+        />
+      ),
     },
     {
       accessorKey: "status",

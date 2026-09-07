@@ -184,6 +184,11 @@ export const RECORD_QUALIFIERS: Record<IntakeEntityType, RecordQualifier> = {
       "sow_detected", // Scope of Work
       "brief_detected", // Client brief, creative brief
 
+      // Invoices & Notes (the big three, with contracts)
+      "invoice_document_detected", // Invoice document (resource mirror of the billing lane)
+      "meeting_notes_detected", // Meeting notes, call recap, minutes
+      "document_file_present", // Attachment/synced file whose filename matches a document pattern
+
       // Deliverables (MEDIUM priority)
       "deliverable_detected", // Final deliverables
       "asset_delivered", // Design files (PSD, AI, Figma)
@@ -263,7 +268,7 @@ export const SIGNAL_WEIGHTS: Record<string, number> = {
 
   // Work signals (positive)
   email_subject_project_pattern: 1.0,
-  meeting_title_project_pattern: 2.5, // two same-title meetings reach suggest
+  meeting_title_project_pattern: 2.5, // two same-title meetings reach suggest; substantive titles only (generic ceremonies never emit) + external participant required
   proposal_or_sow_attached: 4.0,
   invoice_line_items_suggest_project: 2.5,
   thread_discusses_scope: 2.0,
@@ -294,6 +299,13 @@ export const SIGNAL_WEIGHTS: Record<string, number> = {
 
   // Invoices & Payments (scores already in Billing signals above)
   receipt_detected: 3.0, // Payment receipts
+  invoice_document_detected: 4.0, // Invoice document (resource mirror of the billing lane)
+  meeting_notes_detected: 4.0, // Meeting notes, call recap, minutes
+
+  // A concrete file whose filename matches a document pattern (email
+  // attachment or synced Drive/Dropbox file). Corroborates the body-keyword
+  // detection — together they cross the resource auto bar in one capture.
+  document_file_present: 2.0,
 
   // Client Communication
   feedback_detected: 2.5, // Client feedback, comments
@@ -331,8 +343,8 @@ export const SIGNAL_WEIGHTS: Record<string, number> = {
  * Thresholds for evidence-based decisions.
  * All values are in log-odds (base 2).
  *
- * suggest: Show in HQ as "suggested record"
- * auto: Auto-create if workspace has auto-create enabled
+ * suggest: Tracked as a live candidate, keeps accumulating
+ * auto: Auto-create the record — the threshold IS the auto-apply
  * dismiss: Stop watching (too much negative evidence)
  */
 export const EVIDENCE_THRESHOLDS: Record<

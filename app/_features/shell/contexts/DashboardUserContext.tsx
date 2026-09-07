@@ -36,6 +36,11 @@ export function useDashboardUser() {
   return context;
 }
 
+/** Same as useDashboardUser, but null outside the product shell (tests, demos). */
+export function useDashboardUserOptional() {
+  return useContext(DashboardUserContext);
+}
+
 /** Whether the signed-in account should see demo fixtures. */
 export function useMockContent(): boolean {
   return useDashboardUser().mockContentEnabled === true;

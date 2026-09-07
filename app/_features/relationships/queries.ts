@@ -51,7 +51,7 @@ export const getOrganizations = cache(
       .eq("workspace_id", workspace.id)
       .is("deleted_at", null)
       .is("archived_at", null)
-      .order("name", { ascending: true })
+      .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
 
     if (error) {
@@ -167,7 +167,7 @@ export const getPeople = cache(
       .eq("workspace_id", workspace.id)
       .is("deleted_at", null)
       .is("archived_at", null)
-      .order("name", { ascending: true })
+      .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
 
     if (error) {

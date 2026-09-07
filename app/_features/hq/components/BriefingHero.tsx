@@ -2,6 +2,7 @@
 
 import { Play, Sparkles, Loader2, Pause, Volume2 } from "lucide-react";
 import Link from "next/link";
+import type { DailyBriefing } from "@/app/_features/hq/briefing/types";
 import type { HqBriefingData } from "@/app/_features/plays/types";
 import type { HqSideRailData } from "../types";
 import { useDashboardUser } from "@/app/_features/shell/contexts/DashboardUserContext";
@@ -20,12 +21,56 @@ function getGreetingName(firstName?: string, fullName?: string) {
   return "there";
 }
 
+const SECTION_LABELS = [
+  { key: "urgent", label: "Urgent" },
+  { key: "today", label: "Today" },
+  { key: "relationships", label: "Relationships" },
+] as const;
+
 type Props = {
   briefing: HqBriefingData;
+  dailyBriefing: DailyBriefing | null;
   sideRail: HqSideRailData;
 };
 
-export function BriefingHero({ briefing, sideRail }: Props) {
+function EditorialBriefing({ dailyBriefing }: { dailyBriefing: DailyBriefing }) {
+  const visibleSections = SECTION_LABELS.filter(
+    ({ key }) => dailyBriefing.sections[key].length > 0,
+  );
+
+  return (
+    <div className="mt-5 max-w-xl space-y-4">
+      {dailyBriefing.content ? (
+        <p className="text-base leading-[1.55] text-white/85 sm:text-lg">
+          {dailyBriefing.content}
+        </p>
+      ) : null}
+      {visibleSections.length > 0 ? (
+        <div className="space-y-3">
+          {visibleSections.map(({ key, label }) => (
+            <div key={key}>
+              <p className="text-[11px] font-medium uppercase tracking-wider text-white/70">
+                {label}
+              </p>
+              <ul className="mt-1.5 space-y-1">
+                {dailyBriefing.sections[key].map((item) => (
+                  <li
+                    key={item}
+                    className="text-sm leading-snug text-white/90"
+                  >
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+export function BriefingHero({ briefing, dailyBriefing, sideRail }: Props) {
   const { firstName, fullName } = useDashboardUser();
   const displayName = getGreetingName(firstName, fullName);
   const awaiting = briefing.playsAwaitingApproval;
@@ -81,20 +126,24 @@ export function BriefingHero({ briefing, sideRail }: Props) {
             <span className="text-white/85">{displayName}.</span>
           </h1>
 
-          <p className="mt-5 max-w-xl text-base leading-[1.55] text-white/85 sm:text-lg">
-            Salt ran{" "}
-            <span className="font-semibold text-white">{ranToday} plays</span> for you
-            today.
-            {awaiting > 0 ? (
-              <>
-                {" "}
-                {awaiting} more {awaiting === 1 ? "is" : "are"} waiting on your approval — about
-                90 seconds of work.
-              </>
-            ) : (
-              <> {opportunityLine}</>
-            )}
-          </p>
+          {dailyBriefing ? (
+            <EditorialBriefing dailyBriefing={dailyBriefing} />
+          ) : (
+            <p className="mt-5 max-w-xl text-base leading-[1.55] text-white/85 sm:text-lg">
+              Salt ran{" "}
+              <span className="font-semibold text-white">{ranToday} plays</span> for you
+              today.
+              {awaiting > 0 ? (
+                <>
+                  {" "}
+                  {awaiting} more {awaiting === 1 ? "is" : "are"} waiting on your
+                  approval — about 90 seconds of work.
+                </>
+              ) : (
+                <> {opportunityLine}</>
+              )}
+            </p>
+          )}
 
           <div className="mt-7 flex flex-wrap items-center gap-3">
             {awaiting > 0 ? (

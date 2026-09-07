@@ -64,7 +64,7 @@ describe("cronMatchesHour", () => {
   });
 
   it("evaluates in the provided IANA timezone", () => {
-    // Daily Briefing: "0 9 * * 1-5" in America/Toronto.
+    // Weekday 9am in America/Toronto (HQ daily briefing window).
     // In August (EDT, UTC-4), 9am Toronto = 13:00 UTC.
     const thursday13Utc = utc("2026-08-06T13:00:00Z");
     expect(cronMatchesHour("0 9 * * 1-5", thursday13Utc, "America/Toronto")).toBe(

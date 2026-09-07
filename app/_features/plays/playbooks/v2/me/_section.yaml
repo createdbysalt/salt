@@ -11,3 +11,4 @@ signals: []
 
 templates:
   - memory
+  - weekly-briefing

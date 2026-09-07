@@ -1,0 +1,41 @@
+# Escalation: 26 days overdue with no answer → final tier, still paused
+# for a human before the Gmail draft is created.
+id: proceed-final-notice
+name: 26 days overdue, no prior answer → final notice, paused for approval
+given:
+  memory:
+    billing_record_context:
+      invoice:
+        number: INV-061
+        amount_cents: 90000
+        amount_paid_cents: 0
+        days_overdue: 26
+        due_at: "2026-08-03T00:00:00Z"
+        pay_url: "https://invoice.stripe.com/i/acct_test/in_061"
+      client:
+        name: Dan
+        email: dan@shop.io
+      payment_history:
+        on_time: 0
+        late: 1
+      open_invoices:
+        - number: INV-061
+          amount_remaining_cents: 90000
+          days_overdue: 26
+  agent:
+    - step: verify_unpaid
+      text: "VERDICT: PROCEED — $900 remaining, 26 days overdue, reminder sent 2026-08-10"
+  draft:
+    - step: reminder_email
+      text: "Hi Dan — INV-061 ($900) is now 26 days past due…"
+  settings:
+    final_after_days: 21
+expect:
+  status: paused
+  pausedOnTool: GMAIL_SEND_EMAIL
+  steps:
+    invoice_context: success
+    verify_unpaid: success
+    tier: success
+    reminder_email: success
+    send_reminder: paused

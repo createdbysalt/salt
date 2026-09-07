@@ -21,6 +21,8 @@ import { runRecordsCapability, runRecordsForWorkspace } from "./capabilities/rec
 import { runHygieneCapability } from "./capabilities/hygiene";
 import { runConnectionsCapability } from "./capabilities/connections";
 import { runNotesCapability } from "./capabilities/notes";
+import { runWorkSynthesisCapability } from "./capabilities/work-synthesis";
+import { promoteParkedEvidence } from "./promotion";
 import {
   CARE_CAPABILITY_META,
   type CareCapability,
@@ -37,7 +39,18 @@ const CARE_SCHEDULES: Array<{ capability: CareCapability; cron: string }> = [
   { capability: "notes", cron: "0 2 * * 0" }, // Sunday 2am
   { capability: "hygiene", cron: "0 3 * * 0" }, // Sunday 3am
   { capability: "connections", cron: "0 6 * * 1" }, // Monday 6am
+  // Work synthesis: daily alongside the 4am promotion sweep — new work gets
+  // re-understood from its accumulated evidence within a day.
+  { capability: "work-synthesis", cron: "0 4 * * *" }, // daily 4am
 ];
+
+/**
+ * Daily promotion sweep — re-evaluates parked Watching evidence and applies
+ * groups whose aggregated confidence now clears the bar. Records has no
+ * weekly schedule of its own (it is signal-driven), so the sweep gets its
+ * own cron slot.
+ */
+const PROMOTION_SWEEP_CRON = "0 4 * * *"; // daily 4am
 
 // =============================================================================
 // Signal → capability map (ported from the retired _meta definitions)
@@ -188,13 +201,21 @@ async function executeCapability(
           workspaceId: ctx.workspaceId,
           signal: ctx.triggerSignal,
         });
+        // Promotion sweep: re-evaluate parked evidence and apply groups that
+        // now clear the bar (corroborated late, or parked by a past failure).
+        const promotion = await promoteParkedEvidence(ctx.workspaceId);
         return {
           success: true,
-          summary: `Evaluated ${result.entitiesEvaluated} records, ${result.rulesMatched} rule(s) matched`,
+          summary:
+            `Evaluated ${result.entitiesEvaluated} records, ${result.rulesMatched} rule(s) matched` +
+            (promotion.promoted > 0
+              ? `, promoted ${promotion.promoted} parked item(s)`
+              : ""),
           data: {
             entitiesEvaluated: result.entitiesEvaluated,
             rulesMatched: result.rulesMatched,
             updates: result.updates.length,
+            promoted: promotion.promoted,
           },
         };
       }
@@ -204,6 +225,8 @@ async function executeCapability(
       return runConnectionsCapability(ctx);
     case "notes":
       return runNotesCapability(ctx);
+    case "work-synthesis":
+      return runWorkSynthesisCapability(ctx);
   }
 }
 
@@ -330,9 +353,11 @@ export async function runDueCareCapabilities(now: Date): Promise<{
   runs: number;
   failures: number;
   skipped: number;
+  promoted?: number;
 }> {
   const due = findDueCareCapabilities(now);
-  if (due.length === 0) {
+  const sweepDue = cronMatchesHour(PROMOTION_SWEEP_CRON, now);
+  if (due.length === 0 && !sweepDue) {
     return { due: [], runs: 0, failures: 0, skipped: 0 };
   }
 
@@ -350,6 +375,7 @@ export async function runDueCareCapabilities(now: Date): Promise<{
   let runs = 0;
   let failures = 0;
   let skipped = 0;
+  let promoted = 0;
 
   for (const { capability } of due) {
     for (const workspace of workspaces) {
@@ -370,7 +396,39 @@ export async function runDueCareCapabilities(now: Date): Promise<{
     }
   }
 
-  return { due: due.map((d) => d.capability), runs, failures, skipped };
+  if (sweepDue) {
+    for (const workspace of workspaces) {
+      try {
+        const result = await promoteParkedEvidence(workspace.id);
+        promoted += result.promoted;
+        if (result.promoted > 0) {
+          await admin.from("activity_entries").insert({
+            workspace_id: workspace.id,
+            action: "ran",
+            title: "Memory Care: Records ran",
+            detail: `Promoted ${result.promoted} parked item(s) that cleared the bar`,
+            metadata: {
+              source: "memory-care",
+              capability: "records",
+              auto_executed: true,
+              trigger: "schedule",
+              success: true,
+              promoted: result.promoted,
+              groups_evaluated: result.groupsEvaluated,
+            },
+          });
+        }
+      } catch (sweepError) {
+        failures++;
+        console.error(
+          `[memory-care] Promotion sweep failed for workspace ${workspace.id}:`,
+          sweepError
+        );
+      }
+    }
+  }
+
+  return { due: due.map((d) => d.capability), runs, failures, skipped, promoted };
 }
 
 // =============================================================================

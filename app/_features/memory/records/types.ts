@@ -454,6 +454,7 @@ export type BillingCategory = "contractor" | "software" | "other";
 export interface CreateBillingInput {
   direction: BillingDirection;
   amount_cents: number;
+  amount_paid_cents?: number;
   currency?: string;
   status?: BillingStatus;
   category?: BillingCategory;
@@ -472,6 +473,17 @@ export interface CreateBillingInput {
    * (artifact-first) and this column stays a projection of it.
    */
   app_url?: string;
+  /**
+   * Provenance for system-born records. Constrained by
+   * billing_records_source_check (user/imported/salt_inferred). Defaults
+   * serve the user-facing paths ("user" / "added"); factual births from
+   * connected billing providers pass "salt_inferred" and "found", with the
+   * provider identity in source_external_id.
+   */
+  source?: "user" | "imported" | "salt_inferred";
+  origin?: "found" | "added";
+  /** Provider-side id (Stripe invoice id) — dedupe key for factual births. */
+  source_external_id?: string;
 }
 
 export interface UpdateBillingInput {

@@ -78,6 +78,7 @@ describe("computePlaybookRunStats", () => {
     const stats = computePlaybookRunStats([row({})], [], 10, NOW);
     expect(stats.totalRuns).toBe(0);
     expect(stats.runsThisWeek).toBe(0);
+    expect(stats.totalMinutesSaved).toBeNull();
   });
 });
 

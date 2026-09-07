@@ -8,24 +8,29 @@
  *
  * Full checklist: docs/guides/memory-activity-parity.md
  *
- * Known gaps (blocked on schema — do not work around here):
- * - Inline file field edits write no provenance: profile_field_provenance's
- *   entity_type CHECK admits person/organization/work/operator/workspace only,
- *   so metadata edits surface via file_activities/bootstrap entries, not
- *   provenance events.
- * - notes' entity_type CHECK admits person/organization/work only; the 'file'
- *   notes query in getFileSupplementalActivity returns rows once the CHECK is
- *   widened.
+ * Provenance: profile_field_provenance admits 'resource' (files→resources
+ * rename, 20260810150000). Salt's writes (content analysis via
+ * memoryUpdateField) and manual inline edits (updateMemoryFileField /
+ * updateMemoryFileCategory) both record rows; getFileProvenanceActivity
+ * renders them and mapFileRecordBootstrapActivity suppresses the bootstrap
+ * guesses those rows replace.
+ *
+ * Known gaps:
  * - Bootstrap entries (mapFileRecordBootstrapActivity) date metadata to
  *   updated_at because per-field set timestamps don't exist for files.
- * - Tag removal is not recorded (file_tag_assignments rows are deleted).
+ * - Tag removal is not recorded (resource_tag_assignments rows are deleted).
  */
 import type {
   ProfileActivityTimelineEntry,
   PersonActivityKind,
 } from "@/app/_features/people/utils/activity";
-import { buildGenericRecordActivityAskSaltPrompt } from "@/app/_features/people/utils/activity";
+import {
+  buildGenericRecordActivityAskSaltPrompt,
+  profileFieldLabel,
+} from "@/app/_features/people/utils/activity";
+import type { ProfileFieldProvenanceView } from "@/app/_features/plays/playbooks/records-engine/types";
 import { FILE_CATEGORY_LABEL } from "../data";
+import type { FileCategory } from "../data";
 import type {
   FileActivityEvent,
   FileActivityType,
@@ -231,6 +236,106 @@ export function buildFileActivityAskSaltPrompt(
 }
 
 // ============================================================================
+// Provenance activity (profile_field_provenance rows for entity_type
+// 'resource' — Salt's memoryUpdateField writes and manual inline edits)
+// ============================================================================
+
+/** File-aware field labels; falls back to the shared snake_case humanizer. */
+function fileProvenanceFieldLabel(field: string): string {
+  switch (field) {
+    case "document_type":
+      return "document type";
+    case "lifecycle_status":
+      return "status";
+    case "total_amount_cents":
+      return "total amount";
+    case "is_operator_asset":
+      return "business asset";
+    default:
+      return profileFieldLabel(field);
+  }
+}
+
+/** Pretty-print a provenance value for known file fields (slugs → labels). */
+function fileProvenanceValueLabel(field: string, value: string | null): string | null {
+  if (value == null || value === "") return null;
+  switch (field) {
+    case "category":
+      return FILE_CATEGORY_LABEL[value as FileCategory] ?? value;
+    case "document_type":
+      return formatDocumentType(value);
+    case "lifecycle_status":
+      return formatLifecycleStatus(value);
+    default:
+      return value;
+  }
+}
+
+/** Fields that read naturally as "set the X" rather than "updated X". */
+const SET_PHRASE_FIELDS = new Set([
+  "category",
+  "document_type",
+  "due_date",
+  "expiry_date",
+  "signed_date",
+  "follow_up_date",
+]);
+
+function capitalize(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+/**
+ * Map one profile_field_provenance row to a timeline entry with honest
+ * attribution: manual edits read "You …", everything Salt wrote (enrichment,
+ * care, rules, AI fallback) reads "Salt …". Sources beyond the
+ * ProfileProvenanceSource union (enrichment, cron, …) land in the Salt
+ * branch by design.
+ */
+export function mapFileProvenanceToActivity(
+  provenance: ProfileFieldProvenanceView,
+): ProfileActivityTimelineEntry {
+  const field = fileProvenanceFieldLabel(provenance.field);
+  const valueLabel = fileProvenanceValueLabel(provenance.field, provenance.value);
+  const detailParts = [
+    valueLabel ? `${capitalize(field)} → ${valueLabel}` : null,
+    provenance.because,
+    provenance.confidence != null ? `${provenance.confidence}% sure` : null,
+  ].filter(Boolean) as string[];
+
+  const base = {
+    id: `file-profile-${provenance.field}-${provenance.setAt}`,
+    at: provenance.setAt,
+    detail: detailParts.length > 0 ? detailParts.join(" · ") : null,
+    field: provenance.field,
+    source: provenance.source,
+    status: provenance.status,
+  };
+
+  if (provenance.source === "manual") {
+    return {
+      ...base,
+      kind: "user",
+      label: SET_PHRASE_FIELDS.has(provenance.field)
+        ? `You set the ${field}`
+        : `You updated ${field}`,
+    };
+  }
+
+  if (provenance.status === "pending") {
+    return { ...base, kind: "salt", label: `Salt suggested ${field}` };
+  }
+
+  return {
+    ...base,
+    kind: "salt",
+    label: SET_PHRASE_FIELDS.has(provenance.field)
+      ? `Salt set the ${field}`
+      : `Salt updated ${field}`,
+  };
+}
+
+// ============================================================================
 // Supplemental activity (tags, links, record bootstrap)
 // ============================================================================
 
@@ -273,23 +378,38 @@ export function mapFileRecordBootstrapActivity(
     | "dueDate"
     | "expiryDate"
     | "signedDate"
+    | "uploadedBy"
   >,
   loggedActivities: FileActivityEvent[] = [],
+  provenanceFields: ReadonlySet<string> = new Set(),
 ): ProfileActivityTimelineEntry[] {
   const loggedTypes = new Set(loggedActivities.map((activity) => activity.activityType));
   const entries: ProfileActivityTimelineEntry[] = [];
 
   if (!loggedTypes.has("uploaded")) {
+    // uploaded_by is null on system-created records (attach-artifact and
+    // other Salt intake flows) — attribute those to Salt, not the user.
+    const addedBySalt = file.uploadedBy == null;
     entries.push({
       id: `file-created-${file.id}`,
       at: file.createdAt,
-      kind: "user",
-      label: file.fileType === "link" ? "You added this link" : "You uploaded this file",
+      kind: addedBySalt ? "salt" : "user",
+      label:
+        file.fileType === "link"
+          ? addedBySalt
+            ? "Salt added this link"
+            : "You added this link"
+          : addedBySalt
+            ? "Salt added this file"
+            : "You uploaded this file",
       detail: file.fileName,
     });
   }
 
-  if (file.category) {
+  // Field-state bootstrap entries are guesses of last resort: once a
+  // provenance row exists for a field, that row renders with the real
+  // actor and the guess would duplicate (or misattribute) it.
+  if (file.category && !provenanceFields.has("category")) {
     entries.push({
       id: `file-category-${file.id}`,
       at: file.updatedAt,
@@ -302,7 +422,8 @@ export function mapFileRecordBootstrapActivity(
   if (
     file.documentType &&
     file.extractionStatus !== "completed" &&
-    !loggedTypes.has("extraction_completed")
+    !loggedTypes.has("extraction_completed") &&
+    !provenanceFields.has("document_type")
   ) {
     entries.push({
       id: `file-document-type-${file.id}`,
@@ -313,7 +434,11 @@ export function mapFileRecordBootstrapActivity(
     });
   }
 
-  if (file.lifecycleStatus && file.lifecycleStatus !== "archived") {
+  if (
+    file.lifecycleStatus &&
+    file.lifecycleStatus !== "archived" &&
+    !provenanceFields.has("lifecycle_status")
+  ) {
     entries.push({
       id: `file-lifecycle-${file.id}-${file.lifecycleStatus}`,
       at: file.updatedAt,
@@ -323,7 +448,11 @@ export function mapFileRecordBootstrapActivity(
     });
   }
 
-  if (file.totalAmountCents != null && file.totalAmountCents > 0) {
+  if (
+    file.totalAmountCents != null &&
+    file.totalAmountCents > 0 &&
+    !provenanceFields.has("total_amount_cents")
+  ) {
     entries.push({
       id: `file-amount-${file.id}`,
       at: file.updatedAt,
@@ -333,7 +462,7 @@ export function mapFileRecordBootstrapActivity(
     });
   }
 
-  if (file.dueDate) {
+  if (file.dueDate && !provenanceFields.has("due_date")) {
     entries.push({
       id: `file-due-${file.id}`,
       at: file.updatedAt,
@@ -343,7 +472,7 @@ export function mapFileRecordBootstrapActivity(
     });
   }
 
-  if (file.expiryDate) {
+  if (file.expiryDate && !provenanceFields.has("expiry_date")) {
     entries.push({
       id: `file-expiry-${file.id}`,
       at: file.updatedAt,
@@ -353,7 +482,7 @@ export function mapFileRecordBootstrapActivity(
     });
   }
 
-  if (file.signedDate) {
+  if (file.signedDate && !provenanceFields.has("signed_date")) {
     entries.push({
       id: `file-signed-date-${file.id}`,
       at: file.signedDate,

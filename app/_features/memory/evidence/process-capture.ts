@@ -23,12 +23,12 @@ import {
 import { addSignalToEvidence } from "./add-signal";
 import { routeIntakeProposal } from "./route-intake-proposal";
 import { extractCalendarInviteFromPayload } from "@/app/_features/capture/services/calendar-attachment-parser";
+import type { EmailAttachmentMeta } from "./classifier";
 import {
   logOddsToProbability,
   probabilityToLogOdds,
   SIGNAL_WEIGHTS,
 } from "@/app/_features/memory/care/intake";
-import { shouldAutoApply } from "@/app/_features/capture/services/intelligence/record-capture-outcome";
 import type { AddSignalResult, ExtractedFieldValue } from "./types";
 
 function toRecord(value: Json | null): Record<string, unknown> {
@@ -158,22 +158,11 @@ export async function processCaptureForEvidence(
 }
 
 /**
- * Calendar-sourced meeting signals are objective facts — the event exists on
- * the user's own calendar — not judgment calls. The earned-autonomy gate
- * (P6) exists for inferences; mirroring the user's calendar is not one, so
- * these bypass calibration and create directly. Email-inferred meeting
- * signals (calendar_invite_received from ICS attachments) keep the gate.
- */
-const CALENDAR_FACT_SIGNALS = new Set([
-  "calendar_event_created",
-  "zoom_invite_detected",
-]);
-
-/**
  * Route a meeting-entity signal into the intake tier: the signal's weight
- * becomes the proposal confidence. Calendar-fact signals auto-apply
- * unconditionally; anything else defers to the workspace's earned
- * calibration (shouldAutoApply).
+ * becomes the proposal confidence. Memory is fully autonomous — the
+ * accumulated score against the entity's bars is the only gate, so
+ * calendar-fact signals (the event exists on the user's own calendar)
+ * cross the meeting auto bar and create directly.
  */
 async function routeMeetingSignal(
   workspaceId: string,
@@ -181,9 +170,6 @@ async function routeMeetingSignal(
   captureId: string
 ): Promise<AddSignalResult> {
   const confidence = logOddsToProbability(SIGNAL_WEIGHTS[signal.signal] ?? 0);
-  const autoApply = CALENDAR_FACT_SIGNALS.has(signal.signal)
-    ? true
-    : await shouldAutoApply(workspaceId, confidence);
 
   const extractedFields: Record<string, ExtractedFieldValue> = {};
   for (const [key, value] of Object.entries(signal.extractedData)) {
@@ -198,7 +184,6 @@ async function routeMeetingSignal(
     extractedFields,
     signals: [signal.signal],
     captureId,
-    autoApply,
   });
 
   return {
@@ -245,16 +230,21 @@ export async function batchProcessCapturesForEvidence(
 // DATA EXTRACTION HELPERS
 // =============================================================================
 
-function extractEmailData(
+/** Exported for the email backfill script — same extraction the live path uses. */
+export function extractEmailData(
   extracted: Record<string, unknown>,
   raw: Record<string, unknown>
 ): EmailCaptureData | null {
-  // Try extracted data first
+  // Try extracted data first. The email adapters emit sender_email (never
+  // from/sender) — without that fallback every email capture silently
+  // skipped classification here.
   const from =
     (extracted.from as string) ||
     (extracted.sender as string) ||
+    (extracted.sender_email as string) ||
     (raw.from as string) ||
-    (raw.sender as string);
+    (raw.sender as string) ||
+    (raw.sender_email as string);
 
   if (!from) return null;
 
@@ -262,18 +252,27 @@ function extractEmailData(
     extracted.to || extracted.recipients || raw.to || raw.recipients
   );
   const cc = normalizeRecipients(extracted.cc || raw.cc);
+  const attachments = normalizeAttachments(
+    extracted.attachments ?? raw.attachments
+  );
 
   return {
     from,
     to,
     cc: cc.length > 0 ? cc : undefined,
     subject: (extracted.subject as string) || (raw.subject as string),
-    body: (extracted.body as string) || (raw.body as string),
+    // Adapters store the body preview as snippet, not body.
+    body:
+      (extracted.body as string) ||
+      (extracted.snippet as string) ||
+      (raw.body as string) ||
+      (raw.snippet as string),
     signature: (extracted.signature as string) || (raw.signature as string),
     hasAttachments:
-      Boolean(extracted.attachments) ||
-      Boolean(raw.attachments) ||
-      (Array.isArray(extracted.attachments) && extracted.attachments.length > 0),
+      attachments.length > 0 ||
+      extracted.has_attachments === true ||
+      raw.has_attachments === true,
+    attachments: attachments.length > 0 ? attachments : undefined,
     isReply:
       Boolean(extracted.is_reply) ||
       Boolean(raw.is_reply) ||
@@ -281,6 +280,34 @@ function extractEmailData(
         extracted.subject.toLowerCase().startsWith("re:")),
     threadId: (extracted.thread_id as string) || (raw.thread_id as string),
   };
+}
+
+/**
+ * Attachment metadata from the capture envelope (Gmail adapter emits
+ * [{ name, contentType, size }]). Filenames are document evidence — the
+ * classifier matches them against the document vocabulary.
+ */
+function normalizeAttachments(value: unknown): EmailAttachmentMeta[] {
+  if (!Array.isArray(value)) return [];
+  const attachments: EmailAttachmentMeta[] = [];
+  for (const item of value) {
+    if (typeof item === "string" && item.trim()) {
+      attachments.push({ name: item });
+      continue;
+    }
+    if (!item || typeof item !== "object") continue;
+    const record = item as Record<string, unknown>;
+    const name =
+      (record.name as string) || (record.filename as string) || "";
+    if (!name.trim()) continue;
+    attachments.push({
+      name,
+      contentType:
+        (record.contentType as string) || (record.mimeType as string) || undefined,
+      size: typeof record.size === "number" ? record.size : undefined,
+    });
+  }
+  return attachments;
 }
 
 function extractMeetingData(

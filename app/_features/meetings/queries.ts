@@ -692,7 +692,7 @@ export const getMeetings = cache(async (): Promise<MeetingDetailRecord[]> => {
     .eq("workspace_id", workspace.id)
     .is("deleted_at", null)
     .is("archived_at", null)
-    .order("start_time", { ascending: false });
+    .order("created_at", { ascending: false });
 
   if (error) {
     console.error("Error fetching meetings:", error.message, error.code, error.hint, error.details);

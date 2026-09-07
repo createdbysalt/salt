@@ -7,6 +7,11 @@ vi.mock("./capture-fetch", () => ({
   fetchCaptureSource: vi.fn(),
 }));
 
+vi.mock("./memory-fetch", () => ({
+  isMemoryFetchCategory: (category: string) => category === "memory",
+  fetchMemorySource: vi.fn(),
+}));
+
 vi.mock("@/app/_features/plays/services/execute-connector-tool", () => {
   class ConnectorUnavailableError extends Error {
     readonly provider: string;
@@ -27,7 +32,7 @@ vi.mock("@/app/_features/plays/services/earned-autonomy", () => ({
 }));
 
 vi.mock("@/app/_lib/composio/category-fetcher", () => ({
-  checkCategoryRequirements: vi.fn().mockResolvedValue({ satisfied: true, missing: [] }),
+  checkCategoryRequirements: vi.fn().mockResolvedValue({ satisfied: true, missing: [], available: ["billing"], optional: [] }),
   fetchMultipleByCategory: vi.fn().mockResolvedValue({
     success: true,
     results: {
@@ -79,9 +84,49 @@ vi.mock("@/app/_lib/composio/tool-policy", () => ({
 }));
 
 const sendLlmMock = vi.fn().mockResolvedValue("draft text");
+const sendLlmToolTurnMock = vi.fn();
 vi.mock("@/app/_lib/ai/gpt", () => ({
   sendLlm: (...args: unknown[]) => sendLlmMock(...args),
+  sendLlmToolTurn: (...args: unknown[]) => sendLlmToolTurnMock(...args),
   committedSpend: vi.fn().mockReturnValue({ kind: "workspace", origin: "committed" }),
+}));
+
+const guidanceMock = vi.fn().mockResolvedValue(null);
+vi.mock("@/app/_features/plays/customize/prompt-block", () => ({
+  buildPlaybookGuidancePromptBlock: (...args: unknown[]) =>
+    guidanceMock(...args),
+}));
+
+// Multi-app fan-out (Phase 4): capability resolution + per-play exclusions.
+const {
+  resolveCapabilityToolsMock,
+  listCapabilityKeysMock,
+  loadSelectionsMock,
+} = vi.hoisted(() => ({
+  resolveCapabilityToolsMock: vi.fn(),
+  listCapabilityKeysMock: vi.fn(),
+  loadSelectionsMock: vi.fn(),
+}));
+vi.mock("@/app/_lib/composio/capability-resolver", () => ({
+  resolveCapabilityTool: vi.fn().mockResolvedValue(null),
+  resolveCapabilityTools: (...args: unknown[]) =>
+    resolveCapabilityToolsMock(...args),
+  listCapabilityKeysForToolSlugs: (...args: unknown[]) =>
+    listCapabilityKeysMock(...args),
+}));
+vi.mock("@/app/_features/plays/services/app-selections", () => ({
+  loadPlaybookAppSelections: (...args: unknown[]) =>
+    loadSelectionsMock(...args),
+  exclusionsFromSelections: (
+    connected: Iterable<string>,
+    selections: ReadonlySet<string>
+  ) => {
+    const excluded = new Set<string>();
+    for (const provider of connected) {
+      if (!selections.has(provider)) excluded.add(provider);
+    }
+    return excluded;
+  },
 }));
 
 describe("executor utility functions", () => {
@@ -244,6 +289,178 @@ describe("executor utility functions", () => {
       expect(classified[0].tag).toBe("medium_value");
       expect(classified[1].tag).toBe("high_value");
       expect(classified[2].tag).toBe("high_value");
+    });
+  });
+
+  describe("settings", () => {
+    it("resolvePlaybookSettings prefers the workspace value over the default", async () => {
+      const { resolvePlaybookSettings } = await import("./executor");
+
+      expect(
+        resolvePlaybookSettings({
+          grace_days: { type: "number", label: "Grace", default: 0, value: 3 },
+          tone: { type: "text", label: "Tone", default: "warm" },
+        })
+      ).toEqual({ grace_days: 3, tone: "warm" });
+      expect(resolvePlaybookSettings(undefined)).toEqual({});
+    });
+
+    it("interpolates {{settings.key}} in draft prompts", async () => {
+      const { executePlaybookV2, buildExecutionContextV2 } = await import("./executor");
+
+      const playbook = {
+        name: "Test Settings",
+        slug: "test-settings",
+        version: "1.0.0",
+        description: "Test settings interpolation",
+        section: "billing" as const,
+        layer: "act" as const,
+        voice: "billing",
+        trigger: { type: "manual" as const },
+        settings: {
+          grace_days: {
+            type: "number" as const,
+            label: "Wait {value} days",
+            default: 0,
+            value: 5,
+          },
+        },
+        steps: [
+          {
+            step: "draft" as const,
+            id: "note",
+            prompt: "Wait {{settings.grace_days}} days before nudging.",
+          },
+        ],
+        output: { type: "email_draft" as const, approval: "ask" as const },
+      };
+
+      const context = await buildExecutionContextV2(
+        "test-workspace",
+        "test-user",
+        { type: "manual" }
+      );
+
+      sendLlmMock.mockClear();
+      const result = await executePlaybookV2(playbook, context);
+
+      expect(result.status).toBe("success");
+      const prompt = sendLlmMock.mock.calls[0][0][1].content as string;
+      expect(prompt).toContain("Wait 5 days before nudging.");
+    });
+
+    it("appends workspace guidance to draft prompts", async () => {
+      const { executePlaybookV2, buildExecutionContextV2 } = await import("./executor");
+
+      guidanceMock.mockResolvedValueOnce(
+        "## Workspace guidance for this play\n- Never remind clients with an active retainer"
+      );
+
+      const playbook = {
+        name: "Test Guidance",
+        slug: "test-guidance",
+        version: "1.0.0",
+        description: "Test guidance injection",
+        section: "billing" as const,
+        layer: "act" as const,
+        voice: "billing",
+        trigger: { type: "manual" as const },
+        steps: [
+          {
+            step: "draft" as const,
+            id: "note",
+            prompt: "Write the reminder.",
+          },
+        ],
+        output: { type: "email_draft" as const, approval: "ask" as const },
+      };
+
+      const context = await buildExecutionContextV2(
+        "test-workspace",
+        "test-user",
+        { type: "manual" }
+      );
+
+      sendLlmMock.mockClear();
+      const result = await executePlaybookV2(playbook, context);
+
+      expect(guidanceMock).toHaveBeenCalledWith("test-workspace", "test-guidance");
+      expect(result.status).toBe("success");
+      const prompt = sendLlmMock.mock.calls[0][0][1].content as string;
+      expect(prompt).toContain("Write the reminder.");
+      expect(prompt).toContain("## Workspace guidance for this play");
+      expect(prompt).toContain("Never remind clients with an active retainer");
+    });
+
+    it("interpolates {{settings.key}} in classify rules using the default when no override", async () => {
+      const { executePlaybookV2, buildExecutionContextV2 } = await import("./executor");
+
+      vi.mocked((await import("@/app/_lib/composio/category-fetcher")).fetchMultipleByCategory)
+        .mockResolvedValueOnce({
+          success: true,
+          results: {
+            invoices: {
+              id: "invoices",
+              category: "billing",
+              capability: "read_invoices",
+              success: true,
+              data: [
+                { id: 1, days_overdue: 10 },
+                { id: 2, days_overdue: 3 },
+              ],
+            },
+          },
+          errors: [],
+        });
+
+      const playbook = {
+        name: "Test Settings Classify",
+        slug: "test-settings-classify",
+        version: "1.0.0",
+        description: "Test settings in classify rules",
+        section: "billing" as const,
+        layer: "act" as const,
+        voice: "billing",
+        trigger: { type: "manual" as const },
+        settings: {
+          firm_after_days: {
+            type: "number" as const,
+            label: "Firm after {value} days",
+            default: 7,
+          },
+        },
+        steps: [
+          {
+            step: "fetch" as const,
+            id: "invoices",
+            from: "billing.read_invoices",
+          },
+          {
+            step: "classify" as const,
+            id: "tier",
+            forEach: "invoices",
+            rules: [
+              { if: "days_overdue >= {{settings.firm_after_days}}", then: "firm" },
+            ],
+            else: "gentle",
+          },
+        ],
+        output: { type: "email_draft" as const },
+      };
+
+      const context = await buildExecutionContextV2(
+        "test-workspace",
+        "test-user",
+        { type: "manual" }
+      );
+
+      const result = await executePlaybookV2(playbook, context);
+
+      expect(result.status).toBe("success");
+      const classifyResult = result.stepResults.find((s) => s.stepId === "tier");
+      const classified = classifyResult?.data as Array<{ entity: { id: number }; tag: string }>;
+      expect(classified[0].tag).toBe("firm");
+      expect(classified[1].tag).toBe("gentle");
     });
   });
 });
@@ -480,7 +697,8 @@ describe("email-triage revival (capture fetch, $capture, branch, action executio
     const result = await executePlaybookV2(playbook, context);
 
     expect(result.status).toBe("success");
-    expect(sendLlmMock).toHaveBeenCalledTimes(2);
+    // 2 forEach drafts + 1 run-summary call (generateOutputV2).
+    expect(sendLlmMock).toHaveBeenCalledTimes(3);
     const prompts = sendLlmMock.mock.calls.map(
       (call) => call[0][1].content as string
     );
@@ -634,6 +852,747 @@ describe("park-and-resume on connector failure", () => {
 
     expect(result.status).toBe("error");
     expect(insertedRuns.find((r) => r.state === "blocked")).toBeUndefined();
+  });
+});
+
+describe("agent step (bounded tool-calling loop)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    insertedRuns.length = 0;
+    sendLlmToolTurnMock.mockReset();
+  });
+
+  function agentPlaybook(maxCalls = 3) {
+    return {
+      name: "Collections Research",
+      slug: "collections-research",
+      version: "1.2.0",
+      description: "Research",
+      section: "billing" as const,
+      layer: "act" as const,
+      voice: "billing",
+      trigger: { type: "manual" as const },
+      tools: ["STRIPE_LIST_CHARGES"],
+      steps: [
+        {
+          step: "agent" as const,
+          id: "research",
+          prompt: "Look up recent charges.",
+          tools: ["STRIPE_LIST_CHARGES"],
+          max_calls: maxCalls,
+        },
+      ],
+      output: { type: "finding" as const, approval: "auto" as const },
+    };
+  }
+
+  async function agentContext() {
+    const { buildExecutionContextV2 } = await import("./executor");
+    return buildExecutionContextV2("test-workspace", "test-user", {
+      type: "manual",
+    });
+  }
+
+  function toolCallTurn(name: string, args: Record<string, unknown>) {
+    return {
+      text: null,
+      toolCalls: [{ id: "call_1", name, args }],
+      assistantMessage: {
+        role: "assistant",
+        content: null,
+        tool_calls: [
+          {
+            id: "call_1",
+            type: "function",
+            function: { name, arguments: JSON.stringify(args) },
+          },
+        ],
+      },
+    };
+  }
+
+  function finalTurn(text: string) {
+    return {
+      text,
+      toolCalls: [],
+      assistantMessage: { role: "assistant", content: text },
+    };
+  }
+
+  it("runs the loop: tool call through the gate, result fed back, final text as step data", async () => {
+    sendLlmToolTurnMock
+      .mockResolvedValueOnce(toolCallTurn("STRIPE_LIST_CHARGES", { limit: 5 }))
+      .mockResolvedValueOnce(finalTurn("All recent charges are paid."));
+    const { executeConnectorTool } = await import(
+      "@/app/_features/plays/services/execute-connector-tool"
+    );
+    vi.mocked(executeConnectorTool).mockResolvedValue({ charges: [{ id: "ch_1" }] });
+
+    const { executePlaybookV2 } = await import("./executor");
+    const result = await executePlaybookV2(agentPlaybook(), await agentContext());
+
+    expect(result.status).toBe("success");
+    expect(executeConnectorTool).toHaveBeenCalledTimes(1);
+    // Consent scope is exactly the step allowlist — every call through the gate.
+    expect(executeConnectorTool).toHaveBeenCalledWith(
+      "STRIPE_LIST_CHARGES",
+      { limit: 5 },
+      {
+        workspaceId: "test-workspace",
+        actorUserId: "test-user",
+        approvedActions: ["STRIPE_LIST_CHARGES"],
+      }
+    );
+
+    const step = result.stepResults.find((s) => s.stepId === "research");
+    expect(step?.status).toBe("success");
+    const data = step?.data as {
+      text: string;
+      toolCalls: Array<{ tool: string; ok: boolean }>;
+    };
+    expect(data.text).toBe("All recent charges are paid.");
+    expect(data.toolCalls).toEqual([
+      { tool: "STRIPE_LIST_CHARGES", args: { limit: 5 }, ok: true },
+    ]);
+    // Provenance carries the audit trail for the evidence timeline.
+    expect(step?.provenance?.kind).toBe("agent");
+    expect(step?.provenance?.toolSlugs).toEqual(["STRIPE_LIST_CHARGES"]);
+
+    // The tool result was fed back to the model before its final answer.
+    const secondTurnMessages = sendLlmToolTurnMock.mock.calls[1][0] as Array<
+      Record<string, unknown>
+    >;
+    const toolMessage = secondTurnMessages.find((m) => m.role === "tool");
+    expect(toolMessage?.content).toContain("ch_1");
+  });
+
+  it("refuses tools outside the step allowlist and tells the model", async () => {
+    sendLlmToolTurnMock
+      .mockResolvedValueOnce(toolCallTurn("GMAIL_SEND_EMAIL", { to: "a@b.c" }))
+      .mockResolvedValueOnce(finalTurn("Could not send — answered with reads only."));
+    const { executeConnectorTool } = await import(
+      "@/app/_features/plays/services/execute-connector-tool"
+    );
+
+    const { executePlaybookV2 } = await import("./executor");
+    const result = await executePlaybookV2(agentPlaybook(), await agentContext());
+
+    expect(result.status).toBe("success");
+    expect(executeConnectorTool).not.toHaveBeenCalled();
+
+    const step = result.stepResults.find((s) => s.stepId === "research");
+    const data = step?.data as {
+      toolCalls: Array<{ tool: string; ok: boolean; error?: string }>;
+    };
+    expect(data.toolCalls[0]).toMatchObject({
+      tool: "GMAIL_SEND_EMAIL",
+      ok: false,
+      error: "not in step allowlist",
+    });
+
+    const secondTurnMessages = sendLlmToolTurnMock.mock.calls[1][0] as Array<
+      Record<string, unknown>
+    >;
+    const toolMessage = secondTurnMessages.find((m) => m.role === "tool");
+    expect(toolMessage?.content).toContain("not available in this step");
+  });
+
+  it("caps tool invocations at max_calls no matter how often the model asks", async () => {
+    sendLlmToolTurnMock.mockResolvedValue(
+      toolCallTurn("STRIPE_LIST_CHARGES", { limit: 1 })
+    );
+    const { executeConnectorTool } = await import(
+      "@/app/_features/plays/services/execute-connector-tool"
+    );
+    vi.mocked(executeConnectorTool).mockResolvedValue({ charges: [] });
+
+    const { executePlaybookV2 } = await import("./executor");
+    const result = await executePlaybookV2(agentPlaybook(2), await agentContext());
+
+    expect(executeConnectorTool).toHaveBeenCalledTimes(2);
+    const step = result.stepResults.find((s) => s.stepId === "research");
+    // Budget exhausted without a closing answer → partial success, flagged.
+    expect(step?.status).toBe("success");
+    expect((step?.data as { truncated: boolean }).truncated).toBe(true);
+  });
+
+  it("feeds gate denials back to the model as tool errors instead of pausing", async () => {
+    sendLlmToolTurnMock
+      .mockResolvedValueOnce(toolCallTurn("STRIPE_LIST_CHARGES", {}))
+      .mockResolvedValueOnce(finalTurn("Stripe is disconnected, noted."));
+    const { executeConnectorTool } = await import(
+      "@/app/_features/plays/services/execute-connector-tool"
+    );
+    vi.mocked(executeConnectorTool).mockRejectedValueOnce(
+      new Error("Connector stripe is not connected")
+    );
+
+    const { executePlaybookV2 } = await import("./executor");
+    const result = await executePlaybookV2(agentPlaybook(), await agentContext());
+
+    expect(result.status).toBe("success");
+    const step = result.stepResults.find((s) => s.stepId === "research");
+    const data = step?.data as {
+      text: string;
+      toolCalls: Array<{ ok: boolean; error?: string }>;
+    };
+    expect(data.text).toBe("Stripe is disconnected, noted.");
+    expect(data.toolCalls[0]).toMatchObject({
+      ok: false,
+      error: "Connector stripe is not connected",
+    });
+  });
+
+  it("errors a memory-mutating allowlist before any model call", async () => {
+    const playbook = {
+      ...agentPlaybook(),
+      tools: ["memory_create_person"],
+      steps: [
+        {
+          step: "agent" as const,
+          id: "research",
+          prompt: "Look things up.",
+          tools: ["memory_create_person"],
+        },
+      ],
+    };
+
+    const { executePlaybookV2 } = await import("./executor");
+    const result = await executePlaybookV2(playbook, await agentContext());
+
+    expect(result.status).toBe("error");
+    expect(result.reason).toContain("Memory-mutating tool");
+    expect(sendLlmToolTurnMock).not.toHaveBeenCalled();
+  });
+
+  it("errors the step when the model call itself fails", async () => {
+    sendLlmToolTurnMock.mockResolvedValueOnce(null);
+
+    const { executePlaybookV2 } = await import("./executor");
+    const result = await executePlaybookV2(agentPlaybook(), await agentContext());
+
+    expect(result.status).toBe("error");
+    expect(result.reason).toContain("Agent step LLM call failed");
+  });
+
+  it("pins the playbook version into the run's metadata", async () => {
+    sendLlmToolTurnMock.mockResolvedValueOnce(finalTurn("Nothing overdue."));
+    const playbook = {
+      ...agentPlaybook(),
+      steps: [
+        ...agentPlaybook().steps,
+        {
+          step: "draft" as const,
+          id: "note",
+          prompt: "Summarize: {{research}}",
+        },
+      ],
+    };
+
+    const { executePlaybookV2 } = await import("./executor");
+    const result = await executePlaybookV2(playbook, await agentContext());
+
+    expect(result.status).toBe("success");
+    const run = insertedRuns.find((r) => r.state !== undefined);
+    expect(run).toBeTruthy();
+    expect((run?.metadata as { playbook_version: string }).playbook_version).toBe(
+      "1.2.0"
+    );
+  });
+});
+
+describe("multi-app fan-out + per-play app exclusions (Phase 4)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    insertedRuns.length = 0;
+    sendLlmToolTurnMock.mockReset();
+    resolveCapabilityToolsMock.mockResolvedValue([]);
+    listCapabilityKeysMock.mockResolvedValue(new Map());
+    loadSelectionsMock.mockResolvedValue(
+      new Set(["stripe", "quickbooks", "gmail"])
+    );
+  });
+
+  function tool(provider: string, toolSlug: string) {
+    return {
+      capabilityKey: "read_invoices",
+      toolSlug,
+      provider,
+      connectionId: `ca_${provider}`,
+      risk: "read" as const,
+      requiresHumanConfirmation: false,
+    };
+  }
+
+  function verifyPlaybook() {
+    return {
+      name: "Invoice Reminder",
+      slug: "invoice-reminder",
+      version: "1.0.0",
+      description: "Verify then draft",
+      section: "billing" as const,
+      layer: "act" as const,
+      voice: "billing",
+      trigger: { type: "manual" as const },
+      tools: ["STRIPE_LIST_INVOICES"],
+      steps: [
+        {
+          step: "agent" as const,
+          id: "verify_unpaid",
+          prompt: "Confirm the invoice is still unpaid.",
+          tools: ["STRIPE_LIST_INVOICES"],
+          max_calls: 3,
+        },
+      ],
+      output: { type: "finding" as const, approval: "auto" as const },
+    };
+  }
+
+  async function fanoutContext(playbookSlug?: string) {
+    const { getConnectedCategories } = await import(
+      "@/app/_lib/composio/category-fetcher"
+    );
+    vi.mocked(getConnectedCategories).mockResolvedValue([
+      {
+        category: "billing" as never,
+        providers: ["stripe", "quickbooks"],
+        connectionIds: ["ca_stripe", "ca_quickbooks"],
+      },
+    ]);
+    const { buildExecutionContextV2 } = await import("./executor");
+    return buildExecutionContextV2(
+      "test-workspace",
+      "test-user",
+      { type: "manual" },
+      undefined,
+      undefined,
+      playbookSlug
+    );
+  }
+
+  function toolCallTurn(name: string, args: Record<string, unknown>) {
+    return {
+      text: null,
+      toolCalls: [{ id: "call_1", name, args }],
+      assistantMessage: {
+        role: "assistant",
+        content: null,
+        tool_calls: [
+          {
+            id: "call_1",
+            type: "function",
+            function: { name, arguments: JSON.stringify(args) },
+          },
+        ],
+      },
+    };
+  }
+
+  function finalTurn(text: string) {
+    return {
+      text,
+      toolCalls: [],
+      assistantMessage: { role: "assistant", content: text },
+    };
+  }
+
+  it("expands the agent allowlist to every connected provider's sibling tools", async () => {
+    listCapabilityKeysMock.mockResolvedValue(
+      new Map([["STRIPE_LIST_INVOICES", ["read_invoices"]]])
+    );
+    resolveCapabilityToolsMock.mockResolvedValue([
+      tool("stripe", "STRIPE_LIST_INVOICES"),
+      tool("quickbooks", "QUICKBOOKS_GET_AGED_RECEIVABLES_REPORT"),
+    ]);
+    // The model chooses the QuickBooks sibling — it must be permitted.
+    sendLlmToolTurnMock
+      .mockResolvedValueOnce(
+        toolCallTurn("QUICKBOOKS_GET_AGED_RECEIVABLES_REPORT", {})
+      )
+      .mockResolvedValueOnce(finalTurn("Still unpaid in QuickBooks."));
+    const { executeConnectorTool } = await import(
+      "@/app/_features/plays/services/execute-connector-tool"
+    );
+    vi.mocked(executeConnectorTool).mockResolvedValue({ rows: [] });
+
+    const { executePlaybookV2 } = await import("./executor");
+    const result = await executePlaybookV2(
+      verifyPlaybook(),
+      await fanoutContext()
+    );
+
+    expect(result.status).toBe("success");
+    expect(executeConnectorTool).toHaveBeenCalledWith(
+      "QUICKBOOKS_GET_AGED_RECEIVABLES_REPORT",
+      {},
+      expect.objectContaining({
+        approvedActions: expect.arrayContaining([
+          "STRIPE_LIST_INVOICES",
+          "QUICKBOOKS_GET_AGED_RECEIVABLES_REPORT",
+        ]),
+      })
+    );
+  });
+
+  it("excluded providers stay out of the fan-out", async () => {
+    loadSelectionsMock.mockResolvedValue(new Set(["stripe"]));
+    listCapabilityKeysMock.mockResolvedValue(
+      new Map([["STRIPE_LIST_INVOICES", ["read_invoices"]]])
+    );
+    // The resolver honours the exclusion — only Stripe comes back.
+    resolveCapabilityToolsMock.mockResolvedValue([
+      tool("stripe", "STRIPE_LIST_INVOICES"),
+    ]);
+    sendLlmToolTurnMock
+      .mockResolvedValueOnce(
+        toolCallTurn("QUICKBOOKS_GET_AGED_RECEIVABLES_REPORT", {})
+      )
+      .mockResolvedValueOnce(finalTurn("Answered with Stripe only."));
+    const { executeConnectorTool } = await import(
+      "@/app/_features/plays/services/execute-connector-tool"
+    );
+
+    const { executePlaybookV2 } = await import("./executor");
+    const result = await executePlaybookV2(
+      verifyPlaybook(),
+      await fanoutContext("invoice-reminder")
+    );
+
+    expect(result.status).toBe("success");
+    expect(executeConnectorTool).not.toHaveBeenCalledWith(
+      "QUICKBOOKS_GET_AGED_RECEIVABLES_REPORT",
+      expect.anything(),
+      expect.anything()
+    );
+    expect(resolveCapabilityToolsMock).toHaveBeenCalledWith(
+      "read_invoices",
+      "test-workspace",
+      expect.objectContaining({
+        excludeProviders: expect.objectContaining({ size: 1 }),
+      })
+    );
+  });
+
+  it("drops declared tools whose provider is not connected", async () => {
+    listCapabilityKeysMock.mockResolvedValue(new Map());
+    sendLlmToolTurnMock.mockResolvedValueOnce(finalTurn("No tools available."));
+    const { getConnectedCategories } = await import(
+      "@/app/_lib/composio/category-fetcher"
+    );
+    vi.mocked(getConnectedCategories).mockResolvedValue([
+      {
+        category: "billing" as never,
+        providers: ["quickbooks"],
+        connectionIds: ["ca_quickbooks"],
+      },
+    ]);
+
+    const { executePlaybookV2, buildExecutionContextV2 } = await import(
+      "./executor"
+    );
+    const context = await buildExecutionContextV2("test-workspace", "test-user", {
+      type: "manual",
+    });
+    const result = await executePlaybookV2(verifyPlaybook(), context);
+
+    expect(result.status).toBe("success");
+    const toolDefs = sendLlmToolTurnMock.mock.calls[0][1] as Array<{
+      name: string;
+    }>;
+    expect(toolDefs.map((d) => d.name)).not.toContain("STRIPE_LIST_INVOICES");
+  });
+
+  it("parks the action step as blocked when its provider is not selected for the play", async () => {
+    loadSelectionsMock.mockResolvedValue(new Set(["stripe"]));
+    const { getConnectedCategories } = await import(
+      "@/app/_lib/composio/category-fetcher"
+    );
+    vi.mocked(getConnectedCategories).mockResolvedValue([
+      {
+        category: "billing" as never,
+        providers: ["stripe", "quickbooks"],
+        connectionIds: ["ca_stripe", "ca_quickbooks"],
+      },
+      {
+        category: "email" as never,
+        providers: ["gmail"],
+        connectionIds: ["ca_gmail"],
+      },
+    ]);
+    const playbook = {
+      name: "Invoice Reminder",
+      slug: "invoice-reminder",
+      version: "1.0.0",
+      description: "Drafts",
+      section: "billing" as const,
+      layer: "act" as const,
+      voice: "billing",
+      trigger: { type: "manual" as const },
+      tools: ["GMAIL_CREATE_EMAIL_DRAFT"],
+      steps: [
+        {
+          step: "action" as const,
+          id: "create_draft",
+          tool: "GMAIL_CREATE_EMAIL_DRAFT",
+          args: { recipient_email: "dana@acme.com", subject: "s", body: "b" },
+          approval: "auto" as const,
+        },
+      ],
+      output: { type: "email_draft" as const, approval: "auto" as const },
+    };
+
+    const { executePlaybookV2, buildExecutionContextV2 } = await import("./executor");
+    const result = await executePlaybookV2(
+      playbook,
+      await buildExecutionContextV2(
+        "test-workspace",
+        "test-user",
+        { type: "manual" },
+        undefined,
+        undefined,
+        "invoice-reminder"
+      )
+    );
+
+    expect(result.status).toBe("paused");
+    expect(result.pausedAt?.blocked?.provider).toBe("gmail");
+    expect(result.pausedAt?.blocked?.reason).toContain("excluded");
+  });
+
+  it("drafts in Outlook when Outlook is the selected inbox", async () => {
+    loadSelectionsMock.mockResolvedValue(new Set(["stripe", "outlook"]));
+    const { getConnectedCategories } = await import(
+      "@/app/_lib/composio/category-fetcher"
+    );
+    vi.mocked(getConnectedCategories).mockResolvedValue([
+      {
+        category: "billing" as never,
+        providers: ["stripe"],
+        connectionIds: ["ca_stripe"],
+      },
+      {
+        category: "email" as never,
+        providers: ["gmail", "outlook"],
+        connectionIds: ["ca_gmail", "ca_outlook"],
+      },
+    ]);
+    const { executeConnectorTool } = await import(
+      "@/app/_features/plays/services/execute-connector-tool"
+    );
+    vi.mocked(executeConnectorTool).mockResolvedValue({ ok: true });
+
+    const playbook = {
+      name: "Invoice Reminder",
+      slug: "invoice-reminder",
+      version: "1.0.0",
+      description: "Drafts",
+      section: "billing" as const,
+      layer: "act" as const,
+      voice: "billing",
+      trigger: { type: "manual" as const },
+      tools: ["GMAIL_CREATE_EMAIL_DRAFT"],
+      steps: [
+        {
+          step: "action" as const,
+          id: "create_draft",
+          tool: "GMAIL_CREATE_EMAIL_DRAFT",
+          args: { recipient_email: "dana@acme.com", subject: "s", body: "b" },
+          approval: "auto" as const,
+        },
+      ],
+      output: { type: "email_draft" as const, approval: "auto" as const },
+    };
+
+    const { executePlaybookV2, buildExecutionContextV2 } = await import("./executor");
+    const result = await executePlaybookV2(
+      playbook,
+      await buildExecutionContextV2(
+        "test-workspace",
+        "test-user",
+        { type: "manual" },
+        undefined,
+        undefined,
+        "invoice-reminder"
+      )
+    );
+
+    expect(result.status).toBe("success");
+    expect(executeConnectorTool).toHaveBeenCalledWith(
+      "OUTLOOK_CREATE_DRAFT",
+      {
+        subject: "s",
+        body: "b",
+        to_recipients: ["dana@acme.com"],
+      },
+      expect.objectContaining({
+        approvedActions: ["OUTLOOK_CREATE_DRAFT"],
+      })
+    );
+  });
+
+  it("skips the run when no apps are selected for a required category", async () => {
+    loadSelectionsMock.mockResolvedValue(new Set());
+    const playbook = {
+      ...verifyPlaybook(),
+      requirements: {
+        categories: { required: ["billing" as const], optional: [] },
+      },
+    };
+
+    const { executePlaybookV2 } = await import("./executor");
+    const result = await executePlaybookV2(
+      playbook,
+      await fanoutContext("invoice-reminder")
+    );
+
+    expect(result.status).toBe("skipped");
+    expect(result.reason).toContain("No apps added");
+    expect(sendLlmToolTurnMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("agent-gated branch (verify-then-draft pattern)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    insertedRuns.length = 0;
+    sendLlmToolTurnMock.mockReset();
+  });
+
+  const invoiceContext = {
+    invoice: {
+      id: "br-1",
+      number: "INV-104",
+      status: "overdue",
+      amount_remaining_cents: 150000,
+      days_overdue: 10,
+    },
+    client: { id: "p-1", name: "Dana", email: "dana@acme.com", kind: "person" },
+    payment_history: { on_time: 3, late: 0 },
+    open_invoices: [
+      { id: "br-1", number: "INV-104", amount_remaining_cents: 150000, days_overdue: 10 },
+    ],
+  };
+
+  function reminderPlaybook() {
+    return {
+      name: "Invoice Reminder",
+      slug: "invoice-reminder",
+      version: "1.1.0",
+      description: "Remind",
+      section: "billing" as const,
+      layer: "act" as const,
+      voice: "billing",
+      trigger: { type: "signal" as const, signal: "billing_due_date_passed" },
+      tools: ["STRIPE_LIST_INVOICES", "GMAIL_CREATE_EMAIL_DRAFT"],
+      steps: [
+        {
+          step: "fetch" as const,
+          id: "invoice_context",
+          from: "memory.billing_record_context",
+        },
+        {
+          step: "agent" as const,
+          id: "verify_unpaid",
+          prompt: "Verify: {{invoice_context}}",
+          tools: ["STRIPE_LIST_INVOICES"],
+          max_calls: 2,
+        },
+        {
+          step: "branch" as const,
+          id: "maybe_remind",
+          if: "verify_unpaid.text ~= 'VERDICT: PROCEED'",
+          steps: [
+            {
+              step: "classify" as const,
+              id: "tier",
+              input: "invoice_context",
+              rules: [{ if: "invoice.days_overdue >= 21", then: "final" }],
+              else: "gentle",
+            },
+            {
+              step: "draft" as const,
+              id: "reminder_email",
+              prompt: "Draft for {{invoice_context.client.name}}",
+            },
+            {
+              step: "action" as const,
+              id: "create_gmail_draft",
+              tool: "GMAIL_CREATE_EMAIL_DRAFT",
+              args: {
+                recipient_email: "{{invoice_context.client.email}}",
+                body: "{{reminder_email}}",
+              },
+              approval: "ask" as const,
+            },
+          ],
+        },
+      ],
+      output: { type: "email_draft" as const, approval: "ask" as const },
+    };
+  }
+
+  async function reminderContext() {
+    const { buildExecutionContextV2 } = await import("./executor");
+    return buildExecutionContextV2("test-workspace", "test-user", {
+      type: "signal",
+      signalKey: "billing_due_date_passed",
+      entityId: "br-1",
+      entitySurface: "billing",
+      entityLabel: "INV-104",
+    });
+  }
+
+  it("skips quietly when the agent verdict is SKIP — no draft, no queue card", async () => {
+    const { fetchMemorySource } = await import("./memory-fetch");
+    vi.mocked(fetchMemorySource).mockResolvedValue(invoiceContext);
+    sendLlmToolTurnMock.mockResolvedValueOnce({
+      text: "The invoice was paid yesterday. VERDICT: SKIP — already paid",
+      toolCalls: [],
+      assistantMessage: { role: "assistant", content: "paid" },
+    });
+
+    const { executePlaybookV2 } = await import("./executor");
+    const result = await executePlaybookV2(reminderPlaybook(), await reminderContext());
+
+    expect(result.status).toBe("success");
+    expect(result.outputCount).toBe(0);
+    // The branch saw the verdict and did not execute.
+    const branch = result.stepResults.find((s) => s.stepId === "maybe_remind");
+    expect((branch?.data as { executed: boolean }).executed).toBe(false);
+    // Nothing drafted, nothing queued for a human.
+    expect(result.stepResults.find((s) => s.stepId === "reminder_email")).toBeUndefined();
+    expect(insertedRuns.find((r) => r.draft_body)).toBeUndefined();
+  });
+
+  it("drafts and pauses for approval when the verdict is PROCEED, draft visible on the card", async () => {
+    const { fetchMemorySource } = await import("./memory-fetch");
+    vi.mocked(fetchMemorySource).mockResolvedValue(invoiceContext);
+    sendLlmToolTurnMock.mockResolvedValueOnce({
+      text: "Invoice still open, no prior reminder. VERDICT: PROCEED — $1,500, 10 days overdue",
+      toolCalls: [],
+      assistantMessage: { role: "assistant", content: "open" },
+    });
+    sendLlmMock.mockResolvedValue("reminder text");
+
+    const { executePlaybookV2 } = await import("./executor");
+    const result = await executePlaybookV2(reminderPlaybook(), await reminderContext());
+
+    expect(result.status).toBe("paused");
+    expect(result.pausedAt?.toolSlug).toBe("GMAIL_CREATE_EMAIL_DRAFT");
+    expect(result.pausedAt?.args).toMatchObject({
+      recipient_email: "dana@acme.com",
+      body: "reminder text",
+    });
+
+    // Nested steps are visible in the run's step list despite living in a branch.
+    expect(result.stepResults.map((s) => s.stepId)).toEqual(
+      expect.arrayContaining(["invoice_context", "verify_unpaid", "tier", "reminder_email"])
+    );
+
+    // The queued approval card carries the draft the human is approving.
+    const queued = insertedRuns.find((r) => r.state === "queued");
+    expect(queued).toBeTruthy();
+    expect(queued?.draft_body).toBe("reminder text");
   });
 });
 

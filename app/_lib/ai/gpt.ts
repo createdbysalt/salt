@@ -118,11 +118,18 @@ export interface LlmContentPart {
   image_url?: { url: string; detail?: "auto" | "low" | "high" };
 }
 
+interface LlmChatCompletionMessage {
+  content?: string | null;
+  tool_calls?: Array<{
+    id: string;
+    type?: string;
+    function?: { name?: string; arguments?: string };
+  }>;
+}
+
 interface LlmChatCompletionResponse {
   choices?: Array<{
-    message?: {
-      content?: string;
-    };
+    message?: LlmChatCompletionMessage;
   }>;
   usage?: {
     total_tokens?: number;
@@ -172,11 +179,21 @@ export const sendOpenAi = async (
   model?: string,
 ) => sendLlm(messages, spend, { maxTokens: max, temperature: temp, model });
 
-export async function sendLlm(
-  messages: LlmChatMessage[],
+/**
+ * Shared request core for the LLM primitive: admission (canSpend), model
+ * resolution + degrade, the fetch itself, fallback-model retry, and metering
+ * (recordLlmCall). Both public entry points — sendLlm (text) and
+ * sendLlmToolTurn (tool calling) — run through here so no call path can
+ * bypass the meter.
+ *
+ * Returns the raw completion message; callers parse content vs tool_calls.
+ */
+async function requestChatCompletion(
+  messages: unknown[],
   spend: LlmSpendContext,
-  options: SendLlmOptions = {},
-): Promise<string | null> {
+  options: SendLlmOptions,
+  extraBody: Record<string, unknown> = {},
+): Promise<{ message: LlmChatCompletionMessage } | null> {
   const { apiKey, baseUrl, appUrl, viaOpenRouter } = getLlmConfig();
   if (!apiKey) return null;
 
@@ -239,6 +256,7 @@ export async function sendLlm(
       spend.kind === "workspace"
         ? spend.userId ?? spend.workspaceId
         : spend.actor,
+    ...extraBody,
   };
 
   try {
@@ -254,7 +272,12 @@ export async function sendLlm(
         // The retry is a second real request and meters itself. Not recording
         // the failed attempt is deliberate: a non-2xx response carries no
         // usage block, so any figure here would be invented.
-        return sendLlm(messages, spend, { ...options, model: fallback });
+        return requestChatCompletion(
+          messages,
+          spend,
+          { ...options, model: fallback },
+          extraBody,
+        );
       }
       if (process.env.DEBUG_OPENAI === "1") {
         console.warn("LLM request failed:", res.status, await res.text());
@@ -263,7 +286,7 @@ export async function sendLlm(
     }
 
     const data = (await res.json()) as LlmChatCompletionResponse;
-    const answer = data?.choices?.[0]?.message?.content;
+    const message = data?.choices?.[0]?.message ?? null;
 
     if (spend.kind === "workspace") {
       // Awaited rather than fired and forgotten: several callers run in crons
@@ -290,11 +313,119 @@ export async function sendLlm(
       }
     }
 
-    return typeof answer === "string" ? answer : null;
+    return message ? { message } : null;
   } catch (error) {
     if (process.env.DEBUG_OPENAI === "1") {
       console.warn("LLM request threw:", error);
     }
     return null;
   }
+}
+
+export async function sendLlm(
+  messages: LlmChatMessage[],
+  spend: LlmSpendContext,
+  options: SendLlmOptions = {},
+): Promise<string | null> {
+  const result = await requestChatCompletion(messages, spend, options);
+  const answer = result?.message?.content;
+  return typeof answer === "string" ? answer : null;
+}
+
+/* ── Tool calling ────────────────────────────────────────────────────────── */
+
+/** JSON-schema tool definition handed to the model (OpenAI tool format). */
+export interface LlmToolDefinition {
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+}
+
+/** One model-requested tool invocation, arguments already parsed. */
+export interface LlmToolCall {
+  id: string;
+  name: string;
+  args: Record<string, unknown>;
+}
+
+export interface LlmToolTurn {
+  /** Assistant text, when the model produced any alongside/instead of calls. */
+  text: string | null;
+  /** Tool calls the model wants executed — empty means the turn is final. */
+  toolCalls: LlmToolCall[];
+  /**
+   * The assistant message in OpenAI chat shape, ready to append to the
+   * conversation history before the tool-result messages.
+   */
+  assistantMessage: Record<string, unknown>;
+}
+
+/**
+ * One tool-calling turn: the model sees the conversation plus tool schemas
+ * and either answers in text or requests tool calls. The caller owns the
+ * loop (execute calls → append results → next turn) and the call budget.
+ *
+ * Messages use the OpenAI chat shape directly (assistant messages may carry
+ * `tool_calls`, tool results arrive as `{role: "tool", tool_call_id, …}`),
+ * which is wider than LlmChatMessage — hence the looser message type.
+ */
+export async function sendLlmToolTurn(
+  messages: Array<Record<string, unknown>>,
+  tools: readonly LlmToolDefinition[],
+  spend: LlmSpendContext,
+  options: SendLlmOptions = {},
+): Promise<LlmToolTurn | null> {
+  const result = await requestChatCompletion(messages, spend, options, {
+    tools: tools.map((tool) => ({
+      type: "function",
+      function: {
+        name: tool.name,
+        description: tool.description,
+        parameters: tool.parameters,
+      },
+    })),
+    tool_choice: "auto",
+  });
+  if (!result) return null;
+
+  const { message } = result;
+  const toolCalls: LlmToolCall[] = [];
+  for (const call of message.tool_calls ?? []) {
+    const name = call.function?.name;
+    if (!call.id || !name) continue;
+    let args: Record<string, unknown> = {};
+    try {
+      const parsed: unknown = JSON.parse(call.function?.arguments ?? "{}");
+      if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+        args = parsed as Record<string, unknown>;
+      }
+    } catch {
+      // Malformed arguments stay {} — the executor's schema validation
+      // rejects the call and feeds the error back to the model.
+    }
+    toolCalls.push({ id: call.id, name, args });
+  }
+
+  const assistantMessage: Record<string, unknown> = {
+    role: "assistant",
+    content: typeof message.content === "string" ? message.content : null,
+  };
+  if (toolCalls.length > 0) {
+    assistantMessage.tool_calls = (message.tool_calls ?? []).map((call) => ({
+      id: call.id,
+      type: "function",
+      function: {
+        name: call.function?.name ?? "",
+        arguments: call.function?.arguments ?? "{}",
+      },
+    }));
+  }
+
+  return {
+    text: typeof message.content === "string" && message.content.trim().length > 0
+      ? message.content
+      : null,
+    toolCalls,
+    assistantMessage,
+  };
 }

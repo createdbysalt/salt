@@ -53,6 +53,8 @@ const PUBLIC_ALLOWLIST: Record<string, string> = {
     "public waitlist signup: rate-limited, consent-gated, email-validated; no session exists by design",
   "app/_features/marketing/blog/blog-newsletter-actions.ts":
     "public newsletter signup: rate-limited, consent-gated; no session exists by design",
+  "app/api/debug/fire-playbook/route.ts":
+    "dev-only manual dispatch harness: every handler gates on devOnly() (NODE_ENV=development, 403 otherwise) before any admin call; never reachable in production",
 };
 
 function read(path: string): string {

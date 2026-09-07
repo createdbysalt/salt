@@ -1,0 +1,35 @@
+# Risk path: payroll lands inside the window and the balance cannot cover
+# it → the brief must lead with the gap, the date, and the amount.
+id: payroll-at-risk
+name: Payroll uncovered inside lookahead window → risk-flagged brief
+given:
+  settings:
+    payroll_day: 1
+    min_runway_weeks: 4
+  fetch:
+    cash_position:
+      balance_cents: 310000
+      weekly_burn_cents: 150000
+    upcoming_receivables:
+      total_cents: 600000
+      invoices:
+        - client: Northwind
+          amount_cents: 600000
+          due_in_days: 12
+    recent_payments:
+      total_cents: 0
+  agent:
+    - step: verify_outlook
+      text: "Stripe balance $3,100 confirmed. Northwind invoice $6,000 is open but 12 days out. Payroll $4,800 hits on day 1 — $1,700 short.\nVERDICT: RISK — payroll $4,800 on the 1st, short $1,700 unless Northwind pays early"
+  draft:
+    - step: cash_brief
+      text: "Risk: payroll ($4,800) hits on the 1st and the verified balance is $3,100 — a $1,700 gap. The largest receivable (Northwind, $6,000) is not due for 12 days…"
+expect:
+  status: success
+  outputCount: 1
+  steps:
+    cash_position: success
+    upcoming_receivables: success
+    recent_payments: success
+    verify_outlook: success
+    cash_brief: success

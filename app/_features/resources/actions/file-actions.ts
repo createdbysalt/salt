@@ -20,6 +20,35 @@ type ActionResult<T = void> =
   | { ok: true; data?: T }
   | { ok: false; message: string };
 
+/**
+ * Manual inline edits record provenance (source 'manual') so the file's
+ * Activity tab attributes them to the user — without a row, the bootstrap
+ * mapper can only guess, and Salt's writes used to inherit the "You …"
+ * wording. Best-effort: a provenance failure never fails the edit itself.
+ * Uses the caller's workspace-scoped client (RLS admits member inserts).
+ */
+async function recordManualFileProvenance(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  input: { workspaceId: string; fileId: string; field: string; value: unknown },
+): Promise<void> {
+  try {
+    await supabase.from("profile_field_provenance").insert({
+      workspace_id: input.workspaceId,
+      entity_type: "resource",
+      entity_id: input.fileId,
+      field: input.field,
+      // value is jsonb NOT NULL; cleared fields store an empty string.
+      value: input.value == null ? "" : String(input.value),
+      source: "manual",
+      confidence: 100,
+      status: "applied",
+      set_at: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("[resources] manual provenance log failed:", error);
+  }
+}
+
 const LinkTargetSchema = z.object({
   kind: z.enum(["person", "org", "work"]),
   id: z.string().uuid(),
@@ -249,6 +278,13 @@ export async function updateMemoryFileCategory(
       return { ok: false, message: error.message };
     }
 
+    await recordManualFileProvenance(supabase, {
+      workspaceId: workspace.id,
+      fileId,
+      field: "category",
+      value: category,
+    });
+
     // A link filed as a contract may carry fetchable content — read it to
     // fill the resource and linked work records. Fire-and-forget; the
     // analysis self-guards on its already-analyzed marker.
@@ -369,6 +405,13 @@ export async function updateMemoryFileField(
     if (error) {
       return { ok: false, message: error.message };
     }
+
+    await recordManualFileProvenance(supabase, {
+      workspaceId: workspace.id,
+      fileId,
+      field: allowedField,
+      value: normalized.value,
+    });
 
     if (allowedField === "lifecycle_status" && normalized.value === "signed") {
       await dispatchSignedContractSignal(workspace.id, fileId);

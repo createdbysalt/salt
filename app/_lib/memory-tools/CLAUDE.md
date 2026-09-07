@@ -58,7 +58,6 @@ const result = await memoryUpdateField({
     playbookSlug: "memory-records",
     ruleId: "people-rel-payment-client",
   },
-  minThreshold: 95, // elevated bar for sensitive tier
 });
 
 // result.action === "applied" if confidence clears the bar
@@ -69,8 +68,8 @@ const result = await memoryUpdateField({
 
 1. **Tool receives call** with field, value, confidence, reason
 2. **Tool gets threshold** from `workspaces.memory_care_auto_apply_threshold` via `getWorkspaceThreshold` (default **85**; result `source: "care"`)
-3. **Callers raise the bar** for sensitive / destructive fields via `minThreshold` from `app/_lib/learning/field-tiers.ts` (or Memory Care `getCareFieldBar`)
-4. **If confidence >= effective bar** → Apply to Memory, resolve evidence
+3. **One user-controlled bar** — every gated field is held to the workspace threshold; tiers never raise it
+4. **If confidence >= bar** → Apply to Memory, resolve evidence
 5. **If confidence < bar** → Accumulate evidence (Watching)
 6. **Never-touch fields** → Hard refuse at any confidence (money fields)
 
@@ -82,7 +81,7 @@ Priority order:
 1. Workspace Memory Care threshold (`workspaces.memory_care_auto_apply_threshold`)
 2. Global default: **85%**
 
-Per-playbook `auto_apply_threshold` overrides are retired. Tier floors (sensitive / destructive = 95) live in `field-tiers.ts`, not the threshold column.
+Per-playbook `auto_apply_threshold` overrides are retired. The workspace threshold is the single bar for every gated field — `field-tiers.ts` tiers drive policy (never-touch refusals, destructive provenance snapshots), not higher bars.
 
 ## Entity Types
 
@@ -140,8 +139,8 @@ Policy lives in `app/_lib/learning/field-tiers.ts`:
 | Tier | Behavior |
 |------|----------|
 | standard | Workspace threshold |
-| sensitive | `max(threshold, 95)` |
-| destructive | `max(threshold, 95)` + provenance snapshot |
+| sensitive | Workspace threshold |
+| destructive | Workspace threshold + provenance snapshot |
 | never_touch | Refused at any confidence (billing money fields, etc.) |
 
 Always-auto observation fields bypass gating. There is no approval queue for Memory writes.

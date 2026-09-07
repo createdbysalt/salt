@@ -192,6 +192,17 @@ export function ClassificationReviewQueue({ data }: { data: ReviewQueueData }) {
                         Disabled: {tool.disabledReason}
                       </p>
                     )}
+                    {tool.affectedPlaybooks.length > 0 && (
+                      <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+                        <span className="font-medium">Blocks:</span>{" "}
+                        {tool.affectedPlaybooks
+                          .map((playbook) => playbook.name)
+                          .join(", ")}{" "}
+                        {tool.affectedPlaybooks.length === 1
+                          ? "playbook"
+                          : "playbooks"}
+                      </p>
+                    )}
                   </div>
 
                   <div className="flex shrink-0 items-center gap-2">

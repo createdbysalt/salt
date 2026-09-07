@@ -8,7 +8,7 @@ import type { EntityNoteKind, NoteSource, NoteStatus } from "@/app/_features/mem
 export const ENTITY_NOTES_BLUEPRINT_SLUG = "keeper-entity-notes";
 
 export interface CreateSaltNoteInput {
-  entityType: "person" | "organization" | "work";
+  entityType: "person" | "organization" | "work" | "resource";
   entityId: string;
   entityName?: string;
   content: string;

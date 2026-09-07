@@ -19,6 +19,7 @@ import {
   committedSpend,
   platformSpend,
   sendLlm,
+  sendLlmToolTurn,
   workspaceSpend,
 } from "./gpt";
 
@@ -247,5 +248,163 @@ describe("sendLlm spend admission", () => {
     );
 
     expect(result).toBe("drafted");
+  });
+});
+
+describe("sendLlmToolTurn", () => {
+  const tools = [
+    {
+      name: "STRIPE_LIST_CHARGES",
+      description: "List Stripe charges",
+      parameters: {
+        type: "object",
+        properties: { limit: { type: "number" } },
+      },
+    },
+  ];
+
+  function toolCallResponse(toolCalls: Array<{
+    id: string;
+    name: string;
+    arguments: string;
+  }>) {
+    return {
+      ok: true,
+      json: async () => ({
+        choices: [
+          {
+            message: {
+              content: null,
+              tool_calls: toolCalls.map((call) => ({
+                id: call.id,
+                type: "function",
+                function: { name: call.name, arguments: call.arguments },
+              })),
+            },
+          },
+        ],
+        usage: { prompt_tokens: 500, completion_tokens: 40 },
+      }),
+    } as Response;
+  }
+
+  it("sends tool definitions in OpenAI function format", async () => {
+    fetchMock.mockResolvedValue(okResponse({}));
+
+    await sendLlmToolTurn(
+      [{ role: "user", content: "check charges" }],
+      tools,
+      workspaceSpend("ws-1"),
+      { routingKey: "playAgent" },
+    );
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    expect(body.tools).toEqual([
+      {
+        type: "function",
+        function: {
+          name: "STRIPE_LIST_CHARGES",
+          description: "List Stripe charges",
+          parameters: tools[0].parameters,
+        },
+      },
+    ]);
+    expect(body.tool_choice).toBe("auto");
+  });
+
+  it("parses tool calls with JSON arguments", async () => {
+    fetchMock.mockResolvedValue(
+      toolCallResponse([
+        { id: "call_1", name: "STRIPE_LIST_CHARGES", arguments: '{"limit":5}' },
+      ]),
+    );
+
+    const turn = await sendLlmToolTurn(
+      [{ role: "user", content: "check charges" }],
+      tools,
+      workspaceSpend("ws-1"),
+    );
+
+    expect(turn?.toolCalls).toEqual([
+      { id: "call_1", name: "STRIPE_LIST_CHARGES", args: { limit: 5 } },
+    ]);
+    expect(turn?.text).toBeNull();
+    // The assistant message is replayable into the next turn's history.
+    expect(turn?.assistantMessage).toMatchObject({
+      role: "assistant",
+      tool_calls: [
+        {
+          id: "call_1",
+          type: "function",
+          function: { name: "STRIPE_LIST_CHARGES", arguments: '{"limit":5}' },
+        },
+      ],
+    });
+  });
+
+  it("returns text and no tool calls when the model finishes", async () => {
+    fetchMock.mockResolvedValue(okResponse({ content: "All charges look fine." }));
+
+    const turn = await sendLlmToolTurn(
+      [{ role: "user", content: "check charges" }],
+      tools,
+      workspaceSpend("ws-1"),
+    );
+
+    expect(turn?.toolCalls).toEqual([]);
+    expect(turn?.text).toBe("All charges look fine.");
+  });
+
+  it("falls back to empty args on malformed tool-call JSON", async () => {
+    fetchMock.mockResolvedValue(
+      toolCallResponse([
+        { id: "call_1", name: "STRIPE_LIST_CHARGES", arguments: "{not json" },
+      ]),
+    );
+
+    const turn = await sendLlmToolTurn(
+      [{ role: "user", content: "check charges" }],
+      tools,
+      workspaceSpend("ws-1"),
+    );
+
+    expect(turn?.toolCalls).toEqual([
+      { id: "call_1", name: "STRIPE_LIST_CHARGES", args: {} },
+    ]);
+  });
+
+  it("meters every turn through the same primitive as sendLlm", async () => {
+    fetchMock.mockResolvedValue(
+      toolCallResponse([
+        { id: "call_1", name: "STRIPE_LIST_CHARGES", arguments: "{}" },
+      ]),
+    );
+
+    await sendLlmToolTurn(
+      [{ role: "user", content: "check charges" }],
+      tools,
+      workspaceSpend("ws-1"),
+      { routingKey: "playAgent" },
+    );
+
+    expect(recordLlmCallMock).toHaveBeenCalledTimes(1);
+    expect(recordLlmCallMock.mock.calls[0][0]).toMatchObject({
+      workspaceId: "ws-1",
+      usage: { inputTokens: 500, outputTokens: 40 },
+      routingKey: "playAgent",
+    });
+  });
+
+  it("honours admission refusal exactly like sendLlm", async () => {
+    canSpendMock.mockResolvedValue({ outcome: "deny", reason: "over budget" });
+
+    const turn = await sendLlmToolTurn(
+      [{ role: "user", content: "check charges" }],
+      tools,
+      workspaceSpend("ws-1"),
+    );
+
+    expect(turn).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

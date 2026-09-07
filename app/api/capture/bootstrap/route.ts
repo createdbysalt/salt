@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/app/_lib/supabase/server";
+import { getVerifiedWorkspaceMembership } from "@/app/_lib/tenancy/workspace-membership";
 import { runGmailBootstrap, backfillGmailCaptures } from "@/app/_features/capture/services/gmail-backfill";
 import { getConnectionStatus } from "@/app/_lib/composio/connections";
 
@@ -15,11 +16,7 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { data: membership } = await supabase
-    .from("workspace_members")
-    .select("workspace_id")
-    .eq("user_id", user.id)
-    .single();
+  const membership = await getVerifiedWorkspaceMembership(user.id, supabase);
 
   if (!membership) {
     return NextResponse.json({ error: "No workspace" }, { status: 404 });
@@ -28,12 +25,12 @@ export async function GET() {
   const { data: captures, error } = await supabase
     .from("capture_events")
     .select("id, title, source_type, state, created_at")
-    .eq("workspace_id", membership.workspace_id)
+    .eq("workspace_id", membership.id)
     .order("created_at", { ascending: false })
     .limit(10);
 
   return NextResponse.json({
-    workspaceId: membership.workspace_id,
+    workspaceId: membership.id,
     captureCount: captures?.length ?? 0,
     captures: captures ?? [],
     error: error?.message,
@@ -53,11 +50,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Get user's workspace
-  const { data: membership } = await supabase
-    .from("workspace_members")
-    .select("workspace_id")
-    .eq("user_id", user.id)
-    .single();
+  const membership = await getVerifiedWorkspaceMembership(user.id, supabase);
 
   if (!membership) {
     return NextResponse.json({ error: "No workspace found" }, { status: 404 });
@@ -65,7 +58,7 @@ export async function POST(request: NextRequest) {
 
   const provider = request.nextUrl.searchParams.get("provider") || "gmail";
   const scope = request.nextUrl.searchParams.get("scope") || "bootstrap";
-  const workspaceId = membership.workspace_id;
+  const workspaceId = membership.id;
 
   console.log(`[capture-bootstrap] Manual trigger for ${provider} in workspace ${workspaceId}`);
 

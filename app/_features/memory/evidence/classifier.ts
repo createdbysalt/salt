@@ -12,6 +12,13 @@ import { createAdminClient } from "@/app/_lib/supabase/admin";
 import type { IntakeEntityType } from "@/app/_features/memory/care/intake";
 import { canonicalizeIdentifier } from "@/app/_features/memory/care/intake";
 import { isKnownSaasVendorDomain, isStrongReceiptOrBillingSignal } from "@/app/_features/capture/services/intelligence/vendor-domains";
+import {
+  getOperatorIdentity,
+  isOperatorDomain,
+  isOperatorEmail,
+  isOperatorName,
+  type OperatorIdentity,
+} from "@/app/_lib/identity/operator";
 
 /**
  * A detected signal with extracted data.
@@ -21,6 +28,13 @@ export interface DetectedSignal {
   identifier: string;
   signal: string;
   extractedData: Record<string, string>;
+}
+
+/** Attachment metadata from the capture envelope (names drive document detection). */
+export interface EmailAttachmentMeta {
+  name: string;
+  contentType?: string;
+  size?: number;
 }
 
 /**
@@ -34,6 +48,8 @@ export interface EmailCaptureData {
   body?: string;
   signature?: string;
   hasAttachments?: boolean;
+  /** Attachment filenames/types — the strongest document evidence an email carries. */
+  attachments?: EmailAttachmentMeta[];
   isReply?: boolean;
   threadId?: string;
 }
@@ -86,25 +102,15 @@ const CALENDAR_SOURCE_TYPES = new Set([
 ]);
 
 /**
- * Workspace member emails. The membership row carries a denormalized
- * `email` — no users join needed (the generated admin-client types don't
- * carry that FK relation anyway).
+ * Operator identity (member emails, profile emails/names, business_email,
+ * website domain, workspace name). The operator must never emit person/org
+ * intake signals — self-contamination guard shared with the records
+ * executor and evidence auto-create.
  */
-async function getWorkspaceMemberEmails(
-  supabase: ReturnType<typeof createAdminClient>,
+async function loadOperator(
   workspaceId: string
-): Promise<Set<string>> {
-  const { data: members } = await supabase
-    .from("workspace_members")
-    .select("email")
-    .eq("workspace_id", workspaceId);
-
-  const emails = new Set<string>();
-  for (const member of members ?? []) {
-    const email = member.email?.toLowerCase();
-    if (email) emails.add(email);
-  }
-  return emails;
+): Promise<OperatorIdentity> {
+  return getOperatorIdentity(workspaceId);
 }
 
 /**
@@ -124,20 +130,24 @@ export async function classifyEmailCapture(
   email.to.forEach((addr) => allAddresses.add(addr));
   email.cc?.forEach((addr) => allAddresses.add(addr));
 
-  // Get workspace member emails to exclude
-  const memberEmails = await getWorkspaceMemberEmails(supabase, workspaceId);
+  // Operator self-exclusion: covers workspace_members, profile emails,
+  // and business_email — not just exact membership rows.
+  const operator = await loadOperator(workspaceId);
 
-  // Get existing people by email
+  // Get existing people by email (and name — person-name subjects must
+  // never christen work records)
   const { data: existingPeople } = await supabase
     .from("people")
-    .select("email")
-    .eq("workspace_id", workspaceId)
-    .not("email", "is", null);
+    .select("email, name")
+    .eq("workspace_id", workspaceId);
 
   const knownEmails = new Set<string>();
+  const knownNames = new Set<string>();
   for (const p of existingPeople || []) {
     const email = (p.email as string | null)?.toLowerCase();
     if (email) knownEmails.add(email);
+    const name = (p as { name?: string | null }).name;
+    if (name) knownNames.add(normalizePersonName(name));
   }
 
   // Get existing orgs by domain
@@ -165,8 +175,8 @@ export async function classifyEmailCapture(
   for (const rawAddress of allAddresses) {
     const address = rawAddress.toLowerCase().trim();
 
-    // Skip workspace members
-    if (memberEmails.has(address)) continue;
+    // Skip the operator (members, profile emails, business email)
+    if (isOperatorEmail(operator, address)) continue;
 
     // Skip known contacts
     if (knownEmails.has(address)) continue;
@@ -220,14 +230,16 @@ export async function classifyEmailCapture(
     });
 
     // Also check for unknown organization — but never for SaaS vendor
-    // domains or receipt/billing mail: a receipt from a tool you pay is
-    // spend, not a relationship.
+    // domains, the operator's own domain, or receipt/billing mail: a
+    // receipt from a tool you pay is spend, not a relationship, and your
+    // own business is the Me record, not an org.
     const domain = address.split("@")[1];
     if (
       domain &&
       !receiptMail &&
       !isPersonalDomain(domain) &&
       !isKnownSaasVendorDomain(domain) &&
+      !isOperatorDomain(operator, domain) &&
       !knownDomains.has(domain)
     ) {
       signals.push({
@@ -239,12 +251,19 @@ export async function classifyEmailCapture(
     }
   }
 
-  // Check for signature data
-  if (email.signature) {
+  // Check for signature data. Outbound mail carries the OPERATOR'S
+  // signature — parsing it must never birth the operator's own business as
+  // an org, so suppress when the sender is the operator or the parsed
+  // company matches the operator's names/domains.
+  if (email.signature && !isOperatorEmail(operator, email.from)) {
     const signatureData = parseEmailSignature(email.signature);
     if (signatureData.company) {
       const domain = canonicalizeIdentifier("organization", signatureData.company);
-      if (!knownDomains.has(domain)) {
+      if (
+        !knownDomains.has(domain) &&
+        !isOperatorDomain(operator, domain) &&
+        !isOperatorName(operator, signatureData.company)
+      ) {
         signals.push({
           entityType: "organization",
           identifier: domain,
@@ -256,8 +275,11 @@ export async function classifyEmailCapture(
   }
 
   // Detect solopreneur-critical documents from email content
-  const fileSignals = detectSolopreneurDocuments(email);
+  const fileSignals = detectSolopreneurDocuments(email, knownNames);
   signals.push(...fileSignals);
+
+  // Work signals (subject pattern, scope discussion) — relationship-anchored
+  signals.push(...detectWorkSignals(email, knownEmails, knownNames));
 
   return signals;
 }
@@ -280,22 +302,249 @@ function stableDocumentIdentifier(
 }
 
 /**
+ * Project-pattern vocabulary for email subjects ("Website redesign
+ * kickoff"). Deliberately tighter than the meeting-title patterns — no
+ * "sync"/"review"/"standup", which are noise on a subject line.
+ */
+const PROJECT_SUBJECT_PATTERN =
+  /\b(kick\s?-?off|project|redesign|rebrand|brand refresh|revamp)\b/i;
+
+/**
+ * Scope vocabulary for `thread_discusses_scope`. A single term is small
+ * talk ("the timeline works"); two or more distinct terms mean the thread
+ * is actually negotiating the work.
+ */
+const SCOPE_TERM_PATTERNS = [
+  /\bscope\b/i,
+  /\bdeliverables?\b/i,
+  /\btimeline\b/i,
+  /\bmilestones?\b/i,
+];
+
+/** Strip reply/forward prefixes so a thread stacks on one evidence row. */
+function cleanSubjectName(subject: string): string {
+  return subject
+    .replace(/^(?:\s*(?:re|fw|fwd)\s*:\s*)+/i, "")
+    .trim();
+}
+
+/**
+ * Stable work identifier keyed to (sender, cleaned subject) — the initial
+ * email and every reply accumulate onto the same evidence row, so a subject
+ * pattern (1.0) plus a scope discussion (2.0) compound toward the bar.
+ */
+function workThreadIdentifier(email: EmailCaptureData): string {
+  const cleaned = cleanSubjectName(email.subject || "")
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+  return `work:${email.from.toLowerCase().trim()}:${cleaned || "thread"}`;
+}
+
+/**
+ * Detect work-birth signals from an email capture.
+ *
+ * Relationship-anchored: both signals require a known-contact sender. A
+ * stranger's "project" subject is cold outreach, not the operator's work —
+ * and the work auto bar additionally requires a relationship-grade signal
+ * (proposal/SOW) before anything births.
+ */
+function detectWorkSignals(
+  email: EmailCaptureData,
+  knownEmails: ReadonlySet<string>,
+  knownNames: ReadonlySet<string> = new Set()
+): DetectedSignal[] {
+  const from = email.from.toLowerCase().trim();
+  if (!knownEmails.has(from)) return [];
+
+  const signals: DetectedSignal[] = [];
+  const subject = email.subject ?? "";
+  const cleaned = cleanSubjectName(subject) || subject.trim();
+  const senderName = extractNameFromEmail(email.from);
+  // A person-name subject ("Sam Example") is about the client, not the
+  // project — the work name must come from a substantive subject or a
+  // document. The signal still fires; the name stays clean.
+  const threadData: Record<string, string> =
+    cleaned && !isPersonNameSubject(cleaned, senderName, knownNames)
+      ? { name: cleaned }
+      : { counterparty: senderName ?? from };
+  const identifier = workThreadIdentifier(email);
+
+  if (subject && PROJECT_SUBJECT_PATTERN.test(subject)) {
+    signals.push({
+      entityType: "work",
+      identifier,
+      signal: "email_subject_project_pattern",
+      extractedData: threadData,
+    });
+  }
+
+  const isThread = Boolean(email.isReply || email.threadId);
+  if (isThread) {
+    const body = (email.body ?? "").toLowerCase();
+    const distinctTerms = SCOPE_TERM_PATTERNS.filter((re) => re.test(body)).length;
+    if (distinctTerms >= 2) {
+      signals.push({
+        entityType: "work",
+        identifier,
+        signal: "thread_discusses_scope",
+        extractedData: threadData,
+      });
+    }
+  }
+
+  return signals;
+}
+
+/**
+ * Document patterns for filenames, mirroring detectSolopreneurDocuments'
+ * priority order (specific before general). Matched against the normalized
+ * base name — extension stripped, separators replaced with spaces — so
+ * "Acme_MSA-v2.pdf" reads as "acme msa v2". Shared by storage-file
+ * captures (classifyFileCapture) and email attachment filenames
+ * (detectSolopreneurDocuments corroboration).
+ */
+const FILE_DOCUMENT_PATTERNS: ReadonlyArray<{
+  re: RegExp;
+  signal: string;
+  category: string;
+  documentType?: string;
+}> = [
+  { re: /\b(msa|master service agreement|master agreement)\b/, signal: "msa_detected", category: "contract", documentType: "msa" },
+  { re: /\b(nda|non disclosure|confidentiality agreement|confidential agreement)\b/, signal: "nda_detected", category: "contract", documentType: "nda" },
+  { re: /\b(sow|scope of work|project scope|statement of work)\b/, signal: "sow_detected", category: "proposal", documentType: "sow" },
+  { re: /\b(contract|agreement|service agreement|terms of service|terms and conditions)\b/, signal: "contract_detected", category: "contract" },
+  { re: /\b(proposal|quote|estimate|pricing)\b/, signal: "proposal_detected", category: "proposal" },
+  { re: /\b(brief|creative brief|project brief|design brief)\b/, signal: "brief_detected", category: "reference", documentType: "brief" },
+  { re: /\b(invoice|inv[\s-]?\d+)\b/, signal: "invoice_document_detected", category: "invoice", documentType: "invoice" },
+  { re: /\b((meeting|call|discovery)\s+notes|recap|minutes|notes by gemini)\b/, signal: "meeting_notes_detected", category: "notes", documentType: "meeting_notes" },
+  { re: /\b(receipt|payment received)\b/, signal: "receipt_detected", category: "invoice", documentType: "receipt" },
+];
+
+function normalizeFileBaseName(fileName: string): string {
+  return fileName
+    .toLowerCase()
+    .replace(/\.[a-z0-9]{1,8}$/, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+type FileDocumentPattern = (typeof FILE_DOCUMENT_PATTERNS)[number];
+
+/**
+ * First attachment whose filename classifies as a business document.
+ * The filename is the strongest evidence an email carries — the body can
+ * say "contract" without one attached, but "MSA.pdf" IS the document.
+ */
+function matchAttachmentDocument(
+  attachments: EmailAttachmentMeta[] | undefined,
+): { pattern: FileDocumentPattern; name: string } | null {
+  for (const attachment of attachments ?? []) {
+    if (!attachment.name) continue;
+    const baseName = normalizeFileBaseName(attachment.name);
+    if (!baseName) continue;
+    const pattern = FILE_DOCUMENT_PATTERNS.find((p) => p.re.test(baseName));
+    if (pattern) return { pattern, name: attachment.name };
+  }
+  return null;
+}
+
+/** Normalize a display name for person-name comparisons. */
+function normalizePersonName(value: string): string {
+  return value.toLowerCase().trim().replace(/\s+/g, " ");
+}
+
+/**
+ * True when a subject/title is just a person's name (the sender's display
+ * name or a known contact) — "Sam Example" as a thread subject is about a
+ * person, it doesn't NAME the work. Work records must never be christened
+ * with a client name; the project name comes from documents (SOW,
+ * proposal, contract) or a substantive subject line.
+ */
+function isPersonNameSubject(
+  subject: string,
+  senderName: string | null,
+  knownNames: ReadonlySet<string>,
+): boolean {
+  const normalized = normalizePersonName(subject);
+  if (!normalized) return false;
+  if (senderName && normalized === normalizePersonName(senderName)) return true;
+  return knownNames.has(normalized);
+}
+
+/** Body excerpt carried on document signals so a born resource's content
+ * analysis has the email text to read (attachments themselves are metadata-
+ * only — bytes never leave the mail provider). */
+function sourceExcerpt(email: EmailCaptureData): string | undefined {
+  const body = (email.body ?? "").trim();
+  if (body.length < 40) return undefined;
+  return body.slice(0, 3000);
+}
+
+/**
  * Detect solopreneur-critical documents from email content.
  * These are the non-negotiable files for independent professionals.
+ *
+ * Attachment corroboration: a body keyword alone ("here's the contract")
+ * watches; the same keyword with a matching attachment filename
+ * ("Contract.pdf") crosses the birth bar in one capture via the
+ * document_file_present corroboration signal on the same evidence row.
+ * A document-patterned attachment filename with no body keyword emits the
+ * document signal itself plus the corroboration — the attached file is
+ * both the detection and the proof.
  */
-function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
+function detectSolopreneurDocuments(
+  email: EmailCaptureData,
+  knownNames: ReadonlySet<string> = new Set(),
+): DetectedSignal[] {
   const signals: DetectedSignal[] = [];
   const subject = (email.subject || "").toLowerCase();
   const body = (email.body || "").toLowerCase();
   const combined = `${subject} ${body}`;
 
   // Only process if there are attachments or body suggests a document
-  const hasContent = email.hasAttachments || body.length > 100;
+  const hasContent =
+    email.hasAttachments ||
+    (email.attachments?.length ?? 0) > 0 ||
+    body.length > 100;
   if (!hasContent) return signals;
 
+  const attachmentMatch = matchAttachmentDocument(email.attachments);
+
+  // Bulk/marketing senders write keyword-rich copy that false-positives on
+  // the document vocabulary — a Costco "warehouse insider" is not a
+  // proposal and a Redfin listing digest is not meeting notes. Document
+  // platforms (DocuSign, RocketLawyer, …) send from bulk-looking addresses
+  // too, and a matching attachment filename is independent evidence, so the
+  // guard only suppresses body-keyword detection for bulk senders with no
+  // document attachment and no platform provenance.
+  const fromLower = email.from.toLowerCase();
+  const isBulkSender = isNoReplyAddress(fromLower) || isNewsletterAddress(fromLower);
+  const isDocumentPlatform = DOCUMENT_PLATFORM_MARKERS.some((marker) =>
+    fromLower.includes(marker),
+  );
+  if (isBulkSender && !isDocumentPlatform && !attachmentMatch) return signals;
+
+  const excerpt = sourceExcerpt(email);
+
   const baseData = {
-    title: email.subject || "Untitled",
+    title: email.subject || attachmentMatch?.name || "Untitled",
     from: email.from,
+    ...(excerpt ? { source_excerpt: excerpt } : {}),
+  };
+
+  /** Corroborate when the attachment filename matches the same document
+   * family the body detected — one capture, two independent observations. */
+  const corroborate = (signal: string, identifier: string) => {
+    if (!attachmentMatch || attachmentMatch.pattern.signal !== signal) return;
+    signals.push({
+      entityType: "resource",
+      identifier,
+      signal: "document_file_present",
+      extractedData: {
+        title: attachmentMatch.name,
+        attachment: attachmentMatch.name,
+      },
+    });
   };
 
   // ==========================================================================
@@ -308,12 +557,14 @@ function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
     combined.includes("msa") ||
     combined.includes("master agreement")
   ) {
+    const identifier = stableDocumentIdentifier(email, "msa");
     signals.push({
       entityType: "resource",
-      identifier: stableDocumentIdentifier(email, "msa"),
+      identifier,
       signal: "msa_detected",
       extractedData: { ...baseData, category: "contract", document_type: "msa" },
     });
+    corroborate("msa_detected", identifier);
   }
   // NDA / Confidentiality
   else if (
@@ -322,12 +573,14 @@ function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
     combined.includes("confidentiality agreement") ||
     combined.includes("confidential agreement")
   ) {
+    const identifier = stableDocumentIdentifier(email, "nda");
     signals.push({
       entityType: "resource",
-      identifier: stableDocumentIdentifier(email, "nda"),
+      identifier,
       signal: "nda_detected",
       extractedData: { ...baseData, category: "contract", document_type: "nda" },
     });
+    corroborate("nda_detected", identifier);
   }
   // General contract/agreement
   else if (
@@ -336,12 +589,14 @@ function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
     combined.includes("terms of service") ||
     combined.includes("terms and conditions")
   ) {
+    const identifier = stableDocumentIdentifier(email, "contract");
     signals.push({
       entityType: "resource",
-      identifier: stableDocumentIdentifier(email, "contract"),
+      identifier,
       signal: "contract_detected",
       extractedData: { ...baseData, category: "contract" },
     });
+    corroborate("contract_detected", identifier);
   }
 
   // ==========================================================================
@@ -354,21 +609,23 @@ function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
     combined.includes("sow") ||
     combined.includes("project scope")
   ) {
+    const identifier = stableDocumentIdentifier(email, "sow");
     signals.push({
       entityType: "resource",
-      identifier: stableDocumentIdentifier(email, "sow"),
+      identifier,
       signal: "sow_detected",
       extractedData: { ...baseData, category: "proposal", document_type: "sow" },
     });
+    corroborate("sow_detected", identifier);
     // Work mirror: a SOW is the documented birth story for work ("a signed
     // contract or accepted proposal becomes work in progress"). Weight 4.0
     // vs the work suggest bar of 5.0 — one document watches, corroboration
-    // suggests.
+    // suggests. A person-name subject never names the work.
     signals.push({
       entityType: "work",
       identifier: stableDocumentIdentifier(email, "sow", "work"),
       signal: "proposal_or_sow_attached",
-      extractedData: { name: email.subject || "Untitled" },
+      extractedData: workMirrorData(email, knownNames),
     });
   }
   // Proposal/Quote/Estimate
@@ -378,17 +635,19 @@ function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
     combined.includes("estimate") ||
     combined.includes("pricing")
   ) {
+    const identifier = stableDocumentIdentifier(email, "proposal");
     signals.push({
       entityType: "resource",
-      identifier: stableDocumentIdentifier(email, "proposal"),
+      identifier,
       signal: "proposal_detected",
       extractedData: { ...baseData, category: "proposal" },
     });
+    corroborate("proposal_detected", identifier);
     signals.push({
       entityType: "work",
       identifier: stableDocumentIdentifier(email, "proposal", "work"),
       signal: "proposal_or_sow_attached",
-      extractedData: { name: email.subject || "Untitled" },
+      extractedData: workMirrorData(email, knownNames),
     });
   }
 
@@ -399,16 +658,42 @@ function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
     combined.includes("project brief") ||
     combined.includes("design brief")
   ) {
+    const identifier = stableDocumentIdentifier(email, "brief");
     signals.push({
       entityType: "resource",
-      identifier: stableDocumentIdentifier(email, "brief"),
+      identifier,
       signal: "brief_detected",
       extractedData: { ...baseData, category: "reference", document_type: "brief" },
     });
+    corroborate("brief_detected", identifier);
   }
 
   // ==========================================================================
-  // INVOICES & PAYMENTS (goes to Billing entity, not File)
+  // MEETING NOTES (the project memory solopreneurs lose in their inbox)
+  // ==========================================================================
+
+  if (
+    combined.includes("meeting notes") ||
+    combined.includes("call notes") ||
+    combined.includes("notes from our") ||
+    combined.includes("meeting recap") ||
+    combined.includes("recap of our") ||
+    combined.includes("minutes from") ||
+    combined.includes("notes by gemini") ||
+    combined.includes("meeting summary")
+  ) {
+    const identifier = stableDocumentIdentifier(email, "notes");
+    signals.push({
+      entityType: "resource",
+      identifier,
+      signal: "meeting_notes_detected",
+      extractedData: { ...baseData, category: "notes", document_type: "meeting_notes" },
+    });
+    corroborate("meeting_notes_detected", identifier);
+  }
+
+  // ==========================================================================
+  // INVOICES & PAYMENTS (billing record AND the invoice document resource)
   // ==========================================================================
 
   if (
@@ -422,15 +707,28 @@ function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
       signal: "invoice_attachment_detected",
       extractedData: { subject: email.subject || "", from: email.from },
     });
+    // Resource mirror: the invoice DOCUMENT is one of the big-three
+    // resources (contracts, notes, invoices) — it must land in Resources
+    // alongside whatever the billing lane does with the amount.
+    const identifier = stableDocumentIdentifier(email, "invoice");
+    signals.push({
+      entityType: "resource",
+      identifier,
+      signal: "invoice_document_detected",
+      extractedData: { ...baseData, category: "invoice", document_type: "invoice" },
+    });
+    corroborate("invoice_document_detected", identifier);
   }
 
   if (combined.includes("receipt") || combined.includes("payment received")) {
+    const identifier = stableDocumentIdentifier(email, "receipt");
     signals.push({
       entityType: "resource",
-      identifier: stableDocumentIdentifier(email, "receipt"),
+      identifier,
       signal: "receipt_detected",
       extractedData: { ...baseData, category: "invoice", document_type: "receipt" },
     });
+    corroborate("receipt_detected", identifier);
   }
 
   // ==========================================================================
@@ -547,12 +845,14 @@ function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
     combined.includes("signature required") ||
     combined.includes("please sign")
   ) {
+    const identifier = stableDocumentIdentifier(email, "signature");
     signals.push({
       entityType: "resource",
-      identifier: stableDocumentIdentifier(email, "signature"),
+      identifier,
       signal: "signature_request_received",
       extractedData: { ...baseData, category: "contract" },
     });
+    corroborate("signature_request_received", identifier);
   }
 
   // ==========================================================================
@@ -590,36 +890,81 @@ function detectSolopreneurDocuments(email: EmailCaptureData): DetectedSignal[] {
     });
   }
 
+  // Attachment-only detection: the body said nothing document-shaped, but
+  // an attachment's filename classifies it ("MSA.pdf" on a one-line email).
+  // The filename is the detection AND the attached file is the proof, so
+  // the corroboration signal rides along — a document that actually arrived
+  // must not sit in Watching.
+  if (attachmentMatch) {
+    const alreadyEmitted = signals.some(
+      (s) => s.entityType === "resource" && s.signal === attachmentMatch.pattern.signal,
+    );
+    if (!alreadyEmitted) {
+      const identifier = stableDocumentIdentifier(email, attachmentMatch.pattern.signal);
+      signals.push({
+        entityType: "resource",
+        identifier,
+        signal: attachmentMatch.pattern.signal,
+        extractedData: {
+          ...baseData,
+          title: email.subject || attachmentMatch.name,
+          attachment: attachmentMatch.name,
+          category: attachmentMatch.pattern.category,
+          ...(attachmentMatch.pattern.documentType
+            ? { document_type: attachmentMatch.pattern.documentType }
+            : {}),
+        },
+      });
+      signals.push({
+        entityType: "resource",
+        identifier,
+        signal: "document_file_present",
+        extractedData: {
+          title: attachmentMatch.name,
+          attachment: attachmentMatch.name,
+        },
+      });
+      // Work mirror (same as the body-detected path): a SOW/proposal file
+      // that actually arrived is the documented birth story for work.
+      if (
+        attachmentMatch.pattern.signal === "sow_detected" ||
+        attachmentMatch.pattern.signal === "proposal_detected"
+      ) {
+        signals.push({
+          entityType: "work",
+          identifier: stableDocumentIdentifier(
+            email,
+            attachmentMatch.pattern.signal,
+            "work",
+          ),
+          signal: "proposal_or_sow_attached",
+          extractedData: workMirrorData(email, knownNames),
+        });
+      }
+    }
+  }
+
   return signals;
 }
 
 /**
- * Document patterns for filenames, mirroring detectSolopreneurDocuments'
- * priority order (specific before general). Matched against the normalized
- * base name — extension stripped, separators replaced with spaces — so
- * "Acme_MSA-v2.pdf" reads as "acme msa v2".
+ * Work-mirror extracted data for document signals: the subject names the
+ * work unless the subject is just a person's name — then the counterparty
+ * rides along instead and the project name waits for a substantive source.
  */
-const FILE_DOCUMENT_PATTERNS: ReadonlyArray<{
-  re: RegExp;
-  signal: string;
-  category: string;
-  documentType?: string;
-}> = [
-  { re: /\b(msa|master service agreement|master agreement)\b/, signal: "msa_detected", category: "contract", documentType: "msa" },
-  { re: /\b(nda|non disclosure|confidentiality agreement|confidential agreement)\b/, signal: "nda_detected", category: "contract", documentType: "nda" },
-  { re: /\b(sow|scope of work|project scope|statement of work)\b/, signal: "sow_detected", category: "proposal", documentType: "sow" },
-  { re: /\b(contract|agreement|service agreement|terms of service|terms and conditions)\b/, signal: "contract_detected", category: "contract" },
-  { re: /\b(proposal|quote|estimate|pricing)\b/, signal: "proposal_detected", category: "proposal" },
-  { re: /\b(brief|creative brief|project brief|design brief)\b/, signal: "brief_detected", category: "reference", documentType: "brief" },
-  { re: /\b(receipt|payment received)\b/, signal: "receipt_detected", category: "invoice", documentType: "receipt" },
-];
-
-function normalizeFileBaseName(fileName: string): string {
-  return fileName
-    .toLowerCase()
-    .replace(/\.[a-z0-9]{1,8}$/, "")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
+function workMirrorData(
+  email: EmailCaptureData,
+  knownNames: ReadonlySet<string>,
+): Record<string, string> {
+  const subject = email.subject || "";
+  const senderName = extractNameFromEmail(email.from);
+  if (
+    subject &&
+    !isPersonNameSubject(cleanSubjectName(subject), senderName, knownNames)
+  ) {
+    return { name: subject };
+  }
+  return { ...(senderName ? { counterparty: senderName } : {}) };
 }
 
 /**
@@ -627,9 +972,9 @@ function normalizeFileBaseName(fileName: string): string {
  * resource-lane document signals from the filename. Pure: no DB reads, no
  * LLM — the email classifier's document vocabulary applied to filenames.
  *
- * Birth stays confirm-only (resources never auto-create from background
- * paths); these signals accumulate into the evidence lane so a contract in
- * Drive builds toward the bar instead of dying as "No action".
+ * Signals accumulate into the evidence lane; a repeat sync of the same file
+ * re-adds the signal weight, so a contract sitting in Drive crosses the
+ * birth bar on its second sync.
  */
 export function classifyFileCapture(file: FileCaptureData): DetectedSignal[] {
   if (file.isFolder) return [];
@@ -664,6 +1009,15 @@ export function classifyFileCapture(file: FileCaptureData): DetectedSignal[] {
       signal: match.signal,
       extractedData,
     },
+    // The synced file IS the document — the same corroboration an email
+    // attachment provides, so a contract in Drive births on first sync
+    // instead of waiting for a re-sync to restack the detection weight.
+    {
+      entityType: "resource",
+      identifier,
+      signal: "document_file_present",
+      extractedData: { title: file.fileName },
+    },
   ];
 
   // Work mirror (same as email): a proposal/SOW file implies work.
@@ -690,8 +1044,8 @@ export async function classifyMeetingCapture(
   const supabase = createAdminClient();
   const signals: DetectedSignal[] = [];
 
-  // Get workspace member emails to exclude
-  const memberEmails = await getWorkspaceMemberEmails(supabase, workspaceId);
+  // Operator self-exclusion (members + profile emails + business email)
+  const operator = await loadOperator(workspaceId);
 
   // Get existing people by email
   const { data: existingPeople } = await supabase
@@ -710,8 +1064,8 @@ export async function classifyMeetingCapture(
   for (const rawAttendee of meeting.attendees) {
     const attendee = rawAttendee.toLowerCase().trim();
 
-    // Skip workspace members
-    if (memberEmails.has(attendee)) continue;
+    // Skip the operator
+    if (isOperatorEmail(operator, attendee)) continue;
 
     // Skip known contacts
     if (knownEmails.has(attendee)) continue;
@@ -732,8 +1086,19 @@ export async function classifyMeetingCapture(
     });
   }
 
-  // Check meeting title for project patterns
-  if (isProjectMeeting(meeting.title)) {
+  // Check meeting title for project patterns. Work is client work: generic
+  // ceremony titles (standups, syncs, check-ins) never emit, and the signal
+  // requires an external participant (a non-operator attendee or
+  // organizer) — an operator-only project-pattern meeting is not a work
+  // candidate either.
+  const participants = [...meeting.attendees, meeting.organizer].filter(
+    (participant) => participant.trim().length > 0,
+  );
+  const hasExternalParticipant = participants.some(
+    (participant) => !isOperatorEmail(operator, participant),
+  );
+
+  if (isProjectMeeting(meeting.title) && hasExternalParticipant) {
     signals.push({
       entityType: "work",
       identifier: meeting.title.toLowerCase(),
@@ -827,10 +1192,35 @@ function isNewsletterAddress(email: string): boolean {
     "info@",
     "hello@",
     "team@",
+    "listings@",
+    "deals@",
+    "offers@",
+    "promo@",
+    "mailer@",
+    "@edm.",
+    "@news.",
   ];
   const lowerEmail = email.toLowerCase();
   return newsletterPatterns.some((pattern) => lowerEmail.includes(pattern));
 }
+
+// Transactional document platforms send signature requests and executed
+// contracts from bulk-looking addresses (team@notifications.rocketlawyer.com,
+// no-reply@docusign.net). Their mail must never be suppressed as marketing.
+const DOCUMENT_PLATFORM_MARKERS = [
+  "docusign",
+  "hellosign",
+  "dropboxsign",
+  "pandadoc",
+  "rocketlawyer",
+  "signnow",
+  "adobesign",
+  "echosign",
+  "sign.adobe",
+  "legalzoom",
+  "ironclad",
+  "jotform",
+];
 
 function isCalendarAddress(email: string): boolean {
   const calendarPatterns = [
@@ -931,7 +1321,29 @@ export function parseSignatureFromBody(body: string): ParsedSignature {
   return parseEmailSignature(tail);
 }
 
+/**
+ * Generic ceremony titles — "stand-up meeting", "Weekly sync", "1:1" —
+ * name a recurring ritual, not client work. They never emit a work signal,
+ * even with an external participant (agencies invite clients and
+ * contractors to standups all the time). Anchored to the whole title: a
+ * substantive subject ("Acme brand sync") still qualifies via the project
+ * patterns below.
+ */
+const GENERIC_CEREMONY_TITLE = new RegExp(
+  "^\\s*" +
+    "(daily|weekly|bi-?weekly|monthly|team|staff|internal|recurring|morning|scrum|status)?\\s*" +
+    "(stand\\s?-?ups?|syncs?|check\\s?-?ins?|catch\\s?-?ups?|1\\s?[:.-]?\\s?1s?|one\\s?-?on\\s?-?ones?|huddles?|touch\\s?base|all\\s?-?hands|retro(spective)?s?|sprint\\s+(planning|review|retro)|plannings?|reviews?|status\\s+(meeting|call|update)|scrums?)" +
+    "\\s*(meeting|call|session)?\\s*$",
+  "i",
+);
+
+/** True when a title names a recurring ritual, not client work. */
+export function isGenericCeremonyTitle(title: string): boolean {
+  return GENERIC_CEREMONY_TITLE.test(title);
+}
+
 function isProjectMeeting(title: string): boolean {
+  if (GENERIC_CEREMONY_TITLE.test(title)) return false;
   const projectPatterns = [
     /kickoff/i,
     /kick-off/i,
@@ -942,8 +1354,6 @@ function isProjectMeeting(title: string): boolean {
     /\bplanning\b/i,
     /\bsprint\b/i,
     /\bretro\b/i,
-    /\bstandup\b/i,
-    /\bstand-up\b/i,
   ];
   return projectPatterns.some((pattern) => pattern.test(title));
 }

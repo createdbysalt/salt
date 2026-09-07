@@ -2,7 +2,7 @@
 
 Section-based, YAML-only playbook definitions.
 
-> **Playbook not showing in UI?** See [`docs/guides/playbook-troubleshooting.md`](../../../../../docs/guides/playbook-troubleshooting.md) — invalid playbooks are silently dropped. Run `curl localhost:3000/api/debug/playbooks | jq '.allErrors'` to see validation errors.
+> **Playbook not showing in UI?** Invalid playbooks are silently dropped; discovery failures surface in the founder `/ops` dashboard (Playbook library section). For depth see [`docs/guides/playbook-troubleshooting.md`](../../../../../docs/guides/playbook-troubleshooting.md) or run `pnpm tsx scripts/debug-playbook-discovery.ts` (`GET /api/debug/playbooks` is founder-gated).
 
 ## Key Concepts
 
@@ -26,13 +26,15 @@ playbooks/v2/
 ├── billing/                    # Cash flow
 │   ├── _section.yaml
 │   ├── invoice-reminder/      # ACT: payment reminders
-│   └── cash-runway/           # ACT: weekly cash alert
+│   ├── cash-runway/           # ACT: weekly cash alert
+│   └── payment-reconciliation/ # ACT: bounded agent step — cross-checks payments vs charges/invoices
 │
 ├── me/                         # Operator
 │   ├── _section.yaml
-│   └── daily-briefing/        # ACT: morning summary (moved from retired _meta)
+│   ├── getting-started/
+│   └── create-first-playbook/
 │
-└── ... (work, files, meetings, communication, connections, notes)
+└── ... (work, resources, meetings, communication, connections, notes)
 ```
 
 ## YAML Schema
@@ -44,7 +46,7 @@ slug: invoice-reminder # auto-inferred from name if omitted
 version: 1.0.0
 description: Drafts payment reminders for overdue invoices
 
-section: billing # relationships|work|billing|files|meetings|communication|me|connections|notes
+section: billing # relationships|work|billing|resources|meetings|communication|me|connections|notes
 layer: act # act (action) — learn is retired to Memory Care
 voice: billing # required for act-layer
 
@@ -80,15 +82,35 @@ steps:
       Draft a {{tone}} payment reminder.
     max_tokens: 200
 
+  # Bounded agent step: a tool-calling LLM loop. tools must be a subset of
+  # the definition's tools: allowlist; every call goes through the Composio
+  # execution gate; max_calls caps the loop.
+  - step: agent
+    id: verify_payment
+    prompt: |
+      Cross-check {{overdue_invoices}} against recent charges and flag mismatches.
+    tools:
+      - STRIPE_LIST_CHARGES
+    max_calls: 4
+
+  # Deterministic action step: executes one declared tool; approval: ask
+  # pauses the run for the queue.
+  - step: action
+    id: create_draft
+    tool: GMAIL_CREATE_EMAIL_DRAFT
+    args:
+      body: "{{reminder_email}}"
+    approval: ask
+
 output:
   type: email_draft # email_draft|notification|memory_update|finding|briefing
-  approval: per_entity # none|per_entity|batch
+  approval: ask # auto|ask (legacy none|per_entity|batch normalize at parse)
 
 value:
   kind: invoice_collected
   estimate: 50
 
-# Instructions - guides playbook behavior (like Claude skills)
+# Instructions - guides playbook behavior (voice, guidelines, constraints)
 instructions:
   system: |
     You are drafting payment reminders for freelancers.
@@ -131,6 +153,9 @@ instructions:
 5. **Step references**: `forEach` must reference an existing fetch step
 6. **value.estimate**: Must be >= 0 (not negative)
 7. **output.type**: Must be one of: `email_draft`, `notification`, `memory_update`, `finding`, `briefing`
+8. **Tool allowlist**: every `action` step's `tool` and every `agent` step's `tools` entry must be declared in the definition's top-level `tools:`
+9. **Memory monopoly**: memory-mutating tools are rejected in action and agent steps alike (Memory Care owns Memory writes)
+10. **Agent bounds**: `max_calls` is capped by the schema; agent steps never pause mid-loop — gate denials feed back to the model as tool errors
 
 ## YAML Gotchas
 
@@ -188,10 +213,12 @@ Use `inferSectionFromSlug()` and `mapV1LayerToV2()` for migration helpers.
 
 ## Files
 
-| File             | Purpose                       |
-| ---------------- | ----------------------------- |
-| `types.ts`       | Type definitions              |
-| `schema.ts`      | Zod schemas                   |
-| `parser.ts`      | YAML parsing and validation   |
-| `discovery.ts`   | Filesystem playbook discovery |
-| `parser.test.ts` | Unit tests                    |
+| File                  | Purpose                                                            |
+| --------------------- | ----------------------------------------------------------------- |
+| `types.ts`            | Type definitions                                                  |
+| `schema.ts`           | Zod schemas                                                       |
+| `parser.ts`           | YAML parsing and validation                                       |
+| `discovery.ts`        | Filesystem playbook discovery (repo source; DB rows merge in `playbooks/db-definitions.ts`) |
+| `executor.ts`         | `executePlaybookV2` — step execution, gates, agent loop, run metadata (pins `playbook_version` + `schema_hashes`) |
+| `schema-hydration.ts` | Fresh tool schemas at execution start; pinned Zod is the fallback |
+| `parser.test.ts`      | Unit tests                                                        |

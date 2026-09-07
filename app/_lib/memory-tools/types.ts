@@ -150,6 +150,12 @@ export interface UpdateFieldResult {
   aggregatedConfidence?: number;
   evidenceId?: string;
   appliedAt?: string;
+  /**
+   * True when the value was already applied — the write, provenance row,
+   * and Handled learning were all skipped. Callers counting "writes" for
+   * activity feeds should not count no-ops.
+   */
+  noop?: boolean;
   message: string;
 }
 

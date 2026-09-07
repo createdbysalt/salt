@@ -113,19 +113,22 @@ function defaultActivity(row: BillingRecordRow, providerLabel: string): Activity
     return metadata.activity;
   }
 
+  const foundBySalt = row.origin === "found";
+  // Provider "manual" + origin "found" = Salt found it in email/capture —
+  // "Record found in manual" would be nonsense.
+  const foundLabel =
+    row.provider === "manual" ? "Salt found this record" : `Record found in ${providerLabel}`;
   return [
     {
       id: `${row.id}-created`,
       at: row.created_at,
-      kind: row.origin === "found" ? "system" : "user",
-      label:
-        row.origin === "found"
-          ? `Record found in ${providerLabel}`
-          : "Record added to Billing Memory",
-      detail:
-        row.origin === "found"
-          ? "Salt synced this billing record from a connected finance app."
-          : "Salt prepared this record from Ask Salt or an uploaded document.",
+      kind: foundBySalt ? (row.provider === "manual" ? "salt" : "system") : "user",
+      label: foundBySalt ? foundLabel : "Record added to Billing Memory",
+      detail: foundBySalt
+        ? row.provider === "manual"
+          ? "Salt found this record in your email or a document."
+          : "Salt synced this billing record from a connected finance app."
+        : "Salt prepared this record from Ask Salt or an uploaded document.",
     },
   ];
 }

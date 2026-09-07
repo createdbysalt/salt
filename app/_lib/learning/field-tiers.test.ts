@@ -5,7 +5,6 @@ import {
   isAlwaysAutoField,
   isNeverTouchField,
   tierBar,
-  ELEVATED_TIER_FLOOR,
 } from "./field-tiers";
 
 describe("field-tiers", () => {
@@ -86,10 +85,11 @@ describe("field-tiers", () => {
       expect(tierBar("standard", 70)).toBe(70);
     });
 
-    it("raises sensitive and destructive to at least 95", () => {
-      expect(tierBar("sensitive", 85)).toBe(ELEVATED_TIER_FLOOR);
-      expect(tierBar("destructive", 85)).toBe(ELEVATED_TIER_FLOOR);
-      expect(tierBar("sensitive", 98)).toBe(98);
+    it("uses the workspace threshold for every gated tier", () => {
+      // One user-controlled bar: tiers never raise it.
+      expect(tierBar("sensitive", 85)).toBe(85);
+      expect(tierBar("destructive", 85)).toBe(85);
+      expect(tierBar("sensitive", 70)).toBe(70);
     });
 
     it("refuses never_touch at any confidence", () => {
@@ -112,14 +112,14 @@ describe("field-tiers", () => {
       });
     });
 
-    it("holds sensitive to the elevated floor", () => {
+    it("holds sensitive fields to the same workspace bar", () => {
       expect(decideTierOutcome("sensitive", 90, 85)).toEqual({
-        decision: "watch",
-        bar: 95,
-      });
-      expect(decideTierOutcome("sensitive", 96, 85)).toEqual({
         decision: "apply",
-        bar: 95,
+        bar: 85,
+      });
+      expect(decideTierOutcome("sensitive", 70, 85)).toEqual({
+        decision: "watch",
+        bar: 85,
       });
     });
 

@@ -9,6 +9,10 @@ export const MODEL_ROUTING = {
   meetingSummary: process.env.AI_MODEL_MEETING ?? "openai/gpt-4o",
   opportunityScan: process.env.AI_MODEL_OPPORTUNITY ?? "anthropic/claude-sonnet-4",
   playDraft: process.env.AI_MODEL_PLAY_DRAFT ?? "anthropic/claude-sonnet-4",
+  /** One-sentence run summary for the play detail modal header — one cheap call per run, deterministic fallback exists. */
+  playRunSummary: process.env.AI_MODEL_PLAY_RUN_SUMMARY ?? "openai/gpt-4o-mini",
+  /** Bounded agentic steps inside playbook runs — tool calling, so the strong-tool-use cheap slot. */
+  playAgent: process.env.AI_MODEL_PLAY_AGENT ?? "google/gemini-3.5-flash",
   /** Client-facing copy inside compiled play runs - quality first, still token-bounded. */
   copyClientFacing:
     process.env.AI_MODEL_COPY_CLIENT_FACING ?? "anthropic/claude-sonnet-4",
@@ -22,6 +26,8 @@ export const MODEL_ROUTING = {
   recordSummary: process.env.AI_MODEL_RECORD_SUMMARY ?? "openai/gpt-4o-mini",
   /** Cold-inbound intent read (Sources Lane 1 discriminator) — one short call per unknown human-shaped sender, cheap by design. */
   coldIntent: process.env.AI_MODEL_COLD_INTENT ?? "openai/gpt-4o-mini",
+  /** Work-record naming at birth — one short call per auto-created work record, deterministic fallback exists. */
+  workNaming: process.env.AI_MODEL_WORK_NAMING ?? "openai/gpt-4o-mini",
   /** Tell Salt compile (Sources → Customize) — natural-language instruction → concrete knobs. Cheap classification. */
   tellSaltCompile:
     process.env.AI_MODEL_TELL_SALT_COMPILE ?? "openai/gpt-4o-mini",

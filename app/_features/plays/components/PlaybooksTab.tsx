@@ -10,6 +10,10 @@ import type { PlaybookV2QueryResult } from "@/app/_features/plays/playbooks/quer
  * (Renamed from Customize in the 2026-08-06 reorg; Connectors moved to
  * Sources, Memory Care capabilities surfaced as capability cards in
  * Memory → Rules.)
+ *
+ * Discovery failures (validation errors, structural skips) are platform-ops
+ * signals — they surface in the founder /ops dashboard's Playbook library
+ * section, not here. Users can't fix repo YAML.
  */
 interface PlaybooksTabProps {
   playbooksV2: PlaybookV2QueryResult | null;

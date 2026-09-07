@@ -78,11 +78,11 @@ Each entity type has qualifiers defining how it can be detected from captures:
 
 | Source | Signal | When to Suggest |
 |--------|--------|-----------------|
-| email | `email_subject_project_pattern` | Subject matches project patterns ("RE: Website Redesign") |
-| meeting | `meeting_title_project_pattern` | Meeting title suggests project ("Kickoff: Brand Refresh") |
+| email | `email_subject_project_pattern` | Known contact's subject matches project patterns ("RE: Website Redesign") |
+| meeting | `meeting_title_project_pattern` | Meeting title suggests project AND a non-operator participates ("Kickoff: Brand Refresh" with the client). Substantive titles only — generic ceremonies (stand-up, sync, check-in, …) never emit, even with external guests |
 | file | `proposal_or_sow_attached` | Proposal/SOW file attached |
 | invoice | `invoice_line_items_suggest_project` | Invoice references work not in Memory |
-| email | `thread_discusses_scope` | Email thread mentions scope, deliverables, timeline |
+| email | `thread_discusses_scope` | Known contact's reply mentions 2+ of scope, deliverables, timeline, milestones |
 
 **Extract:** name, organization, deadline, contract_value_cents, work_type · **Threshold:** 70%
 
@@ -189,8 +189,9 @@ Each signal has a pre-computed weight based on how informative it is:
 | File | 3.0 | 6.0 | -2.0 |
 | Meeting | 2.0 | 4.0 | -2.0 |
 
-- **Suggest**: Show in HQ as "suggested record"
-- **Auto**: Auto-create if workspace has auto-create enabled
+- **Suggest**: Keep accumulating in Watching — not yet a record
+- **Auto**: Auto-create the record. The threshold IS the auto-apply — full
+  autonomy since 2026-08-29, no calibration or worthiness gates
 - **Dismiss**: Stop watching (too much negative evidence)
 
 ### Usage
@@ -230,7 +231,8 @@ Capture → Detect Signals → Accumulate Evidence → Check Threshold → Actio
                     ▼                                    ▼                ▼
               score < dismiss                    suggest ≤ score    score ≥ auto
               → Stop watching                    < auto             → Auto-create
-                                                 → Show in HQ
+                                                 → Keep watching      (threshold is
+                                                   (accumulating)      the only gate)
 ```
 
 ---

@@ -118,6 +118,32 @@ function str(value: unknown): string | undefined {
 }
 
 /**
+ * Invoice line descriptions — the merchant-written names for the work
+ * ("Brand photography package"). Stripe: `lines.data[].description`.
+ * QuickBooks: `Line[].Description` (falling back to the item name). Capped
+ * at 5 entries / 120 chars so a novel-length memo can't become a work name.
+ */
+function extractLineDescriptions(record: Record<string, unknown>): string[] {
+  const lines = (record.lines as Record<string, unknown> | undefined)?.data ??
+    record.Line;
+  if (!Array.isArray(lines)) return [];
+  const descriptions: string[] = [];
+  for (const line of lines) {
+    if (!line || typeof line !== "object") continue;
+    const entry = line as Record<string, unknown>;
+    const itemName = (
+      entry.SalesItemLineDetail as Record<string, unknown> | undefined
+    )?.ItemRef as Record<string, unknown> | undefined;
+    const description =
+      str(entry.description) ?? str(entry.Description) ?? str(itemName?.name);
+    if (!description) continue;
+    descriptions.push(description.trim().slice(0, 120));
+    if (descriptions.length >= 5) break;
+  }
+  return descriptions;
+}
+
+/**
  * Normalize a provider address into the snake_case `customer_address`
  * extracted contract. Returns null when the address carries no content.
  */
@@ -306,6 +332,11 @@ function normalizeStripe(payload: unknown): CaptureEnvelope | null {
       ? new Date(obj.created * 1000).toISOString()
       : null;
 
+  // Invoice line descriptions name the actual work ("Brand photography
+  // package") — the work-lane evidence names the project from these, never
+  // after the customer.
+  const lineItemDescriptions = extractLineDescriptions(obj);
+
   return {
     sourceType: "stripe",
     captureType: "payment",
@@ -318,6 +349,7 @@ function normalizeStripe(payload: unknown): CaptureEnvelope | null {
       event_type: eventType,
       customer_email: customerEmail?.toLowerCase() ?? null,
       customer_name: customerName ?? null,
+      line_item_descriptions: lineItemDescriptions,
       // Canonical money field: decimal dollars. amount_paid/amount_due kept
       // for provider-specific consumers.
       amount: amountPaid ?? amountDue,
@@ -468,6 +500,19 @@ function normalizeQuickbooksReportRow(
     ? [{ email: customerEmail.toLowerCase(), name: customerName, role: "payer" }]
     : [];
 
+  // subt_amount is the transaction TOTAL in Intuit's balance report, not the
+  // paid portion — mapping it to amount_paid births open invoices as "paid".
+  // Paid = total − open balance when the report carries the balance column;
+  // when it's absent (QBO silently drops open-balance columns on some runs),
+  // amount_paid stays null and the row's presence in a balance report means
+  // money is still owed, so the record correctly births as open.
+  const total = parseReportAmount(record.subt_amount ?? record.amount);
+  const balance = parseReportAmount(record.open_balance ?? record.rbal_open_balance);
+  const amountPaid =
+    total != null && balance != null
+      ? Math.round((total - balance) * 100) / 100
+      : null;
+
   return {
     sourceType: "quickbooks",
     captureType: "payment",
@@ -479,8 +524,9 @@ function normalizeQuickbooksReportRow(
     extracted: {
       customer_email: customerEmail?.toLowerCase() ?? null,
       customer_name: customerName,
-      amount_paid: parseReportAmount(record.subt_amount ?? record.amount),
-      balance: parseReportAmount(record.open_balance ?? record.rbal_open_balance),
+      amount: total,
+      amount_paid: amountPaid,
+      balance,
       doc_number: docNum,
       due_date: (record.due_date as string) ?? null,
       txn_type: txnType,
@@ -531,6 +577,7 @@ function normalizeQuickbooks(payload: unknown): CaptureEnvelope | null {
     extracted: {
       customer_email: customerEmail?.toLowerCase() ?? null,
       customer_name: customerName ?? null,
+      line_item_descriptions: extractLineDescriptions(record),
       amount: totalAmt ?? null,
       amount_paid: totalAmt ?? null,
       currency,

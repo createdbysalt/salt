@@ -80,4 +80,42 @@ describe("mapPlayRunToCardClient — artifacts + evidence", () => {
     expect(vm.artifacts).toBeNull();
     expect(vm.evidence?.items.map((i) => i.label)).toEqual(["Valid"]);
   });
+
+  it("turns invoice-reminder evidence into Memory and Stripe links", () => {
+    const pay = "https://invoice.stripe.com/i/acct_test/in_frank";
+    const vm = mapPlayRunToCardClient(
+      baseRow({
+        target_type: "billing",
+        target_id: "br-frank",
+        target_label: "INV-2026-1589",
+        context_inputs: {
+          invoice_context: { invoice: { number: "INV-2026-1589", pay_url: pay } },
+        },
+        metadata: {
+          playbook_slug: "invoice-reminder",
+          playbook_name: "Invoice Reminder",
+          section: "billing",
+          output_type: "email_draft",
+          evidence: [
+            { appId: "salt", label: "Billing due date passed" },
+            { appId: "salt", label: "Read invoice context from Memory" },
+            {
+              appId: "salt",
+              label: "Researched Stripe, QuickBooks, Gmail for verify unpaid",
+            },
+            { appId: "salt", label: "Classified the tier results" },
+          ],
+        },
+      })
+    );
+
+    expect(vm.evidence?.items[0]?.url).toBe("/billing/br-frank");
+    expect(vm.evidence?.items[1]?.url).toBe("/billing/br-frank");
+    expect(vm.evidence?.items[1]?.links?.map((link) => link.href)).toEqual([
+      "/billing/br-frank",
+      pay,
+    ]);
+    expect(vm.evidence?.items[2]?.url).toBe(pay);
+    expect(vm.evidence?.items[3]?.url).toBe("/billing/br-frank");
+  });
 });

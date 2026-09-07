@@ -18,7 +18,8 @@ import "server-only";
  *   so an over-budget workspace defers the read (mail is held, exactly as it
  *   would be without this feature) rather than failing anything.
  * - Real-time paths only: backfills never pay for intent — historical mail
- *   is not urgent, and the discovery pass already covers held senders.
+ *   is not urgent. The held backlog gets the same cheap read in batch via
+ *   Sync & Scan (services/held-intent-discovery.ts), never on a cron.
  *
  * Fail-neutral contract: any failure (no key, refused spend, timeout,
  * garbage output) returns checked=false and the pipeline holds the mail

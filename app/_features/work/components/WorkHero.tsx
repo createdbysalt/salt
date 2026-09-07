@@ -24,6 +24,7 @@ import {
   memoryHeroTitleClass,
 } from "@/app/_features/memory/utils/memory-layout";
 import { formatMoneyFromCents } from "@/app/_features/memory/utils/record-summary";
+import { isPlaceholderWorkName } from "@/app/_features/memory/utils/work-name";
 import { openAskSalt } from "@/app/_features/shell/utils/open-ask-salt";
 import { RadixAfterHydration } from "@/app/_features/memory/components/RadixAfterHydration";
 import type { Connection } from "@/app/_lib/demo/people-demo-data";
@@ -127,6 +128,14 @@ export function WorkHero({
               {work.workType && (
                 <span className="chip border border-white/20 bg-white/15 text-white/90 backdrop-blur">
                   {work.workType}
+                </span>
+              )}
+              {isPlaceholderWorkName(work.title) && (
+                <span
+                  className="chip border border-dashed border-white/25 bg-white/5 text-white/70 backdrop-blur"
+                  title="Salt anchored this name to the client so the record is findable — a contract or proposal read will replace it."
+                >
+                  Placeholder name
                 </span>
               )}
             </div>

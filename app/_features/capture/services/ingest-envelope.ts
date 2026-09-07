@@ -273,7 +273,20 @@ export async function ingestEnvelope(
     const dbForcedNoise = !isNoise && row.gate_action === "noise";
     const effectiveNoise = isNoise || dbForcedNoise;
 
-    if (!options.skipEvidence && !options.isBootstrap && !effectiveNoise) {
+    // Evidence vs enrichment split (intake unclog): account-scoped captures
+    // (files, payments, notes, meetings) run evidence even during bootstrap —
+    // their classifiers are deterministic (no LLM spend) and no cron
+    // revisits them, so skipping birth-signals here loses them forever.
+    // Bootstrap EMAIL still skips both lanes; the scan backlog picks it up.
+    const isEmailCapture = envelope.captureType === "message";
+    const runsEvidence =
+      !options.skipEvidence &&
+      !effectiveNoise &&
+      (!options.isBootstrap || !isEmailCapture);
+    const runsEnrichment =
+      !options.skipEvidence && !options.isBootstrap && !effectiveNoise;
+
+    if (runsEvidence) {
       const evidencePromise = processCaptureForEvidence(data.id).catch((err) => {
         console.warn(
           `[ingest-envelope] Evidence processing failed for ${data.id}:`,
@@ -281,6 +294,9 @@ export async function ingestEnvelope(
         );
       });
 
+      const sideEffects: Promise<unknown>[] = [evidencePromise];
+
+      if (runsEnrichment) {
       // Extract admission signals from gate result for criteria engine
       const admissionResult = gateResult?.gateResults.admission;
       const admissionSignals = admissionResult && "signals" in admissionResult
@@ -325,11 +341,12 @@ export async function ingestEnvelope(
         }
       });
 
+      sideEffects.push(enrichmentPromise);
+
       // Reply loops (Memory-first + Phase C2): outbound mail is the strongest
       // engagement signal. Promote held recipients into Memory right away and
       // bump each recipient's sender reputation so it self-builds without UI.
       const extracted = envelope.extracted as Record<string, unknown>;
-      const sideEffects = [evidencePromise, enrichmentPromise];
       if (
         envelope.captureType === "message" &&
         extracted?.isSentByUser === true &&
@@ -353,6 +370,7 @@ export async function ingestEnvelope(
             );
           })
         );
+      }
       }
 
       if (options.awaitEnrichment) {

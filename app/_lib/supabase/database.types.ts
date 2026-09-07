@@ -2354,6 +2354,51 @@ export type Database = {
           },
         ]
       }
+      hq_daily_briefings: {
+        Row: {
+          briefing_date: string
+          content: string
+          created_at: string
+          id: string
+          model: string | null
+          sections: Json
+          workspace_id: string
+        }
+        Insert: {
+          briefing_date: string
+          content: string
+          created_at?: string
+          id?: string
+          model?: string | null
+          sections?: Json
+          workspace_id: string
+        }
+        Update: {
+          briefing_date?: string
+          content?: string
+          created_at?: string
+          id?: string
+          model?: string | null
+          sections?: Json
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hq_daily_briefings_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "studios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hq_daily_briefings_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inbox_read_states: {
         Row: {
           archived_at: string | null
@@ -4704,6 +4749,94 @@ export type Database = {
           },
         ]
       }
+      person_emails: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          is_primary: boolean
+          person_id: string
+          source: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          is_primary?: boolean
+          person_id: string
+          source?: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          is_primary?: boolean
+          person_id?: string
+          source?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "person_emails_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_emails_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "studios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_emails_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      platform_health_checks: {
+        Row: {
+          checked_at: string
+          error_code: string | null
+          error_message: string | null
+          id: string
+          kind: string
+          latency_ms: number | null
+          status: string
+          target: string
+          toolkit: string
+        }
+        Insert: {
+          checked_at?: string
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          kind: string
+          latency_ms?: number | null
+          status: string
+          target: string
+          toolkit: string
+        }
+        Update: {
+          checked_at?: string
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          kind?: string
+          latency_ms?: number | null
+          status?: string
+          target?: string
+          toolkit?: string
+        }
+        Relationships: []
+      }
       play_pacing_guard_hits: {
         Row: {
           blocked_run_id: string
@@ -5128,8 +5261,10 @@ export type Database = {
           autonomy_granted_at: string | null
           autonomy_offered_at: string | null
           created_at: string
+          dismissed_count: number
           id: string
           last_approved_at: string | null
+          last_dismissed_at: string | null
           playbook_slug: string
           tool_slug: string
           updated_at: string
@@ -5141,8 +5276,10 @@ export type Database = {
           autonomy_granted_at?: string | null
           autonomy_offered_at?: string | null
           created_at?: string
+          dismissed_count?: number
           id?: string
           last_approved_at?: string | null
+          last_dismissed_at?: string | null
           playbook_slug: string
           tool_slug: string
           updated_at?: string
@@ -5154,8 +5291,10 @@ export type Database = {
           autonomy_granted_at?: string | null
           autonomy_offered_at?: string | null
           created_at?: string
+          dismissed_count?: number
           id?: string
           last_approved_at?: string | null
+          last_dismissed_at?: string | null
           playbook_slug?: string
           tool_slug?: string
           updated_at?: string
@@ -5171,6 +5310,111 @@ export type Database = {
           },
           {
             foreignKeyName: "playbook_action_approvals_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      playbook_customize_entries: {
+        Row: {
+          body: string
+          created_at: string
+          created_by: string | null
+          id: string
+          playbook_slug: string
+          source: string
+          status: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          playbook_slug: string
+          source: string
+          status?: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          playbook_slug?: string
+          source?: string
+          status?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "playbook_customize_entries_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "studios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "playbook_customize_entries_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      playbook_definitions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          definition: Json
+          id: string
+          slug: string
+          source: string
+          status: string
+          updated_at: string
+          version: string
+          workspace_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          definition: Json
+          id?: string
+          slug: string
+          source?: string
+          status?: string
+          updated_at?: string
+          version: string
+          workspace_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          definition?: Json
+          id?: string
+          slug?: string
+          source?: string
+          status?: string
+          updated_at?: string
+          version?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "playbook_definitions_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "studios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "playbook_definitions_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -5455,6 +5699,8 @@ export type Database = {
         Row: {
           active_sections: string[]
           ai_fallback_enabled: boolean
+          app_exclusions: Json
+          app_selections: Json | null
           auto_apply_threshold: number
           blueprint_slug: string
           context_facts: Json
@@ -5468,6 +5714,8 @@ export type Database = {
         Insert: {
           active_sections?: string[]
           ai_fallback_enabled?: boolean
+          app_exclusions?: Json
+          app_selections?: Json | null
           auto_apply_threshold?: number
           blueprint_slug: string
           context_facts?: Json
@@ -5481,6 +5729,8 @@ export type Database = {
         Update: {
           active_sections?: string[]
           ai_fallback_enabled?: boolean
+          app_exclusions?: Json
+          app_selections?: Json | null
           auto_apply_threshold?: number
           blueprint_slug?: string
           context_facts?: Json
@@ -7473,6 +7723,33 @@ export type Database = {
           status?: Database["public"]["Enums"]["tool_classification_status"]
           tool_slug?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      tool_docs: {
+        Row: {
+          doc_markdown: string
+          expires_at: string
+          fetched_at: string
+          source_url: string | null
+          tool_slug: string
+          toolkit_slug: string
+        }
+        Insert: {
+          doc_markdown: string
+          expires_at?: string
+          fetched_at?: string
+          source_url?: string | null
+          tool_slug: string
+          toolkit_slug: string
+        }
+        Update: {
+          doc_markdown?: string
+          expires_at?: string
+          fetched_at?: string
+          source_url?: string | null
+          tool_slug?: string
+          toolkit_slug?: string
         }
         Relationships: []
       }
@@ -11075,12 +11352,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -11104,11 +11381,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -11129,11 +11406,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -11154,11 +11431,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -11171,11 +11448,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }

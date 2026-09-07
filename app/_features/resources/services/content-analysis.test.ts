@@ -9,6 +9,22 @@ type Filter = [string, string, unknown];
 let resourceRow: Record<string, unknown> | null = null;
 let entityLinks: Array<{ target_id: string }> = [];
 let workRows: Array<Record<string, unknown>> = [];
+let peopleRows: Array<Record<string, unknown>> = [];
+let orgRows: Array<Record<string, unknown>> = [];
+
+function matchesFilters(row: Record<string, unknown>, filters: Filter[]): boolean {
+  return filters.every(([op, f, v]) => {
+    if (op === "eq") return row[f] === v;
+    if (op === "is") return (row[f] ?? null) === v;
+    if (op === "ilike") {
+      return (
+        typeof row[f] === "string" &&
+        (row[f] as string).toLowerCase() === String(v).toLowerCase()
+      );
+    }
+    return true;
+  });
+}
 
 const mockFrom = vi.fn((table: string) => {
   const filters: Filter[] = [];
@@ -26,7 +42,21 @@ const mockFrom = vi.fn((table: string) => {
       filters.push(["is", f, v]);
       return builder;
     },
-    maybeSingle: async () => ({ data: table === "resources" ? resourceRow : null }),
+    ilike: (f: string, v: unknown) => {
+      filters.push(["ilike", f, v]);
+      return builder;
+    },
+    limit: () => builder,
+    maybeSingle: async () => {
+      if (table === "resources") return { data: resourceRow };
+      if (table === "people") {
+        return { data: peopleRows.find((r) => matchesFilters(r, filters)) ?? null };
+      }
+      if (table === "organizations") {
+        return { data: orgRows.find((r) => matchesFilters(r, filters)) ?? null };
+      }
+      return { data: null };
+    },
     update: (values: unknown) => {
       mockUpdate(values);
       return builder;
@@ -59,7 +89,11 @@ vi.mock("@/app/_lib/memory-tools", () => ({
   memoryUpdateField: (...args: unknown[]) => mockMemoryUpdateField(...args),
 }));
 
-import { analyzeResourceContent, isFetchableLinkUrl } from "./content-analysis";
+import {
+  analyzeResourceContent,
+  isFetchableLinkUrl,
+  propagateStoredWorkTerms,
+} from "./content-analysis";
 
 const WS = "ws-1";
 const RESOURCE_ID = "res-1";
@@ -103,6 +137,8 @@ describe("analyzeResourceContent", () => {
     resourceRow = null;
     entityLinks = [];
     workRows = [];
+    peopleRows = [];
+    orgRows = [];
     mockDownload.mockResolvedValue({
       data: { arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer },
       error: null,
@@ -308,6 +344,133 @@ describe("analyzeResourceContent", () => {
     expect(workWrites).toEqual([]);
   });
 
+  function emptyWorkRow(overrides: Record<string, unknown> = {}) {
+    return {
+      id: "work-1",
+      name: "Sam Example — Project",
+      description: null,
+      work_type: null,
+      payment_type: null,
+      hourly_rate_cents: null,
+      retainer_mrr_cents: null,
+      contract_value_cents: null,
+      final_price_cents: null,
+      currency: null,
+      decision_date: null,
+      estimated_timeline: null,
+      discount_percent: null,
+      discount_amount_cents: null,
+      discount_reason: null,
+      ...overrides,
+    };
+  }
+
+  function workWrites() {
+    return mockMemoryUpdateField.mock.calls
+      .map(([arg]) => arg as { entityType: string; field: string; value: unknown })
+      .filter((c) => c.entityType === "work");
+  }
+
+  it("renames a placeholder-named work record to the document's project name", async () => {
+    resourceRow = baseRow({ file_name: "sow-frank.pdf" });
+    entityLinks = [{ target_id: "work-1" }];
+    workRows = [emptyWorkRow()];
+    mockSendLlm.mockResolvedValue(
+      JSON.stringify({
+        category: "proposal",
+        documentType: "sow",
+        description: "SOW for brand photography.",
+        work: {
+          projectName: "Brand Photography",
+          summary: "A one-day brand photography shoot for Acme.",
+        },
+      }),
+    );
+
+    await analyzeResourceContent({ workspaceId: WS, resourceId: RESOURCE_ID });
+
+    expect(workWrites()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "name", value: "Brand Photography" }),
+        expect.objectContaining({
+          field: "description",
+          value: "A one-day brand photography shoot for Acme.",
+        }),
+      ]),
+    );
+  });
+
+  it("renames a work record whose name is exactly a known person's name", async () => {
+    resourceRow = baseRow({ file_name: "contract-frank.pdf" });
+    entityLinks = [{ target_id: "work-1" }];
+    workRows = [emptyWorkRow({ name: "Sam Example" })];
+    peopleRows = [{ id: "person-1", workspace_id: WS, name: "Sam Example" }];
+    mockSendLlm.mockResolvedValue(
+      JSON.stringify({
+        category: "contract",
+        documentType: "service_agreement",
+        work: { projectName: "Brand Photography" },
+      }),
+    );
+
+    await analyzeResourceContent({ workspaceId: WS, resourceId: RESOURCE_ID });
+
+    expect(workWrites()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "name", value: "Brand Photography" }),
+      ]),
+    );
+  });
+
+  it("never renames a substantive work name, but still fills an empty description", async () => {
+    resourceRow = baseRow({ file_name: "sow.pdf" });
+    entityLinks = [{ target_id: "work-1" }];
+    workRows = [emptyWorkRow({ name: "Brand Photography" })];
+    mockSendLlm.mockResolvedValue(
+      JSON.stringify({
+        category: "proposal",
+        work: {
+          projectName: "Acme Brand Shoot",
+          summary: "A one-day brand photography shoot for Acme.",
+        },
+      }),
+    );
+
+    await analyzeResourceContent({ workspaceId: WS, resourceId: RESOURCE_ID });
+
+    const writes = workWrites();
+    expect(writes.some((w) => w.field === "name")).toBe(false);
+    expect(writes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          field: "description",
+          value: "A one-day brand photography shoot for Acme.",
+        }),
+      ]),
+    );
+  });
+
+  it("never overwrites an existing work description", async () => {
+    resourceRow = baseRow({ file_name: "sow.pdf" });
+    entityLinks = [{ target_id: "work-1" }];
+    workRows = [
+      emptyWorkRow({
+        name: "Brand Photography",
+        description: "User-written scope.",
+      }),
+    ];
+    mockSendLlm.mockResolvedValue(
+      JSON.stringify({
+        category: "proposal",
+        work: { summary: "A one-day brand photography shoot for Acme." },
+      }),
+    );
+
+    await analyzeResourceContent({ workspaceId: WS, resourceId: RESOURCE_ID });
+
+    expect(workWrites().some((w) => w.field === "description")).toBe(false);
+  });
+
   it("fetches and analyzes a link resource with a public URL", async () => {
     resourceRow = baseRow({
       file_type: "link",
@@ -348,6 +511,88 @@ describe("analyzeResourceContent", () => {
     expect(fetchMock).not.toHaveBeenCalled();
     expect(mockSendLlm).not.toHaveBeenCalled();
     vi.unstubAllGlobals();
+  });
+});
+
+describe("propagateStoredWorkTerms", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resourceRow = null;
+    entityLinks = [];
+    workRows = [];
+    peopleRows = [];
+    orgRows = [];
+    mockMemoryUpdateField.mockResolvedValue({ action: "applied" });
+  });
+
+  it("returns no-analysis when the resource was never read", async () => {
+    resourceRow = baseRow({ extracted_data: null });
+
+    const result = await propagateStoredWorkTerms({
+      workspaceId: WS,
+      resourceId: RESOURCE_ID,
+    });
+
+    expect(result).toBe("no-analysis");
+    expect(mockSendLlm).not.toHaveBeenCalled();
+    expect(mockMemoryUpdateField).not.toHaveBeenCalled();
+  });
+
+  it("re-propagates stored terms to newly linked work without re-calling the LLM", async () => {
+    resourceRow = baseRow({
+      extracted_data: {
+        content_analysis: {
+          analyzed_at: "2026-08-01T00:00:00.000Z",
+          analysis: {
+            category: "proposal",
+            work: {
+              projectName: "Brand Photography",
+              summary: "A one-day brand photography shoot for Acme.",
+            },
+          },
+        },
+      },
+    });
+    entityLinks = [{ target_id: "work-1" }];
+    workRows = [
+      {
+        id: "work-1",
+        name: "Sam Example — Project",
+        description: null,
+        work_type: null,
+        payment_type: null,
+        hourly_rate_cents: null,
+        retainer_mrr_cents: null,
+        contract_value_cents: null,
+        final_price_cents: null,
+        currency: null,
+        decision_date: null,
+        estimated_timeline: null,
+        discount_percent: null,
+        discount_amount_cents: null,
+        discount_reason: null,
+      },
+    ];
+
+    const result = await propagateStoredWorkTerms({
+      workspaceId: WS,
+      resourceId: RESOURCE_ID,
+    });
+
+    expect(result).toBe("propagated");
+    expect(mockSendLlm).not.toHaveBeenCalled();
+    const writes = mockMemoryUpdateField.mock.calls
+      .map(([arg]) => arg as { entityType: string; field: string; value: unknown })
+      .filter((c) => c.entityType === "work");
+    expect(writes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "name", value: "Brand Photography" }),
+        expect.objectContaining({
+          field: "description",
+          value: "A one-day brand photography shoot for Acme.",
+        }),
+      ]),
+    );
   });
 });
 

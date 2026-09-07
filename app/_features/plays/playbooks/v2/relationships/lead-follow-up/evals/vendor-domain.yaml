@@ -1,0 +1,27 @@
+# Near-miss negative: a new record that isn't a buyer (vendor, receipt
+# sender, personal contact) must never get a sales follow-up.
+id: vendor-domain
+name: Vendor record created → quiet skip, no follow-up
+given:
+  memory:
+    person_context:
+      id: person-3
+      name: Adobe Billing
+      email: billing@adobe.com
+      relationship_type: vendor
+      relationship_status: active
+      last_contact_at: "2026-09-03T00:00:00Z"
+      first_contact_at: "2026-09-03T00:00:00Z"
+      recent_notes: "Subscription receipt sender"
+      health_band: null
+      health_score: null
+      has_calendar_meeting: false
+  agent:
+    - step: verify_lead
+      text: "Relationship type is vendor — a receipt sender, not a buyer. VERDICT: SKIP — vendor record, not a lead"
+expect:
+  status: success
+  outputCount: 0
+  steps:
+    lead_context: success
+    verify_lead: success

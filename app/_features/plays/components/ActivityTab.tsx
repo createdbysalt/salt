@@ -213,7 +213,7 @@ export function ActivityTab({
         setTotalCount(result.totalCount);
         setCounts(result.counts);
         // The query clamps out-of-range pages (e.g. after undos shrink the
-        // feed) — sync the control with the page actually served.
+        // feed) â€” sync the control with the page actually served.
         setPage(result.page);
       } catch {
         toast.error("Couldn't load activity. Try again.");
@@ -279,7 +279,7 @@ export function ActivityTab({
       transition={{ duration: 0.35, ease: APPLE_EASE }}
       className="space-y-5"
     >
-      {/* Trust ledger — horizontal stat strip */}
+      {/* Trust ledger â€” horizontal stat strip */}
       <section className="glass-card rounded-3xl p-5">
         <header className="flex items-center justify-between mb-4">
           <div>
@@ -304,7 +304,7 @@ export function ActivityTab({
         <PlaysSearchField
           value={q}
           onChange={updateSearch}
-          placeholder="Search activity…"
+          placeholder="Search activityâ€¦"
           layout="toolbar-actions"
           showDisplay={false}
           filterActive={activeFilterCount > 0}
@@ -390,7 +390,7 @@ export function ActivityTab({
           {totalCount > 0 && (
             <div className="flex flex-col items-center gap-3 pt-2 sm:flex-row sm:justify-between">
               <p className="text-[11px] text-muted-foreground tabular-nums">
-                Page {page} of {totalPages} · {totalCount}{" "}
+                Page {page} of {totalPages} Â· {totalCount}{" "}
                 {totalCount === 1 ? "action" : "actions"}
               </p>
               <div className="flex flex-col items-center gap-3 sm:flex-row">
@@ -576,14 +576,14 @@ function ActivityRow({
           <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
             {e.target}
             {e.playbookName
-              ? ` · ${e.playbookName}`
+              ? ` Â· ${e.playbookName}`
               : !e.target && e.channelLabel
                 ? e.channelLabel
                 : ""}
             {e.sourceUrl ? (
               <>
                 {" "}
-                ·{" "}
+                Â·{" "}
                 <SourceExternalLink
                   href={e.sourceUrl}
                   className="inline-flex align-baseline"
@@ -706,12 +706,12 @@ function ActivityCardDetail({
           <DetailRow
             icon={FileText}
             label="What's staged"
-            value={e.outcome ?? "—"}
+            value={e.outcome ?? "â€”"}
           />
           <DetailRow
             icon={Target}
             label="Next step"
-            value={e.nextStepLabel ?? "—"}
+            value={e.nextStepLabel ?? "â€”"}
           />
           {e.etaLabel && (
             <DetailRow icon={Clock} label="ETA" value={e.etaLabel} />
@@ -741,12 +741,7 @@ function ActivityCardDetail({
             label={e.state === "blocked" ? "Blocked" : "Error"}
             value={
               <span>
-                {e.errorLabel ?? "—"}
-                {e.errorDetail && e.errorDetail !== e.errorLabel && (
-                  <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground">
-                    {e.errorDetail}
-                  </span>
-                )}
+                {e.errorLabel ?? "â€”"}
               </span>
             }
           />
@@ -777,12 +772,12 @@ function ActivityCardDetail({
           <DetailRow
             icon={UserCheck}
             label="Your decision"
-            value={e.decisionLabel ?? "—"}
+            value={e.decisionLabel ?? "â€”"}
           />
           <DetailRow
             icon={FileText}
             label="What it was"
-            value={e.outcome ?? "—"}
+            value={e.outcome ?? "â€”"}
           />
           {e.triggerLabel && (
             <DetailRow icon={Target} label="Trigger" value={e.triggerLabel} />
@@ -867,7 +862,7 @@ function TimelineRow({ entry: e }: { entry: PlayActivityItem }) {
               <span className="text-[12px] text-foreground/85">
                 {t.title}
                 {t.detail ? (
-                  <span className="text-muted-foreground"> — {t.detail}</span>
+                  <span className="text-muted-foreground"> â€” {t.detail}</span>
                 ) : null}
               </span>
             </li>

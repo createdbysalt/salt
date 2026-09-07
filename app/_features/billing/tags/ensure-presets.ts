@@ -8,6 +8,7 @@
  */
 
 import { createClient } from "@/app/_lib/supabase/server";
+import { getVerifiedWorkspaceMembership } from "@/app/_lib/tenancy/workspace-membership";
 import { createTag, getTags } from "@/app/_features/memory/tags";
 import { BILLING_TAG_PRESETS } from "./presets";
 
@@ -18,12 +19,14 @@ export async function ensureBillingTagPresets(): Promise<{
 }> {
   const supabase = await createClient();
 
-  const { data: member } = await supabase
-    .from("workspace_members")
-    .select("workspace_id")
-    .single();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const membership = user
+    ? await getVerifiedWorkspaceMembership(user.id, supabase)
+    : null;
 
-  if (!member) {
+  if (!membership) {
     return { success: false, created: 0, error: "No workspace found" };
   }
 

@@ -6,6 +6,7 @@ import { getComposioClient } from "./client";
 import { invalidateClassificationCache } from "./classification-store";
 import { schemaHash, stableStringify } from "./catalog-sync-hash";
 import { classifyToolByHeuristic } from "./tool-classification-heuristics";
+import { findPlaybooksUsingTool } from "@/app/_features/plays/playbooks/tool-usage";
 
 /**
  * Composio catalog sync + drift detection (connector-platform Phase 2.2).
@@ -39,6 +40,7 @@ export interface CatalogSyncEvent {
     | "trigger_removed"
     | "trigger_schema_changed"
     | "classification_disabled"
+    | "playbook_tool_disabled"
     | "sync_failed";
   subjectSlug: string;
   detail?: Record<string, unknown>;
@@ -426,5 +428,27 @@ async function disableApprovedClassification(
       subjectSlug: toolSlug,
       detail: { reason },
     });
+
+    // Feedback loop: name the repo playbooks this disable just broke, so the
+    // ops review queue re-approves with context instead of blind — and so the
+    // next 2026-09-03 (GMAIL_SEND_EMAIL disabled, Invoice Reminder failed
+    // post-approval) surfaces as an event, not a user report.
+    try {
+      const affected = findPlaybooksUsingTool(toolSlug);
+      if (affected.length > 0) {
+        events.push({
+          kind: "playbook_tool_disabled",
+          subjectSlug: toolSlug,
+          detail: { reason, playbooks: affected },
+        });
+      }
+    } catch (scanError) {
+      // The disable itself already landed — a scan failure must not fail the
+      // sync. The classification_disabled event above still records the fact.
+      console.error(
+        `[catalog-sync] playbook usage scan failed for ${toolSlug}:`,
+        scanError,
+      );
+    }
   }
 }

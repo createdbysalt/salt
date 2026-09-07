@@ -3,7 +3,11 @@ import "server-only";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import type { TablesUpdate } from "@/app/_lib/supabase/database.types";
 import { recordPlayExecution } from "@/app/_lib/usage/record-play-usage";
+import { getWorkspaceConnectorPolicy } from "@/app/_features/connectors/queries";
+import { loadDraftSender } from "../lib/draft-sender";
+import { sanitizePayUrl } from "../lib/draft-payment-link";
 import { executeConnectorTool } from "./execute-connector-tool";
+import { writeMemoryNote } from "./write-memory-note";
 import type {
   PlaybookApprovalContext,
   ResumePausedPlaybookDeps,
@@ -24,7 +28,7 @@ export function createResumePausedPlaybookDeps(): ResumePausedPlaybookDeps {
     async loadRun(runId, workspaceId) {
       const { data } = await admin
         .from("play_runs")
-        .select("id, title, approval_context")
+        .select("id, title, draft_body, approval_context, metadata, context_inputs, target_id")
         .eq("id", runId)
         .eq("workspace_id", workspaceId)
         .maybeSingle();
@@ -36,6 +40,11 @@ export function createResumePausedPlaybookDeps(): ResumePausedPlaybookDeps {
         title: (data.title as string) ?? "",
         approvalContext:
           (data.approval_context as PlaybookApprovalContext | null) ?? null,
+        draftBody: (data.draft_body as string | null) ?? null,
+        metadata: (data.metadata as Record<string, unknown> | null) ?? null,
+        contextInputs:
+          (data.context_inputs as Record<string, unknown> | null) ?? null,
+        targetId: (data.target_id as string | null) ?? null,
       };
     },
 
@@ -92,8 +101,28 @@ export function createResumePausedPlaybookDeps(): ResumePausedPlaybookDeps {
       }
     },
 
+    writeMemoryNote,
+
+    async loadEmailMode(workspaceId, provider) {
+      const policy = await getWorkspaceConnectorPolicy(workspaceId);
+      return policy.emailModeByProvider?.[provider] ?? "draft";
+    },
+
     now() {
       return new Date().toISOString();
+    },
+
+    loadSender: loadDraftSender,
+
+    async loadInvoicePayUrl(workspaceId, targetId) {
+      if (!targetId) return null;
+      const { data } = await admin
+        .from("billing_records")
+        .select("app_url")
+        .eq("id", targetId)
+        .eq("workspace_id", workspaceId)
+        .maybeSingle();
+      return sanitizePayUrl((data?.app_url as string | null) ?? null);
     },
   };
 }

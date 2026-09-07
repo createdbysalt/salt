@@ -7,14 +7,11 @@ import { getComposioClient } from "./client";
 import { logToolExecution, type ToolExecutionSource } from "./execution-log";
 import {
   assertComposioToolAllowed,
-  composioToolInputSchemas,
   isPlayApprovedAction,
-  parseComposioToolInput,
   type PlayApprovalContext,
   type ComposioToolPolicy,
 } from "./tool-policy";
-import { getSyncedToolSchema } from "./input-schema-store";
-import { validateArgsAgainstJsonSchema } from "./json-schema-validate";
+import { validateToolInputBoundary } from "./input-validation";
 import { checkRateLimit, createRateLimitKey } from "@/app/_lib/rate-limit";
 import { canSpend, isBlocked } from "@/app/_lib/usage/can-spend";
 import { COMPOSIO_ACTION_MICROS } from "@/app/_lib/usage/play-cost";
@@ -66,22 +63,16 @@ function assertWithinGateRateLimit(
 }
 
 /**
- * Boundary validation (5.5.2): hand-written Zod schemas stay authoritative
- * for the pinned tool set; long-tail slugs validate structurally against the
- * synced catalog schema. No schema anywhere = cannot execute (fail closed).
+ * Boundary validation (5.5.2 + fresh-context Phase 2): the synced catalog
+ * schema is the shape source of truth; pinned hand-written Zod schemas layer
+ * on top (some encode safety invariants vendor schemas don't) and serve as
+ * the fallback when the catalog has no row. See input-validation.ts.
  */
 async function validateComposioToolInput(
   toolSlug: string,
   input: unknown
 ): Promise<Record<string, unknown>> {
-  if (composioToolInputSchemas[toolSlug]) {
-    return parseComposioToolInput(toolSlug, input);
-  }
-  const synced = await getSyncedToolSchema(toolSlug);
-  if (!synced) {
-    throw new Error(`No input schema registered for Composio tool: ${toolSlug}`);
-  }
-  return validateArgsAgainstJsonSchema(input, synced.inputSchema, toolSlug);
+  return validateToolInputBoundary(toolSlug, input);
 }
 
 // ── Generic executor ──
@@ -183,7 +174,7 @@ export async function executeComposioAction<T, R>(
       const trust = provider ? connectorPolicy.trustByProvider[provider] : undefined;
       if (trust !== "act_with_approval" && trust !== "trust") {
         throw new Error(
-          `Composio tool ${toolSlug} requires the connector to be set to "Ask" or "Trust" in Settings → Plays`
+          `Composio tool ${toolSlug} is blocked because the connector is set to "Read only" — switch to "Ask" or "Trust" in Settings → Plays to let it run`
         );
       }
       // Check email mode per provider (generic for all email providers)

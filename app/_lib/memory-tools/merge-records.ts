@@ -6,6 +6,7 @@
  */
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import { unionPersonEmailsOnMerge } from "@/app/_features/memory/records/person-emails";
 import {
   getMemoryEntityTable,
   type LearningEntityType,
@@ -120,6 +121,10 @@ export async function memoryMergeRecords(
       .eq("workspace_id", workspaceId)
       .select("id");
     migratedBillingCount = billingUpdated?.length || 0;
+
+    // Identity union: the winner absorbs the loser's known addresses
+    // (non-primary; the winner's primary survives).
+    await unionPersonEmailsOnMerge(supabase, workspaceId, winnerId, loserId);
 
     await supabase
       .from("organization_people")

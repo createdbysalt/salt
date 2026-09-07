@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { buildPlayHeadline, summarizeEvidence, reversibilityNote } from "./play-headline";
+import {
+  buildPlayGlance,
+  buildPlayHeadline,
+  summarizeEvidence,
+  reversibilityNote,
+} from "./play-headline";
 
 describe("buildPlayHeadline", () => {
   it("prefers a playbook-authored headline", () => {
@@ -20,17 +25,34 @@ describe("buildPlayHeadline", () => {
         targetLabel: "Meridian Studio kickoff — today 2:00 PM",
         outputType: "briefing",
       })
-    ).toBe("Your brief is ready for Meridian Studio kickoff, today 2:00 PM");
+    ).toBe("Brief ready for Meridian Studio kickoff, today 2:00 PM");
   });
 
-  it("uses the draft template for email drafts", () => {
+  it("names the person, not the artifact, for email drafts", () => {
     expect(
       buildPlayHeadline({
         subject: "Follow-up drafted",
         targetLabel: "Dana Whitfield",
+        recipientLabel: "Dana Whitfield",
+        playbookSlug: "follow-up",
         outputType: "email_draft",
       })
-    ).toBe("Your draft is ready for Dana Whitfield");
+    ).toBe("Follow up with Dana Whitfield");
+  });
+
+  it("rewrites a persisted invoice draft headline into a glanceable moment", () => {
+    expect(
+      buildPlayHeadline({
+        headline: "Your draft is ready for INV-2026-1589",
+        subject: "Invoice Reminder",
+        targetLabel: "INV-2026-1589",
+        recipientLabel: "INV-2026-1589",
+        draftText: "Hi Frank,\n\nJust a reminder about INV-2026-1589.",
+        playbookSlug: "invoice-reminder",
+        playbookName: "Invoice Reminder",
+        outputType: "email_draft",
+      })
+    ).toBe("Frank hasn't paid INV-2026-1589");
   });
 
   it("falls back to the run title when no moment is available", () => {
@@ -46,6 +68,40 @@ describe("buildPlayHeadline", () => {
     expect(
       buildPlayHeadline({ subject: "Weekly review ready", targetLabel: "  ", outputType: "briefing" })
     ).toBe("Weekly review ready");
+  });
+});
+
+describe("buildPlayGlance", () => {
+  it("pitches what Salt knows and what it drafted", () => {
+    expect(
+      buildPlayGlance({
+        headline: "Your draft is ready for INV-2026-1589",
+        subject: "Invoice Reminder",
+        targetLabel: "INV-2026-1589",
+        recipientLabel: "INV-2026-1589",
+        draftText: "Hi Frank,\n\nThe invoice is overdue.",
+        playbookSlug: "invoice-reminder",
+        playbookName: "Invoice Reminder",
+        outputType: "email_draft",
+        preview: "Waiting for approval: GMAIL_CREATE_EMAIL_DRAFT",
+      })
+    ).toEqual({
+      headline: "Frank hasn't paid INV-2026-1589",
+      detail: "Still unpaid. Drafted Frank a reminder.",
+    });
+  });
+
+  it("uses amount and age from the draft when Salt has them", () => {
+    expect(
+      buildPlayGlance({
+        headline: "Your draft is ready for INV-2026-1589",
+        subject: "Invoice Reminder",
+        targetLabel: "INV-2026-1589",
+        draftText: "Hi Frank,\n\nINV-2026-1589 is $50.00 and 12 days overdue.",
+        playbookSlug: "invoice-reminder",
+        outputType: "email_draft",
+      }).detail
+    ).toBe("$50, 12 days overdue. Drafted Frank a reminder.");
   });
 });
 
@@ -83,6 +139,24 @@ describe("summarizeEvidence", () => {
     const link = ev.items.find((i) => i.url);
     expect(link?.url).toContain("stripe.com");
     expect(link?.label).toBe("Source in Stripe");
+  });
+
+  it("attaches a Memory invoice link from the run target", () => {
+    const ev = summarizeEvidence({
+      entries: [{ label: "Read invoice context from Memory", appId: "salt" }],
+      sourceLinks: {
+        targetType: "billing",
+        targetId: "br-1",
+        invoiceContext: {
+          invoice: { pay_url: "https://invoice.stripe.com/i/acct_test/in_1" },
+        },
+      },
+    });
+    expect(ev.items[0]?.url).toBe("/billing/br-1");
+    expect(ev.items[0]?.links?.map((link) => link.label)).toEqual([
+      "Invoice in Memory",
+      "Stripe invoice",
+    ]);
   });
 
   it("prefers executor-written reasoning entries over the trigger fallback", () => {

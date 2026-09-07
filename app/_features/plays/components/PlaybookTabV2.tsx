@@ -27,8 +27,9 @@ const APPLE_EASE = [0.32, 0.72, 0, 1] as const;
 
 // Memory Care capabilities (records, hygiene, connections, notes) surface as
 // capability cards in Memory → Rules and are hidden from the library here.
+// getting-started and create-first-playbook are behind-the-scenes system
+// behavior, not user-facing library entries.
 // UI-layer filter only — discovery/execution are untouched.
-// `daily-briefing` stays visible.
 const SECTION_ORDER: PlaybookSectionFilter[] = [
   "relationships",
   "work",
@@ -43,6 +44,8 @@ const HIDDEN_FROM_LIBRARY = new Set([
   "memory-hygiene",
   "connections",
   "notes",
+  "getting-started",
+  "create-first-playbook",
 ]);
 
 const LAYER_OPTIONS: Array<{ id: PlaybookLayerFilter; label: string }> = [
@@ -215,6 +218,8 @@ export function PlaybookTabV2({ playbooks, counts: _counts }: PlaybookTabV2Props
               triggerType={pb.triggerType}
               enabled={pb.enabled}
               runnable={pb.runnable}
+              needsApp={pb.needsApp}
+              disabledTools={pb.disabledTools}
               onClick={() => handleCardClick(pb.slug)}
               index={i}
             />

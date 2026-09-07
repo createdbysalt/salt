@@ -7,9 +7,17 @@
 
 import { cache } from "react";
 import { discoverV2Playbooks, getPlaybookBySlug } from "./schema/v2/discovery";
-import type { PlaybookSection, PlaybookLayer, PlaybookDefinitionV2, PlaybookCategory, PlaybookStep, PlaybookApprovalMode } from "./schema/v2/types";
+import { listWorkspacePlaybookDefinitions } from "./db-definitions";
+import { getTenantContext } from "@/app/_lib/tenancy/context";
+import { getWorkspaceMemberOrNull, requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
+import type { PlaybookSection, PlaybookLayer, PlaybookDefinitionV2, PlaybookCategory, PlaybookStep, PlaybookApprovalMode, ParsedPlaybookV2, RecordConditionEntity, RecordConditionOp } from "./schema/v2/types";
 import { getPlaybookCategory, isPlaybookLocked, isPlaybookEditable } from "./schema/v2/types";
-import { getPlaybookEnabledStatesMap } from "../actions/playbook-settings";
+import { findFieldDescriptor } from "./record-conditions";
+import { getDisabledToolSlugs } from "@/app/_lib/composio/classification-store";
+import {
+  getPlaybookAppSelectionsMap,
+  getPlaybookEnabledStatesMap,
+} from "../actions/playbook-settings";
 import { getPlaybookConnectorIds } from "../lib/playbook-connectors";
 import type { ConnectorCatalogId } from "@/app/_features/connectors/types";
 
@@ -19,12 +27,15 @@ import type { ConnectorCatalogId } from "@/app/_features/connectors/types";
  * - salt_template: Salt-provided template, user can adopt (SALT + TEMPLATE badges)
  * - salt_custom: User adopted & customized a Salt template (SALT + CUSTOM badges)
  * - custom: User created from scratch (CUSTOM badge only)
+ * - workspace: Workspace-owned copy in playbook_definitions (forked on first
+ *   edit or authored in-workspace); shadows the repo definition
  */
 export type PlaybookOriginType =
   | "salt_system"
   | "salt_template"
   | "salt_custom"
-  | "custom";
+  | "custom"
+  | "workspace";
 
 export interface PlaybookStepSummary {
   step: PlaybookStep["step"];
@@ -57,7 +68,7 @@ export interface PlaybookListItem {
    * step requires approval, "auto" only when nothing ever asks.
    */
   approvalMode: PlaybookApprovalMode;
-  triggerType: "signal" | "schedule" | "manual";
+  triggerType: "signal" | "schedule" | "manual" | "record_condition";
   triggerValue?: string;
   enabled?: boolean;
   /**
@@ -66,6 +77,18 @@ export interface PlaybookListItem {
    * badge — never asserted for playbooks that cannot actually run.
    */
   runnable: boolean;
+  /** True when a required category has no opted-in apps. */
+  needsApp?: boolean;
+  /** Count of required connector categories — used to compute needsApp. */
+  requiredCategoryCount?: number;
+  /** definition.yaml tool allowlist (Composio slugs). */
+  tools: string[];
+  /**
+   * Allowlisted tools currently hard-denied at the execution gate
+   * (drift-disabled or rejected classifications). Non-empty on an enabled
+   * playbook means the playbook cannot run — the library shows a banner.
+   */
+  disabledTools?: string[];
   /** Package info for directory-based playbooks */
   package?: {
     hasScript: boolean;
@@ -91,6 +114,16 @@ export interface PlaybookV2QueryResult {
     bySection: Record<PlaybookSection, number>;
     byLayer: { learn: number; act: number };
     byOrigin: { salt: number; custom: number };
+  };
+  /**
+   * Discovery problems that dropped playbooks from the library — validation
+   * errors per file and structural skips (missing _section.yaml, wrong
+   * definition filename). Surfaced in the Playbooks tab as a warning state
+   * instead of the historical silent drop.
+   */
+  discoveryIssues: {
+    errors: Array<{ file: string; errors: string[] }>;
+    skipped: Array<{ path: string; reason: string }>;
   };
 }
 
@@ -201,6 +234,26 @@ function mapPlaybookListItem(
       if (!trigger) return undefined;
       if (trigger.type === "signal") return trigger.signal;
       if (trigger.type === "schedule") return trigger.cron;
+      if (trigger.type === "record_condition") {
+        const fieldLabel =
+          findFieldDescriptor(trigger.entity, trigger.field)?.label ??
+          trigger.field;
+        const entityNoun: Record<RecordConditionEntity, string> = {
+          person: "a person's",
+          org: "an organization's",
+          work: "work",
+          billing: "a billing record's",
+          resource: "a file's",
+        };
+        const opPhrase: Record<RecordConditionOp, string> = {
+          eq: "is",
+          neq: "is not",
+          gt: "is more than",
+          lt: "is less than",
+          contains: "contains",
+        };
+        return `When ${entityNoun[trigger.entity]} ${fieldLabel.toLowerCase()} ${opPhrase[trigger.op]} "${trigger.value}"`;
+      }
       return undefined;
     })(),
     package: options?.packagePath
@@ -210,6 +263,9 @@ function mapPlaybookListItem(
           packagePath: options.packagePath,
         }
       : undefined,
+    requiredCategoryCount:
+      definition.requirements?.categories?.required?.length ?? 0,
+    tools: definition.tools ?? [],
   };
 }
 
@@ -277,12 +333,23 @@ export const getPlaybooksV2 = cache(
         byLayer,
         byOrigin: { salt: playbooks.length, custom: 0 },
       },
+      discoveryIssues: {
+        errors: discovery.errors,
+        skipped: discovery.skipped.map(({ path, reason }) => ({ path, reason })),
+      },
     };
   }
 );
 
 export const getPlaybookV2BySlug = cache(
   async (slug: string): Promise<PlaybookListItem | null> => {
+    // Fork-on-edit: a workspace copy in playbook_definitions shadows the repo
+    // definition. Check the DB first or edits would be invisible on the page.
+    const workspaceCopy = await findWorkspaceCopy(slug);
+    if (workspaceCopy) {
+      return mapPlaybookListItem(workspaceCopy.definition, "workspace");
+    }
+
     const parsed = getPlaybookBySlug(slug);
     if (!parsed) return null;
 
@@ -300,19 +367,114 @@ export const getPlaybookV2BySlug = cache(
   }
 );
 
+/**
+ * Workspace-owned copy of a playbook, if one exists. Returns null when there
+ * is no workspace context (marketing/debug surfaces stay repo-only).
+ */
+async function findWorkspaceCopy(
+  slug: string
+): Promise<ParsedPlaybookV2 | null> {
+  try {
+    const { context } = await getTenantContext();
+    const workspace = getWorkspaceMemberOrNull(context);
+    if (!workspace) return null;
+    const db = await listWorkspacePlaybookDefinitions(workspace.id);
+    return db.playbooks.find((p) => p.definition.slug === slug) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export interface ResolvedPlaybookDefinition {
+  definition: PlaybookDefinitionV2;
+  origin: "workspace" | "repo";
+  packagePath?: string;
+  hasScript?: boolean;
+  hasPlaybookMd?: boolean;
+}
+
+/**
+ * Full definition resolution for the detail page: DB shadows repo, and
+ * DB-only (user-authored) playbooks resolve instead of 404ing.
+ */
+export async function resolvePlaybookDefinition(
+  slug: string
+): Promise<ResolvedPlaybookDefinition | null> {
+  const workspaceCopy = await findWorkspaceCopy(slug);
+  if (workspaceCopy) {
+    return { definition: workspaceCopy.definition, origin: "workspace" };
+  }
+
+  const parsed = getPlaybookBySlug(slug);
+  if (!parsed) return null;
+  return {
+    definition: parsed.definition,
+    origin: "repo",
+    packagePath: parsed.packagePath,
+    hasScript: parsed.hasScript,
+    hasPlaybookMd: parsed.hasPlaybookMd,
+  };
+}
+
 export async function getPlaybooksV2ForWorkspace(): Promise<PlaybookV2QueryResult> {
   const base = await getPlaybooksV2();
 
   try {
-    const slugs = base.playbooks.map((playbook) => playbook.slug);
-    const enabledMap = await getPlaybookEnabledStatesMap(slugs);
+    const { context } = await getTenantContext();
+    const workspace = requireWorkspaceMember(context);
+
+    // User-authored definitions (DB) merge over the repo registry — later
+    // source wins on slug conflict, so a workspace can shadow a pre-made.
+    const db = await listWorkspacePlaybookDefinitions(workspace.id);
+    const dbPlaybooks = db.playbooks.map((p) =>
+      mapPlaybookListItem(p.definition, "workspace")
+    );
+    const dbSlugs = new Set(dbPlaybooks.map((p) => p.slug));
+    const playbooks = [
+      ...base.playbooks.filter((p) => !dbSlugs.has(p.slug)),
+      ...dbPlaybooks,
+    ];
+
+    const slugs = playbooks.map((playbook) => playbook.slug);
+    const [enabledMap, selectionsMap, disabledToolSlugs] = await Promise.all([
+      getPlaybookEnabledStatesMap(slugs),
+      getPlaybookAppSelectionsMap(slugs),
+      getDisabledToolSlugs(),
+    ]);
+
+    const bySection = { ...base.counts.bySection };
+    const byLayer = { ...base.counts.byLayer };
+    for (const pb of dbPlaybooks) {
+      bySection[pb.section]++;
+      byLayer[pb.layer]++;
+    }
 
     return {
       ...base,
-      playbooks: base.playbooks.map((playbook) => ({
+      playbooks: playbooks.map((playbook) => ({
         ...playbook,
         enabled: enabledMap[playbook.slug] ?? true,
+        needsApp:
+          (playbook.requiredCategoryCount ?? 0) > 0 &&
+          (selectionsMap[playbook.slug]?.length ?? 0) === 0,
+        disabledTools: playbook.tools.filter((tool) =>
+          disabledToolSlugs.has(tool)
+        ),
       })),
+      counts: {
+        ...base.counts,
+        total: playbooks.length,
+        bySection,
+        byLayer,
+        byOrigin: {
+          salt: playbooks.length - dbPlaybooks.length,
+          custom: dbPlaybooks.length,
+        },
+      },
+      discoveryIssues: {
+        errors: [...base.discoveryIssues.errors, ...db.errors],
+        skipped: base.discoveryIssues.skipped,
+      },
     };
   } catch {
     return base;

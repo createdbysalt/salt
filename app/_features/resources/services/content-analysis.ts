@@ -19,6 +19,8 @@ const MAX_TEXT_CHARS = 12_000;
 const MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024;
 
 const WorkTermsSchema = z.object({
+  projectName: z.string().max(120).nullish(),
+  summary: z.string().max(500).nullish(),
   workType: z.enum(WORK_TYPES).nullish(),
   paymentType: z.enum(["fixed", "retainer", "hourly", "milestone"]).nullish(),
   hourlyRateCents: z.number().int().nonnegative().nullish(),
@@ -68,6 +70,8 @@ Rules:
 
 If the document is a proposal, contract, statement of work, quote, or estimate, ALSO include a "work" object (omit the key entirely for any other document):
 {
+  "projectName": the name of the project or engagement this document is about (e.g. "Brand Refresh", "Website Redesign") — NEVER the client's or person's name; null when the document names no project,
+  "summary": one sentence summarizing the project or engagement itself (what will be done, for whom), or null,
   "workType": one of project, retainer, hourly, proposal, quick, event — the engagement shape,
   "paymentType": one of fixed, retainer, hourly, milestone — how money is charged,
   "hourlyRateCents": the stated hourly rate in cents, or null,
@@ -103,6 +107,8 @@ interface ResourceRow {
 
 interface WorkRow {
   id: string;
+  name: string;
+  description: string | null;
   work_type: string | null;
   payment_type: string | null;
   hourly_rate_cents: number | null;
@@ -115,6 +121,47 @@ interface WorkRow {
   discount_percent: number | null;
   discount_amount_cents: number | null;
   discount_reason: string | null;
+}
+
+function escapeIlike(value: string): string {
+  return value.replace(/[%_\\]/g, (m) => `\\${m}`);
+}
+
+/**
+ * True when a work record's current name is a naming artifact, not a
+ * project name: the "{Person} — Project" placeholder auto-create anchors,
+ * or an exact person/org name ("Sam Example") from a person-named email
+ * thread. Only artifact names are ever overwritten by a document read —
+ * real names (user-set or substantive) are never touched.
+ */
+async function isArtifactWorkName(
+  admin: ReturnType<typeof createAdminClient>,
+  workspaceId: string,
+  name: string,
+): Promise<boolean> {
+  const trimmed = name.trim();
+  if (/ — Project$/i.test(trimmed)) return true;
+  const pattern = escapeIlike(trimmed);
+  if (!pattern) return false;
+  const [{ data: person }, { data: org }] = await Promise.all([
+    admin
+      .from("people")
+      .select("id")
+      .eq("workspace_id", workspaceId)
+      .is("deleted_at", null)
+      .ilike("name", pattern)
+      .limit(1)
+      .maybeSingle(),
+    admin
+      .from("organizations")
+      .select("id")
+      .eq("workspace_id", workspaceId)
+      .is("deleted_at", null)
+      .ilike("name", pattern)
+      .limit(1)
+      .maybeSingle(),
+  ]);
+  return Boolean(person ?? org);
 }
 
 export interface ResourceContentAnalysisResult {
@@ -133,9 +180,16 @@ function isTextMime(mime: string | null): boolean {
 
 function existingText(row: ResourceRow): string | null {
   const parts: string[] = [];
+  // Email-born resources carry the source email's body — the document's
+  // real context (attachment bytes stay at the mail provider).
+  const sourceExcerpt = row.extracted_data?.source_excerpt;
+  if (typeof sourceExcerpt === "string" && sourceExcerpt.trim()) {
+    parts.push(`Source email text:\n${sourceExcerpt}`);
+  }
   if (row.ai_summary) parts.push(`Summary: ${row.ai_summary}`);
   if (row.extracted_data) {
-    const { content_analysis: _marker, ...rest } = row.extracted_data;
+    const { content_analysis: _marker, source_excerpt: _excerpt, ...rest } =
+      row.extracted_data;
     const text = JSON.stringify(rest);
     if (text !== "{}") parts.push(`Previously extracted data: ${text}`);
   }
@@ -341,7 +395,7 @@ async function propagateWorkTerms(input: {
   const { data: workRows } = await input.admin
     .from("work")
     .select(
-      "id, work_type, payment_type, hourly_rate_cents, retainer_mrr_cents, contract_value_cents, final_price_cents, currency, decision_date, estimated_timeline, discount_percent, discount_amount_cents, discount_reason",
+      "id, name, description, work_type, payment_type, hourly_rate_cents, retainer_mrr_cents, contract_value_cents, final_price_cents, currency, decision_date, estimated_timeline, discount_percent, discount_amount_cents, discount_reason",
     )
     .eq("workspace_id", input.workspaceId)
     .in("id", workIds)
@@ -373,6 +427,29 @@ async function propagateWorkTerms(input: {
       if (result.action === "applied") input.written.push(`work.${input2.fieldKey}`);
     };
 
+    // The contract names the project: replace naming artifacts ("Frank
+    // Seixas", "Sam Example — Project") with the document's project name.
+    // Real names are never overwritten.
+    if (terms?.projectName) {
+      const currentName = workRow.name?.trim() ?? "";
+      if (currentName && (await isArtifactWorkName(input.admin, input.workspaceId, currentName))) {
+        await writeWork({
+          fieldKey: "name",
+          dbColumn: "name",
+          signal: "work_scope_extracted",
+          value: terms.projectName,
+        });
+      }
+    }
+    // The summary of the project comes from the document, not the thread.
+    if (terms?.summary && !workRow.description) {
+      await writeWork({
+        fieldKey: "description",
+        dbColumn: "description",
+        signal: "work_scope_extracted",
+        value: terms.summary,
+      });
+    }
     if (terms?.workType && !workRow.work_type) {
       await writeWork({
         fieldKey: "workType",
@@ -622,11 +699,49 @@ export async function analyzeResourceContent(input: {
     .update({
       extracted_data: {
         ...(row.extracted_data ?? {}),
-        content_analysis: { analyzed_at: new Date().toISOString() },
+        // The parsed analysis rides with the marker so work records born
+        // LATER (linked after this resource was read) can still receive the
+        // document's terms without a second LLM call.
+        content_analysis: {
+          analyzed_at: new Date().toISOString(),
+          analysis,
+        },
       },
     })
     .eq("id", row.id)
     .eq("workspace_id", input.workspaceId);
 
   return { analyzed: true, written };
+}
+
+/**
+ * Re-propagate a previously analyzed resource's work terms to work records
+ * linked after the analysis ran. Returns "no-analysis" when the resource
+ * was never read (caller may then run analyzeResourceContent) — never
+ * re-calls the LLM.
+ */
+export async function propagateStoredWorkTerms(input: {
+  workspaceId: string;
+  resourceId: string;
+}): Promise<"propagated" | "no-analysis" | "not-found"> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("resources")
+    .select("id, extracted_data")
+    .eq("id", input.resourceId)
+    .eq("workspace_id", input.workspaceId)
+    .maybeSingle();
+  if (!data) return "not-found";
+  const marker = (data.extracted_data as Record<string, unknown> | null)
+    ?.content_analysis as { analysis?: unknown } | undefined;
+  const parsed = ContentAnalysisSchema.safeParse(marker?.analysis);
+  if (!parsed.success) return "no-analysis";
+  await propagateWorkTerms({
+    admin,
+    workspaceId: input.workspaceId,
+    resourceId: input.resourceId,
+    analysis: parsed.data,
+    written: [],
+  });
+  return "propagated";
 }

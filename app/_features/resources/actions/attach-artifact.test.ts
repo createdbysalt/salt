@@ -188,6 +188,23 @@ describe("attachArtifactToEntity", () => {
     expect(second.success && !second.createdResource).toBe(true);
   });
 
+  it("maps the wider ResourceSource vocabulary onto entity_links.source", async () => {
+    const { client, links } = stubAdmin();
+
+    const result = await attachArtifactToEntity(client, {
+      workspaceId: WS,
+      targetType: "billing",
+      targetId: BILLING_ID,
+      externalUrl: "https://invoice.stripe.com/i/acct_123/mapped",
+      source: "capture",
+    });
+
+    expect(result.success).toBe(true);
+    // entity_links_source_check allows manual/care/system only — a
+    // capture-sourced attach is automatic sync, recorded as a system edge.
+    expect(links[0]?.source).toBe("system");
+  });
+
   it("detects the resource type from the URL", async () => {
     const { client, resources } = stubAdmin();
 

@@ -3,19 +3,14 @@
  *
  * Processes CREATE decisions from the Record Capture Criteria Engine.
  *
- * Plays canon Phase 2: proposals route into pending_evidence via
- * memory/evidence/route-intake-proposal.ts — never play_runs.
- * Records are created directly only when calibration is earned (P6) AND
- * the proposal carries a relationship-grade signal (P7); everything else
- * lands as status='suggested' and keeps accumulating in the background.
+ * Proposals route into pending_evidence via
+ * memory/evidence/route-intake-proposal.ts — never play_runs. Memory is
+ * fully autonomous: the accumulated evidence score is the only gate, and
+ * crossing the entity's auto bar creates the record directly.
  */
 
 import { routeIntakeProposal } from "@/app/_features/memory/evidence/route-intake-proposal";
-import {
-  shouldAutoApply,
-  recordDecisionOutcome,
-  updateCalibrationSnapshot,
-} from "../intelligence/record-capture-outcome";
+import { recordDecisionOutcome } from "../intelligence/record-capture-outcome";
 import type { CreateDecision } from "./record-capture-criteria";
 import type { MemoryProposal } from "../../types/memory-proposals";
 
@@ -29,9 +24,7 @@ interface ProcessCreateDecisionInput {
   senderDomain: string | null;
   /**
    * Signal names backing the decision, in the intake SIGNAL_WEIGHTS
-   * vocabulary, used for the P7 worthiness check under eviction. Callers
-   * that cannot supply them fail closed: the proposal routes to the
-   * suggested lane instead of auto-creating a record.
+   * vocabulary. The primary signal's weight drives score accumulation.
    */
   signals?: string[];
 }
@@ -48,9 +41,6 @@ export async function processCreateDecision(
   input: ProcessCreateDecisionInput
 ): Promise<ProcessCreateDecisionResult> {
   const { workspaceId, captureEventId, decision, decisionId, senderEmail, senderName, senderDomain } = input;
-
-  // Check if we should auto-apply this proposal
-  const autoApply = await shouldAutoApply(workspaceId, decision.confidence);
 
   // Process each proposal in the decision
   // For simplicity, we take the first (highest priority) proposal
@@ -70,15 +60,10 @@ export async function processCreateDecision(
     extractedFields,
     signals: input.signals ?? [],
     captureId: captureEventId,
-    autoApply,
   });
 
   if (routed.outcome === "created") {
     await recordDecisionOutcome(decisionId, "auto_applied", undefined, routed.recordId);
-
-    // Update calibration snapshot (track auto-applies)
-    await updateCalibrationSnapshot(workspaceId);
-
     return { autoApplied: true, createdRecordId: routed.recordId };
   }
 

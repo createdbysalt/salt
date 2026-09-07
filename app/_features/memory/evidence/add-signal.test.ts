@@ -1,13 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
- * Chain B (memory evidence ingestion) — plays canon Phase 2.
+ * Chain B (memory evidence ingestion).
  *
  * Record proposals never write play_runs. Suggest-tier threshold
- * transitions flip pending_evidence rows to status='suggested' and the
- * Memory → Filter Watching lane renders them. The auto tier (P6 + P7:
- * calibrated AND relationship-grade) creates records directly via
- * autoCreateRecord.
+ * transitions flip pending_evidence rows to status='suggested' where they
+ * keep accumulating. Memory is fully autonomous: the auto tier creates
+ * records directly via autoCreateRecord — the threshold is the only gate.
  */
 
 interface EvidenceRow {
@@ -191,10 +190,10 @@ describe("addSignalToEvidence — suggest-tier threshold transition (existing ro
   });
 });
 
-describe("addSignalToEvidence — auto tier without relationship-grade signal (existing row)", () => {
+describe("addSignalToEvidence — auto tier creates regardless of signal vocabulary (existing row)", () => {
   // person auto threshold is 8.0; 6.0 + email_from_unknown_address (2.5) = 8.5.
-  // Neither accumulated signal is relationship-grade, so P7 blocks auto-create.
-  const autoUnworthyInput = {
+  // There is no worthiness allowlist — crossing the bar is the whole gate.
+  const autoInput = {
     workspaceId: "ws-1",
     entityType: "person" as const,
     identifier: "jane@acme.com",
@@ -202,50 +201,36 @@ describe("addSignalToEvidence — auto tier without relationship-grade signal (e
     captureId: "cap-2",
   };
 
-  function seedUnworthy() {
+  it("auto-creates the record directly, never a play run", async () => {
     const row = seedEvidence({ log_odds_score: 6.0 });
     h.db.signals.push({
       evidence_id: row.id,
       signal: "email_signature_has_name",
       weight: 1.5,
     });
-    return row;
-  }
 
-  it("surfaces as suggested pending_evidence, no play run, no record", async () => {
-    const row = seedUnworthy();
-
-    const result = await addSignalToEvidence(autoUnworthyInput);
+    const result = await addSignalToEvidence(autoInput);
 
     expect(result.action).toBe("auto");
     expect(h.db.tablesTouched).not.toContain("play_runs");
-    expect(h.autoCreateRecord).not.toHaveBeenCalled();
-    expect(row.status).toBe("suggested");
-  });
-});
-
-describe("addSignalToEvidence — auto tier with relationship-grade signal (P6)", () => {
-  // 6.0 + invoice_attachment_detected (4.0) = 10.0 ≥ 8.0 auto, and the
-  // signal is relationship-grade — direct creation.
-  const autoWorthyInput = {
-    workspaceId: "ws-1",
-    entityType: "person" as const,
-    identifier: "jane@acme.com",
-    signal: "invoice_attachment_detected",
-    captureId: "cap-3",
-  };
-
-  it("auto-creates the record directly, never a play run", async () => {
-    seedEvidence({ log_odds_score: 6.0 });
-
-    const result = await addSignalToEvidence(autoWorthyInput);
-
-    expect(result.action).toBe("auto");
     expect(h.autoCreateRecord).toHaveBeenCalledTimes(1);
     expect(h.autoCreateRecord).toHaveBeenCalledWith(
       expect.objectContaining({ evidenceId: "ev-existing", entityType: "person" })
     );
-    expect(h.db.tablesTouched).not.toContain("play_runs");
+  });
+
+  it("auto-creates on a strong payment signal too", async () => {
+    // 6.0 + invoice_attachment_detected (4.0) = 10.0 ≥ 8.0 auto.
+    seedEvidence({ log_odds_score: 6.0 });
+
+    const result = await addSignalToEvidence({
+      ...autoInput,
+      signal: "invoice_attachment_detected",
+      captureId: "cap-3",
+    });
+
+    expect(result.action).toBe("auto");
+    expect(h.autoCreateRecord).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -271,11 +256,10 @@ describe("addSignalToEvidence — new identifier crossing suggest immediately", 
   });
 });
 
-describe("addSignalToEvidence — file signals are suggested-only (audit #7)", () => {
-  // file auto threshold is 6.0; contract_detected (4.0) on a fresh row stays
-  // below it, so seed an existing row at 3.0 to cross: 3.0 + 4.0 = 7.0 ≥ 6.0.
-  // contract_detected IS relationship-grade — only the resource fail-closed
-  // rule prevents creation (resources are confirm-only).
+describe("addSignalToEvidence — resource signals auto-create over the bar", () => {
+  // resource auto threshold is 6.0; contract_detected (4.0) on a fresh row
+  // stays below it, so seed an existing row at 3.0 to cross: 3.0 + 4.0 =
+  // 7.0 ≥ 6.0. No confirm-only carve-out — the threshold is the only gate.
   const fileInput = {
     workspaceId: "ws-1",
     entityType: "resource" as const,
@@ -285,8 +269,8 @@ describe("addSignalToEvidence — file signals are suggested-only (audit #7)", (
     extractedData: { title: "Contract for Acme project", category: "contract" },
   };
 
-  it("auto-tier file evidence lands suggested, never calls autoCreateRecord", async () => {
-    const row = seedEvidence({
+  it("auto-tier resource evidence creates the record", async () => {
+    seedEvidence({
       entity_type: "resource",
       identifier: "file:client@acme.com:contract for acme project",
       log_odds_score: 3.0,
@@ -295,12 +279,15 @@ describe("addSignalToEvidence — file signals are suggested-only (audit #7)", (
     const result = await addSignalToEvidence(fileInput);
 
     expect(result.action).toBe("auto");
-    expect(h.autoCreateRecord).not.toHaveBeenCalled();
-    expect(row.status).toBe("suggested");
+    expect(h.autoCreateRecord).toHaveBeenCalledTimes(1);
+    expect(h.autoCreateRecord).toHaveBeenCalledWith(
+      expect.objectContaining({ entityType: "resource" })
+    );
   });
 
-  it("new file identifier crossing the auto bar still lands suggested", async () => {
-    // Fresh row: 0 + msa_detected (4.0) is below 6.0, so use two signals.
+  it("new resource identifier crossing the auto bar creates the record", async () => {
+    // Fresh row: 0 + contract_detected (4.0) is below 6.0, so a second
+    // signal (signature_request_received 4.5) crosses: 8.5 ≥ 6.0.
     await addSignalToEvidence(fileInput);
     const result = await addSignalToEvidence({
       ...fileInput,
@@ -309,9 +296,8 @@ describe("addSignalToEvidence — file signals are suggested-only (audit #7)", (
     });
 
     expect(result.action).toBe("auto");
-    expect(h.autoCreateRecord).not.toHaveBeenCalled();
+    expect(h.autoCreateRecord).toHaveBeenCalledTimes(1);
     expect(h.db.evidence).toHaveLength(1);
-    expect(h.db.evidence[0].status).toBe("suggested");
   });
 });
 

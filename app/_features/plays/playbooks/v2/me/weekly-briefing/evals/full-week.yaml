@@ -1,0 +1,46 @@
+# Happy path: cash, receivables, calendar, and blockers all present →
+# full brief with a top-3 list.
+id: full-week
+name: Full data week → complete brief with top 3 to-dos
+given:
+  fetch:
+    cash_position:
+      balance_cents: 1240000
+      weekly_burn_cents: 1550000
+    upcoming_receivables:
+      total_cents: 380000
+      invoices:
+        - client: Acme Co
+          amount_cents: 250000
+          due_in_days: 3
+        - client: Brand Studio
+          amount_cents: 130000
+          due_in_days: 6
+    blocked_work:
+      - id: work-1
+        name: Brand guide v2
+        blocker_reason: Waiting on client logo files
+        blocker_type: client
+        blocked_since: "2026-09-02T00:00:00Z"
+    quiet_clients:
+      - id: person-9
+        name: Dana Lee
+        relationship_type: client
+        last_contact_at: "2026-07-30T00:00:00Z"
+        days_since_contact: 37
+  agent:
+    - step: week_ahead
+      text: "Calendar: kickoff with Northwind Tuesday 10am, invoice check-in with Acme Thursday. Both receivables still open in Stripe. VERDICT: READY — calendar and receivables verified"
+  draft:
+    - step: weekly_brief
+      text: "Cash: $12,400 balance, about 8 weeks of runway, $3,800 lands this week. Pipeline: Acme $2,500 due Wednesday, Brand Studio $1,300 due Saturday; Dana Lee has gone quiet (37 days). Week ahead: Northwind kickoff Tuesday, Acme check-in Thursday. Blockers: Brand guide v2 waits on logo files. Top 3: send the Northwind prep doc, nudge Dana Lee, chase the logo files."
+expect:
+  status: success
+  outputCount: 1
+  steps:
+    cash_position: success
+    upcoming_receivables: success
+    blocked_work: success
+    quiet_clients: success
+    week_ahead: success
+    weekly_brief: success

@@ -166,6 +166,24 @@ export async function processCareProposal(
     };
   }
 
+  // No-op guard: the field already holds this exact value. Accumulating
+  // would park a "proposal" in Watching for something already true and
+  // re-notify on every care run (record_status → active on already-active
+  // records, 2026-09). Nothing changes, so nothing is logged.
+  if (
+    proposal.currentValue != null &&
+    String(proposal.currentValue) === String(proposal.proposedValue)
+  ) {
+    return {
+      action: "apply",
+      tier: "standard",
+      aggregatedConfidence: proposal.confidence,
+      bar: 0,
+      reason: "already set — no change",
+      noop: true,
+    };
+  }
+
   // Never-touch fields: hard rule, not a queue. No evidence, no activity.
   if (isNeverTouchField(entityType, proposal.field)) {
     return {

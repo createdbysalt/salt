@@ -164,8 +164,20 @@ export interface PlayCardViewModel {
    */
   artifacts?: PlayArtifact[] | null;
 
+  /**
+   * Connector catalog ids of apps actually used in this run (executor-written
+   * as metadata.connector_ids from step provenance). When present, these
+   * replace the section-default logo cluster on the card face and modal.
+   */
+  connectorIds?: string[] | null;
+
   // Body (exactly one matching `kind`, validated by validate-play-card.ts)
-  acting?: { draftBody: string[]; recipientLabel: string };
+  acting?: {
+    draftBody: string[];
+    recipientLabel: string;
+    /** Gmail/Outlook subject. Distinct from the play title (`subject`). */
+    emailSubject?: string | null;
+  };
   profile?: { field: string; proposedValue: string; because: string | null };
   question?: { field: string; prompt: string; options: PlayCardQuestionOption[] };
   risk?: { signal: string; recommendation: string };

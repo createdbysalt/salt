@@ -12,6 +12,7 @@ import {
 import {
   approvePlayRun,
   dismissPlayRun,
+  editPlayRun,
   applyMemoryCarePlayRun,
   answerMemoryCareQuestionPlayRun,
 } from "@/app/_features/plays/actions";
@@ -285,6 +286,14 @@ export function PlayQueueList({
     setDrafts((current) => ({ ...current, [id]: paras.length ? paras : [text] }));
   };
 
+  const persistDraft = (vm: PlayCardViewModel, text?: string) => {
+    if (vm.provenance.source !== "play_run") return;
+    const draftText =
+      text ?? (drafts[vm.id] ?? vm.acting?.draftBody ?? []).join("\n\n");
+    if (!draftText.trim()) return;
+    void editPlayRun(vm.provenance.playRunId, draftText);
+  };
+
   const setRowPending = (id: string, value: boolean) =>
     setPending((current) => ({ ...current, [id]: value }));
 
@@ -298,6 +307,19 @@ export function PlayQueueList({
       const { playRunId } = vm.provenance;
       setStatuses((current) => ({ ...current, [vm.id]: "approved" }));
       void (async () => {
+        const draftText = (drafts[vm.id] ?? vm.acting?.draftBody ?? []).join("\n\n");
+        if (drafts[vm.id] !== undefined && draftText.trim()) {
+          const editResult = await editPlayRun(playRunId, draftText);
+          if (!editResult.ok) {
+            setStatuses((current) => {
+              const next = { ...current };
+              delete next[vm.id];
+              return next;
+            });
+            toast.error(editResult.message ?? "Could not save draft edits");
+            return;
+          }
+        }
         const result = await approvePlayRun(playRunId);
         if (result.ok) {
           toast("Approved & sending");
@@ -459,7 +481,10 @@ export function PlayQueueList({
               isPending={Boolean(pending[vm.id])}
               flagged={Boolean(flagged[vm.id])}
               onStartEdit={() => setEditingId(vm.id)}
-              onStopEdit={() => setEditingId(null)}
+              onStopEdit={() => {
+                persistDraft(vm);
+                setEditingId(null);
+              }}
               onDraftChange={(text) => updateDraft(vm.id, text)}
               onPrimary={(source) => handlePrimary(vm, source)}
               onDismiss={() => handleDismiss(vm)}

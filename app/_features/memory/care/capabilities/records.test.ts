@@ -254,4 +254,48 @@ describe("records capability — work and billing coverage (7.4)", () => {
     expect(writes.some((w) => w.field === "phone")).toBe(false);
     expect(result.rulesMatched).toBe(writes.length);
   });
+
+  it("maps the timezone signal to an ISO country for the country field", async () => {
+    // Regression: the country fill rule used to propose the raw IANA zone
+    // ("America/Chicago") as the country value. The timezone_country
+    // transform must map it to an ISO 3166-1 alpha-2 code.
+    const result = await runRecordsCapability({
+      workspaceId: "ws-1",
+      signal: "person_timezone_detected",
+      entityType: "person",
+      entityId: "person-1",
+      signalValues: { person_timezone_detected: "America/Chicago" },
+    });
+
+    const writes = memoryUpdateField.mock.calls.map(
+      (call) => call[0] as { field: string; value: string }
+    );
+    expect(writes.find((w) => w.field === "country")?.value).toBe("US");
+    // The timezone field itself still receives the raw zone.
+    expect(writes.find((w) => w.field === "timezone")?.value).toBe(
+      "America/Chicago"
+    );
+    expect(result.rulesMatched).toBeGreaterThan(0);
+  });
+
+  it("skips the country rule for timezones with no country mapping", async () => {
+    const result = await runRecordsCapability({
+      workspaceId: "ws-1",
+      signal: "person_timezone_detected",
+      entityType: "person",
+      entityId: "person-1",
+      signalValues: { person_timezone_detected: "Antarctica/McMurdo" },
+    });
+
+    const writes = memoryUpdateField.mock.calls.map(
+      (call) => call[0] as { field: string; value: string }
+    );
+    // No guess, no garbage: the country rule skips rather than proposing
+    // the raw zone string.
+    expect(writes.some((w) => w.field === "country")).toBe(false);
+    expect(writes.find((w) => w.field === "timezone")?.value).toBe(
+      "Antarctica/McMurdo"
+    );
+    expect(result.rulesMatched).toBe(writes.length);
+  });
 });

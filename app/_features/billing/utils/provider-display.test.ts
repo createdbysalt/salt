@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { BillingProvider } from "../data";
-import { BILLING_PROVIDER_DISPLAY, getBillingProviderDisplay } from "./provider-display";
+import {
+  BILLING_PROVIDER_DISPLAY,
+  getBillingProviderDisplay,
+  getBillingSourceDisplay,
+} from "./provider-display";
 
 describe("billing provider display", () => {
   it("covers every supported billing provider", () => {
@@ -33,5 +37,43 @@ describe("billing provider display", () => {
       label: "Added by user",
       color: "#0F172A",
     });
+  });
+});
+
+describe("getBillingSourceDisplay", () => {
+  it("shows the connector for synced records regardless of source flags", () => {
+    expect(getBillingSourceDisplay({ provider: "stripe", origin: "found" })).toMatchObject({
+      label: "Stripe",
+      isSalt: false,
+    });
+  });
+
+  it("attributes Salt-found records (origin found, provider manual) to Salt", () => {
+    expect(
+      getBillingSourceDisplay({ provider: "manual", origin: "found", source: "salt_inferred" }),
+    ).toMatchObject({ label: "Added by Salt", isSalt: true });
+  });
+
+  it("attributes salt_inferred records still marked origin added to Salt", () => {
+    expect(
+      getBillingSourceDisplay({ provider: "manual", origin: "added", source: "salt_inferred" }),
+    ).toMatchObject({ label: "Added by Salt", isSalt: true });
+  });
+
+  it("keeps genuine user-added records as Added by user", () => {
+    expect(
+      getBillingSourceDisplay({ provider: "manual", origin: "added", source: "user" }),
+    ).toMatchObject({ label: "Added by user", isSalt: false });
+  });
+
+  it("honors the user's Added manually reclassification over Salt attribution", () => {
+    expect(
+      getBillingSourceDisplay({
+        provider: "manual",
+        origin: "found",
+        source: "salt_inferred",
+        sourceReclassifiedAsManual: true,
+      }),
+    ).toMatchObject({ label: "Added by user", isSalt: false });
   });
 });

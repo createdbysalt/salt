@@ -166,6 +166,10 @@ export async function applyProfileFieldResults(input: {
       sourceCaptureId: input.sourceCaptureId,
     });
 
+    // No-op: the field already holds this value — skip the provenance row
+    // and the entity write so repeat care runs leave no trace.
+    if (decision.noop) continue;
+
     const provenanceStatus: ProfileProvenanceStatus =
       decision.action === "apply" ? "applied" : "pending";
     await writeProfileFieldProvenance({

@@ -1,7 +1,8 @@
 import "server-only";
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
-import { getPlatformAdmin } from "./platform-admin";
+import { getPlatformAdmin } from "@/app/_lib/admin/platform-admin";
+import { findPlaybooksUsingTools } from "@/app/_features/plays/playbooks/tool-usage";
 
 export interface ReviewQueueTool {
   toolSlug: string;
@@ -13,6 +14,11 @@ export interface ReviewQueueTool {
   proposedConfirmation: boolean | null;
   proposalReasoning: string | null;
   disabledReason: string | null;
+  /**
+   * Repo playbooks whose allowlists include this tool — the re-review
+   * context that keeps re-approval informed rather than blind.
+   */
+  affectedPlaybooks: Array<{ slug: string; name: string }>;
 }
 
 export interface ReviewQueueSyncEvent {
@@ -69,6 +75,9 @@ export async function getReviewQueueData(): Promise<ReviewQueueData | null> {
     (toolRows ?? []).map((row) => [row.tool_slug, row] as const),
   );
 
+  // One repo scan for the whole queue: which playbooks each tool gates.
+  const playbookUsage = findPlaybooksUsingTools(slugs);
+
   const tools: ReviewQueueTool[] = (rows ?? []).map((row) => {
     const tool = toolBySlug.get(row.tool_slug);
     const proposal =
@@ -97,6 +106,9 @@ export async function getReviewQueueData(): Promise<ReviewQueueData | null> {
       proposalReasoning:
         typeof proposal?.reasoning === "string" ? proposal.reasoning : null,
       disabledReason: row.disabled_reason,
+      affectedPlaybooks: (playbookUsage.get(row.tool_slug) ?? []).map(
+        (playbook) => ({ slug: playbook.slug, name: playbook.name })
+      ),
     };
   });
 

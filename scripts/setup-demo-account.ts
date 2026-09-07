@@ -9,6 +9,44 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
+import { buildPlayRunMetadata } from "../app/_features/plays/lib/play-presentation";
+import type { PlayPresentation } from "../app/_features/plays/types";
+
+/**
+ * Assemble play_runs.metadata through the shared executor → UI contract
+ * builder (single source of truth). Demo rows keep their curated copy; the
+ * persistence shape can never drift from what real runs produce.
+ */
+function demoPlayMetadata(play: {
+  playbookName: string;
+  section: string;
+  outputType: PlayPresentation["outputType"];
+  headline: string;
+  evidence: { label: string; url?: string; appLabel?: string; appId?: string }[];
+  artifacts?: { appId: string; label: string; url?: string }[];
+}): Record<string, unknown> {
+  const connectorIds = [
+    ...new Set(
+      [...play.evidence, ...play.artifacts ?? []]
+        .map((item) => item.appId)
+        .filter((id): id is string => Boolean(id) && id !== "salt")
+    ),
+  ].slice(0, 3);
+
+  return buildPlayRunMetadata({
+    section: play.section,
+    layer: "act",
+    outputType: play.outputType,
+    playbookName: play.playbookName,
+    headline: play.headline,
+    evidence: play.evidence,
+    artifacts: play.artifacts ?? [],
+    connectorIds,
+    draftBody: null,
+    recipientLabel: null,
+    channel: null,
+  });
+}
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -872,13 +910,14 @@ async function seedPlays(workspaceId: string, orgIds: Map<string, string>) {
         trigger_signal: play.triggerSignal,
       },
       metadata: {
-        section: play.section,
-        layer: "act",
-        output_type: "email_draft",
-        playbook_name: play.playbookName,
-        headline: play.headline,
-        evidence: play.evidence,
-        artifacts: play.artifacts ?? [],
+        ...demoPlayMetadata({
+          playbookName: play.playbookName,
+          section: play.section,
+          outputType: "email_draft",
+          headline: play.headline,
+          evidence: play.evidence,
+          artifacts: play.artifacts,
+        }),
         source_url: play.sourceUrl,
         trigger_label: play.triggerLabel,
       },
@@ -1126,15 +1165,14 @@ async function seedPlays(workspaceId: string, orgIds: Map<string, string>) {
           playbook_slug: play.playbookSlug,
           trigger_signal: play.triggerSignal,
         },
-        metadata: {
+        metadata: demoPlayMetadata({
+          playbookName: play.playbookName,
           section: play.section,
-          layer: "act",
-          output_type: play.outputType,
-          playbook_name: play.playbookName,
+          outputType: play.outputType,
           headline: play.headline,
           evidence: play.evidence,
-          artifacts: play.artifacts ?? [],
-        },
+          artifacts: play.artifacts,
+        }),
       })
       .select("id")
       .single();

@@ -1,0 +1,18 @@
+# All-positive week: the pulse still ships — short, honest, and pointed
+# at making the most of goodwill (referrals, testimonials).
+id: all-positive
+name: Praise-only week → short steady pulse
+given:
+  agent:
+    - step: gather_feedback
+      text: "Read 4 client threads from the last 7 days. No complaints. Theme: praise for the new deliverable format from Acme and Brightfork. VERDICT: THEMES — 4 conversations, top theme: praise for deliverable format"
+  draft:
+    - step: pulse_report
+      text: "Temperature: steady — clients are happy this week. Theme: Acme and Brightfork both praised the new deliverable format. Do these three things: ask Acme for a testimonial, ask Brightfork for a referral, keep the new format as the default."
+expect:
+  status: success
+  outputCount: 1
+  steps:
+    gather_feedback: success
+    temperature: success
+    pulse_report: success

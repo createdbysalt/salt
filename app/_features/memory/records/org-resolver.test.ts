@@ -3,6 +3,23 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mockExecuteRecordActionDefinition = vi.fn();
 let existingOrg: { id: string; name: string } | null = null;
 
+const h = vi.hoisted(() => ({
+  operatorIdentity: {
+    emails: new Set<string>(["hello@createdbysalt.com"]),
+    names: new Set<string>(["salt studio"]),
+    domains: new Set<string>(["createdbysalt.com"]),
+  },
+}));
+
+vi.mock("@/app/_lib/identity/operator", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/app/_lib/identity/operator")>();
+  return {
+    ...actual,
+    getOperatorIdentity: vi.fn(async () => h.operatorIdentity),
+  };
+});
+
 const mockFrom = vi.fn(() => {
   const builder = {
     select: () => builder,
@@ -155,6 +172,40 @@ describe("resolveOrg — vendor gate", () => {
 
     expect(result.resolved).toBe(false);
     expect(mockExecuteRecordActionDefinition).not.toHaveBeenCalled();
+  });
+});
+
+describe("resolveOrg — operator self-exclusion", () => {
+  it("never creates an org on the operator's own domain", async () => {
+    const result = await resolveOrg("ws-1", "hello@createdbysalt.com");
+
+    expect(result.resolved).toBe(false);
+    expect(result.confidence_reason).toMatch(/operator/i);
+    expect(mockExecuteRecordActionDefinition).not.toHaveBeenCalled();
+  });
+
+  it("matches operator subdomains too", async () => {
+    const result = await resolveOrg("ws-1", "team@portal.createdbysalt.com");
+
+    expect(result.resolved).toBe(false);
+    expect(result.confidence_reason).toMatch(/operator/i);
+    expect(mockExecuteRecordActionDefinition).not.toHaveBeenCalled();
+  });
+
+  it("does not resolve even when a self-org already exists (pre-fix pollution)", async () => {
+    existingOrg = { id: "org-self", name: "Createdbysalt" };
+
+    const result = await resolveOrg("ws-1", "hello@createdbysalt.com");
+
+    expect(result.resolved).toBe(false);
+    expect(mockExecuteRecordActionDefinition).not.toHaveBeenCalled();
+  });
+
+  it("still creates orgs for unrelated domains (control)", async () => {
+    const result = await resolveOrg("ws-1", "jane@acme-studio.com");
+
+    expect(result.resolved).toBe(true);
+    expect(mockExecuteRecordActionDefinition).toHaveBeenCalled();
   });
 });
 

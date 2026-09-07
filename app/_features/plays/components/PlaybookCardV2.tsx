@@ -28,10 +28,14 @@ const APPROVAL_BADGE: Record<"auto" | "ask", string> = {
   auto: "Autonomous",
 };
 
-const TRIGGER_LABELS: Record<"signal" | "schedule" | "manual", string> = {
+const TRIGGER_LABELS: Record<
+  "signal" | "schedule" | "manual" | "record_condition",
+  string
+> = {
   signal: "On signal",
   schedule: "Scheduled",
   manual: "Manual",
+  record_condition: "On condition",
 };
 
 export interface PlaybookCardV2Props {
@@ -47,9 +51,16 @@ export interface PlaybookCardV2Props {
   minutesSavedPerRun?: number | null;
   /** "ask" when the output or any step requires approval. */
   approvalMode?: "auto" | "ask";
-  triggerType?: "signal" | "schedule" | "manual";
+  triggerType?: "signal" | "schedule" | "manual" | "record_condition";
   enabled?: boolean;
   runnable?: boolean;
+  needsApp?: boolean;
+  /**
+   * Allowlisted tools currently hard-denied at the execution gate
+   * (drift-disabled / rejected). Non-empty while enabled = the playbook
+   * cannot run; the card says so instead of letting a run fail later.
+   */
+  disabledTools?: string[];
   onClick?: () => void;
   index?: number;
 }
@@ -68,6 +79,8 @@ export function PlaybookCardV2({
   triggerType = "manual",
   enabled = true,
   runnable = true,
+  needsApp = false,
+  disabledTools = [],
   onClick,
   index = 0,
 }: PlaybookCardV2Props) {
@@ -201,6 +214,19 @@ export function PlaybookCardV2({
         </div>
 
         <div className="mt-3 flex flex-wrap gap-1.5">
+          {enabled && disabledTools.length > 0 ? (
+            <span
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-red-500/10 text-red-700 dark:text-red-300"
+              title={`Pending security re-review: ${disabledTools.join(", ")}`}
+            >
+              Can&apos;t run — tool under review
+            </span>
+          ) : null}
+          {needsApp ? (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-amber-500/10 text-amber-800 dark:text-amber-200">
+              Needs an app
+            </span>
+          ) : null}
           {[APPROVAL_BADGE[approvalMode], TRIGGER_LABELS[triggerType]].map((label) => (
             <span
               key={label}

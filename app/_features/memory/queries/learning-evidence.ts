@@ -6,6 +6,7 @@ import {
   fromLearningDbEntityType,
   type LearningEntityType,
 } from "@/app/_lib/learning";
+import { computeCorroboratedConfidence } from "@/app/_lib/learning/evidence";
 import {
   classifyFieldTier,
   isAlwaysAutoField,
@@ -59,7 +60,20 @@ export interface LearningMetaCandidate {
 export interface LearningField {
   fieldPath: string;
   proposedValue: string;
+  /** Max raw evidence confidence across this value's items (pre-aggregation). */
   confidence: number;
+  /**
+   * Decision-grade confidence: the corroborated aggregate the apply gate
+   * actually compares against the bar (log-sigmoid over all unresolved
+   * evidence for this field, capped at 95). Null for meta candidates and
+   * always-auto fields. When `hasConflict` is true this is 0 — the gate
+   * forces accumulation while values compete.
+   */
+  aggregatedConfidence: number | null;
+  /** True when unresolved evidence proposes competing values for this field. */
+  hasConflict: boolean;
+  /** The other proposed values competing with this one (empty unless conflict). */
+  competingValues: string[];
   sourceCount: number;
   sources: string[];
   latestAt: string;
@@ -431,24 +445,25 @@ export const getLearningEvidence = cache(
           fieldPath: e.field_path,
           proposedValue: proposedValueStr,
           confidence: 0,
+          aggregatedConfidence: null,
+          hasConflict: false,
+          competingValues: [],
           sourceCount: 0,
           sources: [],
           latestAt: e.created_at,
           evidenceIds: [],
           items: [],
           topReason: null,
+          // One user-controlled bar: every gated field — including link /
+          // merge / archive candidates — is held to the workspace threshold.
+          // classifyFieldTier is only still consulted so never-touch fields
+          // keep their infinite (refused) bar.
           bar: isAlwaysAutoField(e.entity_type, e.field_path)
             ? null
-            : metaCandidate
-              ? tierBar("sensitive", workspaceThreshold)
-              : tierBar(
-                  classifyFieldTier(
-                    e.entity_type,
-                    e.field_path,
-                    e.proposed_value,
-                  ),
-                  workspaceThreshold,
-                ),
+            : tierBar(
+                classifyFieldTier(e.entity_type, e.field_path, e.proposed_value),
+                workspaceThreshold,
+              ),
           metaCandidate,
         };
         group.fields.push(field);
@@ -479,9 +494,49 @@ export const getLearningEvidence = cache(
     }
 
     for (const group of grouped.values()) {
-      // Competing values (same fieldPath, different proposed values): V1
-      // shows the leading candidate only. Evidence for the other values
-      // stays unresolved and keeps competing — the strongest applies first.
+      // Decision-grade aggregation per fieldPath. The apply gate compares the
+      // corroborated aggregate (log-sigmoid over ALL unresolved evidence for
+      // the field, capped at 95) — not the max raw item confidence — against
+      // the tier bar, and forces accumulation while values compete. Mirror
+      // that math here so Watching shows the number the gate actually uses.
+      // (Computed from the fetched window; groups larger than the row cap
+      // approximate slightly low, which is the safe direction.)
+      const byFieldPath = new Map<string, LearningField[]>();
+      for (const field of group.fields) {
+        const list = byFieldPath.get(field.fieldPath) ?? [];
+        list.push(field);
+        byFieldPath.set(field.fieldPath, list);
+      }
+
+      for (const [fieldPath, candidates] of byFieldPath) {
+        const isMeta = candidates[0]?.metaCandidate != null;
+        const alwaysAuto = isAlwaysAutoField(group.entityType, fieldPath);
+        if (isMeta || alwaysAuto) continue;
+
+        if (candidates.length > 1) {
+          // Contradiction: the gate returns 0 until one value wins. Surface
+          // the conflict on every candidate so the UI can explain the stall.
+          const allValues = candidates.map((c) => c.proposedValue);
+          for (const candidate of candidates) {
+            candidate.hasConflict = true;
+            candidate.aggregatedConfidence = 0;
+            candidate.competingValues = allValues.filter(
+              (v) => v !== candidate.proposedValue
+            );
+          }
+        } else {
+          const only = candidates[0];
+          only.aggregatedConfidence = computeCorroboratedConfidence(
+            only.confidence,
+            only.sourceCount,
+            new Set(only.sources).size
+          );
+        }
+      }
+
+      // Competing values (same fieldPath, different proposed values): the
+      // leader renders as the field's row; the conflict state attached above
+      // tells the user why it isn't applying.
       const leaders = new Map<string, LearningField>();
       for (const field of group.fields) {
         const existing = leaders.get(field.fieldPath);
@@ -491,7 +546,9 @@ export const getLearningEvidence = cache(
       }
       group.fields = Array.from(leaders.values());
 
-      group.totalConfidence = Math.max(...group.fields.map((f) => f.confidence));
+      group.totalConfidence = Math.max(
+        ...group.fields.map((f) => f.aggregatedConfidence ?? f.confidence)
+      );
       for (const field of group.fields) {
         field.topReason = pickTopReason(field.items);
       }

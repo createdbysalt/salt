@@ -52,7 +52,7 @@ test.describe("Plays surface", () => {
 
   test("PlayCard anatomy is consistent across card types", async ({ page }) => {
     // Check if there are any cards in the queue
-    const cards = page.locator("article.glass-card, article.group");
+    const cards = page.getByRole("listitem", { name: / play: /i });
     const cardCount = await cards.count();
 
     if (cardCount === 0) {
@@ -68,10 +68,10 @@ test.describe("Plays surface", () => {
     // Footer: actions (Dismiss, Edit with Salt, primary action)
     const firstCard = cards.first();
 
-    // Header should have player attribution (not just a category chip)
-    await expect(
-      firstCard.getByText(/billing|memory-care|follow-up|client-risk|brief/i).first()
-    ).toBeVisible();
+    // Header attribution is encoded in the accessible name
+    // ("{Playbook} play: {headline}") — the locator above already matched it.
+    // Subject headline renders as a level-3 heading.
+    await expect(firstCard.getByRole("heading", { level: 3 })).toBeVisible();
 
     // Footer should have consistent actions
     await expect(
@@ -88,7 +88,7 @@ test.describe("Plays surface", () => {
     await expect(page.getByRole("heading", { name: /auto-handled/i })).toBeVisible();
 
     // Check if there are any auto-handled cards
-    const cards = page.locator("article.group");
+    const cards = page.getByRole("listitem", { name: / handled play: /i });
     const cardCount = await cards.count();
 
     if (cardCount === 0) {
@@ -100,9 +100,6 @@ test.describe("Plays surface", () => {
     }
 
     const firstCard = cards.first();
-
-    // Auto-handled cards should show "Handled" marker
-    await expect(firstCard.getByText(/handled/i)).toBeVisible();
 
     // Footer should have Undo and Fix with Salt (not Approve)
     await expect(

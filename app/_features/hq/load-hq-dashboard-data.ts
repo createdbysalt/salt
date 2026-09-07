@@ -115,6 +115,7 @@ const ENTITY_TYPE_ROUTES: Record<string, string> = {
   billing: "/billing",
   file: "/work", // files are part of work
   meeting: "/meetings",
+  resource: "/resources",
 };
 
 async function loadCreatedToday(workspaceId: string): Promise<HqCreatedTodayItem[]> {

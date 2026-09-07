@@ -1,14 +1,15 @@
 /**
  * Evidence Accumulation Module
  *
- * Proactive record detection from captures using Fellegi-Sunter log-odds scoring.
+ * Proactive record detection from captures using Fellegi-Sunter log-odds
+ * scoring. Memory is fully autonomous: evidence that crosses the entity's
+ * auto bar creates the record directly — there is no approval lane.
  *
  * @example
  * ```typescript
  * import {
  *   classifyEmailCapture,
  *   addSignalToEvidence,
- *   getSuggestedRecords,
  * } from "@/app/_features/memory/evidence";
  *
  * // When an email arrives, classify it for signals
@@ -25,9 +26,6 @@
  *     extractedData: signal.extractedData,
  *   });
  * }
- *
- * // Get records ready to create
- * const suggested = await getSuggestedRecords(workspaceId);
  * ```
  */
 
@@ -45,7 +43,6 @@ export type {
 // Queries
 export {
   getPendingEvidence,
-  getSuggestedRecords,
   getPendingEvidenceById,
   findEvidenceByIdentifier,
   countPendingEvidence,
@@ -53,11 +50,6 @@ export {
 
 // Actions (system lane lives in add-signal.ts — admin client, no request scope)
 export { addSignalToEvidence } from "./add-signal";
-export {
-  dismissEvidence,
-  markEvidenceCreated,
-  restoreEvidence,
-} from "./actions";
 
 // Classifier
 export type { DetectedSignal, EmailCaptureData, MeetingCaptureData } from "./classifier";

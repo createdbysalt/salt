@@ -49,12 +49,14 @@ const PlaybookSignalTriggerSingleSchema = z.object({
   type: z.literal("signal"),
   signal: z.string().min(1),
   surface: z.string().optional(),
+  adjust: z.array(z.string().min(1)).optional(),
 });
 
 const PlaybookSignalTriggerMultiSchema = z.object({
   type: z.literal("signal"),
   signals: z.array(z.string().min(1)).min(1),
   surface: z.string().optional(),
+  adjust: z.array(z.string().min(1)).optional(),
 });
 
 const PlaybookSignalTriggerSchema = z.union([
@@ -66,10 +68,28 @@ const PlaybookScheduleTriggerSchema = z.object({
   type: z.literal("schedule"),
   cron: z.string().regex(/^[\d\s*,/-]+$/, "Invalid cron expression"),
   timezone: z.string().optional(),
+  adjust: z.array(z.string().min(1)).optional(),
 });
 
 const PlaybookManualTriggerSchema = z.object({
   type: z.literal("manual"),
+  adjust: z.array(z.string().min(1)).optional(),
+});
+
+/**
+ * Record-condition trigger (Phase 5): user-authorable "when a record field
+ * matches" conditions. Fires on field writes (memoryUpdateField hook) and on
+ * the 2h scanner sweep (catches time-passing conditions). Deterministic —
+ * no LLM, no metering. Fields are validated against the memory field
+ * registry at parse time so the picker only offers real fields.
+ */
+const PlaybookRecordConditionTriggerSchema = z.object({
+  type: z.literal("record_condition"),
+  entity: z.enum(["billing", "work", "person", "org", "resource"]),
+  field: z.string().min(1),
+  op: z.enum(["eq", "neq", "gt", "lt", "contains"]),
+  value: z.string().min(1),
+  adjust: z.array(z.string().min(1)).optional(),
 });
 
 const PlaybookTriggerSchema = z.union([
@@ -77,6 +97,7 @@ const PlaybookTriggerSchema = z.union([
   PlaybookSignalTriggerMultiSchema,
   PlaybookScheduleTriggerSchema,
   PlaybookManualTriggerSchema,
+  PlaybookRecordConditionTriggerSchema,
 ]);
 
 const PlaybookRequirementsSchema = z.object({
@@ -117,6 +138,19 @@ const PlaybookOutputSchema = z.object({
 const PlaybookValueModelSchema = z.object({
   kind: z.string().min(1),
   estimate: z.number().int().nonnegative().optional(), // Allow 0 for playbooks with no direct time savings
+});
+
+/**
+ * User-tunable knob. `default` is the Salt-shipped baseline; `value` is the
+ * workspace override written by fork-on-edit. The executor resolves
+ * `value ?? default` for `{{settings.key}}` interpolations.
+ */
+const PlaybookSettingFieldSchema = z.object({
+  type: z.enum(["number", "text", "select"]),
+  label: z.string().min(1).max(200),
+  default: z.union([z.string(), z.number(), z.boolean()]),
+  options: z.array(z.string().min(1)).optional(),
+  value: z.union([z.string(), z.number(), z.boolean()]).optional(),
 });
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -183,6 +217,18 @@ const PlaybookMemoryPolicySchema = z.object({
  * ACTION PLAYBOOK SCHEMAS (layer: act)
  * ───────────────────────────────────────────────────────────────────────────── */
 
+/**
+ * Per-step gate, canonical on every step type:
+ * - required: always pause for a human, never earned away (money sends,
+ *   destructive actions)
+ * - ask: pause until the workspace has earned autonomy for this playbook+tool
+ * - auto (default): workspace trust dial is the ceiling
+ *
+ * Gating is executable on action steps; on other step types it is declared
+ * intent consumed by the output gate and UI.
+ */
+const PlaybookStepApprovalSchema = z.enum(["auto", "ask", "required"]);
+
 const PlaybookFetchStepSchema = z.object({
   step: z.literal("fetch"),
   id: z.string().min(1),
@@ -193,6 +239,7 @@ const PlaybookFetchStepSchema = z.object({
   groupBy: z.array(z.string()).optional(),
   having: z.record(z.unknown()).optional(),
   optional: z.boolean().optional(),
+  approval: PlaybookStepApprovalSchema.optional(),
 });
 
 const PlaybookClassifyRuleSchema = z.object({
@@ -207,6 +254,7 @@ const PlaybookClassifyStepSchema = z.object({
   forEach: z.string().optional(),
   rules: z.array(PlaybookClassifyRuleSchema).min(1),
   else: z.union([z.string(), z.record(z.unknown())]).optional(),
+  approval: PlaybookStepApprovalSchema.optional(),
 });
 
 const PlaybookDraftStepSchema = z.object({
@@ -221,6 +269,7 @@ const PlaybookDraftStepSchema = z.object({
    */
   forEach: z.string().optional(),
   max_tokens: z.number().int().positive().max(4096).optional(),
+  approval: PlaybookStepApprovalSchema.optional(),
 });
 
 const PlaybookBranchStepSchema = z.object({
@@ -229,18 +278,6 @@ const PlaybookBranchStepSchema = z.object({
   if: z.string().optional(),
   steps: z.array(z.any()).optional(),
 });
-
-/**
- * Per-step gate, canonical on every step type:
- * - required: always pause for a human, never earned away (money sends,
- *   destructive actions)
- * - ask: pause until the workspace has earned autonomy for this playbook+tool
- * - auto (default): workspace trust dial is the ceiling
- *
- * Gating is executable on action steps; on other step types it is declared
- * intent consumed by the output gate and UI.
- */
-const PlaybookStepApprovalSchema = z.enum(["auto", "ask", "required"]);
 
 const PlaybookActionStepSchema = z.object({
   step: z.literal("action"),
@@ -252,12 +289,33 @@ const PlaybookActionStepSchema = z.object({
   approval: PlaybookStepApprovalSchema.optional(),
 });
 
+/**
+ * Bounded agentic step: the model runs a tool-calling loop against ONLY the
+ * step's `tools` allowlist (which must be a subset of the definition's
+ * `tools`), capped at `max_calls` invocations, every call through the
+ * Composio execution gate. There is no mid-loop pause: a call the gate
+ * denies (mutating tool without approval, drift-disabled classification) is
+ * returned to the model as a tool error and the loop continues with what it
+ * could read.
+ */
+const PlaybookAgentStepSchema = z.object({
+  step: z.literal("agent"),
+  id: z.string().min(1),
+  prompt: z.string().min(1),
+  tools: z.array(z.string().min(1)).min(1),
+  /** Hard ceiling on tool invocations per run of this step. Default 5, max 10. */
+  max_calls: z.number().int().positive().max(10).optional(),
+  max_tokens: z.number().int().positive().max(4096).optional(),
+  approval: PlaybookStepApprovalSchema.optional(),
+});
+
 const PlaybookStepSchema = z.discriminatedUnion("step", [
   PlaybookFetchStepSchema,
   PlaybookClassifyStepSchema,
   PlaybookDraftStepSchema,
   PlaybookBranchStepSchema,
   PlaybookActionStepSchema,
+  PlaybookAgentStepSchema,
 ]);
 
 const PlaybookExampleSchema = z.object({
@@ -298,6 +356,7 @@ export const PlaybookDefinitionV2Schema = z.object({
   requirements: PlaybookRequirementsSchema,
   output: PlaybookOutputSchema,
   value: PlaybookValueModelSchema.optional(),
+  settings: z.record(PlaybookSettingFieldSchema).optional(),
   policy: PlaybookMemoryPolicySchema.optional(),
   voice: z.string().regex(/^[a-z0-9-]+$/).optional(),
   steps: z.array(PlaybookStepSchema).optional(),
@@ -311,6 +370,21 @@ export const PlaybookDefinitionV2Schema = z.object({
 }).refine(
   (data) => data.trigger || (data.triggers && data.triggers.length > 0),
   { message: "Playbook must have either 'trigger' or 'triggers' defined", path: ["trigger"] }
+).refine(
+  (data) => {
+    const keys = new Set(Object.keys(data.settings ?? {}));
+    const allTriggers = [
+      ...(data.trigger ? [data.trigger] : []),
+      ...(data.triggers ?? []),
+    ];
+    return allTriggers.every((t) =>
+      (t.adjust ?? []).every((key) => keys.has(key))
+    );
+  },
+  {
+    message: "Trigger 'adjust' keys must reference declared settings",
+    path: ["trigger"],
+  }
 ).refine(
   (data) => data.layer !== "learn" || data.policy,
   { message: "Memory playbooks must have a policy section", path: ["policy"] }
@@ -328,18 +402,28 @@ export const PlaybookDefinitionV2Schema = z.object({
   },
   {
     message:
-      "Action step tools must be declared in the definition's `tools` allowlist",
+      "Action and agent step tools must be declared in the definition's `tools` allowlist",
     path: ["tools"],
   }
 );
 
-function collectActionTools(steps: unknown[]): string[] {
+export function collectActionTools(steps: unknown[]): string[] {
   const tools: string[] = [];
   for (const step of steps) {
     if (typeof step !== "object" || step === null) continue;
-    const s = step as { step?: string; tool?: string; steps?: unknown[] };
+    const s = step as {
+      step?: string;
+      tool?: string;
+      tools?: unknown[];
+      steps?: unknown[];
+    };
     if (s.step === "action" && typeof s.tool === "string") {
       tools.push(s.tool);
+    }
+    if (s.step === "agent" && Array.isArray(s.tools)) {
+      for (const tool of s.tools) {
+        if (typeof tool === "string") tools.push(tool);
+      }
     }
     if (Array.isArray(s.steps)) {
       tools.push(...collectActionTools(s.steps));

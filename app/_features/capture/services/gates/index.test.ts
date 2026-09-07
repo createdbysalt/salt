@@ -207,6 +207,169 @@ describe("runGatePipeline connector rules precedence", () => {
   });
 });
 
+describe("runGatePipeline account-scoped captures", () => {
+  function paymentEnvelope(overrides: Partial<CaptureEnvelope> = {}): CaptureEnvelope {
+    return {
+      sourceType: "stripe",
+      captureType: "payment",
+      externalId: "evt-1",
+      title: "Invoice paid — $1,200.00",
+      occurredAt: null,
+      participants: [],
+      threadId: null,
+      extracted: { amount_cents: 120000, direction: "receivable" },
+      raw: {},
+      noise: null,
+      ...overrides,
+    } as CaptureEnvelope;
+  }
+
+  function fileEnvelope(overrides: Partial<CaptureEnvelope> = {}): CaptureEnvelope {
+    return {
+      sourceType: "googledrive",
+      captureType: "file",
+      externalId: "file-1",
+      title: "Brand Proposal.pdf",
+      occurredAt: null,
+      participants: [
+        {
+          email: "drive-shares-dm-noreply@google.com",
+          name: "Google Drive",
+          role: "from",
+        },
+      ],
+      threadId: null,
+      extracted: { file_name: "Brand Proposal.pdf" },
+      raw: {},
+      noise: null,
+      ...overrides,
+    } as CaptureEnvelope;
+  }
+
+  it("a payment with no sender is evidence-eligible, never admission noise", async () => {
+    runAdmissionGateMock.mockResolvedValue(noiseResult);
+
+    const result = await runGatePipeline({
+      workspaceId: "ws-1",
+      userEmail: "me@myco.com",
+      envelope: paymentEnvelope(),
+    });
+
+    expect(result.finalAction).toBe("candidate");
+    expect(result.shouldIngest).toBe(true);
+    // The email admission gate never runs for account-scoped captures.
+    expect(runAdmissionGateMock).not.toHaveBeenCalled();
+  });
+
+  it("a Drive file from an automated share sender is evidence-eligible", async () => {
+    runAdmissionGateMock.mockResolvedValue(noiseResult);
+
+    const result = await runGatePipeline({
+      workspaceId: "ws-1",
+      userEmail: "me@myco.com",
+      envelope: fileEnvelope(),
+    });
+
+    expect(result.finalAction).toBe("candidate");
+    expect(runAdmissionGateMock).not.toHaveBeenCalled();
+  });
+
+  it("a note capture is evidence-eligible", async () => {
+    const result = await runGatePipeline({
+      workspaceId: "ws-1",
+      userEmail: "me@myco.com",
+      envelope: paymentEnvelope({ captureType: "note", sourceType: "notion" }),
+    });
+
+    expect(result.finalAction).toBe("candidate");
+    expect(runAdmissionGateMock).not.toHaveBeenCalled();
+  });
+
+  it("a meeting with another person on it is evidence-eligible", async () => {
+    const result = await runGatePipeline({
+      workspaceId: "ws-1",
+      userEmail: "me@myco.com",
+      envelope: paymentEnvelope({
+        sourceType: "googlecalendar",
+        captureType: "meeting",
+        participants: [
+          { email: "me@myco.com", name: "Me", role: "from" },
+          { email: "client@acme.com", name: "Client", role: "to" },
+        ],
+        extracted: { attendees_known: true },
+      }),
+    });
+
+    expect(result.finalAction).toBe("candidate");
+    expect(runAdmissionGateMock).not.toHaveBeenCalled();
+  });
+
+  it("the calendar keep-out still drops solo blocks before the bypass", async () => {
+    const result = await runGatePipeline({
+      workspaceId: "ws-1",
+      userEmail: "me@myco.com",
+      envelope: paymentEnvelope({
+        sourceType: "googlecalendar",
+        captureType: "meeting",
+        participants: [{ email: "me@myco.com", name: "Me", role: "from" }],
+        extracted: { attendees_known: true },
+      }),
+    });
+
+    expect(result.finalAction).toBe("drop");
+    expect(result.shouldIngest).toBe(false);
+    expect(result.gateResults.calendarKeepOut?.reason).toMatch(/no one else/i);
+  });
+
+  it("an explicit deny rule still drops a file capture", async () => {
+    checkRulesMock.mockResolvedValue(denyRule);
+
+    const result = await runGatePipeline({
+      workspaceId: "ws-1",
+      userEmail: "me@myco.com",
+      envelope: fileEnvelope(),
+    });
+
+    expect(result.finalAction).toBe("drop");
+    expect(result.shouldIngest).toBe(false);
+  });
+
+  it("an explicit allow rule still admits a payment at full prominence", async () => {
+    checkRulesMock.mockResolvedValue(allowRule);
+
+    const result = await runGatePipeline({
+      workspaceId: "ws-1",
+      userEmail: "me@myco.com",
+      envelope: paymentEnvelope(),
+    });
+
+    expect(result.finalAction).toBe("signal");
+  });
+
+  it("the known-entity fast track still wins for a file from a known sender", async () => {
+    runKnownEntityGateMock.mockResolvedValue({
+      action: "signal",
+      gate: "known-entity",
+      target: {
+        surface: "people",
+        entityId: "person-1",
+        matchType: "email",
+        confidence: 0.95,
+      },
+      reason: "Known person",
+    });
+
+    const result = await runGatePipeline({
+      workspaceId: "ws-1",
+      userEmail: "me@myco.com",
+      envelope: fileEnvelope(),
+    });
+
+    expect(result.finalAction).toBe("signal");
+    expect(result.targetEntity?.entityId).toBe("person-1");
+  });
+});
+
 describe("runGatePipeline Memory-first email policy", () => {
   it("holds unknown-sender inbound email even when admission says candidate", async () => {
     const result = await runGatePipeline({

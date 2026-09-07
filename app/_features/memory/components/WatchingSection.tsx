@@ -23,10 +23,10 @@ import {
 /**
  * Memory → Activity → Watching.
  *
- * Everything Salt is still gathering confidence on: pending evidence grouped
- * per record (with progress toward the bar). Nudges ("That's right" /
- * "Not this") teach the bar — nothing here is an approval queue. Records
- * birth themselves once evidence crosses the bar; there is no suggest lane.
+ * Everything Salt is still gathering confidence on, grouped per record.
+ * Nudges ("That's right" / "Not this") teach the bar. Record candidates
+ * never wait for approval here — crossing the evidence bar creates the
+ * record automatically, and correction happens on the Handled lane.
  */
 
 interface WatchingSectionProps {
@@ -165,14 +165,16 @@ export function WatchingSection({
         </div>
       )}
 
-      <ActivityPagination
-        page={pagedEvidence.page}
-        pageSize={pageSize}
-        totalCount={watchingTotal}
-        itemLabel={watchingTotal === 1 ? "thing" : "things"}
-        onPageChange={setPage}
-        onPageSizeChange={setPageSize}
-      />
+      {watchingTotal > 0 && (
+        <ActivityPagination
+          page={pagedEvidence.page}
+          pageSize={pageSize}
+          totalCount={watchingTotal}
+          itemLabel={watchingTotal === 1 ? "thing" : "things"}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
+      )}
     </div>
   );
 }

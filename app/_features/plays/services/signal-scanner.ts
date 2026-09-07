@@ -15,7 +15,16 @@ import {
   processMeetingSignalTriggers,
   processPersonSignalTriggers,
 } from "@/app/_features/capture/services/play-triggers";
-import { processEntitySignals } from "@/app/_features/plays/playbooks/trigger-dispatch";
+import {
+  buildWorkspaceRecordConditionIndex,
+  dispatchRecordConditionTrigger,
+  processEntitySignals,
+} from "@/app/_features/plays/playbooks/trigger-dispatch";
+import {
+  evaluateConditionValue,
+  findFieldDescriptor,
+} from "@/app/_features/plays/playbooks/record-conditions";
+import type { RecordConditionEntity } from "@/app/_features/plays/playbooks/schema/v2/types";
 
 export interface SignalScanResult {
   workspaceId: string;
@@ -27,6 +36,8 @@ export interface SignalScanResult {
   personSignalsFired: number;
   orgsScanned: number;
   orgSignalsFired: number;
+  recordConditionsScanned: number;
+  recordConditionMatches: number;
   playsCreated: number;
   errors: string[];
 }
@@ -264,6 +275,101 @@ async function scanOrgSignals(
   return { scanned: orgs.length, fired, playsCreated, errors };
 }
 
+/** Entity → table + label column for the record-condition sweep. */
+const RECORD_CONDITION_TABLES: Record<
+  RecordConditionEntity,
+  { table: "people" | "organizations" | "work" | "billing_records" | "resources"; labelColumn: string }
+> = {
+  person: { table: "people", labelColumn: "name" },
+  org: { table: "organizations", labelColumn: "name" },
+  work: { table: "work", labelColumn: "name" },
+  billing: { table: "billing_records", labelColumn: "number" },
+  resource: { table: "resources", labelColumn: "file_name" },
+};
+
+/**
+ * Record-condition sweep (Phase 5): the write hook in memoryUpdateField
+ * catches direct field writes, but values also change via imports, sync
+ * adapters, and backfills that bypass the tool. The 2h scan re-evaluates
+ * every indexed condition against stored column values; the 72h cooldown in
+ * dispatch keeps already-fired playbook+entity+condition triples quiet.
+ */
+async function scanRecordConditions(
+  workspaceId: string,
+  options: SignalScanOptions
+): Promise<{ scanned: number; matched: number; playsCreated: number; errors: string[] }> {
+  const errors: string[] = [];
+  let scanned = 0;
+  let matched = 0;
+  let playsCreated = 0;
+
+  const index = await buildWorkspaceRecordConditionIndex(workspaceId);
+  if (index.size === 0) return { scanned, matched, playsCreated, errors };
+
+  const admin = createAdminClient();
+
+  for (const entries of index.values()) {
+    const { entity, field } = entries[0].trigger;
+    const descriptor = findFieldDescriptor(entity, field);
+    if (!descriptor?.dbColumn) continue;
+
+    const { table, labelColumn } = RECORD_CONDITION_TABLES[entity];
+    const { data, error } = await admin
+      .from(table)
+      .select(`id, ${labelColumn}, ${descriptor.dbColumn}`)
+      .eq("workspace_id", workspaceId)
+      .is("archived_at", null)
+      .is("deleted_at", null)
+      .limit(200);
+
+    if (error) {
+      errors.push(`${entity}.${descriptor.key}: ${error.message}`);
+      continue;
+    }
+
+    // Boundary cast: the select list is dynamic (registry-driven dbColumn),
+    // so the postgrest parser can't type the row — columns are validated by
+    // the field registry instead.
+    const rows = (data ?? []) as unknown as Array<Record<string, unknown>>;
+    scanned += rows.length;
+
+    for (const row of rows) {
+      const actual = row[descriptor.dbColumn];
+      const anyMatch = entries.some((entry) =>
+        evaluateConditionValue(entry.trigger.op, entry.trigger.value, actual)
+      );
+      if (!anyMatch) continue;
+
+      matched++;
+      if (options.dryRun) continue;
+
+      try {
+        const results = await dispatchRecordConditionTrigger(
+          {
+            workspaceId,
+            entity,
+            field: descriptor.key,
+            newValue: actual,
+            entityId: String(row.id),
+            entityLabel:
+              typeof row[labelColumn] === "string"
+                ? (row[labelColumn] as string)
+                : undefined,
+          },
+          { index }
+        );
+        playsCreated += results.filter((r) => r.success && r.playRunId).length;
+      } catch (err) {
+        errors.push(
+          `${entity}.${descriptor.key} row ${row.id}: ${err instanceof Error ? err.message : String(err)}`
+        );
+      }
+    }
+  }
+
+  return { scanned, matched, playsCreated, errors };
+}
+
 /**
  * Run a full signal scan for a workspace.
  * Detects signal-firing conditions and dispatches to playbooks.
@@ -282,6 +388,8 @@ export async function runSignalScan(
     personSignalsFired: 0,
     orgsScanned: 0,
     orgSignalsFired: 0,
+    recordConditionsScanned: 0,
+    recordConditionMatches: 0,
     playsCreated: 0,
     errors: [],
   };
@@ -309,6 +417,12 @@ export async function runSignalScan(
   result.orgSignalsFired = orgs.fired;
   result.playsCreated += orgs.playsCreated;
   result.errors.push(...orgs.errors);
+
+  const recordConditions = await scanRecordConditions(workspaceId, options);
+  result.recordConditionsScanned = recordConditions.scanned;
+  result.recordConditionMatches = recordConditions.matched;
+  result.playsCreated += recordConditions.playsCreated;
+  result.errors.push(...recordConditions.errors);
 
   return result;
 }

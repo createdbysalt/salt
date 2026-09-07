@@ -26,6 +26,13 @@ updates:
         update-types:
           - "minor"
           - "patch"
+      # Composio bumps get their own PR so SDK changes stand out from the
+      # grouped noise — the slug canary (app/_lib/composio/canary.ts) is the
+      # safety net, but SDK release notes are the early warning.
+      composio:
+        patterns:
+          - "@composio/*"
+          - "composio*"
     # Security updates always get separate PRs (high priority)
     versioning-strategy: increase
 

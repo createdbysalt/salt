@@ -2,32 +2,19 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import {
   ArrowLeft,
-  ArrowRight,
-  Zap,
-  Clock,
-  MousePointer,
-  Database,
-  Filter,
-  PenLine,
-  CheckCircle2,
-  FileText,
-  Code2,
-  Settings,
   ChevronRight,
-  ChevronDown,
   Check,
-  Loader2,
   Package,
   Wrench,
   Folder,
   File,
+  FileText,
+  Code2,
   Radio,
   Columns,
-  Sparkles,
+  ShieldAlert,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@repo/ui";
 import { cn } from "@repo/utils";
@@ -38,40 +25,71 @@ import {
   memoryTabPanelClass,
 } from "@/app/_features/memory/utils/memory-layout";
 import { PlaybookHeroV2 } from "./PlaybookHeroV2";
-import { getSectionColorStyles } from "./PlaybookSectionNav";
+import { PlaybookOverviewTab } from "./PlaybookOverviewTab";
+import { PlaybookActivityTab } from "./PlaybookActivityTab";
+import { PlaybookCustomizeTab } from "./PlaybookCustomizeTab";
+import { MemoryRecordTabHeader } from "@/app/_features/memory/components/MemoryRecordTabHeader";
 import type { PlaybookListItem } from "../playbooks/queries-v2";
 import type {
   PlaybookDefinitionV2,
-  PlaybookStep,
-  PlaybookClassifyStep,
-  PlaybookSection,
 } from "../playbooks/schema/v2/types";
 import type { PackageData } from "../playbooks/read-package-files";
-import type { PlaybookConnectorStats } from "../queries";
+import type { PlaybookConnectorStats, PlaybookRunListItem } from "../queries";
 import type { PlaybookRunStats } from "../run-stats";
+import type { PlaybookApprovalRate } from "../services/earned-autonomy";
+import type {
+  PlaybookCustomizeEntry,
+  PlaybookAdjustment,
+} from "../customize/queries";
+import {
+  getPlaybookDataSources,
+  getPlaybookTriggerSignals,
+} from "../utils/playbook-display";
+import { resolvePlaybookToolAllowlist } from "../lib/playbook-email-slot";
 
 interface PlaybookDetailPageV2Props {
   playbook: PlaybookListItem;
   definition: PlaybookDefinitionV2;
+  /** "workspace" when the workspace has forked Salt's default. */
+  origin: "workspace" | "repo";
   /** Real run stats over play_runs (Phase 5b). */
   runStats: PlaybookRunStats;
-  playbookMdContent?: string | null;
+  /** Earned-autonomy analytics: approval rate + granted tools for this playbook. */
+  approvalRate?: PlaybookApprovalRate | null;
   packageData?: PackageData | null;
   connectorStats?: PlaybookConnectorStats;
+  /** Activity tab: every run attributed to this playbook, newest first. */
+  runs: PlaybookRunListItem[];
+  /** Customize tab data. */
+  customizeEntries: PlaybookCustomizeEntry[];
+  adjustments: PlaybookAdjustment[];
+  openAutonomyOffers: Array<{
+    playRunId: string;
+    toolSlug: string;
+    approvedCount: number;
+  }>;
+  /** Overview tab: providers the owner has opted this play into. */
+  appSelections: string[];
 }
+
+/** Advanced is our debugging surface while in development — hidden in prod. */
+const SHOW_ADVANCED = process.env.NODE_ENV !== "production";
 
 export function PlaybookDetailPageV2({
   playbook,
   definition,
+  origin,
   runStats,
-  playbookMdContent,
+  approvalRate,
   packageData,
   connectorStats,
+  runs,
+  customizeEntries,
+  adjustments,
+  openAutonomyOffers,
+  appSelections,
 }: PlaybookDetailPageV2Props) {
   const [tab, setTab] = useState("overview");
-  const sectionStyles = getSectionColorStyles(playbook.section as PlaybookSection);
-  const hasPlaybookMd = !!playbookMdContent;
-  const hasPackage = !!packageData;
 
   return (
     <div className="relative min-h-full">
@@ -84,105 +102,113 @@ export function PlaybookDetailPageV2({
           Back to Playbooks
         </Link>
 
-        <PlaybookHeroV2 playbook={playbook} runStats={runStats} connectorStats={connectorStats} />
+        <PlaybookHeroV2
+          playbook={playbook}
+          runStats={runStats}
+          connectorStats={connectorStats}
+          waitingRunCount={
+            runs.filter(
+              (run) =>
+                run.state !== "ran" &&
+                run.state !== "failed" &&
+                run.state !== "dismissed"
+            ).length
+          }
+          onEdit={() => setTab("overview")}
+          onRan={() => setTab("activity")}
+        />
+
+        {playbook.enabled && (playbook.disabledTools?.length ?? 0) > 0 && (
+          <div
+            role="alert"
+            className="mt-4 flex items-start gap-3 rounded-xl border border-red-500/25 bg-red-500/5 px-4 py-3.5"
+          >
+            <ShieldAlert className="mt-0.5 size-4 shrink-0 text-red-600" strokeWidth={2} />
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              <span className="font-medium text-foreground">
+                This playbook can&apos;t run right now.
+              </span>{" "}
+              {playbook.disabledTools!.join(", ")} changed upstream and is
+              pending security re-review. Runs will pause until the review
+              lands — your approval settings are untouched.
+            </p>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 gap-5 sm:gap-6">
-          {/* Main content area */}
           <div className="min-w-0 space-y-6">
             <Tabs value={tab} onValueChange={setTab} className="space-y-5">
               <TabsList className={memoryTabsListClass}>
                 <TabsTrigger value="overview" className={memoryTabTriggerClass}>
                   Overview
                 </TabsTrigger>
-                <TabsTrigger value="advanced" className={memoryTabTriggerClass}>
-                  Advanced
+                <TabsTrigger value="customize" className={memoryTabTriggerClass}>
+                  Customize
+                </TabsTrigger>
+                {SHOW_ADVANCED ? (
+                  <TabsTrigger value="advanced" className={memoryTabTriggerClass}>
+                    Advanced
+                  </TabsTrigger>
+                ) : null}
+                <TabsTrigger value="activity" className={memoryTabTriggerClass}>
+                  Activity
                 </TabsTrigger>
               </TabsList>
 
               <div className={memoryTabPanelClass}>
-              {/* ═══════════════════════════════════════════════════════════════
-                  OVERVIEW TAB - User friendly (renders PLAYBOOK.md if available)
-                  ═══════════════════════════════════════════════════════════════ */}
-              <TabsContent value="overview" className="m-0">
-                {/* Package playbooks: render PLAYBOOK.md content */}
-                {hasPlaybookMd ? (
-                  <div className="prose prose-sm prose-slate dark:prose-invert max-w-none">
-                    <ReactMarkdown
-                      remarkPlugins={[remarkGfm]}
-                      components={playbookMarkdownComponents}
-                    >
-                      {playbookMdContent}
-                    </ReactMarkdown>
-                  </div>
-                ) : (
-                  /* Fallback: Action Playbook Overview */
-                  <div className="space-y-6">
-                    {/* Steps summary */}
-                    {definition.steps?.length ? (
-                      <ContentCard title="What it does" icon={<Zap className="size-4" />}>
-                        <div className="space-y-4">
-                          {definition.steps.map((step, idx) => (
-                            <StepCard
-                              key={"id" in step && step.id ? step.id : `step-${idx}`}
-                              step={step}
-                              index={idx}
-                              isLast={idx === definition.steps!.length - 1}
-                              sectionStyles={sectionStyles}
-                            />
-                          ))}
-                        </div>
-                      </ContentCard>
-                    ) : null}
-
-                    {/* Instructions */}
-                    {definition.instructions?.system && (
-                      <ContentCard title="Instructions" icon={<FileText className="size-4" />}>
-                        <p className="text-foreground whitespace-pre-wrap text-sm leading-relaxed">
-                          {definition.instructions.system}
-                        </p>
-                      </ContentCard>
-                    )}
-
-                    {/* Guidelines */}
-                    {definition.instructions?.guidelines?.length ? (
-                      <ContentCard title="Guidelines" icon={<CheckCircle2 className="size-4" />}>
-                        <ul className="space-y-2">
-                          {definition.instructions.guidelines.map((g, i) => (
-                            <li key={i} className="flex items-start gap-2 text-sm text-foreground">
-                              <CheckCircle2 className="size-4 mt-0.5 text-emerald-500 shrink-0" />
-                              {g}
-                            </li>
-                          ))}
-                        </ul>
-                      </ContentCard>
-                    ) : null}
-                  </div>
-                )}
-              </TabsContent>
-
-              {/* ═══════════════════════════════════════════════════════════════
-                  ADVANCED TAB - Clean package view
-                  ═══════════════════════════════════════════════════════════════ */}
-              <TabsContent value="advanced" className="m-0 space-y-6">
-                {/* Package playbooks get the clean unified view */}
-                {hasPackage && packageData ? (
-                  <PackageAdvancedView
-                    packageData={packageData}
-                    playbook={playbook}
+                <TabsContent value="overview" className="m-0">
+                  <PlaybookOverviewTab
+                    slug={playbook.slug}
                     definition={definition}
+                    origin={origin}
+                    connectorStats={connectorStats}
+                    appSelections={appSelections}
                   />
-                ) : (
-                  /* Fallback for non-package playbooks */
-                  <div className="space-y-6">
-                    <ManagedPlaybookCallout />
-                    <RawJsonToggle definition={definition} />
-                  </div>
-                )}
-              </TabsContent>
+                </TabsContent>
+
+                <TabsContent value="customize" className="m-0">
+                  <PlaybookCustomizeTab
+                    slug={playbook.slug}
+                    entries={customizeEntries}
+                    adjustments={adjustments}
+                    approvalRate={approvalRate}
+                    openOffers={openAutonomyOffers}
+                  />
+                </TabsContent>
+
+                {SHOW_ADVANCED ? (
+                  <TabsContent value="advanced" className="m-0">
+                    <div className="space-y-4">
+                      <MemoryRecordTabHeader title="Advanced" />
+                      <div className="flex items-start gap-3 rounded-xl border border-amber-500/25 bg-amber-500/5 px-4 py-3.5">
+                        <p className="text-sm leading-relaxed text-muted-foreground">
+                          <span className="font-medium text-foreground">
+                            Development only.
+                          </span>{" "}
+                          This tab is visible because we&apos;re building. Users
+                          never see signal keys, tool slugs, or file lists.
+                        </p>
+                      </div>
+                      {packageData ? (
+                        <PackageAdvancedView
+                          packageData={packageData}
+                          playbook={playbook}
+                          definition={definition}
+                          appSelections={appSelections}
+                        />
+                      ) : (
+                        <RawJsonToggle definition={definition} />
+                      )}
+                    </div>
+                  </TabsContent>
+                ) : null}
+
+                <TabsContent value="activity" className="m-0">
+                  <PlaybookActivityTab runs={runs} />
+                </TabsContent>
               </div>
             </Tabs>
           </div>
-
         </div>
       </div>
     </div>
@@ -190,119 +216,41 @@ export function PlaybookDetailPageV2({
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
- * PLAYBOOK MARKDOWN COMPONENTS
- * ───────────────────────────────────────────────────────────────────────────── */
-
-const playbookMarkdownComponents = {
-  h1: ({ children }: { children?: React.ReactNode }) => (
-    <h2 className="text-xl font-semibold text-foreground mt-8 mb-4 first:mt-0">{children}</h2>
-  ),
-  h2: ({ children }: { children?: React.ReactNode }) => (
-    <h3 className="text-lg font-semibold text-foreground mt-6 mb-3">{children}</h3>
-  ),
-  h3: ({ children }: { children?: React.ReactNode }) => (
-    <h4 className="text-base font-semibold text-foreground mt-5 mb-2">{children}</h4>
-  ),
-  h4: ({ children }: { children?: React.ReactNode }) => (
-    <h5 className="text-sm font-semibold text-foreground mt-4 mb-2">{children}</h5>
-  ),
-  p: ({ children }: { children?: React.ReactNode }) => (
-    <p className="text-sm text-foreground leading-relaxed mb-4">{children}</p>
-  ),
-  ul: ({ children }: { children?: React.ReactNode }) => (
-    <ul className="list-disc list-inside space-y-2 mb-4 text-sm text-foreground">{children}</ul>
-  ),
-  ol: ({ children }: { children?: React.ReactNode }) => (
-    <ol className="list-decimal list-inside space-y-2 mb-4 text-sm text-foreground">{children}</ol>
-  ),
-  li: ({ children }: { children?: React.ReactNode }) => (
-    <li className="text-sm text-foreground">{children}</li>
-  ),
-  code: ({ children, className }: { children?: React.ReactNode; className?: string }) => {
-    const isBlock = className?.includes("language-");
-    if (isBlock) {
-      return (
-        <code className="block font-mono text-xs bg-muted/50 rounded-lg border border-border/40 p-4 overflow-x-auto mb-4">
-          {children}
-        </code>
-      );
-    }
-    return (
-      <code className="font-mono text-xs bg-muted/50 px-1.5 py-0.5 rounded">{children}</code>
-    );
-  },
-  pre: ({ children }: { children?: React.ReactNode }) => (
-    <pre className="mb-4">{children}</pre>
-  ),
-  table: ({ children }: { children?: React.ReactNode }) => (
-    <div className="overflow-x-auto mb-4">
-      <table className="w-full text-sm border-collapse">{children}</table>
-    </div>
-  ),
-  thead: ({ children }: { children?: React.ReactNode }) => (
-    <thead className="bg-muted/30">{children}</thead>
-  ),
-  th: ({ children }: { children?: React.ReactNode }) => (
-    <th className="text-left px-3 py-2 text-xs font-semibold text-foreground border-b border-border/50">{children}</th>
-  ),
-  td: ({ children }: { children?: React.ReactNode }) => (
-    <td className="px-3 py-2 text-sm text-foreground border-b border-border/30">{children}</td>
-  ),
-  blockquote: ({ children }: { children?: React.ReactNode }) => (
-    <blockquote className="border-l-2 border-muted-foreground/30 pl-4 italic text-muted-foreground mb-4">
-      {children}
-    </blockquote>
-  ),
-  strong: ({ children }: { children?: React.ReactNode }) => (
-    <strong className="font-semibold text-foreground">{children}</strong>
-  ),
-  hr: () => <hr className="my-6 border-border/50" />,
-};
-
-/* ─────────────────────────────────────────────────────────────────────────────
- * MANAGED PLAYBOOK CALLOUT
- * ───────────────────────────────────────────────────────────────────────────── */
-
-function ManagedPlaybookCallout() {
-  return (
-    <div className="flex items-start gap-3 rounded-xl border border-sky/20 bg-sky/5 px-4 py-3.5">
-      <div className="grid size-8 shrink-0 place-items-center rounded-lg border border-sky/25 bg-sky/10">
-        <Sparkles className="size-4 text-sky" strokeWidth={2.25} />
-      </div>
-      <div className="min-w-0 space-y-0.5">
-        <p className="text-sm font-medium text-foreground">Salt-managed playbook</p>
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          Read-only reference for how Salt configures and runs this play. Nothing to change here.
-        </p>
-      </div>
-    </div>
-  );
-}
-
-/* ─────────────────────────────────────────────────────────────────────────────
- * PACKAGE ADVANCED VIEW - Clean unified view for package playbooks
- * ───────────────────────────────────────────────────────────────────────────── */
+ * PACKAGE ADVANCED VIEW - Clean unified view for package playbooks (dev-only)
+ * ──────────────────────────────────────────────────────────────────────────── */
 
 function PackageAdvancedView({
   packageData,
   playbook,
   definition,
+  appSelections,
 }: {
   packageData: PackageData;
   playbook: PlaybookListItem;
   definition: PlaybookDefinitionV2;
+  appSelections: string[];
 }) {
   const [showAllSignals, setShowAllSignals] = useState(false);
   const [showAllFields, setShowAllFields] = useState(false);
   const [expandedFile, setExpandedFile] = useState<string | null>(null);
 
-  const visibleSignals = showAllSignals ? packageData.signals : packageData.signals.slice(0, 6);
-  const visibleFields = showAllFields ? packageData.fields : packageData.fields.slice(0, 6);
+  // Act-layer definitions declare signals in trigger/triggers and data access
+  // in fetch steps — packageData.signals/fields only exist for the retired
+  // learn-layer policy block, so derive from the definition first.
+  const derivedSignals = getPlaybookTriggerSignals(definition);
+  const signals = derivedSignals.length > 0 ? derivedSignals : packageData.signals;
+  const usesPolicyFields = packageData.fields.length > 0;
+  const fields = usesPolicyFields ? packageData.fields : getPlaybookDataSources(definition);
+  const fieldsLabel = usesPolicyFields ? "Fields" : "Data sources";
+
+  const visibleSignals = showAllSignals ? signals : signals.slice(0, 6);
+  const visibleFields = showAllFields ? fields : fields.slice(0, 6);
+  const tools = definition.tools?.length
+    ? resolvePlaybookToolAllowlist(definition.tools, appSelections)
+    : [];
 
   return (
     <div className="space-y-6">
-      <ManagedPlaybookCallout />
-
       {/* Package Files */}
       <section className="rounded-xl border border-border/50 bg-card/50 overflow-hidden">
         <div className="px-4 py-3 border-b border-border/50 bg-muted/30">
@@ -349,7 +297,7 @@ function PackageAdvancedView({
               <div className="flex items-center gap-2">
                 <Radio className="size-4 text-muted-foreground" />
                 <h3 className="text-sm font-semibold text-foreground">Signals</h3>
-                <span className="text-xs text-muted-foreground">({packageData.signals.length})</span>
+                <span className="text-xs text-muted-foreground">({signals.length})</span>
               </div>
             </div>
           </div>
@@ -361,7 +309,7 @@ function PackageAdvancedView({
                 </div>
               ))}
             </div>
-            {packageData.signals.length > 6 && (
+            {signals.length > 6 && (
               <button
                 onClick={() => setShowAllSignals(!showAllSignals)}
                 className="mt-3 text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
@@ -369,21 +317,21 @@ function PackageAdvancedView({
                 {showAllSignals ? (
                   <>Show less</>
                 ) : (
-                  <>Show all {packageData.signals.length}</>
+                  <>Show all {signals.length}</>
                 )}
               </button>
             )}
           </div>
         </section>
 
-        {/* Fields */}
+        {/* Fields / Data sources */}
         <section className="rounded-xl border border-border/50 bg-card/50 overflow-hidden">
           <div className="px-4 py-3 border-b border-border/50 bg-muted/30">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Columns className="size-4 text-muted-foreground" />
-                <h3 className="text-sm font-semibold text-foreground">Fields</h3>
-                <span className="text-xs text-muted-foreground">({packageData.fields.length})</span>
+                <h3 className="text-sm font-semibold text-foreground">{fieldsLabel}</h3>
+                <span className="text-xs text-muted-foreground">({fields.length})</span>
               </div>
             </div>
           </div>
@@ -395,7 +343,7 @@ function PackageAdvancedView({
                 </div>
               ))}
             </div>
-            {packageData.fields.length > 6 && (
+            {fields.length > 6 && (
               <button
                 onClick={() => setShowAllFields(!showAllFields)}
                 className="mt-3 text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
@@ -403,7 +351,7 @@ function PackageAdvancedView({
                 {showAllFields ? (
                   <>Show less</>
                 ) : (
-                  <>Show all {packageData.fields.length}</>
+                  <>Show all {fields.length}</>
                 )}
               </button>
             )}
@@ -411,20 +359,19 @@ function PackageAdvancedView({
         </section>
       </div>
 
-      {/* Tools — the definition.yaml `tools` allowlist (single-document canon;
-          tools.yaml is retired) */}
+      {/* Tools this play will actually run, given the inbox on Overview. */}
       <section className="rounded-xl border border-border/50 bg-card/50 overflow-hidden">
         <div className="px-4 py-3 border-b border-border/50 bg-muted/30">
           <div className="flex items-center gap-2">
             <Wrench className="size-4 text-muted-foreground" />
             <h3 className="text-sm font-semibold text-foreground">Tools</h3>
-            <span className="text-xs text-muted-foreground">({definition.tools?.length ?? 0})</span>
+            <span className="text-xs text-muted-foreground">({tools.length})</span>
           </div>
         </div>
         <div className="p-4">
-          {definition.tools?.length ? (
+          {tools.length ? (
             <div className="space-y-2">
-              {definition.tools.map((tool) => (
+              {tools.map((tool) => (
                 <div key={tool} className="flex items-center justify-between text-sm font-mono bg-muted/30 px-3 py-2 rounded-lg">
                   <span className="text-foreground">{tool}</span>
                 </div>
@@ -455,68 +402,8 @@ function FileIcon({ type }: { type: string }) {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
- * SUB-COMPONENTS
- * ───────────────────────────────────────────────────────────────────────────── */
-
-function ContentCard({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <section className="space-y-3">
-      <div className="flex items-center gap-2">
-        <span className="text-muted-foreground">{icon}</span>
-        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function StepCard({
-  step,
-  index,
-  isLast,
-  sectionStyles,
-}: {
-  step: PlaybookStep;
-  index: number;
-  isLast: boolean;
-  sectionStyles: ReturnType<typeof getSectionColorStyles>;
-}) {
-  return (
-    <div className="relative">
-      <div className="flex items-start gap-3">
-        <div className="flex flex-col items-center">
-          <span
-            className={cn(
-              "size-8 rounded-lg grid place-items-center shrink-0",
-              step.step === "fetch" && "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-              step.step === "classify" && "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-              step.step === "draft" && cn(sectionStyles.bg, sectionStyles.text)
-            )}
-          >
-            {step.step === "fetch" && <Database className="size-4" strokeWidth={2} />}
-            {step.step === "classify" && <Filter className="size-4" strokeWidth={2} />}
-            {step.step === "draft" && <PenLine className="size-4" strokeWidth={2} />}
-          </span>
-          {!isLast && <div className="w-px h-6 bg-border/50 mt-2" />}
-        </div>
-        <div className="flex-1 min-w-0 pb-2">
-          <p className="text-sm font-medium text-foreground">
-            {step.step === "fetch" ? "Gather data" : step.step === "classify" ? "Apply rules" : "Create draft"}
-          </p>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            {step.step === "fetch" && `Pull ${step.id} from ${step.from}`}
-            {step.step === "classify" && `Sort using ${(step as PlaybookClassifyStep).rules?.length ?? 0} rules`}
-            {step.step === "draft" && (step.prompt.length > 80 ? step.prompt.slice(0, 80) + "…" : step.prompt)}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ─────────────────────────────────────────────────────────────────────────────
- * MARKDOWN COMPONENTS
- * ───────────────────────────────────────────────────────────────────────────── */
+ * RAW JSON (dev-only fallback for non-package playbooks)
+ * ──────────────────────────────────────────────────────────────────────────── */
 
 function RawJsonToggle({ definition }: { definition: PlaybookDefinitionV2 }) {
   const [showJson, setShowJson] = useState(false);

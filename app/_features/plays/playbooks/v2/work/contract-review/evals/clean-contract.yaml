@@ -1,0 +1,42 @@
+# Clean contract: review reads as standard for this kind of agreement.
+# No pushback branch, no email — the review note queues for approval
+# (memory_update output). The disclaimer still ships: triage, not clearance.
+id: clean-contract
+name: Standard MSA → review note queued, no pushback email
+given:
+  memory:
+    file_context:
+      id: f-2
+      file_name: Acme MSA 2026.pdf
+      category: contract
+      document_type: msa
+      description: Master services agreement with Acme Corp
+      ai_summary: MSA between the owner and Acme Corp, net-30, 12-month term
+      external_url: "https://drive.google.com/file/d/def"
+      provider: google_drive
+      signed_date: null
+      counterparty:
+        id: p-2
+        name: Priya
+        email: priya@acme.com
+      counterparty_org:
+        id: o-2
+        name: Acme Corp
+  agent:
+    - step: read_contract
+      text: "Found 'Acme MSA 2026.pdf' in Google Drive, read 5 pages. Parties: the owner and Acme Corp. Net-30 payment, IP transfers on full payment, 30-day termination either side. VERDICT: FOUND — Acme Corp MSA, owner + Acme Corp, dated 2026-09-01"
+  draft:
+    - step: review_summary
+      text: "What you're signing: a master services agreement with Acme Corp, 12-month term, net-30. Payment terms decoded: invoicing monthly, net-30, no late fees, no kill fee clause but 30-day termination either side. What looks standard: IP transfers on full payment, mutual confidentiality, 30-day termination — all typical for a services agreement. Checked: payment terms, IP, liability, termination, confidentiality. The terms read as standard for this kind of agreement; only a lawyer can give a definitive read. Salt isn't a lawyer and this isn't legal advice. REVIEW_OUTCOME: CLEAN — payment, IP, liability, termination, confidentiality checked"
+expect:
+  status: success
+  outputCount: 1
+  steps:
+    file_context: success
+    read_contract: success
+    maybe_review: success
+    review_summary: success
+    maybe_pushback: success
+  promptIncludes:
+    - "Salt isn't a lawyer and this isn't legal advice."
+    - "not a green light"

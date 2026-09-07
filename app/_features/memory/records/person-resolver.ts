@@ -24,6 +24,10 @@ import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { memoryUpdateField } from "@/app/_lib/memory-tools";
 import { runCareForSignal } from "@/app/_features/memory/care/scheduler";
 import {
+  attachPersonEmail,
+  findPersonIdsByEmail,
+} from "./person-emails";
+import {
   classifyEntity,
   completePersonFields,
   evaluateAdmission,
@@ -76,6 +80,7 @@ export interface PersonResolutionInput {
 import {
   extractNameFromEmail,
   isPersonalDomain,
+  isPlausiblePersonName,
   type PersonSignals,
 } from "./person-signals";
 
@@ -83,6 +88,7 @@ export {
   extractDomain,
   extractNameFromEmail,
   isPersonalDomain,
+  isPlausiblePersonName,
   type PersonSignals,
 } from "./person-signals";
 
@@ -107,14 +113,20 @@ export async function resolvePerson(
   };
   const classification = classifyEntity(recordsInput);
 
-  const { data: existingPeople } = await admin
-    .from("people")
-    .select("id, name, email, title, phone")
-    .eq("workspace_id", workspaceId)
-    .eq("email", email)
-    .is("deleted_at", null)
-    .is("archived_at", null)
-    .limit(5);
+  // Resolve by ANY known address for the person (person_emails identity
+  // set), not just the denormalized primary on people.email — otherwise the
+  // same human at a second address looks like a stranger.
+  const matchedPersonIds = await findPersonIdsByEmail(admin, workspaceId, email);
+  const { data: existingPeople } = matchedPersonIds.length
+    ? await admin
+        .from("people")
+        .select("id, name, email, title, phone")
+        .eq("workspace_id", workspaceId)
+        .in("id", matchedPersonIds)
+        .is("deleted_at", null)
+        .is("archived_at", null)
+        .limit(5)
+    : { data: [] };
 
   const duplicates = resolveIdentity({
     recordsInput,
@@ -174,7 +186,55 @@ export async function resolvePerson(
     };
   }
 
-  if (decision.action === "needs_confirmation" || decision.action === "suggest_merge") {
+  if (decision.action === "suggest_merge") {
+    // Exact-name match at a new address: attach the address to the existing
+    // person as a non-primary email instead of birthing a duplicate. The
+    // write goes through memoryUpdateField so it clears the workspace bar
+    // before applying and parks as Watching evidence below it.
+    const target = decision.duplicates[0];
+    if (target?.id && decision.duplicates.length === 1) {
+      const attach = await memoryUpdateField({
+        workspaceId,
+        entityType: "person",
+        entityId: target.id,
+        field: "email_attach",
+        value: email,
+        confidence: 85,
+        because: `Incoming mail from a new address for ${target.name ?? "this person"}`,
+        source: "enrichment",
+        sourceDetails: {
+          playbookSlug: "memory-records",
+          captureId: input.sourceCaptureId,
+          ruleId: "person-secondary-email",
+        },
+      });
+
+      if (attach.action === "applied") {
+        await applyPersonEnrichment(workspaceId, target.id, email, input);
+        return {
+          resolved: true,
+          person_id: target.id,
+          person_name: target.name,
+          is_new: false,
+          confidence: decision.confidence,
+          confidence_reason: `Attached new address ${email} to existing person ${target.name ?? target.id}`,
+          needs_confirmation: false,
+        };
+      }
+      // Below the bar: the address attach is parked as Watching evidence;
+      // the capture itself still parks for confirmation as before.
+    }
+
+    return {
+      resolved: false,
+      is_new: true,
+      confidence: decision.confidence,
+      confidence_reason: decision.reasons.join("; "),
+      needs_confirmation: true,
+    };
+  }
+
+  if (decision.action === "needs_confirmation") {
     return {
       resolved: false,
       is_new: true,
@@ -205,6 +265,18 @@ export async function resolvePerson(
 
   // High confidence — auto-create
   const name = decision.suggestedName ?? input.name ?? extractNameFromEmail(email);
+  if (!name || !isPlausiblePersonName(name)) {
+    // Junk-only name (role word, digits from a local part) — park the
+    // candidate for review instead of birthing a "Customer" or "Pedro H 542".
+    return {
+      resolved: false,
+      is_new: true,
+      confidence: decision.confidence,
+      confidence_reason:
+        "No plausible name available — parked for review instead of creating a junk-named person",
+      needs_confirmation: true,
+    };
+  }
   const result = await executeRecordAction(workspaceId, "system:create-person", {
     name,
     email,

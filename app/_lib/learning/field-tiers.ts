@@ -12,12 +12,17 @@
  * | Tier        | Bar                        | Examples                              |
  * |-------------|----------------------------|---------------------------------------|
  * | standard    | workspace threshold        | notes, preferences, addresses         |
- * | sensitive   | max(workspace, 95)         | industry, relationship type,          |
+ * | sensitive   | workspace threshold        | industry, relationship type,          |
  * |             |                            | first-time classifications            |
- * | destructive | max(workspace, 95)         | status → past_client / completed /    |
+ * | destructive | workspace threshold        | status → past_client / completed /    |
  * |             | (snapshot via provenance)  | cancelled / void                      |
  * | never_touch | refused at any confidence  | billing total, amount_paid, money     |
  * |             |                            | model fields                          |
+ *
+ * One bar, user-controlled: every gated field is held to the workspace's
+ * auto-apply threshold — nothing silently demands more. Tiers still matter
+ * for policy (never-touch refusals, destructive-transition provenance
+ * snapshots), never for raising the bar.
  *
  * Low-risk observation fields (last_contacted_at, names, emails) bypass
  * gating entirely — they are always safe to apply.
@@ -35,9 +40,6 @@ export type TieredEntityType =
   | "work"
   | "billing"
   | "me";
-
-/** Minimum bar applied to sensitive and destructive tiers. */
-export const ELEVATED_TIER_FLOOR = 95;
 
 /**
  * Never-touch: money fields, and the operator's legal/tax/payment setup.
@@ -66,8 +68,9 @@ const NEVER_TOUCH_FIELDS: Record<string, string[]> = {
 };
 
 /**
- * Sensitive: identity and relationship classifications. Always held to the
- * elevated bar, even when overwriting an existing value.
+ * Sensitive: identity and relationship classifications. Tier membership is
+ * informational (audit, provenance) — the bar is the workspace threshold,
+ * same as every gated field.
  */
 const SENSITIVE_FIELDS: Record<string, string[]> = {
   person: ["industry", "preferred_channel", "relationship_type"],
@@ -91,10 +94,10 @@ const FIRST_TIME_CLASSIFICATION_FIELDS: Record<string, string[]> = {
 };
 
 /**
- * Destructive transitions: moving a record INTO one of these values is held
- * to the elevated bar. The previous value is snapshotted in
+ * Destructive transitions: moving a record INTO one of these values closes
+ * things out. The previous value is snapshotted in
  * `profile_field_provenance` on every applied write, so reversal is one
- * click — but the bar is high because these transitions close things out.
+ * click. The bar is the workspace threshold, same as every gated field.
  */
 const DESTRUCTIVE_VALUES: Record<string, string[]> = {
   record_status: ["past_client", "archived", "lost"],
@@ -197,18 +200,16 @@ export function classifyFieldTier(
 }
 
 /**
- * The confidence bar a proposal must clear for its tier, given the
- * workspace's auto-apply threshold.
+ * The confidence bar a proposal must clear, given the workspace's
+ * auto-apply threshold. One user-controlled bar for every gated field —
+ * tiers never raise it. Never-touch fields are refused outright (Infinity).
  */
 export function tierBar(tier: MemoryFieldTier, workspaceThreshold: number): number {
   switch (tier) {
-    case "sensitive":
-    case "destructive":
-      return Math.max(workspaceThreshold, ELEVATED_TIER_FLOOR);
-    case "standard":
-      return workspaceThreshold;
     case "never_touch":
       return Number.POSITIVE_INFINITY;
+    default:
+      return workspaceThreshold;
   }
 }
 

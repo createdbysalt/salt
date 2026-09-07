@@ -1,4 +1,5 @@
 import { createClient } from "@/app/_lib/supabase/server"
+import { getVerifiedWorkspaceMembership } from "@/app/_lib/tenancy/workspace-membership"
 import type { PortfolioItem, PortfolioTag } from "./types"
 
 // Helper to get current studio ID
@@ -7,13 +8,8 @@ async function getWorkspaceId(): Promise<string | null> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
-  const { data: member } = await supabase
-    .from("workspace_members")
-    .select("workspace_id")
-    .eq("user_id", user.id)
-    .single()
-
-  return member?.workspace_id || null
+  const membership = await getVerifiedWorkspaceMembership(user.id, supabase)
+  return membership?.id ?? null
 }
 
 export async function getPortfolioItems(): Promise<PortfolioItem[]> {

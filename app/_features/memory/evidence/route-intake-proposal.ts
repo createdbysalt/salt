@@ -22,6 +22,7 @@ import {
 import {
   SIGNAL_WEIGHTS,
   canonicalizeIdentifier,
+  evaluateEvidence,
   probabilityToLogOdds,
   type IntakeEntityType,
 } from "@/app/_features/memory/care/intake";
@@ -30,64 +31,6 @@ import type { ExtractedFieldValue } from "./types";
 
 function toPendingEvidenceDbType(entityType: IntakeEntityType): string {
   return toLearningDbEntityType(entityType as LearningEntityType);
-}
-
-/**
- * P7: Relationship-grade signals indicate a real relationship worth tracking.
- * Records should only auto-create when there's evidence of actual relationship.
- *
- * Relationship-grade signals:
- * - Payment: invoice, payment, billing signals
- * - User reply: sent email to them (not just received)
- * - Calendar co-presence: meeting attendance
- * - Contract/proposal: formal business documents
- */
-const RELATIONSHIP_GRADE_SIGNALS = new Set([
-  // Payment signals
-  "invoice_attachment_detected",
-  "invoice_addressee_unknown",
-  "invoice_from_unknown_company",
-  "invoice_line_items_suggest_project",
-  "payment_notification_email",
-  "stripe_webhook_payment",
-  "receipt_attachment_detected",
-  "receipt_detected",
-  "email_mentions_amount_due",
-
-  // User reply signals (sent, not just received)
-  "email_to_unknown_address",
-
-  // Calendar co-presence
-  "meeting_attendee_unknown",
-  "calendar_event_created",
-  "calendar_invite_received",
-  "email_scheduling_discussion",
-  "zoom_invite_detected",
-
-  // Contract/proposal signals
-  "contract_detected",
-  "contract_mentions_company",
-  "msa_detected",
-  "nda_detected",
-  "signature_request_received",
-  "proposal_detected",
-  "proposal_or_sow_attached",
-  "sow_detected",
-  "brief_detected",
-
-  // Deliverables (implies active work relationship)
-  "deliverable_detected",
-  "asset_delivered",
-  "approval_detected",
-  "feedback_detected",
-]);
-
-/**
- * Check if a set of signals contains relationship-grade evidence.
- * P7: Worthiness (relevance) is separate from confidence (accuracy).
- */
-export function hasRelationshipGradeSignal(signals: string[]): boolean {
-  return signals.some((signal) => RELATIONSHIP_GRADE_SIGNALS.has(signal));
 }
 
 /**
@@ -105,26 +48,59 @@ export function extractedFieldPlainValues(
 }
 
 /**
+ * Default confidence for a field whose extractor offered no opinion (e.g.
+ * the classifier's plain-string signal data). Direct extractions only —
+ * anything derived or inferred must arrive with its own confidence.
+ */
+export const DEFAULT_EXTRACTED_CONFIDENCE = 80;
+
+function clampConfidence(value: number): number {
+  return Math.min(99, Math.max(1, Math.round(value)));
+}
+
+/**
  * Merge extracted fields from a new signal into existing fields.
+ *
+ * New data may arrive as plain strings (no extractor opinion — stamped
+ * with DEFAULT_EXTRACTED_CONFIDENCE) or as full ExtractedFieldValues whose
+ * confidence is preserved. Never re-stamp an incoming confidence with the
+ * default: a field the criteria engine judged at 55 must not surface as
+ * "80% confident".
  */
 export function mergeExtractedFields(
   existing: Record<string, ExtractedFieldValue>,
-  newData: Record<string, string>,
+  newData: Record<string, string | ExtractedFieldValue>,
   captureId?: string
 ): Record<string, ExtractedFieldValue> {
   const merged = { ...existing };
 
-  for (const [key, value] of Object.entries(newData)) {
+  for (const [key, incoming] of Object.entries(newData)) {
+    const value = typeof incoming === "string" ? incoming : incoming.value;
     if (!value) continue;
+    const incomingConfidence =
+      typeof incoming === "string"
+        ? DEFAULT_EXTRACTED_CONFIDENCE
+        : clampConfidence(incoming.confidence);
+    const incomingSources =
+      typeof incoming === "string"
+        ? []
+        : incoming.sources.filter((source) => Boolean(source));
 
     if (merged[key]) {
       // Field already exists - update if new value matches or has higher implied confidence
       if (merged[key].value === value) {
         // Same value - add source
-        if (captureId && !merged[key].sources.includes(captureId)) {
-          merged[key].sources.push(captureId);
+        const newSources = [
+          ...(captureId ? [captureId] : []),
+          ...incomingSources,
+        ].filter((source) => !merged[key].sources.includes(source));
+        if (newSources.length > 0) {
+          merged[key].sources.push(...newSources);
           // Increase confidence slightly with corroboration
-          merged[key].confidence = Math.min(99, merged[key].confidence + 2);
+          merged[key].confidence = Math.min(
+            99,
+            merged[key].confidence + 2 * newSources.length
+          );
         }
       } else {
         // Different value - only replace if we have more sources for the new one
@@ -135,8 +111,13 @@ export function mergeExtractedFields(
       // New field
       merged[key] = {
         value,
-        confidence: 80,
-        sources: captureId ? [captureId] : [],
+        confidence: incomingConfidence,
+        sources: [
+          ...incomingSources,
+          ...(captureId && !incomingSources.includes(captureId)
+            ? [captureId]
+            : []),
+        ],
       };
     }
   }
@@ -156,14 +137,11 @@ export interface RouteIntakeProposalInput {
   extractedFields: Record<string, ExtractedFieldValue>;
   /**
    * Signal names backing the proposal, in the intake SIGNAL_WEIGHTS
-   * vocabulary. Used for the P7 worthiness check — callers that cannot
-   * supply relationship-grade signal names fail closed to "suggested".
+   * vocabulary. The primary signal's weight drives score accumulation.
    */
   signals: string[];
   /** Capture event that produced the proposal (provenance). */
   captureId?: string;
-  /** P6 gate: the workspace's calibration earned auto-apply. */
-  autoApply: boolean;
 }
 
 export type RouteIntakeProposalResult =
@@ -174,19 +152,13 @@ export type RouteIntakeProposalResult =
 /**
  * Route a CREATE-tier capture proposal into the evidence system.
  *
- * Plays canon Phase 2: the capture enrichment chain used to write these
- * proposals to play_runs — with a capture_events UUID posing as an evidence
- * id, so downstream pending_evidence updates silently no-oped. This entry
- * point applies the same P6 + P7 contract that addSignalToEvidence encodes:
- *
- * - P6 (earned autonomy): auto-create only when the caller's calibration
- *   gate passed (`autoApply`).
- * - P7 (worthiness): auto-create only when the proposal carries a
- *   relationship-grade signal — confidence alone is not enough.
- *
- * Everything else lands in pending_evidence with status='suggested', where
- * it keeps accumulating signals until the auto tier clears. Dismissed or
- * already-created evidence is never resurrected.
+ * Memory is fully autonomous: the accumulated log-odds score is evaluated
+ * against the entity's EVIDENCE_THRESHOLDS bars, and crossing the auto bar
+ * creates the record directly — the threshold IS the auto-apply. There is
+ * no calibration to earn and no worthiness gate; correction ("That's
+ * wrong" on the Handled lane) replaces approval. Sub-bar proposals keep
+ * accumulating in the background. Dismissed or already-created evidence is
+ * never resurrected.
  */
 export async function routeIntakeProposal(
   input: RouteIntakeProposalInput
@@ -209,6 +181,10 @@ export async function routeIntakeProposal(
     .single();
 
   let evidenceId: string;
+  let score: number;
+
+  // Provenance + accumulation both key off the primary signal.
+  const primarySignal = input.signals[0] ?? "capture_create_decision";
 
   if (existing) {
     // Respect terminal states: the user said no, or the record already exists.
@@ -222,17 +198,30 @@ export async function routeIntakeProposal(
       string,
       ExtractedFieldValue
     >;
+    // Merge the full field values (not flattened plain strings) so the
+    // criteria engine's per-field confidence survives — flattening here used
+    // to re-stamp every field at the flat default.
     const mergedFields = mergeExtractedFields(
       existingFields,
-      extractedFieldPlainValues(input.extractedFields),
+      input.extractedFields,
       input.captureId
     );
+
+    // Accumulate like addSignalToEvidence: each corroborating proposal adds
+    // its signal weight, so repeat evidence (e.g. one invoice per billing
+    // cycle for the same counterparty) builds toward the auto bar. Signals
+    // outside the intake vocabulary fall back to the confidence-derived
+    // score. Previously Math.max pinned repeat proposals at the first
+    // proposal's score, making the auto tier unreachable from this path.
+    const signalWeight = SIGNAL_WEIGHTS[primarySignal];
+    const delta = signalWeight === undefined ? proposalScore : signalWeight;
+    score = existing.log_odds_score + delta;
 
     await supabase
       .from("pending_evidence")
       .update({
         status: "suggested",
-        log_odds_score: Math.max(existing.log_odds_score, proposalScore),
+        log_odds_score: score,
         last_signal_at: new Date().toISOString(),
         extracted_fields: mergedFields as unknown as Json,
       })
@@ -256,10 +245,10 @@ export async function routeIntakeProposal(
     if (error) throw error;
 
     evidenceId = newEvidence.id;
+    score = proposalScore;
   }
 
   // Provenance: record what put this identifier on the suggested lane.
-  const primarySignal = input.signals[0] ?? "capture_create_decision";
   await supabase.from("pending_evidence_signals").insert({
     evidence_id: evidenceId,
     signal: primarySignal,
@@ -268,15 +257,11 @@ export async function routeIntakeProposal(
     extracted_data: extractedFieldPlainValues(input.extractedFields),
   });
 
-  // P6 + P7: auto-create only with earned calibration AND relationship-grade
-  // evidence. On failure (e.g. missing name), fall back to the suggested lane.
-  // Resources are confirm-only — skip the attempt entirely instead of
-  // failing closed on every proposal.
-  if (
-    input.autoApply &&
-    input.entityType !== "resource" &&
-    hasRelationshipGradeSignal(input.signals)
-  ) {
+  // The threshold is the only gate: over the entity's auto bar, the record
+  // is born. On failure (e.g. missing name, operator refusal), fall back to
+  // the suggested lane — the row keeps accumulating and the next signal
+  // retries.
+  if (evaluateEvidence(input.entityType, score) === "auto") {
     const created = await autoCreateRecord({
       workspaceId: input.workspaceId,
       evidenceId,

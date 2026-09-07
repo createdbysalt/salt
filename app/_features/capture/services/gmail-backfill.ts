@@ -457,6 +457,23 @@ export async function backfillGmailCaptures(
     keptOut: debug.skippedNoise + debug.dropped,
   });
 
+  // "Last synced" stamp — a healthy connection must not look frozen.
+  // Advisory: a stamp failure never fails the run.
+  if (connection.integrationId) {
+    try {
+      const admin = createAdminClient();
+      await admin
+        .from("workspace_integrations")
+        .update({ last_synced_at: new Date().toISOString() } as never)
+        .eq("id", connection.integrationId);
+    } catch (stampError) {
+      console.warn(
+        "[gmail-backfill] last_synced_at stamp failed:",
+        stampError instanceof Error ? stampError.message : stampError,
+      );
+    }
+  }
+
   return {
     success: true,
     capturesCreated: created,

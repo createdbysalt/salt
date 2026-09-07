@@ -1,0 +1,50 @@
+# Happy path with teeth: file classified as a contract, agent reads it,
+# broad indemnity clause → review with a critical flag, attorney-next-step
+# line, and a consolidated pushback email paused on the human's Send.
+# The review note rides along on that approval (memory_update output).
+id: contract-with-flags
+name: MSA with uncapped indemnity → review + pushback email paused on send
+given:
+  memory:
+    file_context:
+      id: f-1
+      file_name: Helios MSA 2026.pdf
+      category: contract
+      document_type: msa
+      description: Master services agreement with Helios Advisory
+      ai_summary: MSA between the owner and Helios Advisory, net-30, 12-month term
+      external_url: "https://drive.google.com/file/d/abc"
+      provider: google_drive
+      signed_date: null
+      counterparty:
+        id: p-1
+        name: Dana
+        email: dana@helios.com
+      counterparty_org:
+        id: o-1
+        name: Helios Advisory
+  agent:
+    - step: read_contract
+      text: "Found 'Helios MSA 2026.pdf' in Google Drive, read 6 pages. Parties: the owner and Helios Advisory. Clause 7 makes the owner liable for 'any and all damages' with no cap. VERDICT: FOUND — Helios Advisory MSA, owner + Helios Advisory, dated 2026-08-28"
+  draft:
+    - step: review_summary
+      text: "What you're signing: a master services agreement with Helios Advisory covering a brand strategy engagement, 12-month term, net-30. Red flags: Uncapped indemnity (critical) — clause 7 makes you liable for any and all damages with no cap; push back with liability capped at fees paid. Have a licensed attorney look at this clause before you respond. Salt isn't a lawyer and this isn't legal advice. REVIEW_OUTCOME: FLAGS — 1 critical"
+    - step: pushback_email
+      text: "Hi Dana — thanks for sending the MSA over. Before I sign, one change: clause 7 caps liability at the fees paid under the agreement. Happy to talk it through. Best regards, Gabriella"
+expect:
+  status: paused
+  pausedOnTool: GMAIL_SEND_EMAIL
+  steps:
+    file_context: success
+    read_contract: success
+    # The pause propagates: branch results collapse to the paused step, and
+    # the main loop flattens one level of nested results.
+    review_summary: success
+    send_pushback: paused
+  # The legal posture lives in the prompt — these assertions fail if a
+  # future edit quietly drops it. Needles must appear verbatim in
+  # definition.yaml (watch YAML line wraps).
+  promptIncludes:
+    - "Salt isn't a lawyer and this isn't legal advice."
+    - "licensed attorney"
+    - "nothing to worry about"

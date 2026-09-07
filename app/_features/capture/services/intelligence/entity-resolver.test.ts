@@ -9,7 +9,12 @@ const BASE_ENTITIES: KnownWorkspaceEntities = {
   orgs: [{ id: "org-1", name: "Manna House", domain: "mannahouse.org" }],
   works: [{ id: "work-1", name: "Site Strategy" }],
   people: [
-    { id: "person-1", name: "Liam Chen", email: "liam@clientstudio.com" },
+    {
+      id: "person-1",
+      name: "Liam Chen",
+      email: "liam@clientstudio.com",
+      emails: ["liam@clientstudio.com"],
+    },
   ],
   meetingCaptures: [
     {

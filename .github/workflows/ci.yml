@@ -43,6 +43,9 @@ jobs:
       - name: Run unit tests
         run: pnpm test
 
+      - name: Validate playbook packages
+        run: pnpm playbooks:validate
+
       - name: Run TypeScript check
         run: pnpm typecheck
 

@@ -36,7 +36,7 @@ export type PlaybookSection =
   | "notes"
   | "communication";
 
-export type PlaybookTriggerType = "signal" | "schedule" | "manual";
+export type PlaybookTriggerType = "signal" | "schedule" | "manual" | "record_condition";
 
 export interface PlaybookSignalTrigger {
   type: "signal";
@@ -51,22 +51,54 @@ export interface PlaybookSignalTrigger {
    * Default: 70 for act-layer, uses workspace threshold for learn-layer.
    */
   confidence_threshold?: number;
+  /**
+   * Settings keys rendered as trigger adjustments in the UI (e.g.
+   * invoice-reminder declares `grace_days` → "Wait [0] days after the due
+   * date"). Keeps the trigger section generic across playbooks.
+   */
+  adjust?: string[];
 }
 
 export interface PlaybookScheduleTrigger {
   type: "schedule";
   cron: string;
   timezone?: string;
+  /** Settings keys rendered as trigger adjustments in the UI. */
+  adjust?: string[];
 }
 
 export interface PlaybookManualTrigger {
   type: "manual";
+  /** Settings keys rendered as trigger adjustments in the UI. */
+  adjust?: string[];
+}
+
+/** Entity vocabulary for record-condition triggers (registry entityTypes). */
+export type RecordConditionEntity = "billing" | "work" | "person" | "org" | "resource";
+
+export type RecordConditionOp = "eq" | "neq" | "gt" | "lt" | "contains";
+
+/**
+ * User-authorable "when a record field matches" trigger (Phase 5). Fires on
+ * field writes and on the 2h scanner sweep; deterministic, unmetered.
+ * `field` is a memory field-registry key for the entity (e.g. person
+ * "relationshipType", billing "status").
+ */
+export interface PlaybookRecordConditionTrigger {
+  type: "record_condition";
+  entity: RecordConditionEntity;
+  field: string;
+  op: RecordConditionOp;
+  value: string;
+  /** Settings keys rendered as trigger adjustments in the UI. */
+  adjust?: string[];
 }
 
 export type PlaybookTrigger =
   | PlaybookSignalTrigger
   | PlaybookScheduleTrigger
-  | PlaybookManualTrigger;
+  | PlaybookManualTrigger
+  | PlaybookRecordConditionTrigger;
 
 export interface PlaybookRequirements {
   categories?: {
@@ -161,6 +193,7 @@ export interface PlaybookFetchStep {
   groupBy?: string[];
   having?: Record<string, unknown>;
   optional?: boolean;
+  approval?: PlaybookStepApproval;
 }
 
 export interface PlaybookClassifyRule {
@@ -175,6 +208,7 @@ export interface PlaybookClassifyStep {
   forEach?: string;
   rules: PlaybookClassifyRule[];
   else?: string | Record<string, unknown>;
+  approval?: PlaybookStepApproval;
 }
 
 export interface PlaybookDraftStep {
@@ -184,6 +218,7 @@ export interface PlaybookDraftStep {
   /** Run the prompt once per item of the named source list ({{item.*}} in the prompt). */
   forEach?: string;
   max_tokens?: number;
+  approval?: PlaybookStepApproval;
 }
 
 export interface PlaybookBranchStep {
@@ -214,12 +249,30 @@ export interface PlaybookActionStep {
   approval?: PlaybookStepApproval;
 }
 
+/**
+ * Bounded agentic step: the model runs a tool-calling loop against only the
+ * step's `tools` allowlist (a subset of the definition's `tools`), capped at
+ * `max_calls` invocations, every call through the Composio execution gate.
+ * No mid-loop pause — a denied call comes back to the model as a tool error.
+ */
+export interface PlaybookAgentStep {
+  step: "agent";
+  id: string;
+  prompt: string;
+  tools: string[];
+  /** Hard ceiling on tool invocations per run of this step. Default 5, max 10. */
+  max_calls?: number;
+  max_tokens?: number;
+  approval?: PlaybookStepApproval;
+}
+
 export type PlaybookStep =
   | PlaybookFetchStep
   | PlaybookClassifyStep
   | PlaybookDraftStep
   | PlaybookBranchStep
-  | PlaybookActionStep;
+  | PlaybookActionStep
+  | PlaybookAgentStep;
 
 export interface PlaybookExample {
   label: string;
@@ -267,6 +320,23 @@ export interface PlaybookOutput {
 export interface PlaybookValueModel {
   kind: string;
   estimate?: number;
+}
+
+/**
+ * User-tunable knob declared by the playbook. Prompts and classify rules
+ * interpolate `{{settings.key}}`; the executor resolves `value ?? default`.
+ * `value` is the workspace override written by fork-on-edit — `default`
+ * stays the Salt-shipped baseline so a later reset is meaningful.
+ *
+ * `label` is a display template: `{value}` marks where the input renders
+ * (e.g. "Wait {value} days after the due date").
+ */
+export interface PlaybookSettingField {
+  type: "number" | "text" | "select";
+  label: string;
+  default: string | number | boolean;
+  options?: string[];
+  value?: string | number | boolean;
 }
 
 export interface SectionMetadata {
@@ -317,6 +387,8 @@ export interface PlaybookDefinitionV2 {
   requirements?: PlaybookRequirements;
   output: PlaybookOutput;
   value?: PlaybookValueModel;
+  /** User-tunable knobs; interpolated as `{{settings.key}}`. */
+  settings?: Record<string, PlaybookSettingField>;
 
   /* ── Memory playbook (layer: learn) ── */
   policy?: PlaybookMemoryPolicy;
@@ -341,6 +413,11 @@ export interface ParsedPlaybookV2 {
   definition: PlaybookDefinitionV2;
   sectionMeta: SectionMetadata | null;
   validationErrors: PlaybookValidationError[];
+  /**
+   * Non-fatal authoring guidance (e.g. cross-section signal triggers on
+   * user forks). Never blocks saving or execution.
+   */
+  validationWarnings?: PlaybookValidationError[];
 
   /** Package directory path if this is a directory-based playbook */
   packagePath?: string;
@@ -385,7 +462,7 @@ export const SALT_PROVIDED_VOICES: VoiceProfile[] = [
     instructions: `Be direct about amounts and dates.
 Use polite but firm language.
 Keep messages under 150 words.`,
-    sign_off: "Best regards",
+    sign_off: "Best regards,",
     workspace_id: null,
   },
   {
@@ -396,7 +473,7 @@ Keep messages under 150 words.`,
     instructions: `Use contractions.
 Reference something specific from last contact.
 Keep it brief, no pressure.`,
-    sign_off: "Cheers",
+    sign_off: "Cheers,",
     workspace_id: null,
   },
   {

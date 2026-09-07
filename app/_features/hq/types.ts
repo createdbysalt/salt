@@ -42,7 +42,7 @@ export type HqConnectorHealthData = {
 /** Auto-created record from evidence accumulation (P6: births without queues). */
 export type HqCreatedTodayItem = {
   id: string;
-  entityType: "person" | "organization" | "work" | "billing" | "file" | "meeting";
+  entityType: "person" | "organization" | "work" | "billing" | "file" | "meeting" | "resource";
   name: string;
   href: string;
   signalCount: number;

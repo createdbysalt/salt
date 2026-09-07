@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/app/_lib/supabase/server";
 import { getTenantContext } from "@/app/_lib/tenancy/context";
 import { requireWorkspaceMember } from "@/app/_lib/tenancy/guards";
+import { constrainPlaybookAppSelections } from "@/app/_features/plays/lib/playbook-email-slot";
 
 async function getWorkspaceId(): Promise<string> {
   const { context } = await getTenantContext();
@@ -86,4 +87,103 @@ export async function getPlaybookEnabledState(
     .maybeSingle();
 
   return data?.enabled ?? true;
+}
+
+function parseProviderList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return constrainPlaybookAppSelections(
+    value.filter((item): item is string => typeof item === "string")
+  );
+}
+
+export async function getPlaybookAppSelections(
+  playbookSlug: string
+): Promise<string[]> {
+  const workspaceId = await getWorkspaceId();
+  const supabase = await createClient();
+
+  const { data } = await supabase
+    .from("profile_playbook_settings")
+    .select("app_selections")
+    .eq("workspace_id", workspaceId)
+    .eq("blueprint_slug", playbookSlug)
+    .maybeSingle();
+
+  return parseProviderList(data?.app_selections);
+}
+
+export async function getPlaybookAppSelectionsMap(
+  playbookSlugs: string[]
+): Promise<Record<string, string[]>> {
+  if (playbookSlugs.length === 0) return {};
+
+  const workspaceId = await getWorkspaceId();
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("profile_playbook_settings")
+    .select("blueprint_slug, app_selections")
+    .eq("workspace_id", workspaceId)
+    .in("blueprint_slug", playbookSlugs);
+
+  // Map + fromEntries: blueprint_slug is stored data, so plain object
+  // writes would open a prototype-pollution path on slugs like __proto__.
+  const map = new Map<string, string[]>();
+  for (const slug of playbookSlugs) map.set(slug, []);
+  for (const row of data ?? []) {
+    map.set(row.blueprint_slug as string, parseProviderList(row.app_selections));
+  }
+  return Object.fromEntries(map);
+}
+
+async function writePlaybookAppSelections(
+  playbookSlug: string,
+  next: string[]
+): Promise<{ success: boolean; error?: string }> {
+  next = constrainPlaybookAppSelections(next);
+  const workspaceId = await getWorkspaceId();
+  const supabase = await createClient();
+  const { error } = await supabase.from("profile_playbook_settings").upsert(
+    {
+      workspace_id: workspaceId,
+      blueprint_slug: playbookSlug,
+      app_selections: next,
+    },
+    { onConflict: "workspace_id,blueprint_slug" }
+  );
+  if (error) return { success: false, error: error.message };
+  revalidatePath(`/plays/playbooks/${playbookSlug}`);
+  revalidatePath("/plays");
+  return { success: true };
+}
+
+export async function addPlaybookApp(
+  playbookSlug: string,
+  provider: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const current = await getPlaybookAppSelections(playbookSlug);
+    return await writePlaybookAppSelections(
+      playbookSlug,
+      constrainPlaybookAppSelections([...current, provider])
+    );
+  } catch (err) {
+    console.error("addPlaybookApp error:", err);
+    return { success: false, error: "Failed to add app" };
+  }
+}
+
+export async function removePlaybookApp(
+  playbookSlug: string,
+  provider: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const current = await getPlaybookAppSelections(playbookSlug);
+    return await writePlaybookAppSelections(
+      playbookSlug,
+      current.filter((item) => item !== provider)
+    );
+  } catch (err) {
+    console.error("removePlaybookApp error:", err);
+    return { success: false, error: "Failed to remove app" };
+  }
 }

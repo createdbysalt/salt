@@ -1,0 +1,177 @@
+# Lead Follow-Up
+# When a new lead lands in Memory, Salt verifies they're real and
+# unanswered, then drafts a warm first follow-up matched to how they
+# arrived. ACT layer — the human Send sends the email, never Salt.
+
+name: Lead Follow-Up
+slug: lead-follow-up
+version: 1.0.0
+description: Draft a warm first follow-up when a new lead comes in — verified they haven't been answered yet, matched to how they found you
+
+section: relationships
+layer: act
+voice: follow-up
+
+trigger:
+  type: signal
+  signal: person_created
+  surface: person
+  adjust:
+    - cooldown_days
+
+# User-tunable knobs. Referenced as {{settings.key}} in prompts and
+# classify rules; the Overview trigger section renders `adjust` keys.
+settings:
+  cooldown_days:
+    type: number
+    label: "Skip if you already emailed them in the last {value} days"
+    default: 7
+  hot_window_days:
+    type: number
+    label: "Treat leads less than {value} days old as hot"
+    default: 2
+
+requirements:
+  categories:
+    required:
+      - email
+
+# Tool allowlist (single-document canon). Authored against Gmail slugs; at
+# runtime the email pair swaps to Outlook when that inbox is the one added
+# on Overview.
+tools:
+  - GMAIL_FETCH_EMAILS
+  - GMAIL_CREATE_EMAIL_DRAFT
+  - GMAIL_SEND_EMAIL
+
+steps:
+  # Step 1: The new person with relationship context — from Salt's own
+  # Memory, not a connector.
+  - step: fetch
+    id: lead_context
+    from: memory.person_context
+    approval: auto
+
+  # Step 2: Verify before we draft anything. A new person record is not
+  # automatically a lead — clients, vendors, and family land in Memory too.
+  # Bounded read-only agent; ends with a machine-checkable verdict line.
+  - step: agent
+    id: verify_lead
+    prompt: |
+      A new person landed in Memory:
+      {{lead_context}}
+
+      Verify before we draft anything:
+      1. Check the relationship type. Only prospects and leads get a
+         follow-up — existing clients, vendors, collaborators, and
+         personal contacts → SKIP.
+      2. Search the connected inbox (GMAIL_FETCH_EMAILS) for threads with
+         this person's email. If the owner already replied to them, or
+         any email to them went out in the last
+         {{settings.cooldown_days}} days → SKIP. A second hello reads as
+         a robot.
+      3. If the person has no email address on file → SKIP and say so;
+         there is nothing to draft to.
+      4. If the email domain is a known vendor or a personal-address
+         provider and nothing about them reads as a buyer → SKIP.
+      5. If the inbox lookup fails, say what you could not verify and
+         lean toward PROCEED — a human reviews every draft before
+         anything sends.
+
+      End your answer with exactly one verdict line:
+      "VERDICT: PROCEED — <how they arrived, any thread context>"
+      or
+      "VERDICT: SKIP — <one-line reason>"
+    tools:
+      - GMAIL_FETCH_EMAILS
+    max_calls: 4
+    approval: auto
+
+  # Steps 3-5 run only when verification says the follow-up should exist.
+  - step: branch
+    id: maybe_follow_up
+    if: "verify_lead.text ~= 'VERDICT: PROCEED'"
+    steps:
+      # Step 3: Warmth tier — how they arrived and how fresh they are
+      # shapes the ask.
+      - step: classify
+        id: warmth
+        input: lead_context
+        rules:
+          - if: "has_calendar_meeting == true"
+            then: hot
+        else: warm
+        approval: auto
+
+      # Step 4: The follow-up itself — short, specific, one ask.
+      - step: draft
+        id: follow_up_email
+        prompt: |
+          Draft a first follow-up email to this new lead.
+
+          Lead context: {{lead_context}}
+          Verification: {{verify_lead}}
+          Warmth tier: {{warmth}}
+
+          Tone by tier:
+          - hot: they booked time or just reached out — confirm, add one
+            useful thought, make the next step obvious.
+          - warm: they inquired but nothing is booked — thank them,
+            reference what they asked about, offer a call.
+
+          Rules:
+          - Reference how they found the owner or what they asked about —
+            never a generic "thanks for reaching out".
+          - One ask per email. A question or a proposed call, not both.
+          - Under 120 words. No markdown, no bullet lists, no Subject
+            line in the body (the subject is set separately).
+          - Sign off with the owner's name on the next line — never leave
+            a hanging "Best,".
+        max_tokens: 300
+        approval: auto
+
+      # Step 5: Send waits for the human. Nothing leaves the inbox
+      # without approval.
+      - step: action
+        id: send_follow_up
+        tool: GMAIL_SEND_EMAIL
+        args:
+          recipient_email: "{{lead_context.email}}"
+          subject: "Following up"
+          body: "{{follow_up_email}}"
+        approval: ask
+
+output:
+  type: email_draft
+  approval: ask
+
+value:
+  kind: lead_converted
+  estimate: 75
+
+instructions:
+  system: |
+    You draft first follow-ups for a solo business owner's new leads.
+    Speed matters — leads go cold in days — but so does not being a
+    robot: every draft waits for the owner to review and send, and a lead
+    who has already been answered never gets a second hello.
+
+  guidelines:
+    - "Verify the person is actually a lead before drafting — new records include clients, vendors, and friends"
+    - "Check the inbox before drafting — never send a first hello to someone already in a thread"
+    - "Reference how they arrived or what they asked about — specificity is what makes it human"
+    - "One ask per email — a question or a call, not a menu"
+
+  avoid:
+    - "Following up with existing clients or vendors as if they were leads"
+    - "Double-messaging someone the owner already replied to"
+    - "Generic openers ('I hope this finds you well') and pushy sales language"
+    - "Drafting to someone with no email address on file"
+
+  examples:
+    - label: "Hot inbound, call booked"
+      content: "New person, calendar meeting already on the books → hot — short confirm-and-prepare note referencing their project question"
+    - label: "Warm inquiry, no call"
+      content: "Emailed about a brand refresh, no meeting → warm — thanks them, references the refresh, offers a 20-minute call"
+    - label: "Already answered"
+      content: "New record but the owner replied yesterday → SKIP — no draft, no queue card"

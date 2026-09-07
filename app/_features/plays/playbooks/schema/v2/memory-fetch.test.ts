@@ -217,4 +217,272 @@ describe("memory-fetch", () => {
       ).rejects.toThrow("no unresolved blocker");
     });
   });
+
+  describe("billing_record_context", () => {
+    function mockBillingQueries(input: {
+      record: Record<string, unknown> | null;
+      person?: Record<string, unknown> | null;
+      history?: unknown[];
+    }) {
+      const recordMaybeSingle = vi
+        .fn()
+        .mockResolvedValue({ data: input.record, error: null });
+      const personMaybeSingle = vi
+        .fn()
+        .mockResolvedValue({ data: input.person ?? null, error: null });
+      let billingCall = 0;
+      fromMock.mockImplementation((table: string) => {
+        if (table === "billing_records") {
+          billingCall++;
+          if (billingCall === 1) {
+            return {
+              select: () => ({
+                eq: () => ({
+                  eq: () => ({ maybeSingle: recordMaybeSingle }),
+                }),
+              }),
+            };
+          }
+          // History query: select → eq(workspace) → eq(direction) → eq(person) awaited
+          return {
+            select: () => ({
+              eq: () => ({
+                eq: () => ({
+                  eq: vi.fn().mockResolvedValue({
+                    data: input.history ?? [],
+                    error: null,
+                  }),
+                }),
+              }),
+            }),
+          };
+        }
+        if (table === "people") {
+          return {
+            select: () => ({
+              eq: () => ({ maybeSingle: personMaybeSingle }),
+            }),
+          };
+        }
+        throw new Error(`unexpected table ${table}`);
+      });
+    }
+
+    const overdueRecord = {
+      id: "br-1",
+      number: "INV-104",
+      status: "overdue",
+      amount_cents: 200000,
+      amount_paid_cents: 50000,
+      currency: "usd",
+      due_at: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+      person_id: "p-1",
+      organization_id: null,
+      app_url: "https://invoice.stripe.com/i/acct_test/in_104",
+    };
+
+    it("returns invoice, client, payment history, and open invoices", async () => {
+      mockBillingQueries({
+        record: overdueRecord,
+        person: { id: "p-1", name: "Dana", email: "dana@acme.com" },
+        history: [
+          {
+            id: "br-1",
+            number: "INV-104",
+            status: "overdue",
+            amount_cents: 200000,
+            amount_paid_cents: 50000,
+            due_at: overdueRecord.due_at,
+            paid_at: null,
+            app_url: "https://invoice.stripe.com/i/acct_test/in_104",
+          },
+          {
+            id: "br-0",
+            number: "INV-100",
+            status: "paid",
+            amount_cents: 100000,
+            amount_paid_cents: 100000,
+            due_at: "2026-06-01T00:00:00Z",
+            paid_at: "2026-05-30T00:00:00Z", // paid before due → on time
+          },
+          {
+            id: "br-2",
+            number: "INV-102",
+            status: "paid",
+            amount_cents: 80000,
+            amount_paid_cents: 80000,
+            due_at: "2026-07-01T00:00:00Z",
+            paid_at: "2026-07-15T00:00:00Z", // paid after due → late
+          },
+        ],
+      });
+
+      const result = (await fetchMemorySource(
+        "ws-1",
+        "billing_record_context",
+        undefined,
+        { entityId: "br-1", entitySurface: "billing" }
+      )) as {
+        invoice: Record<string, unknown>;
+        client: Record<string, unknown>;
+        payment_history: { on_time: number; late: number };
+        open_invoices: Array<Record<string, unknown>>;
+      };
+
+      expect(result.invoice.number).toBe("INV-104");
+      expect(result.invoice.amount_remaining_cents).toBe(150000);
+      expect(result.invoice.days_overdue).toBe(10);
+      expect(result.invoice.pay_url).toBe(
+        "https://invoice.stripe.com/i/acct_test/in_104"
+      );
+      expect(result.client).toMatchObject({
+        name: "Dana",
+        email: "dana@acme.com",
+        kind: "person",
+      });
+      expect(result.payment_history).toEqual({ on_time: 1, late: 1 });
+      // Only the overdue invoice is open; paid ones are excluded.
+      expect(result.open_invoices).toHaveLength(1);
+      expect(result.open_invoices[0]).toMatchObject({
+        number: "INV-104",
+        amount_remaining_cents: 150000,
+        pay_url: "https://invoice.stripe.com/i/acct_test/in_104",
+      });
+    });
+
+    it("throws without a billing entity in the trigger context", async () => {
+      await expect(
+        fetchMemorySource("ws-1", "billing_record_context", undefined, {})
+      ).rejects.toThrow("requires a billing entity");
+    });
+
+    it("throws when the record is not in the workspace", async () => {
+      mockBillingQueries({ record: null });
+
+      await expect(
+        fetchMemorySource("ws-1", "billing_record_context", undefined, {
+          entityId: "br-404",
+          entitySurface: "billing",
+        })
+      ).rejects.toThrow("not found");
+    });
+  });
+
+  describe("file_context", () => {
+    function mockFileQueries(input: {
+      file: Record<string, unknown> | null;
+      person?: Record<string, unknown> | null;
+      org?: Record<string, unknown> | null;
+    }) {
+      const fileMaybeSingle = vi
+        .fn()
+        .mockResolvedValue({ data: input.file, error: null });
+      const personMaybeSingle = vi
+        .fn()
+        .mockResolvedValue({ data: input.person ?? null, error: null });
+      const orgMaybeSingle = vi
+        .fn()
+        .mockResolvedValue({ data: input.org ?? null, error: null });
+      fromMock.mockImplementation((table: string) => {
+        if (table === "resources") {
+          return {
+            select: () => ({
+              eq: () => ({
+                eq: () => ({
+                  is: () => ({ maybeSingle: fileMaybeSingle }),
+                }),
+              }),
+            }),
+          };
+        }
+        if (table === "people") {
+          return {
+            select: () => ({
+              eq: () => ({ maybeSingle: personMaybeSingle }),
+            }),
+          };
+        }
+        if (table === "organizations") {
+          return {
+            select: () => ({
+              eq: () => ({ maybeSingle: orgMaybeSingle }),
+            }),
+          };
+        }
+        throw new Error(`unexpected table ${table}`);
+      });
+    }
+
+    const contractFile = {
+      id: "f-1",
+      file_name: "Acme MSA 2026.pdf",
+      category: "contract",
+      document_type: "msa",
+      description: "Master services agreement with Acme",
+      ai_summary: "MSA between the operator and Acme Corp, net-30, 12-month term",
+      external_url: "https://drive.google.com/file/d/abc",
+      provider: "google_drive",
+      signed_date: null,
+      person_id: "p-1",
+      organization_id: "o-1",
+    };
+
+    it("returns the file with counterparty person and org", async () => {
+      mockFileQueries({
+        file: contractFile,
+        person: { id: "p-1", name: "Dana", email: "dana@acme.com" },
+        org: { id: "o-1", name: "Acme Corp" },
+      });
+
+      const result = (await fetchMemorySource(
+        "ws-1",
+        "file_context",
+        undefined,
+        { entityId: "f-1", entitySurface: "resource" }
+      )) as Record<string, unknown>;
+
+      expect(result.file_name).toBe("Acme MSA 2026.pdf");
+      expect(result.category).toBe("contract");
+      expect(result.document_type).toBe("msa");
+      expect(result.provider).toBe("google_drive");
+      expect(result.counterparty).toMatchObject({
+        name: "Dana",
+        email: "dana@acme.com",
+      });
+      expect(result.counterparty_org).toMatchObject({ name: "Acme Corp" });
+    });
+
+    it("returns null counterparties for an unlinked file", async () => {
+      mockFileQueries({
+        file: { ...contractFile, person_id: null, organization_id: null },
+      });
+
+      const result = (await fetchMemorySource(
+        "ws-1",
+        "file_context",
+        undefined,
+        { entityId: "f-1", entitySurface: "resource" }
+      )) as Record<string, unknown>;
+
+      expect(result.counterparty).toBeNull();
+      expect(result.counterparty_org).toBeNull();
+    });
+
+    it("throws without a resource entity in the trigger context", async () => {
+      await expect(
+        fetchMemorySource("ws-1", "file_context", undefined, {})
+      ).rejects.toThrow("requires a resource entity");
+    });
+
+    it("throws when the file is not in the workspace", async () => {
+      mockFileQueries({ file: null });
+
+      await expect(
+        fetchMemorySource("ws-1", "file_context", undefined, {
+          entityId: "f-404",
+          entitySurface: "resource",
+        })
+      ).rejects.toThrow("not found");
+    });
+  });
 });

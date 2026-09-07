@@ -1,0 +1,34 @@
+# Happy path: healthy cash position → brief ships with no risk flags.
+id: healthy-cash
+name: Strong balance and confirmed receivables → healthy brief
+given:
+  fetch:
+    cash_position:
+      balance_cents: 1840000
+      weekly_burn_cents: 210000
+    upcoming_receivables:
+      total_cents: 430000
+      invoices:
+        - client: Acme Co
+          amount_cents: 250000
+          due_in_days: 4
+        - client: Brand Studio
+          amount_cents: 180000
+          due_in_days: 9
+    recent_payments:
+      total_cents: 320000
+  agent:
+    - step: verify_outlook
+      text: "Balance confirmed at $18,400 via Stripe. Both receivables open and collectible. Runway 8.7 weeks. Payroll on day 1 is covered.\nVERDICT: HEALTHY — 8.7 weeks runway, payroll covered"
+  draft:
+    - step: cash_brief
+      text: "Runway: 8.7 weeks at current burn ($18,400 balance, ~$2,100/week). Coming in: Acme Co $2,500 (Thursday), Brand Studio $1,800 (next Tuesday)…"
+expect:
+  status: success
+  outputCount: 1
+  steps:
+    cash_position: success
+    upcoming_receivables: success
+    recent_payments: success
+    verify_outlook: success
+    cash_brief: success

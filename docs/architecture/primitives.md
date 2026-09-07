@@ -130,7 +130,7 @@ output:
 | Layer   | Purpose                       | Example                                                                 |
 | ------- | ----------------------------- | ----------------------------------------------------------------------- |
 | `learn` | Enrich Memory (not playbooks) | [Memory Care](memory-care.md) — records / hygiene / connections / notes |
-| `act`   | Take actions, create outputs  | invoice-reminder, daily-briefing                                        |
+| `act`   | Take actions, create outputs  | invoice-reminder, follow-up                                        |
 
 Playbooks are **act-layer only**. Learn-layer Memory enrichment is Memory Care.
 
@@ -194,7 +194,7 @@ Salt uses **confidence-based execution** for Memory writes (tiered bars, not an 
 └─────────────────────────────────────────────────────────┘
 ```
 
-**Threshold** is `workspaces.memory_care_auto_apply_threshold` (default 85%). Sensitive and destructive tiers raise the floor to 95. See [Memory Care](memory-care.md) and `app/_lib/learning/field-tiers.ts`.
+**Threshold** is `workspaces.memory_care_auto_apply_threshold` (default 85%). One user-controlled bar for every gated field — tiers never raise it. See [Memory Care](memory-care.md) and `app/_lib/learning/field-tiers.ts`.
 
 Act-layer plays (anything leaving Salt) still require Plays Queue approval — that is where approval belongs.
 
@@ -207,7 +207,8 @@ Act-layer plays (anything leaving Salt) still require Plays Queue approval — t
 | React to an event                | Signal → Care or Playbook               | Payment → Care records; celebration → playbook        |
 | Perform an action                | Tool (via Care, Playbook, or Ask Salt)  | `memory_update_field`, `draft_email`                  |
 | Enrich Memory                    | Memory Care                             | records / hygiene / connections / notes               |
-| Create reusable act intelligence | Playbook                                | invoice-reminder, daily-briefing                      |
+| Create reusable act intelligence | Playbook                                | invoice-reminder, follow-up                           |
+| Draft the weekday morning summary | HQ daily briefing                       | `hq_daily_briefings` via `/api/cron/daily-briefing`   |
 | Enrich entity data               | `enrich_entity` tool                    | Query connected accounts for person info              |
 | Ensure consistent voice          | Playbook `instructions` / draft prompts | Voice guidance inline (voice tools are future design) |
 | See what Salt is learning        | Memory → Filter                         | Watching / Handled / Kept out                         |
@@ -228,7 +229,7 @@ Act-layer plays (anything leaving Salt) still require Plays Queue approval — t
 │      MEMORY CARE          │    │         PLAYBOOKS            │
 │  Learn-layer enrichment   │    │  Act-layer orchestration     │
 │  records / hygiene /      │    │  invoice-reminder,           │
-│  connections / notes      │    │  daily-briefing              │
+│  connections / notes      │    │  follow-up                   │
 └───────────────┬───────────┘    └──────────────┬───────────────┘
                 │                               │
                 └───────────────┬───────────────┘

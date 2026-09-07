@@ -64,6 +64,22 @@ function isHoldableEmail(envelope: CaptureEnvelope): boolean {
   return extracted?.isSentByUser !== true;
 }
 
+/**
+ * Account-scoped capture types: payments, files, notes, and meetings are
+ * facts from the operator's own connected accounts — there is no meaningful
+ * "sender" to score, so the email admission gate would zero them into noise
+ * and skip evidence entirely. They bypass admission and default to
+ * candidate (evidence-eligible). Explicit rules (deny/allow), the calendar
+ * keep-out, pre-ingest spam drops, and the known-entity fast track all
+ * still apply before this point.
+ */
+const ACCOUNT_SCOPED_CAPTURE_TYPES = new Set([
+  "payment",
+  "file",
+  "note",
+  "meeting",
+]);
+
 export interface GatePipelineInput {
   workspaceId: string;
   userEmail: string | null;
@@ -194,6 +210,14 @@ export async function runGatePipeline(input: GatePipelineInput): Promise<GatePip
     return result;
   }
   result.passedGates.push("known-entity");
+
+  // Account-scoped captures bypass the email admission gate — an unknown
+  // "sender" on your own invoice, file, note, or meeting is meaningless.
+  if (ACCOUNT_SCOPED_CAPTURE_TYPES.has(envelope.captureType)) {
+    result.finalAction = "candidate";
+    result.shouldIngest = true;
+    return result;
+  }
 
   const { threadId, youInitiated, isReply } = extractAdmissionSignals(
     envelope.extracted as Record<string, unknown>

@@ -37,6 +37,28 @@ describe("toBillingDetailViewModel", () => {
     expect(view.summary).toContain("Northstar Printing");
   });
 
+  it("attributes Salt-found email records to Salt, not the user", () => {
+    const saltFound = {
+      ...billingRecordFixtures.manualPdf,
+      origin: "found" as const,
+      source: "salt_inferred" as const,
+    };
+    const view = toBillingDetailViewModel(saltFound);
+
+    expect(view.sourceLabel).toBe("Found by Salt");
+    expect(view.originLabel).toBe("Found by Salt");
+  });
+
+  it("attributes salt_inferred records without a found origin to Salt", () => {
+    const saltAdded = {
+      ...billingRecordFixtures.manualPdf,
+      source: "salt_inferred" as const,
+    };
+    const view = toBillingDetailViewModel(saltAdded);
+
+    expect(view.sourceLabel).toBe("Added by Salt");
+  });
+
   it("builds receivable and payable summaries", () => {
     const invoiceSummary = buildBillingSummary(billingRecordFixtures.stripeInvoice, 480000);
     expect(invoiceSummary).toContain("INV-2041");

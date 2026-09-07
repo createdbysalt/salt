@@ -32,6 +32,7 @@ import {
   getWritePolicy,
 } from "./field-registry";
 import { isNeverTouchField } from "@/app/_lib/learning/field-tiers";
+import { MEMORY_TOOL_FIELD_MAPS } from "@/app/_lib/memory-tools/update-field";
 import {
   MEMORY_CUSTOMIZE_ENTITY_TYPES,
   defaultGuidanceForType,
@@ -240,6 +241,40 @@ describe("registry parity: Customize card covers every field", () => {
       expect(duplicated, "labels rendering in multiple groups").toEqual([]);
     }
   );
+});
+
+describe("registry parity: care_auto fields resolve in memory-tools", () => {
+  // A care_auto field whose dbColumn is missing from the tool's field map
+  // throws "Unknown <entity> field" AFTER the evidence row is parked —
+  // stranding the proposal in Watching forever (record_status, 2026-09).
+  // care_ask fields are excluded: they surface as suggestions and several
+  // write through dedicated paths (tags, reference links).
+  const ROUTE_KEY: Record<string, string> = {
+    person: "person",
+    org: "organization",
+    work: "work",
+    billing: "billing",
+    meeting: "meeting",
+    resource: "resource",
+    me: "me",
+  };
+
+  it("every care_auto field with a dbColumn resolves in the tool field map", () => {
+    const gaps = ALL_CONTRACT_FIELDS.filter(
+      (field) =>
+        !field.isReadonly &&
+        getWritePolicy(field) === "care_auto" &&
+        Boolean(field.dbColumn)
+    ).filter((field) => {
+      const map = MEMORY_TOOL_FIELD_MAPS[ROUTE_KEY[field.entityType]];
+      if (!map) return true;
+      return !(map[field.dbColumn as string] || map[field.key]);
+    });
+
+    expect(
+      gaps.map((f) => `${f.entityType}.${f.key} (dbColumn: ${f.dbColumn})`)
+    ).toEqual([]);
+  });
 });
 
 describe("registry parity: reference fields are connections", () => {

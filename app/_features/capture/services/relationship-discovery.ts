@@ -171,7 +171,7 @@ export function evaluatePromotion(
 // DB access
 // ============================================================================
 
-async function fetchHeldRows(
+export async function fetchHeldRows(
   workspaceId: string,
   cutoffIso: string
 ): Promise<HeldRow[]> {
@@ -243,7 +243,7 @@ async function fetchOrgDomains(workspaceId: string): Promise<Set<string>> {
 }
 
 /** Release a promoted sender's held rows into the stream as candidates. */
-async function releaseHeldCaptures(captureIds: string[]): Promise<number> {
+export async function releaseHeldCaptures(captureIds: string[]): Promise<number> {
   if (captureIds.length === 0) return 0;
   const admin = createAdminClient();
   const { error } = await admin

@@ -7,13 +7,13 @@ export type SaveUserPlaybookResult =
   | { ok: false; message: string; errorId?: string };
 
 /**
- * DEPRECATED: User playbook creation is not yet supported in v2.
+ * DEPRECATED: v1 user playbook drafts (PlayDefinition-shaped) are not
+ * supported in v2.
  *
- * v1 playbooks used database-stored blueprints and play_templates.
- * v2 playbooks are filesystem-based (definition.yaml).
- *
- * This action is retained to avoid breaking the UI during the transition.
- * User-created playbooks will be re-implemented using the v2 system.
+ * The v2 write path now exists — see `save-playbook-definition.ts`
+ * (Zod-validated save into `playbook_definitions`). What remains is the
+ * authoring UI: this Ask Salt draft card still produces v1-shaped drafts,
+ * so it keeps failing soft until the card emits a v2 definition.
  */
 export async function saveUserPlaybookAction(
   _draft: UserPlaybookDraft,

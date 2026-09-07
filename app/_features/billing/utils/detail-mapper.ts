@@ -27,8 +27,17 @@ export const BILLING_STATUS_TONE: Record<BillingStatus, string> = {
 };
 
 function sourceLabel(record: BillingRecord): string {
-  if (record.origin === "added") return "Added by user";
-  return `Found in ${getBillingProviderDisplay(record.provider).label}`;
+  if (record.origin === "found") {
+    // Provider "manual" + origin "found" = Salt found it in email/capture,
+    // not in a connected finance app.
+    return record.provider === "manual"
+      ? "Found by Salt"
+      : `Found in ${getBillingProviderDisplay(record.provider).label}`;
+  }
+  if (record.source === "salt_inferred" && !record.sourceReclassifiedAsManual) {
+    return "Added by Salt";
+  }
+  return "Added by user";
 }
 
 function originLabel(record: BillingRecord): string {

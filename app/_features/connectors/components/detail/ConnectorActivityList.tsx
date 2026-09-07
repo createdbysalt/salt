@@ -146,38 +146,9 @@ export function ConnectorActivityList({
               {entry.status === "error" && friendlyError ? (
                 <p className="text-xs text-destructive">{friendlyError}</p>
               ) : null}
-              {/* Plain reason above; raw specifics tucked away for troubleshooting
-                  or reaching out for help — copy-pasteable, never shown by default. */}
-              {entry.status === "error" ? (
-                <details className="text-xs">
-                  <summary className="cursor-pointer text-muted-foreground transition-colors hover:text-foreground">
-                    Show details
-                  </summary>
-                  <dl className="mt-1.5 space-y-1 rounded-lg border border-border/50 bg-muted/30 p-2.5 text-muted-foreground">
-                    <div className="flex gap-2">
-                      <dt className="shrink-0 font-medium text-foreground/70">Tool</dt>
-                      <dd className="min-w-0 break-all font-mono text-[11px]">
-                        {entry.toolSlug}
-                      </dd>
-                    </div>
-                    {entry.argsSummary &&
-                    Object.keys(entry.argsSummary).length > 0 ? (
-                      <div className="flex gap-2">
-                        <dt className="shrink-0 font-medium text-foreground/70">Inputs</dt>
-                        <dd className="min-w-0 break-all font-mono text-[11px]">
-                          {JSON.stringify(entry.argsSummary)}
-                        </dd>
-                      </div>
-                    ) : null}
-                    {entry.error ? (
-                      <div className="flex gap-2">
-                        <dt className="shrink-0 font-medium text-foreground/70">Error</dt>
-                        <dd className="min-w-0 break-words text-[11px]">{entry.error}</dd>
-                      </div>
-                    ) : null}
-                  </dl>
-                </details>
-              ) : null}
+              {/* Raw tool slugs, inputs, and vendor error text are platform-ops
+                  detail — they stay in the activity_entries row for the
+                  founder, not in user UI. */}
             </div>
           </li>
         );

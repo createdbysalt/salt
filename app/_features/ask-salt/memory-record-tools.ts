@@ -27,6 +27,16 @@ import {
 } from "@/app/_features/memory/records/schemas";
 import type { RecordActionSlug } from "@/app/_features/memory/records/types";
 import type { RelationshipType } from "@/app/_features/memory/records/types";
+import {
+  getOperatorIdentity,
+  isOperatorDomain,
+  isOperatorEmail,
+  isOperatorName,
+  logOperatorRefusal,
+} from "@/app/_lib/identity/operator";
+
+const OPERATOR_SELF_MESSAGE =
+  "That's you — the operator of this workspace. You and your own business live in Me, not in People/Organizations. Use the Me tools (memory_create_me_fact / memory_find_me_facts) to record facts about yourself instead.";
 
 export interface BuildRecordActionDefinitionToolsOptions {
   workspaceId: string;
@@ -306,12 +316,10 @@ function toExistingPersonCandidates(value: unknown): ExistingPersonCandidate[] {
 
 async function buildCreatePersonDecision(
   workspaceId: string,
-  rawInput: unknown,
+  input: ReturnType<typeof normalizeCreatePersonInput>,
 ): Promise<{
-  input: ReturnType<typeof normalizeCreatePersonInput>;
   decision: RecordsDecision;
 }> {
-  const input = normalizeCreatePersonInput(rawInput as CreatePersonInputArgs | null | undefined);
   const recordsInput = {
     name: input.name,
     email: input.email,
@@ -328,7 +336,7 @@ async function buildCreatePersonDecision(
   const duplicates = resolveIdentity({ recordsInput, candidates });
   const decision = evaluateAdmission({ recordsInput, classification, duplicates });
 
-  return { input, decision };
+  return { decision };
 }
 
 async function applyPersonConnectionLinks(input: {
@@ -399,7 +407,23 @@ async function runPolicyAwareCreatePerson(
   userId: string | undefined,
   rawInput: unknown,
 ): Promise<unknown> {
-  const { input, decision } = await buildCreatePersonDecision(workspaceId, rawInput);
+  const input = normalizeCreatePersonInput(rawInput as CreatePersonInputArgs | null | undefined);
+
+  // Operator self-exclusion: the operator must never become a person record
+  // in their own Memory — redirect the model to the Me surface.
+  const operator = await getOperatorIdentity(workspaceId);
+  if (
+    isOperatorEmail(operator, input.email) ||
+    isOperatorName(operator, input.name)
+  ) {
+    logOperatorRefusal(
+      "ask-salt.memory_create_person",
+      `name="${input.name}" email="${input.email ?? ""}"`,
+    );
+    return { success: true, action: "operator_self", entity_type: "person", message: OPERATOR_SELF_MESSAGE };
+  }
+
+  const { decision } = await buildCreatePersonDecision(workspaceId, input);
 
   if (decision.action === "skip" || decision.action === "suggest_org") {
     return {
@@ -529,7 +553,27 @@ async function runPlayTool(
   if (slug === "system:create-person") {
     return runPolicyAwareCreatePerson(workspaceId, userId, input);
   } else if (slug === "system:create-org") {
-    playInput = normalizeCreateOrgInput(input as CreateOrgInputArgs);
+    const orgInput = normalizeCreateOrgInput(input as CreateOrgInputArgs);
+
+    // Operator self-exclusion: the operator's own business is the Me
+    // record, never an org in their own Memory.
+    const operator = await getOperatorIdentity(workspaceId);
+    if (
+      isOperatorDomain(operator, orgInput.domain) ||
+      isOperatorName(operator, orgInput.name)
+    ) {
+      logOperatorRefusal(
+        "ask-salt.memory_create_org",
+        `name="${orgInput.name}" domain="${orgInput.domain ?? ""}"`,
+      );
+      return {
+        success: true,
+        action: "operator_self",
+        entity_type: "organization",
+        message: OPERATOR_SELF_MESSAGE,
+      };
+    }
+    playInput = orgInput;
   }
 
   const result = await executeRecordAction(workspaceId, slug, playInput, userId);

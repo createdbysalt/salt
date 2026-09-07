@@ -7,7 +7,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * Storage captures (capture_type "file") previously got zero classification
  * — a contract in Drive died as "No action" in the stream. classifyFileCapture
  * applies the email classifier's document vocabulary to filenames so those
- * files enter the resource evidence lane (birth stays confirm-only).
+ * files enter the resource evidence lane. The synced file IS the document,
+ * so every detection rides with a `document_file_present` corroboration —
+ * a contract in Drive crosses the birth bar on first sync.
  * Proposal/SOW documents additionally emit the reserved work signal
  * `proposal_or_sow_attached` so the documented work birth story is real.
  */
@@ -75,9 +77,25 @@ describe("classifyFileCapture — resource document signals", () => {
     ["Acme quote august.pdf", "proposal_detected"],
     ["Creative Brief - Launch.pdf", "brief_detected"],
     ["Stripe receipt July.pdf", "receipt_detected"],
+    ["INV-1042.pdf", "invoice_document_detected"],
+    ["invoice-2026-08.pdf", "invoice_document_detected"],
+    ["Meeting Notes - Kickoff.docx", "meeting_notes_detected"],
+    ["call recap aug 28.pdf", "meeting_notes_detected"],
   ])("detects %s as %s", (fileName, signal) => {
     const signals = classifyFileCapture({ ...baseFile, fileName });
     expect(signals.some((s) => s.entityType === "resource" && s.signal === signal)).toBe(true);
+  });
+
+  it("rides every detection with a document_file_present corroboration", () => {
+    const signals = classifyFileCapture(baseFile);
+
+    const corroboration = signals.find(
+      (s) => s.signal === "document_file_present",
+    );
+    expect(corroboration).toMatchObject({
+      entityType: "resource",
+      identifier: "googledrive:file-123",
+    });
   });
 
   it("does not match substrings inside unrelated words", () => {

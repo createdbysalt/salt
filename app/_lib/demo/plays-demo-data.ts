@@ -1150,9 +1150,15 @@ function mockEvidenceItems(
   }));
 }
 
-type MockLearningField = Omit<LearningField, "topReason" | "metaCandidate"> & {
+type MockLearningField = Omit<
+  LearningField,
+  "topReason" | "metaCandidate" | "aggregatedConfidence" | "hasConflict" | "competingValues"
+> & {
   topReason?: string | null;
   metaCandidate?: LearningMetaCandidate | null;
+  aggregatedConfidence?: number | null;
+  hasConflict?: boolean;
+  competingValues?: string[];
 };
 
 type MockLearningGroup = Omit<
@@ -1200,6 +1206,9 @@ function hydrateLearningEvidence(
         field.items.find((item) => item.excerpt)?.excerpt ??
         null,
       metaCandidate: field.metaCandidate ?? null,
+      aggregatedConfidence: field.aggregatedConfidence ?? null,
+      hasConflict: field.hasConflict ?? false,
+      competingValues: field.competingValues ?? [],
     })),
   }));
 }

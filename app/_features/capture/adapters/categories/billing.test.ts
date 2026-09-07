@@ -465,7 +465,9 @@ describe("billing category adapter", () => {
       expect(envelope?.participants).toEqual([
         { email: "billing@acme.co", name: "Acme Creative", role: "payer" },
       ]);
-      expect(envelope?.extracted.amount_paid).toBe(1362.07);
+      // subt_amount is the invoice TOTAL; paid = total − open balance.
+      expect(envelope?.extracted.amount).toBe(1362.07);
+      expect(envelope?.extracted.amount_paid).toBe(1000);
       expect(envelope?.extracted.balance).toBe(362.07);
       expect(envelope?.extracted.due_date).toBe("2026-07-31");
     });

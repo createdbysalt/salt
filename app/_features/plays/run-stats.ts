@@ -27,7 +27,7 @@ export interface PlaybookRunStats {
   estimatedDurationMs: number | null;
   /** definition.yaml value.estimate — minutes of manual work per run. Null when undeclared. */
   minutesSavedPerRun: number | null;
-  /** minutesSavedPerRun × totalRuns. Null when the playbook declares no estimate. */
+  /** minutesSavedPerRun × totalRuns. Null when undeclared, or no finished runs. */
   totalMinutesSaved: number | null;
 }
 
@@ -94,7 +94,9 @@ export function computePlaybookRunStats(
     estimatedDurationMs,
     minutesSavedPerRun: estimateMinutes,
     totalMinutesSaved:
-      estimateMinutes !== null ? estimateMinutes * completed.length : null,
+      estimateMinutes !== null && completed.length > 0
+        ? estimateMinutes * completed.length
+        : null,
   };
 }
 

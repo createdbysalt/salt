@@ -68,7 +68,7 @@ export async function executeConnectorTool<R>(
     .from("workspace_integrations")
     .select("composio_connection_id")
     .eq("workspace_id", context.workspaceId)
-    .eq("provider", `composio:${provider}`)
+    .eq("provider", provider)
     .eq("composio_status", "connected")
     .maybeSingle();
 

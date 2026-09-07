@@ -1,0 +1,29 @@
+# Degrade toward the human: calendar and billing apps unreachable → the
+# brief ships from Salt's records with the gap marked, never a dropped
+# section.
+id: no-connectors
+name: Calendar and billing unreachable → degraded brief, gaps marked
+given:
+  fetch:
+    blocked_work:
+      - id: work-2
+        name: Website copy
+        blocker_reason: Waiting on brand photos
+        blocker_type: client
+        blocked_since: "2026-09-01T00:00:00Z"
+  agent:
+    - step: week_ahead
+      text: "Calendar app disconnected; Stripe unreachable. Could not verify the week ahead or receivables. VERDICT: PARTIAL — calendar and billing unverified"
+  draft:
+    - step: weekly_brief
+      text: "Cash: unavailable — billing app disconnected (estimate from Salt's records once reconnected). Week ahead: calendar unreachable, so check your calendar directly. Blockers: Website copy waits on brand photos. Top 3: reconnect the calendar app, chase the brand photos, review any invoices due this week."
+expect:
+  status: success
+  outputCount: 1
+  steps:
+    cash_position: success
+    upcoming_receivables: success
+    blocked_work: success
+    quiet_clients: success
+    week_ahead: success
+    weekly_brief: success

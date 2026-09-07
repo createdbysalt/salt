@@ -68,8 +68,8 @@ if (agg && agg.aggregatedConfidence >= 90) {
 | Tier | Bar | Examples |
 |------|-----|----------|
 | standard | Workspace threshold (default 85) | Notes, preferences |
-| sensitive | `max(threshold, 95)` | Industry, relationship type, first-time classifications |
-| destructive | `max(threshold, 95)` | Status → past_client / completed / void |
+| sensitive | Workspace threshold | Industry, relationship type, first-time classifications |
+| destructive | Workspace threshold | Status → past_client / completed / void |
 | never_touch | Refused | Billing total / amount_paid, money-model fields |
 
 See [Memory Care](../../../docs/architecture/memory-care.md).
@@ -100,7 +100,7 @@ const personSignals = getSignalsForSurface("person");
 
 ## Confidence Thresholds
 
-Workspace auto-apply bar lives on `workspaces.memory_care_auto_apply_threshold` (default **85**), read via Memory Care `getCareThreshold` / memory-tools `getWorkspaceThreshold`. Tier floors raise sensitive/destructive fields to **95**. Below the bar → Watching (accumulate); never-touch → refuse.
+Workspace auto-apply bar lives on `workspaces.memory_care_auto_apply_threshold` (default **85**), read via Memory Care `getCareThreshold` / memory-tools `getWorkspaceThreshold`. One user-controlled bar for every gated field — tiers never raise it. Below the bar → Watching (accumulate); never-touch → refuse.
 
 High-stakes **act** actions (email, invoice) still require Plays approval regardless of Memory confidence.
 

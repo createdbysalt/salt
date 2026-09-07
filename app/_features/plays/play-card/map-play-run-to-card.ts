@@ -9,6 +9,8 @@ import {
 } from "../playbooks/schema/v2/types";
 import type { PlayRunRow } from "../types";
 import type { PlayCardViewModel, PlayCardKind, PlayCardErrorState } from "./types";
+import { resolveEmailSubject } from "../lib/draft-preview";
+import { draftParagraphsWithPayLinks } from "../lib/draft-payment-link";
 
 /**
  * V2 playbook resolution result.
@@ -142,12 +144,11 @@ export function mapPlayRunToCard(row: PlayRunRow): PlayCardViewModel {
     (Date.now() - new Date(row.created_at).getTime()) / 60_000
   );
 
-  const draftBody = row.draft_body
-    ? row.draft_body
-        .split(/\n{2,}/)
-        .map((p) => p.trim())
-        .filter(Boolean)
-    : [];
+  const draftBody = draftParagraphsWithPayLinks(row.draft_body, {
+    invoiceContext: row.context_inputs?.invoice_context,
+    artifacts: row.metadata?.artifacts,
+    verifyText: row.context_inputs?.verify_unpaid,
+  });
 
   const askSalt: AskSaltContext = {
     type: "play",
@@ -184,9 +185,10 @@ export function mapPlayRunToCard(row: PlayRunRow): PlayCardViewModel {
     preview:
       row.paused_for_approval && row.approval_context
         ? row.state === "blocked"
-          ? (row.last_error
-              ? `Parked: ${row.last_error}`
-              : row.preview)
+          ? // Blocked previews carry executor internals ("Parked: <reason>") —
+            // ops detail that stays out of user UI. Friendly fixed copy here;
+            // the founder can query play_runs.last_error.
+            "Paused — a connection needs attention. Reconnect, then approve to resume."
           : `Waiting for approval: ${formatToolSlug(row.approval_context.tool_slug)}`
         : row.preview,
     confidence: row.confidence,
@@ -201,6 +203,10 @@ export function mapPlayRunToCard(row: PlayRunRow): PlayCardViewModel {
         ? {
             draftBody,
             recipientLabel: row.recipient_label ?? row.target_label ?? "",
+            emailSubject: resolveEmailSubject({
+              draftBody: row.draft_body,
+              approvalSubject: row.approval_context?.args?.subject,
+            }),
           }
         : undefined,
 

@@ -51,6 +51,10 @@ import type {
 import { getPlaybookBySlug } from "./playbooks/schema/v2/discovery";
 import { discoverV2Playbooks } from "./playbooks/schema/v2/discovery";
 import type { PlaybookSection } from "./playbooks/schema/v2/types";
+import {
+  getPlaybookApprovalRates,
+  type PlaybookApprovalRate,
+} from "./services/earned-autonomy";
 import { getCaptureCategoryMap } from "@/app/_lib/composio/capture-categories";
 import {
   computePlaybookRunStats,
@@ -512,6 +516,60 @@ export async function getPlayRunById(id: string): Promise<PlayRunRow | null> {
   return (data as PlayRunRow | null) ?? null;
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Playbook detail → Activity tab
+ *
+ * Every run attributed to one playbook, newest first — including quiet-skip
+ * traces (state ran + metadata.skip_reason) so "checked, nothing to do" is
+ * visible instead of the playbook looking dead.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+export interface PlaybookRunListItem {
+  id: string;
+  state: PlayRunState;
+  queue: "needs_you" | "auto_handled" | null;
+  title: string;
+  recipientLabel: string | null;
+  createdAt: string;
+  ranAt: string | null;
+  skipReason: string | null;
+}
+
+export async function listPlaybookRuns(
+  workspaceId: string,
+  playbookSlug: string,
+  limit = 50
+): Promise<PlaybookRunListItem[]> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("play_runs")
+    .select("id, state, queue, title, recipient_label, created_at, ran_at, metadata")
+    .eq("workspace_id", workspaceId)
+    .eq("source_context->>playbook_slug", playbookSlug)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error("listPlaybookRuns error:", error);
+    return [];
+  }
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    state: row.state as PlayRunState,
+    queue: (row.queue as "needs_you" | "auto_handled" | null) ?? null,
+    title: row.title,
+    recipientLabel: row.recipient_label,
+    createdAt: row.created_at,
+    ranAt: row.ran_at,
+    skipReason:
+      (row.metadata as { skip_reason?: unknown } | null)?.skip_reason != null
+        ? String((row.metadata as { skip_reason: unknown }).skip_reason)
+        : null,
+  }));
+}
+
 function mapBlueprintRow(row: PlaybookBlueprintRow): PlaybookBlueprintView {
   const definition = row.definition as { steps?: unknown[] } | null;
   const fillRules = row.fill_rules as { rules?: unknown[] } | null;
@@ -629,6 +687,60 @@ export async function getPlaybookRunStats(
   );
 }
 
+/**
+ * Earned-autonomy analytics for one playbook: approval rate
+ * (approved / (approved + dismissed)) and any tools already granted
+ * autonomy. Shown on the playbook detail page; the rate gates future
+ * ask → auto offers (see services/earned-autonomy).
+ */
+export async function getPlaybookApprovalRate(
+  playbookSlug: string
+): Promise<PlaybookApprovalRate | null> {
+  const workspaceId = await getWorkspaceId();
+  const rates = await getPlaybookApprovalRates(workspaceId);
+  return rates.find((rate) => rate.playbookSlug === playbookSlug) ?? null;
+}
+
+/**
+ * Open (still queued) earned-autonomy offers for one playbook — the Customize
+ * tab renders these as grant/decline cards. Offers are queued play_runs
+ * marked with trigger_evidence.kind = "autonomy_offer".
+ */
+export async function listOpenAutonomyOffers(
+  workspaceId: string,
+  playbookSlug: string
+): Promise<Array<{ playRunId: string; toolSlug: string; approvedCount: number }>> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("play_runs")
+    .select("id, trigger_evidence")
+    .eq("workspace_id", workspaceId)
+    .eq("state", "queued")
+    .eq("source_context->>playbook_slug", playbookSlug)
+    .eq("trigger_evidence->>kind", "autonomy_offer");
+
+  if (error) {
+    console.error("listOpenAutonomyOffers error:", error);
+    return [];
+  }
+
+  return (data ?? []).map((row) => {
+    const evidence = row.trigger_evidence as {
+      tool_slug?: unknown;
+      approved_count?: unknown;
+    } | null;
+    return {
+      playRunId: row.id,
+      toolSlug: String(evidence?.tool_slug ?? ""),
+      approvedCount:
+        typeof evidence?.approved_count === "number"
+          ? evidence.approved_count
+          : 0,
+    };
+  });
+}
+
 /** Workspace-wide stats for the HQ Today time-saved widget. */
 export async function getWorkspaceRunStats(): Promise<WorkspaceRunStats> {
   const workspaceId = await getWorkspaceId();
@@ -729,12 +841,24 @@ export interface PlaybookConnectorStats {
   requiredCovered: number;
   required: number;
   optional: number;
+  /** Connected app names per requirement category, e.g. billing → ["Stripe"]. */
+  coverage: Array<{
+    category: string;
+    required: boolean;
+    apps: string[];
+    /** Provider keys (e.g. "quickbooks") behind each app — opt-in chips key on these. */
+    providers: string[];
+    /** Catalog ids parallel to providers (for icon display); falls back to the provider key. */
+    catalogIds: string[];
+  }>;
+  /** Catalog ids of the connected apps serving this playbook (for logo display). */
+  connectedCatalogIds: string[];
 }
 
 export async function getPlaybookConnectorStats(
   playbookSlug: string
 ): Promise<PlaybookConnectorStats> {
-  const empty = { connected: 0, requiredCovered: 0, required: 0, optional: 0 };
+  const empty = { connected: 0, requiredCovered: 0, required: 0, optional: 0, coverage: [], connectedCatalogIds: [] };
   const parsed = getPlaybookBySlug(playbookSlug);
   if (!parsed?.definition?.requirements?.categories) {
     return empty;
@@ -762,6 +886,13 @@ export async function getPlaybookConnectorStats(
   // Map provider → Salt category via the DB capture taxonomy (same mapping the
   // executor's category-fetcher uses) or the two never intersect.
   const providerCategories = await getCaptureCategoryMap();
+  const { getConnectorRegistry } = await import("@/app/_lib/composio/connector-registry");
+  const registry = await getConnectorRegistry();
+
+  const appsByCategory = new Map<string, Set<string>>();
+  const providersByCategory = new Map<string, Set<string>>();
+  const catalogIdByProvider = new Map<string, string>();
+  const connectedCatalogIds: string[] = [];
   let connected = 0;
   const coveredRequired = new Set<string>(required);
   const covered = new Set<string>();
@@ -770,6 +901,20 @@ export async function getPlaybookConnectorStats(
     if (!category || !allCategories.has(category)) continue;
     connected += 1;
     if (coveredRequired.has(category)) covered.add(category);
+    const provider = integration.provider as string;
+    const entry = registry.get(provider);
+    const label =
+      entry?.name ?? provider.charAt(0).toUpperCase() + provider.slice(1);
+    const apps = appsByCategory.get(category) ?? new Set<string>();
+    apps.add(label);
+    appsByCategory.set(category, apps);
+    const providers = providersByCategory.get(category) ?? new Set<string>();
+    providers.add(provider);
+    providersByCategory.set(category, providers);
+    if (entry?.catalogId) catalogIdByProvider.set(provider, entry.catalogId);
+    if (entry?.catalogId && !connectedCatalogIds.includes(entry.catalogId)) {
+      connectedCatalogIds.push(entry.catalogId);
+    }
   }
 
   return {
@@ -777,5 +922,16 @@ export async function getPlaybookConnectorStats(
     requiredCovered: covered.size,
     required: required.length,
     optional: optional.length,
+    coverage: [...allCategories].map((category) => {
+      const providers = [...(providersByCategory.get(category) ?? [])];
+      return {
+        category,
+        required: coveredRequired.has(category),
+        apps: [...(appsByCategory.get(category) ?? [])],
+        providers,
+        catalogIds: providers.map((p) => catalogIdByProvider.get(p) ?? p),
+      };
+    }),
+    connectedCatalogIds,
   };
 }

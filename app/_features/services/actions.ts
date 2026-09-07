@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { createClient } from "@/app/_lib/supabase/server"
+import { getVerifiedWorkspaceMembership } from "@/app/_lib/tenancy/workspace-membership"
 import type {
   CreateServiceInput,
   UpdateServiceInput,
@@ -24,17 +25,13 @@ async function getWorkspaceId(): Promise<{ workspaceId: string } | { error: stri
     return { error: "Authentication required" }
   }
 
-  const { data: membership, error: membershipError } = await supabase
-    .from("workspace_members")
-    .select("workspace_id:workspace_id")
-    .eq("user_id", user.id)
-    .single()
+  const membership = await getVerifiedWorkspaceMembership(user.id, supabase)
 
-  if (membershipError || !membership) {
+  if (!membership) {
     return { error: "No workspace found" }
   }
 
-  return { workspaceId: membership.workspace_id }
+  return { workspaceId: membership.id }
 }
 
 export async function createService(input: CreateServiceInput) {

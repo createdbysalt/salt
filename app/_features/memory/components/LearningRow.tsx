@@ -28,6 +28,7 @@ import {
   formatFieldLabel,
   formatSourceLabel,
 } from "../utils/learning-story";
+import { isPlaceholderWorkName } from "../utils/work-name";
 
 /**
  * Memory → Activity → Watching row.
@@ -200,6 +201,15 @@ function ConfidenceChip({ value }: { value: number }) {
 }
 
 /**
+ * The number the auto-apply gate actually uses: the corroborated aggregate
+ * when available, falling back to the max raw item confidence for meta
+ * candidates and always-auto fields.
+ */
+function displayConfidence(field: LearningField): number {
+  return field.aggregatedConfidence ?? field.confidence;
+}
+
+/**
  * Per-field progress toward the auto-apply bar: "72 of 85 · 2 signals" with
  * an aurora fill. When confidence reaches the bar, Salt applies the change
  * itself — the track shows how close it is.
@@ -288,20 +298,57 @@ function EvidenceItemRow({ item }: { item: LearningFieldEvidenceItem }) {
   );
 }
 
+/** Placeholder work names ("{Client} — Project") are conventions Salt
+ * anchored at birth — they never carry a confidence number. */
+function isPlaceholderNameField(
+  entityType: LearningEntityType,
+  field: LearningField,
+): boolean {
+  return (
+    entityType === "work" &&
+    field.fieldPath === "name" &&
+    isPlaceholderWorkName(field.proposedValue)
+  );
+}
+
+function metaFieldLabel(field: LearningField): string {
+  switch (field.metaCandidate?.kind) {
+    case "link":
+      return "Suggested link";
+    case "merge":
+      return "Suggested merge";
+    case "archive":
+      return "Suggested archive";
+    default:
+      return formatFieldLabel(field.fieldPath);
+  }
+}
+
 function FieldEditorRow({
   field,
+  entityLabel,
   onAccept,
   onDismiss,
+  inlineActions = false,
+  isPlaceholderName = false,
 }: {
   field: LearningField;
+  entityLabel?: string;
   onAccept?: (proposedValue: string) => void;
   onDismiss?: () => void;
+  inlineActions?: boolean;
+  /** Placeholder work names are conventions, not predictions — no bar. */
+  isPlaceholderName?: boolean;
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedValue, setEditedValue] = useState(field.proposedValue);
   const [isPending, setIsPending] = useState(false);
 
   const valueToSave = editedValue.trim() || field.proposedValue;
+  const linkTarget =
+    field.metaCandidate?.kind === "link"
+      ? (field.metaCandidate.targetName ?? null)
+      : null;
 
   const handleAccept = () => {
     if (!onAccept) return;
@@ -315,45 +362,80 @@ function FieldEditorRow({
     onDismiss();
   };
 
+  if (isEditing) {
+    return (
+      <div className="py-3 first:pt-0 last:pb-1">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">
+          Edit {formatFieldLabel(field.fieldPath)}
+        </p>
+        <div className="mt-1.5 flex items-center gap-2">
+          <Input
+            value={editedValue}
+            onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
+              setEditedValue(event.target.value)
+            }
+            className="h-9 flex-1 rounded-xl border-border/60 bg-background text-[14px]"
+            aria-label={`Edit ${formatFieldLabel(field.fieldPath)}`}
+            autoFocus
+          />
+          <button
+            type="button"
+            onClick={handleAccept}
+            disabled={isPending || !onAccept}
+            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl bg-muted px-3 text-[12px] font-medium text-foreground transition hover:bg-muted/70 disabled:opacity-60"
+          >
+            {isPending ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <Check className="size-3.5" strokeWidth={2.25} />
+            )}
+            Save
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsEditing(false)}
+            className="inline-flex h-9 shrink-0 items-center rounded-xl px-2 text-[12px] font-medium text-muted-foreground transition hover:text-foreground"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="rounded-2xl border border-border/50 bg-card/80 p-3">
-      <div className="flex items-start gap-3">
-        <div className="min-w-0 flex-1">
-          {isEditing ? (
-            <div className="space-y-2">
-              <p className="text-[12px] font-medium text-muted-foreground">
-                Edit {formatFieldLabel(field.fieldPath)}
+    <div className="py-3 first:pt-0 last:pb-1">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          {linkTarget ? (
+            <>
+              <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">
+                {metaFieldLabel(field)}
               </p>
-              <Input
-                value={editedValue}
-                onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-                  setEditedValue(event.target.value)
-                }
-                className="h-9 rounded-xl border-border/60 bg-background text-[14px]"
-                aria-label={`Edit ${formatFieldLabel(field.fieldPath)}`}
-              />
-            </div>
+              <p className="mt-0.5 truncate text-[14px] font-medium text-foreground">
+                {entityLabel ? (
+                  <>
+                    {entityLabel}
+                    <span className="mx-1.5 font-normal text-muted-foreground/40">
+                      →
+                    </span>
+                  </>
+                ) : null}
+                {linkTarget}
+              </p>
+            </>
           ) : (
-            <div className="space-y-1.5">
-              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                <span className="text-[13px] text-muted-foreground">
-                  {formatFieldLabel(field.fieldPath)}
-                </span>
-                <span className="text-muted-foreground/40">→</span>
-                <span className="text-[14px] font-semibold text-foreground">
-                  {field.metaCandidate
-                    ? (field.metaCandidate.targetName ?? "Suggested change")
-                    : field.proposedValue}
-                </span>
-              </div>
-              {field.bar != null && (
-                <EvidenceProgress
-                  confidence={field.confidence}
-                  bar={field.bar}
-                  sourceCount={field.sourceCount}
-                />
-              )}
-            </div>
+            <p className="text-[14px] leading-snug">
+              <span className="text-muted-foreground">
+                {metaFieldLabel(field)}
+              </span>
+              <span className="mx-1.5 text-muted-foreground/40">→</span>
+              <span className="break-words font-medium text-foreground">
+                {field.metaCandidate
+                  ? (field.metaCandidate.targetName ?? "Suggested change")
+                  : field.proposedValue}
+              </span>
+            </p>
           )}
         </div>
 
@@ -364,14 +446,14 @@ function FieldEditorRow({
               aria-label={`Edit ${formatFieldLabel(field.fieldPath)}`}
               onClick={() => {
                 setEditedValue(field.proposedValue);
-                setIsEditing((open) => !open);
+                setIsEditing(true);
               }}
               className="inline-flex size-8 items-center justify-center rounded-lg text-muted-foreground/70 transition hover:bg-muted hover:text-foreground"
             >
               <Pencil className="size-4" strokeWidth={1.75} />
             </button>
           )}
-          {onDismiss && (
+          {inlineActions && onDismiss && (
             <button
               type="button"
               aria-label={`Not this — ${formatFieldLabel(field.fieldPath)}`}
@@ -382,7 +464,7 @@ function FieldEditorRow({
               <X className="size-4" strokeWidth={1.75} />
             </button>
           )}
-          {onAccept && (
+          {inlineActions && onAccept && (
             <button
               type="button"
               onClick={handleAccept}
@@ -399,6 +481,36 @@ function FieldEditorRow({
           )}
         </div>
       </div>
+
+      {isPlaceholderName ? (
+        <p className="mt-2 max-w-prose text-[12px] leading-relaxed text-muted-foreground/80">
+          Placeholder name — I anchored it to the client so the record is
+          findable. A contract or proposal read will replace it.
+        </p>
+      ) : (
+        field.bar != null && (
+          <div className="mt-2 max-w-xs">
+            <EvidenceProgress
+              confidence={displayConfidence(field)}
+              bar={field.bar}
+              sourceCount={field.sourceCount}
+            />
+          </div>
+        )
+      )}
+      {field.hasConflict && field.competingValues.length > 0 && (
+        <p className="mt-2 max-w-prose text-[12px] leading-relaxed text-amber-600 dark:text-amber-500">
+          Conflicting signals — I&apos;ve also seen{" "}
+          {field.competingValues.map((value, index) => (
+            <span key={value}>
+              {index > 0 && ", "}
+              <span className="font-medium">{value}</span>
+            </span>
+          ))}
+          . I won&apos;t apply a value until one pulls ahead — pick the right
+          one and I&apos;ll learn from it.
+        </p>
+      )}
     </div>
   );
 }
@@ -420,14 +532,19 @@ export function LearningRow({
   const playbookLabel = ENTITY_PLAYBOOK_LABELS[evidence.entityType] ?? "Records";
   const isMerge = story.kind === "merge";
   // Progress toward the bar: the highest-confidence field that still has a
-  // tier bar to clear.
+  // tier bar to clear, using the decision-grade aggregated confidence.
+  // Placeholder names are excluded — a convention has no progress to show.
   const progressField =
     evidence.fields
-      .filter((field) => field.bar != null)
-      .sort((a, b) => b.confidence - a.confidence)[0] ?? null;
+      .filter(
+        (field) =>
+          field.bar != null &&
+          !isPlaceholderNameField(evidence.entityType, field),
+      )
+      .sort((a, b) => displayConfidence(b) - displayConfidence(a))[0] ?? null;
   const topConfidence =
     evidence.fields.length > 0
-      ? Math.max(...evidence.fields.map((field) => field.confidence))
+      ? Math.max(...evidence.fields.map((field) => displayConfidence(field)))
       : null;
 
   const handleAcceptAll = () => {
@@ -498,7 +615,7 @@ export function LearningRow({
 
         {progressField && progressField.bar != null ? (
           <span className="inline-flex h-5 shrink-0 items-center whitespace-nowrap rounded-full border border-border/50 bg-muted/50 px-2 text-[10px] font-medium tabular-nums text-muted-foreground">
-            {Math.round(progressField.confidence)} of {progressField.bar}
+            {Math.round(displayConfidence(progressField))} of {progressField.bar}
           </span>
         ) : topConfidence != null ? (
           <ConfidenceChip value={topConfidence} />
@@ -522,51 +639,18 @@ export function LearningRow({
             transition={{ duration: 0.28, ease: APPLE_EASE }}
             className="overflow-hidden"
           >
-            <div className="space-y-3.5 px-4 pb-5 pt-1 pl-[84px] pr-6">
-              {story.secondarySentences.map((sentence) => (
-                <p
-                  key={sentence}
-                  className="text-[13px] leading-relaxed text-muted-foreground"
-                >
-                  {sentence}
-                </p>
-              ))}
-              {story.hiddenCount > 0 && (
-                <p className="text-[12px] text-muted-foreground/80">
-                  and {story.hiddenCount} more{" "}
-                  {story.hiddenCount === 1 ? "thing" : "things"} below
-                </p>
-              )}
-
-              {story.reason && (
-                <p className="border-l-2 border-border/60 pl-3 text-[13px] italic leading-relaxed text-muted-foreground">
-                  {story.reason}
-                </p>
-              )}
-
-              {progressField && progressField.bar != null && (
-                <EvidenceProgress
-                  confidence={progressField.confidence}
-                  bar={progressField.bar}
-                  sourceCount={progressField.sourceCount}
-                />
-              )}
-
-              {evidence.entityHref && (
-                <Link
-                  href={evidence.entityHref}
-                  className="inline-flex items-center gap-1 text-[12px] font-medium text-foreground/80 transition hover:text-foreground"
-                >
-                  Open {evidence.entityLabel}
-                  <ArrowUpRight className="size-3.5" strokeWidth={1.75} />
-                </Link>
-              )}
-
-              <div className="space-y-2">
+            <div className="space-y-4 px-4 pb-5 pt-1 pl-[84px] pr-6">
+              {/* What — the proposal itself, front and center */}
+              <div className="divide-y divide-border/40">
                 {evidence.fields.map((field) => (
                   <FieldEditorRow
                     key={`${field.fieldPath}:${field.proposedValue}`}
                     field={field}
+                    entityLabel={evidence.entityLabel}
+                    isPlaceholderName={isPlaceholderNameField(
+                      evidence.entityType,
+                      field,
+                    )}
                     onAccept={
                       onAcceptField
                         ? (proposedValue) => onAcceptField(field, proposedValue)
@@ -575,9 +659,39 @@ export function LearningRow({
                     onDismiss={
                       onDismissField ? () => onDismissField(field) : undefined
                     }
+                    // Single-field groups: the primary CTA row below carries
+                    // the decision with plainer labels ("Link it" / "Not
+                    // this"), so inline accept/dismiss buttons only render
+                    // when there are multiple fields to decide individually.
+                    inlineActions={evidence.fields.length > 1}
                   />
                 ))}
               </div>
+
+              {/* Why — the signals and reasoning behind the proposal */}
+              {(story.secondarySentences.length > 0 || story.reason) && (
+                <div className="space-y-1.5">
+                  {story.secondarySentences.map((sentence) => (
+                    <p
+                      key={sentence}
+                      className="text-[13px] leading-relaxed text-muted-foreground"
+                    >
+                      {sentence}
+                    </p>
+                  ))}
+                  {story.hiddenCount > 0 && (
+                    <p className="text-[12px] text-muted-foreground/80">
+                      and {story.hiddenCount} more{" "}
+                      {story.hiddenCount === 1 ? "thing" : "things"} below
+                    </p>
+                  )}
+                  {story.reason && (
+                    <p className="border-l-2 border-border/60 pl-3 text-[13px] italic leading-relaxed text-muted-foreground">
+                      {story.reason}
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div className="flex flex-wrap items-center gap-2 pt-1">
                 {onAcceptAll && (
@@ -604,27 +718,38 @@ export function LearningRow({
                     type="button"
                     onClick={handleDismissAll}
                     disabled={isPending}
-                    className="inline-flex h-9 items-center rounded-xl px-3 text-[12px] font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-60"
+                    className="inline-flex h-9 items-center rounded-xl px-2 text-[12px] font-medium text-muted-foreground/80 transition hover:text-foreground disabled:opacity-60"
                   >
                     {story.dismissLabel}
                   </button>
                 )}
 
-                <button
-                  type="button"
-                  onClick={() => setIsEvidenceOpen((open) => !open)}
-                  aria-expanded={isEvidenceOpen}
-                  className="ml-auto inline-flex h-9 items-center gap-1 rounded-xl px-2 text-[12px] font-medium text-muted-foreground/80 transition hover:text-foreground"
-                >
-                  Why I think this
-                  <ChevronDown
-                    className={cn(
-                      "size-3.5 transition-transform duration-200",
-                      isEvidenceOpen && "rotate-180",
-                    )}
-                    strokeWidth={1.75}
-                  />
-                </button>
+                <div className="ml-auto flex items-center gap-1">
+                  {evidence.entityHref && (
+                    <Link
+                      href={evidence.entityHref}
+                      className="inline-flex h-9 items-center gap-1 rounded-xl px-2 text-[12px] font-medium text-muted-foreground/80 transition hover:text-foreground"
+                    >
+                      Open {evidence.entityLabel}
+                      <ArrowUpRight className="size-3.5" strokeWidth={1.75} />
+                    </Link>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setIsEvidenceOpen((open) => !open)}
+                    aria-expanded={isEvidenceOpen}
+                    className="inline-flex h-9 items-center gap-1 rounded-xl px-2 text-[12px] font-medium text-muted-foreground/80 transition hover:text-foreground"
+                  >
+                    Why I think this
+                    <ChevronDown
+                      className={cn(
+                        "size-3.5 transition-transform duration-200",
+                        isEvidenceOpen && "rotate-180",
+                      )}
+                      strokeWidth={1.75}
+                    />
+                  </button>
+                </div>
               </div>
 
               <AnimatePresence initial={false}>
@@ -649,10 +774,19 @@ export function LearningRow({
                         >
                           <div className="flex flex-wrap items-center gap-1.5">
                             <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground/70">
-                              {formatFieldLabel(field.fieldPath)}
+                              {metaFieldLabel(field)}
                             </span>
-                            {field.bar == null && (
-                              <ConfidenceChip value={field.confidence} />
+                            {isPlaceholderNameField(
+                              evidence.entityType,
+                              field,
+                            ) ? (
+                              <span className="inline-flex h-5 shrink-0 items-center rounded-full border border-border/50 bg-muted/50 px-2 text-[10px] font-medium text-muted-foreground">
+                                Placeholder
+                              </span>
+                            ) : (
+                              <ConfidenceChip
+                                value={displayConfidence(field)}
+                              />
                             )}
                             <span className="text-[11px] text-muted-foreground">
                               {field.sources.map(formatSourceLabel).join(", ")}
@@ -660,13 +794,6 @@ export function LearningRow({
                               {formatTimeAgo(field.latestAt)}
                             </span>
                           </div>
-                          {field.bar != null && (
-                            <EvidenceProgress
-                              confidence={field.confidence}
-                              bar={field.bar}
-                              sourceCount={field.sourceCount}
-                            />
-                          )}
                           {deduplicateEvidenceItems(field.items).map((item) => (
                             <EvidenceItemRow key={item.id} item={item} />
                           ))}

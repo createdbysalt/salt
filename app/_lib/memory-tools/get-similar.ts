@@ -105,6 +105,9 @@ async function findPersonDuplicates(
   limit: number
 ): Promise<SimilarityMatch[]> {
   const matches: SimilarityMatch[] = [];
+  // Pair dedupe across signals — the strongest signal for a pair wins.
+  const emittedPairs = new Set<string>();
+  const pairKey = (a: string, b: string) => (a < b ? `${a}::${b}` : `${b}::${a}`);
 
   if (criteria?.checkEmail) {
     const { data: emailDupes } = await supabase
@@ -129,6 +132,7 @@ async function findPersonDuplicates(
       for (const [email, people] of emailMap) {
         if (people.length > 1) {
           for (let i = 0; i < people.length - 1; i++) {
+            emittedPairs.add(pairKey(people[i].id, people[i + 1].id));
             matches.push({
               recordId: people[i].id,
               matchedRecordId: people[i + 1].id,
@@ -175,6 +179,8 @@ async function findPersonDuplicates(
       for (const [phone, people] of phoneMap) {
         if (people.length > 1) {
           for (let i = 0; i < people.length - 1; i++) {
+            if (emittedPairs.has(pairKey(people[i].id, people[i + 1].id))) continue;
+            emittedPairs.add(pairKey(people[i].id, people[i + 1].id));
             matches.push({
               recordId: people[i].id,
               matchedRecordId: people[i + 1].id,
@@ -197,7 +203,146 @@ async function findPersonDuplicates(
     }
   }
 
+  if (criteria?.checkName) {
+    const { data: people } = await supabase
+      .from("people")
+      .select("id, name, email")
+      .eq("workspace_id", workspaceId)
+      .is("deleted_at", null)
+      .is("archived_at", null)
+      .not("name", "is", null);
+
+    // Local-part correlation reads the full identity set, not just the
+    // primary — jane.example@outlook.com should correlate with "Jane Example"
+    // even when her record's primary is lisa@studio.com.
+    const { data: emailRows } = await supabase
+      .from("person_emails")
+      .select("person_id, email")
+      .eq("workspace_id", workspaceId);
+
+    const emailsByPerson = new Map<string, Set<string>>();
+    for (const row of emailRows ?? []) {
+      const set = emailsByPerson.get(row.person_id) ?? new Set<string>();
+      set.add(row.email.toLowerCase());
+      emailsByPerson.set(row.person_id, set);
+    }
+
+    type PersonRow = { id: string; name: string | null; email: string | null };
+    const rows = (people ?? []) as PersonRow[];
+
+    const pushNameMatch = (
+      a: PersonRow,
+      b: PersonRow,
+      signal: string,
+      confidence: number,
+      because: string,
+    ) => {
+      const key = pairKey(a.id, b.id);
+      if (emittedPairs.has(key)) return;
+      emittedPairs.add(key);
+      matches.push({
+        recordId: a.id,
+        matchedRecordId: b.id,
+        entityType: "person",
+        signal,
+        confidence,
+        because,
+        recordA: { id: a.id, name: a.name ?? "", email: a.email ?? undefined },
+        recordB: { id: b.id, name: b.name ?? "", email: b.email ?? undefined },
+      });
+    };
+
+    for (let i = 0; i < rows.length - 1; i++) {
+      for (let j = i + 1; j < rows.length; j++) {
+        const a = rows[i];
+        const b = rows[j];
+        const nameA = normalizePersonName(a.name);
+        const nameB = normalizePersonName(b.name);
+        if (!nameA || !nameB) continue;
+
+        if (nameA === nameB) {
+          const emailA = a.email?.toLowerCase() ?? null;
+          const emailB = b.email?.toLowerCase() ?? null;
+          if (emailA && emailB && emailA === emailB) continue; // email signal owns this pair
+          pushNameMatch(
+            a,
+            b,
+            "person_duplicate_name_exact",
+            85,
+            `Same name: ${a.name}`,
+          );
+          continue;
+        }
+
+        // Email local-part correlation: jane.example@ → "jane example" matching
+        // the other record's name. Strongest when one record has no email.
+        // Checked before subset — it's the stronger evidence when both fire.
+        const addressesOf = (person: PersonRow): Set<string> => {
+          const set = new Set(emailsByPerson.get(person.id) ?? []);
+          if (person.email) set.add(person.email.toLowerCase());
+          return set;
+        };
+        const localPartMatch =
+          [...addressesOf(a)].some((addr) => localPartAsName(addr) === nameB) ||
+          [...addressesOf(b)].some((addr) => localPartAsName(addr) === nameA);
+        if (localPartMatch) {
+          pushNameMatch(
+            a,
+            b,
+            "person_duplicate_name_local_part",
+            85,
+            `Email address matches the other record's name: "${a.name}" ↔ "${b.name}"`,
+          );
+          continue;
+        }
+
+        // Subset/prefix: one name's tokens are a subset of the other's
+        // ("Lisa" ⊂ "Jane Example"). Medium confidence — always user-approved.
+        const tokensA = new Set(nameA.split(" "));
+        const tokensB = new Set(nameB.split(" "));
+        const aSubsetOfB = [...tokensA].every((t) => tokensB.has(t));
+        const bSubsetOfA = [...tokensB].every((t) => tokensA.has(t));
+        if (aSubsetOfB || bSubsetOfA) {
+          pushNameMatch(
+            a,
+            b,
+            "person_duplicate_name_subset",
+            70,
+            `Overlapping names: "${a.name}" and "${b.name}"`,
+          );
+        }
+      }
+    }
+  }
+
   return matches.slice(0, limit);
+}
+
+/** "Lisa  Trent!" → "jane example" — lowercase, punctuation-free, single-spaced. */
+function normalizePersonName(name: string | null): string | null {
+  if (!name) return null;
+  const normalized = name
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return normalized || null;
+}
+
+/** "jane.example+news@outlook.com" → "jane example" — the name an address encodes. */
+function localPartAsName(email: string): string | null {
+  const local = email.split("@")[0];
+  if (!local) return null;
+  const withoutPlus = local.split("+")[0];
+  const normalized = withoutPlus
+    .toLowerCase()
+    .replace(/[._\-]+/g, " ")
+    .replace(/[^a-z\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  // Require at least two tokens — a bare "lisa@" correlating with every
+  // "Lisa" is a coincidence engine, not a merge signal.
+  return normalized.includes(" ") ? normalized : null;
 }
 
 async function findOrgDuplicates(

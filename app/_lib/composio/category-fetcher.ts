@@ -14,8 +14,7 @@ import "server-only";
  */
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
-import { getConnectionStatus } from "./connections";
-import { resolveCapabilityTool } from "./capability-resolver";
+import { resolveCapabilityTool, resolveCapabilityTools } from "./capability-resolver";
 import {
   getCaptureCategoryMap,
   listProvidersForCategory,
@@ -43,7 +42,24 @@ export interface CategoryFetchResult {
   success: boolean;
   data?: unknown;
   provider?: string;
+  /** Every provider that produced data (fan-out provenance). */
+  providers?: string[];
+  /** Concrete tool that produced the data (provenance for play presentation). */
+  toolSlug?: string;
   error?: string;
+}
+
+/** Execution context threaded from the playbook run (system, session-less). */
+export interface CategoryFetchOptions {
+  workspaceId: string;
+  /** The human whose playbook consent authorises this read (audit provenance). */
+  actorUserId?: string | null;
+  /**
+   * Providers the play must not use. The executor computes this from
+   * connected providers minus the owner's opt-in app_selections
+   * (Overview → What it needs). New connections stay out until added.
+   */
+  excludeProviders?: ReadonlySet<string>;
 }
 
 /**
@@ -143,16 +159,26 @@ export async function getCategoryCapabilities(
 /**
  * Fetch data by category and capability.
  *
- * Resolves the capability to a connected provider and executes the fetch.
- * Returns null if no provider is available (graceful degradation).
+ * Fans out across EVERY connected, approved, non-excluded provider for the
+ * capability (multi-app fan-out, playbooks Phase 4): a workspace with Stripe
+ * AND QuickBooks connected gets both reads merged. One provider failing
+ * never sinks the others' data.
+ *
+ * Merge contract: a single successful provider returns its payload unchanged
+ * (backward compatible); multiple providers concatenate their array payloads
+ * with each object record tagged `_provider` so downstream steps can group
+ * across apps (one email per client, not per app).
  */
 export async function fetchByCategory(
   workspaceId: string,
-  spec: CategoryFetchSpec
+  spec: CategoryFetchSpec,
+  options?: CategoryFetchOptions
 ): Promise<CategoryFetchResult> {
-  const tool = await resolveCapabilityTool(spec.capability, workspaceId);
+  const tools = await resolveCapabilityTools(spec.capability, workspaceId, {
+    excludeProviders: options?.excludeProviders,
+  });
 
-  if (!tool) {
+  if (tools.length === 0) {
     return {
       id: spec.id,
       category: spec.category,
@@ -164,27 +190,98 @@ export async function fetchByCategory(
     };
   }
 
-  try {
-    const data = await executeCapabilityFetch(tool, spec.filter);
+  const { executeComposioAction } = await import("./actions");
 
-    return {
-      id: spec.id,
-      category: spec.category,
-      capability: spec.capability,
-      success: true,
-      data,
-      provider: tool.provider,
-    };
-  } catch (error) {
+  const settled = await Promise.all(
+    tools.map(async (tool) => {
+      try {
+        const data = await executeCapabilityFetch(
+          executeComposioAction,
+          tool,
+          spec.filter,
+          {
+            workspaceId,
+            actorUserId: options?.actorUserId ?? null,
+          }
+        );
+        return { tool, data } as const;
+      } catch (error) {
+        return {
+          tool,
+          error: error instanceof Error ? error.message : "Fetch failed",
+        } as const;
+      }
+    })
+  );
+
+  const successes = settled.filter(
+    (s): s is Extract<typeof s, { data: unknown }> => "data" in s
+  );
+
+  if (successes.length === 0) {
     return {
       id: spec.id,
       category: spec.category,
       capability: spec.capability,
       success: false,
-      provider: tool.provider,
-      error: error instanceof Error ? error.message : "Fetch failed",
+      provider: tools[0].provider,
+      toolSlug: tools[0].toolSlug,
+      error: settled
+        .map((s) => ("error" in s ? s.error : "Fetch failed"))
+        .join("; "),
     };
   }
+
+  const first = successes[0];
+
+  // Shape is stable per workspace configuration, not per transient failure:
+  // tag whenever the capability fanned out to multiple providers, even if
+  // only one of them returned data this run.
+  if (tools.length === 1) {
+    return {
+      id: spec.id,
+      category: spec.category,
+      capability: spec.capability,
+      success: true,
+      data: first.data,
+      provider: first.tool.provider,
+      providers: [first.tool.provider],
+      toolSlug: first.tool.toolSlug,
+    };
+  }
+
+  const merged = successes.flatMap((s) =>
+    tagProviderRecords(s.data, s.tool.provider)
+  );
+
+  return {
+    id: spec.id,
+    category: spec.category,
+    capability: spec.capability,
+    success: true,
+    data: merged,
+    provider: first.tool.provider,
+    providers: successes.map((s) => s.tool.provider),
+    toolSlug: first.tool.toolSlug,
+  };
+}
+
+/**
+ * Normalise one provider's payload into records tagged with their source
+ * app. Object records keep their fields; scalars wrap as `{ value }`.
+ */
+function tagProviderRecords(data: unknown, provider: string): unknown[] {
+  if (Array.isArray(data)) {
+    return data.map((record) =>
+      record !== null && typeof record === "object" && !Array.isArray(record)
+        ? { ...(record as Record<string, unknown>), _provider: provider }
+        : { _provider: provider, value: record }
+    );
+  }
+  if (data !== null && typeof data === "object") {
+    return [{ ...(data as Record<string, unknown>), _provider: provider }];
+  }
+  return [{ _provider: provider, value: data }];
 }
 
 /**
@@ -195,14 +292,15 @@ export async function fetchByCategory(
  */
 export async function fetchMultipleByCategory(
   workspaceId: string,
-  specs: CategoryFetchSpec[]
+  specs: CategoryFetchSpec[],
+  options?: CategoryFetchOptions
 ): Promise<{
   success: boolean;
   results: Record<string, CategoryFetchResult>;
   errors: string[];
 }> {
   const results = await Promise.all(
-    specs.map((spec) => fetchByCategory(workspaceId, spec))
+    specs.map((spec) => fetchByCategory(workspaceId, spec, options))
   );
 
   const resultMap: Record<string, CategoryFetchResult> = {};
@@ -254,18 +352,54 @@ export async function checkCategoryRequirements(
   };
 }
 
+/**
+ * Execute the resolved capability tool through the single Composio gate
+ * (metering, classification, audit all live there — see
+ * docs/architecture/billing-metering.md). Runs session-less like the play
+ * executor's action path: consent provenance is the playbook the user
+ * enabled, carried via the play context.
+ */
 async function executeCapabilityFetch(
-  _tool: Awaited<ReturnType<typeof resolveCapabilityTool>>,
-  _filter?: Record<string, unknown>
+  executeComposioAction: (typeof import("./actions"))["executeComposioAction"],
+  tool: Awaited<ReturnType<typeof resolveCapabilityTool>>,
+  filter: Record<string, unknown> | undefined,
+  exec: { workspaceId: string; actorUserId: string | null }
 ): Promise<unknown> {
-  // TODO: Implement actual Composio tool execution
-  // This will call the resolved tool with the filter parameters
-  // and return the data from the connected provider.
-  //
-  // For now, return a placeholder that indicates the tool was resolved
-  // but execution is not yet implemented.
-  return {
-    _placeholder: true,
-    _note: "Tool execution not yet implemented",
-  };
+  if (!tool) {
+    throw new Error("No resolved tool for capability fetch");
+  }
+
+  return executeComposioAction<Record<string, unknown>, unknown>(
+    tool.toolSlug,
+    translateFetchFilter(filter),
+    tool.connectionId,
+    // Composio v3 entity id is workspace-scoped; the human actor is carried
+    // separately as actorUserId (same contract as execute-connector-tool).
+    exec.workspaceId,
+    {
+      skipAuthCheck: true,
+      workspaceId: exec.workspaceId,
+      actorUserId: exec.actorUserId ?? undefined,
+      source: "play",
+      play: { approvedActions: [tool.toolSlug] },
+    }
+  );
+}
+
+/**
+ * Playbook `where` filters are generic ("recent: true"), not vendor API
+ * params. Translate the known conventions and bound the read so a fetch
+ * step can never pull an unbounded history.
+ */
+function translateFetchFilter(
+  filter: Record<string, unknown> | undefined
+): Record<string, unknown> {
+  const args: Record<string, unknown> = { ...(filter ?? {}) };
+
+  if (args.recent === true) {
+    delete args.recent;
+    if (args.limit === undefined) args.limit = 10;
+  }
+
+  return args;
 }

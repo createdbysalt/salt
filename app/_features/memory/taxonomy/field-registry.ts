@@ -88,6 +88,12 @@ export interface FillRule {
   opValue?: boolean | number | string;
   /** Value to set (or "{{extracted}}" for dynamic values) */
   value: string | number | boolean | "{{extracted}}";
+  /**
+   * Optional transform applied to the resolved value before proposing.
+   * "timezone_country" maps an IANA timezone to an ISO 3166-1 alpha-2
+   * country code; unmapped zones resolve empty and the rule is skipped.
+   */
+  transform?: "timezone_country";
   /** Confidence score 0-100 */
   confidence: number;
   /** Human-readable explanation for provenance */
@@ -388,7 +394,7 @@ export const PERSON_FIELDS: FieldDescriptor<"people">[] = [
     sourcing: PERSON_ADDRESS_SOURCING,
     fillRules: [
       { signal: "person_address_extracted", value: "{{extracted}}", confidence: 82, because: "From the customer's billing address" },
-      { signal: "person_timezone_detected", value: "{{extracted}}", confidence: 70, because: "Country inferred from timezone" },
+      { signal: "person_timezone_detected", value: "{{extracted}}", transform: "timezone_country", confidence: 70, because: "Country inferred from timezone" },
     ],
   },
   {

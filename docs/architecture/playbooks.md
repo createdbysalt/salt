@@ -37,7 +37,7 @@ slug: invoice-reminder
 version: 1.0.0
 description: Drafts payment reminders for overdue invoices
 
-section: billing # relationships|work|billing|files|meetings|me|connections|notes|communication
+section: billing # relationships|work|billing|resources|meetings|me|connections|notes|communication
 layer: act # act only — learn-layer is Memory Care
 voice: billing # Required for act-layer
 
@@ -51,10 +51,10 @@ tools:
 
 requirements:
   categories:
-    required: [billing] # Connector category must be connected
+    required: [billing] # Category must be connected AND at least one app selected (Overview → What it needs)
 
 steps:
-  - step: fetch # fetch | classify | draft | action | branch
+  - step: fetch # fetch | classify | draft | action | agent | branch
     id: invoices
     from: billing.read_invoices
   - step: classify
@@ -95,7 +95,31 @@ value:
 | `classify` | `forEach` over a fetched list, first-match rules → tagged entities                 |
 | `draft`    | LLM prompt → text; `forEach: <list>` runs per item with `{{item.*}}` interpolation |
 | `action`   | Executes a declared tool; `approval: ask` pauses the run for the queue             |
+| `agent`    | Bounded tool-calling LLM loop: `prompt` + step-level `tools` allowlist, capped by `max_calls`; every call validated against hydrated schemas and routed through the Composio gate (denials feed back to the model as tool errors — no mid-loop pause) |
 | `branch`   | Conditional `if` over `stepData`, contains nested steps                            |
+
+**Agent step example** (see `v2/billing/payment-reconciliation/definition.yaml` for the shipped reference):
+
+```yaml
+  - step: agent
+    id: reconciliation
+    prompt: |
+      Cross-check the most recent payment against charges and invoices...
+    tools: # subset of the definition's tools: allowlist
+      - STRIPE_LIST_CHARGES
+      - STRIPE_LIST_INVOICES
+    max_calls: 4
+```
+
+---
+
+## Fresh Context (schemas & docs)
+
+The model never guesses tool arguments:
+
+- **Schema hydration** — at execution start, every slug in `tools:` is hydrated from the synced Composio schema (`schema-hydration.ts`); the pinned Zod in `tool-policy.ts` is the validation fallback, not the source of truth. Each run records `schema_hashes` in `play_runs.metadata` (with `playbook_version`) for audit and drift detection.
+- **Tool docs** — the `tool_docs` cache table (slug → vendor doc snippets, ~7d TTL) injects vendor documentation into draft/agent prompts when a step uses that tool.
+- **Toolkit browser** — the Create Playbook button opens a live browser (connected apps → approved actions → compact schemas) over the same classification store; groundwork for user-authored playbooks.
 
 ---
 
@@ -104,7 +128,7 @@ value:
 - **`approval: auto | ask` on every step.** `ask` pauses the run (`paused_for_approval`) and queues a card with the pending tool call; approving executes exactly that call.
 - **Output approval** mirrors the same vocabulary (`none`/`per_entity`/`batch` normalize to `auto`/`ask` at parse).
 - **Trust level** (`read_only` → `act_with_approval` → `trust`) tightens or loosens what `auto` may do; high-risk tools always require confirmation.
-- **Earned autonomy** is offer-first: after enough approvals of the same action, the user gets a queued offer card to grant autonomy for that playbook+tool — revocable anytime in Settings → Plays.
+- **Earned autonomy** is offer-first: after enough approvals of the same action, the user gets a queued offer card to grant autonomy for that playbook+tool — revocable anytime in Settings → Plays. Dismissals count too: `playbook_action_approvals` tracks `dismissed_count` alongside `approved_count`, and the approval rate (`approved / (approved + dismissed)`) gates offers — a step dismissed more often than approved is never offered automation. Per-playbook rates surface as a "Your history with this play" card on the detail page (`getPlaybookApprovalRates`).
 - **Park-and-resume**: a connector failure (`ConnectorUnavailableError`) sets the run to `blocked` with the pending call preserved; the queue card shows the reason and approval resumes the exact step after reconnect.
 
 ---
@@ -129,6 +153,16 @@ await dispatchSignalTrigger({
 
 ---
 
+## Opt-in apps (What it needs)
+
+A playbook declares **categories** (`requirements.categories`). The owner then explicitly adds which connected apps that play may use (Overview → What it needs → `app_selections`). New connections stay out until added.
+
+- Empty/missing selections → the play skips ("No apps added for this play") rather than fanning out to every connected provider.
+- The executor still filters via `excludedProviders`, computed as connected providers minus selections.
+- Playbooks with required categories and zero selected apps show a **Needs an app** badge on the list card.
+
+---
+
 ## Memory Monopoly
 
 No playbook may mutate Memory. `memory_*` mutating slugs are rejected at **parse time** (parser, including branch-nested steps) and again at **runtime** in the executor's action step (`playbooks/memory-monopoly.ts`). Memory reads (`memory.find_*` fetch steps) are fine. Ask Salt's chat `memory_*` plays are the human-in-chat path, not playbooks, and are unaffected.
@@ -147,9 +181,9 @@ The playbook hero cards and the HQ Today widget both read these queries.
 
 ---
 
-## Storage-Agnostic Definitions (Design)
+## Storage-Agnostic Definitions
 
-Playbook definitions can live in the repo (files) or in a future `playbook_definitions` table (`jsonb` of the same `PlaybookDefinitionV2`) — merged into one registry at read time. Design: `docs/plans/2026-08-08-playbook-definitions-storage.md`. This is the foundation for user-authored playbooks.
+Playbook definitions live in the repo (Salt-authored pre-mades) or in the `playbook_definitions` table (user-authored, workspace-owned `jsonb` of the same `PlaybookDefinitionV2`). Landed groundwork (2026-08-29): the table + RLS, a Zod-validated single writer (`savePlaybookDefinition` / `savePlaybookDefinitionAction`), a re-validating read path, and the library merge in `getPlaybooksV2ForWorkspace` (workspace rows shadow repo slugs, origin `custom`). Still pending: async workspace-aware discovery so DB definitions fire via signal dispatch/cron, and the authoring UI. Design: `docs/plans/2026-08-08-playbook-definitions-storage.md`.
 
 ---
 
@@ -161,7 +195,7 @@ Playbook definitions can live in the repo (files) or in a future `playbook_defin
 4. Parse-time validation runs automatically at discovery: signal keys, section metadata, tool allowlist, memory monopoly
 5. Add a co-located unit test that parses the definition (see existing `*.test.ts` in `v2/`)
 
-If a playbook silently doesn't load, see [Playbook Troubleshooting](../guides/playbook-troubleshooting.md) — validation errors are swallowed at discovery by design.
+If a playbook doesn't load, the Playbooks tab banner says why — see [Playbook Troubleshooting](../guides/playbook-troubleshooting.md) for the common validation errors and the debug endpoint.
 
 ---
 

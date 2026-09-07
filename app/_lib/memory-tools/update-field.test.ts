@@ -8,6 +8,20 @@ const upserts: Array<{
   payload: Record<string, unknown>;
   options?: Record<string, unknown>;
 }> = [];
+const inserts: Array<{ table: string; payload: unknown }> = [];
+
+/**
+ * When set, the profile_field_provenance lookup returns this as the
+ * previously applied value — simulating a field the tool already wrote.
+ */
+let previousProvenanceValue: string | null = null;
+
+/**
+ * When set, entity-row reads (the row-level no-op guard) return these
+ * columns merged into the row — simulating a value set by a manual edit or
+ * seed, where no tool provenance exists.
+ */
+let currentRowValues: Record<string, unknown> | null = null;
 
 /**
  * Minimal chainable supabase mock. Chains are awaitable-by-default (plain
@@ -26,13 +40,24 @@ function makeChain(table: string) {
       return { error: null };
     }
   );
-  chain.insert = vi.fn(async () => ({ error: null }));
+  chain.insert = vi.fn(async (payload: unknown) => {
+    inserts.push({ table, payload });
+    return { error: null };
+  });
   chain.select = vi.fn(() => chain);
   chain.eq = vi.fn(() => chain);
   chain.neq = vi.fn(() => chain);
   chain.order = vi.fn(() => chain);
   chain.limit = vi.fn(() => chain);
-  chain.maybeSingle = vi.fn(async () => ({ data: { id: `${table}-row` } }));
+  chain.maybeSingle = vi.fn(async () => {
+    if (table === "profile_field_provenance" && previousProvenanceValue !== null) {
+      return { data: { id: "prov-1", value: previousProvenanceValue } };
+    }
+    if (currentRowValues) {
+      return { data: { id: `${table}-row`, ...currentRowValues } };
+    }
+    return { data: { id: `${table}-row` } };
+  });
   return chain;
 }
 
@@ -98,6 +123,13 @@ vi.mock("@/app/_lib/learning/salt-learnings", () => ({
   recordSaltLearning: (input: unknown) => recordSaltLearning(input),
   generateEvidenceSummary: (evidenceCount: number) =>
     `Seen ${evidenceCount} times in source`,
+}));
+
+const dispatchRecordConditionTrigger = vi.fn(async (_input: unknown) => []);
+
+vi.mock("@/app/_features/plays/playbooks/trigger-dispatch", () => ({
+  dispatchRecordConditionTrigger: (input: unknown) =>
+    dispatchRecordConditionTrigger(input),
 }));
 
 import {
@@ -257,6 +289,146 @@ describe("memoryUpdateField field mappings", () => {
         value: "x",
       })
     ).rejects.toThrow("Unknown person field");
+  });
+
+  it("maps the billing dbColumn spellings the record producer writes by", async () => {
+    const paid = await memoryUpdateField({
+      ...baseInput,
+      entityType: "billing",
+      entityId: "bill-1",
+      field: "amount_paid_cents",
+      value: 125000,
+    });
+    expect(paid.action).toBe("applied");
+    expect(
+      updates.find((u) => u.table === "billing_records")?.payload,
+    ).toEqual({ amount_paid_cents: 125000 });
+
+    const numbered = await memoryUpdateField({
+      ...baseInput,
+      entityType: "billing",
+      entityId: "bill-1",
+      field: "number",
+      value: "INV-0042",
+    });
+    expect(numbered.action).toBe("applied");
+    expect(
+      updates.filter((u) => u.table === "billing_records")[1]?.payload,
+    ).toEqual({ number: "INV-0042" });
+  });
+});
+
+describe("memoryUpdateField no-op suppression", () => {
+  beforeEach(() => {
+    updates.length = 0;
+    upserts.length = 0;
+    inserts.length = 0;
+    previousProvenanceValue = null;
+    vi.clearAllMocks();
+  });
+
+  it("skips the write, provenance, and Handled log when the value is already applied", async () => {
+    previousProvenanceValue = "CEO";
+
+    const result = await memoryUpdateField({
+      ...baseInput,
+      entityType: "person",
+      entityId: "person-1",
+      field: "title",
+      value: "CEO",
+      sourceDetails: { playbookSlug: "memory-records" },
+    });
+
+    expect(result.action).toBe("applied");
+    expect(result.noop).toBe(true);
+    expect(result.message).toContain("Already set");
+    // No column write, no provenance row, no salt_learnings row.
+    expect(updates.find((u) => u.table === "people")).toBeUndefined();
+    expect(
+      inserts.find((i) => i.table === "profile_field_provenance"),
+    ).toBeUndefined();
+    expect(recordSaltLearning).not.toHaveBeenCalled();
+  });
+
+  it("applies normally when the previous value differs", async () => {
+    previousProvenanceValue = "CTO";
+
+    const result = await memoryUpdateField({
+      ...baseInput,
+      entityType: "person",
+      entityId: "person-1",
+      field: "title",
+      value: "CEO",
+    });
+
+    expect(result.action).toBe("applied");
+    expect(result.noop).toBeUndefined();
+    expect(updates.find((u) => u.table === "people")).toBeDefined();
+    expect(recordSaltLearning).toHaveBeenCalledTimes(1);
+  });
+
+  it("applies normally when there is no previous provenance", async () => {
+    const result = await memoryUpdateField({
+      ...baseInput,
+      entityType: "person",
+      entityId: "person-1",
+      field: "title",
+      value: "CEO",
+    });
+
+    expect(result.action).toBe("applied");
+    expect(result.noop).toBeUndefined();
+    expect(updates.find((u) => u.table === "people")).toBeDefined();
+  });
+});
+
+describe("memoryUpdateField row-level no-op guard", () => {
+  beforeEach(() => {
+    updates.length = 0;
+    upserts.length = 0;
+    inserts.length = 0;
+    previousProvenanceValue = null;
+    currentRowValues = null;
+    vi.clearAllMocks();
+  });
+
+  it("returns applied+noop before accumulating when the row already holds the value", async () => {
+    // record_status is already "active" — set by a seed or manual edit, so
+    // no tool provenance exists for the apply-path guard to catch. The
+    // row-level guard must stop the cycle before evidence accumulates.
+    currentRowValues = { record_status: "active" };
+
+    const result = await memoryUpdateField({
+      ...baseInput,
+      entityType: "person",
+      entityId: "person-1",
+      field: "record_status",
+      value: "active",
+      sourceDetails: { playbookSlug: "memory-records" },
+    });
+
+    expect(result.action).toBe("applied");
+    expect(result.noop).toBe(true);
+    expect(result.message).toContain("Already set");
+    // Nothing accumulated, nothing written, nothing logged.
+    expect(accumulateEvidence).not.toHaveBeenCalled();
+    expect(updates.find((u) => u.table === "people")).toBeUndefined();
+    expect(recordSaltLearning).not.toHaveBeenCalled();
+  });
+
+  it("accumulates normally when the row holds a different value", async () => {
+    currentRowValues = { record_status: "inactive" };
+
+    const result = await memoryUpdateField({
+      ...baseInput,
+      entityType: "person",
+      entityId: "person-1",
+      field: "record_status",
+      value: "active",
+    });
+
+    expect(result.noop).toBeUndefined();
+    expect(accumulateEvidence).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -427,5 +599,94 @@ describe("memoryUpdateField Me (operator) field mappings", () => {
     expect(result.action).toBe("rejected");
     expect(result.message).toContain("never-touch");
     expect(updates).toHaveLength(0);
+  });
+});
+
+describe("memoryUpdateField record-condition dispatch (Phase 5)", () => {
+  beforeEach(() => {
+    updates.length = 0;
+    upserts.length = 0;
+    inserts.length = 0;
+    previousProvenanceValue = null;
+    vi.clearAllMocks();
+  });
+
+  it("dispatches record-condition evaluation after an applied write", async () => {
+    const result = await memoryUpdateField({
+      ...baseInput,
+      entityType: "person",
+      entityId: "person-1",
+      field: "relationship_type",
+      value: "client",
+    });
+
+    expect(result.action).toBe("applied");
+    expect(dispatchRecordConditionTrigger).toHaveBeenCalledWith({
+      workspaceId: "ws-1",
+      entity: "person",
+      field: "relationship_type",
+      newValue: "client",
+      entityId: "person-1",
+    });
+  });
+
+  it("maps organization writes to the org trigger entity", async () => {
+    const result = await memoryUpdateField({
+      ...baseInput,
+      entityType: "organization",
+      entityId: "org-1",
+      field: "relationship_status",
+      value: "active",
+    });
+
+    expect(result.action).toBe("applied");
+    expect(dispatchRecordConditionTrigger).toHaveBeenCalledWith(
+      expect.objectContaining({ entity: "org", entityId: "org-1" })
+    );
+  });
+
+  it("does not dispatch for entities outside the record-condition vocabulary", async () => {
+    const result = await memoryUpdateField({
+      ...baseInput,
+      entityType: "meeting",
+      entityId: "meeting-1",
+      field: "status",
+      value: "completed",
+    });
+
+    expect(result.action).toBe("applied");
+    expect(dispatchRecordConditionTrigger).not.toHaveBeenCalled();
+  });
+
+  it("does not dispatch on no-op writes (value already set)", async () => {
+    previousProvenanceValue = "client";
+
+    const result = await memoryUpdateField({
+      ...baseInput,
+      entityType: "person",
+      entityId: "person-1",
+      field: "relationship_type",
+      value: "client",
+    });
+
+    expect(result.action).toBe("applied");
+    expect(result.noop).toBe(true);
+    expect(dispatchRecordConditionTrigger).not.toHaveBeenCalled();
+  });
+
+  it("never lets a dispatch failure break the write", async () => {
+    dispatchRecordConditionTrigger.mockRejectedValueOnce(
+      new Error("dispatch exploded")
+    );
+
+    const result = await memoryUpdateField({
+      ...baseInput,
+      entityType: "person",
+      entityId: "person-1",
+      field: "relationship_type",
+      value: "client",
+    });
+
+    expect(result.action).toBe("applied");
   });
 });

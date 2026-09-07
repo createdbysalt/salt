@@ -3,12 +3,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mockMemoryUpdateField = vi.fn();
 const mockRunCareForSignal = vi.fn();
 const mockRouteIntakeProposal = vi.fn();
-const mockShouldAutoApply = vi.fn();
 
 type Filter = [string, string, unknown];
 let billingRows: Array<Record<string, unknown>> = [];
 let peopleRows: Array<{ id: string; email: string | null }> = [];
 let orgLinkRows: Array<{ organization_id: string }> = [];
+const updates: Array<{ table: string; payload: Record<string, unknown>; filters: Filter[] }> = [];
 
 function matchesFilters(row: Record<string, unknown>, filters: Filter[]): boolean {
   return filters.every(([op, f, v]) => {
@@ -23,12 +23,20 @@ const mockFrom = vi.fn((table: string) => {
   const filters: Filter[] = [];
   const builder = {
     select: () => builder,
+    update: (payload: Record<string, unknown>) => {
+      updates.push({ table, payload, filters });
+      return builder;
+    },
     eq: (f: string, v: unknown) => {
       filters.push(["eq", f, v]);
       return builder;
     },
     in: (f: string, v: unknown) => {
       filters.push(["in", f, v]);
+      return builder;
+    },
+    ilike: (f: string, v: unknown) => {
+      filters.push(["ilike", f, v]);
       return builder;
     },
     is: (f: string, v: unknown) => {
@@ -42,6 +50,14 @@ const mockFrom = vi.fn((table: string) => {
       }
       if (table === "people") {
         const emailFilter = filters.find(([op, f]) => op === "eq" && f === "email");
+        const idFilter = filters.find(([op, f]) => op === "in" && f === "id");
+        if (idFilter) {
+          return {
+            data:
+              peopleRows.find((p) => (idFilter[2] as string[]).includes(p.id)) ??
+              null,
+          };
+        }
         return {
           data: peopleRows.find((p) => p.email === emailFilter?.[2]) ?? null,
         };
@@ -53,6 +69,16 @@ const mockFrom = vi.fn((table: string) => {
         return resolve({ data: billingRows.filter((r) => matchesFilters(r, filters)) });
       }
       if (table === "organization_people") return resolve({ data: orgLinkRows });
+      if (table === "people") {
+        const emailFilter = filters.find(
+          ([op, f]) => (op === "eq" || op === "ilike") && f === "email",
+        );
+        return resolve({
+          data: emailFilter
+            ? peopleRows.filter((p) => p.email === emailFilter[2])
+            : [],
+        });
+      }
       return resolve({ data: [] });
     },
   };
@@ -71,8 +97,17 @@ vi.mock("@/app/_features/memory/care/scheduler", () => ({
 vi.mock("@/app/_features/memory/evidence/route-intake-proposal", () => ({
   routeIntakeProposal: (...args: unknown[]) => mockRouteIntakeProposal(...args),
 }));
-vi.mock("../intelligence/record-capture-outcome", () => ({
-  shouldAutoApply: (...args: unknown[]) => mockShouldAutoApply(...args),
+
+const mockExecuteRecordAction = vi.fn();
+vi.mock("@/app/_features/memory/records", () => ({
+  executeRecordAction: (...args: unknown[]) => mockExecuteRecordAction(...args),
+}));
+
+// The category registry is DB-backed with a frozen fallback; against the
+// mocked admin client the DB "wins" empty, so pin the taxonomy here.
+vi.mock("@/app/_lib/composio/enrichment/registry", () => ({
+  getCategoryForConnector: async (provider: string) =>
+    provider === "stripe" || provider === "quickbooks" ? "billing" : null,
 }));
 
 import { produceBillingRecordSignals } from "./billing-record-producer";
@@ -133,13 +168,18 @@ function openBillingRow(overrides: Record<string, unknown> = {}) {
 describe("produceBillingRecordSignals", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    updates.length = 0;
     billingRows = [];
     peopleRows = [{ id: "person-1", email: "jane@northwind.com" }];
     orgLinkRows = [{ organization_id: "org-1" }];
     mockMemoryUpdateField.mockResolvedValue({ action: "applied" });
     mockRunCareForSignal.mockResolvedValue([]);
     mockRouteIntakeProposal.mockResolvedValue({ outcome: "suggested", evidenceId: "ev-1" });
-    mockShouldAutoApply.mockResolvedValue(false);
+    mockExecuteRecordAction.mockResolvedValue({
+      success: true,
+      entity_id: "bill-new",
+      entity_type: "invoice",
+    });
   });
 
   it("matches by invoice number and corroborates the open record", async () => {
@@ -216,7 +256,10 @@ describe("produceBillingRecordSignals", () => {
       source: "stripe",
     });
 
-    expect(result).toEqual({ matched: false, writes: 0, reason: "no-open-match" });
+    // The paid row is a different invoice (no number on file), so the
+    // unmatched INV-0042 births its own record — the paid row stays
+    // untouched either way.
+    expect(result).toEqual({ matched: false, writes: 0, reason: "record-created" });
     expect(mockMemoryUpdateField).not.toHaveBeenCalled();
   });
 
@@ -331,9 +374,15 @@ describe("produceBillingRecordSignals", () => {
     unpaid.extracted = { ...unpaid.extracted, status: "open", amount_paid: 0 };
     await produceBillingRecordSignals({ workspaceId: WS, envelope: unpaid, source: "stripe" });
 
-    // Unknown counterparty and nothing to match against.
+    // Counterparty cannot be birthed (e.g. operator-guard refusal) and
+    // nothing matches — there is no person to attest.
     billingRows = [];
     peopleRows = [];
+    mockExecuteRecordAction.mockImplementation(async (_ws: string, slug: string) =>
+      slug === "system:create-person"
+        ? { success: false, error: "refused" }
+        : { success: true, entity_id: "bill-new", entity_type: "invoice" },
+    );
     await produceBillingRecordSignals({ workspaceId: WS, envelope: paymentEnvelope(), source: "stripe" });
 
     const personAttestations = mockRunCareForSignal.mock.calls.filter(
@@ -357,14 +406,17 @@ describe("produceBillingRecordSignals", () => {
         entityType: "work",
         identifier: "Jane Doe",
         signals: ["invoice_line_items_suggest_project"],
-        autoApply: false,
       }),
     );
+    // No calibration input — the evidence score is the only gate.
+    const [workCall] = mockRouteIntakeProposal.mock.calls.find(
+      ([arg]) => (arg as { entityType: string }).entityType === "work",
+    )!;
+    expect(workCall).not.toHaveProperty("autoApply");
   });
 
-  it("auto-applies the work proposal only when the workspace earned calibration", async () => {
-    mockShouldAutoApply.mockResolvedValue(true);
-    billingRows = [];
+  it("never names the work evidence after the counterparty", async () => {
+    billingRows = [openBillingRow()];
 
     await produceBillingRecordSignals({
       workspaceId: WS,
@@ -372,9 +424,38 @@ describe("produceBillingRecordSignals", () => {
       source: "stripe",
     });
 
-    expect(mockRouteIntakeProposal).toHaveBeenCalledWith(
-      expect.objectContaining({ entityType: "work", autoApply: true }),
-    );
+    const [workCall] = mockRouteIntakeProposal.mock.calls.find(
+      ([arg]) => (arg as { entityType: string }).entityType === "work",
+    )!;
+    const fields = (workCall as { extractedFields: Record<string, { value: string }> })
+      .extractedFields;
+    // The counterparty anchors the evidence; the client name must never
+    // occupy the work record's name field.
+    expect(fields.counterparty?.value).toBe("Jane Doe");
+    expect(fields.name).toBeUndefined();
+  });
+
+  it("names the work evidence from invoice line-item descriptions", async () => {
+    billingRows = [openBillingRow()];
+
+    await produceBillingRecordSignals({
+      workspaceId: WS,
+      envelope: paymentEnvelope({
+        extracted: {
+          ...paymentEnvelope().extracted,
+          line_item_descriptions: ["Brand photography — day rate", "Travel"],
+        },
+      }),
+      source: "stripe",
+    });
+
+    const [workCall] = mockRouteIntakeProposal.mock.calls.find(
+      ([arg]) => (arg as { entityType: string }).entityType === "work",
+    )!;
+    const fields = (workCall as { extractedFields: Record<string, { value: string }> })
+      .extractedFields;
+    expect(fields.name?.value).toBe("Brand photography — day rate");
+    expect(fields.counterparty?.value).toBe("Jane Doe");
   });
 
   it("skips the work proposal when no counterparty is identifiable", async () => {
@@ -389,34 +470,116 @@ describe("produceBillingRecordSignals", () => {
     expect(workCalls).toHaveLength(0);
   });
 
-  describe("unmatched invoice → billing suggestion", () => {
-    it("routes a receivable billing proposal when nothing matches", async () => {
-      await produceBillingRecordSignals({
+  describe("unmatched invoice from a connected billing provider → factual birth", () => {
+    it("births the billing record directly from the connected-provider fact", async () => {
+      const result = await produceBillingRecordSignals({
         workspaceId: WS,
         envelope: paymentEnvelope(),
         source: "stripe",
       });
 
+      expect(result).toEqual({ matched: false, writes: 0, reason: "record-created" });
+      expect(mockExecuteRecordAction).toHaveBeenCalledWith(
+        WS,
+        "system:create-billing",
+        expect.objectContaining({
+          direction: "receivable",
+          amount_cents: 150000,
+          amount_paid_cents: 150000,
+          currency: "USD",
+          status: "paid",
+          number: "INV-0042",
+          due_at: "2026-08-15T00:00:00.000Z",
+          paid_at: "2026-08-10T12:00:00.000Z",
+          app_url: "https://invoice.stripe.com/i/123",
+          person_id: "person-1",
+          // billing_records_source_check allows user/imported/salt_inferred —
+          // the connector name lives in source_external_id, not source.
+          source: "salt_inferred",
+          origin: "found",
+          source_external_id: "in_123",
+        }),
+      );
+      // The factual path never routes a billing-lane proposal (the work-lane
+      // proposal for the counterparty still fires and keeps its gate).
+      const billingCalls = mockRouteIntakeProposal.mock.calls.filter(
+        ([arg]) => (arg as { entityType: string }).entityType === "billing",
+      );
+      expect(billingCalls).toHaveLength(0);
+    });
+
+    it("closes out proposal-lane evidence when the factual birth succeeds", async () => {
+      const result = await produceBillingRecordSignals({
+        workspaceId: WS,
+        envelope: paymentEnvelope(),
+        source: "stripe",
+      });
+
+      expect(result.reason).toBe("record-created");
+      // A stale "suggested" row for the same invoice would offer to create a
+      // duplicate — the birth marks it created with the new record id.
+      const closeOut = updates.find((u) => u.table === "pending_evidence");
+      expect(closeOut?.payload).toMatchObject({
+        status: "created",
+        created_record_id: "bill-new",
+      });
+      expect(closeOut?.filters).toContainEqual([
+        "in",
+        "identifier",
+        ["inv-0042", "stripe:in_123"],
+      ]);
+      expect(closeOut?.filters).toContainEqual(["eq", "workspace_id", WS]);
+    });
+
+    it("births an unpaid invoice as due", async () => {
+      const envelope = paymentEnvelope();
+      envelope.extracted = {
+        ...envelope.extracted,
+        status: "open",
+        amount_paid: 0,
+      };
+
+      await produceBillingRecordSignals({ workspaceId: WS, envelope, source: "stripe" });
+
+      expect(mockExecuteRecordAction).toHaveBeenCalledWith(
+        WS,
+        "system:create-billing",
+        expect.objectContaining({ status: "due", paid_at: undefined }),
+      );
+    });
+
+    it("keeps the proposal lane when no counterparty is identifiable", async () => {
+      const envelope = paymentEnvelope();
+      envelope.extracted = {
+        ...envelope.extracted,
+        customer_email: null,
+        customer_name: null,
+      };
+
+      await produceBillingRecordSignals({ workspaceId: WS, envelope, source: "stripe" });
+
+      expect(mockExecuteRecordAction).not.toHaveBeenCalled();
+      expect(mockRouteIntakeProposal).toHaveBeenCalledWith(
+        expect.objectContaining({ entityType: "billing", identifier: "INV-0042" }),
+      );
+    });
+
+    it("routes email-classified billing signals through the proposal lane (no factual birth)", async () => {
+      const envelope = paymentEnvelope({ sourceType: "gmail" });
+
+      await produceBillingRecordSignals({ workspaceId: WS, envelope, source: "gmail" });
+
+      expect(mockExecuteRecordAction).not.toHaveBeenCalled();
       expect(mockRouteIntakeProposal).toHaveBeenCalledWith(
         expect.objectContaining({
-          workspaceId: WS,
           entityType: "billing",
           identifier: "INV-0042",
-          signals: ["stripe_webhook_payment"],
-          autoApply: false,
-          extractedFields: expect.objectContaining({
-            amount_cents: expect.objectContaining({ value: "150000" }),
-            direction: expect.objectContaining({ value: "receivable" }),
-            number: expect.objectContaining({ value: "INV-0042" }),
-            due_at: expect.objectContaining({ value: "2026-08-15T00:00:00.000Z" }),
-            app_url: expect.objectContaining({ value: "https://invoice.stripe.com/i/123" }),
-          }),
         }),
       );
     });
 
-    it("does not suggest when the invoice number is tracked in a non-open status", async () => {
-      // A paid record falls through the open-status matcher — suggesting it
+    it("does not birth when the invoice number is tracked in a non-open status", async () => {
+      // A paid record falls through the open-status matcher — creating it
       // again would duplicate the record.
       billingRows = [{ ...openBillingRow(), number: "INV-0042", status: "paid" }];
 
@@ -426,13 +589,14 @@ describe("produceBillingRecordSignals", () => {
         source: "stripe",
       });
 
+      expect(mockExecuteRecordAction).not.toHaveBeenCalled();
       const billingCalls = mockRouteIntakeProposal.mock.calls.filter(
         ([arg]) => (arg as { entityType: string }).entityType === "billing",
       );
       expect(billingCalls).toHaveLength(0);
     });
 
-    it("does not suggest when this capture already birthed a record", async () => {
+    it("does not birth when this capture already birthed a record", async () => {
       billingRows = [
         { ...openBillingRow(), status: "paid", number: "INV-OTHER", source_external_id: "in_123" },
       ];
@@ -443,10 +607,114 @@ describe("produceBillingRecordSignals", () => {
         source: "stripe",
       });
 
+      expect(mockExecuteRecordAction).not.toHaveBeenCalled();
       const billingCalls = mockRouteIntakeProposal.mock.calls.filter(
         ([arg]) => (arg as { entityType: string }).entityType === "billing",
       );
       expect(billingCalls).toHaveLength(0);
+    });
+
+    it("births and links the counterparty person when the Stripe customer is not in Memory", async () => {
+      peopleRows = []; // customer not in Memory yet
+      mockExecuteRecordAction.mockImplementation(async (_ws: string, slug: string) =>
+        slug === "system:create-person"
+          ? { success: true, entity_id: "person-new", entity_type: "person" }
+          : { success: true, entity_id: "bill-new", entity_type: "invoice" },
+      );
+
+      const result = await produceBillingRecordSignals({
+        workspaceId: WS,
+        envelope: paymentEnvelope(),
+        source: "stripe",
+      });
+
+      expect(result.reason).toBe("record-created");
+      expect(mockExecuteRecordAction).toHaveBeenCalledWith(
+        WS,
+        "system:create-person",
+        expect.objectContaining({ name: "Jane Doe", email: "jane@northwind.com" }),
+      );
+      expect(mockExecuteRecordAction).toHaveBeenCalledWith(
+        WS,
+        "system:create-billing",
+        expect.objectContaining({ person_id: "person-new" }),
+      );
+    });
+
+    it("derives the person name from the email local part when the provider carries no name", async () => {
+      peopleRows = [];
+      mockExecuteRecordAction.mockImplementation(async (_ws: string, slug: string) =>
+        slug === "system:create-person"
+          ? { success: true, entity_id: "person-new", entity_type: "person" }
+          : { success: true, entity_id: "bill-new", entity_type: "invoice" },
+      );
+      const envelope = paymentEnvelope();
+      envelope.extracted = { ...envelope.extracted, customer_name: null };
+
+      await produceBillingRecordSignals({ workspaceId: WS, envelope, source: "stripe" });
+
+      expect(mockExecuteRecordAction).toHaveBeenCalledWith(
+        WS,
+        "system:create-person",
+        expect.objectContaining({ name: "Jane", email: "jane@northwind.com" }),
+      );
+    });
+
+    it("still births the billing record when the person birth fails", async () => {
+      peopleRows = [];
+      mockExecuteRecordAction.mockImplementation(async (_ws: string, slug: string) =>
+        slug === "system:create-person"
+          ? { success: false, error: "Refusing to create person: operator" }
+          : { success: true, entity_id: "bill-new", entity_type: "invoice" },
+      );
+
+      const result = await produceBillingRecordSignals({
+        workspaceId: WS,
+        envelope: paymentEnvelope(),
+        source: "stripe",
+      });
+
+      expect(result.reason).toBe("record-created");
+      expect(mockExecuteRecordAction).toHaveBeenCalledWith(
+        WS,
+        "system:create-billing",
+        expect.objectContaining({ person_id: undefined }),
+      );
+    });
+
+    it("never births a person on the proposal lane (email-classified billing)", async () => {
+      peopleRows = [];
+      const envelope = paymentEnvelope({ sourceType: "gmail" });
+
+      await produceBillingRecordSignals({ workspaceId: WS, envelope, source: "gmail" });
+
+      const personCalls = mockExecuteRecordAction.mock.calls.filter(
+        ([, slug]) => slug === "system:create-person",
+      );
+      expect(personCalls).toHaveLength(0);
+    });
+
+    it("attests a first-time customer as a client once the birth links them", async () => {
+      peopleRows = [];
+      mockExecuteRecordAction.mockImplementation(async (_ws: string, slug: string) =>
+        slug === "system:create-person"
+          ? { success: true, entity_id: "person-new", entity_type: "person" }
+          : { success: true, entity_id: "bill-new", entity_type: "invoice" },
+      );
+
+      await produceBillingRecordSignals({
+        workspaceId: WS,
+        envelope: paymentEnvelope(),
+        source: "stripe",
+      });
+
+      expect(mockRunCareForSignal).toHaveBeenCalledWith(
+        expect.objectContaining({
+          signalKey: "has_payment_received",
+          entityType: "person",
+          entityId: "person-new",
+        }),
+      );
     });
   });
 });

@@ -62,12 +62,12 @@ function formatFieldLabel(fieldPath: string): string {
 }
 
 export const getHandledWrites = cache(
-  async (workspaceId: string, limit = 30): Promise<HandledWrite[]> => {
+  async (workspaceId: string, limit = 500): Promise<HandledWrite[]> => {
     const supabase = await createClient();
 
-    const since = new Date();
-    since.setDate(since.getDate() - 14);
-
+    // All time — Handled is the audit trail, and a window or small cap
+    // silently hides older writes. The generous limit is a safety valve,
+    // not a window.
     const { data, error } = await supabase
       .from("salt_learnings")
       .select(
@@ -88,7 +88,6 @@ export const getHandledWrites = cache(
       )
       .eq("workspace_id", workspaceId)
       .is("undone_at", null)
-      .gte("created_at", since.toISOString())
       .order("created_at", { ascending: false })
       .limit(limit);
 

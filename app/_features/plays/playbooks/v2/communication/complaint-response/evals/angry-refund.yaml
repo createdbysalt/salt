@@ -1,0 +1,20 @@
+# Happy path with teeth: genuine complaint about late delivery →
+# tone-matched reply drafted, paused for the human to send.
+id: angry-refund
+name: Angry client about late delivery → reply paused for approval
+given:
+  agent:
+    - step: verify_complaint
+      text: "Read the thread: Dana Lee is angry — the brand guide was due August 28 and is now a week late. Stripe shows INV-121 ($2,400) paid in full. Client for 14 months. VERDICT: PROCEED standard — late deliverable, paid invoice, 14-month client, clearly angry"
+  draft:
+    - step: reply_email
+      text: "Hi Dana — you're right, the brand guide is a week late and that's on me. I've reprioritized it and you'll have the full guide by Thursday. I've also added a revision round at no charge. This isn't how I normally run projects, and I'd like to make it right."
+expect:
+  status: paused
+  pausedOnTool: GMAIL_SEND_EMAIL
+  steps:
+    classification: success
+    verify_complaint: success
+    severity: success
+    reply_email: success
+    send_reply: paused

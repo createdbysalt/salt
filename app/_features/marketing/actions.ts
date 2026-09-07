@@ -21,6 +21,7 @@ import {
   RateLimitPresets,
 } from "@/app/_lib/rate-limit/rate-limit";
 import { isValidWaitlistEmail } from "@/app/_features/marketing/waitlist-qualification";
+import { LP_VARIANT_COOKIE } from "@/app/_features/marketing/landing2/landing-variants";
 import {
   buildWaitlistRow,
   capSource,
@@ -163,11 +164,13 @@ export async function saveWaitlistLeadAction(
         consentValue ? decodeURIComponent(consentValue) : undefined
       )
     );
+    const landingVariant = cookieStore.get(LP_VARIANT_COOKIE)?.value;
 
     if (analyticsAllowed && isFirstWrite && status === "partial") {
       void recordFunnelEvent("waitlist_partial", path, {
         source,
         last_step: metadata.last_step ?? "email",
+        lp_variant: landingVariant,
       });
     }
 
@@ -176,6 +179,7 @@ export async function saveWaitlistLeadAction(
         void recordFunnelEvent("waitlist_success", path, {
           source,
           last_step: metadata.last_step,
+          lp_variant: landingVariant,
         });
       }
 

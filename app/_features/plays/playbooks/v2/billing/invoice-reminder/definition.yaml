@@ -1,12 +1,12 @@
 # Invoice Reminder
-# Consolidates: invoice-chase, payment-reminder, overdue-invoice-reminder
-# Drafts payment reminders when invoices go overdue, adapting tone based on
-# payment history.
+# Drafts a tone-matched payment reminder when an invoice goes overdue.
+# ACT layer — verifies before drafting, never double-messages, one email
+# per client covering every open invoice. Human Send sends the email.
 
 name: Invoice Reminder
 slug: invoice-reminder
-version: 1.0.0
-description: Drafts payment reminders for overdue invoices
+version: 1.1.0
+description: Send a payment reminder when an invoice goes overdue, verified against Stripe first, matched to the client's payment history, one email per client
 
 section: billing
 layer: act
@@ -15,47 +15,176 @@ voice: billing
 trigger:
   type: signal
   signal: billing_due_date_passed
+  surface: billing
+  adjust:
+    - grace_days
+
+# User-tunable knobs. Referenced as {{settings.key}} in prompts and classify
+# rules; the Overview trigger section renders `adjust` keys as inputs.
+settings:
+  grace_days:
+    type: number
+    label: "Wait {value} days after the due date"
+    default: 0
+  firm_after_days:
+    type: number
+    label: "Tone turns firm after {value} days overdue"
+    default: 7
+  final_after_days:
+    type: number
+    label: "Final notice after {value} days overdue"
+    default: 21
+  reminder_cooldown_days:
+    type: number
+    label: "Skip if a reminder went out in the last {value} days"
+    default: 7
 
 requirements:
   categories:
     required:
       - billing
+    optional:
+      - email
   capabilities:
     required:
       - read_invoices
 
+# Tool allowlist (single-document canon). Authored against Gmail slugs; at
+# runtime the email pair swaps to Outlook when that inbox is the one added
+# on Overview. Billing can still fan out to every selected billing app.
+tools:
+  - STRIPE_LIST_INVOICES
+  - GMAIL_FETCH_EMAILS
+  - GMAIL_CREATE_EMAIL_DRAFT
+  - GMAIL_SEND_EMAIL
+
 steps:
+  # Step 1: The overdue invoice, its client, their payment history, and every
+  # open invoice for that client — from Salt's own Memory, not a connector.
   - step: fetch
-    id: overdue_invoices
-    from: billing.read_invoices
-    where:
-      status: overdue
+    id: invoice_context
+    from: memory.billing_record_context
+    approval: auto
 
-  - step: classify
-    id: tone
-    forEach: overdue_invoices
-    rules:
-      - if: "payment_history.on_time >= 3"
-        then: gentle
-      - if: "payment_history.late >= 2"
-        then: firm
-    else: professional
-
-  - step: draft
-    id: reminder_email
+  # Step 2: Verify before we draft anything. Bounded read-only agent — it can
+  # only look, never act. Ends with a machine-checkable verdict line.
+  - step: agent
+    id: verify_unpaid
     prompt: |
-      Draft a payment reminder for each overdue invoice below.
-      Overdue invoices: {{overdue_invoices}}
-      Tone classification: {{tone}}
+      An invoice is overdue in Salt's records:
+      {{invoice_context}}
 
-      Be clear about the amount due and due date.
-      If gentle, acknowledge their good payment history.
-      If firm, mention potential consequences.
-    max_tokens: 200
+      Verify before we draft anything:
+      1. Confirm this invoice is still unpaid with the connected billing
+         app's invoice read — STRIPE_LIST_INVOICES for Stripe; when
+         QuickBooks is also connected, QUICKBOOKS_GET_AGED_RECEIVABLES_REPORT
+         is offered too: check EVERY connected billing app, the invoice may
+         live in either. Note its collection method and amount remaining.
+      2. If the invoice is paid, void, or uncollectible → SKIP.
+      3. If the invoice is set to auto-collect (e.g. Stripe's
+         charge_automatically) → SKIP. The billing app auto-collects these;
+         a reminder would double-message the client.
+      4. If the invoice is fewer than {{settings.grace_days}} days past its
+         due date → SKIP. The owner wants a grace period first.
+      5. Search sent mail on the connected inbox for the invoice number.
+         If a reminder about it went out in the last
+         {{settings.reminder_cooldown_days}} days → SKIP.
+      6. If the client has no email address on file, note it — the human
+         will fill the recipient in.
+      7. If no billing app or inbox is connected, or a lookup fails, say
+         what you could not verify and lean toward PROCEED — a human reviews
+         every draft before anything is sent.
+      8. If the billing app returns a hosted pay URL (Stripe
+         hosted_invoice_url), quote it exactly on its own line as
+         PAY_LINK: <url>. Never invent one.
+
+      End your answer with exactly one verdict line:
+      "VERDICT: PROCEED — <amount remaining, days overdue, prior reminder date or none>"
+      or
+      "VERDICT: SKIP — <one-line reason>"
+    tools:
+      - STRIPE_LIST_INVOICES
+      - GMAIL_FETCH_EMAILS
+    max_calls: 4
+    approval: auto
+
+  # Steps 3-5 run only when verification says the reminder should exist.
+  - step: branch
+    id: maybe_remind
+    if: "verify_unpaid.text ~= 'VERDICT: PROCEED'"
+    steps:
+      # Step 3: Escalation tier from days overdue x payment history.
+      - step: classify
+        id: tier
+        input: invoice_context
+        rules:
+          - if: "invoice.days_overdue >= {{settings.final_after_days}}"
+            then: final
+          - if: "payment_history.late >= 2"
+            then: firm
+          - if: "invoice.days_overdue >= {{settings.firm_after_days}}"
+            then: firm
+          - if: "payment_history.on_time >= 3"
+            then: gentle
+        else: professional
+        approval: auto
+
+      # Step 4: One email per client, covering every open invoice.
+      - step: draft
+        id: reminder_email
+        prompt: |
+          Draft a payment reminder email to the client below.
+
+          Invoice context: {{invoice_context}}
+          Verification: {{verify_unpaid}}
+          Tone tier: {{tier}}
+
+          Cover EVERY open invoice for this client in one email — list each
+          with its number, amount remaining, and days overdue, then the
+          total outstanding.
+
+          Tone by tier:
+          - gentle: friendly first nudge; acknowledge their good payment
+            history; assume it slipped through.
+          - professional: neutral and clear; amount, invoice numbers, due
+            dates, how to pay.
+          - firm: direct; this is not the first reminder; ask for a payment
+            date; mention late fees or paused work only if the tier is final.
+          - final: last reminder before escalation; state the total, the
+            oldest invoice's age, and a concrete deadline; stay courteous.
+
+          Write a real email, not markdown. No asterisks, no Subject line
+          in the body (the subject is set separately). Use a greeting, short
+          paragraphs, and a plain list of invoices if more than one is open.
+          Close with a professional sign-off and the owner's name on the
+          next line. Never leave "Best regards," hanging with no name.
+
+          If invoice_context has a pay_url, or any open invoice has one, put
+          it on its own line before the sign-off as:
+          Pay invoice: <the exact URL>
+          Cover every distinct pay_url you were given. Never invent a
+          payment link or bank details. If there is no pay_url, do not
+          mention a link or tell them to click below.
+
+          If the client has no email on file, start the draft with
+          "[No email on file — add the recipient]".
+        max_tokens: 500
+        approval: auto
+
+      # Step 5: Send waits for the human. Open in Gmail still writes a
+      # review draft from the same letter.
+      - step: action
+        id: send_reminder
+        tool: GMAIL_SEND_EMAIL
+        args:
+          recipient_email: "{{invoice_context.client.email}}"
+          subject: "Payment reminder — invoice {{invoice_context.invoice.number}}"
+          body: "{{reminder_email}}"
+        approval: ask
 
 output:
   type: email_draft
-  approval: per_entity
+  approval: ask
 
 value:
   kind: invoice_collected
@@ -63,44 +192,34 @@ value:
 
 instructions:
   system: |
-    You are drafting payment reminders for freelancers and solopreneurs.
-    Be professional but warm. These are often repeat clients who simply forgot.
-    The goal is to get paid while preserving the relationship.
+    You draft payment reminders for a solo business owner. Getting paid
+    matters; keeping the client relationship matters just as much. Every
+    reminder waits for Send. Open in Gmail is only a review draft.
+
+    Escalation tiers (thresholds are workspace-tunable settings):
+    - gentle: first touch, good payer — a friendly nudge
+    - professional: standard reminder — clear facts, easy to act on
+    - firm: repeat lateness or past the firm threshold — direct, asks for a date
+    - final: past the final threshold — last reminder before the owner escalates
 
   guidelines:
-    - Keep emails under 150 words
-    - Always include the invoice number and amount
-    - Reference the relationship positively
-    - Make payment easy (include payment link if available)
-    - Avoid legal threats unless explicitly escalating
+    - "Verify the invoice is still unpaid before drafting — never remind about a paid invoice"
+    - "Skip invoices Stripe auto-collects (charge_automatically) — a reminder would double-message"
+    - "One email per client, listing every open invoice — never a stack of separate reminders"
+    - "Include the hosted pay link when Memory or the billing app has one"
+    - "Reference the amount remaining, not the original amount, when partial payment arrived"
+    - "Send is the only path that leaves the inbox — nothing sends automatically"
 
   avoid:
-    - Threatening language
-    - Legal jargon
-    - Multiple exclamation marks
-    - Passive-aggressive tone
+    - "Reminding about invoices that are paid, void, or uncollectible"
+    - "Sending a second reminder inside the reminder cooldown window"
+    - "Inventing payment links, bank details, or late-fee amounts"
+    - "Threatening language — even final notices stay courteous"
 
   examples:
-    - label: Gentle reminder for good client
-      content: |
-        Hi Sarah,
-
-        Quick note about invoice #1234 for $2,500 - it was due last Friday.
-        I know things get busy! Let me know if you need anything from my end.
-
-        Best,
-        [Name]
-      context: Use for clients with 3+ on-time payments
-
-    - label: Firm reminder for late payer
-      content: |
-        Hi Alex,
-
-        Following up on invoice #5678 for $4,200, now 14 days overdue.
-        To keep the project on track, I'll need payment by Friday.
-
-        Please let me know if there's an issue I should be aware of.
-
-        Thanks,
-        [Name]
-      context: Use for clients with 2+ late payments
+    - label: "Good payer, first nudge"
+      content: "INV-104, $1,500 remaining, 3 days overdue, client always pays on time → gentle — friendly nudge acknowledging their track record"
+    - label: "Repeat late payer, two open invoices"
+      content: "INV-097 and INV-099, $3,200 total, 12 and 9 days overdue, two late payments this year → firm — one email listing both invoices, asks for a payment date"
+    - label: "Long overdue, last notice"
+      content: "INV-061, $900 remaining, 26 days overdue, no prior reminder answered → final — courteous last notice with a concrete deadline"

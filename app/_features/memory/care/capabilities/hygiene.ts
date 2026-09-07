@@ -412,7 +412,11 @@ export async function runHygieneCapability(
 
   // --- DUPLICATES ---
   for (const match of duplicatesResult.matches) {
-    if (match.confidence < 80) continue;
+    // Name-similarity signals are deliberately emitted below the usual 80
+    // floor (subset names sit at 70) so they surface as user-approved
+    // proposals instead of vanishing — they can never auto-apply.
+    const floor = match.signal === "person_duplicate_name_subset" ? 70 : 80;
+    if (match.confidence < floor) continue;
 
     const mergeValue = {
       targetId: match.recordB.id,

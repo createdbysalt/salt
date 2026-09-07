@@ -37,10 +37,10 @@ function str(value: unknown): string | null {
  */
 const ENRICHMENT_REGISTRY: Record<string, EnrichmentSpec> = {
   // Outlook email triggers only send message ID.
-  // OUTLOOK_OUTLOOK_GET_MESSAGE replaces OUTLOOK_GET_MESSAGE, which 404s on
-  // both metadata and execute endpoints as of 2026-08-06 (Composio toolkit
-  // rework) — enrichment was silently failing and captures fell back to
-  // minimal payloads.
+  // Slug history: OUTLOOK_GET_MESSAGE 404'd 2026-08-06 (toolkit rework →
+  // double-prefix), then Composio reverted and OUTLOOK_OUTLOOK_GET_MESSAGE
+  // 404'd (confirmed 2026-08-29). The tool-slugs registry now aliases the
+  // double-prefix keys to the live single-prefix slugs — see tool-slugs.ts.
   OUTLOOK_MESSAGE_TRIGGER: {
     toolSlug: COMPOSIO_TOOL_SLUGS.OUTLOOK_OUTLOOK_GET_MESSAGE,
     extractId: (payload) => {

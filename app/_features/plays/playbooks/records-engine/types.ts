@@ -156,6 +156,13 @@ export type FileProfileFieldKey =
   | "due_date"
   | "expiry_date"
   | "signed_date"
+  | "follow_up_date"
+  | "total_amount_cents"
+  | "currency"
+  | "description"
+  | "title"
+  | "url"
+  | "is_operator_asset"
   | "organizationId"
   | "personId"
   | "workId";

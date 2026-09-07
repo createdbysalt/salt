@@ -1,0 +1,20 @@
+# Escalated tier: urgent-classified email from a long-term client →
+# short, personal reply — still paused for the human, always.
+id: vip-escalated
+name: Urgent complaint from three-year client → escalated reply paused
+given:
+  agent:
+    - step: verify_complaint
+      text: "Read the thread: Priya Shah, client for 3 years, says the last two invoices included charges she never approved and she's considering ending the retainer. Stripe shows INV-098 and INV-104 with added line items. VERDICT: PROCEED escalated — disputed charges, retainer at risk, three-year relationship"
+  draft:
+    - step: reply_email
+      text: "Priya — I just went through both invoices and you're right: those line items shouldn't have been there. I've credited $380 back to your account today. Your trust matters more to me than any invoice — I'd like to walk you through what happened on a quick call this week if you're open to it."
+expect:
+  status: paused
+  pausedOnTool: GMAIL_SEND_EMAIL
+  steps:
+    classification: success
+    verify_complaint: success
+    severity: success
+    reply_email: success
+    send_reply: paused

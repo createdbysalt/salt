@@ -76,7 +76,9 @@ export async function runEmailDigestCron(): Promise<EmailDigestRunResult> {
         workspaceId,
         userId,
         { type: "schedule" },
-        playbook.definition.voice
+        playbook.definition.voice,
+        undefined,
+        playbook.definition.slug
       );
 
       const execution = await executePlaybookV2(playbook.definition, context);

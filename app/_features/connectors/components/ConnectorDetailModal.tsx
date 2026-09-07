@@ -38,6 +38,7 @@ import {
   type ConnectorsPageData,
 } from "@/app/_features/connectors";
 import { catalogById } from "@/app/_features/connectors/catalog-view";
+import { activityFriendlyError } from "@/app/_features/connectors/utils/activity-format";
 import { formatToolName } from "@/app/_features/ask-salt/tool-preview";
 import { toast } from "sonner";
 import {
@@ -874,7 +875,10 @@ function ConnectorActivityList({
                 <p className="truncate text-xs text-muted-foreground">{summary}</p>
               ) : null}
               {entry.status !== "success" && entry.error ? (
-                <p className="text-xs text-destructive">{entry.error}</p>
+                <p className="text-xs text-destructive">
+                  {activityFriendlyError(entry) ??
+                    "Something went wrong — please try again."}
+                </p>
               ) : null}
             </div>
           </li>

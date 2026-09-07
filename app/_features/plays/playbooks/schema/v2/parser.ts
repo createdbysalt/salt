@@ -21,6 +21,7 @@ import {
   type SectionMetadata,
 } from "./types";
 import { isValidSignalKey } from "@/app/_lib/learning/signals";
+import { isRecordConditionField } from "../../record-conditions";
 import {
   validateMemoryMonopoly,
   type MemoryMutatingSlug,
@@ -29,14 +30,26 @@ import {
 export interface ParsePlaybookV2Options {
   validateSignals?: boolean;
   fileLabel?: string;
+  /**
+   * How to treat a signal trigger outside the section's typical vocabulary.
+   * "error" (default) for Salt-authored packages — the validator and CI stay
+   * strict. "warning" for workspace forks — a user pointing a billing play
+   * at person_created is customizing, not typoing.
+   */
+  sectionSignalAffinity?: "error" | "warning";
 }
 
 export function parsePlaybookV2Yaml(
   yamlContent: string,
   options: ParsePlaybookV2Options = {}
 ): ParsedPlaybookV2 {
-  const { validateSignals = true, fileLabel: _fileLabel = "playbook.yaml" } = options;
+  const {
+    validateSignals = true,
+    fileLabel: _fileLabel = "playbook.yaml",
+    sectionSignalAffinity = "error",
+  } = options;
   const errors: PlaybookValidationError[] = [];
+  const warnings: PlaybookValidationError[] = [];
 
   let parsed: unknown;
   try {
@@ -102,6 +115,20 @@ export function parsePlaybookV2Yaml(
         });
       }
     }
+
+    // Record-condition triggers: fields must exist in the memory field
+    // registry for the entity, so the picker only offers real fields and a
+    // typo'd condition fails loudly at authoring time.
+    for (const trigger of allTriggers) {
+      if (trigger.type === "record_condition") {
+        if (!isRecordConditionField(trigger.entity, trigger.field)) {
+          errors.push({
+            path: "trigger.field",
+            message: `Unknown ${trigger.entity} field: "${trigger.field}". Check the memory field registry.`,
+          });
+        }
+      }
+    }
   }
 
   const sectionMeta = SECTION_METADATA[definition.section] ?? null;
@@ -121,7 +148,7 @@ export function parsePlaybookV2Yaml(
 
     for (const signal of signalsToCheck) {
       if (!sectionMeta.signals.includes(signal)) {
-        errors.push({
+        (sectionSignalAffinity === "warning" ? warnings : errors).push({
           path: "trigger.signal",
           message: `Signal "${signal}" is not typically used by the ${sectionMeta.name} section. Expected one of: ${sectionMeta.signals.join(", ")}`,
         });
@@ -157,11 +184,14 @@ export function parsePlaybookV2Yaml(
   }
 
   // Memory monopoly: no playbook may mutate Memory records — parse-time
-  // rejection (runtime guard lives in the executor's action step).
+  // rejection (runtime guard lives in the executor's action and agent steps).
   const actionTools: string[] = [];
-  const collectTools = (steps: readonly { step: string; tool?: string; steps?: readonly unknown[] }[]): void => {
+  const collectTools = (steps: readonly { step: string; tool?: string; tools?: readonly string[]; steps?: readonly unknown[] }[]): void => {
     for (const step of steps) {
       if (step.step === "action" && step.tool) actionTools.push(step.tool);
+      if (step.step === "agent" && Array.isArray(step.tools)) {
+        actionTools.push(...step.tools);
+      }
       if (step.step === "branch" && Array.isArray(step.steps)) {
         collectTools(step.steps as typeof steps);
       }
@@ -199,13 +229,16 @@ export function parsePlaybookV2Yaml(
     definition: errors.length === 0 ? definition : (null as unknown as PlaybookDefinitionV2),
     sectionMeta,
     validationErrors: errors,
+    validationWarnings: warnings,
   };
 }
 
 export function validatePlaybookV2(
   playbook: unknown
 ): PlaybookValidationResult {
-  const { validationErrors } = parsePlaybookV2Yaml(yaml.stringify(playbook));
+  const { validationErrors } = parsePlaybookV2Yaml(yaml.stringify(playbook), {
+    sectionSignalAffinity: "warning",
+  });
   return {
     valid: validationErrors.length === 0,
     errors: validationErrors,

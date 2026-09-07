@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { AlertTriangle, CheckCircle2, ChevronDown, Edit3, ExternalLink, HelpCircle, Loader2, Sparkles, ThumbsDown, ThumbsUp, Undo2, X } from "lucide-react";
@@ -18,7 +18,20 @@ import {
 import { PlaybookConnectorLogos } from "../PlaybookConnectorLogos";
 import { PlaybookStepDots } from "../PlaybookCardShared";
 import { getSectionConnectorIds } from "../../lib/playbook-connectors";
-import { reversibilityNote } from "../../lib/play-headline";
+import { buildPlayGlance, reversibilityNote } from "../../lib/play-headline";
+import {
+  collapseInboxArtifacts,
+  isInboxAppId,
+  resolveDraftInboxLink,
+} from "../../lib/artifact-links";
+import { formatDraftToLabel, splitDraftSubject } from "../../lib/draft-preview";
+import {
+  openPreparedInboxDraft,
+  refreshPreparedPlayDraft,
+} from "../../actions/open-prepared-inbox-draft";
+import { toast } from "sonner";
+import Link from "next/link";
+import type { RunPreconditionVerdict } from "../../services/check-run-preconditions";
 
 /** Map a play's channel/source URL to the connector catalog id for its app. */
 function appIdForSource(
@@ -36,7 +49,9 @@ function appIdForSource(
   if (host.includes("mail.google") || host.includes("gmail")) return "google";
   if (host.includes("calendar.google")) return "google-calendar";
   if (host.includes("stripe")) return "stripe";
+  if (host.includes("outlook")) return "outlook";
   if (channel === "Gmail" || channel === "Email") return "google";
+  if (channel === "Outlook") return "outlook";
   if (channel === "Calendar") return "google-calendar";
   if (channel === "Stripe") return "stripe";
   return null;
@@ -46,6 +61,8 @@ function appLabelForId(id: ConnectorCatalogId): string {
   switch (id) {
     case "google":
       return "Gmail";
+    case "outlook":
+      return "Outlook";
     case "google-calendar":
       return "Google Calendar";
     default:
@@ -58,6 +75,36 @@ function appLabelForId(id: ConnectorCatalogId): string {
  * the persistent acting-draft edit flow (PlayQueueList) owns save-on-approve
  * for top-level drafts; artifact diffs get wired to learning in Phase 5.
  */
+function EvidenceSourceAnchor({
+  href,
+  external,
+  children,
+}: {
+  href: string;
+  external: boolean;
+  children: ReactNode;
+}) {
+  const className =
+    "inline-flex items-center gap-1 text-inherit underline decoration-border underline-offset-2 transition hover:text-foreground hover:decoration-foreground";
+  if (external) {
+    return (
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={className}
+      >
+        {children}
+      </a>
+    );
+  }
+  return (
+    <Link href={href} className={className}>
+      {children}
+    </Link>
+  );
+}
+
 function ArtifactDraftPreview({ paragraphs }: { paragraphs: string[] }) {
   const [text, setText] = useState(paragraphs.join("\n\n"));
   const [editing, setEditing] = useState(false);
@@ -92,6 +139,58 @@ function ArtifactDraftPreview({ paragraphs }: { paragraphs: string[] }) {
   );
 }
 
+const inboxLinkClass =
+  "ml-auto inline-flex items-center gap-1 text-[12px] font-medium text-muted-foreground underline decoration-border underline-offset-2 transition hover:text-foreground hover:decoration-foreground disabled:no-underline disabled:opacity-60";
+
+function InboxOpenControl({
+  label,
+  href,
+  playRunId,
+  opening,
+  onOpenPrepared,
+}: {
+  label: string;
+  href: string;
+  playRunId: string | null;
+  opening: boolean;
+  onOpenPrepared: (playRunId: string) => Promise<void>;
+}) {
+  if (!playRunId) {
+    return (
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={(event) => event.stopPropagation()}
+        className={inboxLinkClass}
+      >
+        Open in {label}
+        <ExternalLink className="size-3 opacity-50" strokeWidth={2.25} />
+      </a>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      disabled={opening}
+      onClick={(event) => {
+        event.stopPropagation();
+        void onOpenPrepared(playRunId);
+      }}
+      className={inboxLinkClass}
+    >
+      {opening ? "Opening in " : "Open in "}
+      {label}
+      {opening ? (
+        <Loader2 className="size-3 animate-spin opacity-50" />
+      ) : (
+        <ExternalLink className="size-3 opacity-50" strokeWidth={2.25} />
+      )}
+    </button>
+  );
+}
+
 /**
  * Play detail popup (center modal) — the card's second layer.
  *
@@ -116,6 +215,14 @@ export interface PlayCardDetailModalProps {
   onUndo?: () => void;
   onFeedback?: (type: "positive" | "negative") => void;
   feedbackGiven?: "positive" | "negative" | null;
+  onDraftPrepared?: (text: string, subject?: string | null) => void;
+  /** Latest Salt letter, including unsaved edits, for Open in Gmail / Outlook. */
+  draftText?: string | null;
+  /**
+   * Gate preview for the pending tool (fetched by PlayCard). Rendered above
+   * the footer CTA; blocked kinds disable the primary action.
+   */
+  gateVerdict?: RunPreconditionVerdict | null;
 }
 
 function timeLabel(iso: string): string {
@@ -155,8 +262,29 @@ export function PlayCardDetailModal({
   onUndo,
   onFeedback,
   feedbackGiven,
+  onDraftPrepared,
+  draftText,
+  gateVerdict,
 }: PlayCardDetailModalProps) {
   const [evidenceOpen, setEvidenceOpen] = useState(false);
+  const [openingInbox, setOpeningInbox] = useState(false);
+  const [preparedInboxUrl, setPreparedInboxUrl] = useState<string | null>(null);
+  const playRunId =
+    vm.provenance.source === "play_run" ? vm.provenance.playRunId : null;
+  const onDraftPreparedRef = useRef(onDraftPrepared);
+  onDraftPreparedRef.current = onDraftPrepared;
+
+  useEffect(() => {
+    if (!open || !playRunId) return;
+    let cancelled = false;
+    void refreshPreparedPlayDraft(playRunId).then((result) => {
+      if (cancelled || !result.ok) return;
+      onDraftPreparedRef.current?.(result.data.draftBody, result.data.subject);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, playRunId]);
 
   useEffect(() => {
     if (!open) return;
@@ -171,15 +299,57 @@ export function PlayCardDetailModal({
     };
   }, [open, onClose]);
 
+  const handleOpenPrepared = async (runId: string) => {
+    setOpeningInbox(true);
+    const tab = window.open("about:blank", "_blank");
+    const result = await openPreparedInboxDraft(runId, draftText);
+    setOpeningInbox(false);
+    if (!result.ok) {
+      tab?.close();
+      toast.error(result.message);
+      return;
+    }
+    setPreparedInboxUrl(result.data.url);
+    if (result.data.draftBody) {
+      onDraftPreparedRef.current?.(result.data.draftBody);
+    }
+    if (tab) {
+      tab.location.href = result.data.url;
+    } else {
+      window.open(result.data.url, "_blank", "noopener,noreferrer");
+    }
+  };
+
   if (typeof document === "undefined") return null;
 
   const evidence = vm.evidence ?? null;
+  const glance = buildPlayGlance({
+    headline: vm.headline,
+    subject: vm.subject,
+    targetLabel: vm.targetLabel,
+    recipientLabel: vm.acting?.recipientLabel ?? vm.targetLabel,
+    draftText: vm.acting?.draftBody.join("\n\n") ?? null,
+    playbookSlug: vm.playbookSlug,
+    playbookName: vm.playbookName,
+    outputType: vm.outputType,
+    triggerLabel: vm.triggerLabel,
+    preview: vm.preview,
+    valueEstimate: vm.valueEstimate,
+    evidenceLabels: vm.evidence?.items.map((item) => item.label) ?? null,
+  });
   const visual = resolveSectionVisual(vm);
-  const logoIds = getSectionConnectorIds(vm.section ?? null);
+  // Per-run logos (apps actually used, from step provenance) beat the
+  // section-default cluster.
+  const logoIds = (vm.connectorIds?.length
+    ? vm.connectorIds
+    : getSectionConnectorIds(vm.section ?? null)) as ConnectorCatalogId[];
   const isHandled = vm.mode === "handled" && Boolean(vm.handled);
+  const gateBlocked = gateVerdict?.kind.startsWith("blocked") ?? false;
   // Inside the popup you've already reviewed — a "Review" CTA resolves to
-  // the completing verb (Send / Apply / Approve).
+  // the completing verb (Send / Apply / Approve). In draft mode the gate
+  // preview swaps the verb to match what approving will actually do.
   const modalCta = (() => {
+    if (gateVerdict?.kind === "will_draft") return "Create draft";
     const cta = resolveCta(vm);
     return cta.opensDetail ? "Approve" : cta.label;
   })();
@@ -195,7 +365,7 @@ export function PlayCardDetailModal({
           className="fixed inset-0 z-[9990] flex items-center justify-center p-4 sm:p-8"
           role="dialog"
           aria-modal="true"
-          aria-label={isHandled ? vm.handled!.outcomeLabel : (vm.headline ?? vm.subject)}
+          aria-label={isHandled ? vm.handled!.outcomeLabel : glance.headline}
           // The modal portals into the card's React tree — without this,
           // inner clicks bubble to the card's "click anywhere to open".
           onClick={(e) => e.stopPropagation()}
@@ -246,7 +416,7 @@ export function PlayCardDetailModal({
                 </div>
                 <div className="mt-1 flex items-center gap-3">
                   <h2 className="min-w-0 font-display text-[19px] leading-snug tracking-tight text-foreground">
-                    {isHandled ? vm.handled!.outcomeLabel : (vm.headline ?? vm.subject)}
+                    {isHandled ? vm.handled!.outcomeLabel : glance.headline}
                   </h2>
                   {logoIds.length > 0 && (
                     <PlaybookConnectorLogos ids={logoIds} className="shrink-0" />
@@ -324,9 +494,29 @@ export function PlayCardDetailModal({
                   artifacts get a named link. Never lists decorative apps. */}
               {(() => {
                 const sourceAppId = appIdForSource(vm.channel, vm.sourceUrl ?? null);
-                const artifacts = vm.artifacts ?? [];
+                const artifacts = collapseInboxArtifacts(vm.artifacts ?? []);
                 const hasDraft = Boolean(
                   vm.kind === "acting" && vm.acting?.draftBody?.length
+                );
+                const draftText = vm.acting?.draftBody.join("\n\n") ?? "";
+                const { subject: draftSubject, body: draftBody } =
+                  splitDraftSubject(draftText);
+                const inboxLink = resolveDraftInboxLink({
+                  artifacts,
+                  channel: vm.channel,
+                  sourceUrl: vm.sourceUrl,
+                  connectorIds: vm.connectorIds,
+                  compose: hasDraft
+                    ? {
+                        subject:
+                          draftSubject ?? vm.acting?.emailSubject ?? undefined,
+                        body: draftBody || draftText,
+                      }
+                    : null,
+                });
+                const inboxAlreadyListed = artifacts.some(
+                  (artifact) =>
+                    Boolean(artifact.url) && artifact.appId === inboxLink?.appId
                 );
                 if (artifacts.length === 0 && !hasDraft && !vm.sourceUrl) return null;
                 return (
@@ -338,24 +528,36 @@ export function PlayCardDetailModal({
                       {artifacts.map((artifact, index) => (
                         <div key={index}>
                           <div className="mb-2 flex items-center gap-2.5">
-                            <ConnectorIcon
-                              id={artifact.appId as ConnectorCatalogId}
-                              size={22}
-                            />
+                            {artifact.appId === "salt" ? (
+                              <Sparkles className="size-[18px] text-muted-foreground" strokeWidth={2} />
+                            ) : (
+                              <ConnectorIcon
+                                id={artifact.appId as ConnectorCatalogId}
+                                size={22}
+                              />
+                            )}
                             <span className="text-[13px] font-semibold text-foreground">
                               {artifact.label}
                             </span>
-                            {artifact.url && (
+                            {artifact.url && isInboxAppId(artifact.appId) ? (
+                              <InboxOpenControl
+                                label={appLabelForId(artifact.appId as ConnectorCatalogId)}
+                                href={preparedInboxUrl ?? artifact.url}
+                                playRunId={playRunId}
+                                opening={openingInbox}
+                                onOpenPrepared={handleOpenPrepared}
+                              />
+                            ) : artifact.url ? (
                               <a
                                 href={artifact.url}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="ml-auto inline-flex items-center gap-1 text-[12px] font-medium text-muted-foreground underline decoration-border underline-offset-2 transition hover:text-foreground hover:decoration-foreground"
                               >
-                                Open in {appLabelForId(artifact.appId as ConnectorCatalogId)}
+                                Open in {artifact.appId === "salt" ? "Salt" : appLabelForId(artifact.appId as ConnectorCatalogId)}
                                 <ExternalLink className="size-3 opacity-50" strokeWidth={2.25} />
                               </a>
-                            )}
+                            ) : null}
                           </div>
                           {artifact.draftBody && (
                             <ArtifactDraftPreview paragraphs={artifact.draftBody} />
@@ -365,12 +567,27 @@ export function PlayCardDetailModal({
                       {hasDraft && (
                         <div>
                           <div className="mb-2 flex items-center gap-2.5">
-                            {sourceAppId && <ConnectorIcon id={sourceAppId} size={22} />}
+                            {(sourceAppId || inboxLink) && (
+                              <ConnectorIcon
+                                id={(sourceAppId ?? inboxLink?.appId) as ConnectorCatalogId}
+                                size={22}
+                              />
+                            )}
                             <span className="text-[13px] font-semibold text-foreground">
-                              {vm.acting!.recipientLabel
-                                ? `Draft to ${vm.acting!.recipientLabel}`
-                                : "Draft"}
+                              {formatDraftToLabel({
+                                recipientLabel: vm.acting!.recipientLabel,
+                                draftText: vm.acting!.draftBody.join("\n\n"),
+                              })}
                             </span>
+                            {inboxLink && !inboxAlreadyListed ? (
+                              <InboxOpenControl
+                                label={inboxLink.label}
+                                href={preparedInboxUrl ?? inboxLink.url}
+                                playRunId={playRunId}
+                                opening={openingInbox}
+                                onOpenPrepared={handleOpenPrepared}
+                              />
+                            ) : null}
                           </div>
                           {renderBody()}
                         </div>
@@ -445,7 +662,12 @@ export function PlayCardDetailModal({
                       {evidence.items.length > 0 && (
                         <ol className={evidence.thin ? "mt-3" : undefined}>
                           {evidence.items.map((item, index) => {
-                            const glyphId = item.appId as ConnectorCatalogId | undefined;
+                            // "salt" = Salt's own data (Memory, captures) —
+                            // the stars glyph, not a connector logo.
+                            const glyphId =
+                              item.appId && item.appId !== "salt"
+                                ? (item.appId as ConnectorCatalogId)
+                                : undefined;
                             const linkApp =
                               item.appLabel ??
                               (glyphId ? appLabelForId(glyphId) : null);
@@ -468,20 +690,62 @@ export function PlayCardDetailModal({
                                   )}
                                 </span>
                                 <div className="min-w-0 pt-0.5">
-                                  <p className="text-[13px] leading-snug text-foreground/85">
-                                    {item.label}
-                                  </p>
-                                  {item.url && (
-                                    <a
-                                      href={item.url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="mt-0.5 inline-flex items-center gap-1 text-[12px] font-medium text-muted-foreground underline decoration-border underline-offset-2 transition hover:text-foreground hover:decoration-foreground"
-                                    >
-                                      {linkApp ? `Open in ${linkApp}` : "View source"}
-                                      <ExternalLink className="size-3 opacity-50" strokeWidth={2.25} />
-                                    </a>
-                                  )}
+                                  {(() => {
+                                    const links =
+                                      item.links && item.links.length > 0
+                                        ? item.links
+                                        : item.url
+                                          ? [
+                                              {
+                                                href: item.url,
+                                                label:
+                                                  linkApp ?? "View source",
+                                                external:
+                                                  /^https?:\/\//i.test(item.url),
+                                              },
+                                            ]
+                                          : [];
+                                    const primary = links[0] ?? null;
+                                    return (
+                                      <>
+                                        <p className="text-[13px] leading-snug text-foreground/85">
+                                          {primary ? (
+                                            <EvidenceSourceAnchor
+                                              href={primary.href}
+                                              external={primary.external}
+                                            >
+                                              {item.label}
+                                            </EvidenceSourceAnchor>
+                                          ) : (
+                                            item.label
+                                          )}
+                                        </p>
+                                        {links.length > 1 ? (
+                                          <p className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-[12px] font-medium">
+                                            {links.slice(1).map((link) => (
+                                              <EvidenceSourceAnchor
+                                                key={link.href}
+                                                href={link.href}
+                                                external={link.external}
+                                              >
+                                                {link.label}
+                                                {link.external ? (
+                                                  <ExternalLink
+                                                    className="size-3 opacity-50"
+                                                    strokeWidth={2.25}
+                                                  />
+                                                ) : null}
+                                              </EvidenceSourceAnchor>
+                                            ))}
+                                          </p>
+                                        ) : primary?.external ? (
+                                          <span className="sr-only">
+                                            Opens {primary.label}
+                                          </span>
+                                        ) : null}
+                                      </>
+                                    );
+                                  })()}
                                 </div>
                               </li>
                             );
@@ -513,6 +777,38 @@ export function PlayCardDetailModal({
                     <p className="mb-3 text-[11px] leading-snug text-muted-foreground/60">
                       {note}
                     </p>
+                  )}
+                  {!isHandled && gateVerdict && (
+                    <div
+                      className={cn(
+                        "mb-3 flex items-start gap-2 rounded-xl border px-3 py-2.5 text-[12px] leading-snug",
+                        gateBlocked
+                          ? "border-amber-500/30 bg-amber-500/5 text-amber-700"
+                          : gateVerdict.kind === "will_draft"
+                            ? "border-border/50 bg-muted/40 text-muted-foreground"
+                            : "border-border/40 bg-muted/30 text-muted-foreground/80",
+                      )}
+                      role={gateBlocked ? "alert" : undefined}
+                    >
+                      {gateBlocked ? (
+                        <AlertTriangle className="mt-0.5 size-3.5 shrink-0" strokeWidth={2} />
+                      ) : (
+                        <CheckCircle2 className="mt-0.5 size-3.5 shrink-0" strokeWidth={2} />
+                      )}
+                      <div className="min-w-0">
+                        <p className="font-medium">{gateVerdict.summary}</p>
+                        <p className="mt-0.5 opacity-80">{gateVerdict.detail}</p>
+                        {gateVerdict.fixHref && gateVerdict.fixLabel && (
+                          <Link
+                            href={gateVerdict.fixHref}
+                            className="mt-1 inline-flex items-center gap-1 font-medium underline underline-offset-2 hover:opacity-80"
+                          >
+                            {gateVerdict.fixLabel}
+                            <ExternalLink className="size-3" strokeWidth={2.25} />
+                          </Link>
+                        )}
+                      </div>
+                    </div>
                   )}
                   <div className="flex items-center justify-end">
               {isHandled ? (
@@ -589,12 +885,13 @@ export function PlayCardDetailModal({
                   <motion.button
                     type="button"
                     onClick={(e) => onPrimary(e.currentTarget)}
-                    disabled={isPending || vm.error?.draftIncomplete}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.97 }}
+                    disabled={isPending || vm.error?.draftIncomplete || gateBlocked}
+                    whileHover={gateBlocked ? undefined : { scale: 1.02 }}
+                    whileTap={gateBlocked ? undefined : { scale: 0.97 }}
                     className={cn(
                       "surface-aurora",
-                      "relative ml-1 inline-flex h-9 items-center gap-1.5 overflow-hidden rounded-xl px-4 text-[13px] font-semibold text-white shadow-[var(--shadow-lift)] transition disabled:opacity-60"
+                      "relative ml-1 inline-flex h-9 items-center gap-1.5 overflow-hidden rounded-xl px-4 text-[13px] font-semibold text-white shadow-[var(--shadow-lift)] transition disabled:opacity-60",
+                      gateBlocked && "cursor-not-allowed"
                     )}
                   >
                     {isPending ? (

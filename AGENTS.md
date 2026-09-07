@@ -113,6 +113,7 @@ Without 1Password CLI, use `.env.local` (copy from `.env.example`). The dev serv
 | `/sources` | Session | Intake surface: Connectors + Activity (capture stream) |
 | `/plays` | Session | Approval outbox (Queue / Playbooks / Activity) |
 | `/billing` | Session | Billing surface (`app/(product)/billing/page.tsx`) |
+| `/ops` | Founder only | Ops dashboard (canary, capture pipeline, spend) — 404 for non-admins. See `docs/architecture/ops-ops.md` |
 
 > **Legacy / non-primary routes:**
 > - `/studio` and `/dashboard/*` are legacy URLs handled by `middleware.ts` — they redirect to the current root-level routes (`/hq`, `/people`, etc.).

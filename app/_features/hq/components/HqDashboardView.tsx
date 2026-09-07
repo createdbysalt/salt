@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { useCallback, useState, useTransition } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import type { DailyBriefing } from "@/app/_features/hq/briefing/types";
 import type { HqBriefingData } from "@/app/_features/plays/types";
 import type { PlayCardViewModel } from "@/app/_features/plays/play-card/types";
 import type { HqSideRailData, HqStatsData, HqUpcomingData } from "@/app/_features/hq/types";
@@ -27,11 +28,17 @@ const UpcomingTab = dynamic(() => import("./UpcomingTab").then((mod) => mod.Upco
 
 type Props = {
   briefing: HqBriefingData;
+  dailyBriefing: DailyBriefing | null;
   queueCards: PlayCardViewModel[];
   sideRail: HqSideRailData;
 };
 
-export function HqDashboardView({ briefing, queueCards, sideRail }: Props) {
+export function HqDashboardView({
+  briefing,
+  dailyBriefing,
+  queueCards,
+  sideRail,
+}: Props) {
   const [tab, setTab] = useState<HQTab>("today");
   const [stats, setStats] = useState<HqStatsData | null>(null);
   const [upcoming, setUpcoming] = useState<HqUpcomingData | null>(null);
@@ -71,7 +78,11 @@ export function HqDashboardView({ briefing, queueCards, sideRail }: Props) {
                 className="grid gap-5 lg:grid-cols-[1fr_360px] lg:gap-6"
               >
                 <div className="min-w-0 space-y-6">
-                  <BriefingHero briefing={briefing} sideRail={sideRail} />
+                  <BriefingHero
+                    briefing={briefing}
+                    dailyBriefing={dailyBriefing}
+                    sideRail={sideRail}
+                  />
                   <PlayQueue
                     initialCards={queueCards}
                     timeSavedLabel={

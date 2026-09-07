@@ -11,7 +11,7 @@ type AdminActionResult<T = void> =
   | { success: true; data: T }
   | { success: false; error: string };
 
-const ADMIN_ROUTE = "/admin/connectors";
+const ADMIN_ROUTE = "/ops/connectors/review";
 
 const ClassificationVerdictSchema = z.object({
   toolSlug: z.string().min(1),

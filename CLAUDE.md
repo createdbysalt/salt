@@ -283,6 +283,7 @@ pnpm exec playwright show-trace path/to/trace.zip
 | Engineering specs | `./brand-identity/product-internal/features/` |
 | Feature Briefs (public) | `./brand-identity/product/features/` |
 | Auth Flow | `./docs/architecture/auth-flow.md` |
+| **Admin Ops (Founder Dashboard)** | `./docs/architecture/admin-ops.md` |
 | Database Schema | `./docs/architecture/database-schema.md` |
 | **Connector System** | `./docs/architecture/connector-system.md` |
 | Security Model | `./docs/architecture/security-model.md` |
@@ -313,7 +314,7 @@ Salt's proactive AI is built on three primitives. **Read these before building p
 | **Memory Care** | `./docs/architecture/memory-care.md` | Learn-layer enrichment (replaces Keeper / system playbooks) |
 | Memory Tools | `./app/_lib/memory-tools/CLAUDE.md` | Protected Memory mutation tools |
 | Playbook Schema v2 | `./app/_features/plays/playbooks/schema/v2/CLAUDE.md` | YAML schema for playbook definitions |
-| **Playbook Troubleshooting** | `./docs/guides/playbook-troubleshooting.md` | **Debug missing playbooks** — silent validation errors |
+| **Playbook Troubleshooting** | `./docs/guides/playbook-troubleshooting.md` | **Debug missing playbooks** — Playbooks tab banner + debug endpoint |
 
 ### Design System (AI-Optimized)
 

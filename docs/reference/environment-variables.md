@@ -149,7 +149,9 @@ Routing registry: `app/_lib/ai/models.ts`. Research doc: `brand-identity/researc
 |----------|-------------|---------|
 | `COMPOSIO_API_KEY` | Composio platform API key (use **full-access** write key in 1Password) | From composio.dev |
 | `COMPOSIO_WEBHOOK_SECRET` | Verifies trigger webhook deliveries at /api/webhooks/composio (HMAC). Issued once when the Webhook Subscription is created on the Composio project | 1Password item `composio` → `webhook` |
-| `PLATFORM_ADMIN_EMAILS` | Comma-separated allowlist for platform-admin surfaces (/admin/connectors review queue). Unset = nobody (fail closed) | `hello@usesalt.io` |
+| `PLATFORM_ADMIN_EMAILS` | Comma-separated allowlist for platform-admin surfaces (/ops hub, /ops/connectors/* incl. the review queue). Unset = nobody (fail closed) | `hello@usesalt.io` |
+| `OPS_ALERT_EMAIL` | Comma-separated recipients for founder ops alerts (slug canary failures/recoveries). Falls back to `PLATFORM_ADMIN_EMAILS`. Alert emails fire only when `VERCEL_ENV=production` — staging runs the probe but never pages | `founder@usesalt.io` |
+| `OPS_HEARTBEAT_URL` | Optional dead-man's-switch URL (Better Stack / UptimeRobot free tier) pinged after every successful canary cron run — the external watcher notices if the cron itself dies | `https://uptime.betterstack.com/api/v1/heartbeat/...` |
 | `COMPOSIO_STRIPE_AUTH_CONFIG_ID` | Optional override — Stripe API-key auth config (defaults to `ac_X574CtxR9zWw`) | From composio.dev dashboard |
 | `ANTHROPIC_API_KEY` | Optional — required for `app/_lib/composio/agent.ts` (`streamComposioAgent`) | From anthropic.com |
 

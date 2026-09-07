@@ -17,6 +17,7 @@ import "server-only";
 
 import { getConnectionStatusAdmin } from "@/app/_lib/composio/connections";
 import { executeComposioAction } from "@/app/_lib/composio/actions";
+import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { COMPOSIO_TOOL_SLUGS } from "@/app/_lib/composio/tool-slugs";
 import type { CaptureAdapter, CaptureEnvelope } from "../adapters/types";
 import { resolvePerson } from "@/app/_features/memory/records";
@@ -444,6 +445,14 @@ export interface BackfillOptions {
   limit?: number;
   isBootstrap?: boolean;
   llmCall?: LlmCall | null;
+  /**
+   * Composio entity that owns the connected account, when it differs from
+   * the workspace UUID. Legacy cross-environment wiring: prod SALT STUDIO's
+   * QuickBooks connection (ca_tqZutgtlWZkQ) is owned by the staging
+   * workspace's Composio entity, so execution must present that entity id
+   * while ingestion still targets the prod workspace.
+   */
+  composioEntityId?: string;
 }
 
 interface BackfillFetch {
@@ -458,6 +467,32 @@ interface BackfillFetch {
     | "outlook";
   /** Gated Composio calls returning raw list responses to unwrap. */
   fetches: (connectionId: string, workspaceId: string) => Promise<unknown>[];
+}
+
+/**
+ * Stamp the connection's last_synced_at after a successful backfill. The
+ * Sources UI reads it for "Last synced" — without the stamp a healthy
+ * connection looks frozen. Advisory: a stamp failure never fails the run.
+ */
+async function stampLastSyncedAt(integrationId: string | null): Promise<void> {
+  if (!integrationId) return;
+  try {
+    const admin = createAdminClient();
+    const { error } = await admin
+      .from("workspace_integrations")
+      .update({ last_synced_at: new Date().toISOString() } as never)
+      .eq("id", integrationId);
+    if (error) {
+      console.warn(
+        `[connector-backfill] last_synced_at stamp failed for ${integrationId}: ${error.message}`,
+      );
+    }
+  } catch (error) {
+    console.warn(
+      `[connector-backfill] last_synced_at stamp failed for ${integrationId}:`,
+      error instanceof Error ? error.message : error,
+    );
+  }
 }
 
 async function runConnectorBackfill(
@@ -511,6 +546,8 @@ async function runConnectorBackfill(
       userEmail: connection.email ?? null,
     },
   );
+
+  await stampLastSyncedAt(connection.integrationId);
 
   await absorbDerivedSignals(
     workspaceId,
@@ -642,6 +679,73 @@ export async function runDriveBootstrap(
 // Stripe (user's own account via Composio — not Salt SaaS billing)
 // ============================================================================
 
+const STRIPE_PAGE_SIZE = 100;
+/** Hard ceiling on invoice pages per run — history paging is bounded. */
+const STRIPE_MAX_PAGES = 10;
+
+/** Stripe list responses carry has_more at the top or one wrapper down. */
+function readStripeHasMore(response: unknown): boolean {
+  if (!response || typeof response !== "object" || Array.isArray(response)) {
+    return false;
+  }
+  const record = response as Record<string, unknown>;
+  if (typeof record.has_more === "boolean") return record.has_more;
+  const inner = record.data;
+  if (inner && typeof inner === "object" && !Array.isArray(inner)) {
+    const innerRecord = inner as Record<string, unknown>;
+    if (typeof innerRecord.has_more === "boolean") return innerRecord.has_more;
+  }
+  return false;
+}
+
+function lastStripeObjectId(items: unknown[]): string | undefined {
+  for (let i = items.length - 1; i >= 0; i--) {
+    const item = items[i];
+    if (item && typeof item === "object") {
+      const id = (item as Record<string, unknown>).id;
+      if (typeof id === "string" && id.length > 0) return id;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Page STRIPE_LIST_INVOICES via starting_after until has_more is false or
+ * the run cap hits. A single 30-invoice page silently dropped every invoice
+ * beyond the first page of history — the operator's oldest (often largest)
+ * invoices never became captures.
+ */
+async function fetchStripeInvoiceHistory(
+  connectionId: string,
+  workspaceId: string,
+  totalLimit: number,
+): Promise<unknown[]> {
+  const items: unknown[] = [];
+  let startingAfter: string | undefined;
+
+  for (let page = 0; page < STRIPE_MAX_PAGES && items.length < totalLimit; page++) {
+    const pageSize = Math.min(STRIPE_PAGE_SIZE, totalLimit - items.length);
+    const response = await executeComposioAction<Record<string, unknown>, unknown>(
+      COMPOSIO_TOOL_SLUGS.STRIPE_LIST_INVOICES,
+      {
+        limit: pageSize,
+        ...(startingAfter ? { starting_after: startingAfter } : {}),
+      },
+      connectionId,
+      workspaceId,
+      UNATTENDED(workspaceId),
+    );
+    const pageItems = unwrapItems(response);
+    items.push(...pageItems);
+
+    const lastId = lastStripeObjectId(pageItems);
+    if (pageItems.length === 0 || !readStripeHasMore(response) || !lastId) break;
+    startingAfter = lastId;
+  }
+
+  return items;
+}
+
 export async function backfillStripeCaptures(
   workspaceId: string,
   options: BackfillOptions = {},
@@ -653,16 +757,10 @@ export async function backfillStripeCaptures(
     {
       provider: "stripe",
       fetches: (connectionId, wsId) => [
-        executeComposioAction<Record<string, unknown>, unknown>(
-          COMPOSIO_TOOL_SLUGS.STRIPE_LIST_INVOICES,
-          { limit },
-          connectionId,
-          wsId,
-          UNATTENDED(wsId),
-        ),
+        fetchStripeInvoiceHistory(connectionId, wsId, limit),
         executeComposioAction<Record<string, unknown>, unknown>(
           COMPOSIO_TOOL_SLUGS.STRIPE_LIST_CHARGES,
-          { limit },
+          { limit: Math.min(limit, STRIPE_PAGE_SIZE) },
           connectionId,
           wsId,
           UNATTENDED(wsId),
@@ -677,7 +775,9 @@ export async function runStripeBootstrap(
   workspaceId: string,
 ): Promise<ConnectorBackfillResult> {
   console.log(`[connector-backfill] Stripe bootstrap for workspace ${workspaceId}`);
-  return backfillStripeCaptures(workspaceId, { isBootstrap: true, limit: 30 });
+  // Bootstrap pages deep into invoice history; the 6h reconcile sweep stays
+  // shallow (RECONCILE_WINDOWS.stripeLimit).
+  return backfillStripeCaptures(workspaceId, { isBootstrap: true, limit: 300 });
 }
 
 // ============================================================================
@@ -732,6 +832,8 @@ export async function backfillCalBookings(
       userEmail: connection.email ?? null,
     },
   );
+
+  await stampLastSyncedAt(connection.integrationId);
 
   await absorbDerivedSignals(
     workspaceId,
@@ -983,7 +1085,7 @@ export async function backfillQuickbooksCaptures(
                 "tx_date,txn_type,doc_num,due_date,cust_name,cust_bill_email,memo,subt_amount",
             },
             connectionId,
-            wsId,
+            options.composioEntityId ?? wsId,
             UNATTENDED(wsId),
           );
           return parseQuickbooksBalanceDetailReport(report);

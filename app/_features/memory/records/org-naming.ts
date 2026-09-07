@@ -1,9 +1,17 @@
 /**
- * Org naming & identity helpers — pure leaf module (no imports) shared by
- * `org-resolver.ts` (births from email domains) and `executor.ts` (the
- * `system:create-org` choke point). Lives here because org-resolver imports
- * the executor, so the executor cannot import back from org-resolver.
+ * Org naming & identity helpers — shared by `org-resolver.ts` (births from
+ * email domains) and `executor.ts` (the `system:create-org` choke point).
+ * Lives here because org-resolver imports the executor, so the executor
+ * cannot import back from org-resolver.
+ *
+ * `looksLikeDomain` / `domainFromWebsiteUrl` live in
+ * `@/app/_lib/identity/domain` (pure leaf) so `_lib` modules like the
+ * operator identity guard can use them without a lib → feature import;
+ * they are re-exported here for existing callers.
  */
+
+export { looksLikeDomain, domainFromWebsiteUrl } from "@/app/_lib/identity/domain";
+import { looksLikeDomain } from "@/app/_lib/identity/domain";
 
 /**
  * Two-part TLDs where the registrable name sits three labels deep
@@ -104,32 +112,10 @@ export function isMailInfraSubdomain(domain: string): boolean {
 }
 
 /**
- * True when a supposed org *name* is actually a bare domain
- * ("harborfinancial.com") — evidence pipelines sometimes hand the domain over
- * as the name. Such input should be rescued into { name, domain }, never
- * stored as-is.
- */
-export function looksLikeDomain(value: string): boolean {
-  return /^[a-z0-9][a-z0-9-]*(\.[a-z0-9][a-z0-9-]*)+$/i.test(value.trim());
-}
-
-/**
  * Normalized comparison key for org names — "Example Advisors",
  * "Harborfinancial", and "harbor financial!" are the same org. Used for
  * name-based dedupe when no domain is available to key on.
  */
 export function normalizeOrgName(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "");
-}
-
-/**
- * Extract the bare domain from a website URL or domain-ish string
- * ("https://www.createdbysalt.com/" → "createdbysalt.com"). Returns null when
- * nothing domain-like is present.
- */
-export function domainFromWebsiteUrl(websiteUrl: string | null | undefined): string | null {
-  if (!websiteUrl) return null;
-  const cleaned = websiteUrl.trim().replace(/^https?:\/\//i, "").split("/")[0] ?? "";
-  const host = cleaned.toLowerCase().replace(/^www\./, "");
-  return looksLikeDomain(host) ? host : null;
 }

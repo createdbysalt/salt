@@ -7,6 +7,7 @@ import type ForceGraph2DType from "react-force-graph-2d";
 import type { ForceGraphMethods, NodeObject, LinkObject } from "react-force-graph-2d";
 
 import { buildConnectionsGraph } from "@/app/_lib/demo/connections-graph-data";
+import { GRAPH_FORCES, presetGraphLayout } from "../graph-layout";
 import { TYPE_META, type GraphNode, type NodeType, type LegacyConnectionsGraph as ConnectionsGraphData } from "../types";
 import { useMockContent } from "@/app/_features/shell/contexts/DashboardUserContext";
 import { MockContentEmptyState } from "@/app/_features/shell/components/MockContentEmptyState";
@@ -45,6 +46,11 @@ export function ConnectionsGraph({ initialData }: ConnectionsGraphProps) {
 
   const fgRef = useRef<ForceGraphMethods<FGNode, FGLink> | undefined>(undefined);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Camera state for the initial layout bloom (see the tracking effect below).
+  const [cameraReady, setCameraReady] = useState(false);
+  const engineStoppedRef = useRef(false);
+  const userTookCameraRef = useRef(false);
 
   // Track container size for the canvas
   const [size, setSize] = useState({ w: 0, h: 0 });
@@ -106,6 +112,12 @@ export function ConnectionsGraph({ initialData }: ConnectionsGraphProps) {
     }
     const counts: Record<NodeType, number> = { person: 0, org: 0, work: 0, billing: 0, file: 0, note: 0, conversation: 0, meeting: 0, resource: 0 };
     for (const n of allNodes) counts[n.type]++;
+    // Lay the graph out to equilibrium offscreen so the first paint is the
+    // final spread. The live sim can't be configured before its warmup ticks
+    // run, so without this the warmup settles into the compact default-force
+    // layout and the reheat blooms outward under a stale camera — the
+    // "zoomed in, then zooms out" load flash.
+    presetGraphLayout(allNodes, allLinks);
     return { allNodes, allLinks, adjacency, counts, nodesById };
   }, [mockContent, initialData]);
 
@@ -162,6 +174,7 @@ export function ConnectionsGraph({ initialData }: ConnectionsGraphProps) {
   const focusNode = useCallback((id: string) => {
     const n = nodesById.get(id);
     if (!n || n.x == null || n.y == null) return;
+    userTookCameraRef.current = true;
     fgRef.current?.centerAt(n.x, n.y, 700);
     fgRef.current?.zoom(2.4, 700);
     setSelectedId(id);
@@ -192,17 +205,35 @@ export function ConnectionsGraph({ initialData }: ConnectionsGraphProps) {
 
   const recenter = () => fitGraph(500);
 
-  // Fit instantly on first mount so the page never flashes a zoomed-in default
-  // camera while the simulation finishes cooling (warmup ticks mean node
-  // positions already exist at mount).
-  const fittedRef = useRef(false);
+  // Camera tracking during initial layout. Positions arrive pre-settled
+  // from the offline layout, but the live sim still drifts slightly while
+  // it cools — refit every frame until the engine stops so the framing
+  // never lags the layout. Any user gesture (wheel, drag, search focus)
+  // hands the camera over immediately.
   useEffect(() => {
-    if (!ForceGraph2D || fittedRef.current || graphData.nodes.length === 0 || size.w === 0) return;
-    const raf = requestAnimationFrame(() => {
-      if (fittedRef.current) return;
-      fittedRef.current = true;
+    const el = containerRef.current;
+    if (!el) return;
+    const take = () => {
+      userTookCameraRef.current = true;
+    };
+    el.addEventListener("wheel", take, { passive: true, capture: true });
+    el.addEventListener("pointerdown", take, { capture: true });
+    return () => {
+      el.removeEventListener("wheel", take, { capture: true });
+      el.removeEventListener("pointerdown", take, { capture: true });
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!ForceGraph2D || graphData.nodes.length === 0 || size.w === 0) return;
+    let raf = 0;
+    const track = () => {
+      if (engineStoppedRef.current || userTookCameraRef.current) return;
       fitGraph(0);
-    });
+      setCameraReady(true);
+      raf = requestAnimationFrame(track);
+    };
+    raf = requestAnimationFrame(track);
     return () => cancelAnimationFrame(raf);
   }, [ForceGraph2D, graphData.nodes.length, size.w, fitGraph]);
 
@@ -358,33 +389,42 @@ export function ConnectionsGraph({ initialData }: ConnectionsGraphProps) {
     return focusId && (s === focusId || t === focusId) ? 1.4 : 0.8;
   }, [focusId]);
 
-  // Final settle: once the sim cools, ease into the fitted frame
+  // Final settle: the tracking loop has kept the camera fitted every frame,
+  // so just stop it — no animated jump. If the user took the camera during
+  // the bloom, leave their view alone. Later reheats (filter changes) still
+  // get the animated refit.
   const onEngineStop = useCallback(() => {
+    if (!engineStoppedRef.current) {
+      engineStoppedRef.current = true;
+      if (!userTookCameraRef.current) fitGraph(0);
+      return;
+    }
     fitGraph(400);
   }, [fitGraph]);
 
-  // Configure forces for a spread-out constellation (weak centering, strong repulsion)
+  // Configure the live sim with the same forces the offline layout used
+  // (weak centering, strong repulsion). No reheat: positions are already at
+  // equilibrium for these params, so reheating would only jolt them.
   const forcesConfiguredRef = useRef(false);
   useEffect(() => {
     if (!ForceGraph2D || !fgRef.current || forcesConfiguredRef.current) return;
     const fg = fgRef.current;
     const center = fg.d3Force("center") as { strength?: (n: number) => unknown } | undefined;
-    center?.strength?.(0.25);
+    center?.strength?.(GRAPH_FORCES.centerStrength);
 
     const charge = fg.d3Force("charge") as {
       strength?: (n: number) => unknown;
       distanceMax?: (n: number) => unknown;
     } | undefined;
-    charge?.strength?.(-150);
-    charge?.distanceMax?.(460);
+    charge?.strength?.(GRAPH_FORCES.chargeStrength);
+    charge?.distanceMax?.(GRAPH_FORCES.chargeDistanceMax);
 
     const linkForce = fg.d3Force("link") as {
       distance?: (d: number) => unknown;
       strength?: (s: number) => unknown;
     } | undefined;
-    linkForce?.distance?.(80);
-    linkForce?.strength?.(0.55);
-    fg.d3ReheatSimulation();
+    linkForce?.distance?.(GRAPH_FORCES.linkDistance);
+    linkForce?.strength?.(GRAPH_FORCES.linkStrength);
     forcesConfiguredRef.current = true;
   }, [ForceGraph2D, size.w, size.h]);
 
@@ -422,6 +462,11 @@ export function ConnectionsGraph({ initialData }: ConnectionsGraphProps) {
       />
 
       {ForceGraph2D && size.w > 0 && (
+        // Hidden until the first tracked fit lands, so the default camera
+        // never paints a zoomed-in frame.
+        <div
+          className={`transition-opacity duration-300 ${cameraReady ? "opacity-100" : "opacity-0"}`}
+        >
         <ForceGraph2D
           ref={fgRef as React.MutableRefObject<ForceGraphMethods<FGNode, FGLink> | undefined>}
           graphData={graphData}
@@ -441,11 +486,12 @@ export function ConnectionsGraph({ initialData }: ConnectionsGraphProps) {
           onBackgroundClick={() => setSelectedId(null)}
           enableNodeDrag
           cooldownTicks={300}
-          warmupTicks={120}
-          d3AlphaDecay={0.02}
-          d3VelocityDecay={0.32}
+          warmupTicks={0}
+          d3AlphaDecay={GRAPH_FORCES.alphaDecay}
+          d3VelocityDecay={GRAPH_FORCES.velocityDecay}
           onEngineStop={onEngineStop}
         />
+        </div>
       )}
 
       {/* Hover tooltip */}

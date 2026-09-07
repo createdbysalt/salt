@@ -25,6 +25,7 @@ import {
   type ContractEntityType,
   type FillRule as RegistryFillRule,
 } from "@/app/_features/memory/taxonomy/field-registry";
+import { timezoneToCountry } from "@/app/_features/memory/taxonomy/timezone-country";
 import { getCareFieldBar } from "../decision-pipeline";
 import { CARE_SETTINGS_SLUGS } from "../types";
 
@@ -67,6 +68,7 @@ interface FillRule {
   set: {
     value: string;
   };
+  transform?: "timezone_country";
   confidence: number;
   because: string;
 }
@@ -129,6 +131,7 @@ function getFillRulesForEntityType(entityType: LearningEntityType): FillRule[] {
           value: opValue,
         },
         set: { value: String(rule.value) },
+        transform: rule.transform,
         confidence: rule.confidence,
         because: rule.because,
       });
@@ -173,10 +176,18 @@ export async function runRecordsCapability(
       rule.when.signal
     );
 
+    // Value transforms (e.g. IANA timezone → ISO country for the country
+    // fill rule). An unmappable value resolves empty and is skipped below —
+    // never propose the raw signal value for a transformed field.
+    const transformedValue =
+      rule.transform === "timezone_country"
+        ? (timezoneToCountry(resolvedValue) ?? "")
+        : resolvedValue;
+
     // Empty resolution = the rule matched but there is no concrete value to
     // propose (extraction template against a boolean/absent signal). The
     // Watching contract bans value-less proposals — skip, don't emit.
-    if (!resolvedValue.trim()) continue;
+    if (!transformedValue.trim()) continue;
     rulesMatched++;
 
     // Tiered bar: sensitive/destructive fields raise the floor; never-touch
@@ -185,12 +196,12 @@ export async function runRecordsCapability(
       input.workspaceId,
       input.entityType,
       rule.field,
-      resolvedValue
+      transformedValue
     );
     if (bar === Number.POSITIVE_INFINITY) {
       updates.push({
         field: rule.field,
-        value: resolvedValue,
+        value: transformedValue,
         action: "rejected",
         confidence: rule.confidence,
       });
@@ -218,7 +229,7 @@ export async function runRecordsCapability(
       {
         type: "rule",
         key: rule.id,
-        value: { field: rule.field, setTo: resolvedValue },
+        value: { field: rule.field, setTo: transformedValue },
         confidence: rule.confidence,
         source: "memory-care",
         label: rule.because,
@@ -230,7 +241,7 @@ export async function runRecordsCapability(
       entityType: input.entityType,
       entityId: input.entityId,
       field: rule.field,
-      value: resolvedValue,
+      value: transformedValue,
       confidence: rule.confidence,
       because: rule.because,
       source: "care",
@@ -244,7 +255,7 @@ export async function runRecordsCapability(
 
     updates.push({
       field: rule.field,
-      value: resolvedValue,
+      value: transformedValue,
       action: result.action,
       confidence: rule.confidence,
     });

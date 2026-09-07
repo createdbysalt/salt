@@ -324,7 +324,7 @@ async function fetchMemoryProjectRows(
       .eq(attempt.tenantColumn, workspaceId)
       .is("deleted_at", null)
       .is("archived_at", null)
-      .order("updated_at", { ascending: false })
+      .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
 
     if (!error) {

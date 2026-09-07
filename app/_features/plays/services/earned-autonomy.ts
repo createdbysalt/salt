@@ -20,6 +20,7 @@ import "server-only";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 import type { Json } from "@/app/_lib/supabase/database.types";
 import { buildPlaybookSourceContext } from "@/app/_features/plays/lib/play-record";
+import { formatToolSlugForHumans } from "@/app/_features/plays/utils/playbook-display";
 
 export const EARNED_AUTONOMY_THRESHOLD = 10;
 
@@ -29,6 +30,7 @@ export const AUTONOMY_OFFER_KIND = "autonomy_offer";
 interface ApprovalRow {
   id: string;
   approved_count: number | null;
+  dismissed_count: number | null;
   autonomy_granted_at: string | null;
   autonomy_offered_at: string | null;
   autonomy_declined_at: string | null;
@@ -80,7 +82,7 @@ export async function recordActionApproval(
   const { data: existing } = await admin
     .from("playbook_action_approvals")
     .select(
-      "id, approved_count, autonomy_granted_at, autonomy_offered_at, autonomy_declined_at"
+      "id, approved_count, dismissed_count, autonomy_granted_at, autonomy_offered_at, autonomy_declined_at"
     )
     .eq("workspace_id", workspaceId)
     .eq("playbook_slug", playbookSlug)
@@ -129,9 +131,122 @@ export async function recordActionApproval(
 }
 
 /**
+ * Record a user dismissing a queued approval run. The dismissal count, with
+ * the approval count, forms the approval rate that informs ask → auto
+ * promotion — and gates offers (see maybeCreateAutonomyOffer).
+ *
+ * Called from dismissPlayRun for paused playbook runs only; autonomy offer
+ * dismissals go through declineAutonomyOffer instead.
+ */
+export async function recordActionDismissal(
+  workspaceId: string,
+  playbookSlug: string,
+  toolSlug: string
+): Promise<void> {
+  const admin = createAdminClient();
+
+  const { data: existing } = await admin
+    .from("playbook_action_approvals")
+    .select("id, dismissed_count")
+    .eq("workspace_id", workspaceId)
+    .eq("playbook_slug", playbookSlug)
+    .eq("tool_slug", toolSlug)
+    .maybeSingle();
+
+  const dismissedCount = ((existing?.dismissed_count as number | null) ?? 0) + 1;
+  const now = new Date().toISOString();
+
+  if (existing) {
+    await admin
+      .from("playbook_action_approvals")
+      .update({
+        dismissed_count: dismissedCount,
+        last_dismissed_at: now,
+        updated_at: now,
+      })
+      .eq("id", existing.id);
+    return;
+  }
+
+  await admin.from("playbook_action_approvals").insert({
+    workspace_id: workspaceId,
+    playbook_slug: playbookSlug,
+    tool_slug: toolSlug,
+    approved_count: 0,
+    dismissed_count: 1,
+    last_dismissed_at: now,
+  } as never);
+}
+
+/**
+ * Per-playbook approval analytics for a workspace. The approval rate
+ * (approved / (approved + dismissed)) is the signal behind ask → auto
+ * promotion; grants list the tools already running autonomously.
+ */
+export interface PlaybookApprovalRate {
+  playbookSlug: string;
+  approvedCount: number;
+  dismissedCount: number;
+  /** approved / (approved + dismissed); null when nothing recorded yet */
+  approvalRate: number | null;
+  grantedTools: string[];
+  lastApprovedAt: string | null;
+  lastDismissedAt: string | null;
+}
+
+export async function getPlaybookApprovalRates(
+  workspaceId: string
+): Promise<PlaybookApprovalRate[]> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("playbook_action_approvals")
+    .select(
+      "playbook_slug, tool_slug, approved_count, dismissed_count, autonomy_granted_at, last_approved_at, last_dismissed_at"
+    )
+    .eq("workspace_id", workspaceId);
+
+  const byPlaybook = new Map<string, PlaybookApprovalRate>();
+  for (const row of data ?? []) {
+    const slug = row.playbook_slug;
+    const entry = byPlaybook.get(slug) ?? {
+      playbookSlug: slug,
+      approvedCount: 0,
+      dismissedCount: 0,
+      approvalRate: null,
+      grantedTools: [],
+      lastApprovedAt: null,
+      lastDismissedAt: null,
+    };
+    entry.approvedCount += (row.approved_count as number | null) ?? 0;
+    entry.dismissedCount += (row.dismissed_count as number | null) ?? 0;
+    if (row.autonomy_granted_at) entry.grantedTools.push(row.tool_slug);
+    const approvedAt = row.last_approved_at as string | null;
+    const dismissedAt = row.last_dismissed_at as string | null;
+    if (approvedAt && (!entry.lastApprovedAt || approvedAt > entry.lastApprovedAt)) {
+      entry.lastApprovedAt = approvedAt;
+    }
+    if (dismissedAt && (!entry.lastDismissedAt || dismissedAt > entry.lastDismissedAt)) {
+      entry.lastDismissedAt = dismissedAt;
+    }
+    byPlaybook.set(slug, entry);
+  }
+
+  const rates = [...byPlaybook.values()];
+  for (const entry of rates) {
+    const total = entry.approvedCount + entry.dismissedCount;
+    entry.approvalRate = total > 0 ? entry.approvedCount / total : null;
+  }
+  return rates.sort((a, b) => a.playbookSlug.localeCompare(b.playbookSlug));
+}
+
+/**
  * Offer when the count lands on a threshold multiple and autonomy is not
  * already granted. A decline suppresses re-offers until the next multiple.
  * An open (still queued) offer run dedups concurrent threshold crossings.
+ *
+ * Rate gate: a step the user dismisses more often than approves is telling
+ * us the playbook is wrong for them, not that the gate should relax — no
+ * offer, regardless of where the approval count sits.
  */
 async function maybeCreateAutonomyOffer(input: {
   workspaceId: string;
@@ -144,6 +259,7 @@ async function maybeCreateAutonomyOffer(input: {
 
   if (newCount % EARNED_AUTONOMY_THRESHOLD !== 0) return;
   if (row?.autonomy_granted_at) return;
+  if ((row?.dismissed_count ?? 0) > newCount) return;
 
   const admin = createAdminClient();
 
@@ -281,14 +397,6 @@ export async function listAutonomyGrants(
     playbookSlug: row.playbook_slug as string,
     toolSlug: row.tool_slug as string,
     approvedCount: (row.approved_count as number) ?? 0,
-    grantedAt: row.autonomy_granted_at as string,
+      grantedAt: row.autonomy_granted_at as string,
   }));
-}
-
-function formatToolSlugForHumans(toolSlug: string): string {
-  return toolSlug
-    .toLowerCase()
-    .split("_")
-    .filter(Boolean)
-    .join(" ");
 }

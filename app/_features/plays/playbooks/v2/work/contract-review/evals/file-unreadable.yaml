@@ -1,0 +1,29 @@
+# Storage disconnected: the record says the file lives in Google Drive but
+# the read fails. Verdict MISSING with the reason → quiet end; the owner is
+# not spammed with a review of a document Salt couldn't read.
+id: file-unreadable
+name: Storage disconnected → quiet end with reason
+given:
+  memory:
+    file_context:
+      id: f-4
+      file_name: MSA unsigned.pdf
+      category: contract
+      document_type: msa
+      description: null
+      ai_summary: null
+      external_url: "https://drive.google.com/file/d/ghi"
+      provider: google_drive
+      signed_date: null
+      counterparty: null
+      counterparty_org: null
+  agent:
+    - step: read_contract
+      text: "Tried GOOGLEDRIVE_FIND_FILE for 'MSA unsigned.pdf' — the Google Drive connection is no longer authorized, so the file could not be located or read. VERDICT: MISSING — Google Drive disconnected, reconnect it and the review can run"
+expect:
+  status: success
+  outputCount: 0
+  steps:
+    file_context: success
+    read_contract: success
+    maybe_review: success

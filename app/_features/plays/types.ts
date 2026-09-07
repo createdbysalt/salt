@@ -1,4 +1,33 @@
 import type { PlaybookTrigger } from "./playbooks/types";
+import type { PlayArtifact } from "./play-card/types";
+import type { PlayEvidenceItem } from "./lib/play-headline";
+import type { PlaybookOutputType } from "./playbooks/schema/v2/types";
+
+/**
+ * Executor → UI contract for a play run. Built by
+ * `lib/play-presentation.ts` (single source of truth — the executor and the
+ * demo seed both go through it) and persisted on `play_runs` as columns
+ * (draft_body, recipient_label, channel) plus `metadata` via
+ * `buildPlayRunMetadata`.
+ */
+export interface PlayPresentation {
+  section: string | null;
+  layer: "learn" | "act";
+  outputType: PlaybookOutputType;
+  playbookName: string;
+  /** Moment-first headline ("Frank hasn't paid INV-2026-1589"). */
+  headline: string | null;
+  /** "Prepared for you" — one per app Salt produced something in. */
+  artifacts: PlayArtifact[];
+  /** "How Salt knew" — one first-person item per input Salt considered. */
+  evidence: PlayEvidenceItem[];
+  /** Connector catalog ids of apps actually used in the run (max 3). */
+  connectorIds: string[];
+  /** Draft text for email_draft outputs (persisted as draft_body). */
+  draftBody: string | null;
+  recipientLabel: string | null;
+  channel: string | null;
+}
 
 // Queue types for two-queue routing (LEARN → ACT → GROW)
 export const PLAY_QUEUES = ["needs_you", "auto_handled"] as const;
@@ -269,10 +298,9 @@ export interface PlayActivityItem {
   triggerLabel: string | null;
   sources: { label: string; url: string | null }[];
   durationMs: number | null;
-  /** Failure or blocked reason, in plain language. */
+  /** Failure or blocked reason, in plain language. Raw last_error is an ops
+   * signal and never reaches user UI. */
   errorLabel: string | null;
-  /** Raw last_error for troubleshooting, when it differs from errorLabel. */
-  errorDetail: string | null;
   /** Real next step from approval_context / scheduling, never hardcoded. */
   nextStepLabel: string | null;
   etaLabel: string | null;

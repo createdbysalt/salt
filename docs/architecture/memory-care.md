@@ -133,9 +133,11 @@ Both modes end at the same gate: enrichment writes go through the protected memo
 | Tier | Bar | Examples |
 |------|-----|----------|
 | standard | Workspace threshold (default **85**) | Notes, preferences, addresses |
-| sensitive | `max(threshold, 95)` | Industry, relationship type, first-time classifications |
-| destructive | `max(threshold, 95)` + provenance snapshot | Status → `past_client` / `completed` / `void` |
+| sensitive | Workspace threshold | Industry, relationship type, first-time classifications |
+| destructive | Workspace threshold + provenance snapshot | Status → `past_client` / `completed` / `void` |
 | never_touch | Refused at any confidence | Billing `total` / `amount_paid`, money-model fields |
+
+One user-controlled bar: every gated field — including link / merge / archive candidates — is held to the workspace threshold. Tiers drive policy (refusals, provenance snapshots), never a higher bar.
 
 Low-risk observation fields (names, emails, `last_contacted_at`, …) bypass gating (`isAlwaysAutoField`).
 

@@ -11,7 +11,7 @@ describe("fail-closed classification gate (Phase 2.4)", () => {
       assertComposioToolAllowed(COMPOSIO_TOOL_SLUGS.GMAIL_LIST_MESSAGES, {
         policy: null,
       }),
-    ).toThrow(/no approved classification/);
+    ).toThrow(/pending security re-review/);
   });
 
   it("enforces destructive never-execute on DB-resolved policies", () => {
@@ -119,7 +119,9 @@ describe("seed ↔ registry parity (Phase 2.4 acceptance)", () => {
     // Allow for deprecated tools that were removed from registry but remain in old migrations
     // Original seed had 4 invalid CAL_ + 1 STRIPE_RETRIEVE_SUBSCRIPTION = 5 deprecated
     // CAL_LIST_EVENT_TYPES is also inserted twice (original seed + calcom re-verify migration)
-    const deprecatedTools = 6;
+    // +2: OUTLOOK_OUTLOOK_GET_MESSAGE / OUTLOOK_OUTLOOK_LIST_MESSAGES deprecated 2026-08-29
+    // (Composio reverted to single-prefix; registry keys now alias to the live slugs)
+    const deprecatedTools = 8;
     expect(seededCount).toBe(registrySlugs.length + deprecatedTools);
   });
 });

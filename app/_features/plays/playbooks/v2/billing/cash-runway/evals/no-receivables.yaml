@@ -1,0 +1,29 @@
+# Quiet week: no open receivables and no recent payments → the brief
+# still ships (runway is the number the owner plans around), just short.
+id: no-receivables
+name: No open invoices → short healthy brief from balance alone
+given:
+  fetch:
+    cash_position:
+      balance_cents: 1260000
+      weekly_burn_cents: 140000
+    upcoming_receivables:
+      total_cents: 0
+      invoices: []
+    recent_payments:
+      total_cents: 90000
+  agent:
+    - step: verify_outlook
+      text: "Stripe balance $12,600 confirmed. No open invoices; one subscription renewal ($900) lands this month. Runway 9 weeks.\nVERDICT: HEALTHY — 9 weeks runway, no receivables outstanding"
+  draft:
+    - step: cash_brief
+      text: "Runway: 9 weeks ($12,600 balance, ~$1,400/week). Nothing owed to you right now — a good week to send next month's invoices early…"
+expect:
+  status: success
+  outputCount: 1
+  steps:
+    cash_position: success
+    upcoming_receivables: success
+    recent_payments: success
+    verify_outlook: success
+    cash_brief: success

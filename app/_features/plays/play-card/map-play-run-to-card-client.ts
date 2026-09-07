@@ -19,6 +19,8 @@ import {
 } from "../playbooks/schema/v2/types";
 import type { PlayRunRow } from "../types";
 import type { PlayCardViewModel, PlayCardKind, PlayCardErrorState, PlayArtifact } from "./types";
+import { resolveEmailSubject } from "../lib/draft-preview";
+import { draftParagraphsWithPayLinks } from "../lib/draft-payment-link";
 import { buildPlayHeadline, summarizeEvidence, type PlayEvidenceItem } from "../lib/play-headline";
 
 interface V2Resolution {
@@ -152,12 +154,11 @@ export function mapPlayRunToCardClient(row: PlayRunRow): PlayCardViewModel {
     (Date.now() - new Date(row.created_at).getTime()) / 60_000
   );
 
-  const draftBody = row.draft_body
-    ? row.draft_body
-        .split(/\n{2,}/)
-        .map((p) => p.trim())
-        .filter(Boolean)
-    : [];
+  const draftBody = draftParagraphsWithPayLinks(row.draft_body, {
+    invoiceContext: row.context_inputs?.invoice_context,
+    artifacts: row.metadata?.artifacts,
+    verifyText: row.context_inputs?.verify_unpaid,
+  });
 
   const askSalt: AskSaltContext = {
     type: "play",
@@ -193,7 +194,11 @@ export function mapPlayRunToCardClient(row: PlayRunRow): PlayCardViewModel {
     headline: buildPlayHeadline({
       headline: readMetadataString(row, "headline"),
       subject: row.title,
-      targetLabel: row.recipient_label ?? row.target_label,
+      targetLabel: row.target_label,
+      recipientLabel: row.recipient_label,
+      draftText: row.draft_body,
+      playbookSlug: v2?.playbookSlug ?? row.source_context?.playbook_slug,
+      playbookName: v2?.playbookName ?? readMetadataString(row, "playbook_name"),
       outputType: v2?.outputType ?? null,
     }),
     targetLabel: row.recipient_label ?? row.target_label,
@@ -209,12 +214,21 @@ export function mapPlayRunToCardClient(row: PlayRunRow): PlayCardViewModel {
     sourceUrl: readMetadataString(row, "source_url"),
     stepPosition,
     artifacts: readArtifacts(row),
+    connectorIds: readConnectorIds(row),
     evidence: summarizeEvidence({
       triggerLabel: v2 ? row.source_context?.trigger_signal ?? null : readMetadataString(row, "trigger_label"),
       sourceUrl: readMetadataString(row, "source_url"),
       sourceAppLabel: sourceAppLabel,
       confidenceExplanation: v2?.confidenceExplanation ?? null,
       entries: readEvidenceEntries(row),
+      sourceLinks: {
+        targetType: row.target_type,
+        targetId: row.target_id,
+        invoiceContext: row.context_inputs?.invoice_context,
+        verifyText: row.context_inputs?.verify_unpaid,
+        artifacts: readArtifacts(row),
+        sourceUrl: readMetadataString(row, "source_url"),
+      },
     }),
 
     acting:
@@ -222,6 +236,10 @@ export function mapPlayRunToCardClient(row: PlayRunRow): PlayCardViewModel {
         ? {
             draftBody,
             recipientLabel: row.recipient_label ?? row.target_label ?? "",
+            emailSubject: resolveEmailSubject({
+              draftBody: row.draft_body,
+              approvalSubject: row.approval_context?.args?.subject,
+            }),
           }
         : undefined,
 
@@ -327,6 +345,15 @@ function readEvidenceEntries(row: PlayRunRow): PlayEvidenceItem[] | undefined {
   return items.length ? items : undefined;
 }
 
+/** Apps actually used in the run, from metadata.connector_ids (executor-written). */
+function readConnectorIds(row: PlayRunRow): string[] | null {
+  const meta = row.metadata as Record<string, unknown> | null;
+  const raw = meta?.connector_ids;
+  if (!Array.isArray(raw)) return null;
+  const ids = raw.filter((id): id is string => typeof id === "string" && id.length > 0);
+  return ids.length ? ids : null;
+}
+
 /** "Step N of M" for the card face, from step_history + approval_context. */
 function readStepPosition(
   row: PlayRunRow,
@@ -337,7 +364,7 @@ function readStepPosition(
   const total = typeof totalRaw === "number" && totalRaw > 0 ? totalRaw : null;
 
   const approvalIndex = row.approval_context?.step_index;
-  const current =
+  let current =
     typeof approvalIndex === "number"
       ? approvalIndex + 1
       : history > 0
@@ -346,6 +373,12 @@ function readStepPosition(
           total != null
           ? 1
           : null;
+
+  // A run parked at the output gate has finished every step — "history + 1"
+  // would read "Step 4 of 3". Clamp to the last real step.
+  if (current != null && total != null && current > total) {
+    current = total;
+  }
 
   if (current == null) return null;
   const label =

@@ -45,7 +45,6 @@ async function fetchBillingRows(workspaceId: string): Promise<BillingRecordQuery
     .eq("workspace_id", workspaceId)
     .is("deleted_at", null)
     .is("archived_at", null)
-    .order("due_at", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: false });
 
   if (error) {

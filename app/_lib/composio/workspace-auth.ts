@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createClient } from "@/app/_lib/supabase/server";
+import { getVerifiedWorkspaceMembership } from "@/app/_lib/tenancy/workspace-membership";
 
 export type WorkspaceAuthResult =
   | { ok: true }
@@ -50,19 +51,15 @@ export async function requireAuthenticatedWorkspaceMember(): Promise<
     return { ok: false, error: "Not authenticated" };
   }
 
-  const { data: membership, error: membershipError } = await supabase
-    .from("workspace_members")
-    .select("workspace_id")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const membership = await getVerifiedWorkspaceMembership(user.id, supabase);
 
-  if (membershipError || !membership?.workspace_id) {
+  if (!membership) {
     return { ok: false, error: "No workspace found" };
   }
 
   return {
     ok: true,
     userId: user.id,
-    workspaceId: membership.workspace_id,
+    workspaceId: membership.id,
   };
 }

@@ -415,7 +415,16 @@ export function PlayQueue({ initialCards, timeSavedLabel = null }: PlayQueueProp
                       isPending={false}
                       flagged={false}
                       onStartEdit={() => setEditingId(card.id)}
-                      onStopEdit={() => setEditingId(null)}
+                      onStopEdit={() => {
+                        const text = drafts[card.id];
+                        if (
+                          text !== undefined &&
+                          card.provenance.source === "play_run"
+                        ) {
+                          void editPlayRun(card.provenance.playRunId, text);
+                        }
+                        setEditingId(null);
+                      }}
                       onDraftChange={(text) =>
                         setDrafts((current) => ({ ...current, [card.id]: text }))
                       }

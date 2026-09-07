@@ -12,6 +12,10 @@ import {
   runDailyScan,
   type DailyScanResult,
 } from "../services/intelligence";
+import {
+  runHeldIntentDiscovery,
+  type HeldIntentDiscoveryResult,
+} from "../services/held-intent-discovery";
 import { runCareCapability } from "@/app/_features/memory/care";
 
 function isNextRedirectError(error: unknown): boolean {
@@ -69,6 +73,8 @@ export interface SyncAndScanActionResult {
   success: boolean;
   sync?: CaptureSyncSummary | null;
   scan?: DailyScanResult;
+  /** Batch cold-intent reads over held mail (Lane 1 backlog). */
+  heldDiscovery?: HeldIntentDiscoveryResult;
   /** On-demand Memory Care runs (hygiene, records). */
   playbookRuns?: Record<string, { success: boolean; summary?: string }>;
   error?: string;
@@ -156,6 +162,18 @@ export async function syncAndScanCaptures(options?: {
       scan.errors.unshift(...scanWarnings);
     }
 
+    // Lane 1 backlog: the real-time intent read only fires on the webhook
+    // path. Held senders the free DB criteria can't promote get the same
+    // cheap, metered read here — Sync & Scan is the explicit "look now".
+    const heldDiscovery = await runHeldIntentDiscovery(workspace.id).catch(
+      (error) => {
+        scan.errors.push(
+          `held-discovery: ${error instanceof Error ? error.message : "Unknown error"}`,
+        );
+        return undefined;
+      },
+    );
+
     // On-demand Memory Care runs: hygiene findings and fill-rule sweeps
     // feed Watching immediately instead of waiting for the weekly schedule.
     const playbookRuns: SyncAndScanActionResult["playbookRuns"] = {};
@@ -178,7 +196,7 @@ export async function syncAndScanCaptures(options?: {
     revalidatePath("/plays");
     revalidatePath("/sources");
 
-    return { success: true, sync, scan, playbookRuns };
+    return { success: true, sync, scan, heldDiscovery, playbookRuns };
   } catch (error) {
     if (isNextRedirectError(error)) {
       throw error;

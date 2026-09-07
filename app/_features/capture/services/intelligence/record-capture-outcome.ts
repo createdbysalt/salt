@@ -145,121 +145,12 @@ export async function recordDecisionOutcomeForCapture(
   return recordDecisionOutcome(decision.id, outcome, userId);
 }
 
-// ============= Auto-Apply Gate =============
-
-export interface AutoApplySettings {
-  enabled: boolean;
-  threshold: number;
-  minProposals: number;
-  minApprovalRate: number;
-  earnedAt: string | null;
-  proposalCount: number;
-  approvalRate: number | null;
-}
-
-/**
- * Get auto-apply settings for a workspace.
- * Returns default settings if none exist.
- */
-export async function getAutoApplySettings(
-  workspaceId: string
-): Promise<AutoApplySettings> {
-  const admin = createAdminClient();
-
-  const { data } = await admin
-    .from("workspace_capture_settings")
-    .select("*")
-    .eq("workspace_id", workspaceId)
-    .maybeSingle();
-
-  if (!data) {
-    return {
-      enabled: false,
-      threshold: 95,
-      minProposals: 50,
-      minApprovalRate: 0.9,
-      earnedAt: null,
-      proposalCount: 0,
-      approvalRate: null,
-    };
-  }
-
-  return {
-    enabled: data.auto_apply_enabled ?? false,
-    threshold: data.auto_apply_threshold ?? 95,
-    minProposals: data.auto_apply_min_proposals ?? 50,
-    minApprovalRate: data.auto_apply_min_approval_rate ?? 0.9,
-    earnedAt: data.auto_apply_earned_at,
-    proposalCount: data.calibration_proposal_count ?? 0,
-    approvalRate: data.calibration_approval_rate,
-  };
-}
-
-/**
- * Check if a CREATE proposal should auto-apply.
- * Returns true only if:
- * 1. Auto-apply is enabled for the workspace (earned through calibration)
- * 2. The proposal confidence meets or exceeds the threshold
- */
-export async function shouldAutoApply(
-  workspaceId: string,
-  proposalConfidence: number
-): Promise<boolean> {
-  const settings = await getAutoApplySettings(workspaceId);
-
-  if (!settings.enabled) return false;
-  if (proposalConfidence < settings.threshold) return false;
-
-  return true;
-}
-
-/**
- * Update calibration snapshot and check if auto-apply should be earned.
- * Called periodically (e.g., after each approval/rejection).
- */
-export async function updateCalibrationSnapshot(
-  workspaceId: string
-): Promise<{ earned: boolean; proposalCount: number; approvalRate: number | null }> {
-  const admin = createAdminClient();
-  const metrics = await getCalibrationMetrics(workspaceId, 90); // Last 90 days
-
-  const proposalCount = metrics.byTier.create.approved + metrics.byTier.create.rejected;
-  const approvalRate = metrics.approvalRate;
-
-  // Check if we should earn auto-apply
-  const settings = await getAutoApplySettings(workspaceId);
-  const meetsThreshold =
-    proposalCount >= settings.minProposals &&
-    approvalRate !== null &&
-    approvalRate >= settings.minApprovalRate;
-
-  const shouldEarn = meetsThreshold && !settings.earnedAt;
-
-  // Upsert settings
-  const { error } = await admin
-    .from("workspace_capture_settings")
-    .upsert({
-      workspace_id: workspaceId,
-      calibration_proposal_count: proposalCount,
-      calibration_approval_rate: approvalRate,
-      calibration_updated_at: new Date().toISOString(),
-      ...(shouldEarn
-        ? { auto_apply_enabled: true, auto_apply_earned_at: new Date().toISOString() }
-        : {}),
-    });
-
-  if (error) {
-    console.error("[record-capture-outcome] Failed to update calibration:", error.message);
-  }
-
-  return {
-    earned: shouldEarn,
-    proposalCount,
-    approvalRate,
-  };
-}
-
 // ============= Calibration Metrics =============
+
+// The earned auto-apply gate (workspace_capture_settings.auto_apply_*) was
+// retired with memory full autonomy: the evidence threshold is the only
+// gate for record birth. Decision logging and metrics below remain for
+// signal-effectiveness analysis.
 
 export interface CalibrationMetrics {
   totalDecisions: number;

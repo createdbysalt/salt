@@ -21,7 +21,7 @@ Every Composio tool (e.g., `GMAIL_SEND_EMAIL`, `STRIPE_CREATE_INVOICE`) is class
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                         CLASSIFICATION PIPELINE                              │
 │                                                                              │
-│   1. Check DB (tool_classifications) for manual override                    │
+│   1. Check DB (tool_classifications) for manual override                   │
 │   2. Apply heuristics (slug pattern matching)                               │
 │   3. Cache result (60s TTL)                                                 │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -112,6 +112,15 @@ INSERT INTO tool_classifications (
 | `manual` | Explicitly set by Salt team |
 | `heuristic` | Auto-classified by pattern matching |
 | `composio` | Synced from Composio metadata (future) |
+
+### Status Semantics (gate behavior)
+
+| Status | Gate behavior |
+|--------|---------------|
+| `approved` | DB classification wins; tool executes under that policy |
+| `unclassified` / `proposed` | Heuristic fallback (new tools work immediately) |
+| `disabled` | **Hard deny** — drift detection's off switch; no heuristic fallback; unusable until re-review |
+| `rejected` | **Hard deny** — reviewer's explicit no; no heuristic fallback |
 
 ### Common Overrides
 

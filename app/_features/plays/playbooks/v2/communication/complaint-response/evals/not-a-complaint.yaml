@@ -1,0 +1,14 @@
+# Near-miss negative: a routine question flagged as action-required is
+# not a complaint — an apology draft would be tone-deaf. Quiet skip.
+id: not-a-complaint
+name: Routine question flagged for action → quiet skip
+given:
+  agent:
+    - step: verify_complaint
+      text: "Read the thread: Marco Ruiz asked which file formats the final deliverables come in. A question, not a complaint. VERDICT: SKIP — routine question, not an unhappy client"
+expect:
+  status: success
+  outputCount: 0
+  steps:
+    classification: success
+    verify_complaint: success

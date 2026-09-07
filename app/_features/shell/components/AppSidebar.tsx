@@ -182,13 +182,13 @@ function NavItem({
         SIDEBAR_NAV_ROW,
         count !== undefined ? "grid-cols-[18px_1fr_auto]" : "grid-cols-[18px_1fr]",
         active
-          ? "bg-foreground font-medium text-background shadow-[var(--shadow-card)] [&_svg]:stroke-[2.25]"
+          ? "bg-muted font-semibold text-foreground"
           : SIDEBAR_NAV_ROW_HOVER,
       )}
     >
       <Icon
-        className={cn(SIDEBAR_NAV_ICON, active && "text-background")}
-        strokeWidth={active ? 2.25 : 1.75}
+        className={SIDEBAR_NAV_ICON}
+        strokeWidth={1.75}
       />
       <span className="min-w-0 truncate">{title}</span>
       {count !== undefined &&
@@ -197,7 +197,7 @@ function NavItem({
             className={cn(
               "ml-auto flex h-5 min-w-5 items-center justify-center rounded-md px-1.5 text-[11px] font-semibold tabular-nums",
               active
-                ? "bg-background/15 text-background"
+                ? "bg-background text-foreground"
                 : "bg-muted text-muted-foreground"
             )}
           >
@@ -248,7 +248,7 @@ function MemoryNav({ onNavigate }: { onNavigate?: () => void }) {
         className={cn(
           "grid w-full grid-cols-[1fr_auto] items-center rounded-xl text-[13px] transition-all duration-200",
           graphActive
-            ? "bg-foreground font-medium text-background shadow-[var(--shadow-card)]"
+            ? "bg-muted font-semibold text-foreground"
             : SIDEBAR_NAV_ROW_HOVER,
           memoryActive && !open && !graphActive && "bg-muted/50",
         )}
@@ -259,8 +259,8 @@ function MemoryNav({ onNavigate }: { onNavigate?: () => void }) {
           className="grid min-w-0 grid-cols-[18px_1fr] items-center gap-x-3 px-3 py-2.5 text-left"
         >
           <Brain
-            className={cn(SIDEBAR_NAV_ICON, graphActive && "text-background")}
-            strokeWidth={graphActive ? 2.25 : 1.75}
+            className={SIDEBAR_NAV_ICON}
+            strokeWidth={1.75}
           />
           <span className="min-w-0 truncate">Memory</span>
         </Link>
@@ -275,7 +275,7 @@ function MemoryNav({ onNavigate }: { onNavigate?: () => void }) {
             className={cn(
               "size-4 shrink-0 transition-transform",
               open ? "rotate-0" : "-rotate-90",
-              graphActive ? "text-background" : "text-muted-foreground",
+              "text-muted-foreground",
             )}
             strokeWidth={1.75}
           />

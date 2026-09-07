@@ -16,6 +16,11 @@ import { evaluateOrgProfileFields, ORG_PROFILE_SLUG } from "@/app/_features/play
 import { loadProfilePlaybook } from "@/app/_features/plays/playbooks/records-engine/load-profile-playbook";
 import { applyProfileFieldResults } from "@/app/_features/plays/playbooks/records-engine/write-provenance";
 import { isKnownSaasVendorDomain } from "@/app/_features/capture/services/intelligence/vendor-domains";
+import {
+  getOperatorIdentity,
+  isOperatorDomain,
+  logOperatorRefusal,
+} from "@/app/_lib/identity/operator";
 import { executeRecordAction } from "./executor";
 import { domainToOrgName, isMailInfraSubdomain } from "./org-naming";
 import type { RecordActionResult } from "./types";
@@ -96,6 +101,20 @@ export async function resolveOrg(
       is_new: false,
       confidence: 0,
       confidence_reason: "Known SaaS vendor domain — a tool you pay is not an org",
+    };
+  }
+
+  // Operator self-exclusion: the operator's own business is the Me record,
+  // never an org in their own Memory. Checked before the existing-org
+  // lookup so pre-fix self-orgs stop attracting links too.
+  const operator = await getOperatorIdentity(workspaceId);
+  if (isOperatorDomain(operator, domain)) {
+    logOperatorRefusal("records.resolveOrg", `domain="${domain}"`);
+    return {
+      resolved: false,
+      is_new: false,
+      confidence: 0,
+      confidence_reason: "Operator's own domain — the operator's business lives in Me, not orgs",
     };
   }
 

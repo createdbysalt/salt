@@ -3,8 +3,10 @@ import {
   mapFileRecordBootstrapActivity,
   mapFileLinkToActivityEntry,
   mapFileActivityToTimelineEntry,
+  mapFileProvenanceToActivity,
 } from "./activity";
 import type { FileActivityEvent, FileDetailRecord } from "../detail-types";
+import type { ProfileFieldProvenanceView } from "@/app/_features/plays/playbooks/records-engine/types";
 
 function baseDetail(overrides: Partial<FileDetailRecord> = {}): FileDetailRecord {
   return {
@@ -82,6 +84,99 @@ describe("mapFileRecordBootstrapActivity", () => {
 
     expect(entries.some((entry) => entry.detail === "Document type → Contract")).toBe(true);
     expect(entries.some((entry) => entry.detail === "Status → Signed")).toBe(true);
+  });
+
+  it("attributes system-created records to Salt, not the user", () => {
+    const entries = mapFileRecordBootstrapActivity(baseDetail({ uploadedBy: null }));
+
+    expect(entries[0]?.label).toBe("Salt added this file");
+    expect(entries[0]?.kind).toBe("salt");
+  });
+
+  it("attributes system-added links to Salt", () => {
+    const entries = mapFileRecordBootstrapActivity(
+      baseDetail({ uploadedBy: null, fileType: "link" }),
+    );
+
+    expect(entries[0]?.label).toBe("Salt added this link");
+    expect(entries[0]?.kind).toBe("salt");
+  });
+
+  it("suppresses bootstrap field guesses when provenance covers the field", () => {
+    const entries = mapFileRecordBootstrapActivity(
+      baseDetail({
+        category: "deliverable",
+        documentType: "proposal",
+        lifecycleStatus: "sent",
+        dueDate: "2026-07-01T00:00:00Z",
+      }),
+      [],
+      new Set(["category", "document_type", "lifecycle_status", "due_date"]),
+    );
+
+    expect(entries.some((entry) => entry.label === "You set the category")).toBe(false);
+    expect(entries.some((entry) => entry.label === "You set document type")).toBe(false);
+    expect(entries.some((entry) => entry.detail === "Status → Sent")).toBe(false);
+    expect(entries.some((entry) => entry.label === "Due date set")).toBe(false);
+    // The upload bootstrap is not field provenance — it stays.
+    expect(entries.some((entry) => entry.label === "You uploaded this file")).toBe(true);
+  });
+});
+
+describe("mapFileProvenanceToActivity", () => {
+  function baseProvenance(
+    overrides: Partial<ProfileFieldProvenanceView> = {},
+  ): ProfileFieldProvenanceView {
+    return {
+      field: "category",
+      value: "brand_asset",
+      source: "rule",
+      ruleId: "resource-category-file_category_inferred",
+      confidence: 80,
+      because: "Read from the document itself",
+      status: "applied",
+      evidence: {},
+      setAt: "2026-06-22T12:00:00Z",
+      ...overrides,
+    };
+  }
+
+  it("attributes Salt's inferred category to Salt with a pretty value label", () => {
+    const entry = mapFileProvenanceToActivity(
+      baseProvenance({ source: "enrichment" as ProfileFieldProvenanceView["source"] }),
+    );
+
+    expect(entry.kind).toBe("salt");
+    expect(entry.label).toBe("Salt set the category");
+    expect(entry.detail).toBe(
+      "Category → Brand asset · Read from the document itself · 80% sure",
+    );
+  });
+
+  it("attributes manual edits to the user", () => {
+    const entry = mapFileProvenanceToActivity(
+      baseProvenance({ source: "manual", because: null, confidence: 100 }),
+    );
+
+    expect(entry.kind).toBe("user");
+    expect(entry.label).toBe("You set the category");
+    expect(entry.detail).toBe("Category → Brand asset · 100% sure");
+  });
+
+  it("reads pending rows as suggestions", () => {
+    const entry = mapFileProvenanceToActivity(baseProvenance({ status: "pending" }));
+
+    expect(entry.kind).toBe("salt");
+    expect(entry.label).toBe("Salt suggested category");
+  });
+
+  it("humanizes unknown fields and keeps raw values", () => {
+    const entry = mapFileProvenanceToActivity(
+      baseProvenance({ field: "follow_up_date", value: "2026-07-01" }),
+    );
+
+    expect(entry.label).toBe("Salt set the follow up date");
+    expect(entry.detail).toContain("2026-07-01");
   });
 });
 

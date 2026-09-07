@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
-import { getConnectionStatus } from "./connections";
+import { getConnectionStatusAdmin } from "./connections";
 import { getApprovedToolClassification } from "./classification-store";
 
 /**
@@ -43,6 +43,23 @@ export async function resolveCapabilityTool(
   capabilityKey: string,
   workspaceId: string,
 ): Promise<ResolvedCapabilityTool | null> {
+  const [first] = await resolveCapabilityTools(capabilityKey, workspaceId);
+  return first ?? null;
+}
+
+/**
+ * Multi-app fan-out (playbooks Phase 4): every runnable tool for the
+ * capability, in priority order — connected provider + approved
+ * classification, minus the workspace's per-play exclusions. A verify step
+ * written against Stripe then also checks QuickBooks when both are
+ * connected; excluding QuickBooks for one play takes it out of that play's
+ * fan-out without disconnecting anything.
+ */
+export async function resolveCapabilityTools(
+  capabilityKey: string,
+  workspaceId: string,
+  options?: { excludeProviders?: ReadonlySet<string> },
+): Promise<ResolvedCapabilityTool[]> {
   const supabase = createAdminClient();
   const { data: rows, error } = await supabase
     .from("tool_capabilities")
@@ -51,8 +68,10 @@ export async function resolveCapabilityTool(
     .order("priority", { ascending: true });
 
   if (error || !rows || rows.length === 0) {
-    return null;
+    return [];
   }
+
+  const excluded = options?.excludeProviders;
 
   // Cache connection lookups per provider across candidates.
   const connectionByProvider = new Map<
@@ -60,10 +79,19 @@ export async function resolveCapabilityTool(
     { connected: boolean; connectionId: string | null }
   >();
 
+  const resolved: ResolvedCapabilityTool[] = [];
+
   for (const row of rows as CapabilityRow[]) {
+    if (excluded?.has(row.provider_key)) {
+      continue;
+    }
+
     let connection = connectionByProvider.get(row.provider_key);
     if (!connection) {
-      const status = await getConnectionStatus(row.provider_key, workspaceId);
+      // Admin variant: the resolver runs in session-less system contexts
+      // (signal dispatch, crons, enrichment) where the session-scoped
+      // client would return zero rows under RLS.
+      const status = await getConnectionStatusAdmin(row.provider_key, workspaceId);
       connection = {
         connected: status.connected,
         connectionId: status.composioConnectionId,
@@ -80,17 +108,49 @@ export async function resolveCapabilityTool(
       continue;
     }
 
-    return {
+    resolved.push({
       capabilityKey,
       toolSlug: row.tool_slug,
       provider: row.provider_key,
       connectionId: connection.connectionId,
       risk: policy.risk,
       requiresHumanConfirmation: policy.requiresHumanConfirmation,
-    };
+    });
   }
 
-  return null;
+  return resolved;
+}
+
+/**
+ * Reverse lookup for fan-out: which capability keys each declared tool
+ * serves. Agent steps use it to find the sibling tools other providers
+ * offer for the same capabilities.
+ */
+export async function listCapabilityKeysForToolSlugs(
+  toolSlugs: readonly string[],
+): Promise<Map<string, string[]>> {
+  const map = new Map<string, string[]>();
+  if (toolSlugs.length === 0) {
+    return map;
+  }
+
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("tool_capabilities")
+    .select("capability_key, tool_slug")
+    .in("tool_slug", [...toolSlugs]);
+
+  if (error || !data) {
+    return map;
+  }
+
+  for (const row of data as { capability_key: string; tool_slug: string }[]) {
+    const keys = map.get(row.tool_slug) ?? [];
+    keys.push(row.capability_key);
+    map.set(row.tool_slug, keys);
+  }
+
+  return map;
 }
 
 /** True when the workspace has at least one runnable tool for the capability. */

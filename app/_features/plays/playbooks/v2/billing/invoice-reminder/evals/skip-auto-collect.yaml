@@ -1,0 +1,32 @@
+# Near-miss negative: auto-collect invoices must never get a reminder —
+# the billing app charges them automatically; a nudge would double-message.
+id: skip-auto-collect
+name: Invoice on auto-collect → quiet skip, no draft
+given:
+  memory:
+    billing_record_context:
+      invoice:
+        number: INV-110
+        amount_cents: 240000
+        amount_paid_cents: 0
+        days_overdue: 3
+        due_at: "2026-08-26T00:00:00Z"
+      client:
+        name: Carla
+        email: carla@brand.co
+      payment_history:
+        on_time: 8
+        late: 0
+      open_invoices:
+        - number: INV-110
+          amount_remaining_cents: 240000
+          days_overdue: 3
+  agent:
+    - step: verify_unpaid
+      text: "VERDICT: SKIP — invoice is set to charge_automatically"
+expect:
+  status: success
+  outputCount: 0
+  steps:
+    invoice_context: success
+    verify_unpaid: success

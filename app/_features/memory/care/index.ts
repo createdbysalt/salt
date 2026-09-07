@@ -24,6 +24,7 @@ export {
   isCareCapabilityEnabled,
 } from "./settings";
 export { processCareProposal, getCareFieldBar } from "./decision-pipeline";
+export { promoteParkedEvidence, type PromotionSweepResult } from "./promotion";
 export {
   runCareCapability,
   runCareForSignal,

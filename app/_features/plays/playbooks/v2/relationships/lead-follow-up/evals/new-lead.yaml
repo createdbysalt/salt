@@ -1,0 +1,33 @@
+# Happy path: genuine new lead, no prior thread → warm follow-up drafted,
+# paused for the human to send.
+id: new-lead
+name: New prospect, unanswered → warm follow-up paused for approval
+given:
+  memory:
+    person_context:
+      id: person-1
+      name: Jordan Ellis
+      email: jordan@northpeakstudio.com
+      relationship_type: prospect
+      relationship_status: new
+      last_contact_at: "2026-09-04T00:00:00Z"
+      first_contact_at: "2026-09-04T00:00:00Z"
+      recent_notes: "Asked about a website redesign via the contact form"
+      health_band: null
+      health_score: null
+      has_calendar_meeting: false
+  agent:
+    - step: verify_lead
+      text: "Relationship type is prospect. Inbox search shows no prior thread with jordan@northpeakstudio.com. VERDICT: PROCEED — inbound contact-form inquiry about a website redesign"
+  draft:
+    - step: follow_up_email
+      text: "Hi Jordan — thanks for reaching out about the Northpeak redesign. I took a quick look at the current site and have a couple of ideas on the navigation…"
+expect:
+  status: paused
+  pausedOnTool: GMAIL_SEND_EMAIL
+  steps:
+    lead_context: success
+    verify_lead: success
+    warmth: success
+    follow_up_email: success
+    send_follow_up: paused

@@ -698,10 +698,10 @@ export const RECORD_ACTION_TOOL_SPECS: RecordActionDefinitionToolSpec[] = [
     toolName: "memory_archive_person",
     slug: "system:archive-person",
     description:
-      "Archive a person (soft delete — never hard-delete). Requires user approval.",
+      "Archive a person (soft delete — never hard-delete; restorable).",
     schema: archivePersonInputSchema,
     risk: "mutating",
-    needsApproval: true,
+    needsApproval: false,
   },
   {
     toolName: "memory_create_org",
@@ -723,10 +723,10 @@ export const RECORD_ACTION_TOOL_SPECS: RecordActionDefinitionToolSpec[] = [
   {
     toolName: "memory_archive_org",
     slug: "system:archive-org",
-    description: "Archive an organization. Requires user approval.",
+    description: "Archive an organization (soft delete — restorable).",
     schema: archiveOrgInputSchema,
     risk: "mutating",
-    needsApproval: true,
+    needsApproval: false,
   },
   {
     toolName: "memory_create_work",
@@ -747,10 +747,10 @@ export const RECORD_ACTION_TOOL_SPECS: RecordActionDefinitionToolSpec[] = [
   {
     toolName: "memory_archive_work",
     slug: "system:archive-work",
-    description: "Archive work/project. Requires user approval.",
+    description: "Archive work/project (soft delete — restorable).",
     schema: archiveWorkInputSchema,
     risk: "mutating",
-    needsApproval: true,
+    needsApproval: false,
   },
   {
     toolName: "memory_link_person_org",
@@ -913,10 +913,10 @@ export const RECORD_ACTION_TOOL_SPECS: RecordActionDefinitionToolSpec[] = [
   {
     toolName: "memory_archive_billing",
     slug: "system:archive-billing",
-    description: "Archive a billing record. Requires user approval.",
+    description: "Archive a billing record (soft delete — restorable).",
     schema: archiveBillingInputSchema,
     risk: "mutating",
-    needsApproval: true,
+    needsApproval: false,
   },
   // ========================================================================
   // FILES TOOLS
@@ -949,10 +949,10 @@ export const RECORD_ACTION_TOOL_SPECS: RecordActionDefinitionToolSpec[] = [
   {
     toolName: "memory_archive_file",
     slug: "system:archive-file",
-    description: "Archive a file record. Requires user approval.",
+    description: "Archive a file record (soft delete — restorable).",
     schema: archiveFileInputSchema,
     risk: "mutating",
-    needsApproval: true,
+    needsApproval: false,
   },
   // ========================================================================
   // ME / OPERATOR FACTS TOOLS
@@ -985,10 +985,10 @@ export const RECORD_ACTION_TOOL_SPECS: RecordActionDefinitionToolSpec[] = [
   {
     toolName: "memory_archive_me_fact",
     slug: "system:archive-me-fact",
-    description: "Archive a fact about you. Requires user approval.",
+    description: "Archive a fact about you (soft delete — restorable).",
     schema: archiveMeFactInputSchema,
     risk: "mutating",
-    needsApproval: true,
+    needsApproval: false,
   },
   // ========================================================================
   // TAG TOOLS

@@ -211,6 +211,84 @@ describe("ingestEnvelope daily capture budget (Phase 6)", () => {
   });
 });
 
+describe("ingestEnvelope bootstrap evidence (account-scoped captures)", () => {
+  function fileEnvelope(): CaptureEnvelope {
+    return {
+      sourceType: "googledrive",
+      captureType: "file",
+      externalId: "file-1",
+      title: "Brand Proposal.pdf",
+      occurredAt: null,
+      participants: [],
+      threadId: null,
+      extracted: { file_name: "Brand Proposal.pdf" },
+      raw: {},
+      noise: null,
+    } as CaptureEnvelope;
+  }
+
+  const candidateGate = {
+    finalAction: "candidate" as const,
+    shouldIngest: true,
+    passedGates: ["rules", "pre-ingest", "known-entity"],
+    gateResults: {},
+  };
+
+  it("runs evidence for bootstrap file captures — deterministic classifiers, no scan needed", async () => {
+    runGatePipelineMock.mockResolvedValue(candidateGate);
+
+    const result = await ingestEnvelope("ws-1", "int-1", fileEnvelope(), {
+      useGatePipeline: true,
+      isBootstrap: true,
+    });
+
+    expect(result.outcome).toBe("created");
+    expect(evidenceMock).toHaveBeenCalledWith("cap-1");
+    // Bootstrap still skips the enrichment/scan lane — no cron revisits
+    // non-email rows, so the terminal stamp stays.
+    expect(enrichAndPersistMock).not.toHaveBeenCalled();
+    const extracted = inserted[0].extracted_data as {
+      intelligence?: { outcome?: string };
+    };
+    expect(extracted.intelligence?.outcome).toBe("no_signal");
+  });
+
+  it("runs evidence for bootstrap payment captures", async () => {
+    runGatePipelineMock.mockResolvedValue(candidateGate);
+
+    await ingestEnvelope(
+      "ws-1",
+      "int-1",
+      { ...fileEnvelope(), sourceType: "stripe", captureType: "payment" },
+      { useGatePipeline: true, isBootstrap: true },
+    );
+
+    expect(evidenceMock).toHaveBeenCalledWith("cap-1");
+  });
+
+  it("still skips evidence for bootstrap email — the scan backlog owns it", async () => {
+    runGatePipelineMock.mockResolvedValue(candidateGate);
+
+    await ingestEnvelope("ws-1", "int-1", makeEnvelope(), {
+      useGatePipeline: true,
+      isBootstrap: true,
+    });
+
+    expect(evidenceMock).not.toHaveBeenCalled();
+  });
+
+  it("honors skipEvidence for non-email captures", async () => {
+    runGatePipelineMock.mockResolvedValue(candidateGate);
+
+    await ingestEnvelope("ws-1", "int-1", fileEnvelope(), {
+      useGatePipeline: true,
+      skipEvidence: true,
+    });
+
+    expect(evidenceMock).not.toHaveBeenCalled();
+  });
+});
+
 describe("ingestEnvelope awaitEnrichment", () => {
   it("resolves enrichment before returning when awaitEnrichment is set", async () => {
     runGatePipelineMock.mockResolvedValue({

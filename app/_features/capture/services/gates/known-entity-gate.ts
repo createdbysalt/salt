@@ -13,6 +13,7 @@ import "server-only";
  */
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
+import { findPersonIdsByEmail } from "@/app/_features/memory/records/person-emails";
 import {
   matchWatchExpressions,
   updateWatchMatchTimestamp,
@@ -58,13 +59,17 @@ export async function runKnownEntityGate(
 
   if (senderEmail) {
     const emailLower = senderEmail.toLowerCase();
-    const { data: personByEmail } = await admin
-      .from("people")
-      .select("id, name, email")
-      .eq("workspace_id", workspaceId)
-      .ilike("email", emailLower)
-      .limit(1)
-      .maybeSingle();
+    // Resolve by any known address (person_emails identity set + primary).
+    const matchedIds = await findPersonIdsByEmail(admin, workspaceId, emailLower);
+    const { data: personByEmail } = matchedIds.length
+      ? await admin
+          .from("people")
+          .select("id, name, email")
+          .eq("workspace_id", workspaceId)
+          .in("id", matchedIds)
+          .limit(1)
+          .maybeSingle()
+      : { data: null };
 
     if (personByEmail) {
       return {

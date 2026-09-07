@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
- * routeIntakeProposal — Chain A (capture CREATE decisions) — plays canon
- * Phase 2. Proposals never write play_runs; they land in pending_evidence
- * as status='suggested' unless P6 (calibration) AND P7 (relationship-grade
- * signal) both pass, in which case autoCreateRecord runs against the real
- * pending_evidence id.
+ * routeIntakeProposal — Chain A (capture CREATE decisions). Proposals
+ * never write play_runs; they land in pending_evidence and accumulate.
+ * Memory is fully autonomous: the accumulated log-odds score against the
+ * entity's EVIDENCE_THRESHOLDS bars is the only gate — crossing the auto
+ * bar runs autoCreateRecord against the real pending_evidence id.
  *
- * The function lives in route-intake-proposal.ts (not the "use server"
- * actions.ts) because it runs in webhook/cron contexts with the admin
+ * The function lives in route-intake-proposal.ts (not a "use server"
+ * module) because it runs in webhook/cron contexts with the admin
  * client — INV-3 keeps it off the client-reachable surface.
  */
 
@@ -138,7 +138,11 @@ vi.mock("./auto-create-record", () => ({
   autoCreateRecord: h.autoCreateRecord,
 }));
 
-import { routeIntakeProposal } from "./route-intake-proposal";
+import {
+  DEFAULT_EXTRACTED_CONFIDENCE,
+  mergeExtractedFields,
+  routeIntakeProposal,
+} from "./route-intake-proposal";
 import type { ExtractedFieldValue } from "./types";
 
 function seedEvidence(overrides: Partial<EvidenceRow>): EvidenceRow {
@@ -162,13 +166,14 @@ beforeEach(() => {
   h.autoCreateRecord.mockResolvedValue({ ok: true, recordId: "rec-1" });
 });
 
-describe("routeIntakeProposal — file proposals skip auto-create (audit #7)", () => {
+describe("routeIntakeProposal — resource proposals follow the same threshold rule", () => {
   const fileFields: Record<string, ExtractedFieldValue> = {
     title: { value: "Contract for Acme project", confidence: 90, sources: [] },
     category: { value: "contract", confidence: 90, sources: [] },
   };
 
-  it("calibrated + relationship-grade file proposal still lands suggested", async () => {
+  it("under the resource auto bar: lands suggested", async () => {
+    // 95% → log2(19) ≈ 4.25 < resource auto bar (6.0)
     const result = await routeIntakeProposal({
       workspaceId: "ws-1",
       entityType: "resource",
@@ -177,12 +182,27 @@ describe("routeIntakeProposal — file proposals skip auto-create (audit #7)", (
       extractedFields: fileFields,
       signals: ["contract_detected"],
       captureId: "cap-7",
-      autoApply: true,
     });
 
     expect(result.outcome).toBe("suggested");
     expect(h.autoCreateRecord).not.toHaveBeenCalled();
     expect(h.db.evidence[0].status).toBe("suggested");
+  });
+
+  it("over the resource auto bar: creates directly (no confirm-only carve-out)", async () => {
+    // Clamped 99% → log2(99) ≈ 6.63 ≥ resource auto bar (6.0)
+    const result = await routeIntakeProposal({
+      workspaceId: "ws-1",
+      entityType: "resource",
+      identifier: "file:client@acme.com:contract for acme project",
+      confidence: 99,
+      extractedFields: fileFields,
+      signals: ["contract_detected"],
+      captureId: "cap-7",
+    });
+
+    expect(result.outcome).toBe("created");
+    expect(h.autoCreateRecord).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -205,7 +225,6 @@ describe("dismissal is terminal for stable meeting identifiers (audit #7)", () =
       },
       signals: ["calendar_event_created"],
       captureId: "cap-8",
-      autoApply: true,
     });
 
     expect(result.outcome).toBe("skipped");
@@ -229,11 +248,11 @@ describe("routeIntakeProposal — Chain A proposals", () => {
     captureId: "cap-9",
   };
 
-  it("uncalibrated: lands as suggested — no record, no play run", async () => {
+  it("under the auto bar: lands as suggested — no record, no play run", async () => {
+    // 90% → log2(9) ≈ 3.17 < person auto bar (8.0)
     const result = await routeIntakeProposal({
       ...baseProposal,
       signals: ["payment_notification_email"],
-      autoApply: false,
     });
 
     expect(result.outcome).toBe("suggested");
@@ -253,13 +272,18 @@ describe("routeIntakeProposal — Chain A proposals", () => {
     });
   });
 
-  it("calibrated + relationship-grade: creates the record against a real pending_evidence id", async () => {
+  it("over the auto bar via accumulation: creates the record against a real pending_evidence id", async () => {
+    // 5.0 existing + 3.5 (payment_notification_email) = 8.5 ≥ person bar (8.0)
+    seedEvidence({
+      identifier: "jane@acme.com",
+      status: "suggested",
+      log_odds_score: 5.0,
+    });
     h.autoCreateRecord.mockResolvedValue({ ok: true, recordId: "rec-9" });
 
     const result = await routeIntakeProposal({
       ...baseProposal,
       signals: ["payment_notification_email"],
-      autoApply: true,
     });
 
     expect(result).toMatchObject({ outcome: "created", recordId: "rec-9" });
@@ -272,27 +296,43 @@ describe("routeIntakeProposal — Chain A proposals", () => {
     expect(h.db.tablesTouched).not.toContain("play_runs");
   });
 
-  it("calibrated but NOT relationship-grade: P7 fails closed to suggested", async () => {
+  it("a single high-confidence meeting proposal crosses the meeting bar on insert", async () => {
+    // 95% → log2(19) ≈ 4.25 ≥ meeting auto bar (4.0) — calendar facts
+    // materialize immediately.
     const result = await routeIntakeProposal({
-      ...baseProposal,
-      signals: ["email_signature_has_name"],
-      autoApply: true,
+      workspaceId: "ws-1",
+      entityType: "meeting",
+      identifier: "googlecalendar:event-999",
+      confidence: 95,
+      extractedFields: {
+        title: { value: "Acme kickoff", confidence: 95, sources: [] },
+        start_time: { value: "2026-08-10T17:00:00.000Z", confidence: 95, sources: [] },
+      },
+      signals: ["calendar_event_created"],
+      captureId: "cap-10",
     });
 
-    expect(result.outcome).toBe("suggested");
-    expect(h.autoCreateRecord).not.toHaveBeenCalled();
-    expect(h.db.evidence[0].status).toBe("suggested");
+    expect(result.outcome).toBe("created");
+    expect(h.autoCreateRecord).toHaveBeenCalledTimes(1);
   });
 
-  it("no signals at all: worthiness fails closed to suggested", async () => {
-    const result = await routeIntakeProposal({
-      ...baseProposal,
-      signals: [],
-      autoApply: true,
+  it("no worthiness gate: any signal's weight accumulates toward the bar", async () => {
+    // A non-"relationship-grade" signal still counts — 5.0 existing + 3.5
+    // (payment weight is irrelevant; use signature weight 1.5 twice would
+    // need two proposals, so seed higher) — the point: no allowlist check.
+    seedEvidence({
+      identifier: "jane@acme.com",
+      status: "suggested",
+      log_odds_score: 7.0,
     });
 
-    expect(result.outcome).toBe("suggested");
-    expect(h.autoCreateRecord).not.toHaveBeenCalled();
+    const result = await routeIntakeProposal({
+      ...baseProposal,
+      signals: ["email_signature_has_name"], // weight 1.5 → 8.5 ≥ 8.0
+    });
+
+    expect(result.outcome).toBe("created");
+    expect(h.autoCreateRecord).toHaveBeenCalledTimes(1);
   });
 
   it("dismissed evidence is never resurrected", async () => {
@@ -301,7 +341,6 @@ describe("routeIntakeProposal — Chain A proposals", () => {
     const result = await routeIntakeProposal({
       ...baseProposal,
       signals: ["payment_notification_email"],
-      autoApply: true,
     });
 
     expect(result.outcome).toBe("skipped");
@@ -320,7 +359,6 @@ describe("routeIntakeProposal — Chain A proposals", () => {
     const result = await routeIntakeProposal({
       ...baseProposal,
       signals: [],
-      autoApply: false,
     });
 
     expect(result).toMatchObject({ outcome: "suggested", evidenceId: row.id });
@@ -328,5 +366,113 @@ describe("routeIntakeProposal — Chain A proposals", () => {
     expect(row.status).toBe("suggested");
     // Score never regresses; the 90% proposal maps to log-odds > 3
     expect(row.log_odds_score).toBeGreaterThan(3);
+  });
+
+  it("accumulates score across repeat proposals instead of pinning", async () => {
+    // The billing producer routes one invoice_line_items_suggest_project
+    // proposal per invoice for the same counterparty. Corroboration must
+    // build toward the auto bar — a Math.max update pins the score at the
+    // first proposal's confidence-derived value forever (staging audit:
+    // 8–16 signals, score frozen at 2.5025).
+    seedEvidence({
+      entity_type: "work",
+      identifier: "acme studio",
+      status: "suggested",
+      log_odds_score: 2.5,
+    });
+
+    await routeIntakeProposal({
+      workspaceId: "ws-1",
+      entityType: "work",
+      identifier: "Acme Studio",
+      confidence: 85,
+      extractedFields: {
+        name: { value: "Acme Studio", confidence: 85, sources: [] },
+      },
+      signals: ["invoice_line_items_suggest_project"],
+    });
+
+    // 2.5 existing + 2.5 signal weight; pinning would leave ≈2.5025.
+    expect(h.db.evidence[0].log_odds_score).toBeCloseTo(5.0, 5);
+  });
+
+  it("falls back to the confidence-derived score for signals outside the intake vocabulary", async () => {
+    seedEvidence({
+      identifier: "jane@acme.com",
+      status: "suggested",
+      log_odds_score: 1.0,
+    });
+
+    await routeIntakeProposal({
+      ...baseProposal,
+      signals: [], // primarySignal falls back to "capture_create_decision" (no weight)
+    });
+
+    // 1.0 existing + probabilityToLogOdds(90) ≈ 3.17
+    expect(h.db.evidence[0].log_odds_score).toBeCloseTo(1 + Math.log2(9), 5);
+  });
+});
+
+describe("mergeExtractedFields — confidence honesty", () => {
+  it("preserves an incoming field's confidence instead of re-stamping the default", () => {
+    const merged = mergeExtractedFields(
+      {},
+      {
+        name: { value: "Kainos Labs", confidence: 55, sources: [] },
+      },
+      "cap-1",
+    );
+
+    expect(merged.name.confidence).toBe(55);
+    expect(merged.name.sources).toEqual(["cap-1"]);
+  });
+
+  it("stamps the default only when the extractor offered no opinion", () => {
+    const merged = mergeExtractedFields({}, { email: "jane@acme.com" }, "cap-1");
+
+    expect(merged.email.confidence).toBe(DEFAULT_EXTRACTED_CONFIDENCE);
+  });
+
+  it("clamps out-of-range incoming confidences", () => {
+    const merged = mergeExtractedFields(
+      {},
+      {
+        high: { value: "a", confidence: 140, sources: [] },
+        low: { value: "b", confidence: -4, sources: [] },
+      },
+    );
+
+    expect(merged.high.confidence).toBe(99);
+    expect(merged.low.confidence).toBe(1);
+  });
+
+  it("corroborates from the preserved base, not the default", () => {
+    const existing: Record<string, ExtractedFieldValue> = {
+      name: { value: "Kainos Labs", confidence: 55, sources: ["cap-1"] },
+    };
+
+    const merged = mergeExtractedFields(
+      existing,
+      { name: { value: "Kainos Labs", confidence: 55, sources: [] } },
+      "cap-2",
+    );
+
+    expect(merged.name.confidence).toBe(57);
+    expect(merged.name.sources).toEqual(["cap-1", "cap-2"]);
+  });
+
+  it("keeps the existing value on conflict and never re-stamps it", () => {
+    const existing: Record<string, ExtractedFieldValue> = {
+      name: { value: "Kainos Labs", confidence: 55, sources: ["cap-1"] },
+    };
+
+    const merged = mergeExtractedFields(
+      existing,
+      { name: { value: "Kainos", confidence: 92, sources: [] } },
+      "cap-2",
+    );
+
+    expect(merged.name.value).toBe("Kainos Labs");
+    expect(merged.name.confidence).toBe(55);
   });
 });

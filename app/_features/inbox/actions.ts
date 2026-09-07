@@ -4,6 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import * as chrono from "chrono-node";
 import { createClient } from "@/app/_lib/supabase/server";
+import { getVerifiedWorkspaceMembership } from "@/app/_lib/tenancy/workspace-membership";
 import { getInboxItems, type InboxViewMode } from "./queries";
 import type { InboxItem } from "./types";
 
@@ -105,14 +106,8 @@ async function getUserWorkspaceId(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string
 ): Promise<string | null> {
-  const { data } = await supabase
-    .from("workspace_members")
-    .select("workspace_id")
-    .eq("user_id", userId)
-    .limit(1)
-    .single();
-
-  return data?.workspace_id || null;
+  const membership = await getVerifiedWorkspaceMembership(userId, supabase);
+  return membership?.id ?? null;
 }
 
 // =============================================================================

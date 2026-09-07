@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import {
   AlertTriangle,
@@ -10,6 +10,7 @@ import {
   ExternalLink,
   Loader2,
   Maximize2,
+  ShieldAlert,
   Sparkles,
   ThumbsDown,
   ThumbsUp,
@@ -18,6 +19,8 @@ import {
 } from "lucide-react";
 import { cn } from "@repo/utils";
 import type { PlayCardViewModel, PlayCardErrorState } from "../../play-card/types";
+import { getRunPreconditionVerdict } from "../../actions/run-precondition-verdict";
+import type { RunPreconditionVerdict } from "../../services/check-run-preconditions";
 import {
   getSectionColorStyles,
   getSectionMeta,
@@ -26,7 +29,10 @@ import {
 import { PlaybookConnectorLogos } from "../PlaybookConnectorLogos";
 import { PlaybookStepDots } from "../PlaybookCardShared";
 import { getSectionConnectorIds } from "../../lib/playbook-connectors";
+import type { ConnectorCatalogId } from "@/app/_features/connectors/types";
 import { PlayCardDetailModal } from "./PlayCardDetailModal";
+import { DraftLetterHeader, PlayDraftPreview } from "./PlayDraftPreview";
+import { buildPlayGlance } from "../../lib/play-headline";
 import type { LucideIcon } from "lucide-react";
 
 const APPLE_EASE = [0.32, 0.72, 0, 1] as const;
@@ -232,7 +238,28 @@ export function PlayCard({
   onFocus,
 }: PlayCardProps) {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [preparedSubject, setPreparedSubject] = useState<string | null>(null);
+  const [gateVerdict, setGateVerdict] = useState<RunPreconditionVerdict | null>(null);
   const visual = resolveSectionVisual(vm);
+  const emailSubject = preparedSubject ?? vm.acting?.emailSubject ?? null;
+
+  // Gate preview: what approving will actually do (gates 2–4), fetched once
+  // per paused play_run card. Fail-open — the gate itself still protects.
+  const playRunId =
+    vm.provenance.source === "play_run" ? vm.provenance.playRunId : null;
+  useEffect(() => {
+    if (!playRunId || !vm.primaryAction || vm.mode === "handled") return;
+    let cancelled = false;
+    void getRunPreconditionVerdict(playRunId).then((result) => {
+      if (cancelled || !result.ok || !result.data) return;
+      setGateVerdict(result.data);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [playRunId, vm.primaryAction, vm.mode]);
+
+  const gateBlocked = gateVerdict?.kind.startsWith("blocked") ?? false;
 
   if (vm.mode === "handled" && vm.handled) {
     return (
@@ -248,17 +275,30 @@ export function PlayCard({
   }
 
   const openDetail = () => setIsDetailOpen(true);
-  const logoIds = getSectionConnectorIds(vm.section ?? null);
+  // Per-run logos (apps actually used) beat the section-default cluster.
+  const logoIds = (vm.connectorIds?.length
+    ? vm.connectorIds
+    : getSectionConnectorIds(vm.section ?? null)) as ConnectorCatalogId[];
   const cta = resolveCta(vm);
 
+  const glance = buildPlayGlance({
+    headline: vm.headline,
+    subject: vm.subject,
+    targetLabel: vm.targetLabel,
+    recipientLabel: vm.acting?.recipientLabel ?? vm.targetLabel,
+    draftText: vm.acting?.draftBody.join("\n\n") ?? null,
+    playbookSlug: vm.playbookSlug,
+    playbookName: vm.playbookName,
+    outputType: vm.outputType,
+    triggerLabel: vm.triggerLabel,
+    preview: vm.preview,
+    valueEstimate: vm.valueEstimate,
+    evidenceLabels: vm.evidence?.items.map((item) => item.label) ?? null,
+  });
   const collapsedDetail =
-    vm.kind === "profile"
-      ? null
-      : vm.kind === "acting" && vm.acting
-        ? `Draft to ${vm.acting.recipientLabel}`
-        : vm.kind === "question" && vm.question
-          ? vm.question.prompt
-          : (vm.preview ?? "");
+    vm.kind === "question" && vm.question
+      ? vm.question.prompt
+      : glance.detail;
 
   return (
     <motion.article
@@ -280,7 +320,7 @@ export function PlayCard({
       )}
       tabIndex={0}
       role="listitem"
-      aria-label={`${vm.playbookName ?? vm.sectionLabel ?? vm.playerName ?? "Salt"} play: ${vm.headline ?? vm.subject}`}
+      aria-label={`${vm.playbookName ?? vm.sectionLabel ?? vm.playerName ?? "Salt"} play: ${glance.headline}`}
       onFocus={onFocus}
       onClick={openDetail}
     >
@@ -324,18 +364,18 @@ export function PlayCard({
 
           <div className="flex w-full min-w-0 items-center gap-3">
             <h3 className="line-clamp-2 min-w-0 font-display text-[20px] leading-snug tracking-tight text-foreground">
-              {vm.headline ?? vm.subject}
+              {glance.headline}
             </h3>
             {logoIds.length > 0 && (
               <PlaybookConnectorLogos ids={logoIds} className="hidden shrink-0 sm:flex" />
             )}
           </div>
 
-          {collapsedDetail && vm.headline !== vm.subject && (
+          {collapsedDetail && collapsedDetail !== glance.headline ? (
             <p className="line-clamp-2 max-w-2xl text-[12px] leading-relaxed text-muted-foreground/60">
               {collapsedDetail}
             </p>
-          )}
+          ) : null}
         </button>
         </div>
 
@@ -386,28 +426,44 @@ export function PlayCard({
                     onPrimary(e.currentTarget);
                   }
                 }}
-                disabled={isPending || vm.error?.draftIncomplete}
-                whileHover={{ scale: 1.02, y: -1 }}
-                whileTap={{ scale: 0.97 }}
+                disabled={isPending || vm.error?.draftIncomplete || gateBlocked}
+                title={gateBlocked ? gateVerdict?.summary : undefined}
+                whileHover={gateBlocked ? undefined : { scale: 1.02, y: -1 }}
+                whileTap={gateBlocked ? undefined : { scale: 0.97 }}
                 transition={SPRING}
                 className={cn(
                   "surface-aurora",
-                  "relative ml-1 inline-flex h-9 items-center gap-1.5 overflow-hidden rounded-xl px-4 text-[13px] font-semibold text-white shadow-[var(--shadow-lift)] transition disabled:opacity-60"
+                  "relative ml-1 inline-flex h-9 items-center gap-1.5 overflow-hidden rounded-xl px-4 text-[13px] font-semibold text-white shadow-[var(--shadow-lift)] transition disabled:opacity-60",
+                  gateBlocked && "cursor-not-allowed"
                 )}
               >
                 {isPending ? (
                   <Loader2 className="relative z-10 size-4 animate-spin" />
+                ) : gateBlocked ? (
+                  <ShieldAlert className="relative z-10 size-4" strokeWidth={2.25} />
                 ) : (
                   <Sparkles className="relative z-10 size-4" strokeWidth={2.25} />
                 )}
                 <span className="relative z-10 max-w-[10rem] truncate sm:max-w-none">
-                  {cta.label}
+                  {gateVerdict?.kind === "will_draft" ? "Create draft" : cta.label}
                 </span>
               </motion.button>
             )}
           </div>
 
         </div>
+        {gateVerdict && gateVerdict.kind !== "will_execute" && (
+          <div className="flex justify-end">
+            <p
+              className={cn(
+                "max-w-md text-right text-[11px] leading-snug",
+                gateBlocked ? "text-amber-600" : "text-muted-foreground/70"
+              )}
+            >
+              {gateVerdict.summary}
+            </p>
+          </div>
+        )}
       </div>
 
       <PlayCardDetailModal
@@ -415,6 +471,7 @@ export function PlayCard({
         open={isDetailOpen}
         onClose={() => setIsDetailOpen(false)}
         isPending={isPending}
+        gateVerdict={gateVerdict}
         onPrimary={(source) => {
           setIsDetailOpen(false);
           onPrimary(source);
@@ -427,6 +484,11 @@ export function PlayCard({
           setIsDetailOpen(false);
           onEditWithSalt();
         }}
+        draftText={draft.join("\n\n")}
+        onDraftPrepared={(text, subject) => {
+          onDraftChange(text);
+          if (subject?.trim()) setPreparedSubject(subject.trim());
+        }}
         renderSteps={() =>
           vm.chain ? <PlayChainRow chain={vm.chain} /> : null
         }
@@ -436,6 +498,7 @@ export function PlayCard({
             <PlayCardBody
               vm={vm}
               draft={draft}
+              emailSubject={emailSubject}
               isEditing={isEditing}
               isPending={isPending}
               onStartEdit={onStartEdit}
@@ -472,7 +535,10 @@ function HandledPlayCard({
   const visual = resolveSectionVisual(vm);
   const handled = vm.handled!;
   const openDetail = () => setIsDetailOpen(true);
-  const logoIds = getSectionConnectorIds(vm.section ?? null);
+  // Per-run logos (apps actually used) beat the section-default cluster.
+  const logoIds = (vm.connectorIds?.length
+    ? vm.connectorIds
+    : getSectionConnectorIds(vm.section ?? null)) as ConnectorCatalogId[];
 
   const detailLine = vm.targetLabel
     ? `${vm.targetPrefix} ${vm.targetLabel}`
@@ -694,6 +760,7 @@ function PlayChainRow({ chain }: { chain: NonNullable<PlayCardViewModel["chain"]
 function PlayCardBody({
   vm,
   draft,
+  emailSubject,
   isEditing,
   isPending,
   onStartEdit,
@@ -703,6 +770,7 @@ function PlayCardBody({
 }: {
   vm: PlayCardViewModel;
   draft: string[];
+  emailSubject?: string | null;
   isEditing: boolean;
   isPending: boolean;
   onStartEdit: () => void;
@@ -711,48 +779,55 @@ function PlayCardBody({
   onAnswer: (value: string) => void;
 }) {
   if (vm.kind === "acting" && vm.acting) {
+    const letterSubject = emailSubject ?? vm.acting.emailSubject ?? null;
+    const editAction = !isEditing ? (
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          onStartEdit();
+        }}
+        className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground transition hover:text-foreground"
+      >
+        <Edit3 className="size-3" /> Edit
+      </button>
+    ) : (
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          onStopEdit();
+        }}
+        className="inline-flex items-center gap-1 text-[11px] font-semibold text-foreground"
+      >
+        Done
+      </button>
+    );
     return (
       <div className="rounded-2xl border border-border/50 bg-card/80 p-4 lg:p-5">
-        <div className="mb-2.5 flex items-center justify-between">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-            Draft to {vm.acting.recipientLabel}
-          </p>
-          {!isEditing ? (
-            <button
-              type="button"
-              onClick={onStartEdit}
-              className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground transition hover:text-foreground"
-            >
-              <Edit3 className="size-3" /> Edit
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={onStopEdit}
-              className="inline-flex items-center gap-1 text-[11px] font-semibold text-foreground"
-            >
-              Done
-            </button>
-          )}
-        </div>
         {isEditing ? (
-          <textarea
-            autoFocus
-            value={draft.join("\n\n")}
-            onChange={(event) => onDraftChange(event.target.value)}
-            onBlur={onStopEdit}
-            className="min-h-[140px] w-full resize-none bg-transparent text-[14px] leading-relaxed text-foreground/90 outline-none"
-            rows={Math.max(6, draft.join("\n\n").split("\n").length + 1)}
-          />
+          <div className="space-y-3">
+            <DraftLetterHeader subject={letterSubject} action={editAction} />
+            <textarea
+              autoFocus
+              value={draft.join("\n\n")}
+              onChange={(event) => onDraftChange(event.target.value)}
+              onBlur={onStopEdit}
+              className="min-h-[140px] w-full resize-none bg-transparent text-[14.5px] leading-[1.5] text-foreground/90 outline-none [font-family:Arial,Helvetica,sans-serif]"
+              rows={Math.max(6, draft.join("\n\n").split("\n").length + 1)}
+            />
+          </div>
         ) : (
           <div
             onClick={onStartEdit}
-            className="cursor-text space-y-3 text-[14px] leading-relaxed text-foreground/90"
+            className="cursor-text"
             title="Click to edit"
           >
-            {draft.map((para, index) => (
-              <p key={index}>{para}</p>
-            ))}
+            <PlayDraftPreview
+              text={draft.join("\n\n")}
+              subject={letterSubject}
+              action={editAction}
+            />
           </div>
         )}
       </div>

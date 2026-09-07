@@ -1,0 +1,282 @@
+# Contract Review
+# Fires the moment a file is classified as a contract in Memory (upload,
+# Drive/Dropbox capture, email attachment). Reads the actual document,
+# writes a plain-English review onto the file as a note, and — when the
+# review flags something worth changing — drafts one consolidated pushback
+# email to the counterparty. The note and the send both wait for approval.
+#
+# Legal posture (do not soften): Salt is not a lawyer and every review says
+# so — including clean ones. Critical flags name the next step: a licensed
+# attorney looks at the clause before the owner responds. A clean review is
+# triage, never clearance — it says what was checked and found standard for
+# this kind of agreement, and never says "safe to sign".
+
+name: Contract Review
+slug: contract-review
+version: 2.0.0
+description: Reviews a contract the moment it lands in your files — plain-English summary, severity-rated flags, the review filed as a note on the file, and a drafted pushback email when something needs changing
+
+section: work
+layer: act
+voice: brief
+
+# Fires when Memory classifies a file as a contract — the deterministic
+# record-condition trigger, not an agent run on every shared file.
+trigger:
+  type: record_condition
+  entity: resource
+  field: category
+  op: eq
+  value: contract
+
+# User-tunable knobs. Referenced as {{settings.key}} in prompts.
+settings:
+  severity_threshold:
+    type: select
+    label: "Draft pushback for clauses rated {value} or above"
+    options:
+      - critical
+      - notable
+      - all
+    default: notable
+  review_focus:
+    type: select
+    label: "Review focus: {value}"
+    options:
+      - balanced
+      - client_protection
+      - red_flags_only
+    default: balanced
+
+requirements:
+  categories:
+    optional:
+      - documents
+      - storage
+      - email
+
+# Tool allowlist (single-document canon). Read tools locate and read the
+# contract; the email pair is for the pushback draft — send waits for the
+# human, Open in Gmail writes a review draft from the same letter.
+tools:
+  - GOOGLEDRIVE_FIND_FILE
+  - GOOGLEDRIVE_PARSE_FILE
+  - GOOGLEDOCS_SEARCH_DOCUMENTS
+  - GOOGLEDOCS_GET_DOCUMENT_BY_ID
+  - DROPBOX_FILES_SEARCH
+  - GMAIL_CREATE_EMAIL_DRAFT
+  - GMAIL_SEND_EMAIL
+
+steps:
+  # Step 1: The file record from Salt's own Memory — name, classification,
+  # storage provider, external URL, and the linked counterparty the pushback
+  # email would go to. Not a connector call.
+  - step: fetch
+    id: file_context
+    from: memory.file_context
+    approval: auto
+
+  # Step 2: Read the actual document. Bounded read-only agent — it can only
+  # look, never act. The file's location comes from the Memory record, so
+  # this is a targeted read, not a search-everything crawl. Ends with a
+  # machine-checkable verdict line.
+  - step: agent
+    id: read_contract
+    prompt: |
+      A file in the owner's Memory was classified as a contract:
+      {{file_context}}
+
+      Read the actual document before anything else:
+      1. Locate it where the record says it lives. For Google Drive, use
+         GOOGLEDRIVE_FIND_FILE with the file name, then read the full text
+         with GOOGLEDRIVE_PARSE_FILE. For a Google Doc, use
+         GOOGLEDOCS_GET_DOCUMENT_BY_ID (GOOGLEDOCS_SEARCH_DOCUMENTS by name
+         if you need the id). For Dropbox, DROPBOX_FILES_SEARCH by name —
+         if you cannot read the contents, say so.
+      2. If the record has an external_url or ai_summary, use them to
+         confirm you found the right document.
+      3. Verify it is actually contract-like: an agreement, NDA, MSA, SOW,
+         proposal with terms, or similar. If it is contract-adjacent but
+         not a contract (an invoice, a brief, a proposal with no terms),
+         verdict MISSING.
+      4. If the file cannot be located or read (storage disconnected,
+         permissions, unsupported format), verdict MISSING and say exactly
+         what you tried.
+
+      End your answer with exactly one verdict line:
+      "VERDICT: FOUND — <document title, parties, date if present>"
+      or
+      "VERDICT: MISSING — <what was tried and why nothing readable matched>"
+
+      On the lines before the verdict, include the contract text (or as
+      much of it as fits) so the review step can work from your answer.
+    tools:
+      - GOOGLEDRIVE_FIND_FILE
+      - GOOGLEDRIVE_PARSE_FILE
+      - GOOGLEDOCS_SEARCH_DOCUMENTS
+      - GOOGLEDOCS_GET_DOCUMENT_BY_ID
+      - DROPBOX_FILES_SEARCH
+    max_calls: 5
+    approval: auto
+
+  # Steps 3+ run only when a contract was actually found and read.
+  - step: branch
+    id: maybe_review
+    if: "read_contract.text ~= 'VERDICT: FOUND'"
+    steps:
+      # Step 3: The review itself — plain English, severity-rated flags,
+      # and the legal posture baked in. Ends with a machine-checkable
+      # outcome line the pushback branch gates on.
+      - step: draft
+        id: review_summary
+        prompt: |
+          Review this contract for the owner, a solo service professional
+          signing in their own name.
+
+          File record: {{file_context}}
+          Contract text and read notes: {{read_contract}}
+
+          Review focus: {{settings.review_focus}}.
+
+          Structure the review as:
+          1. What you're signing — two or three plain sentences: who the
+             parties are, the work, the term, and the money.
+          2. Payment terms decoded — amounts, invoicing cadence, late
+             terms, kill fees, expense handling. Translate legalese.
+          3. Red flags — each with a severity rating (critical / notable /
+             minor), the clause in plain words, and why it matters to a
+             solo operator. Critical means: could cost you unpaid work,
+             unlimited liability, or your intellectual property.
+          4. What to push back on — for each critical and notable flag,
+             one sentence of alternative language or a question to send
+             back.
+          5. What looks standard — name the clauses that are typical for
+             this kind of agreement, so the owner knows what not to
+             negotiate.
+
+          Legal posture — every review, no exceptions:
+          - End the review with this line, verbatim, on its own line:
+            "Salt isn't a lawyer and this isn't legal advice."
+          - If anything is rated critical, add one line naming the next
+            step: "Have a licensed attorney look at this clause before you
+            respond."
+          - Never write clearance language. Forbidden phrases: "safe to
+            sign", "looks good", "nothing to worry about", "approved".
+            When there are no flags at or above
+            {{settings.severity_threshold}}, say what was checked and that
+            the terms read as standard for this kind of agreement — and
+            that only a lawyer can give a definitive read. This is triage,
+            not a green light.
+
+          Plain sentences, no legalese, no markdown headers. Severity
+          ratings in parentheses after each flag title.
+
+          After the review, end with exactly one outcome line:
+          "REVIEW_OUTCOME: FLAGS — <count by severity, e.g. 1 critical, 2 notable>"
+          when any flag is rated {{settings.severity_threshold}} or above,
+          or
+          "REVIEW_OUTCOME: CLEAN — <one line on what was checked>"
+        max_tokens: 900
+        approval: auto
+
+      # Steps 4-5 run only when the review found something worth changing.
+      - step: branch
+        id: maybe_pushback
+        if: "review_summary ~= 'REVIEW_OUTCOME: FLAGS'"
+        steps:
+          # Step 4: One consolidated pushback email to the counterparty —
+          # the owner's own negotiation email, paste-ready, no legalese.
+          - step: draft
+            id: pushback_email
+            prompt: |
+              Draft one email from the owner to the counterparty about the
+              contract below.
+
+              Counterparty: {{file_context.counterparty}}
+              Counterparty organization: {{file_context.counterparty_org}}
+              File: {{file_context.file_name}}
+              The review: {{review_summary}}
+
+              Cover every flag rated {{settings.severity_threshold}} or
+              above in a single message — one consolidated ask, not a
+              clause-by-clause letter. For each point: the clause in plain
+              words, the change the owner wants, one sentence of why. Use
+              the pushback language from the review.
+
+              Tone: collegial and confident — this is a negotiation between
+              people who want to work together, not a dispute. No legalese,
+              no "pursuant to", no threats.
+
+              This is the owner's own email — do NOT include the Salt
+              disclaimer or any legal-advice language in it; the review
+              alongside it carries that.
+
+              Write a real email, not markdown. No asterisks, no Subject
+              line in the body (the subject is set separately). Greeting,
+              short paragraphs, plain list of the changes if more than one.
+              Close with a professional sign-off and the owner's name on
+              the next line. Never leave "Best regards," hanging with no
+              name.
+
+              If the counterparty has no email on file, start the draft
+              with "[No email on file — add the recipient]".
+            max_tokens: 500
+            approval: auto
+
+          # Step 5: Send waits for the human. Open in Gmail still writes a
+          # review draft from the same letter. Approving also files the
+          # review note — one approval covers the card the owner read.
+          - step: action
+            id: send_pushback
+            tool: GMAIL_SEND_EMAIL
+            args:
+              recipient_email: "{{file_context.counterparty.email}}"
+              subject: "A few changes before I sign — {{file_context.file_name}}"
+              body: "{{pushback_email}}"
+            approval: ask
+
+# The review itself is filed as a note on the file record — approval: ask
+# parks it in the queue ("Add note to <file>"); approving writes it through
+# the canonical note path with the play run as provenance. On the flags
+# path the note rides along with the send approval instead.
+output:
+  type: memory_update
+  approval: ask
+
+value:
+  kind: contract_reviewed
+  estimate: 120
+
+instructions:
+  system: |
+    You review contracts for a solo service professional who signs their
+    own work agreements. They are not a lawyer and neither are you — your
+    job is translation and triage: what does this clause actually do, how
+    bad is it for a one-person business, and what should they push back
+    on. You never tell them to sign or not sign; you make sure they
+    understand what they're signing. Anything critical gets a
+    recommendation to involve a licensed attorney.
+
+  guidelines:
+    - "Read the actual document before reviewing — never review from a title or summary alone"
+    - "Decode payment terms first — solo operators live and die by cash flow clauses"
+    - "Rate every flag critical, notable, or minor — severity drives what they negotiate"
+    - "Every review ends with the disclaimer, including clean ones — Salt isn't a lawyer and this isn't legal advice"
+    - "Critical flags name the next step: a licensed attorney looks at the clause before the owner responds"
+    - "One consolidated pushback email covering every flag at or above the severity threshold — never a clause-by-clause letter"
+    - "Name what's standard — knowing what not to negotiate saves political capital"
+
+  avoid:
+    - "Clearance language — never 'safe to sign', 'looks good', 'nothing to worry about', or 'approved'; a clean review is triage, not a green light"
+    - "Legalese in the review or the email — if the clause says 'indemnify and hold harmless', say what that costs"
+    - "Flagging boilerplate as critical — severity inflation makes real flags ignorable"
+    - "Reviewing a document you could not actually read"
+    - "The Salt disclaimer inside the pushback email — it's the owner's own negotiation email"
+
+  examples:
+    - label: "NDA with broad indemnity"
+      content: "Mutual NDA, but clause 7 makes the owner liable for 'any and all damages' with no cap → critical flag, attorney-next-step line, pushback email asking to cap liability at fees paid"
+    - label: "Clean MSA"
+      content: "Standard services agreement, net-30, IP transfers on payment, 30-day termination → review names what was checked and reads as standard for this kind of agreement, disclaimer included, note filed, no email drafted"
+    - label: "SOW with net-90 and kill-fee gap"
+      content: "Net-90 payment terms and no kill fee on cancellation → notable flags, pushback email asking for net-30 and a 50% kill fee, framed as market for solo operators"

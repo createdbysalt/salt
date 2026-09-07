@@ -82,7 +82,7 @@ describe("decision-pipeline", () => {
       expect(bar.bar).toBe(0);
     });
 
-    it("raises sensitive fields to 95", async () => {
+    it("holds sensitive fields to the workspace threshold", async () => {
       const bar = await getCareFieldBar(
         "ws-1",
         "person",
@@ -90,7 +90,7 @@ describe("decision-pipeline", () => {
         "client"
       );
       expect(bar.tier).toBe("sensitive");
-      expect(bar.bar).toBe(95);
+      expect(bar.bar).toBe(85);
     });
   });
 
@@ -129,13 +129,35 @@ describe("decision-pipeline", () => {
       );
     });
 
+    it("no-ops without accumulating when the field already holds the value", async () => {
+      // record_status → active on an already-active record: the recurring
+      // "Active profile" Watching cycle. Nothing should accumulate or log.
+      const decision = await processCareProposal({
+        workspaceId: "ws-1",
+        capability: "records",
+        entityType: "person",
+        entityId: "p-1",
+        field: "record_status",
+        proposedValue: "active",
+        currentValue: "active",
+        confidence: 85,
+        because: "Recent email activity",
+        evidenceType: "behavioral_signal",
+        sourceType: "care",
+      });
+
+      expect(decision.action).toBe("apply");
+      expect(decision.noop).toBe(true);
+      expect(accumulateEvidence).not.toHaveBeenCalled();
+      expect(recordSaltLearning).not.toHaveBeenCalled();
+    });
+
     it("refuses never-touch without accumulating evidence", async () => {
       const decision = await processCareProposal({
         workspaceId: "ws-1",
         capability: "records",
         entityType: "billing",
-        entityId: "bill-1",
-        field: "total",
+        entityId: "bill-1",        field: "total",
         proposedValue: "500",
         confidence: 99,
         because: "parsed invoice",
@@ -190,7 +212,7 @@ describe("decision-pipeline", () => {
       expect(recordSaltLearning).not.toHaveBeenCalled();
     });
 
-    it("holds sensitive fields to the elevated bar", async () => {
+    it("applies sensitive fields at the workspace threshold", async () => {
       vi.mocked(accumulateEvidence).mockResolvedValue({
         evidenceId: "ev-3",
         aggregatedConfidence: 90,
@@ -209,8 +231,9 @@ describe("decision-pipeline", () => {
         sourceType: "care",
       });
 
-      expect(decision.action).toBe("watch");
-      expect(decision.bar).toBe(95);
+      // One user-controlled bar: sensitive tiers no longer raise it.
+      expect(decision.action).toBe("apply");
+      expect(decision.bar).toBe(85);
     });
 
     describe("P8 signal source weight adjustment", () => {

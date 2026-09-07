@@ -1,10 +1,12 @@
-# Cash Runway Alert
-# Weekly cash flow summary with runway projection.
+# Cash Forecast
+# Weekly cash outlook: balance, receivables, and runway — verified against
+# the connected billing apps before anything is flagged. ACT layer; the
+# brief surfaces in Plays, nothing leaves the app.
 
-name: Cash Runway Alert
+name: Cash Forecast
 slug: cash-runway
-version: 1.0.0
-description: Weekly cash flow summary with runway projection
+version: 2.0.0
+description: Weekly cash forecast with runway projection, verified against your billing app, with early risk flags when payroll or bills are at risk
 
 section: billing
 layer: act
@@ -12,46 +14,146 @@ voice: brief
 
 trigger:
   type: schedule
-  cron: "0 9 * * 1"
+  cron: "0 8 * * 1"
+  adjust:
+    - lookahead_days
+
+# User-tunable knobs. Referenced as {{settings.key}} in prompts and classify
+# rules; the Overview trigger section renders `adjust` keys as inputs.
+settings:
+  lookahead_days:
+    type: number
+    label: "Look ahead {value} days"
+    default: 30
+  payroll_day:
+    type: number
+    label: "Payroll or owner draw hits on day {value} of the month"
+    default: 1
+  min_runway_weeks:
+    type: number
+    label: "Flag a risk when runway drops below {value} weeks"
+    default: 4
 
 requirements:
   categories:
-    optional:
+    required:
       - billing
+    optional:
+      - email
+  capabilities:
+    required:
+      - read_invoices
+
+# Tool allowlist (single-document canon). Read-only on purpose: this play
+# never moves money, it only looks and reports.
+tools:
+  - STRIPE_RETRIEVE_BALANCE
+  - STRIPE_LIST_INVOICES
+  - STRIPE_LIST_SUBSCRIPTIONS
+  - QUICKBOOKS_GET_REPORT_CASH_FLOW
+  - QUICKBOOKS_GET_AGED_RECEIVABLES_REPORT
 
 steps:
+  # Steps 1-3: Salt's own rollups first — cheap, and they shape the brief
+  # even when a billing app is disconnected. Optional so a missing source
+  # degrades the brief instead of failing the run.
   - step: fetch
     id: cash_position
     from: billing.cash_summary
     optional: true
+    approval: auto
 
   - step: fetch
     id: upcoming_receivables
     from: billing.upcoming_due
     optional: true
+    approval: auto
 
   - step: fetch
     id: recent_payments
     from: billing.recent_payments
     optional: true
+    approval: auto
 
-  - step: draft
-    id: runway_brief
+  # Step 4: Verify before we flag anything. Bounded read-only agent — it
+  # reconciles Salt's rollups against the billing app's own numbers so the
+  # brief never cries wolf on a stale record. Ends with a verdict line.
+  - step: agent
+    id: verify_outlook
     prompt: |
-      Create a weekly cash runway brief.
+      Salt's cash rollups for this workspace:
+      - Cash position: {{cash_position}}
+      - Receivables due in the next {{settings.lookahead_days}} days: {{upcoming_receivables}}
+      - Recent payments: {{recent_payments}}
 
-      Current position: {{cash_position.balance}}
-      Upcoming receivables (30 days): {{upcoming_receivables.total}}
-      Recent payments received: {{recent_payments.total}}
+      Verify before we write the brief:
+      1. Pull the live balance from the connected billing app
+         (STRIPE_RETRIEVE_BALANCE for Stripe; QUICKBOOKS_GET_REPORT_CASH_FLOW
+         when QuickBooks is connected). If it disagrees with Salt's number,
+         trust the billing app and note the discrepancy.
+      2. List open invoices (STRIPE_LIST_INVOICES or
+         QUICKBOOKS_GET_AGED_RECEIVABLES_REPORT) and confirm which
+         receivables are real and still collectible. Drop any that are
+         paid, void, or written off.
+      3. Note subscriptions renewing in the lookahead window
+         (STRIPE_LIST_SUBSCRIPTIONS) — reliable incoming cash.
+      4. Estimate weekly burn from recent outflows, then runway in weeks.
+         Payroll or owner draw lands on day {{settings.payroll_day}} of the
+         month — check it is covered inside the lookahead window.
+      5. If no billing app answers or a lookup fails, say what you could
+         not verify and base the verdict on Salt's rollups alone — the
+         owner reads every brief, so a marked estimate beats a silent week.
 
-      Calculate runway in weeks based on average monthly expenses.
-      Flag any concerning patterns.
-      Keep it factual and scannable.
-    max_tokens: 300
+      End your answer with exactly one verdict line:
+      "VERDICT: RISK — <what is at risk, when, and the shortfall>"
+      or
+      "VERDICT: HEALTHY — <runway in weeks, cash covered>"
+      or
+      "VERDICT: UNVERIFIED — <what could not be checked>"
+    tools:
+      - STRIPE_RETRIEVE_BALANCE
+      - STRIPE_LIST_INVOICES
+      - STRIPE_LIST_SUBSCRIPTIONS
+      - QUICKBOOKS_GET_REPORT_CASH_FLOW
+      - QUICKBOOKS_GET_AGED_RECEIVABLES_REPORT
+    max_calls: 5
+    approval: auto
+
+  # Step 5: The brief itself. Risk verdicts lead with the risk; healthy
+  # weeks stay short. Always factual, never alarmist.
+  - step: draft
+    id: cash_brief
+    prompt: |
+      Write the weekly cash forecast for the owner.
+
+      Cash position: {{cash_position}}
+      Receivables due in the next {{settings.lookahead_days}} days: {{upcoming_receivables}}
+      Recent payments: {{recent_payments}}
+      Verification: {{verify_outlook}}
+
+      Structure:
+      1. Runway first — weeks of coverage at current burn.
+      2. If verification returned VERDICT: RISK, lead with what is at risk
+         (payroll on day {{settings.payroll_day}}, a bill, a shortfall),
+         the date it hits, and the amount needed. Flag it plainly.
+      3. What is coming in — confirmed receivables with client and date;
+         renewals that will land.
+      4. What changed — notable payments in or out versus a normal week.
+      5. If verification returned VERDICT: UNVERIFIED, say which numbers
+         are estimates and suggest reconnecting the billing app.
+
+      Flag a risk whenever runway drops below {{settings.min_runway_weeks}}
+      weeks, even on an otherwise healthy week.
+
+      Keep it under 200 words, factual and scannable. Plain sentences, no
+      markdown headers, no asterisks. Numbers always carry context —
+      never "things look okay".
+    max_tokens: 400
+    approval: auto
 
 output:
   type: briefing
-  approval: none
+  approval: auto
 
 value:
   kind: cash_visibility
@@ -59,17 +161,30 @@ value:
 
 instructions:
   system: |
-    You are creating a weekly cash flow briefing for a solopreneur.
-    Be factual and direct. Surface concerns without being alarmist.
-    Focus on actionable insights.
+    You write the weekly cash forecast for a solo business owner. They
+    check it before the week starts to know whether payroll, bills, and
+    their own draw are covered. Getting the numbers right matters more
+    than sounding positive — a missed risk costs real money, a false alarm
+    costs trust. Every number is verified against the connected billing
+    app before it is flagged, and estimates are always marked as estimates.
 
   guidelines:
-    - Lead with runway (weeks of coverage)
-    - Highlight any invoices at risk
-    - Note positive trends as well as concerns
-    - Keep under 200 words
+    - "Lead with runway in weeks — it is the number the owner plans around"
+    - "Verify receivables against the billing app before counting them — stale records inflate the outlook"
+    - "Name the client, amount, and date for every receivable that matters"
+    - "Flag payroll or owner-draw coverage explicitly when it lands inside the lookahead window"
+    - "Mark unverified numbers as estimates and say why"
 
   avoid:
-    - Financial jargon
-    - Vague statements ("things look okay")
-    - Missing context for numbers
+    - "Alarmist language — flag the fact, the date, and the amount, then stop"
+    - "Financial jargon (EBITDA, burn multiple) — plain words only"
+    - "Vague reassurance without numbers"
+    - "Counting paid, void, or written-off invoices as incoming cash"
+
+  examples:
+    - label: "Healthy week"
+      content: "Balance $18,400, burn ~$2,100/week → 8.7 weeks runway, two invoices ($4,300) due this week, payroll covered → HEALTHY — short brief, no flags"
+    - label: "Payroll at risk"
+      content: "Balance $3,100, payroll $4,800 hits on the 1st, largest receivable ($6,000) is 12 days overdue → RISK — brief leads with the $1,700 gap and the date"
+    - label: "Stripe disconnected"
+      content: "Rollups exist but the billing app is unreachable → UNVERIFIED — brief ships from Salt's records, marked as estimates, with a reconnect note"

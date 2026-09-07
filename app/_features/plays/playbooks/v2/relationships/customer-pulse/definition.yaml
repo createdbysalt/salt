@@ -1,0 +1,159 @@
+# Customer Pulse
+# Weekly read on how clients are feeling: recent threads analyzed for
+# themes, complaints surfaced with names attached, and the three things
+# to do this week. ACT layer — the report surfaces in Plays.
+
+name: Customer Pulse
+slug: customer-pulse
+version: 1.0.0
+description: Weekly read on how your clients are feeling — recurring themes from recent conversations, complaints with names attached, and three things to do this week
+
+section: relationships
+layer: act
+voice: brief
+
+trigger:
+  type: schedule
+  cron: "0 16 * * 5"
+  adjust:
+    - lookback_days
+
+# User-tunable knobs. Referenced as {{settings.key}} in prompts; the
+# Overview trigger section renders `adjust` keys as inputs.
+settings:
+  lookback_days:
+    type: number
+    label: "Look back over the last {value} days of client conversations"
+    default: 7
+  min_theme_mentions:
+    type: number
+    label: "A theme needs {value} separate mentions to be called recurring"
+    default: 2
+
+requirements:
+  categories:
+    required:
+      - email
+
+# Tool allowlist (single-document canon). Read-only: the pulse only
+# listens — replies are the owner's to send (or Complaint Response's).
+tools:
+  - GMAIL_FETCH_EMAILS
+  - OUTLOOK_SEARCH_EMAILS
+
+steps:
+  # Step 1: Gather the week's client conversations. Bounded read-only
+  # agent — it reads threads, names themes, and ends with a verdict line
+  # so a silent week ends quietly instead of manufacturing a report.
+  - step: agent
+    id: gather_feedback
+    prompt: |
+      Gather what clients were saying over the last
+      {{settings.lookback_days}} days.
+
+      1. Pull recent threads from the connected inbox (GMAIL_FETCH_EMAILS,
+         or OUTLOOK_SEARCH_EMAILS when Outlook is the connected inbox).
+         Client conversations only — skip newsletters, receipts, vendor
+         notices, and internal notes.
+      2. For each real client conversation, note the client, the topic,
+         and the sentiment: happy, neutral, frustrated, or angry.
+      3. Group into themes. A theme needs at least
+         {{settings.min_theme_mentions}} separate mentions to count as
+         recurring — one grumble is an anecdote, not a theme.
+      4. If the inbox is disconnected or a lookup fails, say what you
+         could not read.
+      5. If there were no real client conversations in the window, say
+         so plainly — a quiet week is a fact, not a failure.
+
+      End your answer with exactly one verdict line:
+      "VERDICT: THEMES — <number of conversations, top theme>"
+      or
+      "VERDICT: QUIET — <one-line reason>"
+    tools:
+      - GMAIL_FETCH_EMAILS
+      - OUTLOOK_SEARCH_EMAILS
+    max_calls: 6
+    approval: auto
+
+  # Steps 2-3 run only when there is actual client signal to report.
+  - step: branch
+    id: maybe_report
+    if: "gather_feedback.text ~= 'VERDICT: THEMES'"
+    steps:
+      # Step 2: Overall temperature from what the agent found.
+      - step: classify
+        id: temperature
+        input: gather_feedback
+        rules:
+          - if: "text ~= 'angry'"
+            then: urgent
+          - if: "text ~= 'frustrated'"
+            then: watch
+        else: steady
+        approval: auto
+
+      # Step 3: The pulse report — themes with names attached, and the
+      # three things worth doing this week.
+      - step: draft
+        id: pulse_report
+        prompt: |
+          Write the weekly customer pulse for the owner.
+
+          What clients said: {{gather_feedback}}
+          Overall temperature: {{temperature}}
+
+          Structure:
+          1. The temperature, one line — how clients feel this week.
+          2. Themes — each recurring theme with the clients who mentioned
+             it and a representative quote in plain words. Complaints
+             first, praise after.
+          3. One-offs worth knowing — single mentions that matter even
+             though they are not themes (a big client mildly annoyed
+             beats a theme among small ones).
+          4. Do these three things this week — concrete, each one line,
+             each naming the client it affects.
+
+          If the temperature is urgent, say so in the first line and name
+          the angriest client.
+
+          Under 250 words. Plain sentences, no markdown headers. This is
+          about real people — use their names, not "a client".
+        max_tokens: 500
+        approval: auto
+
+output:
+  type: briefing
+  approval: auto
+
+value:
+  kind: churn_prevented
+  estimate: 40
+
+instructions:
+  system: |
+    You read the week's client conversations for a solo business owner
+    and tell them how their clients actually feel. They have no support
+    team and no survey tool — these threads are the whole feedback loop.
+    Your job is honest pattern-matching: surface the complaint that is
+    becoming a theme while it is still fixable, and name the client who
+    needs attention before they churn.
+
+  guidelines:
+    - "Complaints first, praise after — the pulse exists to catch problems early"
+    - "Name the clients — 'Dana is frustrated about turnaround' is actionable, 'some clients' is not"
+    - "A theme needs repeated mentions — one grumble is an anecdote, report it as a one-off"
+    - "End with three concrete things to do this week, each tied to a named client"
+
+  avoid:
+    - "Manufacturing themes from a quiet week — no signal means no report"
+    - "Softening angry words into neutral ones — the owner needs the real temperature"
+    - "Counting newsletters, receipts, or vendor mail as client feedback"
+    - "Generic advice ('improve communication') — every action names a client"
+
+  examples:
+    - label: "Recurring complaint"
+      content: "Three clients mentioned slow turnaround this week → theme surfaced with names, temperature watch, top action: reset expectations with Dana before Friday"
+    - label: "All-positive week"
+      content: "Two clients praised the new deliverable format → short pulse, temperature steady, actions focus on asking for referrals"
+    - label: "Quiet week"
+      content: "No client conversations in the window → QUIET verdict, no report — silence is reported by absence, not by a fabricated brief"

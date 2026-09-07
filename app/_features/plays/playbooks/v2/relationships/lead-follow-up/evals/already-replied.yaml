@@ -1,0 +1,27 @@
+# Near-miss negative: the owner already replied — a second hello reads as
+# a robot. Quiet skip, no draft, no queue card.
+id: already-replied
+name: Owner already in thread → quiet skip
+given:
+  memory:
+    person_context:
+      id: person-2
+      name: Sam Chen
+      email: sam@brightfork.co
+      relationship_type: prospect
+      relationship_status: new
+      last_contact_at: "2026-09-05T00:00:00Z"
+      first_contact_at: "2026-09-05T00:00:00Z"
+      recent_notes: "Inbound inquiry about brand photography"
+      health_band: null
+      health_score: null
+      has_calendar_meeting: false
+  agent:
+    - step: verify_lead
+      text: "Inbox search shows the owner replied to Sam yesterday. VERDICT: SKIP — owner already replied within the cooldown window"
+expect:
+  status: success
+  outputCount: 0
+  steps:
+    lead_context: success
+    verify_lead: success

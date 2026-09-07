@@ -64,7 +64,6 @@ const h = vi.hoisted(() => {
     adminClient,
     addSignalToEvidence: vi.fn(),
     routeIntakeProposal: vi.fn(),
-    shouldAutoApply: vi.fn(),
   };
 });
 
@@ -77,18 +76,59 @@ vi.mock("./add-signal", () => ({
 vi.mock("./route-intake-proposal", () => ({
   routeIntakeProposal: h.routeIntakeProposal,
 }));
-vi.mock(
-  "@/app/_features/capture/services/intelligence/record-capture-outcome",
-  () => ({ shouldAutoApply: h.shouldAutoApply })
-);
 
-import { processCaptureForEvidence } from "./process-capture";
+import { extractEmailData, processCaptureForEvidence } from "./process-capture";
+
+describe("extractEmailData — adapter field names", () => {
+  // The email adapters emit sender_email + snippet (never from/body).
+  // A fixture using from/body would pass while production silently
+  // classified nothing — this fixture mirrors the adapter contract.
+  it("reads the adapter's sender_email and snippet fields", () => {
+    const data = extractEmailData(
+      {
+        subject: "Contract for review",
+        snippet: "Attached is the contract we discussed last week.",
+        sender_email: "frank@acme.com",
+        sender_name: "Frank",
+        to: ["me@studio.com"],
+        cc: [],
+        thread_id: "thread-1",
+        is_reply: false,
+        has_attachments: true,
+        attachments: [{ name: "Contract_Acme.pdf", contentType: "application/pdf" }],
+      },
+      { messageId: "msg-1", threadId: "thread-1" }
+    );
+
+    expect(data).not.toBeNull();
+    expect(data?.from).toBe("frank@acme.com");
+    expect(data?.body).toContain("Attached is the contract");
+    expect(data?.subject).toBe("Contract for review");
+    expect(data?.threadId).toBe("thread-1");
+    expect(data?.hasAttachments).toBe(true);
+    expect(data?.attachments).toEqual([
+      { name: "Contract_Acme.pdf", contentType: "application/pdf", size: undefined },
+    ]);
+  });
+
+  it("still accepts the legacy from/body field names", () => {
+    const data = extractEmailData(
+      { from: "a@b.com", subject: "Hi", body: "hello there" },
+      {}
+    );
+    expect(data?.from).toBe("a@b.com");
+    expect(data?.body).toBe("hello there");
+  });
+
+  it("returns null when no sender exists in any known field", () => {
+    expect(extractEmailData({ subject: "Hi" }, {})).toBeNull();
+  });
+});
 
 beforeEach(() => {
   h.state.capture = h.meetingCapture;
   h.addSignalToEvidence.mockReset();
   h.routeIntakeProposal.mockReset();
-  h.shouldAutoApply.mockReset();
   h.addSignalToEvidence.mockResolvedValue({
     evidenceId: "ev-1",
     newScore: 2.5,
@@ -100,9 +140,7 @@ beforeEach(() => {
 });
 
 describe("processCaptureForEvidence — calendar meeting capture", () => {
-  it("routes meeting signals through routeIntakeProposal with the calibration gate", async () => {
-    h.shouldAutoApply.mockResolvedValue(true);
-
+  it("routes meeting signals through routeIntakeProposal (threshold is the only gate)", async () => {
     const result = await processCaptureForEvidence("cap-1");
 
     expect(result.processed).toBe(true);
@@ -118,8 +156,10 @@ describe("processCaptureForEvidence — calendar meeting capture", () => {
       identifier: "googlecalendar:event-123",
       signals: ["calendar_event_created"],
       captureId: "cap-1",
-      autoApply: true,
     });
+    // No calibration input — routeIntakeProposal evaluates the evidence
+    // score against the meeting bar itself.
+    expect(created).not.toHaveProperty("autoApply");
     // Extracted fields carry everything record creation needs, read from
     // the adapter's actual field names.
     expect(created.extractedFields).toMatchObject({
@@ -142,25 +182,7 @@ describe("processCaptureForEvidence — calendar meeting capture", () => {
     expect(meetingAccumulations).toHaveLength(0);
   });
 
-  it("auto-applies calendar-fact signals even when the workspace is below calibration", async () => {
-    h.shouldAutoApply.mockResolvedValue(false);
-
-    await processCaptureForEvidence("cap-1");
-
-    const meetingCalls = h.routeIntakeProposal.mock.calls.filter(
-      ([input]) => input.entityType === "meeting"
-    );
-    expect(meetingCalls.length).toBeGreaterThanOrEqual(1);
-    for (const [input] of meetingCalls) {
-      expect(input.autoApply).toBe(true);
-    }
-    // The calibration gate is never consulted for calendar facts.
-    expect(h.shouldAutoApply).not.toHaveBeenCalled();
-  });
-
   it("still routes person signals through addSignalToEvidence (organizer read from organizer_email)", async () => {
-    h.shouldAutoApply.mockResolvedValue(false);
-
     await processCaptureForEvidence("cap-1");
 
     const personCalls = h.addSignalToEvidence.mock.calls.filter(
@@ -211,9 +233,8 @@ describe("processCaptureForEvidence — ICS invite in an email capture", () => {
     };
   }
 
-  it("routes a calendar_invite_received proposal through the calibration gate", async () => {
+  it("routes a calendar_invite_received proposal through the same threshold path", async () => {
     h.state.capture = icsCapture();
-    h.shouldAutoApply.mockResolvedValue(false);
 
     await processCaptureForEvidence("cap-ics");
 
@@ -227,15 +248,13 @@ describe("processCaptureForEvidence — ICS invite in an email capture", () => {
       identifier: "ics:cap-ics",
       signals: ["calendar_invite_received"],
       captureId: "cap-ics",
-      // Heuristic, not a calendar fact — the gate decides.
-      autoApply: false,
     });
+    expect(input).not.toHaveProperty("autoApply");
     expect(input.extractedFields).toMatchObject({
       title: { value: "Kickoff: Brand Refresh" },
       datetime: { value: "2026-08-10T17:00:00.000Z" },
       organizer: { value: "calendar-notification@google.com" },
     });
-    expect(h.shouldAutoApply).toHaveBeenCalled();
   });
 
   it("does not emit the invite signal when the email carries no ICS part", async () => {
@@ -243,7 +262,6 @@ describe("processCaptureForEvidence — ICS invite in an email capture", () => {
       ...icsCapture(),
       raw_payload: { payload: { mimeType: "text/plain", body: { data: "" } } },
     };
-    h.shouldAutoApply.mockResolvedValue(false);
 
     await processCaptureForEvidence("cap-ics");
 

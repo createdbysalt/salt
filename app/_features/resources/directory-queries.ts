@@ -23,8 +23,10 @@ import type { SourceHistoryEntry } from "@/app/_features/memory/queries/source-h
 import { getEntitySourceHistory } from "@/app/_features/memory/queries/source-history";
 import {
   mapFileLinkToActivityEntry,
+  mapFileProvenanceToActivity,
   mapFileRecordBootstrapActivity,
 } from "./utils/activity";
+import type { ProfileFieldProvenanceView } from "@/app/_features/plays/playbooks/records-engine/types";
 import { getFileWorkLinkMap } from "./utils/work-links";
 import { getFileAttachmentBacklinkMap } from "./utils/attachment-backlinks";
 
@@ -542,6 +544,69 @@ export const getFileSupplementalActivity = cache(
   },
 );
 
+/**
+ * Provenance activity for a file: profile_field_provenance rows written by
+ * Salt (memoryUpdateField — content analysis, care) and by manual inline
+ * edits (updateMemoryFileField). Returns the timeline entries plus the set
+ * of fields provenance covers, so the bootstrap mapper can suppress its
+ * "You set …" guesses for those fields.
+ */
+function mapFileProvenanceRow(row: Record<string, unknown>): ProfileFieldProvenanceView {
+  // Two writer dialects exist: memory-tools recordProvenance stores a plain
+  // JSON string; the older records-engine stored { text }.
+  const rawValue = row.value;
+  const value =
+    typeof rawValue === "string"
+      ? rawValue
+      : ((rawValue as { text?: string } | null)?.text ?? null);
+  const evidence = (row.evidence as Record<string, unknown>) ?? {};
+  return {
+    field: row.field as ProfileFieldProvenanceView["field"],
+    value,
+    source: row.source as ProfileFieldProvenanceView["source"],
+    ruleId: (row.rule_id as string | null) ?? null,
+    confidence: (row.confidence as number | null) ?? null,
+    because:
+      (row.because as string | null) ??
+      (typeof evidence.because === "string" ? evidence.because : null),
+    status: row.status as ProfileFieldProvenanceView["status"],
+    evidence,
+    setAt: row.set_at as string,
+  };
+}
+
+export const getFileProvenanceActivity = cache(
+  async (
+    fileId: string,
+  ): Promise<{
+    entries: ProfileActivityTimelineEntry[];
+    coveredFields: ReadonlySet<string>;
+  }> => {
+    const { workspace, supabase } = await getWorkspaceContext();
+
+    const { data, error } = await supabase
+      .from("profile_field_provenance")
+      .select("field, value, source, rule_id, confidence, because, status, evidence, set_at")
+      .eq("workspace_id", workspace.id)
+      .eq("entity_type", "resource")
+      .eq("entity_id", fileId)
+      .order("set_at", { ascending: false });
+
+    if (error) {
+      logQueryError("Error fetching file provenance activity:", error);
+      return { entries: [], coveredFields: new Set() };
+    }
+
+    const coveredFields = new Set<string>();
+    const entries = (data ?? []).map((row) => {
+      const view = mapFileProvenanceRow(row as Record<string, unknown>);
+      coveredFields.add(view.field);
+      return mapFileProvenanceToActivity(view);
+    });
+    return { entries, coveredFields };
+  },
+);
+
 export const getFileActivityFeed = cache(
   async (
     fileId: string,
@@ -550,18 +615,21 @@ export const getFileActivityFeed = cache(
     supplementalActivity: ProfileActivityTimelineEntry[];
     sourceHistory: SourceHistoryEntry[];
   }> => {
-    const [activities, supplemental, detail, sourceHistory] = await Promise.all([
+    const [activities, supplemental, detail, sourceHistory, provenance] = await Promise.all([
       getFileActivities(fileId),
       getFileSupplementalActivity(fileId),
       getFileDetail(fileId),
       getEntitySourceHistory("resource", fileId).catch(() => []),
+      getFileProvenanceActivity(fileId),
     ]);
 
-    const bootstrap = detail ? mapFileRecordBootstrapActivity(detail, activities) : [];
+    const bootstrap = detail
+      ? mapFileRecordBootstrapActivity(detail, activities, provenance.coveredFields)
+      : [];
 
     return {
       activities,
-      supplementalActivity: [...supplemental, ...bootstrap],
+      supplementalActivity: [...supplemental, ...provenance.entries, ...bootstrap],
       sourceHistory,
     };
   },

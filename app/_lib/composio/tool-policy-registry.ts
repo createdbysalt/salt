@@ -532,18 +532,9 @@ const TOOL_POLICIES: Record<string, ComposioToolPolicy> = {
     risk: "read",
     requiresHumanConfirmation: false,
   },
-  // Current toolkit (verified live 2026-08-06) — the un-prefixed message
-  // reads above 404 after Composio's Outlook rework.
-  [COMPOSIO_TOOL_SLUGS.OUTLOOK_OUTLOOK_GET_MESSAGE]: {
-    slug: COMPOSIO_TOOL_SLUGS.OUTLOOK_OUTLOOK_GET_MESSAGE,
-    risk: "read",
-    requiresHumanConfirmation: false,
-  },
-  [COMPOSIO_TOOL_SLUGS.OUTLOOK_OUTLOOK_LIST_MESSAGES]: {
-    slug: COMPOSIO_TOOL_SLUGS.OUTLOOK_OUTLOOK_LIST_MESSAGES,
-    risk: "read",
-    requiresHumanConfirmation: false,
-  },
+  // The OUTLOOK_OUTLOOK_* aliases resolve to the same live slugs as the
+  // canonical keys above (Composio reverted the double-prefix rework), so
+  // they are not separate entries — duplicate computed keys are a TS error.
   [COMPOSIO_TOOL_SLUGS.OUTLOOK_GET_EVENT]: {
     slug: COMPOSIO_TOOL_SLUGS.OUTLOOK_GET_EVENT,
     risk: "read",

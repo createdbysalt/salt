@@ -3,8 +3,7 @@
  *
  * Records playbook executions in activity_entries so playbook detail pages
  * (Activity feed, run recency) reflect real runs. Used by the schedule cron
- * for act-layer playbooks (e.g. Daily Briefing) executed through the v2 step
- * executor.
+ * for act-layer playbooks executed through the v2 step executor.
  *
  * Memory Care capabilities record their own runs via
  * `app/_features/memory/care/scheduler.ts` (`source: "memory-care"`).

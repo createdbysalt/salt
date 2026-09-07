@@ -1,0 +1,169 @@
+# Weekly Briefing
+# Monday-morning operating brief: cash, pipeline, the week ahead, and the
+# three things that matter most — assembled from Memory and the connected
+# apps, verified where it can be. ACT layer; surfaces in Plays.
+
+name: Weekly Briefing
+slug: weekly-briefing
+version: 1.0.0
+description: Start the week with one brief — cash position, sales pipeline, the week ahead, and the top three things that need you today
+
+section: me
+layer: act
+voice: brief
+
+trigger:
+  type: schedule
+  cron: "0 8 * * 1"
+  adjust:
+    - top_n
+
+# User-tunable knobs. Referenced as {{settings.key}} in prompts; the
+# Overview trigger section renders `adjust` keys as inputs.
+settings:
+  top_n:
+    type: number
+    label: "End with the top {value} things that need you"
+    default: 3
+  pipeline_lookahead_days:
+    type: number
+    label: "Count leads with no touch in {value} days as stale"
+    default: 7
+
+requirements:
+  categories:
+    optional:
+      - billing
+      - calendar
+      - email
+
+# Tool allowlist (single-document canon). Read-only: the brief only looks.
+tools:
+  - GOOGLECALENDAR_EVENTS_LIST
+  - STRIPE_LIST_INVOICES
+
+steps:
+  # Steps 1-4: What Salt already knows — cheap Memory and rollup reads that
+  # shape the brief even when no app is connected. Optional so a missing
+  # source degrades the brief instead of failing the run.
+  - step: fetch
+    id: cash_position
+    from: billing.cash_summary
+    optional: true
+    approval: auto
+
+  - step: fetch
+    id: upcoming_receivables
+    from: billing.upcoming_due
+    optional: true
+    approval: auto
+
+  - step: fetch
+    id: blocked_work
+    from: memory.work_blocked
+    optional: true
+    approval: auto
+
+  - step: fetch
+    id: quiet_clients
+    from: memory.silent_30d
+    optional: true
+    approval: auto
+
+  # Step 5: The week ahead from the connected calendar, cross-checked so
+  # the brief never lists a cancelled meeting. Bounded read-only agent.
+  - step: agent
+    id: week_ahead
+    prompt: |
+      Build the week-ahead picture for the owner's Monday brief.
+
+      1. List this week's events from the connected calendar
+         (GOOGLECALENDAR_EVENTS_LIST) — client calls, deadlines, anything
+         with a person attached. Skip cancelled events.
+      2. If a billing app is connected, spot-check that the receivables
+         Salt expects this week are still open (STRIPE_LIST_INVOICES) —
+         drop any that were paid since the rollup ran.
+      3. If no calendar or billing app is connected, say what you could
+         not check and work from Salt's records alone — the owner reads
+         every brief, so a marked gap beats a missing section.
+
+      End your answer with exactly one verdict line:
+      "VERDICT: READY — <one line: how much of the brief is verified>"
+      or
+      "VERDICT: PARTIAL — <what could not be checked>"
+    tools:
+      - GOOGLECALENDAR_EVENTS_LIST
+      - STRIPE_LIST_INVOICES
+    max_calls: 4
+    approval: auto
+
+  # Step 6: The brief itself. One screen, plain words, ends with the top
+  # things that need the owner today.
+  - step: draft
+    id: weekly_brief
+    prompt: |
+      Write the owner's Monday-morning brief.
+
+      Cash position: {{cash_position}}
+      Receivables due soon: {{upcoming_receivables}}
+      Blocked work: {{blocked_work}}
+      Clients gone quiet: {{quiet_clients}}
+      The week ahead (verified): {{week_ahead}}
+
+      Sections, in order:
+      1. Cash — balance, runway, and what lands this week. One or two
+         sentences.
+      2. Pipeline — receivables expected, leads with no touch in
+         {{settings.pipeline_lookahead_days}} days, quiet clients worth a
+         nudge. Names and amounts, not counts alone.
+      3. The week ahead — meetings and deadlines with a name attached,
+         in day order.
+      4. Blockers — any work stuck and why.
+      5. The top {{settings.top_n}} things that need you today — each one
+         line, each starting with a verb.
+
+      If verification came back PARTIAL, mark the unverified section as an
+      estimate and move on — never drop a section silently.
+
+      Under 250 words. Plain sentences, no markdown headers, no asterisks.
+      This is the owner's first read of the week — warm but efficient.
+    max_tokens: 500
+    approval: auto
+
+output:
+  type: briefing
+  approval: auto
+
+value:
+  kind: week_oriented
+  estimate: 20
+
+instructions:
+  system: |
+    You write the Monday-morning brief for a solo business owner. It is
+    the first thing they read to start the week: where the money is, who
+    needs attention, what's on the calendar, and the few things that
+    actually matter today. You are their chief of staff, not their
+    cheerleader — the brief tells the truth in plain words and always ends
+    with what to do.
+
+  guidelines:
+    - "End with the top things that need the owner — each one line, each starting with a verb"
+    - "Names and amounts over counts — 'Acme owes $2,500' beats '2 open invoices'"
+    - "Verify the week ahead against the calendar — never list a cancelled meeting"
+    - "Mark unverified sections as estimates instead of dropping them"
+    - "Keep the whole brief under one screen"
+
+  avoid:
+    - "Cheerleading or filler ('great week ahead!') — facts and verbs only"
+    - "Counts without names — the owner knows people, not numbers"
+    - "Burying a cash problem mid-paragraph — money risks lead"
+    - "Silently skipping a section because an app is disconnected"
+
+  examples:
+    - label: "Full week"
+      content: "Balance $12,400 (8 weeks runway), $3,800 landing this week from two clients, kickoff with Northwind Tuesday, one blocked deliverable → top 3: send the Northwind prep doc, nudge Acme on INV-118, unblock the brand guide"
+    - label: "Quiet week"
+      content: "No meetings, no receivables due, two clients quiet 30+ days → brief still ships: cash line, pipeline note, top 3 focused on outreach"
+    - label: "Calendar disconnected"
+      content: "Calendar unreachable → week-ahead section marked as estimate from Salt's records, reconnect note, everything else normal"

@@ -190,7 +190,7 @@ Memory Care (`app/_features/memory/care/`) replaced the retired Keeper "system p
 |-------|---------|
 | `entity_evidence` | Evidence accumulation ("Watching"). Unresolved proposals below the bar: `field_path`, `proposed_value`, `confidence`, `evidence_type` (`memory_evidence_type` enum — renamed from `keeper_evidence_type` 2026-08-07), `resolution` / `resolved_at`, `source_capture_id`, `expires_at` / `ttl_days`. Historical `playbook_slug` values (`keeper-*`) are provenance only — display mapping in `records-engine/memory-care-display.ts`. |
 | `salt_learnings` | Lessons from user corrections ("That's wrong" → `memoryRecordCorrection`). Carries the rollback columns (`undo_reason`, `undone_at`, `undone_by`). Historical `playbook_slug` provenance as above. |
-| `profile_playbook_settings` | Per-capability on/off + config rows for the four care capabilities (same rows carried over from the playbook era; read via `care/settings.ts`). |
+| `profile_playbook_settings` | Per-capability on/off + config rows for the four care capabilities (same rows carried over from the playbook era; read via `care/settings.ts`). Play rows also store `app_selections` (opt-in connected providers the play may use; null/empty = none) and legacy `app_exclusions` (kept for backfill, drop later). |
 | `profile_field_provenance` | Every care write records provenance with `previous_value` for rollback (see Provenance & lifecycle below). Destructive-tier ops also write pre-operation snapshots so Handled "That's wrong" can undo. |
 
 Activity provenance: care scheduler writes activity entries with source `memory-care`; historical rows carry `player_slug: "keeper"`.

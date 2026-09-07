@@ -1,19 +1,33 @@
 "use client";
 
 import Image from "next/image";
-import { FileText } from "lucide-react";
+import { FileText, Sparkles } from "lucide-react";
 import { cn } from "@repo/utils";
 import type { BillingProvider } from "../data";
-import { getBillingProviderDisplay } from "../utils/provider-display";
+import {
+  getBillingSourceDisplay,
+  type BillingSourceAttribution,
+} from "../utils/provider-display";
 
-type BillingSourceBadgeProps = {
-  provider: BillingProvider;
+type BillingSourceBadgeProps = BillingSourceAttribution & {
   className?: string;
   compact?: boolean;
 };
 
-export function BillingSourceBadge({ provider, className, compact = false }: BillingSourceBadgeProps) {
-  const display = getBillingProviderDisplay(provider);
+export function BillingSourceBadge({
+  provider,
+  source,
+  origin,
+  sourceReclassifiedAsManual,
+  className,
+  compact = false,
+}: BillingSourceBadgeProps) {
+  const display = getBillingSourceDisplay({
+    provider,
+    source,
+    origin,
+    sourceReclassifiedAsManual,
+  });
 
   return (
     <span
@@ -25,6 +39,8 @@ export function BillingSourceBadge({ provider, className, compact = false }: Bil
       <span className="grid size-4 shrink-0 place-items-center overflow-hidden rounded-full bg-foreground/8">
         {display.iconSrc ? (
           <Image src={display.iconSrc} alt="" width={16} height={16} className="size-4 object-contain" />
+        ) : display.isSalt ? (
+          <Sparkles className="size-3 text-flame" strokeWidth={2.25} />
         ) : (
           <FileText className="size-3 text-muted-foreground" strokeWidth={2.25} />
         )}

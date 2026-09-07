@@ -5,12 +5,32 @@ type QueryResult = { data: unknown; error: unknown };
 
 function createQueryBuilder(result: QueryResult) {
   const builder: Record<string, unknown> = {};
-  const chainMethods = ["select", "eq", "is", "neq", "insert", "update", "delete", "limit", "upsert"];
+  const chainMethods = ["select", "eq", "is", "neq", "in", "ilike", "insert", "update", "delete", "limit", "upsert"];
   for (const method of chainMethods) {
     builder[method] = vi.fn(() => builder);
   }
   builder.maybeSingle = vi.fn(async () => result);
   builder.single = vi.fn(async () => result);
+  // List queries await the builder directly (thenable).
+  builder.then = (resolve: (value: QueryResult) => void) => resolve(result);
+  return builder;
+}
+
+/** List-query builder that actually filters rows (operator identity loads). */
+function createListBuilder(rows: Array<Record<string, unknown>>) {
+  const filters: Array<(row: Record<string, unknown>) => boolean> = [];
+  const builder: Record<string, unknown> = {};
+  builder.select = vi.fn(() => builder);
+  builder.eq = vi.fn((column: string, value: unknown) => {
+    filters.push((row) => row[column] === value);
+    return builder;
+  });
+  builder.in = vi.fn((column: string, values: unknown[]) => {
+    filters.push((row) => values.includes(row[column]));
+    return builder;
+  });
+  builder.then = (resolve: (value: { data: Array<Record<string, unknown>>; error: null }) => void) =>
+    resolve({ data: rows.filter((row) => filters.every((f) => f(row))), error: null });
   return builder;
 }
 
@@ -188,42 +208,42 @@ describe("executeRecordAction create-person", () => {
   });
 });
 
-describe("executeRecordAction create-org", () => {
-  type OrgRow = { id: string; name: string; domain: string | null };
+type OrgRow = { id: string; name: string; domain: string | null };
 
-  function buildOrgTable(cfg: {
-    domainMatch?: OrgRow | null;
-    orgList?: OrgRow[];
-    newId?: string;
-  }) {
-    const ops: string[] = [];
-    const builder: Record<string, unknown> = {};
-    for (const method of ["select", "eq", "is", "neq", "in", "limit"]) {
-      builder[method] = vi.fn(() => builder);
-    }
-    builder.insert = vi.fn(() => {
-      ops.push("insert");
-      return builder;
-    });
-    builder.update = vi.fn(() => {
-      ops.push("update");
-      return builder;
-    });
-    builder.maybeSingle = vi.fn(async () => ({
-      data: cfg.domainMatch ?? null,
-      error: null,
-    }));
-    builder.single = vi.fn(async () => ({
-      data: ops.includes("insert")
-        ? { id: cfg.newId ?? "new-org-id" }
-        : (cfg.domainMatch ?? null),
-      error: null,
-    }));
-    builder.then = (resolve: (_value: { data: unknown; error: null }) => void) =>
-      resolve({ data: cfg.orgList ?? [], error: null });
-    return builder;
+function buildOrgTable(cfg: {
+  domainMatch?: OrgRow | null;
+  orgList?: OrgRow[];
+  newId?: string;
+}) {
+  const ops: string[] = [];
+  const builder: Record<string, unknown> = {};
+  for (const method of ["select", "eq", "is", "neq", "in", "limit"]) {
+    builder[method] = vi.fn(() => builder);
   }
+  builder.insert = vi.fn(() => {
+    ops.push("insert");
+    return builder;
+  });
+  builder.update = vi.fn(() => {
+    ops.push("update");
+    return builder;
+  });
+  builder.maybeSingle = vi.fn(async () => ({
+    data: cfg.domainMatch ?? null,
+    error: null,
+  }));
+  builder.single = vi.fn(async () => ({
+    data: ops.includes("insert")
+      ? { id: cfg.newId ?? "new-org-id" }
+      : (cfg.domainMatch ?? null),
+    error: null,
+  }));
+  builder.then = (resolve: (_value: { data: unknown; error: null }) => void) =>
+    resolve({ data: cfg.orgList ?? [], error: null });
+  return builder;
+}
 
+describe("executeRecordAction create-org", () => {
   function setupCreateOrgMocks(cfg: {
     domainMatch?: OrgRow | null;
     orgList?: OrgRow[];
@@ -631,5 +651,230 @@ describe("executeRecordAction create-billing (artifact-first)", () => {
     expect(result.success).toBe(true);
     expect(resourcesBuilder.insert).not.toHaveBeenCalled();
     expect(linksBuilder.insert).not.toHaveBeenCalled();
+  });
+
+  it("carries provenance for system-born records (found, inferred source, external id)", async () => {
+    const { billingInsert } = setupCreateBillingMocks();
+
+    const result = await executeRecordAction("ws-1", "system:create-billing", {
+      direction: "receivable",
+      amount_cents: 150000,
+      amount_paid_cents: 150000,
+      status: "paid",
+      number: "INV-0042",
+      paid_at: "2026-08-10T12:00:00.000Z",
+      source: "salt_inferred",
+      origin: "found",
+      source_external_id: "in_123",
+    });
+
+    expect(result.success).toBe(true);
+    expect(billingInsert.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: "salt_inferred",
+        origin: "found",
+        source_external_id: "in_123",
+        amount_paid_cents: 150000,
+        status: "paid",
+      }),
+    );
+  });
+
+  it("defaults provenance to user/added for user-facing creation", async () => {
+    const { billingInsert } = setupCreateBillingMocks();
+
+    const result = await executeRecordAction("ws-1", "system:create-billing", {
+      direction: "receivable",
+      amount_cents: 5000,
+    });
+
+    expect(result.success).toBe(true);
+    expect(billingInsert.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        // billing_records_source_check allows user/imported/salt_inferred;
+        // an Ask Salt create is user-driven, so "user".
+        source: "user",
+        origin: "added",
+        source_external_id: null,
+        amount_paid_cents: 0,
+      }),
+    );
+  });
+});
+
+describe("executeRecordAction operator self-exclusion", () => {
+  interface IdentityConfig {
+    members?: Array<Record<string, unknown>>;
+    profiles?: Array<Record<string, unknown>>;
+    workspace?: Record<string, unknown> | null;
+  }
+
+  function setupIdentityMocks(cfg: IdentityConfig) {
+    const peopleLookup = createQueryBuilder({ data: null, error: null });
+    const peopleInsert = createQueryBuilder({
+      data: { id: "new-person-id" },
+      error: null,
+    });
+    const orgInsert = buildOrgTable({ orgList: [], newId: "new-org-id" });
+    let peopleCall = 0;
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "workspace_members") {
+        return createListBuilder(cfg.members ?? []);
+      }
+      if (table === "profiles") {
+        return createListBuilder(cfg.profiles ?? []);
+      }
+      if (table === "workspaces") {
+        return createQueryBuilder({
+          data: cfg.workspace === undefined ? null : cfg.workspace,
+          error: null,
+        });
+      }
+      if (table === "people") {
+        // First people call is the dedupe lookup (miss), then the insert.
+        peopleCall += 1;
+        return peopleCall === 1 ? peopleLookup : peopleInsert;
+      }
+      if (table === "organizations") {
+        return orgInsert;
+      }
+      return createQueryBuilder({ data: null, error: null });
+    });
+
+    return { peopleLookup, peopleInsert, orgInsert };
+  }
+
+  const saltStudioIdentity: IdentityConfig = {
+    members: [
+      { workspace_id: "ws-1", user_id: "user-1", email: "hello@createdbysalt.com" },
+    ],
+    profiles: [
+      {
+        id: "user-1",
+        email: "hello@createdbysalt.com",
+        full_name: "Gabriella Martins",
+        display_name: "Gabriella",
+      },
+    ],
+    workspace: {
+      id: "ws-1",
+      name: "Salt Studio",
+      website_url: "https://www.createdbysalt.com/",
+      business_email: null,
+      owner_id: "user-1",
+    },
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("refuses to create a person holding the operator's own email (Ask Salt path)", async () => {
+    const { peopleInsert } = setupIdentityMocks(saltStudioIdentity);
+
+    const result = await executeRecordAction(
+      "ws-1",
+      "system:create-person",
+      { name: "Gabriella Martins", email: "hello@createdbysalt.com", created_via: "ask_salt" },
+      "user-1",
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/operator/i);
+    expect(peopleInsert.insert).not.toHaveBeenCalled();
+  });
+
+  it("refuses a name-only person create that matches the operator's profile full_name", async () => {
+    const { peopleInsert } = setupIdentityMocks(saltStudioIdentity);
+
+    const result = await executeRecordAction("ws-1", "system:create-person", {
+      name: "Gabriella Martins",
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/operator/i);
+    expect(peopleInsert.insert).not.toHaveBeenCalled();
+  });
+
+  it("still creates a genuinely different person", async () => {
+    const { peopleInsert } = setupIdentityMocks(saltStudioIdentity);
+
+    const result = await executeRecordAction("ws-1", "system:create-person", {
+      name: "Jane Client",
+      email: "jane@acme.com",
+    });
+
+    expect(result.success).toBe(true);
+    expect(peopleInsert.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "Jane Client", email: "jane@acme.com" })
+    );
+  });
+
+  it("dedupes person email case-insensitively against legacy mixed-case rows", async () => {
+    const peopleLookup = createQueryBuilder({
+      data: { id: "existing-id", name: "Jane" },
+      error: null,
+    });
+    setupIdentityMocks(saltStudioIdentity);
+    const priorImpl = mockFrom.getMockImplementation();
+    mockFrom.mockImplementation((table: string) => {
+      if (table === "people") return peopleLookup;
+      return priorImpl!(table);
+    });
+
+    const result = await executeRecordAction("ws-1", "system:create-person", {
+      name: "Jane Doe",
+      email: "  JANE@ACME.COM ",
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.entity_id).toBe("existing-id");
+    expect(peopleLookup.ilike).toHaveBeenCalledWith("email", "jane@acme.com");
+    expect(peopleLookup.insert).not.toHaveBeenCalled();
+  });
+
+  it("refuses to create an org on the operator's domain even when website_url is null", async () => {
+    const { orgInsert } = setupIdentityMocks({
+      members: [
+        { workspace_id: "ws-1", user_id: "user-1", email: "founder@gmail.com" },
+      ],
+      profiles: [
+        {
+          id: "user-1",
+          email: "founder@gmail.com",
+          full_name: "Gabriella Martins",
+          display_name: null,
+        },
+      ],
+      workspace: {
+        id: "ws-1",
+        name: "Salt Studio",
+        website_url: null,
+        business_email: "hello@createdbysalt.com",
+        owner_id: "user-1",
+      },
+    });
+
+    const result = await executeRecordAction("ws-1", "system:create-org", {
+      name: "Createdbysalt",
+      domain: "createdbysalt.com",
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/own business domain/i);
+    expect(orgInsert.insert).not.toHaveBeenCalled();
+  });
+
+  it("refuses to create an org whose name is the workspace's own name", async () => {
+    const { orgInsert } = setupIdentityMocks(saltStudioIdentity);
+
+    const result = await executeRecordAction("ws-1", "system:create-org", {
+      name: "Salt Studio",
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/own business/i);
+    expect(orgInsert.insert).not.toHaveBeenCalled();
   });
 });

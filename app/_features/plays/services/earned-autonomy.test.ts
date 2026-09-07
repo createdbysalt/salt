@@ -6,9 +6,12 @@ interface ApprovalRow {
   playbook_slug: string;
   tool_slug: string;
   approved_count: number;
+  dismissed_count: number;
   autonomy_granted_at: string | null;
   autonomy_offered_at: string | null;
   autonomy_declined_at: string | null;
+  last_approved_at: string | null;
+  last_dismissed_at: string | null;
 }
 
 const rows: ApprovalRow[] = [];
@@ -65,6 +68,14 @@ function fakeQuery(table: string) {
       }
       return { error: null };
     },
+    // Awaiting the builder directly (no maybeSingle) is the list-query
+    // terminal used by getPlaybookApprovalRates.
+    then: (resolve: (value: { data: ApprovalRow[]; error: null }) => void) => {
+      resolve({
+        data: rows.filter((r) => r.workspace_id === filters.workspace_id),
+        error: null,
+      });
+    },
   };
   return builder;
 }
@@ -76,9 +87,11 @@ vi.mock("@/app/_lib/supabase/admin", () => ({
 import {
   EARNED_AUTONOMY_THRESHOLD,
   declineAutonomyOffer,
+  getPlaybookApprovalRates,
   grantAutonomy,
   hasEarnedAutonomy,
   recordActionApproval,
+  recordActionDismissal,
   revokeAutonomy,
 } from "./earned-autonomy";
 
@@ -89,9 +102,12 @@ function makeRow(overrides: Partial<ApprovalRow> = {}): ApprovalRow {
     playbook_slug: "email-triage",
     tool_slug: "GMAIL_ARCHIVE",
     approved_count: 0,
+    dismissed_count: 0,
     autonomy_granted_at: null,
     autonomy_offered_at: null,
     autonomy_declined_at: null,
+    last_approved_at: null,
+    last_dismissed_at: null,
     ...overrides,
   };
 }
@@ -194,6 +210,116 @@ describe("recordActionApproval", () => {
     await recordActionApproval("ws-1", "email-triage", "GMAIL_ARCHIVE");
 
     expect(insertedRuns).toHaveLength(0);
+  });
+
+  it("suppresses the offer when dismissals outnumber approvals", async () => {
+    rows.push(
+      makeRow({
+        approved_count: EARNED_AUTONOMY_THRESHOLD - 1,
+        dismissed_count: EARNED_AUTONOMY_THRESHOLD + 1,
+      })
+    );
+
+    await recordActionApproval("ws-1", "email-triage", "GMAIL_ARCHIVE");
+
+    expect(insertedRuns).toHaveLength(0);
+  });
+
+  it("still offers when approvals keep pace with dismissals", async () => {
+    rows.push(
+      makeRow({
+        approved_count: EARNED_AUTONOMY_THRESHOLD - 1,
+        dismissed_count: EARNED_AUTONOMY_THRESHOLD,
+      })
+    );
+
+    await recordActionApproval("ws-1", "email-triage", "GMAIL_ARCHIVE");
+
+    expect(insertedRuns).toHaveLength(1);
+  });
+});
+
+describe("recordActionDismissal", () => {
+  it("seeds the dismissal counter on first dismissal", async () => {
+    await recordActionDismissal("ws-1", "email-triage", "GMAIL_ARCHIVE");
+
+    expect(inserted).toHaveLength(1);
+    expect(inserted[0]).toMatchObject({
+      workspace_id: "ws-1",
+      playbook_slug: "email-triage",
+      tool_slug: "GMAIL_ARCHIVE",
+      approved_count: 0,
+      dismissed_count: 1,
+      last_dismissed_at: expect.any(String),
+    });
+  });
+
+  it("increments an existing counter without touching approvals", async () => {
+    rows.push(makeRow({ approved_count: 3, dismissed_count: 2 }));
+
+    await recordActionDismissal("ws-1", "email-triage", "GMAIL_ARCHIVE");
+
+    expect(updates).toHaveLength(1);
+    expect(updates[0].patch.dismissed_count).toBe(3);
+    expect(updates[0].patch.approved_count).toBeUndefined();
+  });
+});
+
+describe("getPlaybookApprovalRates", () => {
+  it("aggregates per-playbook rates across tools", async () => {
+    rows.push(
+      makeRow({
+        id: "a1",
+        approved_count: 8,
+        dismissed_count: 2,
+        last_approved_at: "2026-08-20",
+      }),
+      makeRow({
+        id: "a2",
+        tool_slug: "GMAIL_LABEL",
+        approved_count: 2,
+        dismissed_count: 0,
+        autonomy_granted_at: "2026-08-21",
+        last_approved_at: "2026-08-22",
+      }),
+      makeRow({
+        id: "a3",
+        playbook_slug: "payment-reconciliation",
+        tool_slug: "STRIPE_LIST_CHARGES",
+        approved_count: 1,
+        dismissed_count: 3,
+        last_dismissed_at: "2026-08-25",
+      })
+    );
+
+    const rates = await getPlaybookApprovalRates("ws-1");
+
+    expect(rates).toHaveLength(2);
+    const triage = rates.find((r) => r.playbookSlug === "email-triage");
+    expect(triage).toMatchObject({
+      approvedCount: 10,
+      dismissedCount: 2,
+      grantedTools: ["GMAIL_LABEL"],
+      lastApprovedAt: "2026-08-22",
+    });
+    expect(triage?.approvalRate).toBeCloseTo(10 / 12);
+    const recon = rates.find((r) => r.playbookSlug === "payment-reconciliation");
+    expect(recon?.approvalRate).toBeCloseTo(1 / 4);
+    expect(recon?.lastDismissedAt).toBe("2026-08-25");
+  });
+
+  it("returns a null rate when nothing is recorded", async () => {
+    rows.push(makeRow({ approved_count: 0, dismissed_count: 0 }));
+
+    const rates = await getPlaybookApprovalRates("ws-1");
+
+    expect(rates[0].approvalRate).toBeNull();
+  });
+
+  it("scopes to the workspace", async () => {
+    rows.push(makeRow({ workspace_id: "ws-2", approved_count: 5 }));
+
+    expect(await getPlaybookApprovalRates("ws-1")).toHaveLength(0);
   });
 });
 

@@ -1,0 +1,204 @@
+# Complaint Response
+# When an angry or unhappy client email lands, Salt reads the thread,
+# pulls the order and relationship context, and drafts a tone-matched
+# reply that acknowledges and resolves. ACT layer — the human Send sends
+# the reply, always.
+
+name: Complaint Response
+slug: complaint-response
+version: 1.0.0
+description: Draft a tone-matched reply when a client complains — with the thread, their history, and the invoice context already pulled, ready for your review
+
+section: communication
+layer: act
+voice: follow-up
+
+trigger:
+  type: signal
+  signal: email_classified_action_required
+  adjust:
+    - cooldown_hours
+
+# User-tunable knobs. Referenced as {{settings.key}} in prompts and
+# classify rules; the Overview trigger section renders `adjust` keys.
+settings:
+  cooldown_hours:
+    type: number
+    label: "Skip if you already replied in the last {value} hours"
+    default: 24
+  refund_offers:
+    type: select
+    label: "Refund offers in drafts: {value}"
+    options:
+      - never
+      - when_the_client_asks
+      - proactive_for_small_amounts
+    default: when_the_client_asks
+
+requirements:
+  categories:
+    required:
+      - email
+    optional:
+      - billing
+
+# Tool allowlist (single-document canon). Authored against Gmail slugs; at
+# runtime the email pair swaps to Outlook when that inbox is the one added
+# on Overview. Billing reads give the draft its facts.
+tools:
+  - GMAIL_FETCH_EMAILS
+  - GMAIL_CREATE_EMAIL_DRAFT
+  - GMAIL_SEND_EMAIL
+  - STRIPE_LIST_INVOICES
+
+steps:
+  # Step 1: The classifier's verdict on the inbound email — category,
+  # priority, and why it was flagged. Optional: the agent can read the
+  # thread directly when classification is unavailable.
+  - step: fetch
+    id: classification
+    from: capture.get_classification
+    where:
+      capture_id: $capture.id
+    optional: true
+    approval: auto
+
+  # Step 2: Verify this is a genuine complaint before drafting anything.
+  # "Action required" covers questions and requests too — answering a
+  # routine question with an apology reads as tone-deaf. Bounded
+  # read-only agent; ends with a machine-checkable verdict line.
+  - step: agent
+    id: verify_complaint
+    prompt: |
+      An inbound email was flagged as needing action:
+      Classification: {{classification}}
+
+      Verify before we draft anything:
+      1. Read the full thread on the connected inbox
+         (GMAIL_FETCH_EMAILS). What is the sender actually saying?
+      2. If it is a question, a request, spam, or a vendor notice rather
+         than an unhappy client → SKIP. This play only answers
+         complaints.
+      3. If the owner already replied within the last
+         {{settings.cooldown_hours}} hours → SKIP. Two replies from
+         different directions reads as chaos.
+      4. Pull the facts the reply will need: which project or invoice
+         this is about (STRIPE_LIST_INVOICES when a billing app is
+         connected), what was promised, and what went wrong.
+      5. Note the relationship: how long they have been a client and how
+         much history is at stake. A three-year client's anger deserves
+         more care than a first-week one.
+      6. If a lookup fails, say what you could not verify and lean
+         toward PROCEED — a human reviews every reply before it sends.
+
+      End your answer with exactly one verdict line:
+      "VERDICT: PROCEED <escalated|standard> — <what went wrong, client history>"
+      or
+      "VERDICT: SKIP — <one-line reason>"
+
+      Severity is escalated when the relationship is at risk (mentions of
+      leaving, ending a retainer, disputes over money) or the client is
+      long-standing; otherwise standard.
+    tools:
+      - GMAIL_FETCH_EMAILS
+      - STRIPE_LIST_INVOICES
+    max_calls: 5
+    approval: auto
+
+  # Steps 3-5 run only when verification says this is a real complaint.
+  - step: branch
+    id: maybe_reply
+    if: "verify_complaint.text ~= 'VERDICT: PROCEED'"
+    steps:
+      # Step 3: Severity tier from the agent's verdict — how much heat is
+      # in the thread and how much relationship is at stake.
+      - step: classify
+        id: severity
+        input: verify_complaint
+        rules:
+          - if: "text ~= 'escalated'"
+            then: escalated
+        else: standard
+        approval: auto
+
+      # Step 4: The reply — acknowledge, own it, resolve, next step.
+      - step: draft
+        id: reply_email
+        prompt: |
+          Draft a reply to this unhappy client.
+
+          Classification: {{classification}}
+          Verification: {{verify_complaint}}
+          Severity tier: {{severity}}
+
+          Structure:
+          1. Acknowledge the specific thing that went wrong — name it,
+             no generic "I'm sorry you feel that way".
+          2. Own what is ours to own. No defensiveness, no blaming the
+             client, no over-explaining.
+          3. Resolve: what happens now, with a concrete date or
+             deliverable. Refund offers follow the owner's policy:
+             {{settings.refund_offers}} — never invent a refund the
+             policy doesn't allow.
+          4. One line that rebuilds the relationship — why this isn't
+             normal for how the owner works.
+
+          Tone by tier:
+          - escalated: short, direct, personal. No templates feel. The
+            owner's name signs it.
+          - standard: warm and professional, still specific.
+
+          Under 150 words. No markdown, no bullet lists, no Subject line
+          in the body (the subject is set separately). Never leave a
+          hanging sign-off.
+        max_tokens: 400
+        approval: auto
+
+      # Step 5: Send waits for the human. A complaint reply is the
+      # highest-stakes email a solo operator sends — it never auto-sends.
+      - step: action
+        id: send_reply
+        tool: GMAIL_SEND_EMAIL
+        args:
+          recipient_email: "{{classification.sender_email}}"
+          subject: "Re: {{classification.subject}}"
+          body: "{{reply_email}}"
+        approval: ask
+
+output:
+  type: email_draft
+  approval: ask
+
+value:
+  kind: client_retained
+  estimate: 60
+
+instructions:
+  system: |
+    You draft replies to unhappy clients for a solo business owner. A
+    complaint handled well is worth more than a compliment — it is the
+    moment a client decides whether to stay. Every reply acknowledges the
+    specific problem, owns what's ours, and ends with a concrete fix. And
+    every reply waits for the owner: Salt drafts, the human sends.
+
+  guidelines:
+    - "Verify it's a real complaint before drafting — questions and requests get answers, not apologies"
+    - "Acknowledge the specific failure — generic apologies make people angrier"
+    - "Pull the invoice or project facts before drafting — a reply with wrong details is worse than none"
+    - "End with a concrete fix and a date — 'I'll look into it' is not a resolution"
+    - "Long-term clients get visibly more care — the reply should show the relationship matters"
+
+  avoid:
+    - "Sending without the owner's review — complaint replies never auto-send"
+    - "Defensiveness, blame-shifting, or over-explaining"
+    - "Refund promises beyond the owner's stated policy"
+    - "Replying twice to the same thread inside the cooldown window"
+    - "Template-sounding language ('we value your feedback')"
+
+  examples:
+    - label: "Late delivery, long-term client"
+      content: "Three-year client, deliverable a week late, clearly angry → escalated — short personal reply owning the delay, new date, and a concrete make-good"
+    - label: "Refund request, first-time client"
+      content: "Client asks for a refund on a deposit → standard — acknowledges the mismatch, offers what the refund policy allows, no invented amounts"
+    - label: "Not a complaint"
+      content: "Client asks a routine question about file formats → SKIP — no apology draft for a normal question"

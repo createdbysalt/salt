@@ -12,6 +12,8 @@ interface PlaybookEnabledToggleProps {
   compact?: boolean;
   showLabel?: boolean;
   variant?: "switch" | "pill";
+  /** Drop the outer pill chrome so the toggle can sit in a control cluster. */
+  grouped?: boolean;
 }
 
 export function PlaybookEnabledToggle({
@@ -21,6 +23,7 @@ export function PlaybookEnabledToggle({
   compact = false,
   showLabel = true,
   variant = "switch",
+  grouped = false,
 }: PlaybookEnabledToggleProps) {
   const [enabled, setEnabled] = useState(initialEnabled);
   const [isPending, startTransition] = useTransition();
@@ -47,10 +50,14 @@ export function PlaybookEnabledToggle({
         aria-pressed={enabled}
         aria-label={enabled ? "Disable playbook" : "Enable playbook"}
         className={cn(
-          "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium backdrop-blur-sm transition-colors",
-          enabled
-            ? "border-border/50 bg-background/80 text-muted-foreground hover:border-border"
-            : "border-border/40 bg-muted/50 text-muted-foreground/70 hover:border-border/60",
+          "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium transition-colors",
+          grouped
+            ? enabled
+              ? "text-muted-foreground hover:bg-background/80"
+              : "text-muted-foreground/70 hover:bg-background/60"
+            : enabled
+              ? "border border-border/50 bg-background/80 text-muted-foreground backdrop-blur-sm hover:border-border"
+              : "border border-border/40 bg-muted/50 text-muted-foreground/70 backdrop-blur-sm hover:border-border/60",
           (disabled || isPending) && "opacity-50 cursor-not-allowed"
         )}
       >

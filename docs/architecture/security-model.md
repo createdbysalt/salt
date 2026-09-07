@@ -492,7 +492,7 @@ Clients must not supply arbitrary Stripe Price IDs. Checkout resolves **server-k
 
 ### Composio agent boundary
 
-- `app/_lib/composio/actions.ts` — **the single execution gate** (`executeComposioAction`): fail-closed DB classification lookup (`tool_classifications`; unclassified = unusable), workspace-disabled tools, trust ladder for mutating tools, unattended = read-only, per-action human approval, argument validation (hand-written Zod for the pinned set, synced JSON schema for the long tail), audit log. Ask Salt, plays, backfills, and background jobs all execute through it — no separate chat path (`single-gate.test.ts` enforces this)
+- `app/_lib/composio/actions.ts` — **the single execution gate** (`executeComposioAction`): DB classification lookup (`tool_classifications`) with heuristic fallback — approved rows take precedence, unclassified tools are classified by slug pattern (new Composio tools work immediately), and `disabled`/`rejected` rows are a **hard deny** (drift detection's off-switch; no heuristic fallback), workspace-disabled tools, trust ladder for mutating tools, unattended = read-only, per-action human approval, argument validation (hand-written Zod for the pinned set, synced JSON schema for the long tail), audit log. Ask Salt, plays, backfills, and background jobs all execute through it — no separate chat path (`single-gate.test.ts` enforces this)
 - `app/_lib/composio/tool-policy.ts` — per-tool risk class (`read` vs `mutating`); mutating tools require human confirmation
 - `app/_lib/composio/require-composio-user.ts` — ties Composio entity ID to authenticated workspace context
 - `app/_lib/composio/ask-salt-tools.ts` — the Composio session provides tool schemas only; execution delegates to the gate

@@ -124,15 +124,17 @@ export const COMPOSIO_TOOL_SLUGS = {
   STRIPE_CREATE_REFUND: "STRIPE_CREATE_REFUND",
   STRIPE_DELETE_CUSTOMER: "STRIPE_DELETE_CUSTOMER",
   // Outlook (verified against Composio API 2026-07-13)
-  // ⚠️ Composio reworked the Outlook toolkit: message reads are now
-  // double-prefixed (OUTLOOK_OUTLOOK_*) and the 2026-07-13 OUTLOOK_GET_MESSAGE
-  // / OUTLOOK_LIST_MESSAGES slugs 404 as of 2026-08-06 — which silently broke
-  // Outlook webhook enrichment. The OUTLOOK_OUTLOOK_* entries below are
-  // verified live; full dead-slug sweep tracked for capture Phase 8.
+  // ⚠️ Composio reworked the Outlook toolkit TWICE: single-prefix slugs 404'd
+  // on 2026-08-06 (fixed by moving to OUTLOOK_OUTLOOK_*), then Composio
+  // reverted to single-prefix and the double-prefix slugs started 404ing
+  // (confirmed live 2026-08-29: OUTLOOK_OUTLOOK_GET_MESSAGE → 404
+  // Tool_ToolNotFound; OUTLOOK_GET_MESSAGE / OUTLOOK_LIST_MESSAGES → 200).
+  // The OUTLOOK_OUTLOOK_* keys are kept as aliases so existing call sites
+  // (webhook enrichment, reconciliation backfill) resolve to the live slugs.
   OUTLOOK_GET_MESSAGE: "OUTLOOK_GET_MESSAGE",
   OUTLOOK_LIST_MESSAGES: "OUTLOOK_LIST_MESSAGES",
-  OUTLOOK_OUTLOOK_GET_MESSAGE: "OUTLOOK_OUTLOOK_GET_MESSAGE",
-  OUTLOOK_OUTLOOK_LIST_MESSAGES: "OUTLOOK_OUTLOOK_LIST_MESSAGES",
+  OUTLOOK_OUTLOOK_GET_MESSAGE: "OUTLOOK_GET_MESSAGE",
+  OUTLOOK_OUTLOOK_LIST_MESSAGES: "OUTLOOK_LIST_MESSAGES",
   OUTLOOK_GET_MAIL_DELTA: "OUTLOOK_GET_MAIL_DELTA",
   OUTLOOK_GET_EVENT: "OUTLOOK_GET_EVENT",
   OUTLOOK_GET_CALENDAR_VIEW: "OUTLOOK_GET_CALENDAR_VIEW",

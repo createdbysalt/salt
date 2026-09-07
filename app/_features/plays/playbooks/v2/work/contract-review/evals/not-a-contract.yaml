@@ -1,0 +1,29 @@
+# Classifier misfire: the file was tagged category=contract but the agent
+# finds a proposal with no terms. Verdict MISSING → the review branch never
+# runs, no note, no email, quiet end.
+id: not-a-contract
+name: File tagged contract but isn't → quiet end, no note
+given:
+  memory:
+    file_context:
+      id: f-3
+      file_name: Project ideas.pdf
+      category: contract
+      document_type: null
+      description: Brainstorm doc
+      ai_summary: null
+      external_url: null
+      provider: google_drive
+      signed_date: null
+      counterparty: null
+      counterparty_org: null
+  agent:
+    - step: read_contract
+      text: "Found 'Project ideas.pdf' in Google Drive and read it — it is a brainstorm of project ideas with no terms, no parties, no signature blocks. Not contract-like. VERDICT: MISSING — the only matching file is a brainstorm doc, not a contract"
+expect:
+  status: success
+  outputCount: 0
+  steps:
+    file_context: success
+    read_contract: success
+    maybe_review: success

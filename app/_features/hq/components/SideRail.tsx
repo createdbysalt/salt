@@ -10,6 +10,7 @@ import {
   File,
   Lightbulb,
   Loader2,
+  Paperclip,
   PlugZap,
   Receipt,
   RefreshCw,
@@ -44,6 +45,7 @@ const ENTITY_ICONS: Record<HqCreatedTodayItem["entityType"], React.ElementType> 
   billing: Receipt,
   file: File,
   meeting: Video,
+  resource: Paperclip,
 };
 
 const ENTITY_LABELS: Record<HqCreatedTodayItem["entityType"], string> = {
@@ -53,6 +55,7 @@ const ENTITY_LABELS: Record<HqCreatedTodayItem["entityType"], string> = {
   billing: "Invoice",
   file: "File",
   meeting: "Meeting",
+  resource: "Resource",
 };
 
 export function SideRail({ data }: Props) {
@@ -257,8 +260,10 @@ export function SideRail({ data }: Props) {
           </header>
           <ul className="space-y-2">
             {createdToday.items.map((item) => {
-              const Icon = ENTITY_ICONS[item.entityType];
-              const typeLabel = ENTITY_LABELS[item.entityType];
+              // entity_type comes straight from pending_evidence — fall back
+              // rather than crash when the intake vocabulary grows a new type.
+              const Icon = ENTITY_ICONS[item.entityType] ?? File;
+              const typeLabel = ENTITY_LABELS[item.entityType] ?? "Record";
               return (
                 <li key={item.id}>
                   <Link

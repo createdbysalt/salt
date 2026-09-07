@@ -1,20 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
- * Chain A (capture enrichment CREATE decisions) — plays canon Phase 2.
+ * Chain A (capture enrichment CREATE decisions).
  *
  * CREATE-tier decisions never touch play_runs — proposals route through
- * routeIntakeProposal, which applies the P6 (calibration) + P7
- * (relationship-grade worthiness) contract: direct record creation only when
- * both pass, otherwise pending_evidence status='suggested' for the
- * Memory → Filter Watching lane.
+ * routeIntakeProposal, where the accumulated evidence score against the
+ * entity's bars is the only gate: over the auto bar the record is created
+ * directly, otherwise the row keeps accumulating in pending_evidence.
  */
 
 const h = vi.hoisted(() => ({
   routeIntakeProposal: vi.fn(),
-  shouldAutoApply: vi.fn(),
   recordDecisionOutcome: vi.fn(),
-  updateCalibrationSnapshot: vi.fn(),
 }));
 
 vi.mock("@/app/_features/memory/evidence/route-intake-proposal", () => ({
@@ -22,9 +19,7 @@ vi.mock("@/app/_features/memory/evidence/route-intake-proposal", () => ({
 }));
 
 vi.mock("../intelligence/record-capture-outcome", () => ({
-  shouldAutoApply: h.shouldAutoApply,
   recordDecisionOutcome: h.recordDecisionOutcome,
-  updateCalibrationSnapshot: h.updateCalibrationSnapshot,
 }));
 
 import { processCreateDecision } from "./create-decision-processor";
@@ -60,23 +55,17 @@ const baseInput = {
 
 beforeEach(() => {
   h.routeIntakeProposal.mockReset();
-  h.shouldAutoApply.mockReset();
   h.recordDecisionOutcome.mockReset();
-  h.updateCalibrationSnapshot.mockReset();
 
   h.routeIntakeProposal.mockResolvedValue({
     outcome: "suggested",
     evidenceId: "ev-1",
   });
-  h.shouldAutoApply.mockResolvedValue(false);
   h.recordDecisionOutcome.mockResolvedValue(undefined);
-  h.updateCalibrationSnapshot.mockResolvedValue(undefined);
 });
 
 describe("processCreateDecision", () => {
-  it("uncalibrated: routes to the suggested lane — no record created", async () => {
-    h.shouldAutoApply.mockResolvedValue(false);
-
+  it("under the bar: routes to the suggested lane — no record created", async () => {
     const result = await processCreateDecision({
       ...baseInput,
       decision: makeDecision(),
@@ -91,19 +80,16 @@ describe("processCreateDecision", () => {
         confidence: 90,
         captureId: "cap-1",
         signals: [],
-        autoApply: false,
       })
     );
     expect(h.recordDecisionOutcome).not.toHaveBeenCalled();
-    expect(h.updateCalibrationSnapshot).not.toHaveBeenCalled();
     expect(result).toEqual({
       autoApplied: false,
       createdRecordId: null,
     });
   });
 
-  it("calibrated + relationship-grade signals: record created directly", async () => {
-    h.shouldAutoApply.mockResolvedValue(true);
+  it("over the bar: record created directly and the decision outcome is logged", async () => {
     h.routeIntakeProposal.mockResolvedValue({
       outcome: "created",
       evidenceId: "ev-1",
@@ -118,7 +104,6 @@ describe("processCreateDecision", () => {
 
     expect(h.routeIntakeProposal).toHaveBeenCalledWith(
       expect.objectContaining({
-        autoApply: true,
         signals: ["payment_notification_email"],
       })
     );
@@ -128,7 +113,6 @@ describe("processCreateDecision", () => {
       undefined,
       "rec-9"
     );
-    expect(h.updateCalibrationSnapshot).toHaveBeenCalledWith("ws-1");
     expect(result).toEqual({
       autoApplied: true,
       createdRecordId: "rec-9",

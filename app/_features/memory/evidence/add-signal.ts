@@ -4,15 +4,15 @@
  * Creates new evidence if this identifier hasn't been seen before.
  * Accumulates log-odds score and updates status based on thresholds.
  *
- * Threshold behavior (plays canon Phase 2): record proposals never write
- * play_runs. Suggest-tier evidence carries status='suggested' and keeps
- * accumulating signals in the background. The auto tier (P6 + P7:
- * calibrated AND relationship-grade) creates records directly.
+ * Memory is fully autonomous: crossing the entity's auto bar creates the
+ * record directly — the threshold IS the auto-apply, with no calibration
+ * or worthiness gates. Correction ("That's wrong" on the Handled lane)
+ * replaces approval. Suggest-tier evidence carries status='suggested' and
+ * keeps accumulating signals in the background.
  *
  * NOT a "use server" module: this runs from crons and backlog scripts with
  * no request scope, so it uses the admin client — `cookies()` would throw
- * (same trap as hydrate-capture). User-initiated evidence mutations live in
- * ./actions.ts behind tenancy guards.
+ * (same trap as hydrate-capture).
  */
 
 import { createAdminClient } from "@/app/_lib/supabase/admin";
@@ -30,10 +30,7 @@ import {
   type IntakeEntityType,
 } from "@/app/_features/memory/care/intake";
 import { autoCreateRecord } from "./auto-create-record";
-import {
-  hasRelationshipGradeSignal,
-  mergeExtractedFields,
-} from "./route-intake-proposal";
+import { mergeExtractedFields } from "./route-intake-proposal";
 import type {
   AddSignalInput,
   AddSignalResult,
@@ -110,27 +107,22 @@ export async function addSignalToEvidence(
       extracted_data: input.extractedData || {},
     });
 
-    // Handle threshold transitions. Plays canon Phase 2: proposals never
-    // write play_runs — suggest-tier rows carry status='suggested' and
-    // keep accumulating until the auto tier clears. Both non-terminal
-    // states can still cross: a parked 'suggested' row that reaches the
-    // auto bar with relationship-grade evidence creates the record.
+    // Handle threshold transitions. Suggest-tier rows carry
+    // status='suggested' and keep accumulating until the auto tier clears.
+    // Both non-terminal states can still cross: a parked 'suggested' row
+    // that reaches the auto bar creates the record.
     if (existing.status === "watching" || existing.status === "suggested") {
-      // Fetch all signals for this evidence (for count and worthiness check)
+      // Fetch all signals for this evidence (for the birth log count)
       const { data: signalRows } = await supabase
         .from("pending_evidence_signals")
         .select("signal")
         .eq("evidence_id", existing.id);
 
       const signalCount = (signalRows?.length ?? 0) + 1;
-      const allSignals = [...(signalRows?.map((r) => r.signal as string) ?? []), input.signal];
-      const isWorthy = hasRelationshipGradeSignal(allSignals);
-      // Resources never auto-create from background paths: they stay
-      // confirm-only (only the confirm path supplies an acting user).
-      const canAutoCreate = isWorthy && input.entityType !== "resource";
 
-      if (action === "auto" && canAutoCreate) {
-        // P6 + P7: Auto-create only if relationship-grade worthy
+      if (action === "auto") {
+        // The threshold is the only gate — over the auto bar, the record
+        // is born.
         await autoCreateRecord({
           workspaceId: input.workspaceId,
           evidenceId: existing.id,
@@ -141,13 +133,6 @@ export async function addSignalToEvidence(
           signalCount,
           captureId: input.captureId,
         });
-      } else if (action === "auto") {
-        // P7: confidence passed but not relationship-grade (or the entity
-        // is confirm-only) — park as suggested; it keeps accumulating.
-        await supabase
-          .from("pending_evidence")
-          .update({ status: "suggested" })
-          .eq("id", existing.id);
       }
     }
 
@@ -212,16 +197,9 @@ export async function addSignalToEvidence(
       extracted_data: input.extractedData || {},
     });
 
-    // Handle immediate threshold crossing (e.g., very strong signal).
-    // Plays canon Phase 2: proposals never write play_runs — the row was
-    // inserted with status='suggested' above when the suggest bar cleared,
-    // and keeps accumulating until the auto tier clears.
-    const isWorthy = hasRelationshipGradeSignal([input.signal]);
-    // Files never auto-create from background paths (see above).
-    const canAutoCreate = isWorthy && input.entityType !== "resource";
-
-    if (action === "auto" && canAutoCreate) {
-      // P6 + P7: Auto-create only if relationship-grade worthy
+    // Handle immediate threshold crossing (e.g., very strong signal). The
+    // threshold is the only gate — over the auto bar, the record is born.
+    if (action === "auto") {
       await autoCreateRecord({
         workspaceId: input.workspaceId,
         evidenceId: newEvidence.id,
@@ -232,13 +210,6 @@ export async function addSignalToEvidence(
         signalCount: 1,
         captureId: input.captureId,
       });
-    } else if (action === "auto") {
-      // P7: confidence passed but not relationship-grade (or the entity
-      // is confirm-only) — park as suggested; it keeps accumulating.
-      await supabase
-        .from("pending_evidence")
-        .update({ status: "suggested" })
-        .eq("id", newEvidence.id);
     }
 
     return {

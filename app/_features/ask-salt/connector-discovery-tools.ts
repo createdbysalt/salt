@@ -27,6 +27,7 @@ import { executeComposioAction } from "@/app/_lib/composio/actions";
 import { getApprovedToolClassification } from "@/app/_lib/composio/classification-store";
 import { getSyncedToolSchema } from "@/app/_lib/composio/input-schema-store";
 import { validateArgsAgainstJsonSchema } from "@/app/_lib/composio/json-schema-validate";
+import { compactInputSchema } from "@/app/_lib/composio/compact-schema";
 
 export interface BuildConnectorDiscoveryToolsOptions {
   workspaceId: string;
@@ -89,7 +90,7 @@ export function buildConnectorDiscoveryTools(
 
   const searchConnectorTools = tool({
     description:
-      "Search the catalog of tools available on the user's CONNECTED apps. Use when the preloaded tools don't cover a request. Returns tool slugs to pass to execute_connector_action.",
+      "Search the catalog of tools available on the user's CONNECTED apps. Use when the preloaded tools don't cover a request. Returns tool slugs to pass to execute_connector_action, each with its argument schema — use those exact argument names, never invent others.",
     inputSchema: SearchSchema,
     execute: async ({ query, toolkit }) => {
       const admin = createAdminClient();
@@ -105,11 +106,13 @@ export function buildConnectorDiscoveryTools(
         return { tools: [], note: "Query contained no searchable characters." };
       }
       const pattern = `%${sanitized}%`;
+      // No FK between connector_tools and tool_classifications (orphan rows
+      // block adding one), so PostgREST resource embedding fails — query the
+      // catalog first, then fetch approvals for just those ≤20 slugs.
       const { data, error } = await admin
         .from("connector_tools")
-        .select("tool_slug, toolkit_slug, name, description, tool_classifications!inner(risk, status)")
+        .select("tool_slug, toolkit_slug, name, description, input_schema")
         .in("toolkit_slug", scope)
-        .eq("tool_classifications.status", "approved")
         .or(`name.ilike.${pattern},description.ilike.${pattern},tool_slug.ilike.${pattern}`)
         .limit(20);
 
@@ -117,19 +120,32 @@ export function buildConnectorDiscoveryTools(
         return { tools: [], note: `Catalog search failed: ${error.message}` };
       }
 
+      const slugs = (data ?? []).map((row) => row.tool_slug);
+      const { data: approvals } = slugs.length
+        ? await admin
+            .from("tool_classifications")
+            .select("tool_slug, risk")
+            .in("tool_slug", slugs)
+            .eq("status", "approved")
+        : { data: [] };
+      const approvedRiskBySlug = new Map(
+        (approvals ?? []).map((row) => [row.tool_slug, row.risk] as const),
+      );
+
       const rows = (data ?? [])
-        .map((row) => {
-          const classification = Array.isArray(row.tool_classifications)
-            ? row.tool_classifications[0]
-            : row.tool_classifications;
-          return {
-            slug: row.tool_slug,
-            toolkit: row.toolkit_slug,
-            name: row.name,
-            description: row.description?.slice(0, 200) ?? null,
-            risk: classification?.risk ?? "unknown",
-          };
-        })
+        .filter((row) => approvedRiskBySlug.has(row.tool_slug))
+        .map((row) => ({
+          slug: row.tool_slug,
+          toolkit: row.toolkit_slug,
+          name: row.name,
+          description: row.description?.slice(0, 200) ?? null,
+          risk: approvedRiskBySlug.get(row.tool_slug) ?? "unknown",
+          // Compact schema projection — the model sees real argument names
+          // and enums instead of guessing them. Full schemas stay out of
+          // context (too large); execute_connector_action validates against
+          // the full synced schema at the boundary.
+          input_schema: compactInputSchema(row.input_schema) ?? undefined,
+        }))
         // Destructive tools never execute via AI — don't advertise them.
         .filter((row) => row.risk !== "destructive");
 

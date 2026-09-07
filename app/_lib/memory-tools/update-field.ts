@@ -46,7 +46,9 @@ import {
   getCorrectionBlocklist,
 } from "@/app/_lib/learning/correction-blocklist";
 import { getWorkspaceThreshold } from "./get-threshold";
+import { attachPersonEmail } from "@/app/_features/memory/records/person-emails";
 import type { Json } from "@/app/_lib/supabase/database.types";
+import { RECORD_CONDITION_ROUTE_KEY_TO_ENTITY } from "@/app/_features/plays/playbooks/record-conditions";
 import {
   getMemoryEntityTable,
   toMemoryToolRouteKey,
@@ -107,6 +109,24 @@ export async function memoryUpdateField(
     ? Math.max(workspaceThreshold, input.minThreshold)
     : workspaceThreshold;
 
+  // No-op guard: the field already holds this exact value — no matter who
+  // set it (this tool, a manual edit, a seed). Accumulating evidence would
+  // park a "proposal" in Watching for something already true and re-notify
+  // on every care run (record_status → active on active records, 2026-09).
+  // Return before accumulating; nothing changes, so nothing is audited.
+  const currentValue = await getCurrentFieldValue(createAdminClient(), input);
+  if (currentValue != null && String(currentValue) === String(input.value)) {
+    return {
+      action: "applied",
+      threshold,
+      confidence: input.confidence,
+      aggregatedConfidence: input.confidence,
+      appliedAt: new Date().toISOString(),
+      noop: true,
+      message: `Already set: ${input.field} = "${input.value}" — no change needed`,
+    };
+  }
+
   // First, accumulate the evidence regardless of confidence
   // This creates the audit trail
   const evidenceResult = await accumulateEvidence({
@@ -142,14 +162,44 @@ export async function memoryUpdateField(
   // Check if we meet threshold
   if (aggregatedConfidence >= threshold) {
     // Apply the change
-    const { appliedAt, previous } = await applyFieldUpdate(input);
+    const { appliedAt, previous, noop } = await applyFieldUpdate(input);
+
+    // Record-condition triggers: a successful write may satisfy a playbook's
+    // "when <entity> <field> <op> <value>" condition. Best-effort — a
+    // dispatch failure must never break the write that fired it. Dynamic
+    // import avoids a module cycle (trigger-dispatch → executor → memory
+    // tools → trigger-dispatch).
+    if (!noop) {
+      try {
+        const rcEntity =
+          RECORD_CONDITION_ROUTE_KEY_TO_ENTITY[
+            toMemoryToolRouteKey(input.entityType)
+          ];
+        if (rcEntity) {
+          const { dispatchRecordConditionTrigger } = await import(
+            "@/app/_features/plays/playbooks/trigger-dispatch"
+          );
+          await dispatchRecordConditionTrigger({
+            workspaceId: input.workspaceId,
+            entity: rcEntity,
+            field: input.field,
+            newValue: input.value,
+            entityId: input.entityId,
+          });
+        }
+      } catch (error) {
+        console.error("[memory-tools] record-condition dispatch failed:", error);
+      }
+    }
 
     // Handled audit trail: an applied Salt-driven write surfaces in Memory →
     // Activity → Handled with a rollback affordance. User-driven sources
     // (manual edits, Ask Salt requests) don't log — the user just did it.
-    // Logging must never break the write.
+    // No-op applies (value already set) don't log either: Handled is the
+    // audit trail of changes, and nothing changed. Logging must never
+    // break the write.
     let learningId: string | undefined;
-    if (shouldLogHandled(input)) {
+    if (!noop && shouldLogHandled(input)) {
       try {
         const entityLabel = await fetchEntityLabel(
           createAdminClient(),
@@ -198,7 +248,10 @@ export async function memoryUpdateField(
       confidence: input.confidence,
       aggregatedConfidence,
       appliedAt,
-      message: `Applied: ${input.field} = "${input.value}" (${aggregatedConfidence}% >= ${threshold}% threshold)`,
+      ...(noop ? { noop: true } : {}),
+      message: noop
+        ? `Already set: ${input.field} = "${input.value}" — no change needed`
+        : `Applied: ${input.field} = "${input.value}" (${aggregatedConfidence}% >= ${threshold}% threshold)`,
     };
   }
 
@@ -283,12 +336,23 @@ async function fetchEntityLabel(
  */
 async function applyFieldUpdate(
   input: UpdateFieldInput
-): Promise<{ appliedAt: string; previous: PreviousState }> {
+): Promise<{ appliedAt: string; previous: PreviousState; noop: boolean }> {
   const admin = createAdminClient();
   const now = new Date().toISOString();
 
   // 1. Get the previous value and provenance for rollback support
   const previous = await getPreviousState(admin, input);
+
+  // No-op guard: the tool already applied this exact value. Re-applying
+  // would rewrite the row, duplicate the provenance chain, and spam
+  // Handled (salt_learnings) with a "change" that changed nothing. Exact
+  // string match only — anything ambiguous applies normally.
+  if (
+    previous.value != null &&
+    String(previous.value) === String(input.value)
+  ) {
+    return { appliedAt: now, previous, noop: true };
+  }
 
   // 2. Map entity types to tables and update
   switch (toMemoryToolRouteKey(input.entityType)) {
@@ -320,7 +384,32 @@ async function applyFieldUpdate(
   // 3. Record provenance with previous state
   await recordProvenance(admin, input, now, previous);
 
-  return { appliedAt: now, previous };
+  return { appliedAt: now, previous, noop: false };
+}
+
+/**
+ * Current value straight from the backing row — the no-op guard's source of
+ * truth. Reads the table/column the writer would write, so manual edits and
+ * seeds count (provenance only knows tool-applied writes). Returns null for
+ * unmappable fields (org_link junction, Me profile/workspace splits) — those
+ * skip the guard.
+ */
+async function getCurrentFieldValue(
+  admin: ReturnType<typeof createAdminClient>,
+  input: UpdateFieldInput
+): Promise<unknown> {
+  const table = getMemoryEntityTable(input.entityType);
+  const dbField =
+    MEMORY_TOOL_FIELD_MAPS[toMemoryToolRouteKey(input.entityType)]?.[
+      input.field
+    ];
+  if (!table || !dbField) return null;
+  const { data } = await admin
+    .from(table)
+    .select(dbField)
+    .eq("id", input.entityId)
+    .maybeSingle();
+  return (data as Record<string, unknown> | null)?.[dbField] ?? null;
 }
 
 /**
@@ -350,31 +439,42 @@ async function getPreviousState(
   };
 }
 
+/**
+ * Writable field maps — the columns each entity writer can resolve.
+ * Hoisted + exported so the registry parity test can prove every care_auto
+ * registry field with a dbColumn resolves here (a missing key used to throw
+ * "Unknown <entity> field" AFTER evidence was parked, stranding the proposal
+ * in Watching forever — see record_status, 2026-09).
+ */
+export const PERSON_FIELD_MAP: Record<string, keyof TableUpdate<"people">> = {
+  relationship_type: "relationship_type",
+  record_status: "record_status",
+  name: "name",
+  title: "title",
+  email: "email",
+  phone: "phone",
+  billing_email: "billing_email",
+  timezone: "timezone",
+  // Address aliases → actual DB columns (address_line_1/_2)
+  address_line1: "address_line_1",
+  address_line_1: "address_line_1",
+  addressLine1: "address_line_1",
+  address_line2: "address_line_2",
+  address_line_2: "address_line_2",
+  addressLine2: "address_line_2",
+  city: "city",
+  state: "state",
+  postal_code: "postal_code",
+  country: "country",
+  first_contact_at: "first_contact_at",
+  last_contact_at: "last_contact_at",
+};
+
 async function updatePersonField(
   admin: ReturnType<typeof createAdminClient>,
   input: UpdateFieldInput
 ): Promise<void> {
-  const fieldMap: Record<string, keyof TableUpdate<"people">> = {
-    relationship_type: "relationship_type",
-    title: "title",
-    email: "email",
-    phone: "phone",
-    billing_email: "billing_email",
-    timezone: "timezone",
-    // Address aliases → actual DB columns (address_line_1/_2)
-    address_line1: "address_line_1",
-    address_line_1: "address_line_1",
-    addressLine1: "address_line_1",
-    address_line2: "address_line_2",
-    address_line_2: "address_line_2",
-    addressLine2: "address_line_2",
-    city: "city",
-    state: "state",
-    postal_code: "postal_code",
-    country: "country",
-    first_contact_at: "first_contact_at",
-    last_contact_at: "last_contact_at",
-  };
+  const fieldMap = PERSON_FIELD_MAP;
 
   const dbField = fieldMap[input.field];
   if (!dbField) {
@@ -388,6 +488,21 @@ async function updatePersonField(
       });
       return;
     }
+    // email_attach: a SECONDARY address for a person who already has a
+    // primary. Writes a non-primary person_emails row; people.email (the
+    // denormalized primary) is untouched.
+    if (input.field === "email_attach" && typeof input.value === "string") {
+      const result = await attachPersonEmail(admin, {
+        workspaceId: input.workspaceId,
+        personId: input.entityId,
+        email: input.value,
+        source: "capture",
+      });
+      if (!result.attached && result.reason !== "already attached") {
+        throw new Error(`Failed to attach email: ${result.reason}`);
+      }
+      return;
+    }
     throw new Error(`Unknown person field: ${input.field}`);
   }
 
@@ -396,6 +511,18 @@ async function updatePersonField(
     .update({ [dbField]: input.value } as TableUpdate<"people">)
     .eq("id", input.entityId)
     .eq("workspace_id", input.workspaceId);
+
+  // Keep the identity set in sync when the primary address is (re)written:
+  // the new address becomes the primary person_emails row.
+  if (dbField === "email" && typeof input.value === "string" && input.value.trim()) {
+    await attachPersonEmail(admin, {
+      workspaceId: input.workspaceId,
+      personId: input.entityId,
+      email: input.value,
+      source: "capture",
+      primary: true,
+    });
+  }
 }
 
 /**
@@ -448,31 +575,37 @@ async function linkPersonToOrganization(
   }
 }
 
+export const ORG_FIELD_MAP: Record<string, keyof TableUpdate<"organizations">> = {
+  relationship_status: "relationship_status",
+  record_status: "record_status",
+  industry: "industry",
+  industry_parent: "industry_parent",
+  industry_child: "industry_child",
+  website: "website",
+  domain: "domain",
+  billing_email: "billing_email",
+  // Address aliases → actual DB columns (address_line_1/_2)
+  address_line1: "address_line_1",
+  address_line_1: "address_line_1",
+  addressLine1: "address_line_1",
+  address_line2: "address_line_2",
+  address_line_2: "address_line_2",
+  addressLine2: "address_line_2",
+  city: "city",
+  state: "state",
+  postal_code: "postal_code",
+  country: "country",
+  tax_id: "tax_id",
+  // organizations only has last_contact_at; accept the alias spelling too
+  last_contacted_at: "last_contact_at",
+  last_contact_at: "last_contact_at",
+};
+
 async function updateOrgField(
   admin: ReturnType<typeof createAdminClient>,
   input: UpdateFieldInput
 ): Promise<void> {
-  const fieldMap: Record<string, keyof TableUpdate<"organizations">> = {
-    relationship_status: "relationship_status",
-    industry: "industry",
-    industry_parent: "industry_parent",
-    industry_child: "industry_child",
-    website: "website",
-    domain: "domain",
-    billing_email: "billing_email",
-    // Address aliases → actual DB columns (address_line_1/_2)
-    address_line1: "address_line_1",
-    address_line_1: "address_line_1",
-    addressLine1: "address_line_1",
-    address_line2: "address_line_2",
-    address_line_2: "address_line_2",
-    addressLine2: "address_line_2",
-    city: "city",
-    state: "state",
-    postal_code: "postal_code",
-    country: "country",
-    tax_id: "tax_id",
-  };
+  const fieldMap = ORG_FIELD_MAP;
 
   const dbField = fieldMap[input.field];
   if (!dbField) {
@@ -505,16 +638,21 @@ async function updateOrgField(
     .eq("workspace_id", input.workspaceId);
 }
 
+export const WORK_FIELD_MAP: Record<string, keyof TableUpdate<"work">> = {
+  // Renames are a first-class correction ("the name of the work is X") —
+  // the field registry already treats name as a writable work field.
+  name: "name",
+  status: "status",
+  description: "description",
+  deadline: "deadline",
+  start_date: "start_date",
+};
+
 async function updateWorkField(
   admin: ReturnType<typeof createAdminClient>,
   input: UpdateFieldInput
 ): Promise<void> {
-  const fieldMap: Record<string, keyof TableUpdate<"work">> = {
-    status: "status",
-    description: "description",
-    deadline: "deadline",
-    start_date: "start_date",
-  };
+  const fieldMap = WORK_FIELD_MAP;
 
   const dbField = fieldMap[input.field];
   if (!dbField) {
@@ -528,18 +666,30 @@ async function updateWorkField(
     .eq("workspace_id", input.workspaceId);
 }
 
+export const BILLING_FIELD_MAP: Record<string, keyof TableUpdate<"billing_records">> = {
+  status: "status",
+  organizationId: "organization_id",
+  personId: "person_id",
+  // billing_records has no project_id column — the work link is work_id
+  projectId: "work_id",
+  workId: "work_id",
+  // The billing-record producer writes by dbColumn (field-registry keys map
+  // 1:1 onto these), so dbColumn spellings must resolve here too.
+  number: "number",
+  amount_paid_cents: "amount_paid_cents",
+  paid_at: "paid_at",
+  due_at: "due_at",
+  app_url: "app_url",
+  currency: "currency",
+  vendor_label: "vendor_label",
+  category: "category",
+};
+
 async function updateBillingField(
   admin: ReturnType<typeof createAdminClient>,
   input: UpdateFieldInput
 ): Promise<void> {
-  const fieldMap: Record<string, keyof TableUpdate<"billing_records">> = {
-    status: "status",
-    organizationId: "organization_id",
-    personId: "person_id",
-    // billing_records has no project_id column — the work link is work_id
-    projectId: "work_id",
-    workId: "work_id",
-  };
+  const fieldMap = BILLING_FIELD_MAP;
 
   const dbField = fieldMap[input.field];
   if (!dbField) {
@@ -553,19 +703,24 @@ async function updateBillingField(
     .eq("workspace_id", input.workspaceId);
 }
 
+export const MEETING_FIELD_MAP: Record<string, keyof TableUpdate<"meetings">> = {
+  status: "status",
+  meeting_type: "meeting_type",
+  location_type: "location_type",
+  meeting_url: "meeting_url",
+  start_time: "start_time",
+  end_time: "end_time",
+  attendees: "attendees",
+  organizationId: "organization_id",
+  personId: "person_id",
+  workId: "work_id",
+};
+
 async function updateMeetingField(
   admin: ReturnType<typeof createAdminClient>,
   input: UpdateFieldInput
 ): Promise<void> {
-  const fieldMap: Record<string, keyof TableUpdate<"meetings">> = {
-    status: "status",
-    meeting_type: "meeting_type",
-    location_type: "location_type",
-    meeting_url: "meeting_url",
-    organizationId: "organization_id",
-    personId: "person_id",
-    workId: "work_id",
-  };
+  const fieldMap = MEETING_FIELD_MAP;
 
   const dbField = fieldMap[input.field];
   if (!dbField) {
@@ -579,22 +734,25 @@ async function updateMeetingField(
     .eq("workspace_id", input.workspaceId);
 }
 
+export const FILE_FIELD_MAP: Record<string, keyof TableUpdate<"resources">> = {
+  category: "category",
+  document_type: "document_type",
+  lifecycle_status: "lifecycle_status",
+  due_date: "due_date",
+  expiry_date: "expiry_date",
+  signed_date: "signed_date",
+  total_amount_cents: "total_amount_cents",
+  organizationId: "organization_id",
+  personId: "person_id",
+};
+
 async function updateFileField(
   admin: ReturnType<typeof createAdminClient>,
   input: UpdateFieldInput
 ): Promise<void> {
   // Note: files has no work_id column — a former workId → work_id mapping
   // targeted a nonexistent column and could never have applied.
-  const fieldMap: Record<string, keyof TableUpdate<"resources">> = {
-    category: "category",
-    document_type: "document_type",
-    lifecycle_status: "lifecycle_status",
-    due_date: "due_date",
-    expiry_date: "expiry_date",
-    signed_date: "signed_date",
-    organizationId: "organization_id",
-    personId: "person_id",
-  };
+  const fieldMap = FILE_FIELD_MAP;
 
   const dbField = fieldMap[input.field];
   if (!dbField) {
@@ -608,38 +766,73 @@ async function updateFileField(
     .eq("workspace_id", input.workspaceId);
 }
 
+/**
+ * Me fields can be on profiles or workspaces. Keys accept both the
+ * registry's camelCase field keys and snake_case column names.
+ * Legal/tax/payment fields are deliberately absent — the registry marks
+ * them user_only and field-tiers lists them never_touch.
+ */
+export const ME_PROFILE_FIELD_MAP: Record<string, keyof TableUpdate<"profiles">> = {
+  display_name: "display_name",
+  fullName: "display_name",
+  role_title: "role_title",
+  roleTitle: "role_title",
+  tagline: "tagline",
+  timezone: "timezone",
+  location: "location",
+  phone: "phone",
+  gender: "gender",
+  preferred_name: "preferred_name",
+  preferredName: "preferred_name",
+  address_line_1: "address_line_1",
+  addressLine1: "address_line_1",
+  address_line_2: "address_line_2",
+  addressLine2: "address_line_2",
+  city: "city",
+  state: "state",
+  postal_code: "postal_code",
+  postalCode: "postal_code",
+  country: "country",
+  professional_credentials: "professional_credentials",
+  professionalCredentials: "professional_credentials",
+};
+
+export const ME_WORKSPACE_FIELD_MAP: Record<string, keyof TableUpdate<"workspaces">> = {
+  name: "name",
+  tagline: "tagline",
+  description: "description",
+  website_url: "website_url",
+  websiteUrl: "website_url",
+  industry: "industry",
+  legal_business_name: "legal_business_name",
+  business_type: "business_type",
+  business_email: "business_email",
+  business_phone: "business_phone",
+  businessPhone: "business_phone",
+  // Disambiguated from the profile's own location field
+  business_location: "location",
+};
+
+/**
+ * All writable field keys per memory-tool route key, for the registry
+ * parity test (`taxonomy/registry-parity.test.ts`). `me` is the union of
+ * the profile and workspace maps.
+ */
+export const MEMORY_TOOL_FIELD_MAPS: Record<string, Record<string, string>> = {
+  person: PERSON_FIELD_MAP,
+  organization: ORG_FIELD_MAP,
+  work: WORK_FIELD_MAP,
+  billing: BILLING_FIELD_MAP,
+  meeting: MEETING_FIELD_MAP,
+  resource: FILE_FIELD_MAP,
+  me: { ...ME_PROFILE_FIELD_MAP, ...ME_WORKSPACE_FIELD_MAP },
+};
+
 async function updateOperatorField(
   admin: ReturnType<typeof createAdminClient>,
   input: UpdateFieldInput
 ): Promise<void> {
-  // Me fields can be on profiles or workspaces. Keys accept both the
-  // registry's camelCase field keys and snake_case column names.
-  // Legal/tax/payment fields are deliberately absent — the registry marks
-  // them user_only and field-tiers lists them never_touch.
-  const profileFields: Record<string, keyof TableUpdate<"profiles">> = {
-    display_name: "display_name",
-    fullName: "display_name",
-    role_title: "role_title",
-    roleTitle: "role_title",
-    tagline: "tagline",
-    timezone: "timezone",
-    location: "location",
-    phone: "phone",
-    gender: "gender",
-    preferred_name: "preferred_name",
-    preferredName: "preferred_name",
-    address_line_1: "address_line_1",
-    addressLine1: "address_line_1",
-    address_line_2: "address_line_2",
-    addressLine2: "address_line_2",
-    city: "city",
-    state: "state",
-    postal_code: "postal_code",
-    postalCode: "postal_code",
-    country: "country",
-    professional_credentials: "professional_credentials",
-    professionalCredentials: "professional_credentials",
-  };
+  const profileFields = ME_PROFILE_FIELD_MAP;
 
   if (profileFields[input.field]) {
     await admin
@@ -650,21 +843,7 @@ async function updateOperatorField(
   }
 
   // Workspace fields
-  const workspaceFields: Record<string, keyof TableUpdate<"workspaces">> = {
-    name: "name",
-    tagline: "tagline",
-    description: "description",
-    website_url: "website_url",
-    websiteUrl: "website_url",
-    industry: "industry",
-    legal_business_name: "legal_business_name",
-    business_type: "business_type",
-    business_email: "business_email",
-    business_phone: "business_phone",
-    businessPhone: "business_phone",
-    // Disambiguated from the profile's own location field
-    business_location: "location",
-  };
+  const workspaceFields = ME_WORKSPACE_FIELD_MAP;
 
   if (workspaceFields[input.field]) {
     await admin

@@ -23,12 +23,13 @@ import {
   fixConnectorCapture,
 } from "@/app/_features/capture/actions/connector-health";
 import type { WorkspaceHealthReport, ConnectorHealthStatus } from "@/app/_features/capture/services/connector-health";
-import { CaptureCalibrationCard } from "@/app/_features/capture/components/CaptureCalibrationCard";
 
 // Blocklist management moved to Memory → Rules → Admission policy (2026-08-06).
 
 interface CaptureSectionProps {
-  workspaceId: string;
+  // Calibration (gate tier internals) moved out of user Settings — gate-action
+  // distribution lives in the founder /ops Capture pipeline section.
+  workspaceId?: string;
 }
 
 const PROVIDER_LABELS: Record<string, string> = {
@@ -61,22 +62,12 @@ function ConnectorHealthBadge({ status }: { status: ConnectorHealthStatus }) {
   const hasCaptures = status.captureStats.last7d > 0;
   const triggersHealthy = status.triggerStatus.healthy;
 
-  // Backfill-only connectors (like Cal.com) are healthy if enabled
-  if (isBackfillOnly) {
-    return (
-      <Badge variant="outline" className="gap-1 text-blue-600 border-blue-200 bg-blue-50">
-        <CheckCircle2 className="h-3 w-3" />
-        Backfill only
-      </Badge>
-    );
-  }
-
-  // Real-time connectors need captures AND healthy triggers
-  if (hasCaptures && triggersHealthy) {
+  // Backfill-only connectors (like Cal.com) are fine if enabled
+  if (isBackfillOnly || (hasCaptures && triggersHealthy)) {
     return (
       <Badge variant="outline" className="gap-1 text-green-600 border-green-200 bg-green-50">
         <CheckCircle2 className="h-3 w-3" />
-        Healthy
+        Active
       </Badge>
     );
   }
@@ -89,7 +80,7 @@ function ConnectorHealthBadge({ status }: { status: ConnectorHealthStatus }) {
   );
 }
 
-export function CaptureSection({ workspaceId }: CaptureSectionProps) {
+export function CaptureSection(_props: CaptureSectionProps) {
   const [healthReport, setHealthReport] = useState<WorkspaceHealthReport | null>(null);
   const [isHealthLoading, setIsHealthLoading] = useState(true);
   const [fixingProvider, setFixingProvider] = useState<string | null>(null);
@@ -136,8 +127,8 @@ export function CaptureSection({ workspaceId }: CaptureSectionProps) {
   return (
     <SettingsPage title="Capture">
       <SettingsSection
-        title="Connector Health"
-        description="Check which connectors are actively producing captures."
+        title="Connected apps"
+        description="Salt captures activity from your connected apps. If something stops flowing, you can restart it here."
       >
         <SettingsCard>
           {isHealthLoading ? (
@@ -148,16 +139,15 @@ export function CaptureSection({ workspaceId }: CaptureSectionProps) {
             <div className="space-y-4 p-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Plug className="h-4 w-4" />
-                    <span>
-                      {healthReport.summary.healthy} of {healthReport.summary.total - healthReport.summary.notConnected} healthy
-                    </span>
-                  </div>
-                  {healthReport.summary.unhealthy > 0 && (
+                  {healthReport.summary.unhealthy > 0 ? (
                     <Badge variant="secondary" className="text-xs text-amber-600">
                       {healthReport.summary.unhealthy} need attention
                     </Badge>
+                  ) : (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Plug className="h-4 w-4" />
+                      <span>Everything is flowing</span>
+                    </div>
                   )}
                 </div>
                 <Button
@@ -190,11 +180,6 @@ export function CaptureSection({ workspaceId }: CaptureSectionProps) {
                         <span className="font-medium text-sm">
                           {PROVIDER_LABELS[connector.provider] ?? connector.provider}
                         </span>
-                        {connector.connectionStatus.connected && connector.connectionStatus.captureEnabled && (
-                          <span className="text-xs text-muted-foreground">
-                            {connector.captureStats.last24h} today
-                          </span>
-                        )}
                       </div>
                       <div className="flex items-center gap-2">
                         {(needsAttention || needsEnable) && (
@@ -222,24 +207,17 @@ export function CaptureSection({ workspaceId }: CaptureSectionProps) {
               {healthReport.summary.unhealthy > 0 && (
                 <div className="rounded-lg bg-amber-50 border border-amber-200 p-3">
                   <p className="text-sm text-amber-800">
-                    Click "Fix" to register triggers and enable capture for connectors that need attention.
+                    Click "Fix" to get captures flowing again.
                   </p>
                 </div>
               )}
             </div>
           ) : (
             <div className="text-center py-8 text-muted-foreground">
-              <p className="text-sm">Unable to load connector health</p>
+              <p className="text-sm">Unable to load connector status</p>
             </div>
           )}
         </SettingsCard>
-      </SettingsSection>
-
-      <SettingsSection
-        title="Calibration"
-        description="Track proposal accuracy and unlock auto-apply when confidence is earned."
-      >
-        <CaptureCalibrationCard workspaceId={workspaceId} />
       </SettingsSection>
     </SettingsPage>
   );

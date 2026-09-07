@@ -8,6 +8,7 @@ import { nextStateForAction } from "./utils/play-state-machine";
 import { meterInternalPlay } from "./services/meter-play";
 import { resumePausedPlaybook as resumePausedPlaybookService } from "./services/resume-paused-playbook";
 import { createResumePausedPlaybookDeps } from "./services/resume-paused-playbook-deps";
+import { markInboxDraftStale } from "./lib/draft-preview";
 import { captureVoiceCorrection } from "@/app/_features/me/actions/capture-voice-correction";
 import type { PlayRunRow, PlayRunState } from "./types";
 import type { ProfileFillRulesDocument, ProfilePlaybookSettings } from "./playbooks/records-engine/types";
@@ -129,6 +130,34 @@ async function transitionPlayRun(
         ? { dismiss_reason: extra.dismiss_reason }
         : undefined,
   });
+
+  // Earned-autonomy analytics (GROW): dismissing a paused playbook run counts
+  // against the approval rate for that playbook+tool, gating future autonomy
+  // offers. Autonomy offers aren't paused runs, so they're excluded here and
+  // routed through declineAutonomyOffer on their own path.
+  if (action === "dismiss" && existing.paused_for_approval) {
+    const sourceContext = existing.source_context as
+      | { playbook_slug?: string }
+      | null;
+    const approvalContext = existing.approval_context as
+      | { tool_slug?: string }
+      | null;
+    if (sourceContext?.playbook_slug && approvalContext?.tool_slug) {
+      const { recordActionDismissal } = await import(
+        "./services/earned-autonomy"
+      );
+      await recordActionDismissal(
+        workspace.id,
+        sourceContext.playbook_slug,
+        approvalContext.tool_slug
+      ).catch((err) => {
+        console.warn(
+          "[plays] failed to record earned-autonomy dismissal:",
+          err instanceof Error ? err.message : err
+        );
+      });
+    }
+  }
 
   revalidatePath("/hq");
   revalidatePath("/plays");
@@ -381,10 +410,20 @@ export async function editPlayRun(
     return { ok: false, errorCode: "NOT_FOUND", message: "Play not found" };
   }
 
+  const stale = markInboxDraftStale(
+    existing.metadata,
+    existing.approval_context ?? null,
+    draftBody
+  );
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("play_runs")
-    .update({ draft_body: draftBody, updated_at: new Date().toISOString() })
+    .update({
+      draft_body: draftBody,
+      metadata: stale.metadata,
+      approval_context: stale.approval_context,
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", id)
     .eq("workspace_id", workspace.id)
     .select("*")

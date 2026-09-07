@@ -106,7 +106,8 @@ export async function runEmailTriageHook(params: {
       thread_id: envelope.threadId,
       sender_email: (extracted.sender_email as string) ?? null,
       subject: (extracted.subject as string) ?? null,
-    }
+    },
+    playbook.definition.slug
   );
 
   const result = await executePlaybookV2(playbook.definition, context);

@@ -216,20 +216,19 @@ function nextStepLabelFor(row: PlayActivityRunRow): string | null {
 
 function errorCopyFor(row: PlayActivityRunRow): {
   label: string | null;
-  detail: string | null;
 } {
   if (row.state !== "failed" && row.state !== "blocked") {
-    return { label: null, detail: null };
+    return { label: null };
   }
+  const fallback = row.state === "blocked" ? "Connector needs attention" : "Run failed";
   const raw = row.last_error;
   if (!raw) {
-    return {
-      label: row.state === "blocked" ? "Connector needs attention" : "Run failed",
-      detail: null,
-    };
+    return { label: fallback };
   }
+  // Raw vendor/platform error text is an ops signal (play_runs.last_error is
+  // queryable by the founder) — users get the friendly, actionable label only.
   const friendly = activityFriendlyError({ status: "error", error: raw });
-  return { label: friendly ?? raw, detail: raw };
+  return { label: friendly ?? fallback };
 }
 
 function approvalLabelFor(row: PlayActivityRunRow): string | null {
@@ -310,7 +309,6 @@ export function mapPlayRunToActivity(row: PlayActivityRunRow): PlayActivityItem 
     sources,
     durationMs: readDurationMs(row, events),
     errorLabel: errorCopy.label,
-    errorDetail: errorCopy.detail,
     nextStepLabel: nextStepLabelFor(row),
     etaLabel: row.eta_label,
     pausedForApproval: row.paused_for_approval === true,

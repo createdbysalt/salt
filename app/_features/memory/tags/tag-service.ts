@@ -11,6 +11,7 @@
  */
 
 import { createClient } from "@/app/_lib/supabase/server";
+import { getVerifiedWorkspaceMembership } from "@/app/_lib/tenancy/workspace-membership";
 import {
   normalizeTagSlug,
   normalizeTagLabel,
@@ -20,6 +21,21 @@ import {
 } from "./normalize";
 import { checkForDuplicate, type ExistingTag } from "./dedupe";
 import { fromUnitInterval } from "@/app/_features/memory/lib/confidence";
+
+type ServerSupabaseClient = Awaited<ReturnType<typeof createClient>>;
+
+// Canonical workspace resolution: user-scoped, oldest membership first,
+// maybeSingle — safe for accounts with multiple workspace memberships.
+async function getCurrentWorkspaceId(
+  supabase: ServerSupabaseClient,
+): Promise<string | null> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+  const membership = await getVerifiedWorkspaceMembership(user.id, supabase);
+  return membership?.id ?? null;
+}
 
 // ============================================================================
 // TYPES
@@ -85,19 +101,16 @@ export async function getTags(options?: {
 }): Promise<{ success: boolean; data: WorkspaceTag[]; error?: string }> {
   const supabase = await createClient();
 
-  const { data: member } = await supabase
-    .from("workspace_members")
-    .select("workspace_id")
-    .single();
+  const workspaceId = await getCurrentWorkspaceId(supabase);
 
-  if (!member) {
+  if (!workspaceId) {
     return { success: false, data: [], error: "No workspace found" };
   }
 
   let query = supabase
     .from("workspace_tags")
     .select("*")
-    .eq("workspace_id", member.workspace_id)
+    .eq("workspace_id", workspaceId)
     .order("sort_order");
 
   if (!options?.includeArchived) {
@@ -157,12 +170,9 @@ export async function createTag(input: {
 }): Promise<CreateTagResult> {
   const supabase = await createClient();
 
-  const { data: member } = await supabase
-    .from("workspace_members")
-    .select("workspace_id")
-    .single();
+  const workspaceId = await getCurrentWorkspaceId(supabase);
 
-  if (!member) {
+  if (!workspaceId) {
     return { success: false, error: "No workspace found" };
   }
 
@@ -176,7 +186,7 @@ export async function createTag(input: {
   const { data: existingTags } = await supabase
     .from("workspace_tags")
     .select("id, slug, label, is_archived")
-    .eq("workspace_id", member.workspace_id);
+    .eq("workspace_id", workspaceId);
 
   const existing: ExistingTag[] = (existingTags ?? []).map((t) => ({
     id: t.id,
@@ -219,7 +229,7 @@ export async function createTag(input: {
   const { data, error } = await supabase
     .from("workspace_tags")
     .insert({
-      workspace_id: member.workspace_id,
+      workspace_id: workspaceId,
       slug,
       label,
       scope: input.scope ?? "all",
@@ -256,19 +266,16 @@ export async function createTagFromAI(input: {
 }): Promise<CreateTagResult> {
   const supabase = await createClient();
 
-  const { data: member } = await supabase
-    .from("workspace_members")
-    .select("workspace_id")
-    .single();
+  const workspaceId = await getCurrentWorkspaceId(supabase);
 
-  if (!member) {
+  if (!workspaceId) {
     return { success: false, error: "No workspace found" };
   }
 
   const { data: settings } = await supabase
     .from("profile_playbook_settings")
     .select("tag_auto_create_threshold, tag_max_ai_created")
-    .eq("workspace_id", member.workspace_id)
+    .eq("workspace_id", workspaceId)
     .single();
 
   const threshold = settings?.tag_auto_create_threshold ?? 0.8;
@@ -285,7 +292,7 @@ export async function createTagFromAI(input: {
   const { count } = await supabase
     .from("workspace_tags")
     .select("id", { count: "exact", head: true })
-    .eq("workspace_id", member.workspace_id)
+    .eq("workspace_id", workspaceId)
     .eq("is_system", false)
     .eq("is_archived", false)
     .or(`scope.eq.${input.scope},scope.eq.all`);
@@ -457,12 +464,9 @@ export async function assignTag(input: {
 }): Promise<AssignTagResult> {
   const supabase = await createClient();
 
-  const { data: member } = await supabase
-    .from("workspace_members")
-    .select("workspace_id")
-    .single();
+  const workspaceId = await getCurrentWorkspaceId(supabase);
 
-  if (!member) {
+  if (!workspaceId) {
     return { success: false, error: "No workspace found" };
   }
 
@@ -485,7 +489,7 @@ export async function assignTag(input: {
   const { data, error } = await supabase
     .from("entity_tag_assignments")
     .insert({
-      workspace_id: member.workspace_id,
+      workspace_id: workspaceId,
       entity_type: input.entityType,
       entity_id: input.entityId,
       tag_id: input.tagId,

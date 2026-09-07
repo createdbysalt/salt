@@ -20,7 +20,7 @@ Subcommands: `add <names...>` | `classify [toolkit]` | `audit [name]` | `test [n
 | Catalog + overrides + classifications | DB tables `connector_catalog`, `connector_overrides`, `tool_classifications` (staging `<project-ref>`) |
 | DB accessors (runtime) | `app/_lib/composio/connector-registry.ts` |
 | Sync job (mirrors Composio, drift detection) | `app/_lib/composio/catalog-sync.ts` + `/api/cron/connector-catalog-sync` |
-| Review queue UI (human classification verdicts) | `/admin/connectors` (PLATFORM_ADMIN_EMAILS-gated) |
+| Review queue UI (human classification verdicts) | `/ops/connectors/review` (PLATFORM_ADMIN_EMAILS-gated) |
 | Execution gate (fail closed on classifications) | `app/_lib/composio/actions.ts` + `classification-store.ts` |
 | Frozen seed sources (NEVER add entries here) | `connector-catalog.ts`, `providers.ts` — banner-marked SEED SOURCE ONLY |
 | Icon assets / registration | `public/connectors/<id>.png` / `connector-icons.tsx` |
@@ -41,14 +41,14 @@ For EACH connector (batch — never one message per app):
    - `connector_overrides`: tier (`catalog_only` default; `action` only when tools will be classified now), auth_config_id, `auth_config_env_var` = `COMPOSIO_<KEY>_AUTH_CONFIG_ID`, api_key_field_name for api_key connectors (`generic_api_key` default; `bearer_token` for Vercel/Meta-style).
 4. **Sync**: trigger `/api/cron/connector-catalog-sync` (CRON_SECRET) or run `runCatalogSync()` so tools/triggers mirror in. New tools land `unclassified` (unusable — correct).
 5. **Icon**: `fetch-connector-brands.mjs` → `public/connectors/<id>.png` → register in `connector-icons.tsx` (the one remaining code touch, display-only).
-6. **Classify** (only if tier=action): point the user at `/admin/connectors` or run `classify`.
+6. **Classify** (only if tier=action): point the user at `/ops/connectors/review` or run `classify`.
 
 Report a table: connector | toolkit ✓ | auth config ✓ | DB rows ✓ | synced tools N | icon ✓ | tier.
 
 ## Subcommand: `classify [toolkit]`
 
 1. Confirm sync has run for the toolkit (`connector_tools` rows exist).
-2. "Propose next batch" in `/admin/connectors` runs the LLM pass (`proposeClassifications()`); proposals are NOT approvals.
+2. "Propose next batch" in `/ops/connectors/review` runs the LLM pass (`proposeClassifications()`); proposals are NOT approvals.
 3. The human approves per tool (risk class + confirm-each-run). NEVER approve on the user's behalf — the fail-closed pipeline IS the safety model.
 4. Verify: an approved read tool executes through the gate; an unclassified sibling is blocked.
 

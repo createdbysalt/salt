@@ -8,7 +8,13 @@ type AdminClient = ReturnType<typeof createAdminClient>;
 export interface KnownWorkspaceEntities {
   orgs: Array<{ id: string; name: string; domain: string | null }>;
   works: Array<{ id: string; name: string }>;
-  people: Array<{ id: string; name: string | null; email: string | null }>;
+  people: Array<{
+    id: string;
+    name: string | null;
+    email: string | null;
+    /** Every known address (person_emails), lowercased — includes `email`. */
+    emails: string[];
+  }>;
   meetingCaptures: Array<{ id: string; title: string; start: string | null }>;
 }
 
@@ -29,7 +35,7 @@ export async function loadKnownWorkspaceEntities(
   admin: AdminClient,
   workspaceId: string
 ): Promise<KnownWorkspaceEntities> {
-  const [orgsResult, worksResult, peopleResult, meetingsResult] =
+  const [orgsResult, worksResult, peopleResult, meetingsResult, personEmailsResult] =
     await Promise.all([
       admin
         .from("organizations")
@@ -52,6 +58,10 @@ export async function loadKnownWorkspaceEntities(
         .eq("workspace_id", workspaceId)
         .eq("capture_type", "meeting")
         .limit(200),
+      admin
+        .from("person_emails")
+        .select("person_id, email")
+        .eq("workspace_id", workspaceId),
     ]);
 
   const meetingCaptures =
@@ -64,10 +74,29 @@ export async function loadKnownWorkspaceEntities(
       };
     }) ?? [];
 
+  // Identity set per person: every known address, so a sender at their
+  // second email still resolves to the same record.
+  const emailsByPerson = new Map<string, Set<string>>();
+  for (const row of personEmailsResult.data ?? []) {
+    const set = emailsByPerson.get(row.person_id as string) ?? new Set<string>();
+    set.add((row.email as string).toLowerCase());
+    emailsByPerson.set(row.person_id as string, set);
+  }
+
+  const people = ((peopleResult.data ?? []) as Array<{
+    id: string;
+    name: string | null;
+    email: string | null;
+  }>).map((person) => {
+    const emails = emailsByPerson.get(person.id) ?? new Set<string>();
+    if (person.email) emails.add(person.email.toLowerCase());
+    return { ...person, emails: [...emails] };
+  });
+
   return {
     orgs: (orgsResult.data ?? []) as KnownWorkspaceEntities["orgs"],
     works: (worksResult.data ?? []) as KnownWorkspaceEntities["works"],
-    people: (peopleResult.data ?? []) as KnownWorkspaceEntities["people"],
+    people,
     meetingCaptures,
   };
 }
@@ -152,7 +181,9 @@ function resolveSingleProposal(
 
   if (proposal.surface === "people" && context?.fromEmail) {
     const email = context.fromEmail.toLowerCase();
-    const match = entities.people.find((p) => p.email?.toLowerCase() === email);
+    const match = entities.people.find(
+      (p) => p.emails.includes(email) || p.email?.toLowerCase() === email,
+    );
     if (match) {
       return {
         ...proposal,

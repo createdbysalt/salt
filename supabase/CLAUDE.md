@@ -34,6 +34,32 @@ ALTER TABLE projects
   REFERENCES workspaces(id) ON DELETE CASCADE;  -- Explicit behavior
 ```
 
+### GRANT Rule (learned the hard way — 2026-08-29, three times in one day)
+
+**Every `CREATE TABLE` migration MUST include table-level GRANTs in the same file.**
+Default privileges do not cover migration-created tables, so without explicit
+GRANTs every PostgREST read fails with `42501 permission denied for table` —
+service_role included. `tool_capabilities`, `correction_events`, and
+`playbook_definitions` all shipped without GRANTs on 2026-08-29 and each
+needed a same-day repair migration.
+
+```sql
+-- ✅ Required pattern for a new tenant-scoped table
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.my_table TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.my_table TO service_role;
+
+-- ✅ Plus an in-migration assertion so a silent no-op fails the push
+DO $$
+BEGIN
+  IF NOT has_table_privilege('service_role', 'public.my_table', 'SELECT') THEN
+    RAISE EXCEPTION 'service_role still lacks SELECT on my_table';
+  END IF;
+END $$;
+```
+
+Enforced by `pnpm check:migrations` (`scripts/check-migration-grants.mts`),
+which fails if any migration creates a table without granting on it.
+
 ### Environment Truth (updated 2026-08-07)
 
 Two Supabase projects exist, both now receiving migrations:

@@ -1,118 +1,152 @@
 #!/usr/bin/env tsx
 /**
- * Scaffold a new playbook directory with starter files.
+ * Scaffold a new v2 playbook package with the full contract:
  *
- * Usage: pnpm playbooks:new <slug>
+ *   app/_features/plays/playbooks/v2/<section>/<slug>/
+ *   ├── definition.yaml   — the definition (schema-validated)
+ *   ├── PLAYBOOK.md       — author doc (intent, decisions, edge cases)
+ *   └── evals/
+ *       └── smoke.yaml    — starter scenario for the shared eval runner
+ *
+ * Usage: pnpm playbooks:new <section> <slug>
+ * Read v2/AUTHORING.md before filling the files in.
  */
 
 import fs from "node:fs";
 import path from "node:path";
 
-const PLAYBOOKS_ROOT = path.join(process.cwd(), "app/_features/plays/playbooks");
+const V2_ROOT = path.join(process.cwd(), "app/_features/plays/playbooks/v2");
 
-const PLAYBOOK_TEMPLATE = `---
-slug: {{slug}}
+const SECTIONS = [
+  "relationships",
+  "work",
+  "billing",
+  "resources",
+  "meetings",
+  "me",
+  "connections",
+  "notes",
+  "communication",
+] as const;
+
+const DEFINITION_TEMPLATE = `# {{name}}
+# <one line: what it does for the owner, and the outcome it produces>
+
 name: {{name}}
-kind: acting
-player_slug: follow-up
-description: Brief description of what this playbook does.
-when_to_use: |
-  Describe when Salt should suggest this playbook.
-  Include trigger conditions and context.
+slug: {{slug}}
+version: 1.0.0
+description: <plain-language description — shown on the play card>
+
+section: {{section}}
+layer: act
+voice: {{section}}
+
+# Pick one trigger kind. Record conditions validate against the Memory field
+# registry; signals validate against the signal registry.
 trigger:
   type: manual
-consent:
-  approval_required: true
----
 
-## What this does
+# User-tunable knobs, referenced as {{settings.key}} in prompts and rules.
+# List keys the trigger section should render under trigger.adjust.
+# settings:
+#   threshold_days:
+#     type: number
+#     label: "Wait {value} days"
+#     default: 7
 
-Explain the purpose and outcome of this playbook.
+# App categories the play needs (schema-validated). The Overview tab renders
+# these as "What it needs" with per-app toggles.
+requirements:
+  categories:
+    required:
+      - billing
 
-## When it runs
+# Single-document canon: every tool the play can reach. Slugs must exist in
+# app/_lib/composio/tool-slugs.ts.
+tools:
+  - STRIPE_LIST_INVOICES
 
-- Trigger condition 1
-- Trigger condition 2
+steps:
+  - step: fetch
+    id: example_fetch
+    from: billing.read_invoices
+    approval: auto
 
-## How it works
+  - step: draft
+    id: example_draft
+    prompt: |
+      Summarize what you found in {{example_fetch}} for the owner.
+    max_tokens: 300
+    approval: auto
 
-1. First step explanation
-2. Second step explanation
-3. Final step explanation
+output:
+  type: notification
+  approval: ask
 
-## What you approve
+value:
+  kind: time_saved
+  estimate: 10
 
-Describe what the user is approving before execution.
-
-\`\`\`json
-{
-  "version": 1,
-  "steps": [
-    {
-      "kind": "fetch",
-      "tool": "TOOL_SLUG_HERE",
-      "params": {},
-      "bind": "data"
-    },
-    {
-      "kind": "guard",
-      "path": "data.condition",
-      "op": "eq",
-      "value": true
-    },
-    {
-      "kind": "render",
-      "template": "Hello {{run.recipient_label}}",
-      "bind": "body"
-    },
-    {
-      "kind": "act",
-      "tool": "TOOL_SLUG_HERE",
-      "params": { "body": "{{body}}" }
-    }
-  ]
-}
-\`\`\`
+instructions:
+  system: |
+    <who the agent is, who it serves, what good looks like — the why, not a
+    list of MUSTs>
+  guidelines:
+    - "<behavioral guidance in imperative voice>"
+  avoid:
+    - "<specific failure mode to steer away from>"
+  examples:
+    - label: "<scenario name>"
+      content: "<input sketch → expected behavior>"
 `;
 
-const EVALS_TEMPLATE = `{
-  "playbook_slug": "{{slug}}",
-  "evals": [
-    {
-      "id": "basic-execution",
-      "name": "Executes under normal conditions",
-      "input": {
-        "run": {
-          "title": "Test Run",
-          "recipient_label": "Test User"
-        }
-      },
-      "mocks": {
-        "TOOL_SLUG_HERE": { "condition": true }
-      },
-      "assertions": [
-        { "type": "bound_contains", "bind": "body", "substring": "Test User" },
-        { "type": "act_executed", "tool": "TOOL_SLUG_HERE" }
-      ]
-    },
-    {
-      "id": "guard-skips",
-      "name": "Skips when guard condition not met",
-      "input": {
-        "run": {
-          "title": "Test Run",
-          "recipient_label": "Test User"
-        }
-      },
-      "mocks": {
-        "TOOL_SLUG_HERE": { "condition": false }
-      },
-      "assertions": [
-        { "type": "guard_skipped", "index": 1 }
-      ]
-    }
-  ]
-}
+const PLAYBOOK_MD_TEMPLATE = `# {{name}} — author notes
+
+> Author-only doc. The user-facing Overview is generated from
+> definition.yaml — keep the definition truthful and this file for context
+> that doesn't belong in the product: intent, trade-offs, edge cases.
+
+## Intent
+
+<What problem does this play solve? Why does it exist?>
+
+## Decisions
+
+- <Non-obvious choice and its reasoning>
+
+## Edge cases
+
+- <Known near-miss: what should NOT fire, and how the play avoids it>
+
+## Eval coverage
+
+| Scenario | Near-miss? | What it locks in |
+|----------|-----------|------------------|
+| smoke    | no        | Happy path runs end to end |
+`;
+
+const EVAL_TEMPLATE = `# Starter scenario — run with: pnpm test (evals.runner.test.ts picks it up)
+# given.memory  — fetchMemorySource payloads, keyed by memory capability
+# given.fetch   — connector fetch data, keyed by fetch-step id
+# given.agent   — agent-step answers in execution order
+# given.draft   — draft-step texts in execution order
+# expect.steps  — per-step status (branch children included)
+id: smoke
+name: Happy path runs end to end
+given:
+  fetch:
+    example_fetch:
+      - id: "example-1"
+        name: "Example record"
+  draft:
+    - step: example_draft
+      text: "Summary for the owner."
+expect:
+  status: success
+  outputCount: 1
+  steps:
+    example_fetch: success
+    example_draft: success
 `;
 
 function toTitleCase(slug: string): string {
@@ -123,19 +157,28 @@ function toTitleCase(slug: string): string {
 }
 
 function usage(): never {
-  console.error("Usage: pnpm playbooks:new <slug>");
+  console.error("Usage: pnpm playbooks:new <section> <slug>");
+  console.error("");
+  console.error(`Sections: ${SECTIONS.join(", ")}`);
   console.error("");
   console.error("Examples:");
-  console.error("  pnpm playbooks:new client-onboarding");
-  console.error("  pnpm playbooks:new invoice-follow-up");
+  console.error("  pnpm playbooks:new billing invoice-follow-up");
+  console.error("  pnpm playbooks:new relationships client-onboarding");
   process.exit(1);
 }
 
 function main() {
-  const slug = process.argv[2];
+  const section = process.argv[2];
+  const slug = process.argv[3];
 
-  if (!slug) {
+  if (!section || !slug) {
     usage();
+  }
+
+  if (!(SECTIONS as readonly string[]).includes(section)) {
+    console.error(`Invalid section: "${section}"`);
+    console.error(`Sections: ${SECTIONS.join(", ")}`);
+    process.exit(1);
   }
 
   if (!/^[a-z][a-z0-9-]*$/.test(slug)) {
@@ -150,7 +193,7 @@ function main() {
     process.exit(1);
   }
 
-  const dir = path.join(PLAYBOOKS_ROOT, slug);
+  const dir = path.join(V2_ROOT, section, slug);
 
   if (fs.existsSync(dir)) {
     console.error(`Directory already exists: ${dir}`);
@@ -158,21 +201,27 @@ function main() {
   }
 
   const name = toTitleCase(slug);
-  const playbookContent = PLAYBOOK_TEMPLATE.replace(/\{\{slug\}\}/g, slug).replace(/\{\{name\}\}/g, name);
-  const evalsContent = EVALS_TEMPLATE.replace(/\{\{slug\}\}/g, slug);
+  const fill = (template: string) =>
+    template
+      .replace(/\{\{slug\}\}/g, slug)
+      .replace(/\{\{name\}\}/g, name)
+      .replace(/\{\{section\}\}/g, section);
 
-  fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(path.join(dir, "playbook.md"), playbookContent);
-  fs.writeFileSync(path.join(dir, "evals.json"), evalsContent);
+  fs.mkdirSync(path.join(dir, "evals"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "definition.yaml"), fill(DEFINITION_TEMPLATE));
+  fs.writeFileSync(path.join(dir, "PLAYBOOK.md"), fill(PLAYBOOK_MD_TEMPLATE));
+  fs.writeFileSync(path.join(dir, "evals", "smoke.yaml"), fill(EVAL_TEMPLATE));
 
-  console.log(`✓ Created ${slug}/`);
-  console.log(`  - playbook.md`);
-  console.log(`  - evals.json`);
+  console.log(`✓ Created ${section}/${slug}/`);
+  console.log(`  - definition.yaml`);
+  console.log(`  - PLAYBOOK.md`);
+  console.log(`  - evals/smoke.yaml`);
   console.log("");
   console.log("Next steps:");
-  console.log(`  1. Edit ${dir}/playbook.md`);
-  console.log(`  2. Update evals.json with real test cases`);
-  console.log(`  3. Run: pnpm playbooks:compile`);
+  console.log(`  1. Read app/_features/plays/playbooks/v2/AUTHORING.md`);
+  console.log(`  2. Fill in ${dir}/definition.yaml`);
+  console.log(`  3. Run: pnpm playbooks:validate`);
+  console.log(`  4. Run: pnpm test -- evals.runner`);
 }
 
 main();

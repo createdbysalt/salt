@@ -72,6 +72,19 @@ export type AttachArtifactResult =
     }
   | { success: false; error: string };
 
+// entity_links.source has a narrower vocabulary than resources.source —
+// CHECK (source IN ('manual','care','system')) since
+// 20260807080000_retire_keeper_vocabulary.sql. Map the wider ResourceSource
+// onto it: capture is automatic sync, enrichment is a care-layer write, and
+// ask_salt is user-initiated.
+const LINK_SOURCE: Record<ResourceSource, "manual" | "care" | "system"> = {
+  manual: "manual",
+  care: "care",
+  enrichment: "care",
+  ask_salt: "manual",
+  capture: "system",
+};
+
 export async function attachArtifactToEntity(
   supabase: SupabaseClient<Database>,
   input: AttachArtifactInput,
@@ -177,7 +190,7 @@ export async function attachArtifactToEntity(
       target_type: input.targetType,
       target_id: input.targetId,
       relation_type: "attachment",
-      source: input.source,
+      source: LINK_SOURCE[input.source],
       confidence: input.confidence,
       because: input.because,
     });

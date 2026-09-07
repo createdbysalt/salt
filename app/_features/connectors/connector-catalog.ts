@@ -88,6 +88,11 @@ const PHASE_2_CONNECTORS: readonly Phase2ConnectorSpec[] = [
     description: "Bookkeeping: invoices, expenses, and cash flow in view",
     category: "payments",
     authMethod: "oauth",
+    // Scope caveat (verified live 2026-08-06): the Composio QuickBooks
+    // toolkit exposes no invoice or payment read tools — only the open
+    // customer-balance report. Say so before the operator connects.
+    connectHelp:
+      "Salt watches your **open invoices and customer balances**.\n\nPaid invoices and standalone payments aren't readable through the current QuickBooks connection, so an invoice leaves view once it's paid.",
   },
   {
     id: "square",

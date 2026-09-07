@@ -1,0 +1,39 @@
+# Quiet week: no meetings, nothing due, nothing blocked → the brief still
+# ships (the habit is the product), focused on outreach.
+id: quiet-week
+name: Nothing on the calendar and nothing due → short outreach brief
+given:
+  fetch:
+    cash_position:
+      balance_cents: 980000
+      weekly_burn_cents: 120000
+    upcoming_receivables:
+      total_cents: 0
+      invoices: []
+    quiet_clients:
+      - id: person-4
+        name: Priya Shah
+        relationship_type: client
+        last_contact_at: "2026-07-25T00:00:00Z"
+        days_since_contact: 42
+      - id: person-7
+        name: Marco Ruiz
+        relationship_type: prospect
+        last_contact_at: "2026-08-01T00:00:00Z"
+        days_since_contact: 35
+  agent:
+    - step: week_ahead
+      text: "Calendar checked: no events this week. No invoices due. VERDICT: READY — quiet week confirmed against the calendar"
+  draft:
+    - step: weekly_brief
+      text: "Cash: $9,800 balance, about 8 weeks of runway. Pipeline: nothing due this week; Priya Shah (42 days quiet) and Marco Ruiz (35 days) are worth a nudge. Week ahead: no meetings on the calendar. Top 3: reach out to Priya, follow up with Marco, send September invoices early."
+expect:
+  status: success
+  outputCount: 1
+  steps:
+    cash_position: success
+    upcoming_receivables: success
+    blocked_work: success
+    quiet_clients: success
+    week_ahead: success
+    weekly_brief: success

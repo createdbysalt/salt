@@ -1,0 +1,38 @@
+# Good payer, 10 days overdue → gentle draft, paused for human approval.
+id: proceed-good-payer
+name: 10 days overdue, good history → gentle draft, paused for approval
+given:
+  memory:
+    billing_record_context:
+      invoice:
+        number: INV-104
+        amount_cents: 150000
+        amount_paid_cents: 0
+        days_overdue: 10
+        due_at: "2026-08-19T00:00:00Z"
+        pay_url: "https://invoice.stripe.com/i/acct_test/in_104"
+      client:
+        name: Anna
+        email: anna@acme.com
+      payment_history:
+        on_time: 5
+        late: 0
+      open_invoices:
+        - number: INV-104
+          amount_remaining_cents: 150000
+          days_overdue: 10
+  agent:
+    - step: verify_unpaid
+      text: "VERDICT: PROCEED — $1,500 remaining, 10 days overdue, no prior reminder"
+  draft:
+    - step: reminder_email
+      text: "Hi Anna — a friendly nudge that INV-104 ($1,500) is 10 days past due…"
+expect:
+  status: paused
+  pausedOnTool: GMAIL_SEND_EMAIL
+  steps:
+    invoice_context: success
+    verify_unpaid: success
+    tier: success
+    reminder_email: success
+    send_reminder: paused

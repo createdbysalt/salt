@@ -1,14 +1,16 @@
 # Playbook Troubleshooting Guide
 
-When playbooks don't appear in the UI, they failed Zod schema validation. The discovery system **silently drops invalid playbooks** — no errors are shown in the UI.
+When playbooks don't appear in the UI, they usually failed Zod schema validation. Discovery failures (validation errors, structural skips like a missing `_section.yaml`) are **platform-ops signals**: the founder sees them in the `/ops` dashboard's **Playbook library** section (see `docs/architecture/ops-ops.md`). Users can't fix repo YAML, so these are not product-facing.
+
+DB-backed user-authored definitions that fail re-validation (listed as `db:<slug>`) are the user's own drafts and may still surface in product UI; table-level permission errors (e.g. a missing GRANT — see `supabase/CLAUDE.md` "GRANT Rule") are platform-ops.
 
 ## Quick Diagnosis
 
 ```bash
-# Check what's actually being discovered
-curl http://localhost:3000/api/debug/playbooks | jq '.allErrors'
+# Founder-gated (PLATFORM_ADMIN_EMAILS); 404 for anyone else
+curl -H "Cookie: <founder session>" http://localhost:3000/api/debug/playbooks | jq '.allErrors'
 
-# Or run the debug script
+# Or run the debug script (no auth needed — local process)
 pnpm tsx scripts/debug-playbook-discovery.ts
 ```
 
@@ -116,7 +118,8 @@ Before committing a new playbook:
    - `output` with valid `type`
    - `value.estimate` — non-negative integer minutes (if value block exists)
    - Every `action` step's `tool` is listed in the definition's `tools:` allowlist
-   - No memory-mutating tools (`memory_create_*`, `memory_update_*`, link/unlink) — rejected at parse
+   - Every `agent` step's `tools` entries are listed in the definition's `tools:` allowlist, and `max_calls` stays within the schema ceiling
+   - No memory-mutating tools (`memory_create_*`, `memory_update_*`, link/unlink) — rejected at parse, in action and agent steps alike
 
 ## Playbook runs but a step silently pauses
 
@@ -140,7 +143,7 @@ resume the exact pending call.
 
 ## Why This Happens
 
-The discovery system uses Zod for schema validation. Invalid playbooks are collected in an `errors` array but **not surfaced to the UI**. This is by design — we don't want broken playbooks crashing the app — but it means validation errors are invisible unless you check the debug endpoint.
+The discovery system uses Zod for schema validation. Invalid playbooks are collected in an `errors` array and surfaced two ways: the Playbooks tab warning banner (`discoveryIssues` on `PlaybookV2QueryResult`) for in-product visibility, and the debug endpoint for full depth. Broken playbooks still never crash the app or reach the executor — they're reported and excluded.
 
 ## Files
 

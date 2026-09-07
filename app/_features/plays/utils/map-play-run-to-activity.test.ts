@@ -137,11 +137,11 @@ describe("mapPlayRunToActivity", () => {
   });
 
   describe("detail fields", () => {
-    it("surfaces last_error for failed runs", () => {
+    it("keeps raw last_error out of user-facing copy for failed runs", () => {
       const item = mapPlayRunToActivity(
         run({ state: "failed", last_error: "TypeError: undefined is not a function" }),
       );
-      expect(item.errorDetail).toBe("TypeError: undefined is not a function");
+      expect(item.errorLabel).toBe("Something went wrong with this action.");
     });
 
     it("extracts the blocked cause and pending tool", () => {
@@ -153,7 +153,7 @@ describe("mapPlayRunToActivity", () => {
           approval_context: { tool_slug: "GMAIL_SEND_EMAIL", args: {}, step_index: 2 },
         }),
       );
-      expect(item.errorDetail).toBe("Toolkit disconnected");
+      expect(item.errorLabel).not.toBe("Toolkit disconnected");
       expect(item.nextStepLabel).toContain("Send Email");
     });
 
@@ -346,14 +346,13 @@ describe("mapPlayRunToActivity", () => {
       expect(mapPlayRunToActivity(run()).channelLabel).toBe("Gmail");
     });
 
-    it("translates quota errors into plain language, keeping the raw detail", () => {
+    it("translates quota errors into plain language without the raw detail", () => {
       const item = mapPlayRunToActivity(
         run({ state: "failed", last_error: "Gmail API quota exceeded" }),
       );
       expect(item.errorLabel).toBe(
         "The provider was busy and asked Salt to slow down. It'll retry later.",
       );
-      expect(item.errorDetail).toBe("Gmail API quota exceeded");
     });
 
     it("translates expired-connection errors for blocked runs", () => {
@@ -363,7 +362,6 @@ describe("mapPlayRunToActivity", () => {
       expect(item.errorLabel).toBe(
         "The connection may have expired. Please reconnect to fix it.",
       );
-      expect(item.errorDetail).toBe("gmail connection expired");
     });
   });
 

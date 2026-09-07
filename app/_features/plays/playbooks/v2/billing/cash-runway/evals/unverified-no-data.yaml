@@ -1,0 +1,24 @@
+# Degrade toward the human: billing app unreachable → the brief still
+# ships from Salt's rollups, marked as estimates, with a reconnect note.
+id: unverified-no-data
+name: Billing app unreachable → degraded brief marked as estimates
+given:
+  fetch:
+    cash_position:
+      balance_cents: 920000
+      weekly_burn_cents: 180000
+  agent:
+    - step: verify_outlook
+      text: "Stripe balance lookup failed (app disconnected); could not confirm open invoices or renewals.\nVERDICT: UNVERIFIED — balance and receivables not checked against Stripe"
+  draft:
+    - step: cash_brief
+      text: "Runway: about 5.1 weeks (estimate — Stripe is disconnected, so the $9,200 balance and receivables are from Salt's records only). Reconnect Stripe to verify…"
+expect:
+  status: success
+  outputCount: 1
+  steps:
+    cash_position: success
+    upcoming_receivables: success
+    recent_payments: success
+    verify_outlook: success
+    cash_brief: success

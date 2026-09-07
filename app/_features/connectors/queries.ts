@@ -1,6 +1,8 @@
 import "server-only";
 
 import { createClient } from "@/app/_lib/supabase/server";
+import { createAdminClient } from "@/app/_lib/supabase/admin";
+import { getVerifiedWorkspaceMembership } from "@/app/_lib/tenancy/workspace-membership";
 import { getConnectionStatus } from "@/app/_lib/composio/connections";
 import { getCaptureTriggerSpecs } from "@/app/_lib/composio/trigger-subscriptions";
 import { readCaptureScope } from "@/app/_lib/composio/capture-scope";
@@ -88,7 +90,10 @@ async function loadProviderSettings(
   workspaceId: string,
   providers: readonly string[],
 ): Promise<Record<string, ProviderSettings>> {
-  const supabase = await createClient();
+  // Admin client: callers include background contexts (tool execution, cron
+  // reconciliation, backfill scripts) where the request-scoped client's
+  // cookies() throws. Queries are explicitly workspace-scoped.
+  const supabase = createAdminClient();
   const { data: rows } = await supabase
     .from("workspace_integrations")
     .select("provider, config, trust_level, capture_enabled, created_at")
@@ -121,7 +126,9 @@ async function loadProviderSettings(
 export async function getWorkspaceTrustLevel(
   workspaceId: string,
 ): Promise<ConnectorTrustLevel> {
-  const supabase = await createClient();
+  // Admin client for the same background-context reason as
+  // loadProviderSettings above.
+  const supabase = createAdminClient();
   const { data } = await supabase
     .from("workspaces")
     .select("trust_level")
@@ -268,13 +275,9 @@ export async function getConnectorsPageData(): Promise<ConnectorsPageData> {
     };
   }
 
-  const { data: workspaceMember } = await supabase
-    .from("workspace_members")
-    .select("workspace_id")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const workspaceMember = await getVerifiedWorkspaceMembership(user.id, supabase);
 
-  const workspaceId = workspaceMember?.workspace_id ?? null;
+  const workspaceId = workspaceMember?.id ?? null;
 
   if (!workspaceId) {
     return {

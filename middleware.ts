@@ -2,6 +2,12 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getLegacyRedirect, isLegacyRoute } from "@/app/_features/shell/routes";
 import {
+  LP_VARIANT_COOKIE,
+  LP_VARIANT_HEADER,
+  pickLandingVariant,
+  resolveLandingVariant,
+} from "@/app/_features/marketing/landing2/landing-variants";
+import {
   getProductAuthRedirectPath,
   isProductAuthEnabled,
   shouldBlockProductAccess,
@@ -39,11 +45,14 @@ export async function middleware(request: NextRequest) {
   // Handle app subdomain
   // Routes are at root level (/hq, /people, /work)
   // Also supports app.lvh.me for local development
+  // Exact hostname match (port stripped): a substring check would treat
+  // attacker-supplied hosts like "app.usesalt.io.evil.com" as the app.
+  const hostname = host.split(":")[0]?.toLowerCase() ?? "";
   const isAppSubdomain =
-    host.includes("app.usesalt") ||
-    host.includes("app.staging.usesalt") ||
-    host.includes("app.localhost") ||
-    host.includes("app.lvh.me");
+    hostname === "app.usesalt.io" ||
+    hostname === "app.staging.usesalt.io" ||
+    hostname === "app.localhost" ||
+    hostname === "app.lvh.me";
 
   if (isAppSubdomain) {
     if (pathname === "/") {
@@ -73,13 +82,13 @@ export async function middleware(request: NextRequest) {
 
   // Handle retired client portal subdomains — land on Work.
   const isLegacyBridgeSubdomain =
-    host.includes("bridge.usesalt") ||
-    host.includes("bridge.localhost") ||
-    host.includes("bridge.lvh.me");
+    hostname === "bridge.usesalt.io" ||
+    hostname === "bridge.localhost" ||
+    hostname === "bridge.lvh.me";
   const isTableSubdomain =
-    host.includes("table.usesalt") ||
-    host.includes("table.localhost") ||
-    host.includes("table.lvh.me");
+    hostname === "table.usesalt.io" ||
+    hostname === "table.localhost" ||
+    hostname === "table.lvh.me";
 
   if (isLegacyBridgeSubdomain || isTableSubdomain) {
     const url = request.nextUrl.clone();
@@ -105,8 +114,42 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Use the supabase response (has auth cookies set properly)
-  const response = supabaseResponse;
+  // A/B test: assign a sticky landing-page copy variant on the marketing
+  // homepage. The chosen variant is forwarded to the RSC render via a request
+  // header (so the first paint matches) and persisted in a cookie for
+  // stickiness. Only runs on the public "/" — the app subdomain "/" already
+  // redirected above.
+  let landingVariantResponse: NextResponse | null = null;
+  if (!isAppSubdomain && pathname === "/") {
+    const existing = request.cookies.get(LP_VARIANT_COOKIE)?.value;
+    // Coerce through the allowlist rather than branching on the raw cookie:
+    // a tampered value falls back to the default variant instead of being
+    // trusted (and re-randomizes only when the cookie is absent entirely).
+    const variant =
+      existing === undefined || existing === null
+        ? pickLandingVariant()
+        : resolveLandingVariant(existing);
+
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set(LP_VARIANT_HEADER, variant);
+
+    landingVariantResponse = NextResponse.next({
+      request: { headers: requestHeaders },
+    });
+    copyAuthCookies(landingVariantResponse);
+
+    if (existing !== variant) {
+      landingVariantResponse.cookies.set(LP_VARIANT_COOKIE, variant, {
+        path: "/",
+        maxAge: 60 * 60 * 24 * 180, // 180 days
+        sameSite: "lax",
+      });
+    }
+  }
+
+  // Use the supabase response (has auth cookies set properly), unless the
+  // landing variant response replaced it (which already copied auth cookies).
+  const response = landingVariantResponse ?? supabaseResponse;
 
   // Security Headers
   // Reference: https://securityheaders.com/

@@ -43,8 +43,13 @@ export function assertComposioToolAllowed(
       ? options.policy
       : getComposioToolPolicy(toolSlug);
   if (!policy) {
+    // Covers both "never classified" and drift-disabled/rejected (the store
+    // collapses both to null). The copy names the system state — "pending
+    // security re-review" — never "not approved", which blames the user for
+    // a gate they can't see. (2026-09-06: a founder-approved send failed
+    // with the old copy after drift detection disabled the classification.)
     throw new Error(
-      `Composio tool not approved for execution (no approved classification): ${toolSlug}`,
+      `Composio tool ${toolSlug} is pending security re-review — Salt can't run it until the classification clears`,
     );
   }
 
@@ -361,10 +366,9 @@ export const composioToolInputSchemas: Record<string, z.ZodTypeAny> = {
   // --- Outlook
   [COMPOSIO_TOOL_SLUGS.OUTLOOK_GET_MESSAGE]: z.object({}).passthrough(),
   [COMPOSIO_TOOL_SLUGS.OUTLOOK_LIST_MESSAGES]: z.object({}).passthrough(),
-  // Current toolkit (verified live 2026-08-06) — the un-prefixed message
-  // reads above 404.
-  [COMPOSIO_TOOL_SLUGS.OUTLOOK_OUTLOOK_GET_MESSAGE]: z.object({}).passthrough(),
-  [COMPOSIO_TOOL_SLUGS.OUTLOOK_OUTLOOK_LIST_MESSAGES]: z.object({}).passthrough(),
+  // The OUTLOOK_OUTLOOK_* aliases resolve to the same live slugs as the
+  // canonical keys above (Composio reverted the double-prefix rework), so
+  // they are not separate entries — duplicate computed keys are a TS error.
   [COMPOSIO_TOOL_SLUGS.OUTLOOK_GET_EVENT]: z.object({}).passthrough(),
   [COMPOSIO_TOOL_SLUGS.OUTLOOK_GET_CALENDAR_VIEW]: z.object({}).passthrough(),
   [COMPOSIO_TOOL_SLUGS.OUTLOOK_SEND_EMAIL]: z.object({}).passthrough(),

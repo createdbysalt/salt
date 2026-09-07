@@ -226,6 +226,141 @@ describe("meeting duplicates", () => {
   });
 });
 
+describe("person name-similarity duplicates", () => {
+  beforeEach(() => {
+    filterCalls.length = 0;
+    for (const key of Object.keys(tableRows)) delete tableRows[key];
+  });
+
+  it("proposes a merge for subset names ('Lisa' ⊂ 'Jane Example') at medium confidence", async () => {
+    tableRows.people = [
+      { id: "p1", name: "Lisa", email: "lisa@studio.com" },
+      { id: "p2", name: "Jane Example", email: "ltrent@old-job.com" },
+    ];
+
+    const result = await memoryGetSimilarRecords({
+      workspaceId: "ws-1",
+      entityType: "person",
+      criteria: { checkName: true },
+    });
+
+    expect(result.matches).toHaveLength(1);
+    expect(result.matches[0]).toMatchObject({
+      entityType: "person",
+      signal: "person_duplicate_name_subset",
+      recordId: "p1",
+      matchedRecordId: "p2",
+      confidence: 70,
+    });
+    // Below the auto-apply bar — the user always approves name-only merges.
+    expect(result.matches[0].confidence).toBeLessThan(85);
+  });
+
+  it("correlates an email local part with the other record's name at high confidence", async () => {
+    tableRows.people = [
+      { id: "p1", name: "Jane Example", email: null },
+      { id: "p2", name: "Lisa", email: "jane.example@outlook.com" },
+    ];
+
+    const result = await memoryGetSimilarRecords({
+      workspaceId: "ws-1",
+      entityType: "person",
+      criteria: { checkName: true },
+    });
+
+    expect(result.matches).toHaveLength(1);
+    expect(result.matches[0]).toMatchObject({
+      signal: "person_duplicate_name_local_part",
+      confidence: 85,
+    });
+  });
+
+  it("reads local parts from the person_emails identity set, not just the primary", async () => {
+    tableRows.people = [
+      { id: "p1", name: "Jane Example", email: null },
+      { id: "p2", name: "Lisa", email: "lisa@studio.com" },
+    ];
+    tableRows.person_emails = [
+      { person_id: "p2", email: "lisa@studio.com" },
+      { person_id: "p2", email: "jane.example@outlook.com" },
+    ];
+
+    const result = await memoryGetSimilarRecords({
+      workspaceId: "ws-1",
+      entityType: "person",
+      criteria: { checkName: true },
+    });
+
+    expect(result.matches).toHaveLength(1);
+    expect(result.matches[0].signal).toBe("person_duplicate_name_local_part");
+  });
+
+  it("proposes exact-name different-email pairs at high confidence", async () => {
+    tableRows.people = [
+      { id: "p1", name: "Jane Example", email: "lisa@studio.com" },
+      { id: "p2", name: "Jane Example", email: "jane.example@outlook.com" },
+    ];
+
+    const result = await memoryGetSimilarRecords({
+      workspaceId: "ws-1",
+      entityType: "person",
+      criteria: { checkName: true },
+    });
+
+    expect(result.matches).toHaveLength(1);
+    expect(result.matches[0]).toMatchObject({
+      signal: "person_duplicate_name_exact",
+      confidence: 85,
+    });
+  });
+
+  it("does not pair people who merely share a first name", async () => {
+    tableRows.people = [
+      { id: "p1", name: "Maria Garcia", email: null },
+      { id: "p2", name: "Maria Lopez", email: null },
+    ];
+
+    const result = await memoryGetSimilarRecords({
+      workspaceId: "ws-1",
+      entityType: "person",
+      criteria: { checkName: true },
+    });
+
+    expect(result.matches).toHaveLength(0);
+  });
+
+  it("ignores single-token local parts ('lisa@' correlating with every Lisa)", async () => {
+    tableRows.people = [
+      { id: "p1", name: "Jane Example", email: null },
+      { id: "p2", name: "Jane Exampleon", email: "jane@outlook.com" },
+    ];
+
+    const result = await memoryGetSimilarRecords({
+      workspaceId: "ws-1",
+      entityType: "person",
+      criteria: { checkName: true },
+    });
+
+    expect(result.matches).toHaveLength(0);
+  });
+
+  it("does not re-emit a pair already caught by the exact-email signal", async () => {
+    tableRows.people = [
+      { id: "p1", name: "Jane Example", email: "lisa@studio.com" },
+      { id: "p2", name: "Jane Example", email: "lisa@studio.com" },
+    ];
+
+    const result = await memoryGetSimilarRecords({
+      workspaceId: "ws-1",
+      entityType: "person",
+      criteria: { checkEmail: true, checkName: true },
+    });
+
+    expect(result.matches).toHaveLength(1);
+    expect(result.matches[0].signal).toBe("person_duplicate_email");
+  });
+});
+
 describe("duplicate detection confidence rules", () => {
   it("exact email match should be 98% confidence", () => {
     const confidence = 98;

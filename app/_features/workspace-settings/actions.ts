@@ -135,7 +135,9 @@ export async function updateWorkspaceProfile(
       .from("workspace_members")
       .select("workspace_id, role")
       .eq("user_id", user.id)
-      .single();
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
 
     if (!member) return { error: "Workspace not found" };
     if (!["owner", "admin"].includes(member.role)) {
@@ -266,7 +268,9 @@ export async function updateWorkspaceLegalAddress(input: {
       .from("workspace_members")
       .select("workspace_id, role")
       .eq("user_id", user.id)
-      .single();
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
 
     if (!member) return { error: "Workspace not found" };
     if (!["owner", "admin"].includes(member.role)) {
@@ -387,7 +391,9 @@ export async function updateStudioBrandConfig(
       .from("workspace_members")
       .select("workspace_id, role")
       .eq("user_id", user.id)
-      .single();
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
 
     if (!member) return { error: "Workspace not found" };
     if (!["owner", "admin"].includes(member.role)) {
@@ -464,7 +470,9 @@ export async function createStudioService(
       .from("workspace_members")
       .select("workspace_id, role")
       .eq("user_id", user.id)
-      .single();
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
 
     if (!member) return { error: "Workspace not found" };
     if (!["owner", "admin", "member"].includes(member.role)) {
@@ -530,7 +538,9 @@ export async function updateStudioService(
       .from("workspace_members")
       .select("workspace_id, role")
       .eq("user_id", user.id)
-      .single();
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
 
     if (!member) return { error: "Workspace not found" };
     if (!["owner", "admin", "member"].includes(member.role)) {
@@ -581,7 +591,9 @@ export async function deleteStudioService(serviceId: string) {
       .from("workspace_members")
       .select("workspace_id, role")
       .eq("user_id", user.id)
-      .single();
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
 
     if (!member) return { error: "Workspace not found" };
     if (!["owner", "admin", "member"].includes(member.role)) {
@@ -634,7 +646,9 @@ export async function createServiceRelationship(
       .from("workspace_members")
       .select("workspace_id, role")
       .eq("user_id", user.id)
-      .single();
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
 
     if (!member) return { error: "Workspace not found" };
     if (!["owner", "admin"].includes(member.role)) {
@@ -695,7 +709,9 @@ export async function updateServiceRelationship(
       .from("workspace_members")
       .select("workspace_id, role")
       .eq("user_id", user.id)
-      .single();
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
 
     if (!member) return { error: "Workspace not found" };
     if (!["owner", "admin"].includes(member.role)) {
@@ -749,7 +765,9 @@ export async function deleteServiceRelationship(relationshipId: string) {
       .from("workspace_members")
       .select("workspace_id, role")
       .eq("user_id", user.id)
-      .single();
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
 
     if (!member) return { error: "Workspace not found" };
     if (!["owner", "admin"].includes(member.role)) {
@@ -846,7 +864,9 @@ export async function updateServiceSalesContext(
       .from("workspace_members")
       .select("workspace_id, role")
       .eq("user_id", user.id)
-      .single();
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
 
     if (!member) return { error: "Workspace not found" };
     if (!["owner", "admin"].includes(member.role)) {
@@ -892,7 +912,9 @@ export async function updateServicePricingIntelligence(
       .from("workspace_members")
       .select("workspace_id, role")
       .eq("user_id", user.id)
-      .single();
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
 
     if (!member) return { error: "Workspace not found" };
     if (!["owner", "admin"].includes(member.role)) {
@@ -938,7 +960,9 @@ export async function updateServiceAIGenerationContext(
       .from("workspace_members")
       .select("workspace_id, role")
       .eq("user_id", user.id)
-      .single();
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
 
     if (!member) return { error: "Workspace not found" };
     if (!["owner", "admin"].includes(member.role)) {
@@ -982,7 +1006,9 @@ export async function updateServiceIsBundle(
       .from("workspace_members")
       .select("workspace_id, role")
       .eq("user_id", user.id)
-      .single();
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
 
     if (!member) return { error: "Workspace not found" };
     if (!["owner", "admin"].includes(member.role)) {
@@ -1031,7 +1057,9 @@ export async function updateServiceDeliverables(
       .from("workspace_members")
       .select("workspace_id, role")
       .eq("user_id", user.id)
-      .single();
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
 
     if (!member) return { error: "Workspace not found" };
     if (!["owner", "admin"].includes(member.role)) {
@@ -1089,7 +1117,9 @@ export async function createContractTemplate(
       .from("workspace_members")
       .select("workspace_id:workspace_id, role")
       .eq("user_id", user.id)
-      .single();
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
 
     if (!member) return { error: "Workspace not found" };
     if (!["owner", "admin", "member"].includes(member.role)) {
@@ -1155,7 +1185,9 @@ export async function updateContractTemplate(
       .from("workspace_members")
       .select("workspace_id:workspace_id, role")
       .eq("user_id", user.id)
-      .single();
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
 
     if (!member) return { error: "Workspace not found" };
     if (!["owner", "admin", "member"].includes(member.role)) {
@@ -1211,7 +1243,9 @@ export async function deleteContractTemplate(templateId: string) {
       .from("workspace_members")
       .select("workspace_id:workspace_id, role")
       .eq("user_id", user.id)
-      .single();
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
 
     if (!member) return { error: "Workspace not found" };
     if (!["owner", "admin", "member"].includes(member.role)) {
@@ -1247,7 +1281,9 @@ export async function duplicateContractTemplate(templateId: string) {
       .from("workspace_members")
       .select("workspace_id:workspace_id, role")
       .eq("user_id", user.id)
-      .single();
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
 
     if (!member) return { error: "Workspace not found" };
     if (!["owner", "admin", "member"].includes(member.role)) {
@@ -1319,7 +1355,9 @@ export async function inviteTeamMember(
       .from("workspace_members")
       .select("workspace_id, role")
       .eq("user_id", user.id)
-      .single();
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
 
     if (!member) return { error: "Workspace not found" };
     if (!["owner", "admin"].includes(member.role)) {
@@ -1393,7 +1431,9 @@ export async function updateTeamMemberRole(
       .from("workspace_members")
       .select("workspace_id, role")
       .eq("user_id", user.id)
-      .single();
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
 
     if (!currentMember) return { error: "Workspace not found" };
     if (!["owner", "admin"].includes(currentMember.role)) {
@@ -1449,7 +1489,9 @@ export async function removeTeamMember(memberId: string) {
       .from("workspace_members")
       .select("workspace_id, role")
       .eq("user_id", user.id)
-      .single();
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
 
     if (!currentMember) return { error: "Workspace not found" };
     if (!["owner", "admin"].includes(currentMember.role)) {
@@ -1530,7 +1572,9 @@ export async function updateClientBillingSettings(
       .from("workspace_members")
       .select("workspace_id, role")
       .eq("user_id", user.id)
-      .single();
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
 
     if (!member) return { error: "Workspace not found" };
     if (!["owner", "admin"].includes(member.role)) {

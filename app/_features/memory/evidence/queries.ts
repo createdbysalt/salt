@@ -86,22 +86,6 @@ export async function getPendingEvidence(
 }
 
 /**
- * Get suggested records (ready to create).
- */
-export async function getSuggestedRecords(
-  workspaceId: string,
-  options?: {
-    entityType?: IntakeEntityType;
-    limit?: number;
-  }
-): Promise<PendingEvidenceWithSignals[]> {
-  return getPendingEvidence(workspaceId, {
-    status: "suggested",
-    ...options,
-  });
-}
-
-/**
  * Get a single pending evidence by ID.
  */
 export async function getPendingEvidenceById(

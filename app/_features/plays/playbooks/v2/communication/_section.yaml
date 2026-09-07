@@ -47,3 +47,4 @@ signals:
 templates:
   - email-triage
   - email-digest
+  - complaint-response

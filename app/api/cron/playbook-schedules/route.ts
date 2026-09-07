@@ -3,10 +3,10 @@
  *
  * Runs hourly. Two responsibilities:
  * 1. Memory Care capabilities with due schedules (runDueCareCapabilities).
- * 2. Act-layer v2 playbooks with `trigger: type: schedule` (e.g. Daily
- *    Briefing), matched against the current UTC hour and executed through
- *    the v2 step executor for each active workspace (respecting
- *    per-workspace enablement in profile_playbook_settings).
+ * 2. Act-layer v2 playbooks with `trigger: type: schedule`, matched
+ *    against the current hour and executed through the v2 step executor
+ *    for each active workspace (respecting per-workspace enablement in
+ *    profile_playbook_settings).
  *
  * Secured with CRON_SECRET. Schedule: hourly (vercel.json).
  */
@@ -107,8 +107,8 @@ async function getBillingUserIds(
 }
 
 /**
- * Run an act-layer scheduled playbook (e.g. Daily Briefing) through the v2
- * step executor so fetch/classify/draft steps produce queued play runs.
+ * Run an act-layer scheduled playbook through the v2 step executor so
+ * fetch/classify/draft steps produce queued play runs.
  */
 async function runActPlaybook(
   playbook: DuePlaybook,
@@ -123,6 +123,8 @@ async function runActPlaybook(
       userId,
       { type: "schedule" },
       playbook.definition.voice,
+      undefined,
+      playbook.slug,
     );
 
     const result = await executePlaybookV2(playbook.definition, context);
@@ -213,9 +215,9 @@ export async function GET(req: NextRequest) {
     for (const playbook of duePlaybooks) {
       perPlaybook[playbook.slug] = { runs: 0, failures: 0 };
 
-      // Act-layer scheduled playbooks (e.g. Daily Briefing) run through the
-      // v2 step executor. Memory Care capabilities are not playbooks — they
-      // run via runDueCareCapabilities above.
+      // Act-layer scheduled playbooks run through the v2 step executor.
+      // Memory Care capabilities are not playbooks — they run via
+      // runDueCareCapabilities above.
       const isActPlaybook =
         playbook.layer === "act" &&
         (playbook.definition.steps?.length ?? 0) > 0;

@@ -31,7 +31,17 @@ import { scheduleWorkHealthRecompute } from "@/app/_features/work/health/recompu
 import { relationshipTypeToStatus } from "@/app/_features/people/records-engine";
 import { isKnownSaasVendorDomain } from "@/app/_features/capture/services/intelligence/vendor-domains";
 import {
-  domainFromWebsiteUrl,
+  attachPersonEmail,
+  findPersonIdsByEmail,
+} from "./person-emails";
+import {
+  getOperatorIdentity,
+  isOperatorDomain,
+  isOperatorEmail,
+  isOperatorName,
+  logOperatorRefusal,
+} from "@/app/_lib/identity/operator";
+import {
   domainToOrgName,
   looksLikeDomain,
   normalizeOrgName,
@@ -327,22 +337,54 @@ async function createPerson(
 ): Promise<RecordActionResult> {
   const email = input?.email?.toLowerCase().trim();
 
-  if (email) {
-    const { data: existing } = await admin
-      .from("people")
-      .select("id, name")
-      .eq("workspace_id", workspaceId)
-      .eq("email", email)
-      .is("deleted_at", null)
-      .maybeSingle();
+  // The operator is the Me record, never a People record — refuse self on
+  // exact email or exact normalized full-name match (covers Ask Salt intake,
+  // where the model happily files the operator as a contact).
+  const operatorIdentity = await getOperatorIdentity(workspaceId);
+  if (email && isOperatorEmail(operatorIdentity, email)) {
+    logOperatorRefusal(
+      "create-person",
+      `${email} is the operator's own email (workspace ${workspaceId})`
+    );
+    return {
+      success: false,
+      error: `Refusing to create person: ${email} belongs to the operator — that's the Me record, not a contact`,
+    };
+  }
+  if (input?.name && isOperatorName(operatorIdentity, input.name)) {
+    logOperatorRefusal(
+      "create-person",
+      `"${input.name}" matches the operator's name (workspace ${workspaceId})`
+    );
+    return {
+      success: false,
+      error: `Refusing to create person: "${input.name}" is the operator — that's the Me record, not a contact`,
+    };
+  }
 
-    if (existing) {
-      return {
-        success: true,
-        entity_id: existing.id,
-        entity_type: "person",
-        data: existing,
-      };
+  if (email) {
+    // Dedupe against the person's full identity set (person_emails), not
+    // just the denormalized primary — a known person at a second address
+    // must not spawn a duplicate record.
+    const matchedIds = await findPersonIdsByEmail(admin, workspaceId, email);
+    if (matchedIds.length > 0) {
+      const { data: existing } = await admin
+        .from("people")
+        .select("id, name")
+        .eq("workspace_id", workspaceId)
+        .in("id", matchedIds)
+        .is("deleted_at", null)
+        .limit(1)
+        .maybeSingle();
+
+      if (existing) {
+        return {
+          success: true,
+          entity_id: existing.id,
+          entity_type: "person",
+          data: existing,
+        };
+      }
     }
   }
 
@@ -379,6 +421,17 @@ async function createPerson(
 
   if (error) {
     return { success: false, error: error.message };
+  }
+
+  // Seed the identity set: the birth address is the primary email.
+  if (email) {
+    await attachPersonEmail(admin, {
+      workspaceId,
+      personId: data.id,
+      email,
+      source: "capture",
+      primary: true,
+    });
   }
 
   const autoHandled: AutoHandledMemoryRunInput = {
@@ -515,22 +568,6 @@ async function classifyPerson(
 // ORG IMPLEMENTATIONS
 // ============================================================================
 
-/**
- * The workspace's own business domain (from Me → website). Org birth must
- * never fire for it — the operator's business is the Me record, not an org.
- */
-async function getWorkspaceDomain(
-  admin: ReturnType<typeof createAdminClient>,
-  workspaceId: string
-): Promise<string | null> {
-  const { data } = await admin
-    .from("workspaces")
-    .select("website_url")
-    .eq("id", workspaceId)
-    .maybeSingle();
-  return domainFromWebsiteUrl(data?.website_url);
-}
-
 async function createOrg(
   admin: ReturnType<typeof createAdminClient>,
   workspaceId: string,
@@ -556,6 +593,11 @@ async function createOrg(
     name = rescuedName;
   }
 
+  // The operator's own business is the Me record, never an org. Identity
+  // covers website_url, business_email, and member/profile email domains, so
+  // the guard holds even when website_url was never set.
+  const operatorIdentity = await getOperatorIdentity(workspaceId);
+
   if (domain) {
     // Tools the operator pays are spend, not relationships.
     if (isKnownSaasVendorDomain(domain)) {
@@ -565,9 +607,11 @@ async function createOrg(
       };
     }
 
-    // The operator's own business is the Me record, never an org.
-    const ownDomain = await getWorkspaceDomain(admin, workspaceId);
-    if (ownDomain && (domain === ownDomain || domain.endsWith(`.${ownDomain}`))) {
+    if (isOperatorDomain(operatorIdentity, domain)) {
+      logOperatorRefusal(
+        "create-org",
+        `${domain} is the operator's own domain (workspace ${workspaceId})`
+      );
       return {
         success: false,
         error: `Refusing to create org: ${domain} is the workspace's own business domain`,
@@ -591,6 +635,19 @@ async function createOrg(
         data: existing,
       };
     }
+  }
+
+  // Name-only self match (exact normalized equality — never partial): the
+  // workspace's own name is the operator's business, not a client org.
+  if (isOperatorName(operatorIdentity, name)) {
+    logOperatorRefusal(
+      "create-org",
+      `"${name}" matches the workspace's own name (workspace ${workspaceId})`
+    );
+    return {
+      success: false,
+      error: `Refusing to create org: "${name}" is the workspace's own business`,
+    };
   }
 
   // Name-based dedupe: "Example Advisors" (signature) and "Harborfinancial"
@@ -1577,6 +1634,7 @@ async function createBilling(
       workspace_id: workspaceId,
       direction: input.direction,
       amount_cents: input.amount_cents,
+      amount_paid_cents: input.amount_paid_cents ?? 0,
       currency: input.currency ?? "USD",
       status: input.status ?? "draft",
       category: input.category ?? null,
@@ -1590,10 +1648,14 @@ async function createBilling(
       work_id: input.work_id ?? null,
       tags: input.tags ?? [],
       app_url: input.app_url ?? null,
-      source: "ask_salt",
+      // billing_records_source_check allows user/imported/salt_inferred.
+      // User-facing creation (Ask Salt) defaults to "user".
+      source: input.source ?? "user",
       // billing_origin enum is "found" | "added"; user-added extraction rows
-      // use "added" (matches billing/utils/db-mapper.ts).
-      origin: "added",
+      // use "added" (matches billing/utils/db-mapper.ts). Factual births
+      // from connected billing providers pass origin: "found".
+      origin: input.origin ?? "added",
+      source_external_id: input.source_external_id ?? null,
     })
     .select("id")
     .single();

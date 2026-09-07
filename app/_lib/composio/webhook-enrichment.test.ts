@@ -37,7 +37,7 @@ describe("enrichWebhookPayload", () => {
 
     expect(executeComposioAction).toHaveBeenCalledTimes(1);
     expect(executeComposioAction).toHaveBeenCalledWith(
-      "OUTLOOK_OUTLOOK_GET_MESSAGE",
+      "OUTLOOK_GET_MESSAGE",
       { message_id: "m1", user_id: "me" },
       "ca-123",
       "ws-1",

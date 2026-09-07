@@ -16,6 +16,12 @@ import {
   HOMEPAGE_WAITLIST_CTA_FALLBACK,
   HOMEPAGE_WAITLIST_CTA_KEY,
 } from "./landing-waitlist-fallback";
+import {
+  applyVariantToHomeContent,
+  applyVariantToWaitlistCta,
+  DEFAULT_LANDING_VARIANT,
+  type LandingVariant,
+} from "./landing-variants";
 
 function resolveHomeContent(
   homepageContent?: HomepageContent | null
@@ -39,10 +45,12 @@ async function resolveWaitlistCta(
 
 type Landing2MarketingPageProps = {
   landingSlug: string;
+  variant?: LandingVariant;
 };
 
 export async function Landing2MarketingPage({
   landingSlug,
+  variant = DEFAULT_LANDING_VARIANT,
 }: Landing2MarketingPageProps) {
   const [landing, waitlistForm] = await Promise.all([
     landingSlug === "home"
@@ -56,9 +64,15 @@ export async function Landing2MarketingPage({
     landing?.pageVariant === "marketing-home" ||
     landingSlug === "home";
 
-  const content = resolveHomeContent(landing?.homepageContent);
+  const content = applyVariantToHomeContent(
+    resolveHomeContent(landing?.homepageContent),
+    variant
+  );
 
-  const waitlistCta = await resolveWaitlistCta(landing?.waitlistCta);
+  const waitlistCta = applyVariantToWaitlistCta(
+    await resolveWaitlistCta(landing?.waitlistCta),
+    variant
+  );
 
   return (
     <div className={landingSlug === "home" ? "landing2-home" : "landing2-segment"}>
@@ -72,6 +86,7 @@ export async function Landing2MarketingPage({
             eyebrow={content.productEyebrow}
             title={content.productTitle}
             landingSlug={landingSlug}
+            variant={variant}
           />
         ) : null}
         <Landing2WaitlistPanel cta={waitlistCta} waitlistForm={waitlistForm} />

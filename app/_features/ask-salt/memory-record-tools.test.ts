@@ -2,6 +2,23 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ToolCallOptions } from "ai";
 import { buildMemoryRecordTools } from "./memory-record-tools";
 
+const h = vi.hoisted(() => ({
+  operatorIdentity: {
+    emails: new Set<string>(),
+    names: new Set<string>(),
+    domains: new Set<string>(),
+  },
+}));
+
+vi.mock("@/app/_lib/identity/operator", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/app/_lib/identity/operator")>();
+  return {
+    ...actual,
+    getOperatorIdentity: vi.fn(async () => h.operatorIdentity),
+  };
+});
+
 vi.mock("@/app/_lib/composio/execution-log", () => ({
   logToolExecution: vi.fn(async () => undefined),
 }));
@@ -68,6 +85,9 @@ const callOptions = { toolCallId: "call-1", messages: [] } as ToolCallOptions;
 describe("buildMemoryRecordTools", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    h.operatorIdentity.emails.clear();
+    h.operatorIdentity.names.clear();
+    h.operatorIdentity.domains.clear();
   });
 
   it("registers memory tools including lookups and mutators", () => {
@@ -78,7 +98,9 @@ describe("buildMemoryRecordTools", () => {
 
     expect(tools.memory_find_people).toBeDefined();
     expect(tools.memory_create_person).toBeDefined();
-    expect(tools.memory_archive_person?.needsApproval).toBe(true);
+    // Memory full autonomy: no in-chat approval gates, including archive
+    // (soft delete, restorable). Correction replaces approval.
+    expect(tools.memory_archive_person?.needsApproval).toBeUndefined();
     expect(tools.memory_create_person?.needsApproval).toBeUndefined();
   });
 
@@ -170,5 +192,79 @@ describe("buildMemoryRecordTools", () => {
     expect(result.error).toMatch(/Something went wrong while running that Salt action/i);
     expect(result.error).not.toMatch(/Provide name or email/i);
     expect(result.errorId).toMatch(/^SALT-[A-F0-9]{8}$/);
+  });
+});
+
+describe("buildMemoryRecordTools — operator self-exclusion", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    h.operatorIdentity.emails.clear();
+    h.operatorIdentity.names.clear();
+    h.operatorIdentity.domains.clear();
+    h.operatorIdentity.emails.add("hello@createdbysalt.com");
+    h.operatorIdentity.names.add("gabriella martins");
+    h.operatorIdentity.names.add("salt studio");
+    h.operatorIdentity.domains.add("createdbysalt.com");
+  });
+
+  it("refuses to create a person holding the operator's own email and redirects to Me", async () => {
+    const tools = buildMemoryRecordTools({ workspaceId: "ws-1", userId: "user-1" });
+    const result = (await tools.memory_create_person?.execute?.(
+      { name: "Gabriella Martins", email: "hello@createdbysalt.com" },
+      callOptions,
+    )) as { success: boolean; action?: string; message?: string };
+
+    expect(result.action).toBe("operator_self");
+    expect(result.message).toMatch(/you|operator|Me/i);
+    expect(executeRecordAction).not.toHaveBeenCalled();
+  });
+
+  it("refuses to create a person whose name matches the operator's profile name", async () => {
+    const tools = buildMemoryRecordTools({ workspaceId: "ws-1", userId: "user-1" });
+    const result = (await tools.memory_create_person?.execute?.(
+      { name: "Gabriella  Martins" },
+      callOptions,
+    )) as { success: boolean; action?: string };
+
+    expect(result.action).toBe("operator_self");
+    expect(executeRecordAction).not.toHaveBeenCalled();
+  });
+
+  it("still creates a genuinely different person (control)", async () => {
+    const tools = buildMemoryRecordTools({ workspaceId: "ws-1", userId: "user-1" });
+    await tools.memory_create_person?.execute?.(
+      { name: "Liam Gillies", email: "liam@photon.studio" },
+      callOptions,
+    );
+
+    expect(executeRecordAction).toHaveBeenCalledWith(
+      "ws-1",
+      "system:create-person",
+      expect.objectContaining({ name: "Liam Gillies" }),
+      "user-1",
+    );
+  });
+
+  it("refuses to create an org on the operator's own domain", async () => {
+    const tools = buildMemoryRecordTools({ workspaceId: "ws-1", userId: "user-1" });
+    const result = (await tools.memory_create_org?.execute?.(
+      { name: "Createdbysalt", domain: "createdbysalt.com" },
+      callOptions,
+    )) as { success: boolean; action?: string; message?: string };
+
+    expect(result.action).toBe("operator_self");
+    expect(result.message).toMatch(/you|operator|Me/i);
+    expect(executeRecordAction).not.toHaveBeenCalled();
+  });
+
+  it("refuses to create an org named after the workspace", async () => {
+    const tools = buildMemoryRecordTools({ workspaceId: "ws-1", userId: "user-1" });
+    const result = (await tools.memory_create_org?.execute?.(
+      { name: "SALT STUDIO" },
+      callOptions,
+    )) as { success: boolean; action?: string };
+
+    expect(result.action).toBe("operator_self");
+    expect(executeRecordAction).not.toHaveBeenCalled();
   });
 });

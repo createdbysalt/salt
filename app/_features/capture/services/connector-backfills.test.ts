@@ -11,6 +11,31 @@ vi.mock("@/app/_features/memory/records", () => ({ resolvePerson: vi.fn() }));
 vi.mock("./ingest-envelope", () => ({ ingestEnvelope: vi.fn() }));
 vi.mock("./cal-booking-processor", () => ({ processCalBookings: vi.fn() }));
 
+const produceBillingRecordSignalsMock = vi.fn(
+  async (_input: unknown) => ({ matched: false, writes: 0 }),
+);
+vi.mock("./producers/billing-record-producer", () => ({
+  produceBillingRecordSignals: (input: unknown) =>
+    produceBillingRecordSignalsMock(input),
+}));
+
+const integrationUpdates: Array<Record<string, unknown>> = [];
+vi.mock("@/app/_lib/supabase/admin", () => ({
+  createAdminClient: () => ({
+    from: (table: string) => {
+      if (table !== "workspace_integrations") {
+        throw new Error(`unexpected table ${table}`);
+      }
+      return {
+        update: (row: Record<string, unknown>) => {
+          integrationUpdates.push(row);
+          return { eq: async () => ({ error: null }) };
+        },
+      };
+    },
+  }),
+}));
+
 const producePersonFieldSignalsMock = vi.fn(
   async (_input: unknown) => ({ dispatched: [], addressWrites: 0 }),
 );
@@ -60,7 +85,11 @@ vi.mock("@/app/_features/memory/customize/queries", () => ({
     ),
 }));
 
-import { unwrapItems, backfillDropboxCaptures } from "./connector-backfills";
+import {
+  unwrapItems,
+  backfillDropboxCaptures,
+  backfillStripeCaptures,
+} from "./connector-backfills";
 import { getConnectionStatusAdmin } from "@/app/_lib/composio/connections";
 import { executeComposioAction } from "@/app/_lib/composio/actions";
 import { ingestEnvelope } from "./ingest-envelope";
@@ -338,5 +367,132 @@ describe("backfill field-signal absorption", () => {
     await backfillDropboxCaptures("ws-1");
 
     expect(producePersonFieldSignalsMock).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Stripe history paging + sync stamping (billing intake repair): invoices
+ * page via starting_after until has_more is false or the run cap hits, and
+ * every successful backfill stamps workspace_integrations.last_synced_at.
+ */
+describe("backfillStripeCaptures paging and sync stamp", () => {
+  const stripeAdapter = {
+    sourceType: "stripe",
+    toolkit: "stripe",
+    triggerSlugs: [],
+    deriveSignals: () => new Map(),
+    normalize(row: unknown): CaptureEnvelope | null {
+      const record = row as { id?: string };
+      if (!record.id) return null;
+      return {
+        sourceType: "stripe",
+        captureType: "payment",
+        externalId: record.id,
+        title: `Invoice ${record.id}`,
+        occurredAt: "2026-08-08T00:00:00Z",
+        participants: [],
+        threadId: null,
+        extracted: {},
+        raw: {},
+        noise: null,
+      };
+    },
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    integrationUpdates.length = 0;
+    hasHandWrittenParsingMock.mockReturnValue(true);
+    getCategoryAdapterMock.mockResolvedValue(stripeAdapter);
+    vi.mocked(getConnectionStatusAdmin).mockResolvedValue({
+      connected: true,
+      composioConnectionId: "conn-1",
+      integrationId: "int-1",
+      email: "me@usesalt.io",
+    } as never);
+    vi.mocked(ingestEnvelope).mockImplementation(
+      async () => ({ outcome: "created" }) as never,
+    );
+  });
+
+  it("pages invoices with starting_after until has_more is false", async () => {
+    vi.mocked(executeComposioAction).mockImplementation(async (slug, params) => {
+      if (slug === "STRIPE_LIST_INVOICES") {
+        const p = params as { starting_after?: string };
+        if (!p.starting_after) {
+          return { data: { data: [{ id: "in_1" }, { id: "in_2" }], has_more: true } } as never;
+        }
+        return { data: { data: [{ id: "in_3" }], has_more: false } } as never;
+      }
+      return { data: { data: [], has_more: false } } as never;
+    });
+
+    const result = await backfillStripeCaptures("ws-1", { limit: 100 });
+
+    expect(result.success).toBe(true);
+    expect(result.capturesCreated).toBe(3);
+    const invoiceCalls = vi
+      .mocked(executeComposioAction)
+      .mock.calls.filter(([slug]) => slug === "STRIPE_LIST_INVOICES");
+    expect(invoiceCalls).toHaveLength(2);
+    expect(invoiceCalls[1][1]).toEqual(
+      expect.objectContaining({ starting_after: "in_2" }),
+    );
+  });
+
+  it("respects the run cap — a single small page never follows has_more", async () => {
+    vi.mocked(executeComposioAction).mockImplementation(async (slug) => {
+      if (slug === "STRIPE_LIST_INVOICES") {
+        return {
+          data: { data: [{ id: "in_1" }, { id: "in_2" }], has_more: true },
+        } as never;
+      }
+      return { data: { data: [], has_more: false } } as never;
+    });
+
+    const result = await backfillStripeCaptures("ws-1", { limit: 2 });
+
+    expect(result.capturesCreated).toBe(2);
+    const invoiceCalls = vi
+      .mocked(executeComposioAction)
+      .mock.calls.filter(([slug]) => slug === "STRIPE_LIST_INVOICES");
+    expect(invoiceCalls).toHaveLength(1);
+  });
+
+  it("stamps workspace_integrations.last_synced_at on a successful run", async () => {
+    vi.mocked(executeComposioAction).mockResolvedValue({
+      data: { data: [{ id: "in_1" }], has_more: false },
+    } as never);
+
+    await backfillStripeCaptures("ws-1");
+
+    expect(integrationUpdates).toHaveLength(1);
+    expect(integrationUpdates[0]).toEqual({
+      last_synced_at: expect.any(String),
+    });
+  });
+
+  it("stamps last_synced_at even when every row is a duplicate", async () => {
+    vi.mocked(executeComposioAction).mockResolvedValue({
+      data: { data: [{ id: "in_1" }], has_more: false },
+    } as never);
+    vi.mocked(ingestEnvelope).mockImplementation(
+      async () => ({ outcome: "duplicate" }) as never,
+    );
+
+    const result = await backfillStripeCaptures("ws-1");
+
+    expect(result.success).toBe(true);
+    expect(result.capturesCreated).toBe(0);
+    expect(integrationUpdates).toHaveLength(1);
+  });
+
+  it("does not stamp when the fetch fails", async () => {
+    vi.mocked(executeComposioAction).mockRejectedValue(new Error("composio down"));
+
+    const result = await backfillStripeCaptures("ws-1");
+
+    expect(result.success).toBe(false);
+    expect(integrationUpdates).toHaveLength(0);
   });
 });

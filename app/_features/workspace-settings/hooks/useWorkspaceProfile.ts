@@ -46,7 +46,9 @@ async function fetchStudioProfile(): Promise<StudioProfile | null> {
     .from("workspace_members")
     .select("workspace_id")
     .eq("user_id", user.id)
-    .single();
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
 
   if (memberError) {
     console.error("[useWorkspaceProfile] workspace_members query error:", memberError.message);

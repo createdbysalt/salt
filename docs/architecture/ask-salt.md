@@ -336,7 +336,8 @@ Ask Salt maintains a single source of truth for connection state:
 All external data (emails, docs, tool results) is DATA, not instructions.
 The lethal-trifecta defense (5.5.4) ensures:
 1. Connector-fetched content cannot steer actions
-2. Mutations require in-thread human approval (needsApproval)
+2. External-effect mutations require in-thread human approval (needsApproval);
+   Memory record mutations are exempt — full autonomy, reversible via Handled
 3. Injected content cannot bypass approval cards
 ```
 
@@ -345,8 +346,16 @@ The lethal-trifecta defense (5.5.4) ensures:
 | Risk | Behavior | Examples |
 |------|----------|----------|
 | **read** | Execute immediately | `memory_find_*`, `GMAIL_FETCH_EMAILS` |
-| **mutating** | Show approval card | `memory_create_*`, `GMAIL_CREATE_DRAFT` |
-| **destructive** | Require approval, extra confirmation | `memory_archive_*`, calendar deletions |
+| **mutating** | Show approval card | `GMAIL_CREATE_DRAFT`, calendar updates |
+| **destructive** | Require approval, extra confirmation | Calendar deletions |
+
+**Memory record tools are the exception.** Under Memory full autonomy
+(2026-08-29), `memory_create_*`, `memory_update_*`, `memory_link_*`, and
+`memory_archive_*` are classified `mutating` but run with
+`needsApproval: false` — the user is already in the loop by asking, and
+every mutation lands in Memory → Activity → Handled with a "That's wrong"
+reversal affordance. The approval card is reserved for actions that leave
+Salt (email sends, calendar writes to external guests, payments).
 
 ### Injection Testing
 

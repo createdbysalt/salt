@@ -24,6 +24,7 @@ export const CARE_CAPABILITIES = [
   "hygiene",
   "connections",
   "notes",
+  "work-synthesis",
 ] as const;
 
 export type CareCapability = (typeof CARE_CAPABILITIES)[number];
@@ -48,6 +49,10 @@ export const CARE_CAPABILITY_META: Record<
     name: "Notes",
     description: "Synthesizes understanding into durable notes",
   },
+  "work-synthesis": {
+    name: "Work Synthesis",
+    description: "Re-reads linked emails and documents to name and summarize work",
+  },
 };
 
 /**
@@ -60,6 +65,7 @@ export const CARE_SETTINGS_SLUGS: Record<CareCapability, string> = {
   hygiene: "memory-hygiene",
   connections: "memory-connections",
   notes: "memory-notes",
+  "work-synthesis": "memory-work-synthesis",
 };
 
 /** Legacy slugs that map onto each capability, oldest first. */
@@ -68,6 +74,7 @@ export const CARE_LEGACY_SLUGS: Record<CareCapability, string[]> = {
   hygiene: ["keeper-hygiene"],
   connections: ["keeper-connections"],
   notes: ["keeper-notes"],
+  "work-synthesis": [],
 };
 
 /** Slug for the workspace-level auto-apply threshold row. */
@@ -117,6 +124,11 @@ export interface CareDecision {
   reason: string;
   evidenceId?: string;
   learningId?: string;
+  /**
+   * True when the field already held the proposed value — nothing was
+   * accumulated, applied, or logged. Callers should skip their own writes.
+   */
+  noop?: boolean;
   /** P8: true if auto-apply was blocked because this value was previously corrected. */
   correctionGuardTriggered?: boolean;
 }
