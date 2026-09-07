@@ -747,6 +747,29 @@ const DEMO_FINDINGS: DemoFinding[] = [
     },
   },
   {
+    findingType: "revenue_buying",
+    title: "Studio Collective asked about pricing",
+    content: "Alex asked what a strategy sprint costs and mentioned approved Q4 budget. Salt already replied with two intro slots and held 30 minutes on your calendar tomorrow.",
+    confidence: 88,
+    orgSlug: "studio-collective",
+    personName: "Alex Rivera",
+    triggeredPlay: { slug: "lead-follow-up", playTitle: "Re: Strategy sprint inquiry (reply sent, intro held)", status: "sent" },
+    evidence: {
+      source_type: "email",
+      quotes: ["What would a two-week strategy sprint cost? We have budget approved for Q4."],
+      metadata: {
+        because: "Alex asked for pricing directly and mentioned approved budget. That is buying intent, not a casual inquiry.",
+        why_it_matters: "Leads with approved budget go cold in days. Salt replied within the hour with Thursday 3pm or Friday 10am, and held the time so the thread never went quiet.",
+        whyItMatters: "Leads with approved budget go cold in days. Salt replied within the hour with Thursday 3pm or Friday 10am, and held the time so the thread never went quiet.",
+        recommended_action: "Nothing needed. The reply is sent and the intro slot is held.",
+        from_email: "alex@studiocollective.design",
+        from_name: "Alex Rivera",
+      },
+    },
+  },
+  // Last in the array so it inserts newest: the Heads-up rail orders by
+  // created_at desc, and Nina's overdue invoice should lead it.
+  {
     findingType: "pending_reply",
     queue: "needs_you",
     title: "Artisan Coffee invoice inquiry",
@@ -765,27 +788,6 @@ const DEMO_FINDINGS: DemoFinding[] = [
         recommended_action: "Approve the Artisan invoice reminder play in your queue.",
         from_email: "nina@artisancoffee.co",
         from_name: "Nina Patel",
-      },
-    },
-  },
-  {
-    findingType: "revenue_buying",
-    title: "Studio Collective asked about pricing",
-    content: "Alex asked what a strategy sprint costs and mentioned approved Q4 budget. Salt already replied with two intro slots and held 30 minutes on your calendar tomorrow.",
-    confidence: 88,
-    orgSlug: "studio-collective",
-    personName: "Alex Rivera",
-    triggeredPlay: { slug: "lead-follow-up", playTitle: "Re: Strategy sprint inquiry (reply sent, intro held)", status: "sent" },
-    evidence: {
-      source_type: "email",
-      quotes: ["What would a two-week strategy sprint cost? We have budget approved for Q4."],
-      metadata: {
-        because: "Alex asked for pricing directly and mentioned approved budget. That is buying intent, not a casual inquiry.",
-        why_it_matters: "Leads with approved budget go cold in days. Salt replied within the hour with Thursday 3pm or Friday 10am, and held the time so the thread never went quiet.",
-        whyItMatters: "Leads with approved budget go cold in days. Salt replied within the hour with Thursday 3pm or Friday 10am, and held the time so the thread never went quiet.",
-        recommended_action: "Nothing needed. The reply is sent and the intro slot is held.",
-        from_email: "alex@studiocollective.design",
-        from_name: "Alex Rivera",
       },
     },
   },
