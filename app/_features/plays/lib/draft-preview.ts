@@ -81,9 +81,27 @@ export function draftAddresseeLabel(input: {
 export function formatDraftToLabel(input: {
   recipientLabel?: string | null;
   draftText?: string | null;
+  channel?: string | null;
 }): string {
   const name = draftAddresseeLabel(input);
-  return name ? `Draft to ${name}` : "Draft";
+  if (!name) return "Draft";
+  return isEmailDraftChannel(input.channel)
+    ? `Draft to ${name}`
+    : `Draft for ${name}`;
+}
+
+const EMAIL_DRAFT_CHANNELS = new Set(["gmail", "outlook", "email"]);
+
+/**
+ * Only inbox channels produce letters. A Slack message, LinkedIn post, or
+ * TikTok script must not get a Subject line, a "Best regards" sign-off, or
+ * a Gmail compose link.
+ */
+export function isEmailDraftChannel(
+  channel: string | null | undefined
+): boolean {
+  if (!channel) return true; // legacy runs without a channel are letters
+  return EMAIL_DRAFT_CHANNELS.has(channel.trim().toLowerCase());
 }
 
 const CLOSING_PHRASE =

@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { useDashboardUserOptional } from "@/app/_features/shell/contexts/DashboardUserContext";
 import {
   ensureDraftSignOff,
+  isEmailDraftChannel,
   markdownEmailBlocks,
   splitDraftSubject,
 } from "../../lib/draft-preview";
@@ -15,6 +16,11 @@ interface PlayDraftPreviewProps {
   subject?: string | null;
   /** Sits on the Subject label row (Edit / Done). */
   action?: ReactNode;
+  /**
+   * Play channel. Non-inbox drafts (Slack, LinkedIn, TikTok script) render
+   * as plain content: no Subject header, no "Best regards" sign-off.
+   */
+  channel?: string | null;
 }
 
 export function DraftLetterHeader({
@@ -55,17 +61,28 @@ export function PlayDraftPreview({
   senderName,
   subject: subjectProp,
   action,
+  channel,
 }: PlayDraftPreviewProps) {
   const user = useDashboardUserOptional();
+  const emailDraft = isEmailDraftChannel(channel);
   const { subject: peeledSubject, body } = splitDraftSubject(text);
-  const subject = peeledSubject ?? subjectProp?.trim() ?? null;
-  const signedBody = ensureDraftSignOff(body, {
-    senderName: senderName ?? user?.fullName,
-  });
+  const subject = emailDraft
+    ? (peeledSubject ?? subjectProp?.trim() ?? null)
+    : null;
+  const signedBody = emailDraft
+    ? ensureDraftSignOff(body, {
+        senderName: senderName ?? user?.fullName,
+      })
+    : body.replace(/\s+$/, "");
   const letterHtml = markdownEmailBlocks(signedBody);
 
   return (
-    <div className="space-y-3 text-[14.5px] leading-[1.5] text-foreground/90 [font-family:Arial,Helvetica,sans-serif]">
+    <div
+      className={[
+        "space-y-3 text-[14.5px] leading-[1.5] text-foreground/90",
+        emailDraft ? "[font-family:Arial,Helvetica,sans-serif]" : "",
+      ].join(" ")}
+    >
       <DraftLetterHeader subject={subject} action={action} />
       {letterHtml ? (
         <div

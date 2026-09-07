@@ -32,6 +32,7 @@ import { getSectionConnectorIds } from "../../lib/playbook-connectors";
 import type { ConnectorCatalogId } from "@/app/_features/connectors/types";
 import { PlayCardDetailModal } from "./PlayCardDetailModal";
 import { DraftLetterHeader, PlayDraftPreview } from "./PlayDraftPreview";
+import { isEmailDraftChannel } from "../../lib/draft-preview";
 import { buildPlayGlance } from "../../lib/play-headline";
 import type { LucideIcon } from "lucide-react";
 
@@ -779,7 +780,10 @@ function PlayCardBody({
   onAnswer: (value: string) => void;
 }) {
   if (vm.kind === "acting" && vm.acting) {
-    const letterSubject = emailSubject ?? vm.acting.emailSubject ?? null;
+    const emailDraft = isEmailDraftChannel(vm.channel);
+    const letterSubject = emailDraft
+      ? (emailSubject ?? vm.acting.emailSubject ?? null)
+      : null;
     const editAction = !isEditing ? (
       <button
         type="button"
@@ -813,7 +817,10 @@ function PlayCardBody({
               value={draft.join("\n\n")}
               onChange={(event) => onDraftChange(event.target.value)}
               onBlur={onStopEdit}
-              className="min-h-[140px] w-full resize-none bg-transparent text-[14.5px] leading-[1.5] text-foreground/90 outline-none [font-family:Arial,Helvetica,sans-serif]"
+              className={cn(
+                "min-h-[140px] w-full resize-none bg-transparent text-[14.5px] leading-[1.5] text-foreground/90 outline-none",
+                emailDraft && "[font-family:Arial,Helvetica,sans-serif]"
+              )}
               rows={Math.max(6, draft.join("\n\n").split("\n").length + 1)}
             />
           </div>
@@ -827,6 +834,7 @@ function PlayCardBody({
               text={draft.join("\n\n")}
               subject={letterSubject}
               action={editAction}
+              channel={vm.channel}
             />
           </div>
         )}

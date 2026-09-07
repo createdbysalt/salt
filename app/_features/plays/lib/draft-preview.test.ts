@@ -4,6 +4,7 @@ import {
   ensureDraftSignOff,
   extractGreetingName,
   formatDraftToLabel,
+  isEmailDraftChannel,
   looksLikeRecordCode,
   markdownEmailBlocks,
   markdownEmailToHtml,
@@ -336,5 +337,42 @@ describe("markInboxDraftStale", () => {
     );
     expect(result.approval_context?.inbox_draft_written).toBe(false);
     expect(result.approval_context?.args.body).toBe("Edited letter");
+  });
+});
+
+describe("isEmailDraftChannel", () => {
+  it("treats inbox channels as email", () => {
+    expect(isEmailDraftChannel("Gmail")).toBe(true);
+    expect(isEmailDraftChannel("Outlook")).toBe(true);
+    expect(isEmailDraftChannel("email")).toBe(true);
+  });
+
+  it("treats missing channel as email (legacy runs)", () => {
+    expect(isEmailDraftChannel(null)).toBe(true);
+    expect(isEmailDraftChannel(undefined)).toBe(true);
+  });
+
+  it("treats content channels as non-email", () => {
+    expect(isEmailDraftChannel("Slack")).toBe(false);
+    expect(isEmailDraftChannel("Note")).toBe(false);
+    expect(isEmailDraftChannel("LinkedIn")).toBe(false);
+    expect(isEmailDraftChannel("TikTok")).toBe(false);
+  });
+});
+
+describe("formatDraftToLabel with channel", () => {
+  it("uses 'to' for email drafts", () => {
+    expect(
+      formatDraftToLabel({ recipientLabel: "Nina Patel", channel: "Gmail" })
+    ).toBe("Draft to Nina Patel");
+  });
+
+  it("uses 'for' for content drafts", () => {
+    expect(
+      formatDraftToLabel({ recipientLabel: "LinkedIn", channel: "Note" })
+    ).toBe("Draft for LinkedIn");
+    expect(
+      formatDraftToLabel({ recipientLabel: "Content queue", channel: "Note" })
+    ).toBe("Draft for Content queue");
   });
 });
