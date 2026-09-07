@@ -678,53 +678,6 @@ interface DemoFinding {
 }
 
 const DEMO_FINDINGS: DemoFinding[] = [
-  // Heads-up rail (needs_you). Urgent watch items that are NOT already a
-  // queued play: the rail should add information, not duplicate the queue.
-  // Both map to the relationships section, so they sort below the plays in
-  // the queue and never outrank Nina's overdue invoice.
-  {
-    findingType: "new_person",
-    queue: "needs_you",
-    title: "New stakeholder at Studio Collective",
-    content: "Alex mentioned their new VP Marketing, Maya Nguyen, starts Monday. Salt added her to the Studio Collective record and penciled a 10-minute intro into the held call agenda.",
-    confidence: 82,
-    orgSlug: "studio-collective",
-    personName: "Alex Rivera",
-    triggeredPlay: { slug: "lead-follow-up", playTitle: "Re: Strategy sprint inquiry (reply sent, intro held)", status: "sent" },
-    evidence: {
-      source_type: "email",
-      quotes: ["Our new VP Marketing, Maya, starts Monday. Would love for her to meet you on the intro call."],
-      metadata: {
-        because: "Alex mentioned Maya in yesterday's thread. First-week impressions set the tone for the Q4 budget conversation.",
-        why_it_matters: "A new VP Marketing re-evaluates every vendor in their first 30 days. Meeting Maya on Thursday's intro call puts you on her list before she starts looking.",
-        whyItMatters: "A new VP Marketing re-evaluates every vendor in their first 30 days. Meeting Maya on Thursday's intro call puts you on her list before she starts looking.",
-        recommended_action: "Nothing to send. Maya is on the held call agenda and her record is ready.",
-        from_email: "alex@studiocollective.design",
-        from_name: "Alex Rivera",
-      },
-    },
-  },
-  {
-    findingType: "pending_question",
-    queue: "needs_you",
-    title: "James Park is waiting on the run-of-show",
-    content: "James asked if Friday's run-of-show is final before the board review. Salt pulled the latest version into the Meridian brief. A one-line yes from you closes the loop before the 2pm sync.",
-    confidence: 90,
-    orgSlug: "meridian-tech",
-    personName: "James Park",
-    evidence: {
-      source_type: "email",
-      quotes: ["Is the run-of-show final? Board reviews the launch plan Friday and I want to walk in with the locked version."],
-      metadata: {
-        because: "James asked 3 hours ago and the board review is Friday. He usually gets answers from you same-day.",
-        why_it_matters: "The Aug 15 launch date is immovable because of this board meeting. A fast yes keeps Meridian's confidence high going into the review.",
-        whyItMatters: "The Aug 15 launch date is immovable because of this board meeting. A fast yes keeps Meridian's confidence high going into the review.",
-        recommended_action: "Reply yes to James, or ask Salt to send the confirmation for you.",
-        from_email: "james@meridiantech.io",
-        from_name: "James Park",
-      },
-    },
-  },
   {
     findingType: "revenue_risk",
     title: "Catalyst deal going cold",
@@ -767,11 +720,9 @@ const DEMO_FINDINGS: DemoFinding[] = [
       },
     },
   },
-  // Last in the array so it inserts newest: the Heads-up rail orders by
-  // created_at desc, and Nina's overdue invoice should lead it.
+  // Last in the array so it inserts newest among the findings.
   {
     findingType: "pending_reply",
-    queue: "needs_you",
     title: "Artisan Coffee invoice inquiry",
     content: "Nina asked about payment terms yesterday. Salt answered the underlying issue instead of just flagging it: a friendly reminder with a fresh payment link is drafted and waiting in your queue.",
     confidence: 85,

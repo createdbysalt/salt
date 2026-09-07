@@ -2,6 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 import { listQueueFindings } from "@/app/_features/capture/queries/intelligence-findings";
+import { getTodaysBriefing } from "./briefing/queries";
 import {
   listTodayMeetings,
   meetingDisplayLabel,
@@ -96,6 +97,23 @@ async function loadTodaySchedule(): Promise<HqScheduleItem[]> {
 }
 
 async function loadHeadsUp(): Promise<HqHeadsUpItem[]> {
+  // Today's briefing urgent items lead the rail: they are the day's real
+  // heads-ups, and they don't create extra cards in the Plays queue the way
+  // needs_you findings do. Findings remain the fallback for days without a
+  // generated briefing.
+  const briefing = await getTodaysBriefing();
+  const urgent = briefing?.sections.urgent ?? [];
+  if (urgent.length > 0) {
+    return urgent.slice(0, 3).map((item) => {
+      const [head, ...rest] = item.split(/(?<=\.)\s+/);
+      return {
+        title: head,
+        sub: rest.join(" ") || "From today's briefing",
+        href: "/plays",
+      };
+    });
+  }
+
   const findings = await listQueueFindings("needs_you");
   return findings.slice(0, 3).map((finding) => ({
     title: finding.title,
