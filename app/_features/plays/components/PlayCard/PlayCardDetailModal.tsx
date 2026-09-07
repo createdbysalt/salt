@@ -24,7 +24,11 @@ import {
   isInboxAppId,
   resolveDraftInboxLink,
 } from "../../lib/artifact-links";
-import { formatDraftToLabel, splitDraftSubject } from "../../lib/draft-preview";
+import {
+  formatDraftToLabel,
+  isEmailDraftChannel,
+  splitDraftSubject,
+} from "../../lib/draft-preview";
 import {
   openPreparedInboxDraft,
   refreshPreparedPlayDraft,
@@ -48,12 +52,26 @@ function appIdForSource(
   })();
   if (host.includes("mail.google") || host.includes("gmail")) return "google";
   if (host.includes("calendar.google")) return "google-calendar";
+  if (host.includes("docs.google")) return "google-docs";
+  if (host.includes("drive.google")) return "google-drive";
   if (host.includes("stripe")) return "stripe";
   if (host.includes("outlook")) return "outlook";
+  if (host.includes("slack")) return "slack";
+  if (host.includes("linkedin")) return "linkedin";
+  if (host.includes("tiktok")) return "tiktok";
+  if (host.includes("instagram")) return "instagram";
+  if (host.includes("quickbooks") || host.includes("qbo.intuit")) return "quickbooks";
   if (channel === "Gmail" || channel === "Email") return "google";
   if (channel === "Outlook") return "outlook";
   if (channel === "Calendar") return "google-calendar";
   if (channel === "Stripe") return "stripe";
+  if (channel === "Slack") return "slack";
+  if (channel === "LinkedIn") return "linkedin";
+  if (channel === "TikTok") return "tiktok";
+  if (channel === "Instagram") return "instagram";
+  if (channel === "Google Docs" || channel === "Docs") return "google-docs";
+  if (channel === "Google Drive" || channel === "Drive") return "google-drive";
+  if (channel === "QuickBooks") return "quickbooks";
   return null;
 }
 
@@ -65,6 +83,20 @@ function appLabelForId(id: ConnectorCatalogId): string {
       return "Outlook";
     case "google-calendar":
       return "Google Calendar";
+    case "google-docs":
+      return "Google Docs";
+    case "google-drive":
+      return "Google Drive";
+    case "slack":
+      return "Slack";
+    case "linkedin":
+      return "LinkedIn";
+    case "tiktok":
+      return "TikTok";
+    case "instagram":
+      return "Instagram";
+    case "quickbooks":
+      return "QuickBooks";
     default:
       return id.replace(/[-_]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
   }
@@ -494,26 +526,51 @@ export function PlayCardDetailModal({
                   artifacts get a named link. Never lists decorative apps. */}
               {(() => {
                 const sourceAppId = appIdForSource(vm.channel, vm.sourceUrl ?? null);
-                const artifacts = collapseInboxArtifacts(vm.artifacts ?? []);
+                const allArtifacts = collapseInboxArtifacts(vm.artifacts ?? []);
                 const hasDraft = Boolean(
                   vm.kind === "acting" && vm.acting?.draftBody?.length
                 );
                 const draftText = vm.acting?.draftBody.join("\n\n") ?? "";
                 const { subject: draftSubject, body: draftBody } =
                   splitDraftSubject(draftText);
-                const inboxLink = resolveDraftInboxLink({
-                  artifacts,
-                  channel: vm.channel,
-                  sourceUrl: vm.sourceUrl,
-                  connectorIds: vm.connectorIds,
-                  compose: hasDraft
-                    ? {
-                        subject:
-                          draftSubject ?? vm.acting?.emailSubject ?? undefined,
-                        body: draftBody || draftText,
-                      }
-                    : null,
-                });
+                const emailDraft = isEmailDraftChannel(vm.channel);
+                const inboxLink = emailDraft
+                  ? resolveDraftInboxLink({
+                      artifacts: allArtifacts,
+                      channel: vm.channel,
+                      sourceUrl: vm.sourceUrl,
+                      connectorIds: vm.connectorIds,
+                      compose: hasDraft
+                        ? {
+                            subject:
+                              draftSubject ?? vm.acting?.emailSubject ?? undefined,
+                            body: draftBody || draftText,
+                          }
+                        : null,
+                    })
+                  : null;
+                // Non-inbox drafts (Slack message, LinkedIn post, TikTok
+                // script) live in a doc, not an inbox. The draft row links
+                // straight to that doc and the duplicate artifact row goes.
+                const docArtifact =
+                  !emailDraft && hasDraft
+                    ? allArtifacts.find(
+                        (artifact) =>
+                          Boolean(artifact.url) && !isInboxAppId(artifact.appId)
+                      )
+                    : undefined;
+                const artifacts = docArtifact
+                  ? allArtifacts.filter((artifact) => artifact !== docArtifact)
+                  : allArtifacts;
+                const draftOpenUrl = docArtifact
+                  ? (docArtifact.url ?? null)
+                  : !emailDraft
+                    ? (vm.sourceUrl ?? null)
+                    : null;
+                const draftAppId: ConnectorCatalogId | null = emailDraft
+                  ? ((inboxLink?.appId ?? sourceAppId) as ConnectorCatalogId | null)
+                  : ((docArtifact?.appId as ConnectorCatalogId | undefined) ??
+                    sourceAppId);
                 const inboxAlreadyListed = artifacts.some(
                   (artifact) =>
                     Boolean(artifact.url) && artifact.appId === inboxLink?.appId
@@ -567,9 +624,9 @@ export function PlayCardDetailModal({
                       {hasDraft && (
                         <div>
                           <div className="mb-2 flex items-center gap-2.5">
-                            {(sourceAppId || inboxLink) && (
+                            {draftAppId && (
                               <ConnectorIcon
-                                id={(sourceAppId ?? inboxLink?.appId) as ConnectorCatalogId}
+                                id={draftAppId}
                                 size={22}
                               />
                             )}
@@ -577,9 +634,10 @@ export function PlayCardDetailModal({
                               {formatDraftToLabel({
                                 recipientLabel: vm.acting!.recipientLabel,
                                 draftText: vm.acting!.draftBody.join("\n\n"),
+                                channel: vm.channel,
                               })}
                             </span>
-                            {inboxLink && !inboxAlreadyListed ? (
+                            {emailDraft && inboxLink && !inboxAlreadyListed ? (
                               <InboxOpenControl
                                 label={inboxLink.label}
                                 href={preparedInboxUrl ?? inboxLink.url}
@@ -587,12 +645,25 @@ export function PlayCardDetailModal({
                                 opening={openingInbox}
                                 onOpenPrepared={handleOpenPrepared}
                               />
+                            ) : !emailDraft && draftOpenUrl ? (
+                              <a
+                                href={draftOpenUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="ml-auto inline-flex items-center gap-1 text-[12px] font-medium text-muted-foreground underline decoration-border underline-offset-2 transition hover:text-foreground hover:decoration-foreground"
+                              >
+                                Open in{" "}
+                                {draftAppId
+                                  ? appLabelForId(draftAppId)
+                                  : "app"}
+                                <ExternalLink className="size-3 opacity-50" strokeWidth={2.25} />
+                              </a>
                             ) : null}
                           </div>
                           {renderBody()}
                         </div>
                       )}
-                      {vm.sourceUrl && artifacts.length === 0 && (
+                      {vm.sourceUrl && allArtifacts.length === 0 && (
                         <div className="flex items-center gap-2.5">
                           {sourceAppId && <ConnectorIcon id={sourceAppId} size={22} />}
                           <a
@@ -766,11 +837,16 @@ export function PlayCardDetailModal({
             {/* Footer: reversibility honesty + same pill as the card face.
                 Handled plays swap approve/dismiss for feedback + undo. */}
             {(() => {
+              const emailDraft = isEmailDraftChannel(vm.channel);
               const note = isHandled
-                ? vm.outputType === "email_draft"
+                ? vm.outputType === "email_draft" && emailDraft
                   ? "Sent — emails can't be unsent. Need a correction? Fix with Salt."
                   : null
-                : reversibilityNote(vm.outputType, vm.kind);
+                : emailDraft
+                  ? reversibilityNote(vm.outputType, vm.kind)
+                  : vm.kind === "acting"
+                    ? "Approving marks this handled, nothing is sent."
+                    : reversibilityNote(vm.outputType, vm.kind);
               return (
                 <div className="border-t border-border/40 px-6 py-4">
                   {note && (

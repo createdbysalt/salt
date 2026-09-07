@@ -3,20 +3,38 @@
 import { useCallback, useRef, useState } from "react";
 import type { HqBriefingData } from "@/app/_features/plays/types";
 import type { HqSideRailData } from "../types";
-import { generateBriefingScript, estimateDuration } from "../utils/briefing-script";
+import type { DailyBriefing } from "../briefing/types";
+import {
+  generateBriefingScript,
+  generateBriefingScriptFromDaily,
+  estimateDuration,
+} from "../utils/briefing-script";
 
 type AudioState = "idle" | "loading" | "playing" | "paused" | "error";
 
-const CACHE_KEY_PREFIX = "salt-briefing-audio-v4-";
+const CACHE_KEY_PREFIX = "salt-briefing-audio-v5-";
 
-function getTodayKey(): string {
-  const date = new Date();
-  return `${CACHE_KEY_PREFIX}${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+/**
+ * Cheap stable hash so the cached audio is keyed to the exact script text.
+ * Without this, a same-day data refresh kept playing the old recording
+ * while the page showed the new briefing.
+ */
+function hashScript(script: string): string {
+  let hash = 5381;
+  for (let i = 0; i < script.length; i++) {
+    hash = ((hash << 5) + hash + script.charCodeAt(i)) | 0;
+  }
+  return (hash >>> 0).toString(36);
 }
 
-function getCachedAudio(): string | null {
+function getTodayKey(script: string): string {
+  const date = new Date();
+  return `${CACHE_KEY_PREFIX}${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}-${hashScript(script)}`;
+}
+
+function getCachedAudio(script: string): string | null {
   if (typeof window === "undefined") return null;
-  const key = getTodayKey();
+  const key = getTodayKey(script);
 
   // Clear old cache entries
   Object.keys(localStorage).forEach((k) => {
@@ -36,25 +54,26 @@ function getCachedAudio(): string | null {
   return cached;
 }
 
-function setCachedAudio(dataUrl: string): void {
+function setCachedAudio(script: string, dataUrl: string): void {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(getTodayKey(), dataUrl);
+    localStorage.setItem(getTodayKey(script), dataUrl);
   } catch {
     // localStorage full or unavailable - continue without caching
   }
 }
 
-function clearCachedAudio(): void {
+function clearCachedAudio(script: string): void {
   if (typeof window === "undefined") return;
-  const key = getTodayKey();
+  const key = getTodayKey(script);
   localStorage.removeItem(key);
 }
 
 export function useBriefingAudio(
   userName: string,
   briefing: HqBriefingData,
-  sideRail: HqSideRailData
+  sideRail: HqSideRailData,
+  dailyBriefing?: DailyBriefing | null
 ) {
   const [state, setState] = useState<AudioState>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -63,7 +82,11 @@ export function useBriefingAudio(
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const script = generateBriefingScript(userName, briefing, sideRail);
+  // When a stored daily briefing exists, read exactly what the hero shows.
+  // The template script is the fallback for days without a generated briefing.
+  const script = dailyBriefing
+    ? generateBriefingScriptFromDaily(userName, dailyBriefing)
+    : generateBriefingScript(userName, briefing, sideRail);
   const estimatedSeconds = durationSeconds > 0 ? Math.ceil(durationSeconds) : estimateDuration(script);
 
   const detachAudioListeners = useCallback((audio: HTMLAudioElement) => {
@@ -107,7 +130,7 @@ export function useBriefingAudio(
 
     try {
       // Check cache first
-      const cachedDataUrl = getCachedAudio();
+      const cachedDataUrl = getCachedAudio(script);
       let audioBlob: Blob;
 
       if (cachedDataUrl) {
@@ -159,7 +182,7 @@ export function useBriefingAudio(
       });
 
       // Cache for later
-      setCachedAudio(dataUrl);
+      setCachedAudio(script, dataUrl);
 
       const audio = new Audio();
       audioRef.current = audio;
@@ -209,7 +232,7 @@ export function useBriefingAudio(
       setState("playing");
     } catch (err) {
       console.error("[briefing audio] error:", err);
-      clearCachedAudio(); // Clear potentially corrupted cache
+      clearCachedAudio(script); // Clear potentially corrupted cache
       setState("error");
       setError(err instanceof Error ? err.message : "Unknown error");
     }
