@@ -1,5 +1,6 @@
 import type { HqBriefingData } from "@/app/_features/plays/types";
 import type { HqSideRailData } from "../types";
+import type { DailyBriefing, DailyBriefingSections } from "../briefing/types";
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -96,7 +97,7 @@ export function generateBriefingScript(
   if (playsAwaitingApproval > 0) {
     const playWord = playsAwaitingApproval === 1 ? "play" : "plays";
     lines.push(
-      `${playsAwaitingApproval} ${playWord} waiting for your quick approval — about ${playsAwaitingApproval * 30} seconds total.`
+      `${playsAwaitingApproval} ${playWord} waiting for your quick approval, about ${playsAwaitingApproval * 30} seconds total.`
     );
     lines.push("");
   }
@@ -124,7 +125,7 @@ export function generateBriefingScript(
   // Opportunity insight
   if (primaryOpportunity?.claim) {
     lines.push(
-      `Quick heads up: ${primaryOpportunity.claim}${primaryOpportunity.amountLabel ? ` — about ${primaryOpportunity.amountLabel}` : ""}.`
+      `Quick heads up: ${primaryOpportunity.claim}${primaryOpportunity.amountLabel ? `, about ${primaryOpportunity.amountLabel}` : ""}.`
     );
     lines.push("");
   }
@@ -139,4 +140,33 @@ export function estimateDuration(script: string): number {
   const words = script.split(/\s+/).length;
   const wordsPerSecond = 2.5; // Average speaking rate
   return Math.ceil(words / wordsPerSecond);
+}
+
+const SPOKEN_SECTION_INTRO: Record<keyof DailyBriefingSections, string> = {
+  urgent: "Heads up",
+  today: "On your calendar",
+  relationships: "Worth a look",
+};
+
+/**
+ * Spoken version of the stored daily briefing. Built from the exact text the
+ * hero renders, so the audio and the page can never drift apart.
+ */
+export function generateBriefingScriptFromDaily(
+  userName: string,
+  dailyBriefing: DailyBriefing
+): string {
+  const parts: string[] = [`${getGreeting()}, ${userName}.`];
+
+  const lede = dailyBriefing.content.trim();
+  if (lede) parts.push(lede);
+
+  for (const key of ["urgent", "today", "relationships"] as const) {
+    const items = dailyBriefing.sections[key];
+    if (items.length === 0) continue;
+    parts.push(`${SPOKEN_SECTION_INTRO[key]}: ${items.join(" ")}`);
+  }
+
+  parts.push("You're all set. Have a great day.");
+  return parts.join(" ").replace(/\s+/g, " ").trim();
 }

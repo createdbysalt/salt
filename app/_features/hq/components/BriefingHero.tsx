@@ -86,7 +86,7 @@ export function BriefingHero({ briefing, dailyBriefing, sideRail }: Props) {
     play,
     stop,
     togglePause,
-  } = useBriefingAudio(displayName, briefing, sideRail);
+  } = useBriefingAudio(displayName, briefing, sideRail, dailyBriefing);
 
   const showTeleprompter = audioState === "playing" || audioState === "paused";
 

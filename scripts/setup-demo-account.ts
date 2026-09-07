@@ -375,7 +375,7 @@ const DEMO_PLAYS: DemoPlay[] = [
     title: "Sarah's contract renews in 30 days: upsell ready",
     headline: "Evergreen renews Sept 30, the renewal + holiday upsell is drafted",
     preview: "Salt analyzed 6 months of Slack convos + invoices. She mentioned expansion 4x. Renewal + upsell proposal drafted.",
-    draftBody: "Subject: Evergreen renewal + a holiday campaign proposal\n\nHi Sarah,\n\nCan you believe we're coming up on 6 months already? The Evergreen partnership has been incredible. 3 successful campaigns, 47% engagement lift, and that viral TikTok moment.\n\nYour current contract ($24K) renews Sept 30. Given the Holiday Campaign scope, I'd love to propose:\n\n• Renewed retainer: $28K (+$4K for expanded social)\n• Add-on: $45K Holiday Campaign (Oct-Dec)\n• Total partnership: $73K/year\n\nI've attached a detailed breakdown. Coffee this week to discuss?\n\nBest,",
+    draftBody: "Subject: Evergreen renewal + a holiday campaign proposal\n\nHi Sarah,\n\nCan you believe we're coming up on 6 months already? The Evergreen partnership has been incredible. 3 successful campaigns, 47% engagement lift, and that viral TikTok moment.\n\nYour current contract ($6K) renews Sept 30. Given the Holiday Campaign scope, I'd love to propose:\n\n• Renewed retainer: $7K (+$1K for expanded social)\n• Add-on: $3K Holiday Campaign (Oct-Dec)\n• Total partnership: $10K/year\n\nI've attached a detailed breakdown. Coffee this week to discuss?\n\nBest,",
     recipientLabel: "Sarah Chen",
     channel: "Gmail",
     confidence: 96,
@@ -385,9 +385,9 @@ const DEMO_PLAYS: DemoPlay[] = [
     section: "billing",
     triggerSignal: "Recurring contract hits its 30-day renewal window",
     evidence: [
-      { label: "Found the Brand Refresh contract renewing Sept 30 ($24K)", url: "{{stripe:evergreen}}", appLabel: "Stripe", appId: "stripe" },
+      { label: "Found the Brand Refresh contract renewing Sept 30 ($6K)", url: "{{stripe:evergreen}}", appLabel: "Stripe", appId: "stripe" },
       { label: "Counted 4 expansion mentions from Sarah in #evergreen-salt this month", url: SLACK_APP_URL, appLabel: "Slack", appId: "slack" },
-      { label: "Saw the Holiday Campaign draft invoice ($45K) waiting in Stripe", url: "{{stripe:evergreen}}", appLabel: "Stripe", appId: "stripe" },
+      { label: "Saw the Holiday Campaign draft invoice ($3K) waiting in Stripe", url: "{{stripe:evergreen}}", appLabel: "Stripe", appId: "stripe" },
     ],
     targetOrgSlug: "evergreen-brands",
     sourceUrl: SLACK_APP_URL,
@@ -520,13 +520,13 @@ interface DemoBillingRecord {
 
 const DEMO_BILLING_RECORDS: DemoBillingRecord[] = [
   // Paid this month (MTD revenue)
-  { orgSlug: "evergreen-brands", number: "INV-2026-052", amountCents: 1200000, status: "paid", issuedDaysAgo: 12, paidDaysAgo: 4, description: "Brand Refresh Q3 - July" },
+  { orgSlug: "evergreen-brands", number: "INV-2026-052", amountCents: 100000, status: "paid", issuedDaysAgo: 12, paidDaysAgo: 4, description: "Brand Refresh Q3 - July" },
   { orgSlug: "meridian-tech", number: "INV-2026-051", amountCents: 750000, status: "paid", issuedDaysAgo: 10, paidDaysAgo: 3, description: "Content Engine - July" },
   { orgSlug: "luna-wellness", number: "INV-2026-050", amountCents: 650000, status: "paid", issuedDaysAgo: 8, paidDaysAgo: 2, description: "Monthly Retainer - July" },
   { orgSlug: "vertex-architecture", number: "INV-2026-049", amountCents: 900000, status: "paid", issuedDaysAgo: 15, paidDaysAgo: 6, description: "Website Redesign - Phase 1" },
   { orgSlug: "horizon-fitness", number: "INV-2026-047", amountCents: 1100000, status: "paid", issuedDaysAgo: 18, paidDaysAgo: 8, description: "Location Launch Kit - Deposit" },
   // Paid last month (for comparison)
-  { orgSlug: "evergreen-brands", number: "INV-2026-042", amountCents: 1200000, status: "paid", issuedDaysAgo: 42, paidDaysAgo: 32, description: "Brand Refresh Q3 - June" },
+  { orgSlug: "evergreen-brands", number: "INV-2026-042", amountCents: 100000, status: "paid", issuedDaysAgo: 42, paidDaysAgo: 32, description: "Brand Refresh Q3 - June" },
   { orgSlug: "meridian-tech", number: "INV-2026-041", amountCents: 750000, status: "paid", issuedDaysAgo: 40, paidDaysAgo: 30, description: "Content Engine - June" },
   { orgSlug: "luna-wellness", number: "INV-2026-040", amountCents: 1200000, status: "paid", issuedDaysAgo: 38, paidDaysAgo: 28, description: "Brand Strategy - Final" },
   // Due (pipeline)
@@ -534,14 +534,14 @@ const DEMO_BILLING_RECORDS: DemoBillingRecord[] = [
   { orgSlug: "meridian-tech", number: "INV-2026-053", amountCents: 425000, status: "due", issuedDaysAgo: 3, description: "Product Launch Support" },
   { orgSlug: "bloom-creative", number: "INV-2026-054", amountCents: 400000, status: "due", issuedDaysAgo: 5, description: "Photo Support - July" },
   // Draft
-  { orgSlug: "evergreen-brands", number: "INV-2026-055", amountCents: 2250000, status: "draft", issuedDaysAgo: 0, description: "Holiday Campaign - Deposit" },
+  { orgSlug: "evergreen-brands", number: "INV-2026-055", amountCents: 150000, status: "draft", issuedDaysAgo: 0, description: "Holiday Campaign - Deposit" },
   { orgSlug: "catalyst-ventures", number: "INV-2026-056", amountCents: 2500000, status: "draft", issuedDaysAgo: 0, description: "Portfolio Services - Proposal" },
   // Evergreen history — deep billing trail so the hub node shows payment density
-  { orgSlug: "evergreen-brands", number: "INV-2026-038", amountCents: 900000, status: "paid", issuedDaysAgo: 72, paidDaysAgo: 60, description: "Influencer Program - May" },
-  { orgSlug: "evergreen-brands", number: "INV-2026-031", amountCents: 800000, status: "paid", issuedDaysAgo: 130, paidDaysAgo: 118, description: "Spring Lookbook - Final" },
-  { orgSlug: "evergreen-brands", number: "INV-2026-027", amountCents: 700000, status: "paid", issuedDaysAgo: 160, paidDaysAgo: 150, description: "Spring Lookbook - Deposit" },
-  { orgSlug: "evergreen-brands", number: "INV-2026-059", amountCents: 700000, status: "due", issuedDaysAgo: 2, description: "Retail Launch Kit - Milestone 1" },
-  { orgSlug: "evergreen-brands", number: "INV-2026-044", amountCents: 900000, status: "paid", issuedDaysAgo: 45, paidDaysAgo: 35, description: "Influencer Program - June" },
+  { orgSlug: "evergreen-brands", number: "INV-2026-038", amountCents: 90000, status: "paid", issuedDaysAgo: 72, paidDaysAgo: 60, description: "Influencer Program - May" },
+  { orgSlug: "evergreen-brands", number: "INV-2026-031", amountCents: 80000, status: "paid", issuedDaysAgo: 130, paidDaysAgo: 118, description: "Spring Lookbook - Final" },
+  { orgSlug: "evergreen-brands", number: "INV-2026-027", amountCents: 70000, status: "paid", issuedDaysAgo: 160, paidDaysAgo: 150, description: "Spring Lookbook - Deposit" },
+  { orgSlug: "evergreen-brands", number: "INV-2026-059", amountCents: 70000, status: "due", issuedDaysAgo: 2, description: "Retail Launch Kit - Milestone 1" },
+  { orgSlug: "evergreen-brands", number: "INV-2026-044", amountCents: 90000, status: "paid", issuedDaysAgo: 45, paidDaysAgo: 35, description: "Influencer Program - June" },
 ];
 
 // Opportunity gaps for HQ briefing
@@ -567,18 +567,18 @@ const DEMO_OPPORTUNITY_GAPS: DemoOpportunityGap[] = [
   },
   {
     claim: "2 contracts expiring in 30 days",
-    summary: "Evergreen ($24K) and Artisan ($9.5K) end Sept 30. Start renewal conversations now.",
-    amountMin: 33500,
-    amountMax: 33500,
+    summary: "Evergreen ($6K) and Artisan ($9.5K) end Sept 30. Start renewal conversations now.",
+    amountMin: 15500,
+    amountMax: 15500,
     confidence: 95,
     category: "renewal",
     isPrimary: false,
   },
   {
     claim: "Upsell ready: Luna Wellness wants video",
-    summary: "Amanda mentioned video twice in your last call. Potential $5K/month add-on.",
-    amountMin: 60000,
-    amountMax: 60000,
+    summary: "Amanda mentioned video 4x this month. $15K package proposal is drafted.",
+    amountMin: 15000,
+    amountMax: 15000,
     confidence: 82,
     category: "expansion",
     isPrimary: false,
@@ -603,7 +603,7 @@ const DEMO_MEETINGS: DemoMeeting[] = [
   { title: "Meridian Tech - Weekly Sync", daysFromNow: 0, hour: 14, durationMinutes: 30, meetingType: "check-in", notes: "Content pipeline review, launch prep. James mentioned Aug 15 deadline.", orgSlug: "meridian-tech", personName: "James Park" },
   { title: "Catalyst Ventures - Follow-up", daysFromNow: 0, hour: 16, durationMinutes: 45, meetingType: "review", notes: "Big opportunity - $50K portfolio services deal. Bring case studies.", orgSlug: "catalyst-ventures", personName: "David Liu" },
   // TOMORROW
-  { title: "Evergreen - Q4 Campaign Kickoff", daysFromNow: 1, hour: 10, durationMinutes: 90, meetingType: "kickoff", notes: "Present $45K holiday campaign concepts", orgSlug: "evergreen-brands", personName: "Sarah Chen" },
+  { title: "Evergreen - Q4 Campaign Kickoff", daysFromNow: 1, hour: 10, durationMinutes: 90, meetingType: "kickoff", notes: "Present $3K holiday campaign concepts", orgSlug: "evergreen-brands", personName: "Sarah Chen" },
   { title: "Studio Collective - Intro Call", daysFromNow: 1, hour: 15, durationMinutes: 30, meetingType: "discovery", notes: "New lead from LinkedIn - interested in strategy services", orgSlug: "studio-collective", personName: "Alex Rivera" },
   // THIS WEEK
   { title: "Vertex Architecture - Design Review", daysFromNow: 2, hour: 11, durationMinutes: 60, meetingType: "review", notes: "Review homepage wireframes, discuss photography", orgSlug: "vertex-architecture", personName: "Michael Torres" },
@@ -841,6 +841,7 @@ async function clearDemoData(workspaceId: string): Promise<Map<string, { id: str
   // Order matters - delete in reverse dependency order
   await supabase.from("capture_routing_decisions").delete().eq("workspace_id", workspaceId);
   await supabase.from("capture_events").delete().eq("workspace_id", workspaceId);
+  await supabase.from("hq_daily_briefings").delete().eq("workspace_id", workspaceId);
   await supabase.from("entity_evidence").delete().eq("workspace_id", workspaceId);
   await supabase.from("salt_learnings").delete().eq("workspace_id", workspaceId);
   await supabase.from("memory_customize_entries").delete().eq("workspace_id", workspaceId);
@@ -1214,7 +1215,7 @@ async function seedStripeArtifacts(): Promise<Record<string, string>> {
       auto_advance: true,
       metadata: { salt_demo: "true", demo_number: "INV-2026-058" },
     });
-    await addLineItem(evergreen, evergreenInvoice.id, 1200000, "Brand refresh: July (INV-2026-058)");
+    await addLineItem(evergreen, evergreenInvoice.id, 100000, "Brand refresh: July (INV-2026-058)");
     const evergreenFinal = await stripe.invoices.finalizeInvoice(evergreenInvoice.id);
     urls["stripe:evergreen"] = `${dash}/invoices/${evergreenFinal.id}`;
     if (evergreenFinal.hosted_invoice_url) urls["stripe:evergreenHosted"] = evergreenFinal.hosted_invoice_url;
@@ -1811,6 +1812,55 @@ async function seedOpportunityGaps(workspaceId: string) {
 
     console.log(`  ✓ ${gap.claim}`);
   }
+}
+
+/**
+ * Today's HQ briefing. The cron that normally writes this row does not run on
+ * staging, so the demo seeds it directly. The hero reads the row for the
+ * current America/Toronto date, so re-run the seeder on recording day.
+ * The Listen button reads this exact text aloud (see briefing-script.ts).
+ */
+async function seedBriefing(workspaceId: string) {
+  console.log(`\nSeeding today's briefing...`);
+
+  const briefingDate = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Toronto",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+
+  const { error } = await supabase.from("hq_daily_briefings").upsert(
+    {
+      workspace_id: workspaceId,
+      briefing_date: briefingDate,
+      content:
+        "Salt has already handled 14 plays for you today: follow-ups sent, both meeting briefs prepped, and your cash snapshot filed. Memory gained 13 updates, including Sarah's promotion to VP Marketing and Amanda's move from prospect to client. 8 plays are waiting on your approval, about 4 minutes of review.",
+      sections: {
+        urgent: [
+          "Artisan Coffee's INV-2026-048 ($4,750) is 35 days overdue and the card failed on July 15. The nudge with a fresh payment link is drafted.",
+          "September spend is pacing 22% over budget. The note capping Dana's hours is drafted.",
+        ],
+        today: [
+          "2:00 PM: Meridian Tech weekly sync. The brief is already written.",
+          "4:00 PM: Catalyst Ventures follow-up. The proposal and $25K deposit invoice are ready.",
+        ],
+        relationships: [
+          "Evergreen's $6K contract renews Sept 30. The $10K renewal and holiday upsell is drafted.",
+          "Amanda mentioned video 4x this month. The $15K Luna proposal is ready to send.",
+          "Priya Nair re-opened your rate card twice in 48 hours. Wednesday's intro pre-read is drafted.",
+        ],
+      },
+      model: "demo-seed",
+    },
+    { onConflict: "workspace_id,briefing_date" }
+  );
+
+  if (error) {
+    console.error(`  ✗ briefing: ${error.message}`);
+    return;
+  }
+  console.log(`  ✓ briefing for ${briefingDate}`);
 }
 
 async function seedCaptures(workspaceId: string, orgIds: Map<string, string>, personIds: Map<string, string>) {
@@ -2689,6 +2739,7 @@ async function main() {
     await seedBilling(workspaceId, orgIds);
     await seedProposals(workspaceId);
     await seedOpportunityGaps(workspaceId);
+    await seedBriefing(workspaceId);
     await seedCaptures(workspaceId, orgIds, personIds);
     await seedFindings(workspaceId, orgIds, personIdsByName);
     await seedConnections(workspaceId);
