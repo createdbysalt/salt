@@ -19,7 +19,7 @@ import {
 } from "../playbooks/schema/v2/types";
 import type { PlayRunRow } from "../types";
 import type { PlayCardViewModel, PlayCardKind, PlayCardErrorState, PlayArtifact } from "./types";
-import { resolveEmailSubject } from "../lib/draft-preview";
+import { isEmailDraftChannel, resolveEmailSubject } from "../lib/draft-preview";
 import { draftParagraphsWithPayLinks } from "../lib/draft-payment-link";
 import { buildPlayHeadline, summarizeEvidence, type PlayEvidenceItem } from "../lib/play-headline";
 
@@ -280,7 +280,9 @@ export function mapPlayRunToCardClient(row: PlayRunRow): PlayCardViewModel {
 
     primaryAction:
       kind === "acting"
-        ? { label: "Approve & send", kind: "approve_send" }
+        ? isEmailDraftChannel(row.channel)
+          ? { label: "Approve & send", kind: "approve_send" }
+          : { label: "Approve", kind: "approve_send" }
         : kind === "profile"
           ? { label: readMetadataString(row, "primary_label") ?? "Save to Memory", kind: "apply_memory" }
           : kind === "question"

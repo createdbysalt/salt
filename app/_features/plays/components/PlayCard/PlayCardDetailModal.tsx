@@ -837,11 +837,16 @@ export function PlayCardDetailModal({
             {/* Footer: reversibility honesty + same pill as the card face.
                 Handled plays swap approve/dismiss for feedback + undo. */}
             {(() => {
+              const emailDraft = isEmailDraftChannel(vm.channel);
               const note = isHandled
-                ? vm.outputType === "email_draft"
+                ? vm.outputType === "email_draft" && emailDraft
                   ? "Sent — emails can't be unsent. Need a correction? Fix with Salt."
                   : null
-                : reversibilityNote(vm.outputType, vm.kind);
+                : emailDraft
+                  ? reversibilityNote(vm.outputType, vm.kind)
+                  : vm.kind === "acting"
+                    ? "Approving marks this handled, nothing is sent."
+                    : reversibilityNote(vm.outputType, vm.kind);
               return (
                 <div className="border-t border-border/40 px-6 py-4">
                   {note && (

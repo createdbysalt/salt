@@ -183,7 +183,10 @@ export function resolveCta(vm: PlayCardViewModel): { label: string; opensDetail:
     case "finding":
       return { label: "Review", opensDetail: true };
     case "email_draft":
-      return { label: "Send", opensDetail: false };
+      // Content drafts (LinkedIn post, TikTok script) approve, not send.
+      return isEmailDraftChannel(vm.channel)
+        ? { label: "Send", opensDetail: false }
+        : { label: "Approve", opensDetail: false };
     case "memory_update":
       return { label: "Apply", opensDetail: false };
     default:
@@ -291,6 +294,7 @@ export function PlayCard({
     playbookSlug: vm.playbookSlug,
     playbookName: vm.playbookName,
     outputType: vm.outputType,
+    channel: vm.channel,
     triggerLabel: vm.triggerLabel,
     preview: vm.preview,
     valueEstimate: vm.valueEstimate,

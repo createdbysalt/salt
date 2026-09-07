@@ -21,12 +21,6 @@ function getGreetingName(firstName?: string, fullName?: string) {
   return "there";
 }
 
-const SECTION_LABELS = [
-  { key: "urgent", label: "Urgent" },
-  { key: "today", label: "Today" },
-  { key: "relationships", label: "Relationships" },
-] as const;
-
 type Props = {
   briefing: HqBriefingData;
   dailyBriefing: DailyBriefing | null;
@@ -34,38 +28,15 @@ type Props = {
 };
 
 function EditorialBriefing({ dailyBriefing }: { dailyBriefing: DailyBriefing }) {
-  const visibleSections = SECTION_LABELS.filter(
-    ({ key }) => dailyBriefing.sections[key].length > 0,
-  );
-
+  // Only the lede renders. The urgent/today/relationships detail is spoken
+  // by Listen (generateBriefingScriptFromDaily) instead of filling the hero
+  // with a wall of text.
+  if (!dailyBriefing.content) return null;
   return (
-    <div className="mt-5 max-w-xl space-y-4">
-      {dailyBriefing.content ? (
-        <p className="text-base leading-[1.55] text-white/85 sm:text-lg">
-          {dailyBriefing.content}
-        </p>
-      ) : null}
-      {visibleSections.length > 0 ? (
-        <div className="space-y-3">
-          {visibleSections.map(({ key, label }) => (
-            <div key={key}>
-              <p className="text-[11px] font-medium uppercase tracking-wider text-white/70">
-                {label}
-              </p>
-              <ul className="mt-1.5 space-y-1">
-                {dailyBriefing.sections[key].map((item) => (
-                  <li
-                    key={item}
-                    className="text-sm leading-snug text-white/90"
-                  >
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-      ) : null}
+    <div className="mt-5 max-w-xl">
+      <p className="text-base leading-[1.55] text-white/85 sm:text-lg">
+        {dailyBriefing.content}
+      </p>
     </div>
   );
 }

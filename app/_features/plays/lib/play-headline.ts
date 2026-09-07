@@ -10,7 +10,11 @@
  */
 
 import type { PlaybookOutputType } from "../playbooks/schema/v2/types";
-import { draftAddresseeLabel, looksLikeRecordCode } from "./draft-preview";
+import {
+  draftAddresseeLabel,
+  isEmailDraftChannel,
+  looksLikeRecordCode,
+} from "./draft-preview";
 import {
   attachEvidenceSourceLinks,
   type EvidenceLinkContext,
@@ -95,6 +99,7 @@ export interface PlayGlanceInput {
   playbookSlug?: string | null;
   playbookName?: string | null;
   outputType?: PlaybookOutputType | null;
+  channel?: string | null;
   triggerLabel?: string | null;
   preview?: string | null;
   valueEstimate?: string | null;
@@ -313,6 +318,10 @@ function glancePrepared(
       return "Wrote the recap";
     default:
       if (input.outputType === "email_draft") {
+        // Content drafts (a LinkedIn post, a TikTok script) are not email.
+        if (!isEmailDraftChannel(input.channel)) {
+          return who ? `Drafted for ${who}` : "Drafted it";
+        }
         return who ? `Drafted ${who} an email` : "Drafted the email";
       }
       return null;

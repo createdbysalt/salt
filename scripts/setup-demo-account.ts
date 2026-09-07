@@ -310,6 +310,12 @@ interface DemoPlay {
   targetOrgSlug?: string;
   sourceUrl?: string;
   triggerLabel?: string;
+  /**
+   * Queue order is money bucket first, then newest. Stagger created_at so
+   * the demo queue order is deterministic across reseeds: the Artisan
+   * overdue invoice (Nina) is always the top card.
+   */
+  createdMinutesAgo?: number;
 }
 
 // Real, openable links for demo evidence + artifacts. Stripe URLs are created
@@ -326,7 +332,7 @@ const SLACK_APP_URL = "https://slack.com/app";
 const DEMO_PLAYS: DemoPlay[] = [
   {
     title: "$50K deal closing: meeting prep + invoice ready",
-    headline: "Catalyst call at 4pm, your proposal and deposit invoice are ready",
+    createdMinutesAgo: 15,    headline: "Catalyst call at 4pm, your proposal and deposit invoice are ready",
     preview: "Salt cross-referenced Calendar, Gmail, and Stripe. Proposal attached, invoice drafted, talking points ready.",
     draftBody: "Subject: Portfolio Brand Services proposal for today's call\n\nHi David,\n\nLooking forward to our call at 4pm! As discussed, I've attached the full Portfolio Brand Services proposal.\n\nQuick summary:\n• $50K/year for up to 5 portfolio companies\n• Dedicated brand strategist for each\n• 48-hour turnaround on urgent requests\n\nI've also included the Meridian Tech case study you asked about. They saw 3x content output in 90 days.\n\nSee you at 4!\n\nBest,",
     recipientLabel: "David Liu",
@@ -351,6 +357,7 @@ const DEMO_PLAYS: DemoPlay[] = [
   },
   {
     title: "Artisan overdue $4,750: Stripe says the card failed",
+    createdMinutesAgo: 1,
     headline: "Nina's payment failed 35 days ago, the nudge is drafted",
     preview: "Salt found the failed charge in Stripe, drafted a friendly nudge with updated payment link.",
     draftBody: "Subject: Following up on INV-2026-048 ($4,750)\n\nHi Nina,\n\nHope you're well! Quick heads up: it looks like the payment for INV-2026-048 ($4,750) didn't go through. Stripe flagged a card issue on July 15.\n\nNo worries at all. Here's a fresh payment link:\n{{stripe:artisanPay}}\n\nLet me know if you'd prefer to switch to ACH or update the card on file.\n\nBest,",
@@ -373,6 +380,7 @@ const DEMO_PLAYS: DemoPlay[] = [
   },
   {
     title: "Sarah's contract renews in 30 days: upsell ready",
+    createdMinutesAgo: 6,
     headline: "Evergreen renews Sept 30, the renewal + holiday upsell is drafted",
     preview: "Salt analyzed 6 months of Slack convos + invoices. She mentioned expansion 4x. Renewal + upsell proposal drafted.",
     draftBody: "Subject: Evergreen renewal + a holiday campaign proposal\n\nHi Sarah,\n\nCan you believe we're coming up on 6 months already? The Evergreen partnership has been incredible. 3 successful campaigns, 47% engagement lift, and that viral TikTok moment.\n\nYour current contract ($6K) renews Sept 30. Given the Holiday Campaign scope, I'd love to propose:\n\n• Renewed retainer: $7K (+$1K for expanded social)\n• Add-on: $3K Holiday Campaign (Oct-Dec)\n• Total partnership: $10K/year\n\nI've attached a detailed breakdown. Coffee this week to discuss?\n\nBest,",
@@ -395,6 +403,7 @@ const DEMO_PLAYS: DemoPlay[] = [
   },
   {
     title: "Amanda mentioned video 4x: $15K upsell opportunity",
+    createdMinutesAgo: 8,
     headline: "Amanda asked about video again, the $15K proposal is drafted",
     preview: "Salt analyzed Slack history + meeting notes. She's ready. Proposal + calendar invite drafted.",
     draftBody: "Subject: Video at Luna: a proposal\n\nHi Amanda,\n\nI've been thinking about our last few conversations. You mentioned video 4 times in the past month, and I think you're absolutely right that it's time.\n\nLuna's national expansion deserves to be documented. I put together a video package:\n\n• $2,500/month for 6 months ($15K total)\n• 4 short-form + 1 long-form monthly\n• First video: Your founder story\n\nI blocked Thursday 2pm for us to discuss (calendar invite attached). Let me know if another time works better.\n\nBest,",
@@ -417,6 +426,7 @@ const DEMO_PLAYS: DemoPlay[] = [
   },
   {
     title: "September spend pacing 22% over: cap note drafted",
+    createdMinutesAgo: 10,
     headline: "Contractor hours and two early renewals are pacing $1,840 over September budget",
     preview: "QuickBooks Overwatch watches your monthly spend tendencies. Contractor invoices are pacing 31% over and two annual tool renewals landed early. A note capping September hours is drafted.",
     draftBody: "Subject: September hours: let's cap at 60\n\nHi Dana,\n\nQuick heads up as we plan the rest of September. Your invoices are pacing about 31% above a typical month (72 hours logged, 10 days to go), so let's cap September at 60 hours total.\n\nIf anything is mid-flight that needs more time, flag it and I'll shift budget from the October retainer instead.\n\nThanks for being flexible.\n\nBest,",
@@ -438,6 +448,7 @@ const DEMO_PLAYS: DemoPlay[] = [
   },
   {
     title: "3 warm leads surfaced: Priya's follow-up is drafted",
+    createdMinutesAgo: 20,
     headline: "Priya opened your rate card twice since Salt's reply, the intro pre-read is ready",
     preview: "Lead Scout watches referrals, repeat inquiries, and buying language. Northwind, Helios, and a founder Sarah intro'd all surfaced this week. Priya is the hottest: Salt replied within the hour yesterday, and the pre-read for Wednesday's intro is drafted.",
     draftBody: "Subject: Ahead of Wednesday: how a Series B rebrand runs\n\nHi Priya,\n\nLooking forward to Wednesday. Since timing matters ahead of your announcement, here's how we typically run it:\n\n• Weeks 1-2: positioning sprint with your founding team\n• Weeks 3-5: identity and messaging, weekly reviews\n• Week 6: launch kit, ready for the announcement\n\nEvergreen went through the same arc last year and saw a 47% engagement lift in the first quarter after launch.\n\nBring your deck if you can. It helps me see how you're telling the story today.\n\nBest,",
@@ -459,6 +470,7 @@ const DEMO_PLAYS: DemoPlay[] = [
   },
   {
     title: "Founder-story post hit 18K views: follow-up scripted",
+    createdMinutesAgo: 25,
     headline: "Your TikTok doubled its usual views, the follow-up script is ready to record",
     preview: "Social Watch read engagement on your last 5 posts. Founder-story content is outperforming 4:1. A 60-second follow-up script and shot list are ready, you just record.",
     draftBody: "HOOK (0-3s): \"I almost turned down my biggest client because my contract didn't protect me.\"\n\nBEAT 1 (3-20s): The moment: the invoice sat 35 days and I had no follow-up system.\n\nBEAT 2 (20-45s): The fix: what I changed in my onboarding so it never happens again.\n\nCLOSE (45-60s): \"Comment CHECKLIST and I'll send you the exact template.\"\n\nShot list: desk talking head, screen recording of the checklist, close-up on the signed contract.\n\nBest posting window: Tuesday 6-8pm (your audience peak).",
@@ -483,6 +495,7 @@ const DEMO_PLAYS: DemoPlay[] = [
   },
   {
     title: "Clients asked about scope 9x this month: post drafted",
+    createdMinutesAgo: 30,
     headline: "Scope creep is your clients' #1 question, Salt drafted the post that answers it",
     preview: "Salt analyzed 6.5 hours of client threads this month. \"How do scope changes work?\" came up 9 times across 4 clients. A LinkedIn post built from your real project data is ready to publish.",
     draftBody: "Every client asks me the same question in month one: \"What happens when the scope changes?\"\n\nHere is my actual answer, from real projects:\n\n1. Small tweaks (under 2 hours) are always free. Goodwill compounds.\n2. Anything bigger gets a written change order within 24 hours, with a price, before work starts.\n3. My clients see the same tracker I do, so nothing is a surprise.\n\nSince I started doing this, scope conversations take 10 minutes instead of 10 emails.\n\nThe lesson: clients don't fear scope changes. They fear surprise invoices.\n\n#clientwork #freelance #branddesign",
@@ -647,10 +660,12 @@ const DEMO_CAPTURES: DemoCapture[] = [
 // { memory_care_profile, profile_field, profile_value } so the handled card
 // renders a concrete change line ("relationship → Client").
 interface DemoFinding {
-  findingType: "revenue_closing" | "revenue_risk" | "revenue_upsell" | "revenue_buying" | "pending_deliverable" | "pending_reply";
+  findingType: "revenue_closing" | "revenue_risk" | "revenue_upsell" | "revenue_buying" | "pending_deliverable" | "pending_reply" | "pending_question" | "new_person";
   title: string;
   content: string;
   confidence: number;
+  /** needs_you fills the HQ Heads-up rail; auto_handled fills the handled stack. */
+  queue?: "needs_you" | "auto_handled";
   orgSlug?: string;
   personName?: string;
   /** Findings are proactive: each one names the play Salt already ran or queued. */
@@ -663,6 +678,53 @@ interface DemoFinding {
 }
 
 const DEMO_FINDINGS: DemoFinding[] = [
+  // Heads-up rail (needs_you). Urgent watch items that are NOT already a
+  // queued play: the rail should add information, not duplicate the queue.
+  // Both map to the relationships section, so they sort below the plays in
+  // the queue and never outrank Nina's overdue invoice.
+  {
+    findingType: "new_person",
+    queue: "needs_you",
+    title: "New stakeholder at Studio Collective",
+    content: "Alex mentioned their new VP Marketing, Maya Nguyen, starts Monday. Salt added her to the Studio Collective record and penciled a 10-minute intro into the held call agenda.",
+    confidence: 82,
+    orgSlug: "studio-collective",
+    personName: "Alex Rivera",
+    triggeredPlay: { slug: "lead-follow-up", playTitle: "Re: Strategy sprint inquiry (reply sent, intro held)", status: "sent" },
+    evidence: {
+      source_type: "email",
+      quotes: ["Our new VP Marketing, Maya, starts Monday. Would love for her to meet you on the intro call."],
+      metadata: {
+        because: "Alex mentioned Maya in yesterday's thread. First-week impressions set the tone for the Q4 budget conversation.",
+        why_it_matters: "A new VP Marketing re-evaluates every vendor in their first 30 days. Meeting Maya on Thursday's intro call puts you on her list before she starts looking.",
+        whyItMatters: "A new VP Marketing re-evaluates every vendor in their first 30 days. Meeting Maya on Thursday's intro call puts you on her list before she starts looking.",
+        recommended_action: "Nothing to send. Maya is on the held call agenda and her record is ready.",
+        from_email: "alex@studiocollective.design",
+        from_name: "Alex Rivera",
+      },
+    },
+  },
+  {
+    findingType: "pending_question",
+    queue: "needs_you",
+    title: "James Park is waiting on the run-of-show",
+    content: "James asked if Friday's run-of-show is final before the board review. Salt pulled the latest version into the Meridian brief. A one-line yes from you closes the loop before the 2pm sync.",
+    confidence: 90,
+    orgSlug: "meridian-tech",
+    personName: "James Park",
+    evidence: {
+      source_type: "email",
+      quotes: ["Is the run-of-show final? Board reviews the launch plan Friday and I want to walk in with the locked version."],
+      metadata: {
+        because: "James asked 3 hours ago and the board review is Friday. He usually gets answers from you same-day.",
+        why_it_matters: "The Aug 15 launch date is immovable because of this board meeting. A fast yes keeps Meridian's confidence high going into the review.",
+        whyItMatters: "The Aug 15 launch date is immovable because of this board meeting. A fast yes keeps Meridian's confidence high going into the review.",
+        recommended_action: "Reply yes to James, or ask Salt to send the confirmation for you.",
+        from_email: "james@meridiantech.io",
+        from_name: "James Park",
+      },
+    },
+  },
   {
     findingType: "revenue_risk",
     title: "Catalyst deal going cold",
@@ -686,6 +748,7 @@ const DEMO_FINDINGS: DemoFinding[] = [
   },
   {
     findingType: "pending_reply",
+    queue: "needs_you",
     title: "Artisan Coffee invoice inquiry",
     content: "Nina asked about payment terms yesterday. Salt answered the underlying issue instead of just flagging it: a friendly reminder with a fresh payment link is drafted and waiting in your queue.",
     confidence: 85,
@@ -1252,6 +1315,7 @@ async function seedPlays(workspaceId: string, orgIds: Map<string, string>, meter
   for (const play of queuedPlays) {
     const targetOrgId = play.targetOrgSlug ? orgIds.get(play.targetOrgSlug) : undefined;
     const targetOrg = DEMO_ORGS.find((o) => o.slug === play.targetOrgSlug);
+    const createdAt = new Date(Date.now() - (play.createdMinutesAgo ?? 60) * 60_000);
 
     const row = {
       workspace_id: workspaceId,
@@ -1267,16 +1331,21 @@ async function seedPlays(workspaceId: string, orgIds: Map<string, string>, meter
       target_type: targetOrgId ? "organization" : null,
       target_id: targetOrgId,
       target_label: targetOrg?.name,
-      // The pending action behind the card. "Open in Gmail" materializes a
-      // real draft in the demo Gmail from this; the recipient is the demo
+      created_at: createdAt.toISOString(),
+      // The pending action behind an email card. "Open in Gmail" materializes
+      // a real draft in the demo Gmail from this; the recipient is the demo
       // inbox (and the demo-recipient guard rewrites it again at execution),
       // so a live demo never emails a fake client address. Approve stays
       // log-only because paused_for_approval is intentionally false.
-      approval_context: {
-        tool_slug: "GMAIL_SEND_EMAIL",
-        args: { recipient_email: DEMO_EMAIL },
-        step_index: 0,
-      },
+      // Non-email plays (a script, a post) have no inbox action behind them.
+      approval_context:
+        play.channel === "Gmail"
+          ? {
+              tool_slug: "GMAIL_SEND_EMAIL",
+              args: { recipient_email: DEMO_EMAIL },
+              step_index: 0,
+            }
+          : null,
       source_context: {
         source: "playbook",
         playbook_slug: play.playbookSlug,
@@ -1899,11 +1968,12 @@ async function seedFindings(
   orgIds: Map<string, string>,
   personIds: Map<string, string>,
 ) {
-  console.log(`\nSeeding intelligence findings (${DEMO_FINDINGS.length} auto-handled)...`);
+  console.log(`\nSeeding intelligence findings (${DEMO_FINDINGS.length})...`);
 
   for (const finding of DEMO_FINDINGS) {
     const orgId = finding.orgSlug ? orgIds.get(finding.orgSlug) : null;
     const personId = finding.personName ? personIds.get(finding.personName) : null;
+    const state = finding.queue ?? "auto_handled";
 
     const { error } = await supabase.from("intelligence_findings").insert({
       workspace_id: workspaceId,
@@ -1913,9 +1983,9 @@ async function seedFindings(
       confidence: finding.confidence,
       org_id: orgId,
       person_id: personId,
-      // Findings in the demo are proactive: Salt already ran or queued the
-      // play, so the card is FYI ("auto_handled") with the action attached.
-      state: "auto_handled",
+      // needs_you findings fill the HQ Heads-up rail; auto_handled findings
+      // are FYI cards with the play Salt already ran attached.
+      state,
       triggered_plays: finding.triggeredPlay
         ? [
             {
@@ -1937,7 +2007,7 @@ async function seedFindings(
       continue;
     }
 
-    console.log(`  ✓ ${finding.title} (auto-handled, play attached)`);
+    console.log(`  ✓ ${finding.title} (${state})`);
   }
 }
 
