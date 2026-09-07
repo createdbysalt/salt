@@ -9,6 +9,7 @@ import { mapFindingToCard } from "./play-card/map-finding-to-card";
 import { mapHandledFindingToCard } from "./play-card/map-handled-finding-to-card";
 import { mapPlayRunToCardClient } from "./play-card/map-play-run-to-card-client";
 import { validatePlayCard } from "./play-card/validate-play-card";
+import { sortQueueCards } from "./lib/queue-sort";
 import type { PlayCardViewModel } from "./play-card/types";
 import type {
   ActivityEntryRow,
@@ -208,10 +209,12 @@ const buildHqNeedsYouCards = cache(async (): Promise<PlayCardViewModel[]> => {
     listQueueFindings("needs_you"),
   ]);
 
-  return [
+  // Same ordering as Plays → Queue (money at risk → time-sensitive → newest)
+  // so the HQ stack and the queue never disagree about what comes first.
+  return sortQueueCards([
     ...findings.map(mapFindingToCard),
     ...playRuns.map(mapPlayRunToCardClient),
-  ].filter((vm) => validatePlayCard(vm).ok);
+  ]).filter((vm) => validatePlayCard(vm).ok);
 });
 
 const buildHqAutoHandledCards = cache(async (): Promise<PlayCardViewModel[]> => {

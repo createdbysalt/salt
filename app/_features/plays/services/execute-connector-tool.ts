@@ -2,6 +2,7 @@ import "server-only";
 
 import { getComposioProviderForToolSlug } from "@/app/_features/connectors/connector-capabilities";
 import { executeComposioAction } from "@/app/_lib/composio/actions";
+import { applyDemoEmailRecipient } from "@/app/_lib/demo/demo-email-recipient";
 import { createAdminClient } from "@/app/_lib/supabase/admin";
 
 /**
@@ -80,9 +81,16 @@ export async function executeConnectorTool<R>(
   }
 
   try {
-    return await executeComposioAction<unknown, R>(
+    // Demo workspaces never email a fake client address: every outbound
+    // letter is redirected to the demo inbox (see demo-email-recipient.ts).
+    const safeParams = applyDemoEmailRecipient(
       toolSlug,
       params,
+      context.workspaceId
+    );
+    return await executeComposioAction<unknown, R>(
+      toolSlug,
+      safeParams,
       integration.composio_connection_id,
       // Composio v3 entity id is workspace-scoped (composio.create(workspaceId));
       // the human actor is carried separately below.

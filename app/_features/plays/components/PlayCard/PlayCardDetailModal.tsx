@@ -567,9 +567,9 @@ export function PlayCardDetailModal({
                       {hasDraft && (
                         <div>
                           <div className="mb-2 flex items-center gap-2.5">
-                            {(sourceAppId || inboxLink) && (
+                            {(inboxLink?.appId ?? sourceAppId) && (
                               <ConnectorIcon
-                                id={(sourceAppId ?? inboxLink?.appId) as ConnectorCatalogId}
+                                id={(inboxLink?.appId ?? sourceAppId) as ConnectorCatalogId}
                                 size={22}
                               />
                             )}
