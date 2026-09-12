@@ -17,12 +17,15 @@ import { MockContentEmptyState } from "@/app/_features/shell/components/MockCont
 type SortKey = "newest" | "priority";
 
 export function ConvosThreadList({
+  threads: realThreads,
   className,
   onSelectThread,
 }: {
+  /** Real threads from the message store (convos/queries.ts). */
+  threads: ConvoThread[];
   className?: string;
   onSelectThread?: () => void;
-} = {}) {
+}) {
   const mockContent = useMockContent();
   const params = useParams<{ personId?: string }>();
   const activeId = params.personId;
@@ -30,7 +33,7 @@ export function ConvosThreadList({
   const [query, setQuery] = useState("");
 
   const threads = useMemo(() => {
-    const list = mockContent ? [...CONVO_THREADS] : [];
+    const list = mockContent ? [...CONVO_THREADS] : [...realThreads];
     if (sort === "newest") {
       list.sort((a, b) => new Date(b.lastTouchAt).getTime() - new Date(a.lastTouchAt).getTime());
     } else {
@@ -43,16 +46,14 @@ export function ConvosThreadList({
       return (
         t.person.name.toLowerCase().includes(q) ||
         (t.person.org?.toLowerCase().includes(q) ?? false) ||
-        last.body.toLowerCase().includes(q)
+        (last?.body.toLowerCase().includes(q) ?? false)
       );
     });
-  }, [mockContent, sort, query]);
+  }, [mockContent, realThreads, sort, query]);
 
-  const openCount = mockContent
-    ? CONVO_THREADS.filter((t) => t.status !== "sent").length
-    : 0;
+  const openCount = threads.filter((t) => t.status !== "sent").length;
 
-  if (!mockContent) {
+  if (threads.length === 0 && !query) {
     return (
       <aside
         className={cn(
@@ -62,7 +63,7 @@ export function ConvosThreadList({
       >
         <MockContentEmptyState
           title="No conversations yet"
-          description="Connect email or messaging and Salt will queue drafts and threads here."
+          description="Once email or messaging is connected, threads Salt captures will appear here."
           className="m-4 flex-1"
         />
       </aside>
@@ -121,9 +122,9 @@ export function ConvosThreadList({
         <ul>
           {threads.map((t) => (
             <ThreadRow
-              key={t.personId}
+              key={t.threadId}
               thread={t}
-              active={activeId === t.personId}
+              active={activeId === t.threadId}
               onSelect={onSelectThread}
             />
           ))}
@@ -148,7 +149,7 @@ function ThreadRow({
   return (
     <li>
       <Link
-        href={`/conversations/${thread.personId}`}
+        href={`/conversations/${thread.threadId}`}
         onClick={onSelect}
         className={cn(
           "relative block border-b border-border/40 px-4 py-3 transition",
@@ -183,13 +184,13 @@ function ThreadRow({
               </span>
             </div>
             <p className="mt-0.5 line-clamp-1 text-xs leading-snug text-muted-foreground">
-              {lastMsg.direction === "out" ? "You: " : ""}
-              {lastMsg.body}
+              {lastMsg?.direction === "out" ? "You: " : ""}
+              {lastMsg?.body ?? thread.summary}
             </p>
             <div className="mt-1.5">
               <ChannelLogoStack
                 channels={thread.person.channels}
-                activeChannel={lastMsg.channel}
+                activeChannel={lastMsg?.channel ?? thread.person.preferredChannel}
                 size="xs"
               />
             </div>

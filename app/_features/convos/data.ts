@@ -25,7 +25,10 @@ export type ConvoDraft = {
 };
 
 export type ConvoThread = {
-  personId: string;
+  /** conversation_threads id — the route param on /conversations/[id]. */
+  threadId: string;
+  /** Linked Memory person, when the counterparty has been born as a record. */
+  personId: string | null;
   person: {
     name: string;
     initials: string;
@@ -42,11 +45,18 @@ export type ConvoThread = {
   priorityRank?: number; // 1 = top-priority
   pinnedReason?: string;
   messages: ConvoMessage[];
-  draft: ConvoDraft;
+  /** Drafting is out of scope for the read-only revival — absent unless enabled. */
+  draft?: ConvoDraft;
   relatedWorkIds: string[];
   fileIds: { id: string; name: string; from: Channel }[];
   spaceIds: string[];
 };
+
+/**
+ * Read-only revival (Memory Sourcing Overhaul, Phase 5): Convos reads the
+ * message store; drafting/sending stays dark until the act layer owns it.
+ */
+export const CONVOS_DRAFTS_ENABLED = false;
 
 // ---------- Channel metadata ----------
 
@@ -96,12 +106,6 @@ export const STATUS_META: Record<ConvoStatus, { label: string; tone: string }> =
 
 // ---------- Helpers ----------
 
-const hours = (n: number) => {
-  const d = new Date();
-  d.setHours(d.getHours() - n);
-  return d.toISOString();
-};
-
 export function relativeShort(iso: string): string {
   const ms = Date.now() - new Date(iso).getTime();
   const m = Math.round(ms / 60000);
@@ -131,8 +135,8 @@ export function formatTime(iso: string): string {
 // ---------- Threads ----------
 export const CONVO_THREADS: ConvoThread[] = [];
 
-export function findThread(personId: string): ConvoThread | undefined {
-  return CONVO_THREADS.find((t) => t.personId === personId);
+export function findThread(threadId: string): ConvoThread | undefined {
+  return CONVO_THREADS.find((t) => t.threadId === threadId);
 }
 
 export function firstThread(): ConvoThread | undefined {

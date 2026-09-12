@@ -12,7 +12,7 @@ const AUTONOMY_LABEL: Record<NonNullable<ConvoThread["person"]["autonomy"]>, str
 };
 
 export function ConvoContextPanel({ thread }: { thread: ConvoThread }) {
-  const person = findPerson(thread.personId);
+  const person = thread.personId ? findPerson(thread.personId) : undefined;
   const works = thread.relatedWorkIds.map((id) => findWork(id)).filter(Boolean);
 
   return (

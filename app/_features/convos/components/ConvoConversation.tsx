@@ -30,9 +30,11 @@ import {
 } from "@repo/ui";
 import {
   CHANNEL_META,
+  CONVOS_DRAFTS_ENABLED,
   formatDayLabel,
   formatTime,
   type Channel,
+  type ConvoDraft,
   type ConvoMessage,
   type ConvoThread,
 } from "../data";
@@ -77,26 +79,42 @@ export function ConvoConversation({ thread }: { thread: ConvoThread }) {
           >
             <ArrowLeft className="size-5" strokeWidth={2} />
           </Link>
-          <Link
-            href={`/people/${thread.personId}`}
-            className="-mx-1 flex min-w-0 items-center gap-2 rounded-xl px-1 transition hover:bg-muted/60"
-          >
-            <div className="size-9 rounded-full bg-foreground text-background grid place-items-center text-[11px] font-semibold shrink-0">
-              {thread.person.initials}
-            </div>
-            <div className="min-w-0">
-              <h2 className="font-display text-base sm:text-xl tracking-tight text-foreground truncate leading-tight">
-                {thread.person.name}
-              </h2>
-              {thread.person.org && (
+          {thread.personId ? (
+            <Link
+              href={`/people/${thread.personId}`}
+              className="-mx-1 flex min-w-0 items-center gap-2 rounded-xl px-1 transition hover:bg-muted/60"
+            >
+              <div className="size-9 rounded-full bg-foreground text-background grid place-items-center text-[11px] font-semibold shrink-0">
+                {thread.person.initials}
+              </div>
+              <div className="min-w-0">
+                <h2 className="font-display text-base sm:text-xl tracking-tight text-foreground truncate leading-tight">
+                  {thread.person.name}
+                </h2>
+                {thread.person.org && (
+                  <p className="hidden sm:block text-xs text-muted-foreground truncate mt-0.5">
+                    {thread.person.role}
+                    {thread.person.role && " · "}
+                    {thread.person.org}
+                  </p>
+                )}
+              </div>
+            </Link>
+          ) : (
+            <div className="-mx-1 flex min-w-0 items-center gap-2 px-1">
+              <div className="size-9 rounded-full bg-muted text-foreground grid place-items-center text-[11px] font-semibold shrink-0">
+                {thread.person.initials}
+              </div>
+              <div className="min-w-0">
+                <h2 className="font-display text-base sm:text-xl tracking-tight text-foreground truncate leading-tight">
+                  {thread.person.name}
+                </h2>
                 <p className="hidden sm:block text-xs text-muted-foreground truncate mt-0.5">
-                  {thread.person.role}
-                  {thread.person.role && " · "}
-                  {thread.person.org}
+                  Not in Memory yet
                 </p>
-              )}
+              </div>
             </div>
-          </Link>
+          )}
         </div>
 
         <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
@@ -143,7 +161,10 @@ export function ConvoConversation({ thread }: { thread: ConvoThread }) {
         )}
       </div>
 
-      <DraftCard thread={thread} key={thread.personId} />
+      {/* Read-only revival: drafting stays dark until the act layer owns it. */}
+      {CONVOS_DRAFTS_ENABLED && thread.draft && (
+        <DraftCard thread={thread} draft={thread.draft} key={thread.threadId} />
+      )}
     </section>
   );
 }
@@ -173,7 +194,7 @@ function ThreadActionsMenu({
   personName,
   size = "md",
 }: {
-  personId: string;
+  personId: string | null;
   personName: string;
   size?: "sm" | "md";
 }) {
@@ -190,13 +211,17 @@ function ThreadActionsMenu({
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-52">
-        <DropdownMenuItem asChild>
-          <Link href={`/people/${personId}`}>
-            <User className="mr-2 size-3.5" strokeWidth={2} />
-            View profile
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
+        {personId && (
+          <>
+            <DropdownMenuItem asChild>
+              <Link href={`/people/${personId}`}>
+                <User className="mr-2 size-3.5" strokeWidth={2} />
+                View profile
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        )}
         <DropdownMenuItem onClick={() => toast("Marked as unread")}>
           <Mail className="size-3.5 mr-2" strokeWidth={2} />
           Mark as unread
@@ -378,20 +403,20 @@ function MessageBubble({
   );
 }
 
-function DraftCard({ thread }: { thread: ConvoThread }) {
-  const [body, setBody] = useState(thread.draft.body);
-  const [channel, setChannel] = useState<Channel>(thread.draft.channel);
+function DraftCard({ thread, draft }: { thread: ConvoThread; draft: ConvoDraft }) {
+  const [body, setBody] = useState(draft.body);
+  const [channel, setChannel] = useState<Channel>(draft.channel);
   const [sent, setSent] = useState(false);
   const [scheduledFor, setScheduledFor] = useState<Date | null>(null);
   const [channelOpen, setChannelOpen] = useState(false);
   const taRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    setBody(thread.draft.body);
-    setChannel(thread.draft.channel);
+    setBody(draft.body);
+    setChannel(draft.channel);
     setSent(false);
     setScheduledFor(null);
-  }, [thread.personId, thread.draft.body, thread.draft.channel]);
+  }, [thread.threadId, draft.body, draft.channel]);
 
   const channelMeta = CHANNEL_META[channel];
 

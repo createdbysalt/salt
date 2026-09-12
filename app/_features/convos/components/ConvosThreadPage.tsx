@@ -4,22 +4,26 @@ import { MockContentEmptyState } from "@/app/_features/shell/components/MockCont
 import { ConvoConversation } from "./ConvoConversation";
 import { ConvosShell } from "./ConvosShell";
 import { ConvosThreadList } from "./ConvosThreadList";
-import { findThread } from "../data";
+import type { ConvoThread } from "../data";
 
-export function ConvosThreadPage({ personId }: { personId: string }) {
-  const thread = findThread(personId);
-
+export function ConvosThreadPage({
+  threads,
+  thread,
+}: {
+  threads: ConvoThread[];
+  thread: ConvoThread | null;
+}) {
   if (!thread) {
     return (
       <ConvosShell>
         <div className="relative flex h-full min-h-0 overflow-hidden bg-card">
           <div className="hidden h-full lg:flex">
-            <ConvosThreadList />
+            <ConvosThreadList threads={threads} />
           </div>
           <div className="flex flex-1 items-center justify-center p-8">
             <MockContentEmptyState
               title="Conversation not found"
-              description="Messages for this contact will appear here once you connect email or start a thread."
+              description="This thread may have been captured under a different workspace, or not ingested yet."
             />
           </div>
         </div>
@@ -31,9 +35,9 @@ export function ConvosThreadPage({ personId }: { personId: string }) {
     <ConvosShell>
       <div className="relative flex h-full min-h-0 overflow-hidden bg-card">
         <div className="hidden h-full lg:flex">
-          <ConvosThreadList />
+          <ConvosThreadList threads={threads} />
         </div>
-        <ConvoConversation thread={thread} key={thread.personId} />
+        <ConvoConversation thread={thread} key={thread.threadId} />
       </div>
     </ConvosShell>
   );
