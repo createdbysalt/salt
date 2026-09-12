@@ -472,40 +472,24 @@ export async function enrichAndPersist(
     .update({ enriched_metadata: metadata as unknown as Json })
     .eq("id", captureEventId);
 
-  // Email triage runs off the stored classification (post-enrichment hook —
-  // classification is capture-scoped, so entity-signal dispatch doesn't fit).
-  // Idempotent per capture; never blocks or fails enrichment.
-  if (metadata.email_classification) {
-    import("../email-triage-hook")
-      .then(({ runEmailTriageHook }) =>
-        runEmailTriageHook({
-          captureId: captureEventId,
-          workspaceId: context.workspaceId,
-          envelope,
-          metadata,
-        })
-      )
-      .catch((err) => {
-        console.warn(
-          "[enrichment-pipeline] Email triage hook failed for %s:",
-          captureEventId,
-          err instanceof Error ? err.message : err
-        );
-      });
-  }
-
   // Dispatch capture signals to playbook triggers (Connections, Notes, ...)
-  // for each linked record. Fire-and-forget: dispatch must never block or
-  // fail ingest.
-  if (
-    metadata.linked_records.length > 0 &&
-    shouldDispatchCaptureSignals(metadata.signals_matched)
-  ) {
+  // for each linked record. With no linked records, pending_evidence
+  // candidates matched by participant email still get the signal via Memory
+  // Care (Memory Sourcing Overhaul, Phase 4). Fire-and-forget: dispatch
+  // must never block or fail ingest.
+  if (shouldDispatchCaptureSignals(metadata.signals_matched)) {
+    const userEmail = context.userEmail?.toLowerCase() ?? null;
     dispatchCaptureSignals({
       workspaceId: context.workspaceId,
       captureId: captureEventId,
       signals: metadata.signals_matched,
       linkedRecords: metadata.linked_records,
+      participantEmails: envelope.participants
+        .map((p) => p.email)
+        .filter(
+          (email): email is string =>
+            Boolean(email) && email!.toLowerCase() !== userEmail,
+        ),
     }).catch((err) => {
       console.warn(
         "[enrichment-pipeline] Capture signal dispatch failed for %s:",

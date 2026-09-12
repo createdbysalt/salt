@@ -21,6 +21,7 @@ import { createAdminClient } from "@/app/_lib/supabase/admin";
 import { getConnectionStatusAdmin } from "@/app/_lib/composio/connections";
 import { fetchGmailMessagesPage } from "@/app/_lib/composio/actions";
 import { getCategoryAdapter } from "../adapters/categories";
+import { extractCaptureEmailFields } from "./extract-capture-email";
 import type { CaptureEnvelope, EnvelopeParticipant } from "../adapters/types";
 import { BOOTSTRAP_LIMITS } from "../types";
 import { ingestEnvelope } from "./ingest-envelope";
@@ -340,6 +341,13 @@ export async function backfillGmailCaptures(
             continue;
           }
           envelope.raw = { ...envelope.raw, source: "composio_backfill" };
+          // Full bodies ride along with the page fetch (include_payload) at
+          // no extra Composio cost — hand the transient body to ingest so
+          // the message store persists it (capped). Never written to
+          // capture_events (see CaptureEnvelope.bodyText).
+          envelope.bodyText =
+            extractCaptureEmailFields(row as Record<string, unknown> | null)
+              ?.body_text ?? null;
 
           // Gate-pipeline parity (Sources plan 2.6): the same message must get
           // the same treatment whether it arrives via webhook or backfill.

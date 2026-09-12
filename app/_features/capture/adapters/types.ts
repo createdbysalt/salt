@@ -116,6 +116,14 @@ export interface CaptureEnvelope {
    * Absent = first sighting.
    */
   lifecycle?: "update";
+  /**
+   * TRANSIENT full body text (Memory Sourcing Overhaul, Phase 2). Populated
+   * only when the payload already carries the body at no extra cost (Gmail
+   * backfill pages fetched with include_payload). NEVER persisted to
+   * capture_events — the only consumer is the message-store ingest stage,
+   * which writes the capped version to conversation_messages.
+   */
+  bodyText?: string | null;
 }
 
 export interface SignalDerivationContext {

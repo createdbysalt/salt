@@ -14,6 +14,8 @@ import {
   processEntitySignals,
   updateCaptureWithDispatchResults,
 } from "@/app/_features/plays/playbooks/trigger-dispatch";
+import { createAdminClient } from "@/app/_lib/supabase/admin";
+import { fromLearningDbEntityType } from "@/app/_lib/learning";
 
 /**
  * Capture signals that flow to playbook triggers. Everything else in
@@ -58,12 +60,25 @@ export interface DispatchCaptureSignalsInput {
     entity_id: string;
     entity_label?: string;
   }>;
+  /**
+   * Capture participant emails (user's own address already excluded). When
+   * no records are linked, pending_evidence candidates matched by these
+   * emails still get the signal via Memory Care — unknown senders are
+   * otherwise invisible to Care until their record is born.
+   */
+  participantEmails?: string[];
 }
 
 export interface DispatchCaptureSignalsResult {
   dispatched: string[];
   entitiesNotified: number;
+  /** Pending-evidence candidates that received the signal (no linked records). */
+  candidatesNotified: number;
 }
+
+/** Cap on pending candidates dispatched per capture — pathological
+ *  group threads shouldn't fan out unbounded Care runs. */
+const MAX_PENDING_CANDIDATES_PER_CAPTURE = 10;
 
 export async function dispatchCaptureSignals(
   input: DispatchCaptureSignalsInput
@@ -84,8 +99,8 @@ export async function dispatchCaptureSignals(
     normalized.add("capture_message_received");
   }
 
-  if (normalized.size === 0 || input.linkedRecords.length === 0) {
-    return { dispatched: [], entitiesNotified: 0 };
+  if (normalized.size === 0) {
+    return { dispatched: [], entitiesNotified: 0, candidatesNotified: 0 };
   }
 
   const signalRecord: Record<string, boolean> = {};
@@ -93,9 +108,58 @@ export async function dispatchCaptureSignals(
 
   const dispatched = new Set<string>();
   let entitiesNotified = 0;
+  let candidatesNotified = 0;
   const allResults: Awaited<
     ReturnType<typeof processEntitySignals>
   >["results"] = [];
+
+  // No linked records: the capture's participants may still match
+  // pending_evidence candidates (not-yet-born entities). Dispatch to Memory
+  // Care with the candidate ref so connections/records capabilities can
+  // strengthen or dismiss the candidate — unknown senders are otherwise
+  // invisible to Care until birth.
+  if (input.linkedRecords.length === 0) {
+    const candidates = await findPendingCandidates(
+      input.workspaceId,
+      input.participantEmails ?? [],
+    );
+    for (const candidate of candidates) {
+      try {
+        const result = await processEntitySignals({
+          workspaceId: input.workspaceId,
+          entitySurface: candidate.entitySurface,
+          entityId: candidate.id,
+          entityLabel: candidate.identifier,
+          signals: signalRecord,
+          evidence: { capture_id: input.captureId },
+          pendingEvidenceId: candidate.id,
+        });
+        if (result.dispatched.length > 0) {
+          candidatesNotified++;
+          result.dispatched.forEach((s) => dispatched.add(s));
+        }
+        allResults.push(...result.results);
+      } catch (error) {
+        console.error(
+          `[dispatch-capture-signals] Pending-candidate dispatch failed for ${candidate.id}:`,
+          error
+        );
+      }
+    }
+
+    if (allResults.length > 0) {
+      try {
+        await updateCaptureWithDispatchResults(input.captureId, allResults);
+      } catch (error) {
+        console.error(
+          "[dispatch-capture-signals] Failed to record dispatch results:",
+          error
+        );
+      }
+    }
+
+    return { dispatched: [...dispatched], entitiesNotified, candidatesNotified };
+  }
 
   // Dedupe linked records per entity so a capture matched to the same
   // record twice only dispatches once.
@@ -143,7 +207,63 @@ export async function dispatchCaptureSignals(
     }
   }
 
-  return { dispatched: [...dispatched], entitiesNotified };
+  return { dispatched: [...dispatched], entitiesNotified, candidatesNotified };
+}
+
+interface PendingCandidate {
+  id: string;
+  identifier: string;
+  entitySurface: "person" | "organization" | "work" | "billing" | "meeting" | "resource";
+}
+
+/**
+ * Pending_evidence candidates whose identifier matches a capture
+ * participant. Person identifiers are canonical emails (care/intake
+ * canonicalizeIdentifier); org identifiers are domains, so an exact-email
+ * match only ever lands on person rows. Watching + suggested only —
+ * dismissed candidates stay dismissed.
+ */
+async function findPendingCandidates(
+  workspaceId: string,
+  participantEmails: string[],
+): Promise<PendingCandidate[]> {
+  const emails = [
+    ...new Set(
+      participantEmails
+        .map((email) => email.trim().toLowerCase())
+        .filter((email) => email.length > 0),
+    ),
+  ];
+  if (emails.length === 0) return [];
+
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("pending_evidence")
+    .select("id, entity_type, identifier")
+    .eq("workspace_id", workspaceId)
+    .in("identifier", emails)
+    .in("status", ["watching", "suggested"])
+    .limit(MAX_PENDING_CANDIDATES_PER_CAPTURE);
+
+  if (error) {
+    console.warn(
+      "[dispatch-capture-signals] pending-candidate lookup failed:",
+      error.message,
+    );
+    return [];
+  }
+
+  const candidates: PendingCandidate[] = [];
+  for (const row of data ?? []) {
+    const entityType = fromLearningDbEntityType(row.entity_type);
+    if (!entityType || entityType === "me") continue;
+    candidates.push({
+      id: row.id,
+      identifier: row.identifier,
+      entitySurface: entityType,
+    });
+  }
+  return candidates;
 }
 
 /** Suppress dispatch for captures the enrichment marked as noise. */

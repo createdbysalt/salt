@@ -131,6 +131,68 @@ describe("email category adapter", () => {
       const envelope = adapter.normalize(payload);
       expect(envelope?.raw.headers).toEqual({});
     });
+
+    it("extracts attachments with download pointers from the flat attachments shape", () => {
+      const payload = {
+        messageId: "msg-att",
+        sender: "alice@acme.com",
+        subject: "Agreement",
+        attachments: [
+          { filename: "Service Agreement.pdf", mimeType: "application/pdf", size: 1234, attachmentId: "ANGjdJ8" },
+        ],
+      };
+
+      const envelope = adapter.normalize(payload);
+      expect(envelope?.extracted.has_attachments).toBe(true);
+      expect(envelope?.extracted.attachments).toEqual([
+        { name: "Service Agreement.pdf", contentType: "application/pdf", size: 1234, attachmentId: "ANGjdJ8" },
+      ]);
+    });
+
+    it("extracts attachments from Composio's attachmentList shape", () => {
+      const payload = {
+        messageId: "msg-attlist",
+        sender: "alice@acme.com",
+        subject: "SOW",
+        attachmentList: [
+          { filename: "SOW.pdf", mimeType: "application/pdf", attachment_id: "ANG-list" },
+        ],
+      };
+
+      const envelope = adapter.normalize(payload);
+      expect(envelope?.extracted.has_attachments).toBe(true);
+      expect(envelope?.extracted.attachments).toEqual([
+        { name: "SOW.pdf", contentType: "application/pdf", size: undefined, attachmentId: "ANG-list" },
+      ]);
+    });
+
+    it("extracts attachments from the raw Gmail API payload.parts shape (recursive)", () => {
+      const payload = {
+        messageId: "msg-parts",
+        sender: "alice@acme.com",
+        subject: "Contract",
+        payload: {
+          mimeType: "multipart/mixed",
+          parts: [
+            {
+              mimeType: "multipart/alternative",
+              parts: [{ mimeType: "text/plain", body: { data: "aGVsbG8=" } }],
+            },
+            {
+              filename: "Contract.pdf",
+              mimeType: "application/pdf",
+              body: { attachmentId: "ANG-parts", size: 4321 },
+            },
+          ],
+        },
+      };
+
+      const envelope = adapter.normalize(payload);
+      expect(envelope?.extracted.has_attachments).toBe(true);
+      expect(envelope?.extracted.attachments).toEqual([
+        { name: "Contract.pdf", contentType: "application/pdf", size: 4321, attachmentId: "ANG-parts" },
+      ]);
+    });
   });
 
   describe("outlook normalization", () => {

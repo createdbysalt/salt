@@ -58,6 +58,13 @@ interface AttachmentMeta {
   name: string;
   contentType?: string;
   size?: number;
+  /**
+   * Gmail's internal attachment id (payload.parts[].body.attachmentId or
+   * Composio's attachmentList) — the pointer GMAIL_GET_ATTACHMENT needs to
+   * download the bytes. Persisted on extracted_data so the attachment-ingest
+   * pass can fetch without re-hydrating the message.
+   */
+  attachmentId?: string;
 }
 
 /** Extended extracted data for email enrichment */
@@ -177,22 +184,45 @@ function extractGmailAttachments(payload: unknown): { hasAttachments: boolean; a
     ? (record.message as Record<string, unknown>)
     : null;
 
-  const attachments = record.attachments ?? nested?.attachments;
+  const toMeta = (att: unknown): AttachmentMeta => {
+    if (typeof att === "object" && att !== null) {
+      const a = att as Record<string, unknown>;
+      const body = typeof a.body === "object" && a.body !== null
+        ? (a.body as Record<string, unknown>)
+        : null;
+      return {
+        name: (a.filename as string) ?? (a.name as string) ?? "unnamed",
+        contentType: (a.mimeType as string) ?? (a.contentType as string) ?? undefined,
+        size: typeof a.size === "number" ? a.size : typeof body?.size === "number" ? body.size : undefined,
+        attachmentId:
+          (a.attachmentId as string) ??
+          (a.attachment_id as string) ??
+          (body?.attachmentId as string) ??
+          undefined,
+      };
+    }
+    return { name: "unnamed" };
+  };
+
+  // Composio trigger / fetch shapes: flat `attachments` or `attachmentList`.
+  const attachments = record.attachments ?? nested?.attachments ?? record.attachmentList ?? nested?.attachmentList;
   if (Array.isArray(attachments) && attachments.length > 0) {
-    return {
-      hasAttachments: true,
-      attachments: attachments.map((att) => {
-        if (typeof att === "object" && att !== null) {
-          const a = att as Record<string, unknown>;
-          return {
-            name: (a.filename as string) ?? (a.name as string) ?? "unnamed",
-            contentType: a.mimeType as string | undefined,
-            size: typeof a.size === "number" ? a.size : undefined,
-          };
-        }
-        return { name: "unnamed" };
-      }),
-    };
+    return { hasAttachments: true, attachments: attachments.map(toMeta) };
+  }
+
+  // Raw Gmail API shape: payload.parts[] (recursive) — parts carrying a
+  // filename are attachments; body.attachmentId is the download pointer.
+  const apiPayload = (record.payload ?? nested?.payload) as Record<string, unknown> | undefined;
+  const parts: unknown[] = [];
+  const collectParts = (part: unknown): void => {
+    if (!part || typeof part !== "object") return;
+    const p = part as Record<string, unknown>;
+    if (typeof p.filename === "string" && p.filename) parts.push(p);
+    if (Array.isArray(p.parts)) p.parts.forEach(collectParts);
+  };
+  collectParts(apiPayload);
+  if (parts.length > 0) {
+    return { hasAttachments: true, attachments: parts.map(toMeta) };
   }
 
   const hasAttachments = record.hasAttachments === true || nested?.hasAttachments === true;
