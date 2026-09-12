@@ -347,7 +347,12 @@ export async function fetchGmailMessagesPage(
       max_results: query.maxResults,
       page_token: query.pageToken,
       include_payload: query.includePayload ?? false,
-      verbose: false,
+      // verbose=true is REQUIRED for body content and attachment details to
+      // ride along — with verbose=false Composio guarantees only essential
+      // metadata (subject/sender/recipient/time/labels) even when
+      // include_payload=true, which silently stripped attachment filenames
+      // (and degraded inline-scan bodies) from every backfilled capture.
+      verbose: true,
     },
     connectionId,
     userId,
@@ -387,6 +392,63 @@ export async function getGmailMessage(
     userId,
     options
   );
+}
+
+/** One downloaded Gmail attachment — Composio returns the bytes as a signed URL. */
+export interface GmailAttachmentDownload {
+  name: string;
+  mimetype: string | null;
+  /** Signed URL the bytes are fetched from (short-lived — download promptly). */
+  s3url: string;
+}
+
+/**
+ * Download one Gmail attachment by id (email-attachment ingestion,
+ * 2026-09-08). The attachmentId comes from a full-format message fetch
+ * (payload.parts[].body.attachmentId or attachmentList) — never the filename.
+ * Read-class, metered + audited through the standard gate.
+ */
+export async function getGmailAttachment(
+  input: { messageId: string; attachmentId: string; fileName: string },
+  connectionId: string,
+  userId: string,
+  options?: {
+    skipAuthCheck?: boolean;
+    workspaceId?: string;
+    unattended?: boolean;
+  }
+): Promise<GmailAttachmentDownload | null> {
+  const raw = await executeComposioAction<
+    { message_id: string; attachment_id: string; file_name: string },
+    unknown
+  >(
+    COMPOSIO_TOOL_SLUGS.GMAIL_GET_ATTACHMENT,
+    {
+      message_id: input.messageId,
+      attachment_id: input.attachmentId,
+      file_name: input.fileName,
+    },
+    connectionId,
+    userId,
+    options
+  );
+
+  // Response shape: { data: { file: { name, mimetype, s3url } } } — tolerate
+  // the file landing at the top level or under data.
+  const record = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : null;
+  const data = record?.data && typeof record.data === "object"
+    ? (record.data as Record<string, unknown>)
+    : record;
+  const file = data?.file && typeof data.file === "object"
+    ? (data.file as Record<string, unknown>)
+    : data;
+  const s3url = typeof file?.s3url === "string" ? file.s3url : null;
+  if (!s3url) return null;
+  return {
+    name: typeof file?.name === "string" ? file.name : input.fileName,
+    mimetype: typeof file?.mimetype === "string" ? file.mimetype : null,
+    s3url,
+  };
 }
 
 // CAL.COM — handled via connector-backfills.ts + cal-booking-processor.ts

@@ -10,6 +10,9 @@ export const COMPOSIO_TOOL_SLUGS = {
   GMAIL_CREATE_DRAFT: "GMAIL_CREATE_EMAIL_DRAFT",
   GMAIL_LIST_MESSAGES: "GMAIL_FETCH_EMAILS",
   GMAIL_GET_MESSAGE: "GMAIL_FETCH_MESSAGE_BY_MESSAGE_ID",
+  // Verified against Composio toolkit docs 2026-09-08: downloads one
+  // attachment (message_id + attachment_id + file_name) → data.file.s3url.
+  GMAIL_GET_ATTACHMENT: "GMAIL_GET_ATTACHMENT",
   GMAIL_LIST_LABELS: "GMAIL_LIST_LABELS",
   // Gmail inbox management (for email intelligence layer)
   // TODO: Verify these slugs against Composio API

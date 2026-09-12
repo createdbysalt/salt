@@ -557,6 +557,12 @@ export async function analyzeResourceContent(input: {
   workspaceId: string;
   resourceId: string;
   actorUserId?: string;
+  /**
+   * Re-analyze even when a previous analysis marker exists — used when the
+   * real file bytes land after an excerpt-only first pass (email-attachment
+   * ingestion), so the document itself replaces the email body as the source.
+   */
+  force?: boolean;
 }): Promise<ResourceContentAnalysisResult> {
   const admin = createAdminClient();
   const { data } = await admin
@@ -573,7 +579,7 @@ export async function analyzeResourceContent(input: {
   const marker = row.extracted_data?.content_analysis as
     | { analyzed_at?: string }
     | undefined;
-  if (marker?.analyzed_at) {
+  if (marker?.analyzed_at && !input.force) {
     return { analyzed: false, reason: "already-analyzed", written: [] };
   }
 
