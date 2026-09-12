@@ -4,14 +4,15 @@
  * Creates a demo@usesalt.io account and seeds it with comprehensive demo data
  * for all surfaces: HQ, People, Work, Billing, Plays, Connections, Me.
  *
- * Usage:
- *   op run --env-file=.env.staging.1password -- npx tsx scripts/setup-demo-account.ts
+ * Entry points:
+ *   CLI:     scripts/setup-demo-account.ts (thin wrapper around runDemoSeed)
+ *   In-app:  app/_features/demo/actions.ts (Reset Demo button, demo user only)
  */
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
-import { buildPlayRunMetadata } from "../app/_features/plays/lib/play-presentation";
-import type { PlayPresentation } from "../app/_features/plays/types";
+import { buildPlayRunMetadata } from "../plays/lib/play-presentation";
+import type { PlayPresentation } from "../plays/types";
 
 /**
  * Assemble play_runs.metadata through the shared executor → UI contract
@@ -49,24 +50,26 @@ function demoPlayMetadata(play: {
   });
 }
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+// Lazily created so this module is safe to import from the Next.js runtime
+// (no import-time env requirements or process.exit side effects).
+let supabase: SupabaseClient;
 
-if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-  console.error("Missing required environment variables:");
-  console.error("  - NEXT_PUBLIC_SUPABASE_URL");
-  console.error("  - SUPABASE_SERVICE_ROLE_KEY");
-  process.exit(1);
+function ensureClient(): void {
+  if (supabase) return;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !serviceRoleKey) {
+    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+  }
+  supabase = createClient(url, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
 }
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-  auth: { autoRefreshToken: false, persistSession: false },
-});
-
-const DEMO_EMAIL = "demo@usesalt.io";
+export const DEMO_EMAIL = "demo@usesalt.io";
 const DEMO_PASSWORD = "SaltDemo2026!";
 const DEMO_WORKSPACE_NAME = "Demo Workspace";
-const DEMO_WORKSPACE_SLUG = "demo-usesalt-io";
+export const DEMO_WORKSPACE_SLUG = "demo-usesalt-io";
 
 // ============================================================================
 // DEMO DATA DEFINITIONS
@@ -769,7 +772,15 @@ async function createOrFindDemoUser(): Promise<string> {
 
   const existingUser = users.users.find((u: { email?: string }) => u.email === DEMO_EMAIL);
   if (existingUser) {
-    console.log(`  ✓ Found existing user: ${existingUser.id}`);
+    // Re-runs must leave the account in the canonical demo state, including
+    // the password printed below — otherwise the demo login silently rots.
+    const { error: passwordError } = await supabase.auth.admin.updateUserById(existingUser.id, {
+      password: DEMO_PASSWORD,
+    });
+    if (passwordError) {
+      throw new Error(`Failed to reset demo password: ${passwordError.message}`);
+    }
+    console.log(`  ✓ Found existing user: ${existingUser.id} (password reset)`);
     return existingUser.id;
   }
 
@@ -2738,12 +2749,18 @@ async function seedResources(
 // MAIN
 // ============================================================================
 
-async function main() {
+/**
+ * Wipe and re-seed the demo workspace with fresh, relative-to-today data.
+ * Safe to call repeatedly. Throws on failure (callers own error handling).
+ */
+export async function runDemoSeed(): Promise<void> {
+  ensureClient();
+
   console.log("╔══════════════════════════════════════════════════════════╗");
   console.log("║          SALT DEMO ACCOUNT SETUP (COMPREHENSIVE)          ║");
   console.log("╚══════════════════════════════════════════════════════════╝");
 
-  try {
+  {
     const userId = await createOrFindDemoUser();
     const workspaceId = await findOrCreateWorkspace(userId);
 
@@ -2800,11 +2817,5 @@ async function main() {
     console.log("║  6. /memory → watching, handled, customize                ║");
     console.log("║  7. /resources → files, links, invoices                   ║");
     console.log("╚══════════════════════════════════════════════════════════╝");
-
-  } catch (error) {
-    console.error("\n❌ Setup failed:", error);
-    process.exit(1);
   }
 }
-
-main();

@@ -9,6 +9,9 @@ import { PlaysSection } from "./sections/PlaysSection"
 import { SettingsPage } from "./SettingsPage"
 import { SettingsSection } from "./SettingsSection"
 import { SettingsCard } from "./SettingsCard"
+import { DemoSettingsSection } from "@/app/_features/demo/components/DemoSettingsSection"
+
+const DEMO_EMAIL = "demo@usesalt.io"
 
 interface SettingsPageClientProps {
   section: string
@@ -147,9 +150,15 @@ export function SettingsPageClient({ section, workspaceId, user, notificationPre
           user={user}
         >
           <NotificationsSection embedded preferences={notificationPreferences} />
+          {user?.email === DEMO_EMAIL && <DemoSettingsSection />}
         </AccountSection>
       )}
-      {section === "account" && <AccountSection user={user} />}
+      {section === "account" && (
+        <>
+          <AccountSection user={user} />
+          {user?.email === DEMO_EMAIL && <DemoSettingsSection />}
+        </>
+      )}
       {section === "billing" && (
         <BillingSection
           title="Billing"
