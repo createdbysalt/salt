@@ -27,8 +27,9 @@ import {
 } from "./types";
 
 /**
- * Workspace-level auto-apply threshold (50–100, default 85). This is the
- * standard-tier bar; sensitive and destructive tiers raise it (see
+ * Workspace-level auto-apply threshold (50–100, default 85). One
+ * user-controlled bar for every gated field — tiers never raise it;
+ * `never_touch` fields are refused outright (see `tierBar` in
  * `app/_lib/learning/field-tiers.ts`).
  */
 export async function getCareThreshold(workspaceId: string): Promise<number> {

@@ -38,13 +38,27 @@ function toRecord(value: Json | null): Record<string, unknown> {
   return {};
 }
 
+export interface ProcessCaptureEvidenceOptions {
+  /**
+   * Full message body from the conversation_messages store, used by the
+   * evidence-backfill cron so classification reads the real body instead of
+   * the snippet the capture row carries.
+   */
+  bodyOverride?: string | null;
+}
+
 /**
  * Process a capture event and accumulate evidence for potential new records.
+ *
+ * Stamps `extracted_data.evidence.processed_at` so the nightly backfill cron
+ * can find rows where evidence never ran (bootstrap backlog, bulk imports)
+ * without double-counting signal weights on rows already processed.
  *
  * Returns the signals detected and the actions taken (watch/suggest/auto/dismiss).
  */
 export async function processCaptureForEvidence(
-  captureId: string
+  captureId: string,
+  options: ProcessCaptureEvidenceOptions = {}
 ): Promise<{
   processed: boolean;
   signalsDetected: number;
@@ -80,6 +94,9 @@ export async function processCaptureForEvidence(
   if (isEmailSource && (captureType === "message" || captureType === "thread")) {
     const emailData = extractEmailData(extracted, raw);
     if (emailData) {
+      if (options.bodyOverride) {
+        emailData.body = options.bodyOverride;
+      }
       signals = await classifyEmailCapture(workspaceId, emailData, captureId);
 
       // ICS attachment → meeting proposal. The email-analysis lane suppresses
@@ -126,7 +143,33 @@ export async function processCaptureForEvidence(
     }
   }
 
+  // Document-class email attachments (agreements, contracts, SOWs, invoices):
+  // download the bytes into storage so resources carry the real document and
+  // content analysis reads it — not just the email excerpt. Self-filters to
+  // document-class attachments; never throws. Runs after evidence processing
+  // when signals fired (so sibling work/billing births exist to link to) and
+  // before the zero-signal early return (a contract email with no classifiable
+  // signal must still save its document).
+  const maybeIngestAttachments = async (): Promise<void> => {
+    if (!isEmailSource) return;
+    try {
+      const { ingestEmailAttachmentsForCapture } = await import(
+        "@/app/_features/resources/services/email-attachment-ingest"
+      );
+      const ingest = await ingestEmailAttachmentsForCapture(workspaceId, captureId);
+      if (ingest.ingested > 0 || ingest.errors.length > 0) {
+        console.log(
+          `[process-capture] attachment ingest for ${captureId}: ingested=${ingest.ingested} skipped=${ingest.skipped} errors=${ingest.errors.length}`,
+        );
+      }
+    } catch (ingestError) {
+      console.error("[process-capture] attachment ingest failed:", ingestError);
+    }
+  };
+
   if (signals.length === 0) {
+    await maybeIngestAttachments();
+    await stampEvidenceProcessed(admin, captureId, extracted, 0);
     return { processed: true, signalsDetected: 0, results: [] };
   }
 
@@ -150,11 +193,46 @@ export async function processCaptureForEvidence(
     results.push(result);
   }
 
+  await maybeIngestAttachments();
+
+  await stampEvidenceProcessed(admin, captureId, extracted, signals.length);
+
   return {
     processed: true,
     signalsDetected: signals.length,
     results,
   };
+}
+
+/**
+ * Best-effort marker that evidence ran for this capture. The backfill cron
+ * selects on its absence; a stamp failure never fails evidence processing.
+ */
+async function stampEvidenceProcessed(
+  admin: ReturnType<typeof createAdminClient>,
+  captureId: string,
+  extracted: Record<string, unknown>,
+  signalsDetected: number
+): Promise<void> {
+  try {
+    await admin
+      .from("capture_events")
+      .update({
+        extracted_data: {
+          ...extracted,
+          evidence: {
+            processed_at: new Date().toISOString(),
+            signals_detected: signalsDetected,
+          },
+        } as Json,
+      })
+      .eq("id", captureId);
+  } catch (stampError) {
+    console.warn(
+      `[process-capture] evidence stamp failed for ${captureId}:`,
+      stampError instanceof Error ? stampError.message : stampError
+    );
+  }
 }
 
 /**
@@ -169,6 +247,10 @@ async function routeMeetingSignal(
   signal: DetectedSignal,
   captureId: string
 ): Promise<AddSignalResult> {
+  // NOTE: this round-trips log-odds → integer percent → log-odds (the
+  // routeIntakeProposal interface speaks 0-100 confidence). Each hop loses
+  // a little precision (e.g. 5.0 → 97% → ≈5.01); harmless at meeting-bar
+  // scale, but don't copy the pattern into hot accumulation loops.
   const confidence = logOddsToProbability(SIGNAL_WEIGHTS[signal.signal] ?? 0);
 
   const extractedFields: Record<string, ExtractedFieldValue> = {};
@@ -305,6 +387,8 @@ function normalizeAttachments(value: unknown): EmailAttachmentMeta[] {
       contentType:
         (record.contentType as string) || (record.mimeType as string) || undefined,
       size: typeof record.size === "number" ? record.size : undefined,
+      attachmentId:
+        (record.attachmentId as string) || (record.attachment_id as string) || undefined,
     });
   }
   return attachments;

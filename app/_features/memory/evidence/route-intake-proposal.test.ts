@@ -396,6 +396,37 @@ describe("routeIntakeProposal — Chain A proposals", () => {
     expect(h.db.evidence[0].log_odds_score).toBeCloseTo(5.0, 5);
   });
 
+  it("birth carries the merged fields and the accumulated-score confidence", async () => {
+    // Regression: the accumulation path used to pass the LATEST proposal's
+    // raw fields and confidence into autoCreateRecord — corroborated fields
+    // from prior signals were dropped at birth, and the birth confidence
+    // ignored the score that actually crossed the bar.
+    seedEvidence({
+      identifier: "jane@acme.com",
+      status: "suggested",
+      log_odds_score: 5.0,
+      extracted_fields: {
+        company: { value: "Acme Studio", confidence: 70, sources: ["cap-old"] },
+      },
+    });
+    h.autoCreateRecord.mockResolvedValue({ ok: true, recordId: "rec-9" });
+
+    const result = await routeIntakeProposal({
+      ...baseProposal, // confidence 90, fields name/email
+      signals: ["payment_notification_email"], // weight 3.5 → score 8.5 ≥ 8.0
+    });
+
+    expect(result.outcome).toBe("created");
+    const birth = h.autoCreateRecord.mock.calls[0]?.[0];
+    // Prior-signal field survives into the record
+    expect(birth.extractedFields.company).toMatchObject({
+      value: "Acme Studio",
+    });
+    expect(birth.extractedFields.name).toMatchObject({ value: "Jane Doe" });
+    // Confidence reflects the accumulated score (8.5 → ~100), not the raw 90
+    expect(birth.confidence).toBeGreaterThan(90);
+  });
+
   it("falls back to the confidence-derived score for signals outside the intake vocabulary", async () => {
     seedEvidence({
       identifier: "jane@acme.com",

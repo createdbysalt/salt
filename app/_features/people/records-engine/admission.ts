@@ -7,6 +7,19 @@ import type {
   RecordsInput,
 } from "./types";
 
+// Person creation has TWO deliberate gates (do not "unify" them blindly):
+//
+// 1. THIS bar — the resolver path (resolvePerson → evaluateAdmission). It
+//    answers "should this capture participant become a person NOW?" from
+//    interaction-context signals (payment, meetings, thread shape) as an
+//    additive point score. Auto-create at 85.
+// 2. The intake evidence path (routeIntakeProposal / addSignalToEvidence →
+//    EVIDENCE_THRESHOLDS.person.auto = 8.0 log-odds ≈ 99.6%). It answers
+//    "has enough evidence accumulated for this identifier over time?".
+//
+// The models measure different things (one-shot context vs. accumulated
+// corroboration), so the numbers are not meant to be equal. Changes here
+// directly move the person birth rate — treat as a product decision.
 export const RECORDS_CONFIDENCE_AUTO_CREATE = 85;
 export const RECORDS_CONFIDENCE_NEEDS_CONFIRMATION = 50;
 

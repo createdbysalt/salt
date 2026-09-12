@@ -96,6 +96,11 @@ export const WATCH_TRIGGER_FIELDS: Record<IntakeEntityType, string[]> = {
  * 2. Captures — Emails, meetings, files that imply a new record should be created
  *
  * For captures, these qualifiers describe what signals suggest a new record.
+ *
+ * DESCRIPTIVE ONLY: this map is the signal→entity vocabulary documentation.
+ * The live creation gates are EVIDENCE_THRESHOLDS (log-odds bars) fed by
+ * SIGNAL_WEIGHTS below — a former per-entity `suggestThreshold` here was
+ * dead config and was removed (2026-09) so nobody tunes the wrong knob.
  */
 export interface RecordQualifier {
   /** Where this entity can be detected */
@@ -104,8 +109,6 @@ export interface RecordQualifier {
   signals: string[];
   /** What to extract when the signal fires */
   extractFields: string[];
-  /** Confidence threshold for auto-suggest (vs. just watching) */
-  suggestThreshold: number;
 }
 
 export const RECORD_QUALIFIERS: Record<IntakeEntityType, RecordQualifier> = {
@@ -120,7 +123,6 @@ export const RECORD_QUALIFIERS: Record<IntakeEntityType, RecordQualifier> = {
       "invoice_addressee_unknown", // Invoice to/from unknown person
     ],
     extractFields: ["name", "email", "phone", "title", "organization"],
-    suggestThreshold: 80,
   },
   organization: {
     sources: ["email", "invoice", "file"],
@@ -132,7 +134,6 @@ export const RECORD_QUALIFIERS: Record<IntakeEntityType, RecordQualifier> = {
       "domain_appears_frequently", // Same domain appears 3+ times without org
     ],
     extractFields: ["name", "domain", "website", "billing_email", "industry"],
-    suggestThreshold: 75,
   },
   work: {
     sources: ["email", "meeting", "file"],
@@ -150,7 +151,6 @@ export const RECORD_QUALIFIERS: Record<IntakeEntityType, RecordQualifier> = {
       "contract_value_cents",
       "work_type",
     ],
-    suggestThreshold: 70,
   },
   billing: {
     sources: ["email", "invoice", "file"],
@@ -168,7 +168,6 @@ export const RECORD_QUALIFIERS: Record<IntakeEntityType, RecordQualifier> = {
       "linked_work",
       "number",
     ],
-    suggestThreshold: 85,
   },
   resource: {
     sources: ["email", "drive", "file"],
@@ -215,7 +214,6 @@ export const RECORD_QUALIFIERS: Record<IntakeEntityType, RecordQualifier> = {
       "linked_org",
       "linked_work",
     ],
-    suggestThreshold: 75, // Lower threshold - solopreneurs need to capture more
   },
   meeting: {
     sources: ["calendar", "email"],
@@ -232,7 +230,6 @@ export const RECORD_QUALIFIERS: Record<IntakeEntityType, RecordQualifier> = {
       "location",
       "meeting_url",
     ],
-    suggestThreshold: 95,
   },
 };
 
@@ -351,14 +348,28 @@ export const EVIDENCE_THRESHOLDS: Record<
   IntakeEntityType,
   { suggest: number; auto: number; dismiss: number }
 > = {
+  // Person has a second, deliberate creation gate: the resolver path
+  // (records-engine/admission.ts, additive points, auto at 85). This log-odds
+  // bar governs accumulated evidence over time; the resolver bar governs
+  // one-shot interaction context. See the comment at
+  // RECORDS_CONFIDENCE_AUTO_CREATE before changing either.
   person: { suggest: 4.0, auto: 8.0, dismiss: -3.0 },
   organization: { suggest: 3.5, auto: 7.0, dismiss: -3.0 },
   // Work: a single proposal/SOW (4.0) suggests; proposal + invoice + scope
   // thread (8.5) auto-creates. Previously a lone "Kickoff: X" meeting (1.5)
   // was indistinguishable from nothing.
   work: { suggest: 4.0, auto: 8.0, dismiss: -2.0 },
+  // Billing: the auto bar (12.0) is deliberately unreachable from any single
+  // signal (max stripe_webhook_payment 5.0) — evidence alone never births a
+  // billing record in one shot. Factual billing events (real invoices,
+  // payments) bypass evidence entirely via the billing-record producer; this
+  // lane only accumulates corroboration. If the producer is ever retired,
+  // this bar must come down or billing births silently stop.
   billing: { suggest: 6.0, auto: 12.0, dismiss: -2.0 },
   resource: { suggest: 3.0, auto: 6.0, dismiss: -2.0 },
+  // Meeting: the auto bar (4.0) is deliberately below a single
+  // calendar_event_created (5.0) — a synced calendar event is an objective
+  // fact, not an inference, so meetings materialize immediately.
   meeting: { suggest: 2.0, auto: 4.0, dismiss: -2.0 },
 };
 

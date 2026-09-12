@@ -320,6 +320,35 @@ describe("dismissal is terminal for stable meeting/file identifiers (audit #7)",
 
     expect(row.status).toBe("dismissed");
     expect(h.autoCreateRecord).not.toHaveBeenCalled();
-    expect(result.action).toBe("auto"); // score crosses, but status is terminal
+    // Terminal rows are fully inert: no score accumulation, no provenance
+    // row, no field merge — the signal is dropped, not banked.
+    expect(row.log_odds_score).toBe(4.0);
+    expect(h.db.signals).toHaveLength(0);
+    expect(h.db.evidenceUpdates).toHaveLength(0);
+    // Action reflects the STORED score (resource suggest band), not the
+    // would-be accumulated one.
+    expect(result.action).toBe("suggest");
+  });
+
+  it("created evidence is inert too — the record already exists", async () => {
+    const row = seedEvidence({
+      entity_type: "person",
+      status: "created",
+      log_odds_score: 9.0,
+    });
+
+    const result = await addSignalToEvidence({
+      workspaceId: "ws-1",
+      entityType: "person",
+      identifier: "jane@acme.com",
+      signal: "email_from_unknown_address",
+      captureId: "cap-10",
+    });
+
+    expect(row.log_odds_score).toBe(9.0);
+    expect(h.db.signals).toHaveLength(0);
+    expect(h.autoCreateRecord).not.toHaveBeenCalled();
+    expect(result.action).toBe("auto"); // stored score is over the bar
+    expect(result.newScore).toBe(9.0);
   });
 });

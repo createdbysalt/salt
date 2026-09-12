@@ -24,6 +24,8 @@ export function toDirectoryWorkItem(row: MemoryWorkRow): WorkItem {
     title: row.name,
     status: mapWorkStatus(row.status),
     progress: 0,
+    org: row.org ?? undefined,
+    person: row.person ?? undefined,
     service: row.service ?? undefined,
     tags: [],
     lastActivityAt: row.updatedAt.toISOString(),

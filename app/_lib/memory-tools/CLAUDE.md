@@ -67,11 +67,13 @@ const result = await memoryUpdateField({
 ## How Threshold Works
 
 1. **Tool receives call** with field, value, confidence, reason
-2. **Tool gets threshold** from `workspaces.memory_care_auto_apply_threshold` via `getWorkspaceThreshold` (default **85**; result `source: "care"`)
-3. **One user-controlled bar** — every gated field is held to the workspace threshold; tiers never raise it
-4. **If confidence >= bar** → Apply to Memory, resolve evidence
-5. **If confidence < bar** → Accumulate evidence (Watching)
-6. **Never-touch fields** → Hard refuse at any confidence (money fields)
+2. **Never-touch fields** → Hard refuse at any confidence (money fields)
+3. **Correction blocklist** → User-dismissed values refused for automated callers
+4. **Tool gets threshold** from `workspaces.memory_care_auto_apply_threshold` via `getWorkspaceThreshold` (default **85**; result `source: "care"`)
+5. **Always-auto observation fields** (email, name, phone, contact timestamps) → bar is **0**, they apply at any confidence
+6. **One user-controlled bar** — every other gated field is held to the workspace threshold; tiers never raise it
+7. **If confidence >= bar** → Apply to Memory, resolve evidence
+8. **If confidence < bar** → Accumulate evidence (Watching)
 
 Retired: ask-first / `approval_required` / playbook `execution-router`. Correction replaces learn-layer approval — see [Memory Care](../../../docs/architecture/memory-care.md).
 

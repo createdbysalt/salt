@@ -272,6 +272,8 @@ export interface MemoryWorkRow {
   status: string;
   updatedAt: Date;
   service: { id: string; name: string } | null;
+  org: { id: string; name: string } | null;
+  person: { id: string; name: string } | null;
 }
 
 type MemoryProjectListRow = {
@@ -280,6 +282,8 @@ type MemoryProjectListRow = {
   status: string | null;
   updated_at: string;
   service_id?: string | null;
+  person_id?: string | null;
+  organization_id?: string | null;
 };
 
 function formatPostgrestError(error: { code?: string; message?: string; details?: string; hint?: string }) {
@@ -309,6 +313,7 @@ async function fetchMemoryProjectRows(
   offset: number,
 ): Promise<MemoryProjectListRow[]> {
   const selectAttempts: Array<{ select: string; tenantColumn: "workspace_id" | "studio_id" }> = [
+    { select: "id, name, status, updated_at, service_id, person_id, organization_id", tenantColumn: "workspace_id" },
     { select: "id, name, status, updated_at, service_id", tenantColumn: "workspace_id" },
     { select: "id, name, status, updated_at", tenantColumn: "workspace_id" },
     { select: "id, name, status, updated_at, service_id", tenantColumn: "studio_id" },
@@ -336,6 +341,9 @@ async function fetchMemoryProjectRows(
           status: (record.status as string | null) ?? null,
           updated_at: String(record.updated_at),
           service_id: (record.service_id as string | null | undefined) ?? null,
+          person_id: (record.person_id as string | null | undefined) ?? null,
+          organization_id:
+            (record.organization_id as string | null | undefined) ?? null,
         };
       });
     }
@@ -345,6 +353,15 @@ async function fetchMemoryProjectRows(
     if (
       isMissingColumnError(error, "service_id") &&
       attempt.select.includes("service_id")
+    ) {
+      continue;
+    }
+
+    if (
+      (isMissingColumnError(error, "person_id") ||
+        isMissingColumnError(error, "organization_id")) &&
+      (attempt.select.includes("person_id") ||
+        attempt.select.includes("organization_id"))
     ) {
       continue;
     }
@@ -389,6 +406,35 @@ async function resolveServiceNamesById(
   return serviceById;
 }
 
+/** Batch-resolve id → {id, name} for a tenant-scoped Memory table. */
+async function resolveRecordNamesById(
+  supabase: Awaited<ReturnType<typeof getWorkspaceContext>>["supabase"],
+  workspaceId: string,
+  table: "people" | "organizations",
+  ids: string[],
+): Promise<Map<string, { id: string; name: string }>> {
+  const byId = new Map<string, { id: string; name: string }>();
+  if (ids.length === 0) return byId;
+
+  const { data, error } = await supabase
+    .from(table)
+    .select("id, name")
+    .eq("workspace_id", workspaceId)
+    .is("deleted_at", null)
+    .in("id", ids);
+
+  if (error) {
+    console.error(`Error resolving ${table} names:`, error);
+    return byId;
+  }
+
+  for (const row of data ?? []) {
+    if (row.name) byId.set(row.id, { id: row.id, name: row.name });
+  }
+
+  return byId;
+}
+
 /**
  * List work/projects for the Memory directory — person/org linkage lives on
  * the project row itself, so system-play rows still appear.
@@ -402,7 +448,17 @@ export const getMemoryWorkItems = cache(
     const serviceIds = [
       ...new Set(rows.map((row) => row.service_id).filter(Boolean)),
     ] as string[];
-    const serviceById = await resolveServiceNamesById(supabase, workspace.id, serviceIds);
+    const personIds = [
+      ...new Set(rows.map((row) => row.person_id).filter(Boolean)),
+    ] as string[];
+    const organizationIds = [
+      ...new Set(rows.map((row) => row.organization_id).filter(Boolean)),
+    ] as string[];
+    const [serviceById, personById, orgById] = await Promise.all([
+      resolveServiceNamesById(supabase, workspace.id, serviceIds),
+      resolveRecordNamesById(supabase, workspace.id, "people", personIds),
+      resolveRecordNamesById(supabase, workspace.id, "organizations", organizationIds),
+    ]);
 
     return rows.map((row) => ({
       id: row.id,
@@ -410,6 +466,10 @@ export const getMemoryWorkItems = cache(
       status: row.status ?? "active",
       updatedAt: new Date(row.updated_at),
       service: row.service_id ? (serviceById.get(row.service_id) ?? null) : null,
+      org: row.organization_id
+        ? (orgById.get(row.organization_id) ?? null)
+        : null,
+      person: row.person_id ? (personById.get(row.person_id) ?? null) : null,
     }));
   },
 );

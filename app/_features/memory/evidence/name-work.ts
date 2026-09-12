@@ -20,6 +20,7 @@
 
 import { z } from "zod";
 import { sendLlm, backgroundSpend } from "@/app/_lib/ai/gpt";
+import { isPlaceholderWorkName } from "../utils/work-name";
 
 /** Below this confidence the deterministic naming path keeps the pen. */
 export const WORK_NAME_CONFIDENCE_THRESHOLD = 70;
@@ -40,6 +41,8 @@ export interface WorkNamingContext {
   counterparty?: string;
   /** Known person/org names — a proposal matching one is a thread artifact. */
   knownEntityNames?: string[];
+  /** Active workspace services — a matching service's exact name wins. */
+  services?: string[];
   actorUserId?: string;
 }
 
@@ -77,6 +80,19 @@ export function isPersonNameCollision(
   );
 }
 
+/**
+ * Placeholder shapes are not names: the deterministic "— Project" fallback,
+ * and "{known entity} Project" generics ("Good Company Project") that say
+ * nothing about the work. Lives in utils/work-name.ts (pure module) so
+ * client components share it.
+ */
+function isPlaceholderProposal(
+  name: string,
+  context: Pick<WorkNamingContext, "knownEntityNames">,
+): boolean {
+  return isPlaceholderWorkName(name, context.knownEntityNames ?? []);
+}
+
 export function buildWorkNamingPrompt(context: WorkNamingContext): string {
   const sections: string[] = [];
   if (context.subject) sections.push(`Subject: ${context.subject}`);
@@ -89,19 +105,24 @@ export function buildWorkNamingPrompt(context: WorkNamingContext): string {
       `Body excerpt:\n${context.bodyExcerpt.slice(0, MAX_BODY_EXCERPT_CHARS)}`,
     );
   }
+  if (context.services && context.services.length > 0) {
+    sections.push(
+      `Workspace services (when the work matches one, use its exact name):\n${context.services.map((s) => `- ${s}`).join("\n")}`,
+    );
+  }
 
   return `You are naming a new work record (a project or engagement) in a solo professional's workspace, based on an email that shows the work exists.
 
 Return ONLY valid JSON with this exact structure:
 { "projectName": "...", "confidence": 0 }
 
-Rules:
-- projectName: the name of the project or engagement (e.g. "Playground Website", "Brand Refresh") — NEVER the client's or a person's name.
-- Prefer names from attached document filenames (service agreements, SOWs, proposals, quotes) over the email subject — "Playground Website Service Agreement.pdf" means the project is "Playground Website". Drop the document-type suffix ("Service Agreement", "SOW", "Proposal") from the name.
-- A subject that names a person ("Barrett on the Studio", "Call with Jane") is about someone, not the work — look to the attachments and body for the project.
-- If the subject substantively names the project ("Website Redesign Kickoff"), use it.
-- If no project can be identified, return { "projectName": null, "confidence": 0 }.
-- confidence: 0-100, how sure you are this is the right project name.
+Naming convention — the name is WHAT the work is, never WHO it is for:
+- projectName: the deliverable or engagement itself (e.g. "Website Redesign", "Brand Identity", "Monthly Retainer"). The record links to the client separately, so NEVER put a person's, client's, or organization's name in it.
+- When the work matches one of the workspace's services, use that service's exact name.
+- The deliverable's authority order: attached agreement/SOW/contract filenames and content > proposals/quotes > the substance of the email body. A "Playground Website Service Agreement.pdf" attachment means the deliverable is the website build — name it "Website Redesign" or the matching service, not "Playground Website".
+- NEVER name from: a meeting or call title ("CLC x SALT | Check-In" is a cadence, not work), a payment or invoice memo, or the subject line alone.
+- NEVER placeholder names like "Acme Project" — if no deliverable is identifiable, return { "projectName": null, "confidence": 0 }.
+- confidence: 0-100, how sure you are this is the right deliverable.
 
 Email context:
 ${sections.join("\n")}`;
@@ -144,6 +165,7 @@ export async function proposeWorkName(
   const confidence = parsed.confidence ?? 0;
   if (confidence < WORK_NAME_CONFIDENCE_THRESHOLD) return null;
   if (isPersonNameCollision(name, context)) return null;
+  if (isPlaceholderProposal(name, context)) return null;
 
   return { name, confidence };
 }
@@ -156,6 +178,8 @@ const WorkSynthesisSchema = z.object({
   canonicalName: z.string().max(120).nullish(),
   summary: z.string().max(500).nullish(),
   confidence: z.number().min(0).max(100).nullish(),
+  /** The workspace service the work matches, verbatim from the list. */
+  matchedService: z.string().max(120).nullish(),
 });
 
 export interface WorkSynthesisContext {
@@ -169,6 +193,8 @@ export interface WorkSynthesisContext {
   documentNames?: string[];
   /** Linked person/org names — a proposal matching one is rejected. */
   knownEntityNames?: string[];
+  /** Active workspace services — a matching service's exact name wins. */
+  services?: string[];
   actorUserId?: string;
 }
 
@@ -176,6 +202,8 @@ export interface WorkSynthesisProposal {
   canonicalName: string | null;
   summary: string | null;
   confidence: number;
+  /** Exact workspace service name the work matches, when one does. */
+  matchedService: string | null;
 }
 
 export function buildWorkSynthesisPrompt(context: WorkSynthesisContext): string {
@@ -187,7 +215,12 @@ export function buildWorkSynthesisPrompt(context: WorkSynthesisContext): string 
     sections.push(`Documents:\n${context.documentNames.map((d) => `- ${d}`).join("\n")}`);
   }
   if (context.knownEntityNames && context.knownEntityNames.length > 0) {
-    sections.push(`People/organizations involved: ${context.knownEntityNames.join(", ")}`);
+    sections.push(`People/organizations involved (the client — never part of the name): ${context.knownEntityNames.join(", ")}`);
+  }
+  if (context.services && context.services.length > 0) {
+    sections.push(
+      `Workspace services (when the work matches one, use its exact name and return it as matchedService):\n${context.services.map((s) => `- ${s}`).join("\n")}`,
+    );
   }
   if (context.bodyExcerpts && context.bodyExcerpts.length > 0) {
     sections.push(
@@ -200,11 +233,14 @@ export function buildWorkSynthesisPrompt(context: WorkSynthesisContext): string 
   return `You are re-understanding a work record (a project or engagement) in a solo professional's workspace, from every email and document linked to it.
 
 Return ONLY valid JSON with this exact structure:
-{ "canonicalName": "...", "summary": "...", "confidence": 0 }
+{ "canonicalName": "...", "summary": "...", "confidence": 0, "matchedService": null }
 
-Rules:
-- canonicalName: the name of the project or engagement (e.g. "Playground Website", "Brand Refresh") — NEVER a person's or client's name. When the current name is already a good project name, return it unchanged. When no project is identifiable, return null.
-- Prefer names from agreement/SOW/proposal/quote documents over email subjects. Drop document-type suffixes ("Service Agreement", "SOW").
+Naming convention — the name is WHAT the work is, never WHO it is for:
+- canonicalName: the deliverable or engagement itself (e.g. "Website Redesign", "Brand Identity", "Monthly Retainer"). The record links to the client separately, so NEVER put a person's, client's, or organization's name in it.
+- When the work matches one of the workspace's services, use that service's exact name and echo it in matchedService (otherwise matchedService is null).
+- The deliverable's authority order: agreement/SOW/contract documents > proposals/quotes > the substance of the email threads.
+- NEVER name from: a meeting or call title ("CLC x SALT | Check-In" is a cadence, not work), a payment or invoice memo, or an email subject alone.
+- NEVER placeholder names like "Acme Project". When the current name already follows this convention, return it unchanged. When no deliverable is identifiable, return null.
 - summary: one sentence a busy owner would skim — what the work is and who it is for. null when unclear.
 - confidence: 0-100, how sure you are the canonicalName is right. Low confidence when the evidence is thin.
 
@@ -249,16 +285,27 @@ export async function proposeWorkSynthesis(
   let canonicalName = parsed.canonicalName?.trim() || null;
   if (
     canonicalName &&
-    isPersonNameCollision(canonicalName, {
+    (isPersonNameCollision(canonicalName, {
       knownEntityNames: context.knownEntityNames,
-    })
+    }) ||
+      isPlaceholderProposal(canonicalName, context))
   ) {
     canonicalName = null;
   }
   const summary = parsed.summary?.trim() || null;
 
-  if (!canonicalName && !summary) return null;
-  return { canonicalName, summary, confidence };
+  // matchedService is only real when it echoes the catalog verbatim —
+  // the LLM's casing/spelling drift is snapped to the catalog entry.
+  const matchedRaw = parsed.matchedService?.trim().toLowerCase();
+  const matchedService =
+    (matchedRaw &&
+      context.services?.find(
+        (service) => service.trim().toLowerCase() === matchedRaw,
+      )) ||
+    null;
+
+  if (!canonicalName && !summary && !matchedService) return null;
+  return { canonicalName, summary, confidence, matchedService };
 }
 
 // =============================================================================

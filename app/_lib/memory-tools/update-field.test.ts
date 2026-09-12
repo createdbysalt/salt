@@ -269,14 +269,55 @@ describe("memoryUpdateField field mappings", () => {
       confidence: 60,
       entityType: "person",
       entityId: "person-1",
-      field: "phone",
-      value: "+1 555 0100",
+      field: "relationship_type",
+      value: "client",
     });
 
     expect(result.action).toBe("accumulated");
     expect(result.evidenceId).toBe("ev-1");
     expect(updates).toHaveLength(0);
     expect(accumulateEvidence).toHaveBeenCalledTimes(1);
+  });
+
+  it("applies always-auto observation fields at any confidence (bar 0)", async () => {
+    // phone/email/name bypass confidence gating entirely — the workspace
+    // threshold (85) must not hold them.
+    const result = await memoryUpdateField({
+      ...baseInput,
+      confidence: 10,
+      entityType: "person",
+      entityId: "person-1",
+      field: "phone",
+      value: "+1 555 0100",
+    });
+
+    expect(result.action).toBe("applied");
+    expect(result.threshold).toBe(0);
+    const peopleUpdate = updates.find((u) => u.table === "people");
+    expect(peopleUpdate?.payload).toEqual({ phone: "+1 555 0100" });
+  });
+
+  it("still refuses always-auto fields when the value was user-corrected", async () => {
+    // Always-auto lifts the confidence bar, never the correction blocklist.
+    vi.mocked(findBlockingCorrection).mockReturnValueOnce({
+      id: "corr-2",
+      fieldPath: "phone",
+      wrongValue: "+1 555 0100",
+      reason: "never_true",
+      createdAt: "2026-08-01T00:00:00Z",
+    });
+
+    const result = await memoryUpdateField({
+      ...baseInput,
+      confidence: 10,
+      entityType: "person",
+      entityId: "person-1",
+      field: "phone",
+      value: "+1 555 0100",
+    });
+
+    expect(result.action).toBe("rejected");
+    expect(updates).toHaveLength(0);
   });
 
   it("rejects unknown person fields", async () => {
@@ -527,8 +568,8 @@ describe("memoryUpdateField Handled learning logging", () => {
       confidence: 60,
       entityType: "person",
       entityId: "person-1",
-      field: "phone",
-      value: "+1 555 0100",
+      field: "relationship_type",
+      value: "client",
     });
 
     expect(result.action).toBe("accumulated");

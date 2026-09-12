@@ -31,6 +31,7 @@ import {
 import { produceRecordTagFits } from "@/app/_features/capture/services/producers/record-tag-fit-producer";
 import { extractNameFromEmail, isPlausiblePersonName } from "@/app/_features/memory/records/person-signals";
 import { findPersonIdsByEmail } from "@/app/_features/memory/records/person-emails";
+import { resolveThreadsForBornPerson } from "@/app/_features/capture/services/ingest/stages/message-store";
 import {
   extractNamingContextFromCapture,
   proposeWorkName,
@@ -955,6 +956,16 @@ export async function autoCreateRecord(
   // A dedupe-linked record isn't a birth — nothing new entered Memory.
   if (!inserted.linked) {
     await logRecordBirth(input, recordId, inserted.label);
+  }
+
+  // Message store (Memory Sourcing Overhaul, Phase 2): a person birth
+  // resolves any person-null conversation threads for their email so
+  // Convos and extraction can read the thread as theirs.
+  if (input.entityType === "person") {
+    const email =
+      input.extractedFields.email?.value ??
+      (looksLikeEmail(input.identifier) ? input.identifier : null);
+    await resolveThreadsForBornPerson(supabase, input.workspaceId, recordId, email);
   }
 
   return { ok: true, recordId };

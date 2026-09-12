@@ -35,6 +35,8 @@ export interface EmailAttachmentMeta {
   name: string;
   contentType?: string;
   size?: number;
+  /** Gmail attachment id — the GMAIL_GET_ATTACHMENT download pointer. */
+  attachmentId?: string;
 }
 
 /**

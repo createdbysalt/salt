@@ -143,6 +143,36 @@ Low-risk observation fields (names, emails, `last_contacted_at`, …) bypass gat
 
 There is **no** `approval_required` path in the learn layer. Correction replaces approval.
 
+### Confidence scales (three systems, one mapping)
+
+Three different confidence numerics appear across the learn layer. They are
+**not** interchangeable — convert deliberately:
+
+| Scale | Range | Where | Owner |
+|-------|-------|-------|-------|
+| Intake log-odds | unbounded (Fellegi-Sunter, base 2) | `pending_evidence.log_odds_score`, `SIGNAL_WEIGHTS`, `EVIDENCE_THRESHOLDS` | `care/intake/index.ts` |
+| Field bar (0–100) | 0–100, workspace-set (default 85) | `tierBar`, decision pipeline, Memory → Rules UI | `app/_lib/learning/field-tiers.ts`, `care/settings.ts` |
+| Enrichment router bands | 0.0–1.0 | connector extraction routing (`auto_accept` / `flag_review` / `human_review`) | `app/_lib/composio/enrichment/matching/confidence-router.ts` |
+
+**Conversions.** Intake ↔ field bar: `logOddsToProbability` /
+`probabilityToLogOdds` (`P = 2^L / (1 + 2^L)`, as a 0–100 percentage).
+Router bands ÷ 100 to compare against the field bar (0.90 ≈ 90).
+
+**Intake bars are log-odds, not percentages.** `EVIDENCE_THRESHOLDS` (e.g.
+person `suggest: 4.0, auto: 8.0`) compare against accumulated log-odds —
+`auto: 8.0` ≈ 99.6% probability, `suggest: 4.0` ≈ 94.1%. Do not read them
+as 0–100 bars.
+
+**The workspace threshold governs field writes, not record birth.** Record
+birth is decided purely by intake log-odds vs `EVIDENCE_THRESHOLDS`; the
+0–100 workspace bar gates subsequent field-level proposals on born records.
+Tiers never raise that bar (`never_touch` refuses outright).
+
+**Router bands are extraction-lane only.** They decide whether a
+connector-extracted field value is accepted, flagged, or sent to human
+review *before* it becomes a proposal — they do not interact with intake
+thresholds or the workspace bar.
+
 ### P8 Reflection Pass (Pattern-Level Learning)
 
 When corrections cluster on a signal source + field type (e.g., "email signature role extractions"), Salt learns to be more cautious without blocking the source entirely.
@@ -271,6 +301,7 @@ Tool calls from care use `source: "care"`.
 ## See also
 
 - [Primitives Overview](primitives.md)
+- [Record Creation Paths](record-creation-paths.md) — evidence bars, resolver admission, sanctioned bypasses
 - [Playbooks Reference](playbooks.md) — act-layer only
 - [Legacy naming](legacy-naming.md) — Keeper / `_meta` retirement
 - [Memory Tools](../../app/_lib/memory-tools/CLAUDE.md)

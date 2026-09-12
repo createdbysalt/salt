@@ -97,6 +97,14 @@ export function WorkDirectoryTable({ workItems }: { workItems: WorkItem[] }) {
       ),
     },
     {
+      id: "person",
+      accessorFn: (work) => work.person?.name ?? "",
+      header: "Person",
+      cell: ({ row }) => (
+        <span className="text-sm text-foreground/80">{row.original.person?.name ?? "—"}</span>
+      ),
+    },
+    {
       accessorKey: "status",
       header: "Status",
       filterFn: multiFilter,
@@ -213,6 +221,7 @@ export function WorkDirectoryTable({ workItems }: { workItems: WorkItem[] }) {
         return (
           work.title.toLowerCase().includes(v) ||
           (work.org?.name.toLowerCase().includes(v) ?? false) ||
+          (work.person?.name.toLowerCase().includes(v) ?? false) ||
           work.tags.some((tag) => tag.toLowerCase().includes(v))
         );
       }}

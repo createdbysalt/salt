@@ -30,7 +30,7 @@ Intake handles two sources:
 
 The system:
 
-1. **Qualifies** — Detects signals that suggest a new record (via `RECORD_QUALIFIERS`)
+1. **Qualifies** — Detects signals that suggest a new record (signal vocabulary: `RECORD_QUALIFIERS`; live gates: `EVIDENCE_THRESHOLDS` + `SIGNAL_WEIGHTS`)
 2. **Parses** — Extracts entity info from text or capture data
 3. **Orders** — Creates entities by dependency tier
 4. **Links** — Associates entities based on relationships
@@ -60,7 +60,7 @@ Each entity type has qualifiers defining how it can be detected from captures:
 | email | `email_signature_has_name` | Signature block contains name + contact info |
 | invoice | `invoice_addressee_unknown` | Invoice to/from unknown person |
 
-**Extract:** name, email, phone, title, organization · **Threshold:** 80%
+**Extract:** name, email, phone, title, organization
 
 ### Organization
 
@@ -72,7 +72,7 @@ Each entity type has qualifiers defining how it can be detected from captures:
 | file | `contract_mentions_company` | Contract/proposal references company |
 | email | `domain_appears_frequently` | Same domain appears 3+ times without org |
 
-**Extract:** name, domain, website, billing_email, industry · **Threshold:** 75%
+**Extract:** name, domain, website, billing_email, industry
 
 ### Work
 
@@ -84,7 +84,7 @@ Each entity type has qualifiers defining how it can be detected from captures:
 | invoice | `invoice_line_items_suggest_project` | Invoice references work not in Memory |
 | email | `thread_discusses_scope` | Known contact's reply mentions 2+ of scope, deliverables, timeline, milestones |
 
-**Extract:** name, organization, deadline, contract_value_cents, work_type · **Threshold:** 70%
+**Extract:** name, organization, deadline, contract_value_cents, work_type
 
 ### Billing
 
@@ -96,7 +96,7 @@ Each entity type has qualifiers defining how it can be detected from captures:
 | email | `email_mentions_amount_due` | Email body contains "$X due" or "payment of $X" |
 | file | `receipt_attachment_detected` | Receipt PDF attached |
 
-**Extract:** amount_cents, due_at, organization, linked_work, number · **Threshold:** 85%
+**Extract:** amount_cents, due_at, organization, linked_work, number
 
 ### File
 
@@ -108,7 +108,7 @@ Each entity type has qualifiers defining how it can be detected from captures:
 | file | `contract_or_proposal_detected` | Attachment classified as contract/proposal |
 | email | `asset_delivered` | Final deliverable attached (PSD, PDF, etc.) |
 
-**Extract:** title, category, document_type, linked_person, linked_org · **Threshold:** 90%
+**Extract:** title, category, document_type, linked_person, linked_org
 
 ### Meeting
 
@@ -119,7 +119,7 @@ Each entity type has qualifiers defining how it can be detected from captures:
 | email | `zoom_invite_detected` | Zoom/Meet link in email |
 | calendar | `calendar_invite_received` | Calendar invite from external party |
 
-**Extract:** title, start_time, attendees, location, meeting_url · **Threshold:** 95%
+**Extract:** title, start_time, attendees, location, meeting_url
 
 ## Usage
 
@@ -184,7 +184,7 @@ Each signal has a pre-computed weight based on how informative it is:
 |--------|---------|------|---------|
 | Person | 4.0 | 8.0 | -3.0 |
 | Organization | 3.5 | 7.0 | -3.0 |
-| Work | 5.0 | 10.0 | -2.0 |
+| Work | 4.0 | 8.0 | -2.0 |
 | Billing | 6.0 | 12.0 | -2.0 |
 | File | 3.0 | 6.0 | -2.0 |
 | Meeting | 2.0 | 4.0 | -2.0 |

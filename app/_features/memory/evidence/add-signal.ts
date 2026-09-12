@@ -59,6 +59,21 @@ export async function addSignalToEvidence(
     .single();
 
   if (existing) {
+    // Terminal states are final: the user dismissed this identifier, or the
+    // record already exists. Accumulating further would grow a score that
+    // can never act (and re-merge fields nobody will read) — skip the
+    // update, the merge, and the provenance row entirely, matching
+    // routeIntakeProposal's terminal-state skip.
+    if (existing.status === "dismissed" || existing.status === "created") {
+      return {
+        evidenceId: existing.id,
+        newScore: existing.log_odds_score,
+        previousScore: existing.log_odds_score,
+        action: evaluateEvidence(input.entityType, existing.log_odds_score),
+        isNew: false,
+      };
+    }
+
     // Update existing evidence
     const previousScore = existing.log_odds_score;
     const newScore = accumulateEvidence(previousScore, input.signal);

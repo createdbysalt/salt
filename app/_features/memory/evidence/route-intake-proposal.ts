@@ -23,6 +23,7 @@ import {
   SIGNAL_WEIGHTS,
   canonicalizeIdentifier,
   evaluateEvidence,
+  logOddsToProbability,
   probabilityToLogOdds,
   type IntakeEntityType,
 } from "@/app/_features/memory/care/intake";
@@ -182,6 +183,10 @@ export async function routeIntakeProposal(
 
   let evidenceId: string;
   let score: number;
+  // Fields carried into the birth call. On the accumulation path this is the
+  // MERGED set — corroborated fields from prior signals must survive into
+  // the record, not just the latest proposal's fields.
+  let birthFields: Record<string, ExtractedFieldValue>;
 
   // Provenance + accumulation both key off the primary signal.
   const primarySignal = input.signals[0] ?? "capture_create_decision";
@@ -228,6 +233,7 @@ export async function routeIntakeProposal(
       .eq("id", existing.id);
 
     evidenceId = existing.id;
+    birthFields = mergedFields;
   } else {
     const { data: newEvidence, error } = await supabase
       .from("pending_evidence")
@@ -246,6 +252,7 @@ export async function routeIntakeProposal(
 
     evidenceId = newEvidence.id;
     score = proposalScore;
+    birthFields = input.extractedFields;
   }
 
   // Provenance: record what put this identifier on the suggested lane.
@@ -267,8 +274,11 @@ export async function routeIntakeProposal(
       evidenceId,
       entityType: input.entityType,
       identifier: canonicalId,
-      confidence: clampedConfidence,
-      extractedFields: input.extractedFields,
+      // Birth confidence reflects the ACCUMULATED score (the thing that
+      // crossed the bar), not the latest proposal's raw confidence —
+      // matching addSignalToEvidence's birth call.
+      confidence: logOddsToProbability(score),
+      extractedFields: birthFields,
       signalCount: Math.max(input.signals.length, 1),
       captureId: input.captureId,
     });

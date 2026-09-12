@@ -7,9 +7,10 @@
  *
  * Flow:
  * 1. Caller provides field, value, confidence, and reason
- * 2. Tool gets workspace threshold
- * 3. If confidence >= threshold → apply directly to Memory
- * 4. If confidence < threshold → accumulate evidence, wait for more
+ * 2. Tool refuses never-touch fields and correction-blocklisted values
+ * 3. Tool gets workspace threshold (always-auto observation fields: bar 0)
+ * 4. If confidence >= threshold → apply directly to Memory
+ * 5. If confidence < threshold → accumulate evidence, wait for more
  *
  * @example
  * ```ts
@@ -40,7 +41,10 @@ import {
   generateEvidenceSummary,
   recordSaltLearning,
 } from "@/app/_lib/learning/salt-learnings";
-import { isNeverTouchField } from "@/app/_lib/learning/field-tiers";
+import {
+  isAlwaysAutoField,
+  isNeverTouchField,
+} from "@/app/_lib/learning/field-tiers";
 import {
   findBlockingCorrection,
   getCorrectionBlocklist,
@@ -104,10 +108,16 @@ export async function memoryUpdateField(
     input.field
   );
 
+  // Always-auto observation fields (email, name, last_contacted_at, …)
+  // bypass confidence gating entirely — the bar is 0. This lifts ONLY the
+  // confidence bar: never-touch refusals and the correction blocklist above
+  // still apply, and callers may not raise the bar on these fields.
   // Callers (e.g. Memory Care tiered bars) may raise the bar, never lower it.
-  const threshold = input.minThreshold
-    ? Math.max(workspaceThreshold, input.minThreshold)
-    : workspaceThreshold;
+  const threshold = isAlwaysAutoField(input.entityType, input.field)
+    ? 0
+    : input.minThreshold
+      ? Math.max(workspaceThreshold, input.minThreshold)
+      : workspaceThreshold;
 
   // No-op guard: the field already holds this exact value — no matter who
   // set it (this tool, a manual edit, a seed). Accumulating evidence would
@@ -646,6 +656,11 @@ export const WORK_FIELD_MAP: Record<string, keyof TableUpdate<"work">> = {
   description: "description",
   deadline: "deadline",
   start_date: "start_date",
+  // Counterparty/service connections — the deliverable-only naming
+  // convention makes these links the record's tie to its client.
+  person_id: "person_id",
+  organization_id: "organization_id",
+  service_id: "service_id",
 };
 
 async function updateWorkField(
