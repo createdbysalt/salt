@@ -1762,6 +1762,136 @@ export type Database = {
           },
         ]
       }
+      conversation_messages: {
+        Row: {
+          author_email: string | null
+          author_name: string | null
+          body_expires_at: string | null
+          body_text: string | null
+          capture_event_id: string | null
+          created_at: string
+          direction: string
+          id: string
+          occurred_at: string | null
+          source_external_id: string
+          source_type: string
+          thread_id: string
+          workspace_id: string
+        }
+        Insert: {
+          author_email?: string | null
+          author_name?: string | null
+          body_expires_at?: string | null
+          body_text?: string | null
+          capture_event_id?: string | null
+          created_at?: string
+          direction: string
+          id?: string
+          occurred_at?: string | null
+          source_external_id: string
+          source_type: string
+          thread_id: string
+          workspace_id: string
+        }
+        Update: {
+          author_email?: string | null
+          author_name?: string | null
+          body_expires_at?: string | null
+          body_text?: string | null
+          capture_event_id?: string | null
+          created_at?: string
+          direction?: string
+          id?: string
+          occurred_at?: string | null
+          source_external_id?: string
+          source_type?: string
+          thread_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_messages_capture_event_id_fkey"
+            columns: ["capture_event_id"]
+            isOneToOne: false
+            referencedRelation: "capture_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_messages_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "conversation_threads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_messages_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversation_threads: {
+        Row: {
+          channel: string
+          counterparty_email: string | null
+          created_at: string
+          external_thread_id: string
+          id: string
+          last_message_at: string | null
+          message_count: number
+          person_id: string | null
+          provider: string
+          subject: string | null
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          channel: string
+          counterparty_email?: string | null
+          created_at?: string
+          external_thread_id: string
+          id?: string
+          last_message_at?: string | null
+          message_count?: number
+          person_id?: string | null
+          provider: string
+          subject?: string | null
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          channel?: string
+          counterparty_email?: string | null
+          created_at?: string
+          external_thread_id?: string
+          id?: string
+          last_message_at?: string | null
+          message_count?: number
+          person_id?: string | null
+          provider?: string
+          subject?: string | null
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_threads_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_threads_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversations: {
         Row: {
           created_at: string
@@ -10944,6 +11074,7 @@ export type Database = {
       }
       generate_invoice_number: { Args: never; Returns: string }
       generate_nanoid: { Args: { size?: number }; Returns: string }
+      purge_expired_conversation_bodies: { Args: never; Returns: number }
       get_backlinked_notes: {
         Args: {
           p_entity_id: string
