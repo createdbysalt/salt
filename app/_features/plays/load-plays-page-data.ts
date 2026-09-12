@@ -7,10 +7,6 @@ import {
   countPlaysRanToday,
 } from "@/app/_features/plays/queries";
 import { getPlaybooksV2ForWorkspace, type PlaybookV2QueryResult } from "@/app/_features/plays/playbooks/queries-v2";
-import {
-  listQueueFindings,
-  countFindingsByState,
-} from "@/app/_features/capture/queries/intelligence-findings";
 import { DEFAULT_ACTIVITY_PAGE_SIZE } from "@/app/_features/plays/types";
 import type { PlayActivityCounts, PlayActivityRunRow } from "@/app/_features/plays/types";
 import type { FindingWithContext } from "@/app/_features/capture/types/intelligence-findings";
@@ -82,24 +78,24 @@ export async function loadPlaysPageData(options: {
 
   if (tab === "queue") {
     const autoHandledSince = recentAutoHandledSince();
-    const [queueViews, needsYouFindings, autoHandledFindings, autoHandledRuns, findingCounts, playsRanToday] = await Promise.all([
+    // Intelligence findings are intentionally NOT loaded here: the Queue shows
+    // playbook play runs only (2026-09-08 catalog trim). Findings still exist
+    // in intelligence_findings and surface on HQ; the finding card mapping
+    // (play-card/map-finding-to-card.ts) is dormant until a decision to
+    // reintroduce them.
+    const [queueViews, autoHandledRuns, playsRanToday] = await Promise.all([
       listQueuedPlayRuns(),
-      listQueueFindings("needs_you"),
-      listQueueFindings("auto_handled"),
       listAutoHandledPlayRuns(autoHandledSince),
-      countFindingsByState(),
       countPlaysRanToday(),
     ]);
 
     return {
       ...base,
       initialQueue: queueViews,
-      initialFindings: needsYouFindings,
-      autoHandledFindings,
       autoHandledRuns,
       findingCounts: {
-        ...findingCounts,
-        auto_handled: findingCounts.auto_handled + autoHandledRuns.length,
+        needs_you: 0,
+        auto_handled: autoHandledRuns.length,
       },
       playsRanToday,
       workspaceId: workspaceId ?? null,

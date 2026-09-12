@@ -10,7 +10,10 @@ import type {
   RecordConditionEntity,
 } from "./schema/v2/types";
 import { listWorkspacePlaybookDefinitions } from "./db-definitions";
-import { runCareForSignal } from "@/app/_features/memory/care/scheduler";
+import {
+  runCareForSignal,
+  signalHasCareCapability,
+} from "@/app/_features/memory/care/scheduler";
 import {
   buildExecutionContextV2,
   executePlaybookV2,
@@ -874,6 +877,15 @@ export async function processEntitySignals(input: {
   entityLabel?: string;
   signals: Record<string, boolean | number | string | undefined>;
   evidence?: Record<string, unknown>;
+  /**
+   * Pending-evidence candidate dispatch (Memory Sourcing Overhaul, Phase 4):
+   * the "entity" is a not-yet-born pending_evidence row. Only Care
+   * capabilities that subscribe to the signal run — with the candidate ref
+   * in evidence so connections/records can strengthen or dismiss the
+   * candidate. Playbook trigger semantics are unchanged: playbooks fire for
+   * born records only.
+   */
+  pendingEvidenceId?: string;
 }): Promise<{
   dispatched: string[];
   results: DispatchResult[];
@@ -886,6 +898,38 @@ export async function processEntitySignals(input: {
   for (const [signalKey, value] of Object.entries(signals)) {
     if (!value) continue;
     if (typeof value === "boolean" && !value) continue;
+
+    // Pending-candidate path: Care only, no playbooks, no born entity id.
+    if (input.pendingEvidenceId) {
+      if (!signalHasCareCapability(signalKey)) continue;
+
+      const careOutcomes = await runCareForSignal({
+        workspaceId,
+        signalKey,
+        entityType: entitySurface,
+        entityLabel,
+        evidence: {
+          ...evidence,
+          pending_evidence_id: input.pendingEvidenceId,
+          signal_value: value,
+        },
+      });
+
+      const careResults: DispatchResult[] = careOutcomes.map(
+        ({ capability, result }) => ({
+          success: result.success,
+          playbookSlug: `memory-care:${capability}`,
+          error: result.error,
+          skipped: result.skipped,
+        }),
+      );
+
+      if (careResults.some((r) => r.success && !r.skipped)) {
+        dispatched.push(signalKey);
+      }
+      results.push(...careResults);
+      continue;
+    }
 
     if (!hasPlaybookForSignal(signalKey)) continue;
 

@@ -20,22 +20,25 @@ Section-based, YAML-only playbook definitions.
 playbooks/v2/
 ├── relationships/              # People + Orgs
 │   ├── _section.yaml          # Section metadata
-│   ├── follow-up/             # ACT: follow-up drafts
-│   └── health/                # ACT: relationship health alerts
+│   ├── lead-follow-up/        # ACT: first-contact follow-up drafts
+│   └── customer-pulse/        # ACT: weekly client-themes brief
 │
 ├── billing/                    # Cash flow
 │   ├── _section.yaml
 │   ├── invoice-reminder/      # ACT: payment reminders
-│   ├── cash-runway/           # ACT: weekly cash alert
-│   └── payment-reconciliation/ # ACT: bounded agent step — cross-checks payments vs charges/invoices
+│   ├── payment-received/      # ACT: payment acknowledgement
+│   └── cash-runway/           # ACT: weekly cash forecast
 │
 ├── me/                         # Operator
 │   ├── _section.yaml
-│   ├── getting-started/
-│   └── create-first-playbook/
+│   └── weekly-briefing/       # ACT: Monday-morning business brief
 │
 └── ... (work, resources, meetings, communication, connections, notes)
 ```
+
+> The catalog was trimmed on 2026-09-08 — see `playbooks/v2/RETIRED-PLAYBOOKS.md`
+> for the removed packages (email-triage, email-digest, meeting-prep, etc.) and
+> how to restore them.
 
 ## YAML Schema
 

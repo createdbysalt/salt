@@ -14,5 +14,3 @@ signals:
 
 templates:
   - memory
-  - prep
-  - recap

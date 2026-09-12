@@ -45,6 +45,4 @@ signals:
   - email_training_less_like_this
 
 templates:
-  - email-triage
-  - email-digest
   - complaint-response
