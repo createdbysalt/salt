@@ -22,42 +22,42 @@ import {
 
 describe("parseAddress", () => {
   it("parses display name and email from angle bracket format", () => {
-    const result = parseAddress("Jane Example <lisa@acme.com>");
+    const result = parseAddress("Jane Example <jane@acme.com>");
     expect(result.name).toBe("Jane Example");
-    expect(result.email).toBe("lisa@acme.com");
+    expect(result.email).toBe("jane@acme.com");
   });
 
   it("parses quoted display name", () => {
-    const result = parseAddress('"Jane Example" <lisa@acme.com>');
+    const result = parseAddress('"Jane Example" <jane@acme.com>');
     expect(result.name).toBe("Jane Example");
-    expect(result.email).toBe("lisa@acme.com");
+    expect(result.email).toBe("jane@acme.com");
   });
 
   it("parses email-only format", () => {
-    const result = parseAddress("lisa@acme.com");
+    const result = parseAddress("jane@acme.com");
     expect(result.name).toBeNull();
-    expect(result.email).toBe("lisa@acme.com");
+    expect(result.email).toBe("jane@acme.com");
   });
 
   it("lowercases email", () => {
-    const result = parseAddress("LISA@ACME.COM");
-    expect(result.email).toBe("lisa@acme.com");
+    const result = parseAddress("JANE@ACME.COM");
+    expect(result.email).toBe("jane@acme.com");
   });
 
   it("handles empty angle brackets", () => {
-    const result = parseAddress("<lisa@acme.com>");
+    const result = parseAddress("<jane@acme.com>");
     expect(result.name).toBeNull();
-    expect(result.email).toBe("lisa@acme.com");
+    expect(result.email).toBe("jane@acme.com");
   });
 });
 
 describe("extractEmailFromHeader / extractNameFromHeader", () => {
   it("extracts email from header", () => {
-    expect(extractEmailFromHeader('"Jane Example" <lisa@acme.com>')).toBe("lisa@acme.com");
+    expect(extractEmailFromHeader('"Jane Example" <jane@acme.com>')).toBe("jane@acme.com");
   });
 
   it("extracts name from header", () => {
-    expect(extractNameFromHeader('"Jane Example" <lisa@acme.com>')).toBe("Jane Example");
+    expect(extractNameFromHeader('"Jane Example" <jane@acme.com>')).toBe("Jane Example");
   });
 });
 
@@ -169,17 +169,17 @@ describe("extractGmailRowFields", () => {
 
 describe("headerMatchesTarget", () => {
   it("matches by email", () => {
-    expect(headerMatchesTarget("Jane Example <lisa@acme.com>", { email: "lisa@acme.com" })).toBe(true);
-    expect(headerMatchesTarget("Jane Example <lisa@acme.com>", { email: "other@acme.com" })).toBe(false);
+    expect(headerMatchesTarget("Jane Example <jane@acme.com>", { email: "jane@acme.com" })).toBe(true);
+    expect(headerMatchesTarget("Jane Example <jane@acme.com>", { email: "other@acme.com" })).toBe(false);
   });
 
   it("matches by name", () => {
-    expect(headerMatchesTarget("Jane Example <lisa@acme.com>", { name: "Jane Example" })).toBe(true);
-    expect(headerMatchesTarget("Jane Example <lisa@acme.com>", { name: "jane example" })).toBe(true);
-    expect(headerMatchesTarget("Jane Example <lisa@acme.com>", { name: "Other Person" })).toBe(false);
+    expect(headerMatchesTarget("Jane Example <jane@acme.com>", { name: "Jane Example" })).toBe(true);
+    expect(headerMatchesTarget("Jane Example <jane@acme.com>", { name: "jane example" })).toBe(true);
+    expect(headerMatchesTarget("Jane Example <jane@acme.com>", { name: "Other Person" })).toBe(false);
   });
 
   it("handles quoted names", () => {
-    expect(headerMatchesTarget('"Jane Example" <lisa@acme.com>', { name: "Jane Example" })).toBe(true);
+    expect(headerMatchesTarget('"Jane Example" <jane@acme.com>', { name: "Jane Example" })).toBe(true);
   });
 });

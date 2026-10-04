@@ -2,7 +2,7 @@
 slug: when-to-say-no-to-a-client
 title: "When to Say No to a Client Project"
 category: business
-author: marc
+author: salt-team
 publishedAt: 2024-05-22
 keyTakeaways:
   - "Saying no protects capacity for better-fit work."

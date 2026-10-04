@@ -2,7 +2,7 @@
 slug: from-hired-hand-to-trusted-partner
 title: "From Hired Hand to Trusted Partner"
 category: business
-author: marc
+author: salt-team
 publishedAt: 2024-06-22
 keyTakeaways:
   - "Trusted partners advise — they do not only execute tickets."

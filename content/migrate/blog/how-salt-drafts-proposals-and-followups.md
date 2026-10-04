@@ -2,7 +2,7 @@
 slug: how-salt-drafts-proposals-and-followups
 title: "How Salt Drafts Your Proposals and Follow-Ups"
 category: tutorial
-author: marc
+author: salt-team
 publishedAt: 2024-06-10
 keyTakeaways:
   - "Salt drafts proposals and follow-ups from your business context."

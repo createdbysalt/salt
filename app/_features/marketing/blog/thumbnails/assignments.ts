@@ -2,11 +2,6 @@ import type { BlogThumbSpec } from "./templates";
 
 /** Template + palette + thematic motif per article. */
 export const blogThumbAssignments = {
-  "introducing-supabase": {
-    template: "codeWindow",
-    palette: "ink",
-    motif: "supabaseDatabase",
-  },
   "how-to-price-your-projects": {
     template: "diagonalBlocks",
     palette: "cobalt",

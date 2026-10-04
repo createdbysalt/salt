@@ -52,7 +52,7 @@ describe("pluralize", () => {
 
 describe("buildPersonSummary", () => {
   const baseInput: PersonSummaryInput = {
-    name: "Matheus",
+    name: "Daniel",
     title: null,
     relationshipType: null,
     primaryOrg: null,
@@ -67,7 +67,7 @@ describe("buildPersonSummary", () => {
     it("returns graceful fallback when no signals", () => {
       const result = buildPersonSummary(baseInput);
       expect(result).toBe(
-        "Matheus is in your network. Connect work or payments to see more here."
+        "Daniel is in your network. Connect work or payments to see more here."
       );
     });
 
@@ -77,7 +77,7 @@ describe("buildPersonSummary", () => {
         relationshipType: "unknown",
       });
       expect(result).toBe(
-        "Matheus is in your network. Connect work or payments to see more here."
+        "Daniel is in your network. Connect work or payments to see more here."
       );
     });
   });
@@ -88,7 +88,7 @@ describe("buildPersonSummary", () => {
         ...baseInput,
         relationshipType: "client",
       });
-      expect(result).toBe("Matheus is your client.");
+      expect(result).toBe("Daniel is your client.");
     });
 
     it("includes relationship and org", () => {
@@ -97,7 +97,7 @@ describe("buildPersonSummary", () => {
         relationshipType: "client",
         primaryOrg: { name: "Acme Studio" },
       });
-      expect(result).toBe("Matheus is your client at Acme Studio.");
+      expect(result).toBe("Daniel is your client at Acme Studio.");
     });
 
     it("falls back to title when no relationship type", () => {
@@ -106,7 +106,7 @@ describe("buildPersonSummary", () => {
         title: "Creative Director",
         primaryOrg: { name: "Acme Studio" },
       });
-      expect(result).toBe("Matheus is Creative Director at Acme Studio.");
+      expect(result).toBe("Daniel is Creative Director at Acme Studio.");
     });
 
     it("shows org connection when only org known", () => {
@@ -114,7 +114,7 @@ describe("buildPersonSummary", () => {
         ...baseInput,
         primaryOrg: { name: "Acme Studio" },
       });
-      expect(result).toBe("Matheus is connected to Acme Studio.");
+      expect(result).toBe("Daniel is connected to Acme Studio.");
     });
   });
 
@@ -125,7 +125,7 @@ describe("buildPersonSummary", () => {
         relationshipType: "client",
         activeWork: 2,
       });
-      expect(result).toBe("Matheus is your client. With 2 active projects.");
+      expect(result).toBe("Daniel is your client. With 2 active projects.");
     });
 
     it("shows singular project", () => {
@@ -134,7 +134,7 @@ describe("buildPersonSummary", () => {
         relationshipType: "client",
         activeWork: 1,
       });
-      expect(result).toBe("Matheus is your client. With 1 active project.");
+      expect(result).toBe("Daniel is your client. With 1 active project.");
     });
 
     it("shows retainer label", () => {
@@ -143,7 +143,7 @@ describe("buildPersonSummary", () => {
         relationshipType: "client",
         retainerLabel: "Growth",
       });
-      expect(result).toBe("Matheus is your client. With a Growth retainer.");
+      expect(result).toBe("Daniel is your client. With a Growth retainer.");
     });
 
     it("shows MRR when no retainer label", () => {
@@ -152,7 +152,7 @@ describe("buildPersonSummary", () => {
         relationshipType: "client",
         mrrCents: 2500_00,
       });
-      expect(result).toBe("Matheus is your client. With $2.5k/mo recurring.");
+      expect(result).toBe("Daniel is your client. With $2.5k/mo recurring.");
     });
 
     it("shows outstanding balance", () => {
@@ -161,7 +161,7 @@ describe("buildPersonSummary", () => {
         relationshipType: "client",
         outstandingCents: 1200_00,
       });
-      expect(result).toBe("Matheus is your client. With $1.2k outstanding.");
+      expect(result).toBe("Daniel is your client. With $1.2k outstanding.");
     });
 
     it("combines multiple engagement signals", () => {
@@ -173,7 +173,7 @@ describe("buildPersonSummary", () => {
         outstandingCents: 500_00,
       });
       expect(result).toBe(
-        "Matheus is your client. With 2 active projects, a Growth retainer and $500 outstanding."
+        "Daniel is your client. With 2 active projects, a Growth retainer and $500 outstanding."
       );
     });
   });
@@ -185,7 +185,7 @@ describe("buildPersonSummary", () => {
         relationshipType: "client",
         meetingWithinDays: 0,
       });
-      expect(result).toBe("Matheus is your client. Next meeting today.");
+      expect(result).toBe("Daniel is your client. Next meeting today.");
     });
 
     it("shows meeting tomorrow", () => {
@@ -194,7 +194,7 @@ describe("buildPersonSummary", () => {
         relationshipType: "client",
         meetingWithinDays: 1,
       });
-      expect(result).toBe("Matheus is your client. Next meeting tomorrow.");
+      expect(result).toBe("Daniel is your client. Next meeting tomorrow.");
     });
 
     it("shows meeting in N days", () => {
@@ -203,7 +203,7 @@ describe("buildPersonSummary", () => {
         relationshipType: "client",
         meetingWithinDays: 3,
       });
-      expect(result).toBe("Matheus is your client. Next meeting in 3 days.");
+      expect(result).toBe("Daniel is your client. Next meeting in 3 days.");
     });
 
     it("excludes negative meeting days", () => {
@@ -212,14 +212,14 @@ describe("buildPersonSummary", () => {
         relationshipType: "client",
         meetingWithinDays: -1,
       });
-      expect(result).toBe("Matheus is your client.");
+      expect(result).toBe("Daniel is your client.");
     });
   });
 
   describe("rich (all signals)", () => {
     it("composes complete summary", () => {
       const result = buildPersonSummary({
-        name: "Matheus",
+        name: "Daniel",
         title: "CEO",
         relationshipType: "client",
         primaryOrg: { name: "Acme Studio" },
@@ -230,7 +230,7 @@ describe("buildPersonSummary", () => {
         meetingWithinDays: 3,
       });
       expect(result).toBe(
-        "Matheus is your client at Acme Studio. With 2 active projects and a Growth retainer. Next meeting in 3 days."
+        "Daniel is your client at Acme Studio. With 2 active projects and a Growth retainer. Next meeting in 3 days."
       );
     });
   });

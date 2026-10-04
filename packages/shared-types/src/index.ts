@@ -2,6 +2,5 @@
 // Barrel export - all public APIs
 
 export * from './billing'
-export * from './config'
 export * from './tenancy'
 export * from './permissions'

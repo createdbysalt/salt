@@ -2,7 +2,7 @@
 slug: salt-reads-your-business
 title: "Salt Reads Your Business. Here&apos;s What It Finds."
 category: feature
-author: marc
+author: salt-team
 publishedAt: 2024-06-15
 keyTakeaways:
   - "Salt connects to the tools you already use to learn how your business runs."

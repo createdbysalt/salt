@@ -32,7 +32,7 @@ function supabaseProjectRef(): string {
 
 function sessionRecoveryMessage(): string {
   const ref = supabaseProjectRef();
-  const isStaging = ref === "<project-ref>";
+  const isStaging = ref === "nbapomfgcsrsqdvenqmf";
   if (isStaging) {
     return "Not signed in for staging. Open /dev-login and sign in again (pnpm dev:staging:op uses the staging database).";
   }

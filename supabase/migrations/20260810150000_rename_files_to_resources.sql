@@ -6,7 +6,7 @@
 -- language. See .cursor/plans/2026-08-10-files-to-resources-alignment.md and
 -- docs/plans/2026-08-10-resources-table-rename.md.
 --
--- Authored against staging (project <project-ref>) — test data only,
+-- Authored against staging (project nbapomfgcsrsqdvenqmf) — test data only,
 -- no customers. Safe to run once; guards raise if referenced shapes differ.
 --
 -- What changes:

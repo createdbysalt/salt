@@ -92,7 +92,7 @@ export async function buildSaltLlmInfoContent(): Promise<string> {
     "Founded: 2026",
     "Launch: Early access / waitlist (2026). Product sign-in not open to the public yet.",
     "Location: United States",
-    "Key personnel: Gabriella Martins (Founder & CEO), Matheus Martins (CMO)",
+    "Key personnel: Gabriella Martins (Founder & CEO), Daniel Martins (CMO)",
     "Contact: hello@usesalt.io",
     "Knowledge platforms: " +
       marketingUrl +

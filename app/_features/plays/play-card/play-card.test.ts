@@ -92,7 +92,7 @@ describe("mapFindingToCard", () => {
       person_id: "person-1",
       org_id: null,
       finding_type: "needs_routing",
-      title: "Mark Matheus Martins as Client",
+      title: "Mark Daniel Martins as Client",
       content: "People Records suggests Client based on recent signals.",
       evidence: {
         source_type: "email",
@@ -115,7 +115,7 @@ describe("mapFindingToCard", () => {
       flagged_by: null,
       created_at: "2026-06-25T00:00:00Z",
       updated_at: "2026-06-25T00:00:00Z",
-      person: { id: "person-1", name: "Matheus Martins", email: "m@example.com" },
+      person: { id: "person-1", name: "Daniel Martins", email: "m@example.com" },
       org: null,
       ...overrides,
     };
@@ -151,7 +151,7 @@ describe("mapFindingToCard", () => {
   it("maps a relationship question finding to a question play with options", () => {
     const vm = mapFindingToCard(
       finding({
-        title: "How do you know Matheus Martins?",
+        title: "How do you know Daniel Martins?",
         content: "Salt couldn't tell client, prospect, partner, or vendor.",
         evidence: {
           source_type: "email",
@@ -179,12 +179,12 @@ describe("mapFindingToCard", () => {
     const vm = mapHandledFindingToCard(
       finding({
         state: "auto_handled",
-        title: "Saved Client for Matheus Martins",
+        title: "Saved Client for Daniel Martins",
       }),
     );
     expect(vm.mode).toBe("handled");
     expect(vm.primaryAction).toBeNull();
-    expect(vm.handled?.outcomeLabel).toBe("Saved Client for Matheus Martins");
+    expect(vm.handled?.outcomeLabel).toBe("Saved Client for Daniel Martins");
     expect(vm.handled?.changeLine).toContain("relationship");
     expect(validatePlayCard(vm).ok).toBe(true);
   });

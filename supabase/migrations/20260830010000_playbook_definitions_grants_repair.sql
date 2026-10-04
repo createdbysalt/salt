@@ -2,7 +2,7 @@
 -- REPAIR: playbook_definitions missing table-level GRANTs
 -- ============================================================================
 --
--- Staging (<project-ref>) on 2026-08-29: reads of
+-- Staging (nbapomfgcsrsqdvenqmf) on 2026-08-29: reads of
 -- public.playbook_definitions through PostgREST fail with
 -- 42501 "permission denied for table playbook_definitions" — service_role
 -- included. The table + RLS policies exist (20260830000000) but GRANTs never

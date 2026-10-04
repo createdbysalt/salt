@@ -10,7 +10,6 @@ Website: https://usesalt.io
 Founded: 2026
 Launch: Early access / waitlist (2026). Product sign-in not open to the public yet.
 Location: United States
-Key personnel: Gabriella Martins (Founder & CEO), Matheus Martins (CMO)
 Contact: hello@usesalt.io
 Knowledge platforms: https://usesalt.io/llms.txt, https://usesalt.io/llm-info, https://www.linkedin.com/company/usesalt.io, https://www.reddit.com/r/usesaltio, https://www.youtube.com/@usesalt
 

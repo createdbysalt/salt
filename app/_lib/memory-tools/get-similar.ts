@@ -274,7 +274,7 @@ async function findPersonDuplicates(
           continue;
         }
 
-        // Email local-part correlation: jane.example@ → "jane example" matching
+        // Email local-part correlation: jane.example@ → "lisa trent" matching
         // the other record's name. Strongest when one record has no email.
         // Checked before subset — it's the stronger evidence when both fire.
         const addressesOf = (person: PersonRow): Set<string> => {
@@ -318,7 +318,7 @@ async function findPersonDuplicates(
   return matches.slice(0, limit);
 }
 
-/** "Lisa  Trent!" → "jane example" — lowercase, punctuation-free, single-spaced. */
+/** "Lisa  Trent!" → "lisa trent" — lowercase, punctuation-free, single-spaced. */
 function normalizePersonName(name: string | null): string | null {
   if (!name) return null;
   const normalized = name
@@ -329,7 +329,7 @@ function normalizePersonName(name: string | null): string | null {
   return normalized || null;
 }
 
-/** "jane.example+news@outlook.com" → "jane example" — the name an address encodes. */
+/** "jane.example+news@outlook.com" → "lisa trent" — the name an address encodes. */
 function localPartAsName(email: string): string | null {
   const local = email.split("@")[0];
   if (!local) return null;

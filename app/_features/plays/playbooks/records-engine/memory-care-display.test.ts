@@ -36,11 +36,11 @@ describe("memory care display", () => {
     const copy = buildMemoryCareProfileFindingCopy({
       field: "relationship_type",
       result: result(),
-      targetLabel: "Matheus Martins",
+      targetLabel: "Daniel Martins",
       blueprintSlug: "memory-records",
     });
 
-    expect(copy.title).toBe("Mark Matheus Martins as Client");
+    expect(copy.title).toBe("Mark Daniel Martins as Client");
     expect(copy.primaryAction).toBe("Save as Client");
     expect(copy.content).toContain("Payment received");
   });
@@ -59,11 +59,11 @@ describe("memory care display", () => {
       field: "relationship_type",
       value: "client",
       because: "Invoice paid last month",
-      targetLabel: "Matheus Martins",
+      targetLabel: "Daniel Martins",
     });
 
     expect(display.playbookName).toBe("Memory Records");
-    expect(display.title).toBe("Mark Matheus Martins as Client");
+    expect(display.title).toBe("Mark Daniel Martins as Client");
     expect(display.primaryAction).toBe("Save as Client");
   });
 });

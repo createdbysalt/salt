@@ -8,14 +8,14 @@ import {
 describe("isPlausiblePersonName", () => {
   it("accepts real names", () => {
     expect(isPlausiblePersonName("Avery Example")).toBe(true);
-    expect(isPlausiblePersonName("Pedro H")).toBe(true);
+    expect(isPlausiblePersonName("Daniel R")).toBe(true);
     expect(isPlausiblePersonName("Gabriella")).toBe(true);
     expect(isPlausiblePersonName("John Q Public")).toBe(true);
   });
 
   it("rejects names containing digits", () => {
-    expect(isPlausiblePersonName("Pedro H 542")).toBe(false);
-    expect(isPlausiblePersonName("Pedroh542")).toBe(false);
+    expect(isPlausiblePersonName("Daniel R 542")).toBe(false);
+    expect(isPlausiblePersonName("Danielh542")).toBe(false);
   });
 
   it("rejects role words used as names", () => {
@@ -44,7 +44,7 @@ describe("isPlausiblePersonName", () => {
 
 describe("extractNameFromEmail", () => {
   it("title-cases a dotted local part", () => {
-    expect(extractNameFromEmail("daniel.r@gmail.com")).toBe("Pedro H");
+    expect(extractNameFromEmail("daniel.r@gmail.com")).toBe("Daniel R");
   });
 
   it("handles underscores and hyphens", () => {

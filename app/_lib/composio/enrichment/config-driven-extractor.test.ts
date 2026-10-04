@@ -119,7 +119,7 @@ describe("getQueryFromManifest", () => {
       name: "Jane Example",
     });
 
-    expect(result?.query).toBe("firstname:Lisa lastname:Trent");
+    expect(result?.query).toBe("firstname:Jane lastname:Example");
   });
 
   it("returns null when no entity config", () => {

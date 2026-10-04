@@ -2,7 +2,7 @@
 -- REPAIR: correction_events missing table-level GRANTs
 -- ============================================================================
 --
--- Staging (<project-ref>) on 2026-08-29: reads of
+-- Staging (nbapomfgcsrsqdvenqmf) on 2026-08-29: reads of
 -- public.correction_events through PostgREST fail with
 -- 42501 "permission denied for table correction_events" — service_role
 -- included. The table's RLS policies exist (20260710130000) but GRANTs never

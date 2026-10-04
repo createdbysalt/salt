@@ -6,9 +6,9 @@
 -- never ran there (the known "ledger lies" failure mode):
 --   * 20260217000000 settings tables (contract_templates,
 --     workspace_brand_config, workspace_email_templates) — missing on the
---     legacy production project (<project-ref>)
+--     legacy production project (ejuobmbpwbinmfqyxhrn)
 --   * 20260614140100 capture_sender_profiles (+ capture_sender_kind enum)
---     — missing on the schema-current project (<project-ref>)
+--     — missing on the schema-current project (nbapomfgcsrsqdvenqmf)
 --
 -- DDL below is extracted from the live dumps of whichever project HAS each
 -- object, made fully idempotent so this migration converges both databases

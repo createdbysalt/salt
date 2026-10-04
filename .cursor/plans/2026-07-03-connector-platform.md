@@ -42,7 +42,7 @@ This plan rebuilds connectors on three principles:
 > Each step includes its tool in `[brackets]`. One atomic PR per numbered group. Iron rules inherited from schema-modernization: renames keep constraint/index hygiene; PostgREST embedded-join strings swept (`rg ':table(' 'table!'`); RLS/triggers/functions recreated in-migration; post-push schema assertion (the ledger has lied before).
 
 ### Phase 0: Preconditions
-- [x] 0.1 (verified 2026-07-03) `<project-ref>`: **PITR disabled**, daily physical WAL-G backups COMPLETED (latest 2026-07-03 09:00 UTC, 8-day history). Restore: dashboard → Database → Backups → daily restore (≤24h loss; test data only). Per-drop row exports to `.backups/pre-drop-*` stay mandatory
+- [x] 0.1 (verified 2026-07-03) `nbapomfgcsrsqdvenqmf`: **PITR disabled**, daily physical WAL-G backups COMPLETED (latest 2026-07-03 09:00 UTC, 8-day history). Restore: dashboard → Database → Backups → daily restore (≤24h loss; test data only). Per-drop row exports to `.backups/pre-drop-*` stay mandatory
 - [x] 0.2 Superseded pointer added to `docs/plans/2026-07-02-schema-modernization.md` (in main tree, riding the keeper branch)
 - [x] 0.3 keeper-field-contracts Phase 6 in flight in a parallel session on `feat/address-integration`; connector-platform work isolated on `feat/connector-platform` (worktree). **Migration timestamps renumbered 2026-07-03** (drop→240000, core→210000, seed→220000) after the parallel session minted its own 180000/190000
 

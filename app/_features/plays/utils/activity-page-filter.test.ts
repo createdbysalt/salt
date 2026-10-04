@@ -70,7 +70,7 @@ describe("activityMatchesDateRange", () => {
 describe("activityMatchesSearch", () => {
   it("matches title, target, and recipient case-insensitively", () => {
     expect(activityMatchesSearch(row(), "INVOICE")).toBe(true);
-    expect(activityMatchesSearch(row(), "tim")).toBe(true);
+    expect(activityMatchesSearch(row(), "taylor")).toBe(true);
     expect(activityMatchesSearch(row({ target_label: null, recipient_label: "Acme Corp" }), "acme")).toBe(true);
   });
 

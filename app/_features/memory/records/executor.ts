@@ -650,7 +650,7 @@ async function createOrg(
     };
   }
 
-  // Name-based dedupe: "Example Advisors" (signature) and "Harborfinancial"
+  // Name-based dedupe: "Harbor Financial" (signature) and "Harborfinancial"
   // (domain-derived) are the same org. When the twin lacks a domain, backfill
   // it so future domain-keyed resolutions converge on one record.
   const normalizedName = normalizeOrgName(name);

@@ -558,7 +558,7 @@ describe("autoCreateRecord — Handled birth logging", () => {
 
 describe("autoCreateRecord — person name fallback", () => {
   it("parks the candidate when the email local part only yields a junk name", async () => {
-    // Deliberately reversed: pedro.h.261107@ used to birth "Pedro H 261107".
+    // Deliberately reversed: daniel.h.261107@ used to birth "Daniel R 261107".
     // Digit-bearing local parts are parsing debris, not names — no person is
     // born and the evidence stays parked for review.
     const result = await autoCreateRecord(
@@ -589,7 +589,7 @@ describe("autoCreateRecord — person name fallback", () => {
     expect(result.ok).toBe(true);
     expect(h.db.people[0]).toMatchObject({
       workspace_id: "ws-1",
-      name: "Pedro H",
+      name: "Daniel R",
       email: "daniel.r@gmail.com",
     });
     expect(h.db.evidenceUpdates[0].patch.status).toBe("created");
@@ -621,8 +621,8 @@ describe("autoCreateRecord — birth provenance", () => {
   it("stamps evidence-born people as Salt extractions, never user-created", async () => {
     const result = await autoCreateRecord(
       meetingInput(
-        { name: "Pedro Henrique", email: "pedro@example.com" },
-        { entityType: "person", identifier: "pedro@example.com" }
+        { name: "Daniel Renrique", email: "daniel@example.com" },
+        { entityType: "person", identifier: "daniel@example.com" }
       )
     );
 
@@ -852,15 +852,15 @@ describe("autoCreateRecord — work naming discipline", () => {
     h.db.people.push({
       id: "person-frank",
       workspace_id: "ws-1",
-      name: "Sam Example",
+      name: "sam-example",
       email: "frank@acme.com",
       deleted_at: null,
     });
 
-    const result = await autoCreateRecord(workInput({ name: "Sam Example" }));
+    const result = await autoCreateRecord(workInput({ name: "sam-example" }));
 
     expect(result.ok).toBe(true);
-    expect(h.db.work[0].name).toBe("Sam Example — Project");
+    expect(h.db.work[0].name).toBe("sam-example — Project");
     expect(h.db.work[0].slug).toBe("sam-example-project");
   });
 
@@ -891,12 +891,12 @@ describe("autoCreateRecord — work naming discipline", () => {
     h.db.people.push({
       id: "person-frank",
       workspace_id: "ws-1",
-      name: "Sam Example",
+      name: "sam-example",
       deleted_at: null,
     });
 
     const result = await autoCreateRecord(
-      workInput({ name: "Brand Photography", counterparty: "Sam Example" }),
+      workInput({ name: "Brand Photography", counterparty: "sam-example" }),
     );
 
     expect(result.ok).toBe(true);
@@ -905,11 +905,11 @@ describe("autoCreateRecord — work naming discipline", () => {
 
   it("treats a name identical to the counterparty as a thread artifact", async () => {
     const result = await autoCreateRecord(
-      workInput({ name: "sam-example", counterparty: "Sam Example" }),
+      workInput({ name: "sam-example", counterparty: "sam-example" }),
     );
 
     expect(result.ok).toBe(true);
-    expect(h.db.work[0].name).toBe("Sam Example — Project");
+    expect(h.db.work[0].name).toBe("sam-example — Project");
   });
 
   it("still fails closed when neither name nor counterparty exists", async () => {
@@ -1011,24 +1011,24 @@ describe("autoCreateRecord — work naming discipline", () => {
     h.db.people.push({
       id: "person-frank",
       workspace_id: "ws-1",
-      name: "Sam Example",
+      name: "sam-example",
       deleted_at: null,
     });
     h.db.captures.push({
       id: "cap-1",
       workspace_id: "ws-1",
-      extracted_data: { subject: "Sam Example" },
+      extracted_data: { subject: "sam-example" },
       raw_payload: {},
     });
     h.proposeWorkNameSpy.mockResolvedValueOnce({
-      name: "Sam Example",
+      name: "sam-example",
       confidence: 95,
     });
 
-    const result = await autoCreateRecord(workInput({ name: "Sam Example" }));
+    const result = await autoCreateRecord(workInput({ name: "sam-example" }));
 
     expect(result.ok).toBe(true);
-    expect(h.db.work[0].name).toBe("Sam Example — Project");
+    expect(h.db.work[0].name).toBe("sam-example — Project");
   });
 
   it("never calls the naming read without a capture", async () => {
@@ -1090,7 +1090,7 @@ describe("autoCreateRecord — resource birth enrichment", () => {
     h.db.people.push({
       id: "person-frank",
       workspace_id: "ws-1",
-      name: "Sam Example",
+      name: "sam-example",
       email: "frank@acme.com",
       deleted_at: null,
     });
@@ -1100,7 +1100,7 @@ describe("autoCreateRecord — resource birth enrichment", () => {
         {
           title: "Contract for Acme project",
           category: "contract",
-          from: "Sam Example <frank@acme.com>",
+          from: "sam-example <frank@acme.com>",
           source_excerpt: "Attached is the contract for the brand photography project…",
         },
         {

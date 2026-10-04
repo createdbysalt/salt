@@ -55,10 +55,10 @@ const AUTHORS: AuthorSeed[] = [
   {
     _id: "author-marc",
     name: "Salt Team",
-    slug: "marc",
+    slug: "salt-team",
     jobTitle: "Building the studio OS",
     bio: "The Salt team is building the operating system for designer-developers who want to run studios, not stay freelancers.",
-    imagePath: "app/(public)/learn/_assets/images/authors/marc.png",
+    imagePath: "app/(public)/learn/_assets/images/authors/salt-team.png",
     social: {
       twitter: "https://x.com/usesalt.io",
       github: "https://github.com/usesalt",

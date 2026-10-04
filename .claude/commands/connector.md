@@ -17,7 +17,7 @@ Subcommands: `add <names...>` | `classify [toolkit]` | `audit [name]` | `test [n
 
 | What | Where |
 |------|-------|
-| Catalog + overrides + classifications | DB tables `connector_catalog`, `connector_overrides`, `tool_classifications` (staging `<project-ref>`) |
+| Catalog + overrides + classifications | DB tables `connector_catalog`, `connector_overrides`, `tool_classifications` (staging `nbapomfgcsrsqdvenqmf`) |
 | DB accessors (runtime) | `app/_lib/composio/connector-registry.ts` |
 | Sync job (mirrors Composio, drift detection) | `app/_lib/composio/catalog-sync.ts` + `/api/cron/connector-catalog-sync` |
 | Review queue UI (human classification verdicts) | `/ops/connectors/review` (PLATFORM_ADMIN_EMAILS-gated) |

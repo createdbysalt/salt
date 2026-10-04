@@ -1,7 +1,7 @@
 -- Plays canon Phase 2: dismiss ghost play_runs rows.
 --
--- Founder-authorized 2026-08-08; applied to staging (<project-ref>)
--- the same day — production (<project-ref>) picks it up at the next
+-- Founder-authorized 2026-08-08; applied to staging (nbapomfgcsrsqdvenqmf)
+-- the same day — production (ejuobmbpwbinmfqyxhrn) picks it up at the next
 -- release push. The ghost writers themselves were deleted the same day
 -- (founder killed the transition flag — eviction is the only behavior), so
 -- once the code deploys no new ghost rows can accumulate.

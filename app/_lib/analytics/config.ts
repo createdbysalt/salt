@@ -1,6 +1,6 @@
 /** Canonical tracking IDs — override via env when set in Vercel / 1Password. */
 const DEFAULT_GTM_ID = "GTM-PP88BWLJ";
-const DEFAULT_POSTHOG_KEY = "phc_redacted";
+const DEFAULT_POSTHOG_KEY = "";
 const DEFAULT_META_PIXEL_ID = "4225942947736078";
 
 export const analyticsConfig = {

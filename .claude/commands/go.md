@@ -59,7 +59,7 @@ Slug examples: `scalable-enrichment` → `feat/scalable-enrichment`
 | Never commit on `staging` directly | Branch protection + parallel terminals |
 | One terminal = one `feat/*` branch (or worktree) | Avoid lost work / merge collisions |
 | Use `pnpm dev:staging:op` — not `pnpm dev:op` | Staging Supabase only |
-| Migrations: one branch owns `db push` at a time | Staging project `<project-ref>` |
+| Migrations: one branch owns `db push` at a time | Staging project `nbapomfgcsrsqdvenqmf` |
 | Port 3000 only | Project standard |
 
 ## Multi-terminal pattern

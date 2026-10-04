@@ -2,7 +2,7 @@
 slug: how-to-price-your-projects
 title: "How to Price Your Projects for What They're Worth"
 category: business
-author: marc
+author: salt-team
 publishedAt: 2024-05-15
 keyTakeaways:
   - "Price from value and scope — not hours alone."

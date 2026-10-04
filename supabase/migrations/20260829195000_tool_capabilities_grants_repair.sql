@@ -2,7 +2,7 @@
 -- REPAIR: tool_capabilities missing table-level GRANTs
 -- ============================================================================
 --
--- Staging (<project-ref>) on 2026-08-29: every read of
+-- Staging (nbapomfgcsrsqdvenqmf) on 2026-08-29: every read of
 -- public.tool_capabilities through PostgREST fails with
 -- 42501 "permission denied for table tool_capabilities" — for service_role
 -- included. The table's RLS policy exists but GRANTs never landed (default

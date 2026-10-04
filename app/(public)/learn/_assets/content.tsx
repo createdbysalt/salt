@@ -1,8 +1,7 @@
 import type { JSX } from "react";
 import Image, { StaticImageData } from "next/image";
-import marcImg from "@/app/(public)/learn/_assets/images/authors/marc.png";
+import saltTeamImg from "@/app/(public)/learn/_assets/images/authors/salt-team.png";
 import mattImg from "@/app/(public)/learn/_assets/images/authors/matt-martins.png";
-import introducingSupabaseImg from "@/public/learn/introducing-supabase/header.png";
 import pricingImg from "@/public/learn/how-to-price-your-projects/header.png";
 import sayNoImg from "@/public/learn/when-to-say-no-to-a-client/header.png";
 import boundariesImg from "@/public/learn/set-boundaries-before-the-project-starts/header.png";
@@ -155,7 +154,7 @@ export const authors: authorType[] = [
     job: "Building the studio OS",
     description:
       "The Salt team is building the operating system for designer-developers who want to run workspaces, not stay freelancers.",
-    avatar: marcImg,
+    avatar: saltTeamImg,
     socials: [
       {
         name: socialIcons.twitter.name,
@@ -232,78 +231,6 @@ const allArticles: articleType[] = [
   // ================================================================================================================
   // ARTICLE 1: Introducing Supabase (existing)
   // ================================================================================================================
-  {
-    slug: "introducing-supabase",
-    title: "Introducing Supabase to Salt",
-    description:
-      "Supabase is an open-source Firebase alternative. It's a great tool for building a backend for your app. It's now integrated with Salt!",
-    categories: [
-      categories.find((category) => category.slug === categorySlugs.feature)!,
-    ].filter(Boolean) as categoryType[],
-    author: authors.find((author) => author.slug === authorSlugs.marc)!,
-    publishedAt: "2023-11-20",
-    image: {
-      src: introducingSupabaseImg,
-      urlRelative: "/learn/introducing-supabase/header.png",
-      alt: "Introducing Supabase to Salt — editorial graphic",
-    },
-    content: (
-      <>
-        <Image
-          src={introducingSupabaseImg}
-          alt="Introducing Supabase to Salt — editorial graphic"
-          width={700}
-          height={500}
-          priority={true}
-          className="rounded-lg"
-          placeholder="blur"
-        />
-        <section>
-          <h2 className={styles.h2}>Introduction</h2>
-          <p className={styles.p}>
-            Supabase is an open-source Firebase alternative. It&apos;s a great
-            tool for building a backend for your app. It&apos;s now integrated
-            with Salt!
-          </p>
-        </section>
-        <section>
-          <h3 className={styles.h3}>1. Create a supabase account</h3>
-          <p className={styles.p}>
-            First, go to{" "}
-            <a href="https://supabase.com/" className="link link-primary">
-              Supabase
-            </a>{" "}
-            and create an account. It&apos;s free for up to 10,000 rows per
-            table.
-            <br />
-            Then create a new project and a new table.
-          </p>
-          <pre className={styles.code}>
-            <code>{`CREATE TABLE public.users (
-  id bigint NOT NULL DEFAULT nextval('users_id_seq'::regclass),
-  email text NOT NULL,
-  password text NOT NULL,
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  CONSTRAINT users_pkey PRIMARY KEY (id)
-);`}</code>
-          </pre>
-        </section>
-        <section>
-          <h3 className={styles.h3}>2. Add your credentials to Salt</h3>
-          <p className={styles.p}>
-            Copy the <span className={styles.codeInline}>API URL</span> and{" "}
-            <span className={styles.codeInline}>API Key</span> from your
-            Supabase project settings and add them to your Salt project
-            settings.
-          </p>
-          <ul className={styles.ul}>
-            <li className={styles.li}>.env.local</li>
-            <li className={styles.li}>.env.production</li>
-          </ul>
-        </section>
-      </>
-    ),
-  },
 
   // ================================================================================================================
   // ARTICLE 2: How to Price Your Projects

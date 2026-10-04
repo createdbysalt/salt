@@ -66,8 +66,8 @@ Two Supabase projects exist, both now receiving migrations:
 
 | Project | State | Who points at it |
 |---------|-------|------------------|
-| `<project-ref>` | **Schema-current.** Receives all `supabase db push` migrations (CLI link in `supabase/.temp/project-ref`). Generate types from THIS project. | `pnpm dev:staging:op` (1Password item `supabase-staging`) |
-| `<project-ref>` | **Near-current** — caught up through `20260807000000` on 2026-08-07 (threshold rename + capture repair migrations). Runs an older PostgREST (14.1 vs 14.5), so generated types differ slightly. | Vercel production + preview AND default `pnpm dev:op` (1Password item `supabase`) |
+| `nbapomfgcsrsqdvenqmf` | **Schema-current.** Receives all `supabase db push` migrations (CLI link in `supabase/.temp/project-ref`). Generate types from THIS project. | `pnpm dev:staging:op` (1Password item `supabase-staging`) |
+| `ejuobmbpwbinmfqyxhrn` | **Near-current** — caught up through `20260807000000` on 2026-08-07 (threshold rename + capture repair migrations). Runs an older PostgREST (14.1 vs 14.5), so generated types differ slightly. | Vercel production + preview AND default `pnpm dev:op` (1Password item `supabase`) |
 
 Standing rules:
 - **Staging-first policy (2026-07-02):** schema work lands on the CLI-linked (staging) project first; production catches up via deliberate `db push`. Destructive migrations still require explicit founder authorization per migration.

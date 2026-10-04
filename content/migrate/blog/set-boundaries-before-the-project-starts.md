@@ -2,7 +2,7 @@
 slug: set-boundaries-before-the-project-starts
 title: "Set Boundaries Before the Project Starts"
 category: business
-author: marc
+author: salt-team
 publishedAt: 2024-06-01
 keyTakeaways:
   - "Define scope, revisions, and communication norms in the proposal — not mid-project."

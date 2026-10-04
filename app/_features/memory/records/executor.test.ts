@@ -338,19 +338,19 @@ describe("executeRecordAction create-org", () => {
 
   it("dedupes on normalized name and backfills the domain on the twin", async () => {
     const twin: OrgRow = {
-      id: "org-clergy",
+      id: "org-example",
       name: "Harborfinancial",
       domain: null,
     };
     const { orgBuilder } = setupCreateOrgMocks({ orgList: [twin] });
 
     const result = await executeRecordAction("ws-1", "system:create-org", {
-      name: "Example Advisors",
+      name: "Harbor Financial",
       domain: "harborfinancial.com",
     });
 
     expect(result.success).toBe(true);
-    expect(result.entity_id).toBe("org-clergy");
+    expect(result.entity_id).toBe("org-example");
     expect(orgBuilder.insert).not.toHaveBeenCalled();
     expect(orgBuilder.update).toHaveBeenCalledWith({
       domain: "harborfinancial.com",
@@ -359,8 +359,8 @@ describe("executeRecordAction create-org", () => {
 
   it("dedupes on normalized name without a domain and does not update", async () => {
     const twin: OrgRow = {
-      id: "org-clergy",
-      name: "Example Advisors",
+      id: "org-example",
+      name: "Harbor Financial",
       domain: "harborfinancial.com",
     };
     const { orgBuilder } = setupCreateOrgMocks({ orgList: [twin] });
@@ -370,7 +370,7 @@ describe("executeRecordAction create-org", () => {
     });
 
     expect(result.success).toBe(true);
-    expect(result.entity_id).toBe("org-clergy");
+    expect(result.entity_id).toBe("org-example");
     expect(orgBuilder.insert).not.toHaveBeenCalled();
     expect(orgBuilder.update).not.toHaveBeenCalled();
   });

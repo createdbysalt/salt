@@ -82,7 +82,7 @@ WORKTREE=$worktree
 STAGING_TREE=$(git rev-parse "$STAGING_REF^{tree}" 2>/dev/null || echo unknown)
 UPDATED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 DEV_COMMAND=pnpm dev:staging:op
-SUPABASE_PROJECT=salt-staging (<project-ref>)
+SUPABASE_PROJECT=salt-staging (nbapomfgcsrsqdvenqmf)
 PR_BASE=staging
 EOF
 }

@@ -75,9 +75,7 @@ const BUSINESS_CLUSTER_LINKS: Record<string, string[]> = {
 };
 
 const PRODUCT_CLUSTER_LINKS: Record<string, string[]> = {
-  "introducing-supabase": ["salt-reads-your-business"],
   "salt-reads-your-business": [
-    "introducing-supabase",
     "how-salt-drafts-proposals-and-followups",
     "what-is-proactive-ai",
   ],

@@ -33,9 +33,9 @@ export default async function AdminGroupLayout({
   // The badge answers "which database am I looking at?" — derived from the
   // Supabase URL, not VERCEL_ENV, because local dev can point at either
   // project (dev:op → production data, dev:staging:op → staging data).
-  // Staging project ref: <project-ref> (see .env.staging.1password).
+  // Staging project ref: nbapomfgcsrsqdvenqmf (see .env.staging.1password).
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-  const environment = supabaseUrl.includes("<project-ref>")
+  const environment = supabaseUrl.includes("nbapomfgcsrsqdvenqmf")
     ? "staging"
     : supabaseUrl.includes("supabase.co")
       ? "production"

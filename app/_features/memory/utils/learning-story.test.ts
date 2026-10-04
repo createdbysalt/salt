@@ -48,7 +48,7 @@ describe("buildLearningStory", () => {
   it("turns a relationship_type suggestion into a human sentence", () => {
     const story = buildLearningStory(makeEvidence([makeField()]));
     expect(story.kind).toBe("fields");
-    expect(story.primarySentence).toBe("I think Lisa is a client.");
+    expect(story.primarySentence).toBe("I think Jane is a client.");
     expect(story.acceptLabel).toBe("That's right");
     expect(story.dismissLabel).toBe("Not this");
   });
@@ -57,28 +57,28 @@ describe("buildLearningStory", () => {
     const story = buildLearningStory(
       makeEvidence([makeField({ fieldPath: "role", proposedValue: "advisor" })]),
     );
-    expect(story.primarySentence).toBe("I think Lisa is an advisor.");
+    expect(story.primarySentence).toBe("I think Jane is an advisor.");
   });
 
   it("turns company into a works-at sentence", () => {
     const story = buildLearningStory(
       makeEvidence([makeField({ fieldPath: "company", proposedValue: "Acme Co" })]),
     );
-    expect(story.primarySentence).toBe("I think Lisa works at Acme Co.");
+    expect(story.primarySentence).toBe("I think Jane works at Acme Co.");
   });
 
   it("turns location into a based-in sentence", () => {
     const story = buildLearningStory(
       makeEvidence([makeField({ fieldPath: "location", proposedValue: "Austin, TX" })]),
     );
-    expect(story.primarySentence).toBe("I think Lisa is based in Austin, TX.");
+    expect(story.primarySentence).toBe("I think Jane is based in Austin, TX.");
   });
 
   it("falls back to a possessive sentence for unknown fields", () => {
     const story = buildLearningStory(
       makeEvidence([makeField({ fieldPath: "department", proposedValue: "Design" })]),
     );
-    expect(story.primarySentence).toBe("I think Lisa's department is Design.");
+    expect(story.primarySentence).toBe("I think Jane's department is Design.");
   });
 
   it("never leaks raw JSON into a sentence", () => {
@@ -91,7 +91,7 @@ describe("buildLearningStory", () => {
       ]),
     );
     expect(story.primarySentence).not.toContain("{");
-    expect(story.primarySentence).toBe("I have a suggestion about Lisa's preferences.");
+    expect(story.primarySentence).toBe("I have a suggestion about Jane's preferences.");
   });
 
   it("uses the full label for organizations", () => {
@@ -127,16 +127,16 @@ describe("buildLearningStory", () => {
       makeEvidence([
         makeField({
           fieldPath: "_merge_candidate",
-          proposedValue: '{"targetId":"p2","targetName":"Lisa T.","signal":"same_email"}',
-          metaCandidate: { kind: "merge", targetId: "p2", targetName: "Lisa T." },
+          proposedValue: '{"targetId":"p2","targetName":"Jane T.","signal":"same_email"}',
+          metaCandidate: { kind: "merge", targetId: "p2", targetName: "Jane T." },
         }),
       ]),
     );
     expect(story.kind).toBe("merge");
     expect(story.primarySentence).toBe(
-      "I think Jane Example and Lisa T. might be the same person.",
+      "I think Jane Example and Jane T. might be the same person.",
     );
-    expect(story.mergeTargetName).toBe("Lisa T.");
+    expect(story.mergeTargetName).toBe("Jane T.");
     expect(story.acceptLabel).toBe("Merge them");
     expect(story.dismissLabel).toBe("Keep both");
   });
@@ -275,10 +275,10 @@ describe("buildLearningStory", () => {
         makeField({ fieldPath: "location", proposedValue: "Austin, TX", confidence: 80 }),
       ]),
     );
-    expect(story.primarySentence).toBe("I think Lisa is a client.");
+    expect(story.primarySentence).toBe("I think Jane is a client.");
     expect(story.secondarySentences).toEqual([
-      "I think Lisa works at Acme Co.",
-      "I think Lisa is a CEO.",
+      "I think Jane works at Acme Co.",
+      "I think Jane is a CEO.",
     ]);
     expect(story.hiddenCount).toBe(1);
   });

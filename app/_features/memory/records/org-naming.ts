@@ -112,7 +112,7 @@ export function isMailInfraSubdomain(domain: string): boolean {
 }
 
 /**
- * Normalized comparison key for org names — "Example Advisors",
+ * Normalized comparison key for org names — "Harbor Financial",
  * "Harborfinancial", and "harbor financial!" are the same org. Used for
  * name-based dedupe when no domain is available to key on.
  */

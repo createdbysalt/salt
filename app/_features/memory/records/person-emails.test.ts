@@ -151,11 +151,11 @@ describe("findPersonIdsByEmail", () => {
     h.db.people.push({
       id: "p1",
       workspace_id: "ws",
-      email: "lisa@studio.com",
+      email: "jane@studio.com",
       deleted_at: null,
     });
     h.db.personEmails.push(
-      { person_id: "p1", workspace_id: "ws", email: "lisa@studio.com", is_primary: true },
+      { person_id: "p1", workspace_id: "ws", email: "jane@studio.com", is_primary: true },
       { person_id: "p1", workspace_id: "ws", email: "jane.example@outlook.com", is_primary: false },
     );
 
@@ -179,10 +179,10 @@ describe("findPersonIdsByEmail", () => {
     h.db.personEmails.push({
       person_id: "p-other",
       workspace_id: "ws-other",
-      email: "lisa@studio.com",
+      email: "jane@studio.com",
     });
 
-    const ids = await findPersonIdsByEmail(admin(), "ws", "lisa@studio.com");
+    const ids = await findPersonIdsByEmail(admin(), "ws", "jane@studio.com");
     expect(ids).toEqual([]);
   });
 });
@@ -196,25 +196,25 @@ describe("attachPersonEmail", () => {
     const result = await attachPersonEmail(admin(), {
       workspaceId: "ws",
       personId: "p1",
-      email: "Lisa@Studio.com",
+      email: "Jane@Studio.com",
       source: "capture",
     });
 
     expect(result.attached).toBe(true);
     expect(h.db.personEmails[0]).toMatchObject({
       person_id: "p1",
-      email: "lisa@studio.com",
+      email: "jane@studio.com",
       is_primary: true,
     });
-    expect(h.db.people[0].email).toBe("lisa@studio.com");
+    expect(h.db.people[0].email).toBe("jane@studio.com");
   });
 
   it("attaches a second address as non-primary and leaves people.email alone", async () => {
-    h.db.people.push({ id: "p1", workspace_id: "ws", email: "lisa@studio.com" });
+    h.db.people.push({ id: "p1", workspace_id: "ws", email: "jane@studio.com" });
     h.db.personEmails.push({
       person_id: "p1",
       workspace_id: "ws",
-      email: "lisa@studio.com",
+      email: "jane@studio.com",
       is_primary: true,
     });
 
@@ -228,21 +228,21 @@ describe("attachPersonEmail", () => {
     expect(result.attached).toBe(true);
     const row = h.db.personEmails.find((r) => r.email === "jane.example@outlook.com");
     expect(row?.is_primary).toBe(false);
-    expect(h.db.people[0].email).toBe("lisa@studio.com");
+    expect(h.db.people[0].email).toBe("jane@studio.com");
   });
 
   it("refuses to attach an address owned by a different person", async () => {
     h.db.personEmails.push({
       person_id: "p1",
       workspace_id: "ws",
-      email: "lisa@studio.com",
+      email: "jane@studio.com",
       is_primary: true,
     });
 
     const result = await attachPersonEmail(admin(), {
       workspaceId: "ws",
       personId: "p2",
-      email: "lisa@studio.com",
+      email: "jane@studio.com",
       source: "capture",
     });
 
@@ -254,14 +254,14 @@ describe("attachPersonEmail", () => {
     h.db.personEmails.push({
       person_id: "p1",
       workspace_id: "ws",
-      email: "lisa@studio.com",
+      email: "jane@studio.com",
       is_primary: true,
     });
 
     const result = await attachPersonEmail(admin(), {
       workspaceId: "ws",
       personId: "p1",
-      email: "lisa@studio.com",
+      email: "jane@studio.com",
       source: "capture",
     });
 
@@ -270,11 +270,11 @@ describe("attachPersonEmail", () => {
   });
 
   it("explicit primary promotion demotes the old primary", async () => {
-    h.db.people.push({ id: "p1", workspace_id: "ws", email: "lisa@studio.com" });
+    h.db.people.push({ id: "p1", workspace_id: "ws", email: "jane@studio.com" });
     h.db.personEmails.push({
       person_id: "p1",
       workspace_id: "ws",
-      email: "lisa@studio.com",
+      email: "jane@studio.com",
       is_primary: true,
     });
 
@@ -297,9 +297,9 @@ describe("unionPersonEmailsOnMerge", () => {
   beforeEach(() => h.resetDb());
 
   it("moves the loser's addresses to the winner, keeping the winner's primary", async () => {
-    h.db.people.push({ id: "winner", workspace_id: "ws", email: "lisa@studio.com" });
+    h.db.people.push({ id: "winner", workspace_id: "ws", email: "jane@studio.com" });
     h.db.personEmails.push(
-      { id: "w1", person_id: "winner", workspace_id: "ws", email: "lisa@studio.com", is_primary: true },
+      { id: "w1", person_id: "winner", workspace_id: "ws", email: "jane@studio.com", is_primary: true },
       { id: "l1", person_id: "loser", workspace_id: "ws", email: "jane.example@outlook.com", is_primary: true },
     );
 
@@ -308,20 +308,20 @@ describe("unionPersonEmailsOnMerge", () => {
     const winnerRows = h.db.personEmails.filter((r) => r.person_id === "winner");
     expect(winnerRows.map((r) => r.email).sort()).toEqual([
       "jane.example@outlook.com",
-      "lisa@studio.com",
+      "jane@studio.com",
     ]);
     expect(winnerRows.filter((r) => r.is_primary === true)).toHaveLength(1);
     expect(
-      winnerRows.find((r) => r.email === "lisa@studio.com")?.is_primary,
+      winnerRows.find((r) => r.email === "jane@studio.com")?.is_primary,
     ).toBe(true);
     expect(h.db.personEmails.some((r) => r.person_id === "loser")).toBe(false);
   });
 
   it("drops addresses the winner already has instead of violating uniqueness", async () => {
-    h.db.people.push({ id: "winner", workspace_id: "ws", email: "lisa@studio.com" });
+    h.db.people.push({ id: "winner", workspace_id: "ws", email: "jane@studio.com" });
     h.db.personEmails.push(
-      { id: "w1", person_id: "winner", workspace_id: "ws", email: "lisa@studio.com", is_primary: true },
-      { id: "l1", person_id: "loser", workspace_id: "ws", email: "lisa@studio.com", is_primary: true },
+      { id: "w1", person_id: "winner", workspace_id: "ws", email: "jane@studio.com", is_primary: true },
+      { id: "l1", person_id: "loser", workspace_id: "ws", email: "jane@studio.com", is_primary: true },
     );
 
     await unionPersonEmailsOnMerge(admin(), "ws", "winner", "loser");
@@ -329,7 +329,7 @@ describe("unionPersonEmailsOnMerge", () => {
     expect(h.db.personEmails).toHaveLength(1);
     expect(h.db.personEmails[0]).toMatchObject({
       person_id: "winner",
-      email: "lisa@studio.com",
+      email: "jane@studio.com",
       is_primary: true,
     });
   });

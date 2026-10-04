@@ -2,7 +2,7 @@
 -- REPAIR: tool_capabilities seed never landed despite ledger entry
 -- ============================================================================
 --
--- Staging (<project-ref>) marks 20260707160000_seed_tool_capabilities
+-- Staging (nbapomfgcsrsqdvenqmf) marks 20260707160000_seed_tool_capabilities
 -- as applied, but public.tool_capabilities held ZERO rows on 2026-08-29 —
 -- the "ledger lies" failure mode documented in supabase/CLAUDE.md. With an
 -- empty table, resolveCapabilityTool() returns null for every capability and

@@ -41,11 +41,6 @@ const KEY_TAKEAWAYS: Record<string, string[]> = {
     "Connected accounts supply the observation layer — email, calendar, payments, CRM.",
     "You stay the approver; the system does the monitoring.",
   ],
-  "introducing-supabase": [
-    "Salt uses Supabase for auth, database, and realtime infrastructure.",
-    "Studio operators get secure multi-tenant data with row-level security.",
-    "This post explains what we shipped and why it matters for your practice.",
-  ],
   "salt-reads-your-business": [
     "Salt connects to the tools you already use to learn how your business runs.",
     "It maintains memory across clients, projects, and conversations.",
