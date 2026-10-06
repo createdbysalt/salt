@@ -10,6 +10,12 @@
 
 import { getStripeClient } from "@/app/_lib/stripe/stripe-client";
 import {
+  claimWebhookEvent,
+  markWebhookEventFailed,
+  markWebhookEventProcessed,
+  type ClaimResult,
+} from "@/app/_lib/stripe/webhook-claim";
+import {
   downgradeWorkspaceSubscription,
   mapStripeStatus,
   resolveCheckoutTier,
@@ -27,42 +33,6 @@ const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
 if (!process.env.STRIPE_WEBHOOK_SECRET) {
   throw new Error("STRIPE_WEBHOOK_SECRET is not defined");
-}
-
-/**
- * Check if webhook event has already been processed (idempotency)
- */
-async function isEventProcessed(
-  supabase: SupabaseClient,
-  eventId: string
-): Promise<boolean> {
-  const { data } = await supabase
-    .from("billing_webhook_events")
-    .select("id")
-    .eq("stripe_event_id", eventId)
-    .eq("endpoint", "saas")
-    .single();
-
-  return !!data;
-}
-
-/**
- * Log webhook event for audit trail and idempotency
- */
-async function logWebhookEvent(
-  supabase: SupabaseClient,
-  event: Stripe.Event,
-  error?: string
-): Promise<void> {
-  await supabase.from("billing_webhook_events").insert({
-    stripe_event_id: event.id,
-    endpoint: "saas",
-    event_type: event.type,
-    stripe_created: new Date(event.created * 1000).toISOString(),
-    payload: event as any,
-    processed_at: error ? null : new Date().toISOString(),
-    processing_error: error || null,
-  });
 }
 
 export async function POST(req: NextRequest) {
@@ -93,10 +63,32 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: err.message }, { status: 400 });
   }
 
-  // Check idempotency
-  if (await isEventProcessed(supabase, event.id)) {
+  // Claim the event before running anything. The row goes in first and the
+  // unique index picks the winner, so two deliveries racing each other cannot
+  // both move a workspace between tiers. See app/_lib/stripe/webhook-claim.ts.
+  let claim: ClaimResult;
+  try {
+    claim = await claimWebhookEvent(supabase, event, "saas");
+  } catch (err: any) {
+    // Could not establish ownership. Fail closed: a non-2xx makes Stripe
+    // redeliver, which is always safer than processing an event twice.
+    console.error(`[stripe-webhook] claim failed for ${event.id}:`, err);
+    return NextResponse.json({ error: "Could not claim event" }, { status: 503 });
+  }
+
+  if (claim.status === "duplicate") {
     console.log(`Event ${event.id} already processed, skipping`);
     return NextResponse.json({ received: true, skipped: true });
+  }
+
+  if (claim.status === "in_flight") {
+    // Another delivery of this same event is mid-flight. Ask Stripe to come
+    // back rather than running the handlers alongside it.
+    console.warn(`[stripe-webhook] event ${event.id} is already in flight`);
+    return NextResponse.json(
+      { error: "Event is being processed by another delivery" },
+      { status: 409 }
+    );
   }
 
   const eventType = event.type;
@@ -148,15 +140,16 @@ export async function POST(req: NextRequest) {
         console.log(`Unhandled SaaS webhook event type: ${eventType}`);
     }
 
-    // Log successful processing
-    await logWebhookEvent(supabase, event);
+    // Close the claim out. Only now is the event spent.
+    await markWebhookEventProcessed(supabase, event.id);
 
     return NextResponse.json({ received: true });
   } catch (err: any) {
     console.error(`Webhook processing error for ${event.id}:`, err);
-    
-    // Log error
-    await logWebhookEvent(supabase, event, err.message);
+
+    // Release the claim with the reason attached, so Stripe's next delivery
+    // can pick the event up immediately instead of waiting out a dead claim.
+    await markWebhookEventFailed(supabase, event.id, err.message);
 
     // Return 500 to trigger Stripe retry
     return NextResponse.json(
