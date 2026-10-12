@@ -92,7 +92,7 @@
     "content:seed-form-blog-newsletter:op": "op run --env-file=.env.1password -- tsx scripts/seed-form-blog-newsletter-sanity.ts"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^3.0.82",
+    "@ai-sdk/anthropic": "^4.0.78",
     "@ai-sdk/openai": "2.0.35",
     "@ai-sdk/react": "3.0.35",
     "@ariakit/react": "^0.4.21",
