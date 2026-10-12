@@ -165,7 +165,7 @@
     "posthog-js": "^1.384.0",
     "radix-ui": "^1.4.3",
     "react": "^19.2.6",
-    "react-day-picker": "^9.14.0",
+    "react-day-picker": "^10.0.2",
     "react-dom": "^19.2.6",
     "react-force-graph-2d": "^1.29.1",
     "react-hook-form": "^7.71.0",
