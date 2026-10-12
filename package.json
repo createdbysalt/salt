@@ -137,7 +137,7 @@
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.105.1",
     "@tabler/icons-react": "^3.37.1",
-    "@tanstack/react-table": "^8.21.3",
+    "@tanstack/react-table": "^9.2.8",
     "ai": "^6.0.193",
     "axios": "^1.16.1",
     "canvas-confetti": "^1.9.4",
